@@ -2,35 +2,82 @@ import * as React from "react";
 import { cn } from "./utils/cn";
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: "default" | "success" | "warning" | "error" | "info";
+  variant?: "default" | "announcement" | "success" | "warning" | "error";
   size?: "sm" | "md" | "lg";
 }
 
 const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
   ({ className, variant = "default", size = "md", children, ...props }, ref) => {
-    const variants = {
-      default: "bg-gray-500/20 text-gray-200 border-gray-400/30",
-      success: "bg-green-500/20 text-green-200 border-green-400/30",
-      warning: "bg-yellow-500/20 text-yellow-200 border-yellow-400/30",
-      error: "bg-red-500/20 text-red-200 border-red-400/30",
-      info: "bg-blue-500/20 text-blue-200 border-blue-400/30",
+    const getVariantStyles = () => {
+      switch (variant) {
+        case "announcement":
+          return {
+            background: "rgba(107, 122, 137, 0.15)",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(107, 122, 137, 0.3)",
+            color: "var(--matty-blue)",
+          };
+        case "success":
+          return {
+            background: "rgba(34, 197, 94, 0.15)",
+            border: "1px solid rgba(34, 197, 94, 0.3)",
+            color: "var(--content-success)",
+          };
+        case "warning":
+          return {
+            background: "rgba(234, 179, 8, 0.15)",
+            border: "1px solid rgba(234, 179, 8, 0.3)",
+            color: "#eab308",
+          };
+        case "error":
+          return {
+            background: "rgba(239, 68, 68, 0.15)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            color: "var(--content-error)",
+          };
+        default:
+          return {
+            background: "rgba(255, 255, 255, 0.1)",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            color: "var(--content-emphasis)",
+          };
+      }
     };
 
-    const sizes = {
-      sm: "px-2 py-0.5 text-xs",
-      md: "px-3 py-1 text-sm",
-      lg: "px-4 py-1.5 text-base",
+    const getSizeStyles = () => {
+      switch (size) {
+        case "sm":
+          return {
+            padding: "0.25rem 0.75rem",
+            fontSize: "0.75rem",
+          };
+        case "lg":
+          return {
+            padding: "0.75rem 1.5rem",
+            fontSize: "1rem",
+          };
+        default:
+          return {
+            padding: "0.5rem 1.25rem",
+            fontSize: "0.875rem",
+          };
+      }
     };
 
     return (
       <div
         ref={ref}
-        className={cn(
-          "inline-flex items-center gap-1 rounded-full font-medium border backdrop-blur-sm",
-          variants[variant],
-          sizes[size],
-          className
-        )}
+        className={cn("badge", className)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          borderRadius: "2rem",
+          fontWeight: "600",
+          transition: "all 0.3s ease",
+          ...getVariantStyles(),
+          ...getSizeStyles(),
+        }}
         {...props}
       >
         {children}

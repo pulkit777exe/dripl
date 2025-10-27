@@ -113,15 +113,34 @@ const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttribu
 );
 CardDescription.displayName = "CardDescription";
 
-const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div 
-      ref={ref} 
-      className={cn("card-content", className)} 
-      style={{ padding: "1.5rem 1.5rem 0 1.5rem" }}
-      {...props} 
-    />
-  )
+export interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  padding?: "none" | "sm" | "md" | "lg";
+}
+
+const CardContent = React.forwardRef<HTMLDivElement, CardContentProps>(
+  ({ className, padding = "md", ...props }, ref) => {
+    const getPaddingStyles = () => {
+      switch (padding) {
+        case "none":
+          return { padding: "0" };
+        case "sm":
+          return { padding: "1rem" };
+        case "lg":
+          return { padding: "2rem" };
+        default:
+          return { padding: "1.5rem" };
+      }
+    };
+
+    return (
+      <div 
+        ref={ref} 
+        className={cn("card-content", className)} 
+        style={getPaddingStyles()}
+        {...props} 
+      />
+    );
+  }
 );
 CardContent.displayName = "CardContent";
 

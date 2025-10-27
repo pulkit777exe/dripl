@@ -1,166 +1,70 @@
 import * as React from "react";
+import { ZoomIn, ZoomOut, Undo2, Redo2 } from "lucide-react";
 import { cn } from "./utils/cn";
 
-export interface BottomToolbarProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface BottomToolbarProps {
   zoom?: number;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
-  onScrollToContent?: () => void;
+  className?: string;
 }
 
-const BottomToolbar = React.forwardRef<HTMLDivElement, BottomToolbarProps>(
-  ({ 
-    className, 
-    zoom = 70,
-    onZoomIn,
-    onZoomOut,
-    onUndo,
-    onRedo,
-    onScrollToContent,
-    ...props 
-  }, ref) => {
+export const BottomToolbar = React.forwardRef<HTMLDivElement, BottomToolbarProps>(
+  ({ zoom = 100, onZoomIn, onZoomOut, onUndo, onRedo, className }, ref) => {
     return (
       <div
         ref={ref}
         className={cn(
-          "w-full h-12 flex items-center justify-between px-4",
-          "bg-var(--bg-default) border-t border-var(--border-default)",
+          "flex items-center gap-3 bg-gray-800/95 backdrop-blur-sm rounded-xl px-4 py-2.5 shadow-lg border border-gray-700",
           className
         )}
-        style={{
-          backgroundColor: "var(--bg-default)",
-          borderTop: "1px solid var(--border-default)",
-        }}
-        {...props}
       >
-        {/* Left: Zoom and Undo/Redo Controls */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onZoomOut}
-            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
-            style={{
-              backgroundColor: "var(--bg-subtle)",
-              color: "var(--content-default)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--bg-emphasis)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--bg-subtle)";
-            }}
-          >
-            <span className="text-sm font-medium">-</span>
-          </button>
-          
-          <span 
-            className="px-2 py-1 text-sm font-medium"
-            style={{ color: "var(--content-default)" }}
-          >
-            {zoom}%
-          </span>
-          
-          <button
-            onClick={onZoomIn}
-            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
-            style={{
-              backgroundColor: "var(--bg-subtle)",
-              color: "var(--content-default)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--bg-emphasis)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--bg-subtle)";
-            }}
-          >
-            <span className="text-sm font-medium">+</span>
-          </button>
-          
-          <button
-            onClick={onUndo}
-            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
-            style={{
-              backgroundColor: "var(--bg-subtle)",
-              color: "var(--content-default)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--bg-emphasis)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--bg-subtle)";
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 7v6h6"/>
-              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
-            </svg>
-          </button>
-          
-          <button
-            onClick={onRedo}
-            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
-            style={{
-              backgroundColor: "var(--bg-subtle)",
-              color: "var(--content-default)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--bg-emphasis)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--bg-subtle)";
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 7v6h-6"/>
-              <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/>
-            </svg>
-          </button>
-        </div>
-
-        {/* Center: Scroll to Content Button */}
         <button
-          onClick={onScrollToContent}
-          className="px-4 py-2 rounded-lg font-medium transition-all duration-200"
-          style={{
-            backgroundColor: "var(--bg-subtle)",
-            color: "var(--content-default)",
-            border: "1px solid var(--border-default)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--bg-emphasis)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--bg-subtle)";
-          }}
+          onClick={onZoomOut}
+          className="p-1.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          title="Zoom Out"
+          aria-label="Zoom Out"
         >
-          Scroll back to content
+          <ZoomOut className="w-4 h-4" />
         </button>
-
-        {/* Right: Status Icons */}
-        <div className="flex items-center gap-2">
-          <div 
-            className="w-6 h-6 flex items-center justify-center rounded-full"
-            style={{ backgroundColor: "var(--matty-blue)" }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="20,6 9,17 4,12"/>
-            </svg>
-          </div>
-          
-          <div 
-            className="w-6 h-6 flex items-center justify-center rounded-full"
-            style={{ backgroundColor: "var(--bg-subtle)" }}
-          >
-            <span className="text-xs font-medium" style={{ color: "var(--content-default)" }}>?</span>
-          </div>
-        </div>
+        
+        <span className="text-sm font-medium text-gray-300 min-w-[45px] text-center">
+          {zoom}%
+        </span>
+        
+        <button
+          onClick={onZoomIn}
+          className="p-1.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          title="Zoom In"
+          aria-label="Zoom In"
+        >
+          <ZoomIn className="w-4 h-4" />
+        </button>
+        
+        <div className="w-px h-6 bg-gray-700 mx-1" />
+        
+        <button
+          onClick={onUndo}
+          className="p-1.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          title="Undo"
+          aria-label="Undo"
+        >
+          <Undo2 className="w-4 h-4" />
+        </button>
+        
+        <button
+          onClick={onRedo}
+          className="p-1.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          title="Redo"
+          aria-label="Redo"
+        >
+          <Redo2 className="w-4 h-4" />
+        </button>
       </div>
     );
   }
 );
 
 BottomToolbar.displayName = "BottomToolbar";
-
-export { BottomToolbar };

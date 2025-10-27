@@ -1,6 +1,7 @@
 import express, { NextFunction, Request, Response } from "express";
 import authRoutes from "./routes/auth";
 import chatRoutes from "./routes/chat";
+import canvasRoutes from "./routes/canvas";
 import { prismaClient } from "@repo/db";
 import { createErrorResponse } from "./utils/responses";
 import dotenv from "dotenv";
@@ -18,6 +19,7 @@ app.use(cors({
 
 app.use("/api/auth", authRoutes);
 app.use("/api", chatRoutes);
+app.use("/api", canvasRoutes);
 
 app.get("/api/health", (req: Request, res: Response) => {
   res.json({ status: "healthy", timestamp: new Date().toISOString(), uptime: process.uptime() });

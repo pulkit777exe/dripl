@@ -14,12 +14,12 @@ if (!JWT_SECRET) {
 }
 
 export interface AuthenticatedRequest extends Request {
-  userId?: number;
+  userId?: string;
   email?: string;
 }
 
 interface JWTPayload {
-  userId: number;
+  userId: string;
   email: string;
   iss?: string;
   exp?: number;

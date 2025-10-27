@@ -20,7 +20,7 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
-const generateToken = (userId: number, email: string): string => {
+const generateToken = (userId: string, email: string): string => {
   return jwt.sign({ userId, email }, JWT_SECRET, {
     expiresIn: JWT_EXPIRY,
     issuer: JWT_ISSUER,
@@ -95,7 +95,7 @@ authRoutes.post(
         },
       });
 
-      const token = generateToken(Number(newUser.id), newUser.email);
+      const token = generateToken(newUser.id, newUser.email);
 
       res
         .status(201)
@@ -169,7 +169,7 @@ authRoutes.post(
         return;
       }
 
-      const token = generateToken(Number(user.id), user.email);
+      const token = generateToken(user.id, user.email);
 
       const { password: _, ...userWithoutPassword } = user;
 

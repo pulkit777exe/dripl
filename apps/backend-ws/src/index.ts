@@ -17,32 +17,129 @@ wss.on('error', (err: any) => {
 
 interface User {
   ws: WebSocket;
-  rooms: string[];
+  rooms: Set<string>;
   userId: string;
+  userName: string;
+  lastSeen: Date;
 }
 
-const users: User[] = [];
+interface RoomState {
+  users: Set<string>;
+  canvasData: {
+    shapes: any[];
+    viewport: { x: number; y: number; zoom: number };
+  };
+  lastUpdated: Date;
+}
 
-function checkUser(token: string): string | null {
+const users: Map<string, User> = new Map();
+const rooms: Map<string, RoomState> = new Map();
+
+function checkUser(token: string): { userId: string; userName: string } | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     if (!decoded || typeof decoded === "string" || !decoded.userId) {
       return null;
     }
-    return String(decoded.userId);
+    return {
+      userId: String(decoded.userId),
+      userName: decoded.name || "Anonymous"
+    };
   } catch(e) {
     return null;
   }
 }
 
 function broadcastToRoom(roomId: string, message: any, excludeUserId?: string) {
-  users.forEach((user) => {
-    if (user.rooms.includes(roomId) && user.userId !== excludeUserId) {
-      try {
-        user.ws.send(JSON.stringify(message));
-      } catch {}
+  const room = rooms.get(roomId);
+  if (!room) return;
+
+  room.users.forEach((userId) => {
+    if (userId !== excludeUserId) {
+      const user = users.get(userId);
+      if (user && user.ws.readyState === WebSocket.OPEN) {
+        try {
+          user.ws.send(JSON.stringify(message));
+        } catch (error) {
+          console.error("Failed to send message to user:", userId, error);
+        }
+      }
     }
   });
+}
+
+function getUserCount(roomId: string): number {
+  const room = rooms.get(roomId);
+  return room ? room.users.size : 0;
+}
+
+function joinRoom(userId: string, roomId: string) {
+  const user = users.get(userId);
+  if (!user) return;
+
+  // Add user to room
+  if (!user.rooms.has(roomId)) {
+    user.rooms.add(roomId);
+  }
+
+  // Add room to rooms map if it doesn't exist
+  if (!rooms.has(roomId)) {
+    rooms.set(roomId, {
+      users: new Set(),
+      canvasData: {
+        shapes: [],
+        viewport: { x: 0, y: 0, zoom: 1 }
+      },
+      lastUpdated: new Date()
+    });
+  }
+
+  const room = rooms.get(roomId)!;
+  room.users.add(userId);
+
+  // Notify other users in the room
+  broadcastToRoom(roomId, {
+    type: "user_joined",
+    userId,
+    userName: user.userName,
+    userCount: room.users.size
+  }, userId);
+
+  // Send current room state to the joining user
+  user.ws.send(JSON.stringify({
+    type: "room_state",
+    roomId,
+    canvasData: room.canvasData,
+    users: Array.from(room.users).map(id => {
+      const u = users.get(id);
+      return u ? { id: u.userId, name: u.userName } : null;
+    }).filter(Boolean)
+  }));
+}
+
+function leaveRoom(userId: string, roomId: string) {
+  const user = users.get(userId);
+  if (!user) return;
+
+  user.rooms.delete(roomId);
+
+  const room = rooms.get(roomId);
+  if (room) {
+    room.users.delete(userId);
+
+    // Notify other users in the room
+    broadcastToRoom(roomId, {
+      type: "user_left",
+      userId,
+      userName: user.userName,
+      userCount: room.users.size
+    }, userId);
+
+    // Clean up empty rooms
+    if (room.users.size === 0) {
+      rooms.delete(roomId);
+    }
+  }
 }
 
 wss.on('connection', function connection(ws, request) {
@@ -51,14 +148,25 @@ wss.on('connection', function connection(ws, request) {
   
   const queryParams = new URLSearchParams(url.split('?')[1]);
   const token = queryParams.get('token') || "";
-  const userId = checkUser(token);
+  const userInfo = checkUser(token);
 
-  if (userId == null) {
+  if (!userInfo) {
     ws.close();
     return;
   }
 
-  users.push({ userId, rooms: [], ws });
+  const { userId, userName } = userInfo;
+  
+  // Add user to users map
+  users.set(userId, {
+    ws,
+    rooms: new Set(),
+    userId,
+    userName,
+    lastSeen: new Date()
+  });
+
+  console.log(`User ${userName} (${userId}) connected`);
 
   ws.on('message', async function message(data) {
     let parsedData: any;
@@ -73,20 +181,19 @@ wss.on('connection', function connection(ws, request) {
     const roomId = String(parsedData?.roomId || "");
     if (!type || !roomId) return;
 
+    const user = users.get(userId);
+    if (!user) return;
+
+    user.lastSeen = new Date();
+
     switch (type) {
       case "join_room": {
-        const user = users.find(x => x.ws === ws);
-        if (user && !user.rooms.includes(roomId)) {
-          user.rooms.push(roomId);
-        }
+        joinRoom(userId, roomId);
         break;
       }
 
       case "leave_room": {
-        const leavingUser = users.find(x => x.ws === ws);
-        if (leavingUser) {
-          leavingUser.rooms = leavingUser.rooms.filter(x => x !== roomId);
-        }
+        leaveRoom(userId, roomId);
         break;
       }
 
@@ -96,7 +203,7 @@ wss.on('connection', function connection(ws, request) {
           if (Number.isFinite(roomIdNum)) {
             await prismaClient.chat.create({
               data: {
-                userId: String(userId),
+                userId: userId,
                 roomId: roomIdNum,
                 message: String(parsedData.message || ""),
               }
@@ -109,27 +216,89 @@ wss.on('connection', function connection(ws, request) {
           type: "chat",
           message: parsedData.message,
           roomId,
-          userId
+          userId,
+          userName: user.userName,
+          timestamp: new Date().toISOString()
         }, userId);
         break;
       }
 
       case "shape_added":
       case "shape_removed":
-      case "shape_updated":
-      case "cursor_move":
-      case "state_sync": {
+      case "shape_updated": {
+        // Update room canvas state
+        const room = rooms.get(roomId);
+        if (room) {
+          room.lastUpdated = new Date();
+          
+          if (type === "shape_added") {
+            room.canvasData.shapes.push(parsedData.data);
+          } else if (type === "shape_removed") {
+            room.canvasData.shapes = room.canvasData.shapes.filter(
+              (shape: any) => shape.id !== parsedData.data.id
+            );
+          } else if (type === "shape_updated") {
+            const index = room.canvasData.shapes.findIndex(
+              (shape: any) => shape.id === parsedData.data.id
+            );
+            if (index !== -1) {
+              room.canvasData.shapes[index] = parsedData.data;
+            }
+          }
+        }
+        
         broadcastToRoom(roomId, parsedData, userId);
+        break;
+      }
+
+      case "state_sync": {
+        // Update room canvas state
+        const room = rooms.get(roomId);
+        if (room && parsedData.data) {
+          room.canvasData = parsedData.data;
+          room.lastUpdated = new Date();
+        }
+        
+        broadcastToRoom(roomId, parsedData, userId);
+        break;
+      }
+
+      case "cursor_move": {
+        // Broadcast cursor position to other users
+        broadcastToRoom(roomId, {
+          ...parsedData,
+          userId,
+          userName: user.userName
+        }, userId);
+        break;
+      }
+
+      case "ping": {
+        // Respond to ping with pong
+        ws.send(JSON.stringify({
+          type: "pong",
+          timestamp: new Date().toISOString()
+        }));
         break;
       }
     }
   });
 
   ws.on('close', () => {
-    const index = users.findIndex(x => x.ws === ws);
-    if (index !== -1) {
-      users.splice(index, 1);
+    const user = users.get(userId);
+    if (user) {
+      // Leave all rooms
+      user.rooms.forEach(roomId => {
+        leaveRoom(userId, roomId);
+      });
+      
+      users.delete(userId);
+      console.log(`User ${userName} (${userId}) disconnected`);
     }
+  });
+
+  ws.on('error', (error) => {
+    console.error(`WebSocket error for user ${userId}:`, error);
   });
 });
 
