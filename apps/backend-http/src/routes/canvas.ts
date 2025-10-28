@@ -232,7 +232,6 @@ canvasRoutes.post(
         return;
       }
 
-      // Check if room exists
       const room = await prismaClient.room.findUnique({
         where: { id: roomIdNum },
         select: { id: true, adminId: true },
@@ -243,7 +242,6 @@ canvasRoutes.post(
         return;
       }
 
-      // Only room admin can save canvas state
       if (room.adminId !== req.userId) {
         res.status(403).json(
           createErrorResponse("Only room admin can save canvas state", 403)
@@ -251,14 +249,10 @@ canvasRoutes.post(
         return;
       }
 
-      // For now, we'll store canvas data in a simple JSON field
-      // In a production app, you might want to use a more sophisticated storage solution
       await prismaClient.room.update({
         where: { id: roomIdNum },
         data: {
           updateAt: new Date(),
-          // Note: You might need to add a canvasData field to your Room model
-          // For now, we'll just update the timestamp
         },
       });
 
@@ -319,8 +313,6 @@ canvasRoutes.get(
         return;
       }
 
-      // For now, return empty canvas data
-      // In a production app, you would load the actual canvas data
       res.json(
         createSuccessResponse(
           {

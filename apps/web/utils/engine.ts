@@ -27,10 +27,11 @@ interface EngineState {
 }
 
 interface WebSocketMessage {
-  type: "shape_added" | "shape_removed" | "shape_updated" | "state_sync" | "cursor_move";
+  type: "shape_added" | "shape_removed" | "shape_updated" | "state_sync" | "cursor_move" | "user_joined" | "user_left";
   data: any;
   userId: string;
   roomId: string;
+  userName?: string;
 }
 
 export class CollaborativeEngine {
@@ -49,17 +50,12 @@ export class CollaborativeEngine {
   private viewport = { x: 0, y: 0, zoom: 1 };
   private lastPanPoint: Point | null = null;
   
-  private ws: WebSocket | null = null;
-  private wsUrl: string;
+  private ws: WebSocket;
   private userId: string;
   private roomId: string;
-  private remoteCursors: Map<string, Point> = new Map();
+  private remoteCursors: Map<string, { pos: Point; name: string }> = new Map();
   private isDestroyed: boolean = false;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 5;
   
-  // Bound event handlers to maintain references for removal
   private boundHandlers: {
     mouseDown: (e: MouseEvent) => void;
     mouseMove: (e: MouseEvent) => void;
@@ -67,7 +63,6 @@ export class CollaborativeEngine {
     wheel: (e: WheelEvent) => void;
   };
 
-  // Performance optimization
   private lastCursorBroadcast: number = 0;
   private cursorBroadcastThrottle: number = 50; // ms
   private animationFrameId: number | null = null;
@@ -78,7 +73,7 @@ export class CollaborativeEngine {
     canvas: HTMLCanvasElement,
     userId: string,
     roomId: string,
-    wsUrl: string,
+    ws: WebSocket,
     shape: Shapes = "rectangle",
     color: FillColor = "none",
     readOnly: boolean = false
@@ -93,10 +88,9 @@ export class CollaborativeEngine {
     this.currentColor = color;
     this.userId = userId;
     this.roomId = roomId;
-    this.wsUrl = wsUrl;
+    this.ws = ws;
     this.readOnly = readOnly;
 
-    // Bind handlers once for proper cleanup
     this.boundHandlers = {
       mouseDown: this.handleMouseDown.bind(this),
       mouseMove: this.handleMouseMove.bind(this),
@@ -105,8 +99,19 @@ export class CollaborativeEngine {
     };
 
     this.initializeEventListeners();
-    this.connectWebSocket(wsUrl);
+    this.setupWebSocketHandlers();
     this.startRenderLoop();
+  }
+
+  private setupWebSocketHandlers(): void {
+    this.ws.addEventListener('message', (event) => {
+      try {
+        const message: WebSocketMessage = JSON.parse(event.data);
+        this.handleWebSocketMessage(message);
+      } catch (error) {
+        console.error("Failed to parse WebSocket message:", error);
+      }
+    });
   }
 
   private startRenderLoop(): void {
@@ -128,66 +133,8 @@ export class CollaborativeEngine {
     this.needsRedraw = true;
   }
 
-  private connectWebSocket(wsUrl: string): void {
-    if (this.isDestroyed) return;
-
-    try {
-      this.ws = new WebSocket(wsUrl);
-      
-      this.ws.onopen = () => {
-        console.log("WebSocket connected");
-        this.reconnectAttempts = 0;
-        
-        this.ws?.send(JSON.stringify({
-          type: "join_room",
-          roomId: this.roomId,
-          userId: this.userId
-        }));
-      };
-
-      this.ws.onmessage = (event) => {
-        try {
-          const message: WebSocketMessage = JSON.parse(event.data);
-          this.handleWebSocketMessage(message);
-        } catch (error) {
-          console.error("Failed to parse WebSocket message:", error);
-        }
-      };
-
-      this.ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-      };
-
-      this.ws.onclose = () => {
-        console.log("WebSocket disconnected");
-        this.attemptReconnect();
-      };
-    } catch (error) {
-      console.error("Failed to create WebSocket connection:", error);
-      this.attemptReconnect();
-    }
-  }
-
-  private attemptReconnect(): void {
-    if (this.isDestroyed) return;
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error("Max reconnection attempts reached");
-      return;
-    }
-
-    this.reconnectAttempts++;
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
-    
-    console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
-    
-    this.reconnectTimeout = setTimeout(() => {
-      if (!this.isDestroyed) {
-        this.connectWebSocket(this.wsUrl);
-      }
-    }, delay);
-  }
-
   private handleWebSocketMessage(message: WebSocketMessage): void {
+    // Don't process our own messages
     if (message.userId === this.userId) return;
 
     switch (message.type) {
@@ -204,17 +151,30 @@ export class CollaborativeEngine {
         this.scheduleRedraw();
         break;
       case "state_sync":
+        // Full state sync from server
         this.shapes.clear();
-        message.data.shapes.forEach((shape: DrawnShape) => {
-          this.shapes.set(shape.id, shape);
-        });
+        if (message.data.shapes) {
+          message.data.shapes.forEach((shape: DrawnShape) => {
+            this.shapes.set(shape.id, shape);
+          });
+        }
         if (message.data.viewport) {
           this.viewport = message.data.viewport;
         }
         this.scheduleRedraw();
         break;
       case "cursor_move":
-        this.remoteCursors.set(message.userId, message.data);
+        this.remoteCursors.set(message.userId, {
+          pos: message.data,
+          name: message.userName || message.userId.substring(0, 8)
+        });
+        this.scheduleRedraw();
+        break;
+      case "user_joined":
+        console.log(`User ${message.userName || message.userId} joined`);
+        break;
+      case "user_left":
+        this.remoteCursors.delete(message.userId);
         this.scheduleRedraw();
         break;
     }
@@ -256,7 +216,7 @@ export class CollaborativeEngine {
   private handleMouseDown(event: MouseEvent): void {
     event.preventDefault();
     
-    if (this.readOnly) return; // Disable drawing in read-only mode
+    if (this.readOnly) return;
     
     const point = this.getMousePos(event);
 
@@ -282,7 +242,7 @@ export class CollaborativeEngine {
   private handleMouseMove(event: MouseEvent): void {
     const point = this.getMousePos(event);
 
-    // Throttle cursor broadcasts (always allow in read-only mode for viewing)
+    // Throttle cursor broadcasts
     const now = Date.now();
     if (now - this.lastCursorBroadcast > this.cursorBroadcastThrottle) {
       this.broadcastMessage("cursor_move", point);
@@ -326,14 +286,14 @@ export class CollaborativeEngine {
 
     const endPoint = this.getMousePos(event);
     
-    // Only create shape if there's meaningful distance
     const dx = endPoint.x - this.startPoint.x;
     const dy = endPoint.y - this.startPoint.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
+    // Only create shape if the drag was significant
     if (distance > 5) {
       const shape: DrawnShape = {
-        id: `${this.userId}-${Date.now()}`,
+        id: `${this.userId}-${Date.now()}-${Math.random()}`,
         type: this.currentShape,
         color: this.currentColor,
         startPoint: this.startPoint,
@@ -401,10 +361,11 @@ export class CollaborativeEngine {
     }
     
     if (type === "line") {
-      // Check if point is near the line (within 5 pixels)
       const lineLength = Math.sqrt(
         Math.pow(endPoint.x - startPoint.x, 2) + Math.pow(endPoint.y - startPoint.y, 2)
       );
+      if (lineLength === 0) return false;
+      
       const distance = Math.abs(
         (endPoint.y - startPoint.y) * point.x -
         (endPoint.x - startPoint.x) * point.y +
@@ -427,16 +388,19 @@ export class CollaborativeEngine {
 
       this.drawGrid();
 
+      // Draw all shapes
       this.shapes.forEach((shape) => {
         this.drawShape(shape, shape.id === this.selectedShapeId);
       });
 
+      // Draw current drag shape (preview)
       if (this.currentDragShape) {
         this.drawShape(this.currentDragShape, false, true);
       }
 
       this.ctx.restore();
 
+      // Draw remote cursors (in screen space)
       this.drawRemoteCursors();
     } catch (error) {
       console.error("Error during redraw:", error);
@@ -552,11 +516,11 @@ export class CollaborativeEngine {
   }
 
   private drawRemoteCursors(): void {
-    this.remoteCursors.forEach((pos, userId) => {
-      const screenX = pos.x * this.viewport.zoom + this.viewport.x;
-      const screenY = pos.y * this.viewport.zoom + this.viewport.y;
+    this.remoteCursors.forEach((cursor, userId) => {
+      const screenX = cursor.pos.x * this.viewport.zoom + this.viewport.x;
+      const screenY = cursor.pos.y * this.viewport.zoom + this.viewport.y;
       
-      // Draw cursor pointer
+      // Draw cursor dot
       this.ctx.fillStyle = "#ff0000";
       this.ctx.beginPath();
       this.ctx.arc(screenX, screenY, 5, 0, 2 * Math.PI);
@@ -567,13 +531,18 @@ export class CollaborativeEngine {
       this.ctx.strokeStyle = "#000000";
       this.ctx.lineWidth = 3;
       this.ctx.font = "bold 12px Arial";
-      const label = userId.substring(0, 8);
+      const label = cursor.name;
       this.ctx.strokeText(label, screenX + 10, screenY);
       this.ctx.fillText(label, screenX + 10, screenY);
     });
   }
 
   private updateCursor(): void {
+    if (this.readOnly) {
+      this.canvas.style.cursor = "default";
+      return;
+    }
+
     switch (this.currentTool) {
       case "pan":
         this.canvas.style.cursor = "grab";
@@ -605,7 +574,7 @@ export class CollaborativeEngine {
   }
 
   public deleteSelected(): void {
-    if (this.readOnly) return; // Disable deletion in read-only mode
+    if (this.readOnly) return;
     
     if (this.selectedShapeId) {
       this.shapes.delete(this.selectedShapeId);
@@ -616,6 +585,8 @@ export class CollaborativeEngine {
   }
 
   public reset(): void {
+    if (this.readOnly) return;
+    
     this.shapes.clear();
     this.broadcastMessage("state_sync", { shapes: [], viewport: this.viewport });
     this.scheduleRedraw();
@@ -631,32 +602,17 @@ export class CollaborativeEngine {
   public destroy(): void {
     this.isDestroyed = true;
 
-    // Clear reconnection timeout
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-
-    // Cancel animation frame
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
 
-    // Remove event listeners properly
     this.canvas.removeEventListener("mousedown", this.boundHandlers.mouseDown);
     this.canvas.removeEventListener("mousemove", this.boundHandlers.mouseMove);
     this.canvas.removeEventListener("mouseup", this.boundHandlers.mouseUp);
     this.canvas.removeEventListener("mouseleave", this.boundHandlers.mouseUp);
     this.canvas.removeEventListener("wheel", this.boundHandlers.wheel);
 
-    // Close WebSocket
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-
-    // Clear data
     this.shapes.clear();
     this.remoteCursors.clear();
   }

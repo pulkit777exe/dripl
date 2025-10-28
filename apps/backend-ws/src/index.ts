@@ -77,12 +77,10 @@ function joinRoom(userId: string, roomId: string) {
   const user = users.get(userId);
   if (!user) return;
 
-  // Add user to room
   if (!user.rooms.has(roomId)) {
     user.rooms.add(roomId);
   }
 
-  // Add room to rooms map if it doesn't exist
   if (!rooms.has(roomId)) {
     rooms.set(roomId, {
       users: new Set(),
@@ -97,7 +95,6 @@ function joinRoom(userId: string, roomId: string) {
   const room = rooms.get(roomId)!;
   room.users.add(userId);
 
-  // Notify other users in the room
   broadcastToRoom(roomId, {
     type: "user_joined",
     userId,
@@ -105,7 +102,6 @@ function joinRoom(userId: string, roomId: string) {
     userCount: room.users.size
   }, userId);
 
-  // Send current room state to the joining user
   user.ws.send(JSON.stringify({
     type: "room_state",
     roomId,
@@ -127,7 +123,6 @@ function leaveRoom(userId: string, roomId: string) {
   if (room) {
     room.users.delete(userId);
 
-    // Notify other users in the room
     broadcastToRoom(roomId, {
       type: "user_left",
       userId,
@@ -135,7 +130,6 @@ function leaveRoom(userId: string, roomId: string) {
       userCount: room.users.size
     }, userId);
 
-    // Clean up empty rooms
     if (room.users.size === 0) {
       rooms.delete(roomId);
     }
@@ -157,7 +151,6 @@ wss.on('connection', function connection(ws, request) {
 
   const { userId, userName } = userInfo;
   
-  // Add user to users map
   users.set(userId, {
     ws,
     rooms: new Set(),
@@ -226,7 +219,6 @@ wss.on('connection', function connection(ws, request) {
       case "shape_added":
       case "shape_removed":
       case "shape_updated": {
-        // Update room canvas state
         const room = rooms.get(roomId);
         if (room) {
           room.lastUpdated = new Date();
@@ -252,7 +244,6 @@ wss.on('connection', function connection(ws, request) {
       }
 
       case "state_sync": {
-        // Update room canvas state
         const room = rooms.get(roomId);
         if (room && parsedData.data) {
           room.canvasData = parsedData.data;
@@ -264,7 +255,6 @@ wss.on('connection', function connection(ws, request) {
       }
 
       case "cursor_move": {
-        // Broadcast cursor position to other users
         broadcastToRoom(roomId, {
           ...parsedData,
           userId,
@@ -274,7 +264,6 @@ wss.on('connection', function connection(ws, request) {
       }
 
       case "ping": {
-        // Respond to ping with pong
         ws.send(JSON.stringify({
           type: "pong",
           timestamp: new Date().toISOString()
@@ -287,7 +276,6 @@ wss.on('connection', function connection(ws, request) {
   ws.on('close', () => {
     const user = users.get(userId);
     if (user) {
-      // Leave all rooms
       user.rooms.forEach(roomId => {
         leaveRoom(userId, roomId);
       });

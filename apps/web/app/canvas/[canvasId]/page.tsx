@@ -5,16 +5,11 @@ import { useSearchParams } from "next/navigation";
 import { CanvasLayout, Button, Card } from "@repo/ui";
 import { useCanvasStore, useAuthStore, useRoomStore } from "@repo/store";
 import { CollaborativeEngine } from "../../../utils/engine";
+import { useSocket } from "../../../hooks/useSocket";
 import AuthModal from "../../../components/auth/AuthModal";
-import { LogIn, Eye } from "lucide-react";
+import { LogIn, Eye, Users } from "lucide-react";
 
 type Tool = "select" | "pan" | "draw";
-
-interface CollaboratorUser {
-  id: string;
-  name: string;
-  status: "online" | "offline";
-}
 
 export default function CanvasPage({
   params,
@@ -31,25 +26,25 @@ export default function CanvasPage({
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [userCount, setUserCount] = useState(0);
 
   const { currentShape, currentColor } = useCanvasStore();
   const { user, token, isAuthenticated } = useAuthStore();
-  const { addCollaborator, setConnected } = useRoomStore();
+  const { collaborators, addCollaborator, removeCollaborator, setConnected } = useRoomStore();
 
-  // Check authentication and read-only mode
+  const wsToken = token || searchParams.get('token') || '';
+  const { socket, loading: socketLoading, error: socketError } = useSocket(wsToken);
+
   useEffect(() => {
     const tokenParam = searchParams.get('token');
     
     if (!isAuthenticated && !tokenParam) {
-      // No authentication, show read-only mode
       setIsReadOnly(true);
       setIsLoading(false);
     } else if (isAuthenticated || tokenParam) {
-      // User is authenticated or has token, allow editing
       setIsReadOnly(false);
       setIsLoading(false);
     } else {
-      // Show auth modal for unauthenticated users who want to edit
       setShowAuthModal(true);
       setIsReadOnly(true);
       setIsLoading(false);
@@ -58,46 +53,79 @@ export default function CanvasPage({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || isLoading) return;
+    if (!canvas || isLoading || !socket || socketLoading) return;
 
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
     const userName = user?.name || searchParams.get('name') || "Anonymous";
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
-    const userToken = token || searchParams.get('token') || '';
+    const userId = user?.id || searchParams.get('userId') || "anonymous";
 
     engineRef.current = new CollaborativeEngine(
       canvas,
-      userName,
+      userId,
       canvasId,
-      `${wsUrl}?token=${userToken}`,
+      socket,
       currentShape,
       currentColor,
-      isReadOnly // Pass read-only mode to engine
+      isReadOnly
     );
 
     setConnected(true);
 
-    addCollaborator({
-      id: user?.id || searchParams.get('token') || "anonymous",
-      name: userName,
-      status: "online",
-    });
+    socket.send(JSON.stringify({
+      type: "join_room",
+      roomId: canvasId,
+      userId: userId,
+      userName: userName
+    }));
 
-    const interval = setInterval(() => {
-      const mockUsers: CollaboratorUser[] = [
-        { id: user?.id || searchParams.get('token') || "anonymous", name: userName, status: "online" },
-        { id: "2", name: "Alex Smith", status: "online" },
-        { id: "3", name: "Jordan Lee", status: "online" },
-      ];
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const message = JSON.parse(event.data);
+        
+        switch (message.type) {
+          case "user_joined":
+            if (message.userId !== userId) {
+              addCollaborator({
+                id: message.userId,
+                name: message.userName || "Anonymous",
+                status: "online"
+              });
+            }
+            if (message.userCount) {
+              setUserCount(message.userCount);
+            }
+            break;
+            
+          case "user_left":
+            removeCollaborator(message.userId);
+            if (message.userCount) {
+              setUserCount(message.userCount);
+            }
+            break;
+            
+          case "room_state":
+            if (message.users) {
+              message.users.forEach((u: any) => {
+                if (u.id !== userId) {
+                  addCollaborator({
+                    id: u.id,
+                    name: u.name,
+                    status: "online"
+                  });
+                }
+              });
+            }
+            setUserCount(message.users?.length || 1);
+            break;
+        }
+      } catch (error) {
+        console.error("Failed to parse WebSocket message:", error);
+      }
+    };
 
-      mockUsers
-        .slice(0, Math.floor(Math.random() * 3) + 1)
-        .forEach((collab) => {
-          addCollaborator(collab);
-        });
-    }, 5000);
+    socket.addEventListener('message', handleMessage);
 
     const handleResize = () => {
       if (canvas) {
@@ -110,18 +138,29 @@ export default function CanvasPage({
     window.addEventListener("resize", handleResize);
 
     return () => {
-      clearInterval(interval);
+      // Leave the room
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: "leave_room",
+          roomId: canvasId,
+          userId: userId
+        }));
+      }
+      
+      socket.removeEventListener('message', handleMessage);
       window.removeEventListener("resize", handleResize);
       engineRef.current?.destroy();
       setConnected(false);
     };
   }, [
     canvasId,
+    socket,
+    socketLoading,
     currentColor,
     currentShape,
     user,
-    token,
     addCollaborator,
+    removeCollaborator,
     setConnected,
     isLoading,
     isReadOnly,
@@ -142,7 +181,7 @@ export default function CanvasPage({
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (isReadOnly) return; // Disable shortcuts in read-only mode
+      if (isReadOnly) return;
       
       if (e.key === "Delete" || e.key === "Backspace") {
         engineRef.current?.deleteSelected();
@@ -157,7 +196,7 @@ export default function CanvasPage({
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (isReadOnly) return; // Disable shortcuts in read-only mode
+      if (isReadOnly) return;
       
       if (e.key === " ") {
         setSelectedTool("draw");
@@ -190,7 +229,7 @@ export default function CanvasPage({
     setIsReadOnly(false);
   };
 
-  if (isLoading) {
+  if (isLoading || socketLoading) {
     return (
       <div style={{
         display: "flex",
@@ -215,7 +254,7 @@ export default function CanvasPage({
             margin: "0 auto 1rem",
           }} />
           <p style={{ color: "var(--content-emphasis)", margin: 0 }}>
-            Loading canvas...
+            {socketLoading ? "Connecting to canvas..." : "Loading canvas..."}
           </p>
         </div>
         <style>{`
@@ -224,6 +263,32 @@ export default function CanvasPage({
             100% { transform: rotate(360deg); }
           }
         `}</style>
+      </div>
+    );
+  }
+
+  if (socketError) {
+    return (
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        backgroundColor: "var(--bg-default)",
+      }}>
+        <div style={{
+          padding: "2rem",
+          background: "rgba(255, 255, 255, 0.05)",
+          borderRadius: "1rem",
+          textAlign: "center",
+        }}>
+          <p style={{ color: "var(--content-emphasis)", marginBottom: "1rem" }}>
+            {socketError}
+          </p>
+          <Button onClick={() => window.location.reload()}>
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }
@@ -243,6 +308,27 @@ export default function CanvasPage({
         onRedo={() => console.log("Redo")}
         onScrollToContent={() => console.log("Scroll to content")}
       >
+        {/* User count indicator */}
+        <div style={{
+          position: "absolute",
+          top: "1rem",
+          left: "1rem",
+          zIndex: 1000,
+        }}>
+          <Card variant="glass" style={{
+            padding: "0.5rem 1rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}>
+            <Users style={{ width: "1rem", height: "1rem", color: "var(--content-muted)" }} />
+            <span style={{ fontSize: "0.875rem", color: "var(--content-emphasis)", fontWeight: 500 }}>
+              {userCount} {userCount === 1 ? "user" : "users"}
+            </span>
+          </Card>
+        </div>
+
+        {/* Read-only mode indicator */}
         {isReadOnly && (
           <div style={{
             position: "absolute",
