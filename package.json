@@ -5,15 +5,18 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
-    "prettier": "^3.6.2",
-    "turbo": "^2.6.1",
-    "typescript": "5.9.2"
+    "@types/node": "latest",
+    "baseline-browser-mapping": "^2.8.32",
+    "eslint": "latest",
+    "prettier": "latest",
+    "turbo": "latest",
+    "typescript": "latest"
   },
-  "packageManager": "pnpm@10.24.0",
+  "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
   }

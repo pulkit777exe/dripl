@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id
+  email     String   @unique
+  name      String?
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teams     TeamMember[]
+  files     File[]
+  folders   Folder[]
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members   TeamMember[]
+  files     File[]
+  folders   Folder[]
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  role      String   @default("MEMBER") // OWNER, ADMIN, MEMBER
+  userId    String
+  teamId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
+  team      Team     @relation(fields: [teamId], references: [id])
+
+  @@unique([userId, teamId])
+}
+
+model Folder {
+  id        String   @id @default(cuid())
+  name      String
+  parentId  String?
+  teamId    String?
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent    Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children  Folder[] @relation("FolderHierarchy")
+  
+  team      Team?    @relation(fields: [teamId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
+  
+  files     File[]
+}
+
+model File {
+  id        String   @id @default(cuid())
+  name      String
+  content   String   @default("[]") // JSON string of elements
+  preview   String?  // Thumbnail URL or data URI
+  folderId  String?
+  teamId    String?
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  folder    Folder?  @relation(fields: [folderId], references: [id])
+  team      Team?    @relation(fields: [teamId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
+}
