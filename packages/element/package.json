@@ -1,0 +1,20 @@
+{
+  "name": "@dripl/element",
+  "version": "0.0.0",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dripl/common": "workspace:*",
+    "@dripl/math": "workspace:*",
+    "@dripl/utils": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "latest",
+    "eslint": "latest",
+    "vitest": "latest"
+  }
+}

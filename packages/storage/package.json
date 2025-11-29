@@ -1,0 +1,19 @@
+{
+  "name": "@dripl/storage",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dripl/common": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "latest",
+    "eslint": "latest",
+    "vitest": "latest"
+  }
+}
