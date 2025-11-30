@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@dripl/database";
+import { db } from "@dripl/database";
 import { currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 
@@ -12,7 +12,7 @@ export async function getFiles() {
     throw new Error("User has no email address");
   }
   // Ensure user exists in DB
-  const dbUser = await prisma.user.upsert({
+  const dbUser = await db.user.upsert({
     where: { id: user.id },
     update: {
       email: user.emailAddresses[0].emailAddress,
@@ -27,7 +27,7 @@ export async function getFiles() {
     },
   });
 
-  const files = await prisma.file.findMany({
+  const files = await db.file.findMany({
     where: { userId: dbUser.id },
     orderBy: { updatedAt: "desc" },
   });
@@ -39,7 +39,7 @@ export async function createFile() {
   const user = await currentUser();
   if (!user) throw new Error("Unauthorized");
 
-  const count = await prisma.file.count({
+  const count = await db.file.count({
     where: { userId: user.id },
   });
 
@@ -47,7 +47,7 @@ export async function createFile() {
     throw new Error("Free plan limit reached (3 files max).");
   }
 
-  const file = await prisma.file.create({
+  const file = await db.file.create({
     data: {
       name: "Untitled File",
       userId: user.id,
@@ -63,7 +63,7 @@ export async function getFile(id: string) {
   const user = await currentUser();
   if (!user) return null;
 
-  const file = await prisma.file.findUnique({
+  const file = await db.file.findUnique({
     where: { id },
   });
 
@@ -83,7 +83,7 @@ export async function updateFile(
   const user = await currentUser();
   if (!user) throw new Error("Unauthorized");
 
-  await prisma.file.update({
+  await db.file.update({
     where: { id },
     data: {
       content,

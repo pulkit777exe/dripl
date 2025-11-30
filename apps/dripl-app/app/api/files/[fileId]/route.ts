@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "../../../../../../packages/db/src";
+import { db } from "@dripl/database";
 
 export async function GET(
   req: Request,
@@ -14,7 +14,7 @@ export async function GET(
   }
 
   try {
-    const file = await prisma.file.findUnique({
+    const file = await db.file.findUnique({
       where: {
         id: fileId,
         userId: userId, // Ensure ownership
@@ -44,7 +44,7 @@ export async function DELETE(
   }
 
   try {
-    const file = await prisma.file.delete({
+    const file = await db.file.delete({
       where: {
         id: fileId,
         userId: userId,
@@ -73,7 +73,7 @@ export async function PATCH(
     const body = await req.json();
     const { name, content, preview } = body;
 
-    const file = await prisma.file.update({
+    const file = await db.file.update({
       where: {
         id: fileId,
         userId: userId,

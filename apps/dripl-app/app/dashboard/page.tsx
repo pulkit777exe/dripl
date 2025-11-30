@@ -19,8 +19,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-zinc-950 text-white">
-      <DashboardSidebar />
+    <div className="flex h-screen w-full bg-background text-foreground">
       <FileBrowser files={files} onCreateFile={handleCreate} />
     </div>
   );
