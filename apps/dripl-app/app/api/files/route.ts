@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { prisma } from "@dripl/database";
+import { prisma } from "../../../../../packages/db/src";
 
 // Helper to ensure user exists in DB
 async function ensureUser(userId: string) {

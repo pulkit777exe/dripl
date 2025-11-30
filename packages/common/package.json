@@ -8,8 +8,11 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "typescript": "latest",
     "eslint": "latest",
+    "typescript": "latest",
     "vitest": "latest"
+  },
+  "dependencies": {
+    "zod": "^4.1.13"
   }
 }

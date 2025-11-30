@@ -1,83 +1,76 @@
 "use client";
 
 import Link from "next/link";
-import { UserButton } from "@clerk/nextjs";
+import { usePathname } from "next/navigation";
 import { 
   LayoutGrid, 
+  Clock, 
+  User, 
   Folder, 
-  Users, 
-  Settings, 
+  HelpCircle, 
   Plus,
   Search,
-  ChevronDown
+  Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation";
+
+const items = [
+  { label: "All Files", icon: LayoutGrid, href: "/dashboard" },
+  { label: "Recents", icon: Clock, href: "/dashboard/recents" },
+  { label: "Created by Me", icon: User, href: "/dashboard/created" },
+  { label: "Folders", icon: Folder, href: "/dashboard/folders" },
+  { label: "Unsorted", icon: HelpCircle, href: "/dashboard/unsorted" },
+];
 
 export function DashboardSidebar() {
   const pathname = usePathname();
 
-  const links = [
-    { href: "/dashboard", label: "All Files", icon: LayoutGrid },
-    { href: "/dashboard/folders", label: "Folders", icon: Folder },
-    { href: "/dashboard/team", label: "Team", icon: Users },
-    { href: "/dashboard/settings", label: "Settings", icon: Settings },
-  ];
-
   return (
-    <aside className="w-64 border-r bg-background flex flex-col h-screen">
-      {/* Team Switcher */}
-      <div className="p-4 border-b">
-        <button className="flex items-center gap-2 w-full hover:bg-accent/50 p-2 rounded-lg transition-colors">
-          <div className="w-8 h-8 rounded bg-indigo-600 flex items-center justify-center text-white font-bold">
-            P
-          </div>
-          <div className="flex-1 text-left">
-            <p className="text-sm font-medium">Pulkit's Team</p>
-            <p className="text-xs text-muted-foreground">Free Plan</p>
-          </div>
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        </button>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1">
-        <div className="mb-4">
-          <button className="w-full flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
-            <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">New File</span>
-          </button>
+    <aside className="w-64 border-r border-white/10 bg-zinc-950 flex flex-col h-full">
+      <div className="p-4">
+        <div className="flex items-center gap-2 px-2 py-2 mb-6">
+          <div className="h-6 w-6 rounded bg-indigo-500" />
+          <span className="font-semibold text-white">Pulkit's Team</span>
         </div>
 
-        {links.map((link) => {
-          const Icon = link.icon;
-          const isActive = pathname === link.href;
-          
-          return (
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+          <input 
+            type="text" 
+            placeholder="Search" 
+            className="w-full bg-zinc-900 border border-white/10 rounded-md py-2 pl-9 pr-4 text-sm text-white placeholder:text-zinc-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+          />
+        </div>
+
+        <nav className="space-y-1">
+          {items.map((item) => (
             <Link
-              key={link.href}
-              href={link.href}
+              key={item.href}
+              href={item.href}
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                isActive 
-                  ? "bg-accent text-accent-foreground" 
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                pathname === item.href 
+                  ? "bg-zinc-800 text-white" 
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-900"
               )}
             >
-              <Icon className="w-4 h-4" />
-              {link.label}
+              <item.icon className="h-4 w-4" />
+              {item.label}
             </Link>
-          );
-        })}
-      </nav>
+          ))}
+        </nav>
+      </div>
 
-      {/* User Profile */}
-      <div className="p-4 border-t">
-        <div className="flex items-center gap-3">
-          <UserButton afterSignOutUrl="/" />
-          <div className="flex-1">
-            <p className="text-sm font-medium">My Account</p>
+      <div className="mt-auto p-4 border-t border-white/10">
+        <div className="rounded-xl bg-zinc-900 p-4 mb-4 border border-white/5">
+          <h3 className="font-medium text-white text-sm mb-1">Free Plan</h3>
+          <div className="h-1.5 w-full bg-zinc-800 rounded-full mb-2 overflow-hidden">
+            <div className="h-full bg-indigo-500 w-3/4" />
           </div>
+          <p className="text-xs text-zinc-500 mb-3">3 of 3 files used</p>
+          <button className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-md transition-colors">
+            Upgrade
+          </button>
         </div>
       </div>
     </aside>
