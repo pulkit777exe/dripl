@@ -1,29 +1,23 @@
 {
-  "name": "@repo/db",
-  "version": "0.0.1",
-  "description": "",
-  "main": "index.js",
-  "exports": {
-    ".": "./src/index.ts"
-  },
+  "name": "@dripl/database",
+  "version": "0.0.0",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "db:generate": "npx prisma generate",
-    "db:push": "npx prisma db push",
-    "db:migrate": "npx prisma migrate dev",
-    "db:studio": "npx prisma studio",
-    "postinstall": "npx prisma generate"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "@repo/typescript-config": "workspace:*",
-    "@types/node": "^22.15.3",
-    "prisma": "^6.16.2",
-    "tsx": "^4.19.4"
+    "lint": "eslint .",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@prisma/client": "^6.16.2"
+    "@prisma/adapter-pg": "^7.0.1",
+    "@prisma/client": "^7.0.1",
+    "@types/pg": "^8.15.6",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "prisma": "^7.0.1",
+    "typescript": "^5.0.0"
   }
 }
