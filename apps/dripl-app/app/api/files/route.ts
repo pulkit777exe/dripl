@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { prisma } from "../../../../../packages/db/src";
+import { prisma } from "@dripl/database";
 
 // Helper to ensure user exists in DB
 async function ensureUser(userId: string) {
@@ -25,7 +25,7 @@ async function ensureUser(userId: string) {
 
 export async function GET(req: Request) {
   const { userId } = await auth();
-  
+
   if (!userId) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
         userId: userId,
       },
       orderBy: {
-        updatedAt: 'desc',
+        updatedAt: "desc",
       },
     });
 

@@ -8,7 +8,8 @@ const nextConfig = {
     "@dripl/storage",
     "@dripl/sync",
     "@dripl/utils"
-  ]
+  ],
+  serverExternalPackages: ['@prisma/client', '@dripl/database']
 };
 
 module.exports = nextConfig;
