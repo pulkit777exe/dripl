@@ -3,7 +3,9 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { CanvasElement } from "@dripl/common";
 import { v4 as uuidv4 } from "uuid";
-import { distance, isPointInRect } from "@dripl/math";
+import { distance, isPointInRect, LineSegment } from "@dripl/math";
+import { elementIntersectsSegment } from "@dripl/element";
+import { EraserTrail } from "@/eraser";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { ZoomControls } from "./ZoomControls";
 import { HelpModal } from "./HelpModal";
@@ -27,13 +29,19 @@ export function Canvas({
 }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [currentElement, setCurrentElement] = useState<CanvasElement | null>(null);
+  const [currentElement, setCurrentElement] = useState<CanvasElement | null>(
+    null
+  );
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [startPan, setStartPan] = useState({ x: 0, y: 0 });
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(
+    null
+  );
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(
+    null
+  );
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
-  
+
   // Advanced State
   const [zoom, setZoom] = useState(1);
   const [history, setHistory] = useState<CanvasElement[][]>([]);
@@ -41,6 +49,12 @@ export function Canvas({
   const [showHelp, setShowHelp] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Eraser State
+  const eraserTrailRef = useRef<EraserTrail | null>(null);
+  const [elementsToErase, setElementsToErase] = useState<Set<string>>(
+    new Set()
+  );
 
   // Initialize Window Size
   useEffect(() => {
@@ -51,13 +65,32 @@ export function Canvas({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Initialize Eraser Trail
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    eraserTrailRef.current = new EraserTrail(ctx, {
+      size: 5,
+      color: "rgba(255, 100, 100, 0.3)",
+      fadeTime: 200,
+      streamline: 0.2,
+      keepHead: true,
+    });
+  }, []);
+
   // History Management
-  const addToHistory = useCallback((newElements: CanvasElement[]) => {
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(newElements);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  }, [history, historyIndex]);
+  const addToHistory = useCallback(
+    (newElements: CanvasElement[]) => {
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(newElements);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+    },
+    [history, historyIndex]
+  );
 
   const undo = () => {
     if (historyIndex > 0) {
@@ -82,8 +115,8 @@ export function Canvas({
   // Initial History Push
   useEffect(() => {
     if (history.length === 0 && elements.length > 0) {
-        setHistory([elements]);
-        setHistoryIndex(0);
+      setHistory([elements]);
+      setHistoryIndex(0);
     }
   }, []); // Run once
 
@@ -108,7 +141,7 @@ export function Canvas({
     const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
-      
+
       // Apply Pan and Zoom
       ctx.translate(panOffset.x, panOffset.y);
       ctx.scale(zoom, zoom);
@@ -152,10 +185,10 @@ export function Canvas({
           ctx.fillStyle = el.stroke || "#fff";
           ctx.textBaseline = "top";
           // @ts-ignore
-          const lines = el.text.split('\n');
+          const lines = el.text.split("\n");
           lines.forEach((line: string, i: number) => {
-             // @ts-ignore
-             ctx.fillText(line, el.x, el.y + (i * el.fontSize * 1.2));
+            // @ts-ignore
+            ctx.fillText(line, el.x, el.y + i * el.fontSize * 1.2);
           });
         } else if (el.type === "image") {
           const img = new Image();
@@ -172,10 +205,10 @@ export function Canvas({
           const padding = 8 / zoom;
           const w = el.width || 0;
           const h = el.height || 0;
-          
+
           // @ts-ignore
           if (el.type === "circle") {
-             // @ts-ignore
+            // @ts-ignore
             const r = el.radius || w / 2;
             ctx.strokeRect(
               el.x - r - padding,
@@ -184,40 +217,45 @@ export function Canvas({
               r * 2 + padding * 2
             );
           } else if (el.type === "text") {
-             // Approximate text bounds
-             // @ts-ignore
-             const lines = el.text.split('\n');
-             // @ts-ignore
-             const height = lines.length * el.fontSize * 1.2;
-             // @ts-ignore
-             ctx.font = `${el.fontSize}px ${el.fontFamily}`;
-             // @ts-ignore
-             const width = Math.max(...lines.map(l => ctx.measureText(l).width));
-             ctx.strokeRect(
-                el.x - padding,
-                el.y - padding,
-                width + padding * 2,
-                height + padding * 2
-             );
+            // Approximate text bounds
+            // @ts-ignore
+            const lines = el.text.split("\n");
+            // @ts-ignore
+            const height = lines.length * el.fontSize * 1.2;
+            // @ts-ignore
+            ctx.font = `${el.fontSize}px ${el.fontFamily}`;
+            // @ts-ignore
+            const width = Math.max(
+              ...lines.map((l) => ctx.measureText(l).width)
+            );
+            ctx.strokeRect(
+              el.x - padding,
+              el.y - padding,
+              width + padding * 2,
+              height + padding * 2
+            );
           } else if (el.type === "path") {
-             // @ts-ignore
-             const points = el.points || [];
-             if (points.length > 0) {
-                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                 // @ts-ignore
-                 points.forEach(p => {
-                     minX = Math.min(minX, p[0] ?? Infinity);
-                     minY = Math.min(minY, p[1] ?? Infinity);
-                     maxX = Math.max(maxX, p[0] ?? -Infinity);
-                     maxY = Math.max(maxY, p[1] ?? -Infinity);
-                 });
-                 ctx.strokeRect(
-                    minX - padding,
-                    minY - padding,
-                    (maxX - minX) + padding * 2,
-                    (maxY - minY) + padding * 2
-                 );
-             }
+            // @ts-ignore
+            const points = el.points || [];
+            if (points.length > 0) {
+              let minX = Infinity,
+                minY = Infinity,
+                maxX = -Infinity,
+                maxY = -Infinity;
+              // @ts-ignore
+              points.forEach((p) => {
+                minX = Math.min(minX, p[0] ?? Infinity);
+                minY = Math.min(minY, p[1] ?? Infinity);
+                maxX = Math.max(maxX, p[0] ?? -Infinity);
+                maxY = Math.max(maxY, p[1] ?? -Infinity);
+              });
+              ctx.strokeRect(
+                minX - padding,
+                minY - padding,
+                maxX - minX + padding * 2,
+                maxY - minY + padding * 2
+              );
+            }
           } else {
             ctx.strokeRect(
               el.x - padding,
@@ -252,7 +290,13 @@ export function Canvas({
           ctx.beginPath();
           // @ts-ignore
           const r = currentElement.radius || 0;
-          ctx.arc(currentElement.x, currentElement.y, Math.abs(r), 0, 2 * Math.PI);
+          ctx.arc(
+            currentElement.x,
+            currentElement.y,
+            Math.abs(r),
+            0,
+            2 * Math.PI
+          );
           ctx.fill();
           ctx.stroke();
         } else if (currentElement.type === "path") {
@@ -260,7 +304,10 @@ export function Canvas({
           if (currentElement.points && currentElement.points.length > 0) {
             ctx.beginPath();
             // @ts-ignore
-            ctx.moveTo(currentElement.points[0][0], currentElement.points[0][1]);
+            ctx.moveTo(
+              currentElement.points[0][0],
+              currentElement.points[0][1]
+            );
             // @ts-ignore
             currentElement.points.forEach((p) => ctx.lineTo(p[0], p[1]));
             ctx.stroke();
@@ -269,50 +316,146 @@ export function Canvas({
         ctx.restore();
       }
 
+      // Render eraser trail
+      if (eraserTrailRef.current && eraserTrailRef.current.isActive()) {
+        ctx.restore(); // Restore to remove zoom/pan for trail rendering
+        eraserTrailRef.current.render(panOffset, zoom);
+        ctx.save();
+        ctx.translate(panOffset.x, panOffset.y);
+        ctx.scale(zoom, zoom);
+      }
+
+      // Highlight elements to be erased
+      if (elementsToErase.size > 0) {
+        elements.forEach((el) => {
+          if (elementsToErase.has(el.id)) {
+            ctx.save();
+            ctx.strokeStyle = "rgba(255, 100, 100, 0.6)";
+            ctx.lineWidth = 2 / zoom;
+            ctx.setLineDash([5 / zoom, 5 / zoom]);
+
+            const padding = 4 / zoom;
+            const w = el.width || 0;
+            const h = el.height || 0;
+
+            if (el.type === "circle") {
+              // @ts-ignore
+              const r = el.radius || w / 2;
+              ctx.strokeRect(
+                el.x - r - padding,
+                el.y - r - padding,
+                r * 2 + padding * 2,
+                r * 2 + padding * 2
+              );
+            } else if (el.type === "path") {
+              // @ts-ignore
+              const points = el.points || [];
+              if (points.length > 0) {
+                let minX = Infinity,
+                  minY = Infinity,
+                  maxX = -Infinity,
+                  maxY = -Infinity;
+                // @ts-ignore
+                points.forEach((p) => {
+                  minX = Math.min(minX, p[0] ?? Infinity);
+                  minY = Math.min(minY, p[1] ?? Infinity);
+                  maxX = Math.max(maxX, p[0] ?? -Infinity);
+                  maxY = Math.max(maxY, p[1] ?? -Infinity);
+                });
+                ctx.strokeRect(
+                  minX - padding,
+                  minY - padding,
+                  maxX - minX + padding * 2,
+                  maxY - minY + padding * 2
+                );
+              }
+            } else {
+              ctx.strokeRect(
+                el.x - padding,
+                el.y - padding,
+                w + padding * 2,
+                h + padding * 2
+              );
+            }
+            ctx.restore();
+          }
+        });
+      }
+
       ctx.restore();
     };
 
     render();
-  }, [elements, currentElement, panOffset, selectedElementId, zoom, editingTextId, readOnly]);
+  }, [
+    elements,
+    currentElement,
+    panOffset,
+    selectedElementId,
+    zoom,
+    editingTextId,
+    readOnly,
+    elementsToErase,
+  ]);
 
   // Helper for path hit testing
-  const isPointNearPath = (point: {x: number, y: number}, pathPoints: number[][], threshold: number = 10): boolean => {
-      if (!pathPoints || pathPoints.length < 2) return false;
-      
-      // 1. Fast Bounding Box Check
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for(const p of pathPoints) {
-          minX = Math.min(minX, p[0] ?? Infinity);
-          minY = Math.min(minY, p[1] ?? Infinity);
-          maxX = Math.max(maxX, p[0] ?? -Infinity);
-          maxY = Math.max(maxY, p[1] ?? -Infinity);
-      }
-      
-      if (point.x < minX - threshold || point.x > maxX + threshold || 
-          point.y < minY - threshold || point.y > maxY + threshold) {
-          return false;
-      }
+  const isPointNearPath = (
+    point: { x: number; y: number },
+    pathPoints: number[][],
+    threshold: number = 10
+  ): boolean => {
+    if (!pathPoints || pathPoints.length < 2) return false;
 
-      // 2. Precise Segment Check
-      const distToSegment = (p: {x: number, y: number}, v: {x: number, y: number}, w: {x: number, y: number}) => {
-          const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
-          if (l2 === 0) return distance(p, v);
-          let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-          t = Math.max(0, Math.min(1, t));
-          return distance(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) });
-      };
+    // 1. Fast Bounding Box Check
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const p of pathPoints) {
+      minX = Math.min(minX, p[0] ?? Infinity);
+      minY = Math.min(minY, p[1] ?? Infinity);
+      maxX = Math.max(maxX, p[0] ?? -Infinity);
+      maxY = Math.max(maxY, p[1] ?? -Infinity);
+    }
 
-      for (let i = 0; i < pathPoints.length - 1; i++) {
-          const p1 = { x: pathPoints[i]?.[0] ?? 0, y: pathPoints[i]?.[1] ?? 0 };
-          const p2 = { x: pathPoints[i+1]?.[0] ?? 0, y: pathPoints[i+1]?.[1] ?? 0 };
-          if (distToSegment(point, p1, p2) <= threshold) return true;
-      }
+    if (
+      point.x < minX - threshold ||
+      point.x > maxX + threshold ||
+      point.y < minY - threshold ||
+      point.y > maxY + threshold
+    ) {
       return false;
+    }
+
+    // 2. Precise Segment Check
+    const distToSegment = (
+      p: { x: number; y: number },
+      v: { x: number; y: number },
+      w: { x: number; y: number }
+    ) => {
+      const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
+      if (l2 === 0) return distance(p, v);
+      let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+      t = Math.max(0, Math.min(1, t));
+      return distance(p, {
+        x: v.x + t * (w.x - v.x),
+        y: v.y + t * (w.y - v.y),
+      });
+    };
+
+    for (let i = 0; i < pathPoints.length - 1; i++) {
+      const p1 = { x: pathPoints[i]?.[0] ?? 0, y: pathPoints[i]?.[1] ?? 0 };
+      const p2 = {
+        x: pathPoints[i + 1]?.[0] ?? 0,
+        y: pathPoints[i + 1]?.[1] ?? 0,
+      };
+      if (distToSegment(point, p1, p2) <= threshold) return true;
+    }
+    return false;
   };
 
   // Event Handlers
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (readOnly && activeTool !== 'hand') return;
+    if (readOnly && activeTool !== "hand") return;
 
     const pos = getMousePos(e);
 
@@ -325,51 +468,46 @@ export function Canvas({
 
     // Hit Test Logic (Shared for Eraser and Select)
     const hitTestElement = (el: CanvasElement) => {
+      // @ts-ignore
+      if (el.type === "path") {
         // @ts-ignore
-        if (el.type === "path") {
-             // @ts-ignore
-            return isPointNearPath(pos, el.points);
-        }
-        // @ts-ignore
-        if (el.type === "circle") {
-            const w = el.width || 20;
-             // @ts-ignore
-            const r = el.radius || w / 2;
-            return distance(pos, { x: el.x, y: el.y }) <= r;
-        }
-        // Text hit test approximation
-        if (el.type === 'text') {
-            // @ts-ignore
-            const lines = el.text.split('\n');
-            // @ts-ignore
-            const h = lines.length * el.fontSize * 1.2;
-            // @ts-ignore
-            const ctx = canvasRef.current?.getContext('2d');
-            // @ts-ignore
-            ctx.font = `${el.fontSize}px ${el.fontFamily}`;
-            // @ts-ignore
-            const w = Math.max(...lines.map(l => ctx?.measureText(l).width || 0));
-            return isPointInRect(pos, { x: el.x, y: el.y, width: w, height: h });
-        }
-        
+        return isPointNearPath(pos, el.points);
+      }
+      // @ts-ignore
+      if (el.type === "circle") {
         const w = el.width || 20;
-        const h = el.height || 20;
+        // @ts-ignore
+        const r = el.radius || w / 2;
+        return distance(pos, { x: el.x, y: el.y }) <= r;
+      }
+      // Text hit test approximation
+      if (el.type === "text") {
+        // @ts-ignore
+        const lines = el.text.split("\n");
+        // @ts-ignore
+        const h = lines.length * el.fontSize * 1.2;
+        // @ts-ignore
+        const ctx = canvasRef.current?.getContext("2d");
+        // @ts-ignore
+        ctx.font = `${el.fontSize}px ${el.fontFamily}`;
+        // @ts-ignore
+        const w = Math.max(...lines.map((l) => ctx?.measureText(l).width || 0));
         return isPointInRect(pos, { x: el.x, y: el.y, width: w, height: h });
+      }
+
+      const w = el.width || 20;
+      const h = el.height || 20;
+      return isPointInRect(pos, { x: el.x, y: el.y, width: w, height: h });
     };
 
-    // 2. Eraser Tool
+    // 2. Eraser Tool - Start eraser trail
     if (activeTool === "eraser") {
-         const clickedIndex = elements.slice().reverse().findIndex(hitTestElement);
-
-        if (clickedIndex !== -1) {
-            // Remove element
-            const realIndex = elements.length - 1 - clickedIndex;
-            const newElements = [...elements];
-            newElements.splice(realIndex, 1);
-            setElements(newElements);
-            addToHistory(newElements);
-        }
-        return;
+      setIsDrawing(true);
+      if (eraserTrailRef.current) {
+        eraserTrailRef.current.startPath(pos.x, pos.y);
+        setElementsToErase(new Set());
+      }
+      return;
     }
 
     // 3. Selection Tool
@@ -380,12 +518,12 @@ export function Canvas({
         setSelectedElementId(clicked.id);
         setDragStart(pos);
         setIsDrawing(true);
-        
+
         // Double click to edit text?
-        if (clicked.type === 'text' && e.detail === 2) {
-            setEditingTextId(clicked.id);
-            setIsDrawing(false);
-            setTimeout(() => textAreaRef.current?.focus(), 0);
+        if (clicked.type === "text" && e.detail === 2) {
+          setEditingTextId(clicked.id);
+          setIsDrawing(false);
+          setTimeout(() => textAreaRef.current?.focus(), 0);
         }
       } else {
         setSelectedElementId(null);
@@ -435,27 +573,27 @@ export function Canvas({
         rotation: 0,
       });
     } else if (activeTool === "text") {
-        // Create text element immediately and start editing
-        const newEl: CanvasElement = {
-          id,
-          type: "text",
-          x: pos.x,
-          y: pos.y,
-          // @ts-ignore
-          text: "",
-          fontSize: 24,
-          fontFamily: "Inter",
-          textAlign: "left",
-          stroke: "#fff",
-          opacity: 1,
-          rotation: 0,
-        };
-        setElements(prev => [...prev, newEl]);
-        setEditingTextId(id);
-        setSelectedElementId(id);
-        setIsDrawing(false);
-        setActiveTool("select");
-        setTimeout(() => textAreaRef.current?.focus(), 0);
+      // Create text element immediately and start editing
+      const newEl: CanvasElement = {
+        id,
+        type: "text",
+        x: pos.x,
+        y: pos.y,
+        // @ts-ignore
+        text: "",
+        fontSize: 24,
+        fontFamily: "Inter",
+        textAlign: "left",
+        stroke: "#fff",
+        opacity: 1,
+        rotation: 0,
+      };
+      setElements((prev) => [...prev, newEl]);
+      setEditingTextId(id);
+      setSelectedElementId(id);
+      setIsDrawing(false);
+      setActiveTool("select");
+      setTimeout(() => textAreaRef.current?.focus(), 0);
     }
   };
 
@@ -472,6 +610,41 @@ export function Canvas({
 
     const pos = getMousePos(e);
 
+    // Eraser Tool - Add point and detect intersections
+    if (activeTool === "eraser" && eraserTrailRef.current) {
+      eraserTrailRef.current.addPoint(pos.x, pos.y);
+
+      const lastSegment = eraserTrailRef.current.getLastSegment();
+      if (lastSegment) {
+        const segment: LineSegment = {
+          start: lastSegment.start,
+          end: lastSegment.end,
+        };
+
+        // Check which elements intersect with this segment
+        const newElementsToErase = new Set(elementsToErase);
+        elements.forEach((element) => {
+          if (!newElementsToErase.has(element.id)) {
+            // Convert CanvasElement to DriplElement format for intersection test
+            const driplElement = {
+              ...element,
+              strokeColor: element.stroke || "#fff",
+              backgroundColor: element.fill || "transparent",
+              strokeWidth: element.strokeWidth || 2,
+              opacity: element.opacity || 1,
+            } as any;
+
+            if (elementIntersectsSegment(driplElement, segment, 10)) {
+              newElementsToErase.add(element.id);
+              eraserTrailRef.current?.markElementForErase(element.id);
+            }
+          }
+        });
+        setElementsToErase(newElementsToErase);
+      }
+      return;
+    }
+
     if (activeTool === "select" && selectedElementId && dragStart) {
       const dx = pos.x - dragStart.x;
       const dy = pos.y - dragStart.y;
@@ -479,10 +652,10 @@ export function Canvas({
       setElements((prev) =>
         prev.map((el) => {
           if (el.id === selectedElementId) {
-            if (el.type === 'path') {
-                // @ts-ignore
-                const newPoints = el.points.map(p => [p[0] + dx, p[1] + dy]);
-                return { ...el, points: newPoints };
+            if (el.type === "path") {
+              // @ts-ignore
+              const newPoints = el.points.map((p) => [p[0] + dx, p[1] + dy]);
+              return { ...el, points: newPoints };
             }
             return { ...el, x: el.x + dx, y: el.y + dy };
           }
@@ -519,14 +692,25 @@ export function Canvas({
 
   const handleMouseUp = () => {
     if (isDrawing) {
-        if (currentElement) {
-            const newElements = [...elements, currentElement];
-            setElements(newElements);
-            addToHistory(newElements);
-        } else if (selectedElementId && dragStart) {
-            // Finished dragging, save history
-            addToHistory(elements);
+      // Eraser Tool - Finalize erasing
+      if (activeTool === "eraser" && elementsToErase.size > 0) {
+        const newElements = elements.filter(
+          (el) => !elementsToErase.has(el.id)
+        );
+        setElements(newElements);
+        addToHistory(newElements);
+        setElementsToErase(new Set());
+        if (eraserTrailRef.current) {
+          eraserTrailRef.current.endPath();
         }
+      } else if (currentElement) {
+        const newElements = [...elements, currentElement];
+        setElements(newElements);
+        addToHistory(newElements);
+      } else if (selectedElementId && dragStart) {
+        // Finished dragging, save history
+        addToHistory(elements);
+      }
     }
     setIsDrawing(false);
     setCurrentElement(null);
@@ -540,10 +724,12 @@ export function Canvas({
 
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedElementId && !readOnly) {
-            const newElements = elements.filter(el => el.id !== selectedElementId);
-            setElements(newElements);
-            addToHistory(newElements);
-            setSelectedElementId(null);
+          const newElements = elements.filter(
+            (el) => el.id !== selectedElementId
+          );
+          setElements(newElements);
+          addToHistory(newElements);
+          setSelectedElementId(null);
         }
       } else if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         e.preventDefault();
@@ -551,38 +737,56 @@ export function Canvas({
       } else if ((e.ctrlKey || e.metaKey) && e.key === "y") {
         e.preventDefault();
         redo();
-      } else if (e.key === "1" || e.key.toLowerCase() === "v") setActiveTool("select");
-      else if (e.key === "2" || e.key.toLowerCase() === "h") setActiveTool("hand");
-      else if (e.key === "3" || e.key.toLowerCase() === "r") setActiveTool("rectangle");
-      else if (e.key === "4" || e.key.toLowerCase() === "c") setActiveTool("circle");
-      else if (e.key === "5" || e.key.toLowerCase() === "p") setActiveTool("draw");
-      else if (e.key === "6" || e.key.toLowerCase() === "t") setActiveTool("text");
-      else if (e.key === "0" || e.key.toLowerCase() === "e") setActiveTool("eraser");
-      else if (e.key === "=" || e.key === "+") setZoom(z => Math.min(z + 0.1, 5));
-      else if (e.key === "-") setZoom(z => Math.max(z - 0.1, 0.1));
+      } else if (e.key === "1" || e.key.toLowerCase() === "v")
+        setActiveTool("select");
+      else if (e.key === "2" || e.key.toLowerCase() === "h")
+        setActiveTool("hand");
+      else if (e.key === "3" || e.key.toLowerCase() === "r")
+        setActiveTool("rectangle");
+      else if (e.key === "4" || e.key.toLowerCase() === "c")
+        setActiveTool("circle");
+      else if (e.key === "5" || e.key.toLowerCase() === "p")
+        setActiveTool("draw");
+      else if (e.key === "6" || e.key.toLowerCase() === "t")
+        setActiveTool("text");
+      else if (e.key === "0" || e.key.toLowerCase() === "e")
+        setActiveTool("eraser");
+      else if (e.key === "=" || e.key === "+")
+        setZoom((z) => Math.min(z + 0.1, 5));
+      else if (e.key === "-") setZoom((z) => Math.max(z - 0.1, 0.1));
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedElementId, elements, history, historyIndex, editingTextId, readOnly]);
+  }, [
+    selectedElementId,
+    elements,
+    history,
+    historyIndex,
+    editingTextId,
+    readOnly,
+  ]);
 
   // Text Editing Overlay
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      if (!editingTextId) return;
-      setElements(prev => prev.map(el => {
-          if (el.id === editingTextId) {
-              return { ...el, text: e.target.value };
-          }
-          return el;
-      }));
+    if (!editingTextId) return;
+    setElements((prev) =>
+      prev.map((el) => {
+        if (el.id === editingTextId) {
+          return { ...el, text: e.target.value };
+        }
+        return el;
+      })
+    );
   };
 
   const handleTextBlur = () => {
-      setEditingTextId(null);
-      addToHistory(elements);
+    setEditingTextId(null);
+    addToHistory(elements);
   };
 
-  const selectedElement = elements.find(el => el.id === selectedElementId) || null;
+  const selectedElement =
+    elements.find((el) => el.id === selectedElementId) || null;
 
   return (
     <>
@@ -597,84 +801,98 @@ export function Canvas({
       />
 
       {/* Text Editing Overlay */}
-      {editingTextId && (() => {
-          const el = elements.find(e => e.id === editingTextId);
+      {editingTextId &&
+        (() => {
+          const el = elements.find((e) => e.id === editingTextId);
           if (!el) return null;
           return (
-              <textarea
-                ref={textAreaRef}
-                value={(el as any).text}
-                onChange={handleTextChange}
-                onBlur={handleTextBlur}
-                style={{
-                    position: 'absolute',
-                    left: (el.x * zoom) + panOffset.x,
-                    top: (el.y * zoom) + panOffset.y,
-                    fontSize: `${(el as any).fontSize * zoom}px`,
-                    fontFamily: (el as any).fontFamily,
-                    color: el.stroke,
-                    background: 'transparent',
-                    border: '1px dashed #818cf8',
-                    outline: 'none',
-                    resize: 'none',
-                    overflow: 'hidden',
-                    whiteSpace: 'pre',
-                    minWidth: '100px',
-                    minHeight: '1.2em'
-                }}
-              />
+            <textarea
+              ref={textAreaRef}
+              value={(el as any).text}
+              onChange={handleTextChange}
+              onBlur={handleTextBlur}
+              style={{
+                position: "absolute",
+                left: el.x * zoom + panOffset.x,
+                top: el.y * zoom + panOffset.y,
+                fontSize: `${(el as any).fontSize * zoom}px`,
+                fontFamily: (el as any).fontFamily,
+                color: el.stroke,
+                background: "transparent",
+                border: "1px dashed #818cf8",
+                outline: "none",
+                resize: "none",
+                overflow: "hidden",
+                whiteSpace: "pre",
+                minWidth: "100px",
+                minHeight: "1.2em",
+              }}
+            />
           );
-      })()}
+        })()}
 
       {/* UI Overlays */}
       {!readOnly && (
-          <>
-            <PropertiesPanel 
-                element={selectedElement}
-                onChange={(updates) => {
-                    const newElements = elements.map(el => el.id === selectedElementId ? { ...el, ...updates } : el) as CanvasElement[];
-                    setElements(newElements);
-                    // Debounce history update for slider changes? For now, simple.
-                }}
-                onDelete={() => {
-                    const newElements = elements.filter(el => el.id !== selectedElementId);
-                    setElements(newElements);
-                    addToHistory(newElements);
-                    setSelectedElementId(null);
-                }}
-                onDuplicate={() => {
-                    if (selectedElement) {
-                        const newEl = { ...selectedElement, id: uuidv4(), x: selectedElement.x + 20, y: selectedElement.y + 20 };
-                        const newElements = [...elements, newEl];
-                        setElements(newElements);
-                        addToHistory(newElements);
-                        setSelectedElementId(newEl.id);
-                    }
-                }}
-                onBringToFront={() => {
-                     if (selectedElement) {
-                        const newElements = elements.filter(el => el.id !== selectedElementId);
-                        newElements.push(selectedElement);
-                        setElements(newElements);
-                        addToHistory(newElements);
-                    }
-                }}
-                onSendToBack={() => {
-                    if (selectedElement) {
-                        const newElements = elements.filter(el => el.id !== selectedElementId);
-                        newElements.unshift(selectedElement);
-                        setElements(newElements);
-                        addToHistory(newElements);
-                    }
-                }}
-            />
-          </>
+        <>
+          <PropertiesPanel
+            element={selectedElement}
+            onChange={(updates) => {
+              const newElements = elements.map((el) =>
+                el.id === selectedElementId ? { ...el, ...updates } : el
+              ) as CanvasElement[];
+              setElements(newElements);
+              // Debounce history update for slider changes? For now, simple.
+            }}
+            onDelete={() => {
+              const newElements = elements.filter(
+                (el) => el.id !== selectedElementId
+              );
+              setElements(newElements);
+              addToHistory(newElements);
+              setSelectedElementId(null);
+            }}
+            onDuplicate={() => {
+              if (selectedElement) {
+                const newEl = {
+                  ...selectedElement,
+                  id: uuidv4(),
+                  x: selectedElement.x + 20,
+                  y: selectedElement.y + 20,
+                };
+                const newElements = [...elements, newEl];
+                setElements(newElements);
+                addToHistory(newElements);
+                setSelectedElementId(newEl.id);
+              }
+            }}
+            onBringToFront={() => {
+              if (selectedElement) {
+                const newElements = elements.filter(
+                  (el) => el.id !== selectedElementId
+                );
+                newElements.push(selectedElement);
+                setElements(newElements);
+                addToHistory(newElements);
+              }
+            }}
+            onSendToBack={() => {
+              if (selectedElement) {
+                const newElements = elements.filter(
+                  (el) => el.id !== selectedElementId
+                );
+                newElements.unshift(selectedElement);
+                setElements(newElements);
+                addToHistory(newElements);
+              }
+            }}
+          />
+        </>
       )}
 
-      <ZoomControls 
+      <ZoomControls
         zoom={zoom}
-        onZoomIn={() => setZoom(z => Math.min(z + 0.1, 5))}
-        onZoomOut={() => setZoom(z => Math.max(z - 0.1, 0.1))}
+        onZoomIn={() => setZoom((z) => Math.min(z + 0.1, 5))}
+        onZoomOut={() => setZoom((z) => Math.max(z - 0.1, 0.1))}
         onUndo={undo}
         onRedo={redo}
         canUndo={historyIndex > 0}
