@@ -14,9 +14,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  teams   TeamMember[]
-  files   File[]
-  folders Folder[]
+  teams       TeamMember[]
+  files       File[]
+  folders     Folder[]
+  sharedFiles SharedFile[]
 }
 
 model Team {
@@ -66,8 +67,8 @@ model Folder {
 model File {
   id        String   @id @default(cuid())
   name      String
-  content   String   @default("[]") // JSON string of elements
-  preview   String? // Thumbnail URL or data URI
+  content   String   @default("[]")
+  preview   String?
   folderId  String?
   teamId    String?
   userId    String?
@@ -77,4 +78,19 @@ model File {
   folder Folder? @relation(fields: [folderId], references: [id])
   team   Team?   @relation(fields: [teamId], references: [id])
   user   User?   @relation(fields: [userId], references: [id])
+
+  sharedWith SharedFile[]
+}
+
+model SharedFile {
+  id        String   @id @default(cuid())
+  fileId    String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  file File @relation(fields: [fileId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([fileId, userId])
 }
