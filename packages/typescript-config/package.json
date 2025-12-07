@@ -1,8 +1,11 @@
 {
-  "name": "@repo/typescript-config",
+  "name": "@dripl/typescript-config",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
+  "exports": {
+    ".": "./base.json"
+  },
   "publishConfig": {
     "access": "public"
   }

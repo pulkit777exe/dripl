@@ -1,0 +1,10 @@
+{
+  "extends": "@dripl/typescript-config/base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "module": "ESNext",
+    "target": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": ["src"]
+}
