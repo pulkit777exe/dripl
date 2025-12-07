@@ -1,0 +1,13 @@
+{
+  "name": "@dripl/store",
+  "version": "0.0.0",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@dripl/common": "workspace:*",
+    "@tanstack/store": "^0.8.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
