@@ -1,906 +1,1921 @@
 "use client";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import {
+  Lock,
+  Hand,
+  MousePointer2,
+  Square,
+  Circle,
+  ArrowRight,
+  Minus,
+  Type,
+  Image,
+  Eraser,
+  Menu,
+  Share2,
+  HelpCircle,
+  Plus,
+  Undo,
+  Redo,
+  Trash2,
+  Copy,
+  Link,
+  Layers,
+  AlignCenter,
+  MoreHorizontal,
+  FolderOpen,
+  Save,
+  Download,
+  Users,
+  Search,
+  RotateCcw,
+  Github,
+  Twitter,
+  MessageCircle,
+  LogIn,
+  Sun,
+  Moon,
+  Monitor,
+  ChevronDown,
+  X,
+  BookOpen,
+  ExternalLink,
+  Youtube,
+  Keyboard,
+  Edit3,
+  Library,
+  Globe,
+} from "lucide-react";
+import { IconButton } from "../button/IconButton";
+import {
+  CanvasElement,
+  Point,
+  drawShape,
+  isPointInElement,
+  getElementBounds,
+  exportToPNG,
+  exportToJSON,
+  importFromJSON,
+  generateId,
+  saveToLocalStorage,
+  loadFromLocalStorage,
+  AppState,
+} from "@/utils/canvasUtils";
+import { CanvasHistory } from "@/utils/canvasHistory";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import { CanvasElement } from "@dripl/common";
-import { v4 as uuidv4 } from "uuid";
-import { distance, isPointInRect, LineSegment } from "@dripl/math";
-import { elementIntersectsSegment } from "@dripl/element";
-import { EraserTrail } from "@/eraser";
-import { PropertiesPanel } from "./PropertiesPanel";
-import { ZoomControls } from "./ZoomControls";
-import { HelpModal } from "./HelpModal";
-
-interface CanvasProps {
-  elements: CanvasElement[];
-  setElements: React.Dispatch<React.SetStateAction<CanvasElement[]>>;
-  activeTool: string;
-  setActiveTool: (tool: string) => void;
-  onImageUpload?: (file: File) => void;
-  readOnly?: boolean;
+interface ColorSwatchProps {
+  color: string;
+  isSelected?: boolean;
+  onClick?: () => void;
 }
 
-export function Canvas({
-  elements,
-  setElements,
-  activeTool,
-  setActiveTool,
-  onImageUpload,
-  readOnly = false,
-}: CanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+interface MenuItemProps {
+  icon: React.ReactNode;
+  label: string;
+  shortcut?: string;
+  onClick?: () => void;
+  highlight?: boolean;
+}
+
+const ColorSwatch: React.FC<ColorSwatchProps> = ({
+  color,
+  isSelected,
+  onClick,
+}) => (
+  <button
+    onClick={onClick}
+    className={`w-7 h-7 rounded-md border-2 transition-all relative ${
+      isSelected
+        ? "border-[#a8a5ff] shadow-sm shadow-[#a8a5ff]/30"
+        : "border-gray-600 hover:border-gray-400"
+    }`}
+    style={{ backgroundColor: color === "transparent" ? "transparent" : color }}
+  >
+    {color === "transparent" && (
+      <div
+        className="absolute inset-0.5 rounded-sm opacity-50"
+        style={{
+          backgroundImage:
+            "linear-gradient(45deg, #404040 25%, transparent 25%, transparent 75%, #404040 75%, #404040), linear-gradient(45deg, #404040 25%, transparent 25%, transparent 75%, #404040 75%, #404040)",
+          backgroundSize: "8px 8px",
+          backgroundPosition: "0 0, 4px 4px",
+        }}
+      />
+    )}
+    {isSelected && (
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="w-2 h-2 bg-white rounded-full shadow-lg"></div>
+      </div>
+    )}
+  </button>
+);
+
+const SectionLabel: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => (
+  <div className="text-[11px] font-medium text-gray-400 mb-2 mt-4 select-none">
+    {children}
+  </div>
+);
+
+const MenuItem: React.FC<MenuItemProps> = ({
+  icon,
+  label,
+  shortcut,
+  onClick,
+  highlight,
+}) => (
+  <button
+    onClick={onClick}
+    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md transition-colors text-sm group ${
+      highlight
+        ? "text-[#a8a5ff] hover:bg-[#403c66]/30"
+        : "text-gray-300 hover:bg-[#31303b]"
+    }`}
+  >
+    <div className="flex items-center gap-3">
+      <span
+        className={
+          highlight
+            ? "text-[#a8a5ff]"
+            : "text-gray-500 group-hover:text-gray-400"
+        }
+      >
+        {icon}
+      </span>
+      <span className="font-normal">{label}</span>
+    </div>
+    {shortcut && (
+      <span className="text-xs text-gray-500 font-mono bg-[#1a1a20] px-1.5 py-0.5 rounded">
+        {shortcut}
+      </span>
+    )}
+  </button>
+);
+
+const MenuSeparator: React.FC = () => (
+  <div className="w-full h-px bg-gray-700/50 my-2" />
+);
+
+const HelpModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const ShortcutItem: React.FC<{ toolName: string; shortcut: string }> = ({
+    toolName,
+    shortcut,
+  }) => (
+    <div className="flex justify-between items-center py-2 border-b border-gray-700/50 last:border-b-0">
+      <div className="text-gray-300 flex-1">{toolName}</div>
+      <div className="text-xs font-mono px-3 py-0.5 rounded-md bg-[#31303b] text-gray-400 border border-gray-700/50 min-w-[50px] text-center">
+        {shortcut}
+      </div>
+    </div>
+  );
+
+  const HeaderButton: React.FC<{ icon: React.ReactNode; label: string }> = ({
+    icon,
+    label,
+  }) => (
+    <button className="flex items-center gap-2 px-3 py-2 bg-[#1a1a20] hover:bg-[#31303b] rounded-lg text-sm text-gray-300 border border-gray-700/50 transition-colors">
+      {icon}
+      {label}
+    </button>
+  );
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 z-100 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-5xl bg-[#232329] rounded-xl border border-gray-700 shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center p-5 border-b border-gray-700/50">
+          <h2 className="text-xl font-semibold text-white flex items-center gap-3">
+            <HelpCircle size={24} className="text-[#a8a5ff]" />
+            Help
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:bg-[#31303b] rounded-full transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="p-5 flex gap-3 border-b border-gray-700/50 flex-wrap">
+          <HeaderButton icon={<BookOpen size={18} />} label="Documentation" />
+          <HeaderButton icon={<ExternalLink size={18} />} label="Blog" />
+          <HeaderButton icon={<Github size={18} />} label="GitHub" />
+          <HeaderButton icon={<Youtube size={18} />} label="YouTube" />
+        </div>
+
+        <div className="p-5 overflow-y-auto flex-1">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Keyboard size={20} className="text-gray-400" />
+            Keyboard shortcuts
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-0 text-sm">
+            <div>
+              <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 mt-4">
+                Tools
+              </h4>
+              <ShortcutItem toolName="Hand (panning tool)" shortcut="H" />
+              <ShortcutItem toolName="Selection" shortcut="V or 1" />
+              <ShortcutItem toolName="Rectangle" shortcut="R or 2" />
+              <ShortcutItem toolName="Diamond" shortcut="D or 3" />
+              <ShortcutItem toolName="Ellipse" shortcut="O or 4" />
+              <ShortcutItem toolName="Arrow" shortcut="A or 5" />
+              <ShortcutItem toolName="Line" shortcut="L or 6" />
+              <ShortcutItem toolName="Draw" shortcut="P or 7" />
+              <ShortcutItem toolName="Text" shortcut="T or 8" />
+              <ShortcutItem toolName="Insert image" shortcut="9" />
+              <ShortcutItem toolName="Eraser" shortcut="E or 0" />
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 mt-4">
+                Editor
+              </h4>
+              <ShortcutItem toolName="Move canvas" shortcut="Space + Drag" />
+              <ShortcutItem toolName="Delete" shortcut="Delete" />
+              <ShortcutItem toolName="Cut" shortcut="Ctrl+X" />
+              <ShortcutItem toolName="Copy" shortcut="Ctrl+C" />
+              <ShortcutItem toolName="Paste" shortcut="Ctrl+V" />
+              <ShortcutItem toolName="Select all" shortcut="Ctrl+A" />
+              <ShortcutItem toolName="Undo" shortcut="Ctrl+Z" />
+              <ShortcutItem toolName="Redo" shortcut="Ctrl+Shift+Z" />
+              <ShortcutItem toolName="Zoom in" shortcut="Ctrl + +" />
+              <ShortcutItem toolName="Zoom out" shortcut="Ctrl + -" />
+              <ShortcutItem toolName="Reset zoom" shortcut="Ctrl+0" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Main Application Component ---
+export default function App() {
+  // UI State
+  const [activeTool, setActiveTool] = useState("select");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark" | "system">("dark");
+
+  // Canvas State
+  const [elements, setElements] = useState<CanvasElement[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [zoom, setZoom] = useState(100);
+  const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
+  const [canvasBg, setCanvasBg] = useState("#121212");
+
+  // Drawing State
   const [isDrawing, setIsDrawing] = useState(false);
+  const [startPoint, setStartPoint] = useState<Point | null>(null);
   const [currentElement, setCurrentElement] = useState<CanvasElement | null>(
     null
   );
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-  const [startPan, setStartPan] = useState({ x: 0, y: 0 });
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(
-    null
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState<Point | null>(null);
+
+  // Move/Rotate State
+  const [isMoving, setIsMoving] = useState(false);
+  const [moveStart, setMoveStart] = useState<Point | null>(null);
+  const [moveOffset, setMoveOffset] = useState<Point>({ x: 0, y: 0 }); // Temporary offset during drag
+  const [isRotating, setIsRotating] = useState(false);
+  const [rotateStart, setRotateStart] = useState<{
+    angle: number;
+    elementId: string;
+  } | null>(null);
+  const [rotateOffset, setRotateOffset] = useState(0); // Temporary rotation during drag
+
+  // Resize State
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
+  const [resizeStart, setResizeStart] = useState<{
+    point: Point;
+    element: CanvasElement;
+  } | null>(null);
+
+  // Default drawing properties
+  const [strokeColor, setStrokeColor] = useState("#ffffff");
+  const [backgroundColor, setBackgroundColor] = useState("transparent");
+  const [strokeWidth, setStrokeWidth] = useState(2);
+  const [strokeStyle, setStrokeStyle] = useState<"solid" | "dashed" | "dotted">(
+    "solid"
   );
-  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(
-    null
-  );
-  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+  const [sloppiness, setSloppiness] = useState(1);
+  const [edges, setEdges] = useState<"sharp" | "round">("round");
+  const [opacity, setOpacity] = useState(100);
 
-  // Advanced State
-  const [zoom, setZoom] = useState(1);
-  const [history, setHistory] = useState<CanvasElement[][]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [showHelp, setShowHelp] = useState(false);
-  const [editingTextId, setEditingTextId] = useState<string | null>(null);
-  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  // Refs
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const historyRef = useRef(new CanvasHistory());
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Eraser State
-  const eraserTrailRef = useRef<EraserTrail | null>(null);
-  const [elementsToErase, setElementsToErase] = useState<Set<string>>(
-    new Set()
-  );
-
-  // Initialize Window Size
+  // Load from local storage on mount
   useEffect(() => {
-    setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-    const handleResize = () =>
-      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+    const { elements: savedElements, appState } = loadFromLocalStorage();
 
-  // Initialize Eraser Trail
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    eraserTrailRef.current = new EraserTrail(ctx, {
-      size: 5,
-      color: "rgba(255, 100, 100, 0.3)",
-      fadeTime: 200,
-      streamline: 0.2,
-      keepHead: true,
-    });
-  }, []);
-
-  // History Management
-  const addToHistory = useCallback(
-    (newElements: CanvasElement[]) => {
-      const newHistory = history.slice(0, historyIndex + 1);
-      newHistory.push(newElements);
-      setHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
-    },
-    [history, historyIndex]
-  );
-
-  const undo = () => {
-    if (historyIndex > 0) {
-      const prevElements = history[historyIndex - 1];
-      if (prevElements) {
-        setHistoryIndex(historyIndex - 1);
-        setElements(prevElements);
-      }
-    }
-  };
-
-  const redo = () => {
-    if (historyIndex < history.length - 1) {
-      const nextElements = history[historyIndex + 1];
-      if (nextElements) {
-        setHistoryIndex(historyIndex + 1);
-        setElements(nextElements);
-      }
-    }
-  };
-
-  // Initial History Push
-  useEffect(() => {
-    if (history.length === 0 && elements.length > 0) {
-      setHistory([elements]);
-      setHistoryIndex(0);
-    }
-  }, []); // Run once
-
-  // Coordinate Conversion
-  const getMousePos = (e: React.MouseEvent | MouseEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: (e.clientX - rect.left - panOffset.x) / zoom,
-      y: (e.clientY - rect.top - panOffset.y) / zoom,
-    };
-  };
-
-  // Render Loop
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const render = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.save();
-
-      // Apply Pan and Zoom
-      ctx.translate(panOffset.x, panOffset.y);
-      ctx.scale(zoom, zoom);
-
-      // Render existing elements
-      elements.forEach((el) => {
-        if (el.id === editingTextId) return; // Don't render text being edited
-
-        ctx.save();
-        ctx.globalAlpha = el.opacity;
-        ctx.strokeStyle = el.stroke || "#fff";
-        ctx.lineWidth = el.strokeWidth || 2;
-        ctx.fillStyle = el.fill || "transparent";
-
-        if (el.type === "rectangle") {
-          ctx.beginPath();
-          // @ts-ignore
-          ctx.rect(el.x, el.y, el.width || 0, el.height || 0);
-          ctx.fill();
-          ctx.stroke();
-        } else if (el.type === "circle") {
-          ctx.beginPath();
-          // @ts-ignore
-          const r = el.radius || (el.width ? el.width / 2 : 10);
-          ctx.arc(el.x, el.y, Math.abs(r), 0, 2 * Math.PI);
-          ctx.fill();
-          ctx.stroke();
-        } else if (el.type === "path") {
-          // @ts-ignore
-          if (el.points && el.points.length > 0) {
-            ctx.beginPath();
-            // @ts-ignore
-            ctx.moveTo(el.points[0][0], el.points[0][1]);
-            // @ts-ignore
-            el.points.forEach((p) => ctx.lineTo(p[0], p[1]));
-            ctx.stroke();
-          }
-        } else if (el.type === "text") {
-          // @ts-ignore
-          ctx.font = `${el.fontSize}px ${el.fontFamily}`;
-          ctx.fillStyle = el.stroke || "#fff";
-          ctx.textBaseline = "top";
-          // @ts-ignore
-          const lines = el.text.split("\n");
-          lines.forEach((line: string, i: number) => {
-            // @ts-ignore
-            ctx.fillText(line, el.x, el.y + i * el.fontSize * 1.2);
-          });
-        } else if (el.type === "image") {
-          const img = new Image();
-          // @ts-ignore
-          img.src = el.src;
-          // @ts-ignore
-          ctx.drawImage(img, el.x, el.y, el.width || 100, el.height || 100);
-        }
-
-        // Selection Highlight
-        if (el.id === selectedElementId && !readOnly) {
-          ctx.strokeStyle = "#818cf8"; // Indigo-400
-          ctx.lineWidth = 1 / zoom; // Keep line width constant visually
-          const padding = 8 / zoom;
-          const w = el.width || 0;
-          const h = el.height || 0;
-
-          // @ts-ignore
-          if (el.type === "circle") {
-            // @ts-ignore
-            const r = el.radius || w / 2;
-            ctx.strokeRect(
-              el.x - r - padding,
-              el.y - r - padding,
-              r * 2 + padding * 2,
-              r * 2 + padding * 2
-            );
-          } else if (el.type === "text") {
-            // Approximate text bounds
-            // @ts-ignore
-            const lines = el.text.split("\n");
-            // @ts-ignore
-            const height = lines.length * el.fontSize * 1.2;
-            // @ts-ignore
-            ctx.font = `${el.fontSize}px ${el.fontFamily}`;
-            // @ts-ignore
-            const width = Math.max(
-              ...lines.map((l) => ctx.measureText(l).width)
-            );
-            ctx.strokeRect(
-              el.x - padding,
-              el.y - padding,
-              width + padding * 2,
-              height + padding * 2
-            );
-          } else if (el.type === "path") {
-            // @ts-ignore
-            const points = el.points || [];
-            if (points.length > 0) {
-              let minX = Infinity,
-                minY = Infinity,
-                maxX = -Infinity,
-                maxY = -Infinity;
-              // @ts-ignore
-              points.forEach((p) => {
-                minX = Math.min(minX, p[0] ?? Infinity);
-                minY = Math.min(minY, p[1] ?? Infinity);
-                maxX = Math.max(maxX, p[0] ?? -Infinity);
-                maxY = Math.max(maxY, p[1] ?? -Infinity);
-              });
-              ctx.strokeRect(
-                minX - padding,
-                minY - padding,
-                maxX - minX + padding * 2,
-                maxY - minY + padding * 2
-              );
-            }
-          } else {
-            ctx.strokeRect(
-              el.x - padding,
-              el.y - padding,
-              w + padding * 2,
-              h + padding * 2
-            );
-          }
-        }
-        ctx.restore();
+    if (savedElements) {
+      setElements(savedElements);
+      // Initialize history with loaded elements
+      historyRef.current = new CanvasHistory(); // Reset history
+      historyRef.current.pushState({
+        elements: savedElements,
+        selectedIds: [],
       });
+    }
 
-      // Render current element being drawn
-      if (currentElement) {
-        ctx.save();
-        ctx.strokeStyle = currentElement.stroke || "#fff";
-        ctx.lineWidth = currentElement.strokeWidth || 2;
-        ctx.fillStyle = currentElement.fill || "transparent";
-
-        if (currentElement.type === "rectangle") {
-          ctx.beginPath();
-          // @ts-ignore
-          ctx.rect(
-            currentElement.x,
-            currentElement.y,
-            currentElement.width || 0,
-            currentElement.height || 0
-          );
-          ctx.fill();
-          ctx.stroke();
-        } else if (currentElement.type === "circle") {
-          ctx.beginPath();
-          // @ts-ignore
-          const r = currentElement.radius || 0;
-          ctx.arc(
-            currentElement.x,
-            currentElement.y,
-            Math.abs(r),
-            0,
-            2 * Math.PI
-          );
-          ctx.fill();
-          ctx.stroke();
-        } else if (currentElement.type === "path") {
-          // @ts-ignore
-          if (currentElement.points && currentElement.points.length > 0) {
-            ctx.beginPath();
-            // @ts-ignore
-            ctx.moveTo(
-              currentElement.points[0][0],
-              currentElement.points[0][1]
-            );
-            // @ts-ignore
-            currentElement.points.forEach((p) => ctx.lineTo(p[0], p[1]));
-            ctx.stroke();
-          }
-        }
-        ctx.restore();
+    if (appState) {
+      if (appState.theme) setTheme(appState.theme as any);
+      if (appState.viewBackgroundColor)
+        setCanvasBg(appState.viewBackgroundColor);
+      if (appState.scrollX !== undefined && appState.scrollY !== undefined) {
+        setPan({ x: appState.scrollX, y: appState.scrollY });
       }
+      if (appState.zoom) setZoom(appState.zoom.value);
 
-      // Render eraser trail
-      if (eraserTrailRef.current && eraserTrailRef.current.isActive()) {
-        ctx.restore(); // Restore to remove zoom/pan for trail rendering
-        eraserTrailRef.current.render(panOffset, zoom);
-        ctx.save();
-        ctx.translate(panOffset.x, panOffset.y);
-        ctx.scale(zoom, zoom);
-      }
+      // Restore tool properties
+      if (appState.currentItemStrokeColor)
+        setStrokeColor(appState.currentItemStrokeColor);
+      if (appState.currentItemBackgroundColor)
+        setBackgroundColor(appState.currentItemBackgroundColor);
+      if (appState.currentItemStrokeWidth)
+        setStrokeWidth(appState.currentItemStrokeWidth);
+      if (appState.currentItemStrokeStyle)
+        setStrokeStyle(appState.currentItemStrokeStyle as any);
+      if (appState.currentItemOpacity) setOpacity(appState.currentItemOpacity);
+      if (appState.currentItemRoughness)
+        setSloppiness(appState.currentItemRoughness);
+      if (appState.currentItemRoundness)
+        setEdges(appState.currentItemRoundness === "round" ? "round" : "sharp");
+    }
+  }, []);
 
-      // Highlight elements to be erased
-      if (elementsToErase.size > 0) {
-        elements.forEach((el) => {
-          if (elementsToErase.has(el.id)) {
-            ctx.save();
-            ctx.strokeStyle = "rgba(255, 100, 100, 0.6)";
-            ctx.lineWidth = 2 / zoom;
-            ctx.setLineDash([5 / zoom, 5 / zoom]);
-
-            const padding = 4 / zoom;
-            const w = el.width || 0;
-            const h = el.height || 0;
-
-            if (el.type === "circle") {
-              // @ts-ignore
-              const r = el.radius || w / 2;
-              ctx.strokeRect(
-                el.x - r - padding,
-                el.y - r - padding,
-                r * 2 + padding * 2,
-                r * 2 + padding * 2
-              );
-            } else if (el.type === "path") {
-              // @ts-ignore
-              const points = el.points || [];
-              if (points.length > 0) {
-                let minX = Infinity,
-                  minY = Infinity,
-                  maxX = -Infinity,
-                  maxY = -Infinity;
-                // @ts-ignore
-                points.forEach((p) => {
-                  minX = Math.min(minX, p[0] ?? Infinity);
-                  minY = Math.min(minY, p[1] ?? Infinity);
-                  maxX = Math.max(maxX, p[0] ?? -Infinity);
-                  maxY = Math.max(maxY, p[1] ?? -Infinity);
-                });
-                ctx.strokeRect(
-                  minX - padding,
-                  minY - padding,
-                  maxX - minX + padding * 2,
-                  maxY - minY + padding * 2
-                );
-              }
-            } else {
-              ctx.strokeRect(
-                el.x - padding,
-                el.y - padding,
-                w + padding * 2,
-                h + padding * 2
-              );
-            }
-            ctx.restore();
-          }
-        });
-      }
-
-      ctx.restore();
+  // Save to local storage on change
+  useEffect(() => {
+    const appState: Partial<AppState> = {
+      theme,
+      viewBackgroundColor: canvasBg,
+      scrollX: pan.x,
+      scrollY: pan.y,
+      zoom: { value: zoom },
+      currentItemStrokeColor: strokeColor,
+      currentItemBackgroundColor: backgroundColor,
+      currentItemStrokeWidth: strokeWidth,
+      currentItemStrokeStyle: strokeStyle,
+      currentItemOpacity: opacity,
+      currentItemRoughness: sloppiness,
+      currentItemRoundness: edges,
+      activeTool: {
+        type: activeTool,
+        customType: null,
+        locked: false,
+        lastActiveTool: null,
+      },
     };
 
-    render();
+    // Debounce saving to avoid performance issues
+    const timeoutId = setTimeout(() => {
+      saveToLocalStorage(elements, appState);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
   }, [
     elements,
-    currentElement,
-    panOffset,
-    selectedElementId,
+    theme,
+    canvasBg,
+    pan,
     zoom,
-    editingTextId,
-    readOnly,
-    elementsToErase,
+    strokeColor,
+    backgroundColor,
+    strokeWidth,
+    strokeStyle,
+    opacity,
+    sloppiness,
+    edges,
+    activeTool,
   ]);
 
-  // Helper for path hit testing
-  const isPointNearPath = (
-    point: { x: number; y: number },
-    pathPoints: number[][],
-    threshold: number = 10
-  ): boolean => {
-    if (!pathPoints || pathPoints.length < 2) return false;
+  // Color palettes
+  const strokeColors = [
+    "#ffc9c9",
+    "#b2f2bb",
+    "#a5d8ff",
+    "#ffec99",
+    "#ffffff",
+    "#ffa8a8",
+    "#69db7c",
+    "#4dabf7",
+    "#ffd43b",
+  ];
+  const bgColors = [
+    "transparent",
+    "#ffc9c9",
+    "#b2f2bb",
+    "#a5d8ff",
+    "#ffec99",
+    "#ffa8a8",
+    "#69db7c",
+    "#4dabf7",
+  ];
+  const canvasBgColors = [
+    "#121212",
+    "#ffffff",
+    "#f8f9fa",
+    "#2d3a2e",
+    "#3a2e2d",
+    "#2e2e3a",
+  ];
 
-    // 1. Fast Bounding Box Check
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const p of pathPoints) {
-      minX = Math.min(minX, p[0] ?? Infinity);
-      minY = Math.min(minY, p[1] ?? Infinity);
-      maxX = Math.max(maxX, p[0] ?? -Infinity);
-      maxY = Math.max(maxY, p[1] ?? -Infinity);
+  // Get selected element
+  const selectedElement =
+    selectedIds.length === 1
+      ? elements.find((el) => el.id === selectedIds[0])
+      : null;
+
+  // Save state to history
+  const saveHistory = useCallback(() => {
+    historyRef.current.pushState({ elements, selectedIds });
+  }, [elements, selectedIds]);
+
+  // Render canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Set canvas size
+    const container = containerRef.current;
+    if (container) {
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
     }
 
-    if (
-      point.x < minX - threshold ||
-      point.x > maxX + threshold ||
-      point.y < minY - threshold ||
-      point.y > maxY + threshold
-    ) {
-      return false;
-    }
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 2. Precise Segment Check
-    const distToSegment = (
-      p: { x: number; y: number },
-      v: { x: number; y: number },
-      w: { x: number; y: number }
-    ) => {
-      const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
-      if (l2 === 0) return distance(p, v);
-      let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-      t = Math.max(0, Math.min(1, t));
-      return distance(p, {
-        x: v.x + t * (w.x - v.x),
-        y: v.y + t * (w.y - v.y),
-      });
-    };
+    // Apply zoom and pan
+    ctx.save();
+    ctx.translate(pan.x, pan.y);
+    ctx.scale(zoom / 100, zoom / 100);
 
-    for (let i = 0; i < pathPoints.length - 1; i++) {
-      const p1 = { x: pathPoints[i]?.[0] ?? 0, y: pathPoints[i]?.[1] ?? 0 };
-      const p2 = {
-        x: pathPoints[i + 1]?.[0] ?? 0,
-        y: pathPoints[i + 1]?.[1] ?? 0,
-      };
-      if (distToSegment(point, p1, p2) <= threshold) return true;
-    }
-    return false;
-  };
+    // Draw all elements
+    elements.forEach((element) => {
+      const isSelected = selectedIds.includes(element.id);
 
-  // Event Handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (readOnly && activeTool !== "hand") return;
-
-    const pos = getMousePos(e);
-
-    // 1. Pan Tool
-    if (activeTool === "hand") {
-      setIsDrawing(true);
-      setStartPan({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
-      return;
-    }
-
-    // Hit Test Logic (Shared for Eraser and Select)
-    const hitTestElement = (el: CanvasElement) => {
-      // @ts-ignore
-      if (el.type === "path") {
-        // @ts-ignore
-        return isPointNearPath(pos, el.points);
-      }
-      // @ts-ignore
-      if (el.type === "circle") {
-        const w = el.width || 20;
-        // @ts-ignore
-        const r = el.radius || w / 2;
-        return distance(pos, { x: el.x, y: el.y }) <= r;
-      }
-      // Text hit test approximation
-      if (el.type === "text") {
-        // @ts-ignore
-        const lines = el.text.split("\n");
-        // @ts-ignore
-        const h = lines.length * el.fontSize * 1.2;
-        // @ts-ignore
-        const ctx = canvasRef.current?.getContext("2d");
-        // @ts-ignore
-        ctx.font = `${el.fontSize}px ${el.fontFamily}`;
-        // @ts-ignore
-        const w = Math.max(...lines.map((l) => ctx?.measureText(l).width || 0));
-        return isPointInRect(pos, { x: el.x, y: el.y, width: w, height: h });
+      // Apply temporary offsets for smooth dragging
+      let renderElement = element;
+      if (isMoving && isSelected) {
+        renderElement = {
+          ...element,
+          x: element.x + moveOffset.x,
+          y: element.y + moveOffset.y,
+          points: element.points?.map((p) => ({
+            x: p.x + moveOffset.x,
+            y: p.y + moveOffset.y,
+          })),
+        };
+      } else if (
+        isRotating &&
+        rotateStart &&
+        element.id === rotateStart.elementId
+      ) {
+        renderElement = {
+          ...element,
+          rotation: (element.rotation || 0) + rotateOffset,
+        };
       }
 
-      const w = el.width || 20;
-      const h = el.height || 20;
-      return isPointInRect(pos, { x: el.x, y: el.y, width: w, height: h });
-    };
+      drawShape(ctx, renderElement, isSelected);
+    });
 
-    // 2. Eraser Tool - Start eraser trail
-    if (activeTool === "eraser") {
-      setIsDrawing(true);
-      if (eraserTrailRef.current) {
-        eraserTrailRef.current.startPath(pos.x, pos.y);
-        setElementsToErase(new Set());
-      }
-      return;
+    // Draw current element being drawn
+    if (currentElement) {
+      drawShape(ctx, currentElement, false);
     }
 
-    // 3. Selection Tool
-    if (activeTool === "select") {
-      const clicked = elements.slice().reverse().find(hitTestElement);
+    ctx.restore();
+  }, [
+    elements,
+    selectedIds,
+    currentElement,
+    zoom,
+    pan,
+    isMoving,
+    moveOffset,
+    isRotating,
+    rotateOffset,
+    rotateStart,
+  ]);
 
-      if (clicked) {
-        setSelectedElementId(clicked.id);
-        setDragStart(pos);
-        setIsDrawing(true);
+  // Get canvas coordinates from mouse event
+  const getCanvasPoint = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>): Point => {
+      const canvas = canvasRef.current;
+      if (!canvas) return { x: 0, y: 0 };
 
-        // Double click to edit text?
-        if (clicked.type === "text" && e.detail === 2) {
-          setEditingTextId(clicked.id);
-          setIsDrawing(false);
-          setTimeout(() => textAreaRef.current?.focus(), 0);
+      const rect = canvas.getBoundingClientRect();
+      const x = ((e.clientX - rect.left - pan.x) * 100) / zoom;
+      const y = ((e.clientY - rect.top - pan.y) * 100) / zoom;
+
+      return { x, y };
+    },
+    [zoom, pan]
+  );
+
+  // Mouse down handler
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const point = getCanvasPoint(e);
+
+      // Check if panning (hand tool)
+      if (activeTool === "hand") {
+        setIsPanning(true);
+        setPanStart(point);
+        return;
+      }
+
+      // Check if clicking on an element (selection mode)
+      if (activeTool === "select") {
+        const clickedElement = [...elements]
+          .reverse()
+          .find((el) => isPointInElement(point, el));
+
+        if (clickedElement) {
+          if (e.shiftKey) {
+            // Add to selection
+            setSelectedIds((prev) => [...prev, clickedElement.id]);
+          } else if (!selectedIds.includes(clickedElement.id)) {
+            // Select single element
+            setSelectedIds([clickedElement.id]);
+          }
+        } else {
+          // Deselect all
+          setSelectedIds([]);
         }
-      } else {
-        setSelectedElementId(null);
-        setEditingTextId(null);
+        return;
       }
-      return;
-    }
 
-    // 4. Drawing Tools
-    setIsDrawing(true);
-    const id = uuidv4();
+      // Start drawing
+      setIsDrawing(true);
+      setStartPoint(point);
 
-    if (activeTool === "rectangle") {
-      setCurrentElement({
-        id,
-        type: "rectangle",
-        x: pos.x,
-        y: pos.y,
+      // Create initial element based on tool
+      const newElement: CanvasElement = {
+        id: generateId(),
+        type: activeTool as any,
+        x: point.x,
+        y: point.y,
         width: 0,
         height: 0,
-        stroke: "#fff",
-        opacity: 1,
-        rotation: 0,
-        cornerRadius: 0,
-      });
-    } else if (activeTool === "circle") {
-      setCurrentElement({
-        id,
-        type: "circle",
-        x: pos.x,
-        y: pos.y,
-        radius: 0,
-        stroke: "#fff",
-        opacity: 1,
-        rotation: 0,
-      });
-    } else if (activeTool === "draw") {
-      setCurrentElement({
-        id,
-        type: "path",
-        x: pos.x,
-        y: pos.y,
-        // @ts-ignore
-        points: [[pos.x, pos.y]],
-        stroke: "#fff",
-        opacity: 1,
-        rotation: 0,
-      });
-    } else if (activeTool === "text") {
-      // Create text element immediately and start editing
-      const newEl: CanvasElement = {
-        id,
-        type: "text",
-        x: pos.x,
-        y: pos.y,
-        // @ts-ignore
-        text: "",
-        fontSize: 24,
-        fontFamily: "Inter",
-        textAlign: "left",
-        stroke: "#fff",
-        opacity: 1,
-        rotation: 0,
+        strokeColor,
+        backgroundColor,
+        strokeWidth,
+        strokeStyle,
+        opacity,
+        roughness: sloppiness,
+        roundness: edges === "round" ? 1 : 0,
+        points: ["arrow", "line", "freedraw"].includes(activeTool)
+          ? [point]
+          : undefined,
+        text: activeTool === "text" ? "Text" : undefined,
+        fontSize: 16,
+        fontFamily: "Arial",
       };
-      setElements((prev) => [...prev, newEl]);
-      setEditingTextId(id);
-      setSelectedElementId(id);
-      setIsDrawing(false);
-      setActiveTool("select");
-      setTimeout(() => textAreaRef.current?.focus(), 0);
-    }
-  };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDrawing) return;
+      setCurrentElement(newElement);
+    },
+    [
+      activeTool,
+      elements,
+      selectedIds,
+      strokeColor,
+      backgroundColor,
+      strokeWidth,
+      strokeStyle,
+      opacity,
+      sloppiness,
+      edges,
+      getCanvasPoint,
+    ]
+  );
 
-    if (activeTool === "hand") {
-      setPanOffset({
-        x: e.clientX - startPan.x,
-        y: e.clientY - startPan.y,
-      });
-      return;
-    }
+  // Handle resize start
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent, handle: string, elementId: string) => {
+      e.stopPropagation();
+      const element = elements.find((el) => el.id === elementId);
+      if (!element) return;
 
-    const pos = getMousePos(e);
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-    // Eraser Tool - Add point and detect intersections
-    if (activeTool === "eraser" && eraserTrailRef.current) {
-      eraserTrailRef.current.addPoint(pos.x, pos.y);
+      const rect = canvas.getBoundingClientRect();
+      const point = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
 
-      const lastSegment = eraserTrailRef.current.getLastSegment();
-      if (lastSegment) {
-        const segment: LineSegment = {
-          start: lastSegment.start,
-          end: lastSegment.end,
-        };
+      setIsResizing(true);
+      setResizeHandle(handle);
+      setResizeStart({ point, element: { ...element } });
+    },
+    [elements]
+  );
 
-        // Check which elements intersect with this segment
-        const newElementsToErase = new Set(elementsToErase);
-        elements.forEach((element) => {
-          if (!newElementsToErase.has(element.id)) {
-            // Convert CanvasElement to DriplElement format for intersection test
-            const driplElement = {
-              ...element,
-              strokeColor: element.stroke || "#fff",
-              backgroundColor: element.fill || "transparent",
-              strokeWidth: element.strokeWidth || 2,
-              opacity: element.opacity || 1,
-            } as any;
+  // Handle resize
+  const handleResize = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isResizing || !resizeStart || !resizeHandle) return;
 
-            if (elementIntersectsSegment(driplElement, segment, 10)) {
-              newElementsToErase.add(element.id);
-              eraserTrailRef.current?.markElementForErase(element.id);
-            }
-          }
-        });
-        setElementsToErase(newElementsToErase);
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const currentPoint = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+
+      // Calculate delta in canvas coordinates
+      const dx = ((currentPoint.x - resizeStart.point.x) * 100) / zoom;
+      const dy = ((currentPoint.y - resizeStart.point.y) * 100) / zoom;
+
+      const original = resizeStart.element;
+      let newX = original.x;
+      let newY = original.y;
+      let newWidth = original.width;
+      let newHeight = original.height;
+
+      // Apply resize based on handle
+      if (resizeHandle.includes("left")) {
+        newX = original.x + dx;
+        newWidth = original.width - dx;
       }
-      return;
-    }
+      if (resizeHandle.includes("right")) {
+        newWidth = original.width + dx;
+      }
+      if (resizeHandle.includes("top")) {
+        newY = original.y + dy;
+        newHeight = original.height - dy;
+      }
+      if (resizeHandle.includes("bottom")) {
+        newHeight = original.height + dy;
+      }
 
-    if (activeTool === "select" && selectedElementId && dragStart) {
-      const dx = pos.x - dragStart.x;
-      const dy = pos.y - dragStart.y;
+      // Handle negative dimensions (flipping)
+      if (newWidth < 0) {
+        newX += newWidth;
+        newWidth = Math.abs(newWidth);
+      }
+      if (newHeight < 0) {
+        newY += newHeight;
+        newHeight = Math.abs(newHeight);
+      }
 
       setElements((prev) =>
         prev.map((el) => {
-          if (el.id === selectedElementId) {
-            if (el.type === "path") {
-              // @ts-ignore
-              const newPoints = el.points.map((p) => [p[0] + dx, p[1] + dy]);
-              return { ...el, points: newPoints };
-            }
-            return { ...el, x: el.x + dx, y: el.y + dy };
+          if (el.id === original.id) {
+            return {
+              ...el,
+              x: newX,
+              y: newY,
+              width: newWidth,
+              height: newHeight,
+            };
           }
           return el;
         })
       );
-      setDragStart(pos);
+    },
+    [isResizing, resizeStart, resizeHandle, zoom]
+  );
+
+  // Handle resize end
+  const handleResizeEnd = useCallback(() => {
+    if (isResizing) {
+      setIsResizing(false);
+      setResizeHandle(null);
+      setResizeStart(null);
+      saveHistory();
+    }
+  }, [isResizing, saveHistory]);
+
+  // Mouse move handler
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      // Handle resizing
+      if (isResizing) {
+        handleResize(e);
+        return;
+      }
+
+      // Handle moving
+      if (isMoving && moveStart && selectedIds.length > 0) {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const rect = canvas.getBoundingClientRect();
+          const currentPoint = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          };
+
+          const dx = ((currentPoint.x - moveStart.x) * 100) / zoom;
+          const dy = ((currentPoint.y - moveStart.y) * 100) / zoom;
+
+          // Only update offset for smooth dragging
+          setMoveOffset({ x: dx, y: dy });
+        }
+        return;
+      }
+
+      // Handle rotating
+      if (isRotating && rotateStart) {
+        const element = elements.find((el) => el.id === rotateStart.elementId);
+        if (element) {
+          const bounds = getElementBounds(element);
+          const centerX = bounds.x + bounds.width / 2;
+          const centerY = bounds.y + bounds.height / 2;
+
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = ((e.clientX - rect.left - pan.x) * 100) / zoom;
+            const mouseY = ((e.clientY - rect.top - pan.y) * 100) / zoom;
+
+            const currentAngle = Math.atan2(mouseY - centerY, mouseX - centerX);
+            const deltaAngle = currentAngle - rotateStart.angle;
+
+            // Only update offset for smooth rotation
+            setRotateOffset(deltaAngle);
+          }
+        }
+        return;
+      }
+
+      const point = getCanvasPoint(e);
+
+      // Handle panning
+      if (isPanning && panStart) {
+        const dx = point.x - panStart.x;
+        const dy = point.y - panStart.y;
+        setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+        return;
+      }
+
+      // Handle drawing
+      if (isDrawing && startPoint && currentElement) {
+        const updatedElement = { ...currentElement };
+
+        if (["arrow", "line", "freedraw"].includes(activeTool)) {
+          // Add point to path
+          updatedElement.points = [...(updatedElement.points || []), point];
+        } else {
+          // Update dimensions
+          const width = point.x - startPoint.x;
+          const height = point.y - startPoint.y;
+
+          updatedElement.x = width < 0 ? point.x : startPoint.x;
+          updatedElement.y = height < 0 ? point.y : startPoint.y;
+          updatedElement.width = Math.abs(width);
+          updatedElement.height = Math.abs(height);
+        }
+
+        setCurrentElement(updatedElement);
+      }
+    },
+    [
+      isDrawing,
+      isPanning,
+      isResizing,
+      isMoving,
+      isRotating,
+      handleResize,
+      moveStart,
+      rotateStart,
+      selectedIds,
+      elements,
+      startPoint,
+      panStart,
+      currentElement,
+      activeTool,
+      zoom,
+      pan,
+      getCanvasPoint,
+    ]
+  );
+
+  // Mouse up handler
+  const handleMouseUp = useCallback(() => {
+    if (isPanning) {
+      setIsPanning(false);
+      setPanStart(null);
       return;
     }
 
-    if (currentElement) {
-      if (currentElement.type === "rectangle") {
-        setCurrentElement({
-          ...currentElement,
-          width: pos.x - currentElement.x,
-          height: pos.y - currentElement.y,
-        });
-      } else if (currentElement.type === "circle") {
-        const r = distance({ x: currentElement.x, y: currentElement.y }, pos);
-        setCurrentElement({
-          ...currentElement,
-          // @ts-ignore
-          radius: r,
-        });
-      } else if (currentElement.type === "path") {
-        setCurrentElement({
-          ...currentElement,
-          // @ts-ignore
-          points: [...currentElement.points, [pos.x, pos.y]],
-        });
-      }
+    if (isResizing) {
+      handleResizeEnd();
+      return;
     }
-  };
 
-  const handleMouseUp = () => {
-    if (isDrawing) {
-      // Eraser Tool - Finalize erasing
-      if (activeTool === "eraser" && elementsToErase.size > 0) {
-        const newElements = elements.filter(
-          (el) => !elementsToErase.has(el.id)
-        );
-        setElements(newElements);
-        addToHistory(newElements);
-        setElementsToErase(new Set());
-        if (eraserTrailRef.current) {
-          eraserTrailRef.current.endPath();
-        }
-      } else if (currentElement) {
-        const newElements = [...elements, currentElement];
-        setElements(newElements);
-        addToHistory(newElements);
-      } else if (selectedElementId && dragStart) {
-        // Finished dragging, save history
-        addToHistory(elements);
-      }
+    if (isMoving) {
+      // Apply the accumulated offset to the actual elements
+      setElements((prev) =>
+        prev.map((el) => {
+          if (selectedIds.includes(el.id)) {
+            return {
+              ...el,
+              x: el.x + moveOffset.x,
+              y: el.y + moveOffset.y,
+              points: el.points?.map((p) => ({
+                x: p.x + moveOffset.x,
+                y: p.y + moveOffset.y,
+              })),
+            };
+          }
+          return el;
+        })
+      );
+
+      setIsMoving(false);
+      setMoveStart(null);
+      setMoveOffset({ x: 0, y: 0 });
+      saveHistory();
+      return;
     }
-    setIsDrawing(false);
-    setCurrentElement(null);
-    setDragStart(null);
-  };
 
-  // Keyboard Shortcuts
+    if (isRotating) {
+      // Apply the accumulated rotation to the actual element
+      setElements((prev) =>
+        prev.map((el) => {
+          if (rotateStart && el.id === rotateStart.elementId) {
+            return {
+              ...el,
+              rotation: (el.rotation || 0) + rotateOffset,
+            };
+          }
+          return el;
+        })
+      );
+
+      setIsRotating(false);
+      setRotateStart(null);
+      setRotateOffset(0);
+      saveHistory();
+      return;
+    }
+
+    if (isDrawing && currentElement) {
+      // Only add element if it has meaningful size
+      const hasSize =
+        currentElement.width > 5 ||
+        currentElement.height > 5 ||
+        (currentElement.points && currentElement.points.length > 1);
+
+      if (hasSize) {
+        setElements((prev) => [...prev, currentElement]);
+        saveHistory();
+      }
+
+      setIsDrawing(false);
+      setStartPoint(null);
+      setCurrentElement(null);
+    }
+  }, [isDrawing, isPanning, isMoving, isRotating, currentElement, saveHistory]);
+
+  // Handle element move start
+  const handleMoveStart = useCallback(
+    (e: React.MouseEvent, elementId: string) => {
+      e.stopPropagation();
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const point = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+
+      setIsMoving(true);
+      setMoveStart(point);
+    },
+    []
+  );
+
+  // Handle element move
+  const handleMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isMoving || !moveStart || selectedIds.length === 0) return;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const currentPoint = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+
+      const dx = ((currentPoint.x - moveStart.x) * 100) / zoom;
+      const dy = ((currentPoint.y - moveStart.y) * 100) / zoom;
+
+      setElements((prev) =>
+        prev.map((el) => {
+          if (selectedIds.includes(el.id)) {
+            return {
+              ...el,
+              x: el.x + dx,
+              y: el.y + dy,
+              points: el.points?.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+            };
+          }
+          return el;
+        })
+      );
+
+      setMoveStart(currentPoint);
+    },
+    [isMoving, moveStart, selectedIds, zoom]
+  );
+
+  // Handle element move end
+  const handleMoveEnd = useCallback(() => {
+    if (isMoving) {
+      setIsMoving(false);
+      setMoveStart(null);
+      saveHistory();
+    }
+  }, [isMoving, saveHistory]);
+
+  // Handle rotation start
+  const handleRotateStart = useCallback(
+    (e: React.MouseEvent, elementId: string) => {
+      e.stopPropagation();
+      const element = elements.find((el) => el.id === elementId);
+      if (!element) return;
+
+      const bounds = getElementBounds(element);
+      const centerX = bounds.x + bounds.width / 2;
+      const centerY = bounds.y + bounds.height / 2;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = ((e.clientX - rect.left - pan.x) * 100) / zoom;
+      const mouseY = ((e.clientY - rect.top - pan.y) * 100) / zoom;
+
+      const angle = Math.atan2(mouseY - centerY, mouseX - centerX);
+
+      setIsRotating(true);
+      setRotateStart({ angle, elementId });
+    },
+    [elements, zoom, pan]
+  );
+
+  // Handle rotation
+  const handleRotate = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isRotating || !rotateStart) return;
+
+      const element = elements.find((el) => el.id === rotateStart.elementId);
+      if (!element) return;
+
+      const bounds = getElementBounds(element);
+      const centerX = bounds.x + bounds.width / 2;
+      const centerY = bounds.y + bounds.height / 2;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = ((e.clientX - rect.left - pan.x) * 100) / zoom;
+      const mouseY = ((e.clientY - rect.top - pan.y) * 100) / zoom;
+
+      const currentAngle = Math.atan2(mouseY - centerY, mouseX - centerX);
+      const deltaAngle = currentAngle - rotateStart.angle;
+
+      setElements((prev) =>
+        prev.map((el) => {
+          if (el.id === rotateStart.elementId) {
+            return {
+              ...el,
+              rotation: (el.rotation || 0) + deltaAngle,
+            };
+          }
+          return el;
+        })
+      );
+
+      setRotateStart({ angle: currentAngle, elementId: rotateStart.elementId });
+    },
+    [isRotating, rotateStart, elements, zoom, pan]
+  );
+
+  // Handle rotation end
+  const handleRotateEnd = useCallback(() => {
+    if (isRotating) {
+      setIsRotating(false);
+      setRotateStart(null);
+      saveHistory();
+    }
+  }, [isRotating, saveHistory]);
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (editingTextId) return; // Disable shortcuts while editing text
+      // Tool shortcuts
+      if (e.key === "v" || e.key === "1") setActiveTool("select");
+      if (e.key === "h") setActiveTool("hand");
+      if (e.key === "r" || e.key === "2") setActiveTool("rectangle");
+      if (e.key === "d" || e.key === "3") setActiveTool("diamond");
+      if (e.key === "o" || e.key === "4") setActiveTool("circle");
+      if (e.key === "a" || e.key === "5") setActiveTool("arrow");
+      if (e.key === "l" || e.key === "6") setActiveTool("line");
+      if (e.key === "p" || e.key === "7") setActiveTool("draw");
+      if (e.key === "t" || e.key === "8") setActiveTool("text");
+      if (e.key === "e" || e.key === "0") setActiveTool("eraser");
 
+      // Delete
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedElementId && !readOnly) {
-          const newElements = elements.filter(
-            (el) => el.id !== selectedElementId
+        if (selectedIds.length > 0) {
+          setElements((prev) =>
+            prev.filter((el) => !selectedIds.includes(el.id))
           );
-          setElements(newElements);
-          addToHistory(newElements);
-          setSelectedElementId(null);
+          setSelectedIds([]);
+          saveHistory();
         }
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "z") {
-        e.preventDefault();
-        undo();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "y") {
-        e.preventDefault();
-        redo();
-      } else if (e.key === "1" || e.key.toLowerCase() === "v")
-        setActiveTool("select");
-      else if (e.key === "2" || e.key.toLowerCase() === "h")
-        setActiveTool("hand");
-      else if (e.key === "3" || e.key.toLowerCase() === "r")
-        setActiveTool("rectangle");
-      else if (e.key === "4" || e.key.toLowerCase() === "c")
-        setActiveTool("circle");
-      else if (e.key === "5" || e.key.toLowerCase() === "p")
-        setActiveTool("draw");
-      else if (e.key === "6" || e.key.toLowerCase() === "t")
-        setActiveTool("text");
-      else if (e.key === "0" || e.key.toLowerCase() === "e")
-        setActiveTool("eraser");
-      else if (e.key === "=" || e.key === "+")
-        setZoom((z) => Math.min(z + 0.1, 5));
-      else if (e.key === "-") setZoom((z) => Math.max(z - 0.1, 0.1));
+      }
+
+      // Undo/Redo
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === "z" && !e.shiftKey) {
+          e.preventDefault();
+          const state = historyRef.current.undo();
+          if (state) {
+            setElements(state.elements);
+            setSelectedIds(state.selectedIds);
+          }
+        }
+        if ((e.key === "z" && e.shiftKey) || e.key === "y") {
+          e.preventDefault();
+          const state = historyRef.current.redo();
+          if (state) {
+            setElements(state.elements);
+            setSelectedIds(state.selectedIds);
+          }
+        }
+
+        // Select all
+        if (e.key === "a") {
+          e.preventDefault();
+          setSelectedIds(elements.map((el) => el.id));
+        }
+
+        // Copy
+        if (e.key === "c" && selectedIds.length > 0) {
+          e.preventDefault();
+          const selectedElements = elements.filter((el) =>
+            selectedIds.includes(el.id)
+          );
+          localStorage.setItem("clipboard", JSON.stringify(selectedElements));
+        }
+
+        // Paste
+        if (e.key === "v") {
+          e.preventDefault();
+          const clipboard = localStorage.getItem("clipboard");
+          if (clipboard) {
+            const copiedElements = JSON.parse(clipboard) as CanvasElement[];
+            const newElements = copiedElements.map((el) => ({
+              ...el,
+              id: generateId(),
+              x: el.x + 20,
+              y: el.y + 20,
+            }));
+            setElements((prev) => [...prev, ...newElements]);
+            setSelectedIds(newElements.map((el) => el.id));
+            saveHistory();
+          }
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    selectedElementId,
-    elements,
-    history,
-    historyIndex,
-    editingTextId,
-    readOnly,
-  ]);
+  }, [selectedIds, elements, saveHistory]);
 
-  // Text Editing Overlay
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (!editingTextId) return;
-    setElements((prev) =>
-      prev.map((el) => {
-        if (el.id === editingTextId) {
-          return { ...el, text: e.target.value };
-        }
-        return el;
-      })
-    );
+  // Update selected element properties
+  useEffect(() => {
+    if (selectedElement) {
+      setStrokeColor(selectedElement.strokeColor);
+      setBackgroundColor(selectedElement.backgroundColor);
+      setStrokeWidth(selectedElement.strokeWidth);
+      setStrokeStyle(selectedElement.strokeStyle);
+      setSloppiness(selectedElement.roughness);
+      const roundnessValue =
+        typeof selectedElement.roundness === "object"
+          ? selectedElement.roundness.type
+          : selectedElement.roundness;
+      setEdges(roundnessValue > 0 ? "round" : "sharp");
+      setOpacity(selectedElement.opacity);
+    }
+  }, [selectedElement]);
+
+  // Apply property changes to selected element
+  const updateSelectedElement = useCallback(
+    (updates: Partial<CanvasElement>) => {
+      if (selectedIds.length > 0) {
+        setElements((prev) =>
+          prev.map((el) =>
+            selectedIds.includes(el.id) ? { ...el, ...updates } : el
+          )
+        );
+        saveHistory();
+      }
+    },
+    [selectedIds, saveHistory]
+  );
+
+  // Handlers for property changes
+  const handleStrokeColorChange = (color: string) => {
+    setStrokeColor(color);
+    updateSelectedElement({ strokeColor: color });
   };
 
-  const handleTextBlur = () => {
-    setEditingTextId(null);
-    addToHistory(elements);
+  const handleBackgroundColorChange = (color: string) => {
+    setBackgroundColor(color);
+    updateSelectedElement({ backgroundColor: color });
   };
 
-  const selectedElement =
-    elements.find((el) => el.id === selectedElementId) || null;
+  const handleStrokeWidthChange = (width: number) => {
+    setStrokeWidth(width);
+    updateSelectedElement({ strokeWidth: width });
+  };
+
+  const handleStrokeStyleChange = (style: "solid" | "dashed" | "dotted") => {
+    setStrokeStyle(style);
+    updateSelectedElement({ strokeStyle: style });
+  };
+
+  const handleSloppinessChange = (value: number) => {
+    setSloppiness(value);
+    updateSelectedElement({ roughness: value });
+  };
+
+  const handleEdgesChange = (value: "sharp" | "round") => {
+    setEdges(value);
+    updateSelectedElement({ roundness: value === "round" ? 1 : 0 });
+  };
+
+  const handleOpacityChange = (value: number) => {
+    setOpacity(value);
+    updateSelectedElement({ opacity: value });
+  };
+
+  // File operations
+  const handleExportImage = () => {
+    if (canvasRef.current) {
+      exportToPNG(canvasRef.current);
+    }
+  };
+
+  const handleExportJSON = () => {
+    exportToJSON(elements);
+  };
+
+  const handleImportJSON = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const importedElements = await importFromJSON(file);
+        setElements(importedElements);
+        saveHistory();
+      } catch (error) {
+        console.error("Failed to import file:", error);
+      }
+    }
+  };
+
+  const handleResetCanvas = () => {
+    if (
+      confirm(
+        "Are you sure you want to reset the canvas? This will delete all elements."
+      )
+    ) {
+      setElements([]);
+      setSelectedIds([]);
+      historyRef.current.clear();
+    }
+  };
+
+  // Zoom handlers
+  const handleZoomIn = () => setZoom(Math.min(zoom + 10, 200));
+  const handleZoomOut = () => setZoom(Math.max(zoom - 10, 25));
+  const handleResetZoom = () => setZoom(100);
+
+  // Layer operations
+  const handleBringForward = () => {
+    if (selectedIds.length !== 1) return;
+    const index = elements.findIndex((el) => el.id === selectedIds[0]);
+    if (index < elements.length - 1) {
+      const newElements = [...elements];
+      const current = newElements[index];
+      const next = newElements[index + 1];
+      if (current && next) {
+        newElements[index] = next;
+        newElements[index + 1] = current;
+        setElements(newElements);
+        saveHistory();
+      }
+    }
+  };
+
+  const handleSendBackward = () => {
+    if (selectedIds.length !== 1) return;
+    const index = elements.findIndex((el) => el.id === selectedIds[0]);
+    if (index > 0) {
+      const newElements = [...elements];
+      const current = newElements[index];
+      const prev = newElements[index - 1];
+      if (current && prev) {
+        newElements[index] = prev;
+        newElements[index - 1] = current;
+        setElements(newElements);
+        saveHistory();
+      }
+    }
+  };
+
+  const handleDelete = () => {
+    if (selectedIds.length > 0) {
+      setElements((prev) => prev.filter((el) => !selectedIds.includes(el.id)));
+      setSelectedIds([]);
+      saveHistory();
+    }
+  };
+
+  const handleCopy = () => {
+    if (selectedIds.length > 0) {
+      const selectedElements = elements.filter((el) =>
+        selectedIds.includes(el.id)
+      );
+      localStorage.setItem("clipboard", JSON.stringify(selectedElements));
+    }
+  };
 
   return (
-    <>
-      <canvas
-        ref={canvasRef}
-        width={windowSize.width}
-        height={windowSize.height}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        className="cursor-crosshair touch-none absolute inset-0"
+    <div className="w-screen h-screen bg-[#121212] text-white overflow-hidden relative font-sans selection:bg-purple-500/30">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        onChange={handleImportJSON}
+        className="hidden"
       />
 
-      {/* Text Editing Overlay */}
-      {editingTextId &&
-        (() => {
-          const el = elements.find((e) => e.id === editingTextId);
-          if (!el) return null;
-          return (
-            <textarea
-              ref={textAreaRef}
-              value={(el as any).text}
-              onChange={handleTextChange}
-              onBlur={handleTextBlur}
-              style={{
-                position: "absolute",
-                left: el.x * zoom + panOffset.x,
-                top: el.y * zoom + panOffset.y,
-                fontSize: `${(el as any).fontSize * zoom}px`,
-                fontFamily: (el as any).fontFamily,
-                color: el.stroke,
-                background: "transparent",
-                border: "1px dashed #818cf8",
-                outline: "none",
-                resize: "none",
-                overflow: "hidden",
-                whiteSpace: "pre",
-                minWidth: "100px",
-                minHeight: "1.2em",
-              }}
-            />
-          );
-        })()}
+      {/* --- Top Bar (Menu & Title) --- */}
+      <div className="absolute top-4 left-4 z-50 flex gap-2">
+        <button
+          onClick={() => {
+            setIsMenuOpen(!isMenuOpen);
+            setIsLibraryOpen(false);
+          }}
+          className={`p-2 rounded-lg border border-gray-700 shadow-sm transition-colors ${isMenuOpen ? "bg-[#403c66] text-[#a8a5ff]" : "bg-[#232329] hover:bg-[#31303b] text-gray-300"}`}
+        >
+          <Menu size={20} />
+        </button>
 
-      {/* UI Overlays */}
-      {!readOnly && (
-        <>
-          <PropertiesPanel
-            element={selectedElement}
-            onChange={(updates) => {
-              const newElements = elements.map((el) =>
-                el.id === selectedElementId ? { ...el, ...updates } : el
-              ) as CanvasElement[];
-              setElements(newElements);
-              // Debounce history update for slider changes? For now, simple.
-            }}
-            onDelete={() => {
-              const newElements = elements.filter(
-                (el) => el.id !== selectedElementId
-              );
-              setElements(newElements);
-              addToHistory(newElements);
-              setSelectedElementId(null);
-            }}
-            onDuplicate={() => {
-              if (selectedElement) {
-                const newEl = {
-                  ...selectedElement,
-                  id: uuidv4(),
-                  x: selectedElement.x + 20,
-                  y: selectedElement.y + 20,
-                };
-                const newElements = [...elements, newEl];
-                setElements(newElements);
-                addToHistory(newElements);
-                setSelectedElementId(newEl.id);
-              }
-            }}
-            onBringToFront={() => {
-              if (selectedElement) {
-                const newElements = elements.filter(
-                  (el) => el.id !== selectedElementId
-                );
-                newElements.push(selectedElement);
-                setElements(newElements);
-                addToHistory(newElements);
-              }
-            }}
-            onSendToBack={() => {
-              if (selectedElement) {
-                const newElements = elements.filter(
-                  (el) => el.id !== selectedElementId
-                );
-                newElements.unshift(selectedElement);
-                setElements(newElements);
-                addToHistory(newElements);
-              }
-            }}
-          />
-        </>
+        <button
+          onClick={() => {
+            setIsLibraryOpen(!isLibraryOpen);
+            setIsMenuOpen(false);
+          }}
+          className={`p-2 rounded-lg border border-gray-700 shadow-sm transition-colors ${isLibraryOpen ? "bg-[#403c66] text-[#a8a5ff]" : "bg-[#232329] hover:bg-[#31303b] text-gray-300"}`}
+        >
+          <Library size={20} />
+        </button>
+      </div>
+
+      <div className="absolute top-4 right-4 z-50 flex gap-2">
+        <button className="px-3 py-1.5 bg-[#232329] text-xs font-medium hover:bg-[#31303b] rounded-lg border border-gray-700 text-gray-300 flex items-center gap-1.5">
+          <Globe size={14} />
+          Dripl+
+        </button>
+        <button className="px-4 py-1.5 bg-[#a8a5ff] text-gray-900 text-xs font-bold hover:bg-[#8f8fff] rounded-lg flex items-center gap-1.5 shadow-sm">
+          <Share2 size={14} />
+          Share
+        </button>
+        <button className="p-2 bg-[#232329] hover:bg-[#31303b] rounded-lg border border-gray-700 text-gray-400">
+          <MoreHorizontal size={18} />
+        </button>
+      </div>
+
+      {/* --- Main Toolbar (Top Center) --- */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-[#232329] p-1.5 rounded-xl border border-gray-700 shadow-2xl flex items-center gap-0.5 z-50">
+        <IconButton icon={<Lock size={17} />} />
+        <div className="w-px h-6 bg-gray-700 mx-1.5" />
+        <IconButton
+          icon={<Hand size={19} />}
+          isActive={activeTool === "hand"}
+          onClick={() => setActiveTool("hand")}
+        />
+        <IconButton
+          icon={<MousePointer2 size={19} />}
+          isActive={activeTool === "select"}
+          onClick={() => setActiveTool("select")}
+        />
+        <IconButton
+          icon={<Square size={19} />}
+          isActive={activeTool === "rectangle"}
+          onClick={() => setActiveTool("rectangle")}
+        />
+        <IconButton
+          icon={
+            <div className="rotate-45">
+              <Square size={19} />
+            </div>
+          }
+          isActive={activeTool === "diamond"}
+          onClick={() => setActiveTool("diamond")}
+        />
+        <IconButton
+          icon={<Circle size={19} />}
+          isActive={activeTool === "circle"}
+          onClick={() => setActiveTool("circle")}
+        />
+        <IconButton
+          icon={<ArrowRight size={19} />}
+          isActive={activeTool === "arrow"}
+          onClick={() => setActiveTool("arrow")}
+        />
+        <IconButton
+          icon={<Minus size={19} />}
+          isActive={activeTool === "line"}
+          onClick={() => setActiveTool("line")}
+        />
+        <IconButton
+          icon={<Edit3 size={19} />}
+          isActive={activeTool === "draw"}
+          onClick={() => setActiveTool("draw")}
+        />
+        <IconButton
+          icon={<Type size={19} />}
+          isActive={activeTool === "text"}
+          onClick={() => setActiveTool("text")}
+        />
+        <IconButton
+          icon={<Image size={19} />}
+          isActive={activeTool === "image"}
+          onClick={() => setActiveTool("image")}
+        />
+        <IconButton
+          icon={<Eraser size={19} />}
+          isActive={activeTool === "eraser"}
+          onClick={() => setActiveTool("eraser")}
+        />
+      </div>
+
+      {/* --- Left Menu Sidebar --- */}
+      {isMenuOpen && (
+        <div className="absolute top-20 left-4 w-[280px] bg-[#232329] rounded-xl border border-gray-700 shadow-2xl p-3 z-50 flex flex-col max-h-[calc(100vh-100px)]">
+          <div className="flex-1 overflow-y-auto pr-1 space-y-0.5 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+            <MenuItem
+              icon={<FolderOpen size={18} />}
+              label="Open"
+              shortcut="Ctrl+O"
+              onClick={() => fileInputRef.current?.click()}
+            />
+            <MenuItem
+              icon={<Save size={18} />}
+              label="Save to..."
+              onClick={handleExportJSON}
+            />
+            <MenuItem
+              icon={<Download size={18} />}
+              label="Export image..."
+              shortcut="Ctrl+Shift+E"
+              onClick={handleExportImage}
+            />
+            <MenuItem
+              icon={<Users size={18} />}
+              label="Live collaboration..."
+            />
+            <MenuItem
+              icon={<Search size={18} />}
+              label="Command palette"
+              shortcut="Ctrl+/"
+              highlight
+            />
+            <MenuItem
+              icon={<Search size={18} />}
+              label="Find on canvas"
+              shortcut="Ctrl+F"
+            />
+            <MenuItem
+              icon={<HelpCircle size={18} />}
+              label="Help"
+              shortcut="?"
+              onClick={() => setIsHelpOpen(true)}
+            />
+            <MenuItem
+              icon={<RotateCcw size={18} />}
+              label="Reset the canvas"
+              onClick={handleResetCanvas}
+            />
+
+            <MenuSeparator />
+
+            <MenuItem icon={<Globe size={18} />} label="Dripl+" />
+            <MenuItem icon={<Github size={18} />} label="GitHub" />
+            <MenuItem icon={<Twitter size={18} />} label="Follow us" />
+            <MenuItem icon={<MessageCircle size={18} />} label="Discord chat" />
+
+            <MenuSeparator />
+
+            <MenuItem icon={<LogIn size={18} />} label="Sign in" highlight />
+          </div>
+
+          <div className="pt-3 border-t border-gray-700/50 mt-3 space-y-3">
+            <div className="px-2">
+              <div className="text-xs text-gray-400 mb-2 font-medium">
+                Theme
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setTheme("light")}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
+                    theme === "light"
+                      ? "bg-[#403c66] text-[#a8a5ff]"
+                      : "bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]"
+                  }`}
+                >
+                  <Sun size={14} />
+                </button>
+                <button
+                  onClick={() => setTheme("dark")}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
+                    theme === "dark"
+                      ? "bg-[#403c66] text-[#a8a5ff]"
+                      : "bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]"
+                  }`}
+                >
+                  <Moon size={14} />
+                </button>
+                <button
+                  onClick={() => setTheme("system")}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
+                    theme === "system"
+                      ? "bg-[#403c66] text-[#a8a5ff]"
+                      : "bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]"
+                  }`}
+                >
+                  <Monitor size={14} />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-2">
+              <button className="w-full flex items-center justify-between px-3 py-2 bg-[#1a1a20] hover:bg-[#31303b] rounded-lg text-sm text-gray-300 transition-colors">
+                <span className="text-xs">English</span>
+                <ChevronDown size={14} />
+              </button>
+            </div>
+
+            <div className="px-2">
+              <div className="text-xs text-gray-400 mb-2 font-medium">
+                Canvas background
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {canvasBgColors.map((c) => (
+                  <ColorSwatch
+                    key={c}
+                    color={c}
+                    isSelected={canvasBg === c}
+                    onClick={() => setCanvasBg(c)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
-      <ZoomControls
-        zoom={zoom}
-        onZoomIn={() => setZoom((z) => Math.min(z + 0.1, 5))}
-        onZoomOut={() => setZoom((z) => Math.max(z - 0.1, 0.1))}
-        onUndo={undo}
-        onRedo={redo}
-        canUndo={historyIndex > 0}
-        canRedo={historyIndex < history.length - 1}
-        onHelp={() => setShowHelp(true)}
-      />
+      {/* --- Library Sidebar --- */}
+      {isLibraryOpen && (
+        <div className="absolute top-20 left-4 w-[320px] bg-[#232329] rounded-xl border border-gray-700 shadow-2xl p-4 z-50 max-h-[calc(100vh-100px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">Library</h3>
+            <button className="text-xs text-[#a8a5ff] hover:text-[#8f8fff]">
+              Browse libraries
+            </button>
+          </div>
 
-      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
-    </>
+          <div className="space-y-3">
+            <div className="p-3 bg-[#1a1a20] rounded-lg border border-gray-700/50">
+              <div className="text-sm text-gray-300 mb-2">Arrows</div>
+              <div className="grid grid-cols-3 gap-2">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div
+                    key={i}
+                    className="aspect-square bg-[#232329] rounded border border-gray-700/50 flex items-center justify-center hover:border-[#a8a5ff] transition-colors cursor-pointer"
+                  >
+                    <ArrowRight size={20} className="text-gray-500" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-3 bg-[#1a1a20] rounded-lg border border-gray-700/50">
+              <div className="text-sm text-gray-300 mb-2">Shapes</div>
+              <div className="grid grid-cols-3 gap-2">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div
+                    key={i}
+                    className="aspect-square bg-[#232329] rounded border border-gray-700/50 flex items-center justify-center hover:border-[#a8a5ff] transition-colors cursor-pointer"
+                  >
+                    <Square size={20} className="text-gray-500" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Left Properties Panel --- */}
+      {!isMenuOpen && !isLibraryOpen && selectedIds.length > 0 && (
+        <div className="absolute top-20 left-4 w-60 bg-[#232329] rounded-xl border border-gray-700 shadow-2xl p-4 z-40 max-h-[calc(100vh-100px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+          <SectionLabel>Stroke</SectionLabel>
+          <div className="flex flex-wrap mb-2 gap-1">
+            {strokeColors.map((c) => (
+              <ColorSwatch
+                key={c}
+                color={c}
+                isSelected={strokeColor === c}
+                onClick={() => handleStrokeColorChange(c)}
+              />
+            ))}
+          </div>
+
+          <SectionLabel>Background</SectionLabel>
+          <div className="flex flex-wrap mb-2 gap-1">
+            {bgColors.map((c) => (
+              <ColorSwatch
+                key={c}
+                color={c}
+                isSelected={backgroundColor === c}
+                onClick={() => handleBackgroundColorChange(c)}
+              />
+            ))}
+          </div>
+
+          <SectionLabel>Stroke width</SectionLabel>
+          <div className="flex bg-[#1a1a20] p-1 rounded-lg mb-2 border border-gray-700/50">
+            <button
+              onClick={() => handleStrokeWidthChange(1)}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeWidth === 1 ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+            >
+              <div className="h-0.5 w-5 bg-current rounded-full"></div>
+            </button>
+            <button
+              onClick={() => handleStrokeWidthChange(2)}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeWidth === 2 ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+            >
+              <div className="h-1 w-5 bg-current rounded-full"></div>
+            </button>
+            <button
+              onClick={() => handleStrokeWidthChange(3)}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeWidth === 3 ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+            >
+              <div className="h-1.5 w-5 bg-current rounded-full"></div>
+            </button>
+          </div>
+
+          <SectionLabel>Stroke style</SectionLabel>
+          <div className="flex bg-[#1a1a20] p-1 rounded-lg mb-2 border border-gray-700/50">
+            <button
+              onClick={() => handleStrokeStyleChange("solid")}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeStyle === "solid" ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+            >
+              <div className="h-0.5 w-5 bg-current"></div>
+            </button>
+            <button
+              onClick={() => handleStrokeStyleChange("dashed")}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeStyle === "dashed" ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+            >
+              <div className="h-0.5 w-5 bg-current border-b-2 border-dashed"></div>
+            </button>
+            <button
+              onClick={() => handleStrokeStyleChange("dotted")}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeStyle === "dotted" ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+            >
+              <div className="h-0.5 w-5 bg-current border-b-2 border-dotted"></div>
+            </button>
+          </div>
+
+          <SectionLabel>Sloppiness</SectionLabel>
+          <div className="flex bg-[#1a1a20] p-1 rounded-lg mb-2 gap-1 border border-gray-700/50">
+            <button
+              onClick={() => handleSloppinessChange(0)}
+              className={`flex-1 h-8 rounded flex items-center justify-center transition-colors ${sloppiness === 0 ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+            >
+              <Minus size={16} />
+            </button>
+            <button
+              onClick={() => handleSloppinessChange(1)}
+              className={`flex-1 h-8 rounded flex items-center justify-center transition-colors ${sloppiness === 1 ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M2 12c2-2 4-4 8 0s4 4 8 0 8-4 10 0" />
+              </svg>
+            </button>
+            <button
+              onClick={() => handleSloppinessChange(2)}
+              className={`flex-1 h-8 rounded flex items-center justify-center transition-colors ${sloppiness === 2 ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M2 12c2-4 4-6 8 0s4 6 8 0 8-6 10 0" />
+              </svg>
+            </button>
+          </div>
+
+          <SectionLabel>Edges</SectionLabel>
+          <div className="flex bg-[#1a1a20] p-1 rounded-lg mb-2 border border-gray-700/50">
+            <button
+              onClick={() => handleEdgesChange("sharp")}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${edges === "sharp" ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+            >
+              <Square size={15} />
+            </button>
+            <button
+              onClick={() => handleEdgesChange("round")}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${edges === "round" ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+            >
+              <div className="w-3.5 h-3.5 border-2 border-current rounded-md"></div>
+            </button>
+          </div>
+
+          <SectionLabel>Opacity</SectionLabel>
+          <div className="flex items-center gap-3 px-1 mb-4">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={opacity}
+              onChange={(e) => handleOpacityChange(parseInt(e.target.value))}
+              className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#a8a5ff]"
+            />
+            <span className="text-xs text-gray-400 w-8 text-right font-mono">
+              {opacity}
+            </span>
+          </div>
+
+          <SectionLabel>Layers</SectionLabel>
+          <div className="flex gap-1.5 mb-4">
+            <button
+              onClick={handleBringForward}
+              className="p-2 bg-[#1a1a20] hover:bg-[#31303b] rounded border border-gray-700/50 text-gray-400 transition-colors"
+            >
+              <Layers size={15} />
+            </button>
+            <button
+              onClick={handleBringForward}
+              className="p-2 bg-[#1a1a20] hover:bg-[#31303b] rounded border border-gray-700/50 text-gray-400 transition-colors"
+            >
+              <ArrowRight size={15} className="-rotate-90" />
+            </button>
+            <button
+              onClick={handleSendBackward}
+              className="p-2 bg-[#1a1a20] hover:bg-[#31303b] rounded border border-gray-700/50 text-gray-400 transition-colors"
+            >
+              <ArrowRight size={15} className="rotate-90" />
+            </button>
+            <button className="p-2 bg-[#1a1a20] hover:bg-[#31303b] rounded border border-gray-700/50 text-gray-400 transition-colors">
+              <Layers size={15} />
+            </button>
+          </div>
+
+          <SectionLabel>Actions</SectionLabel>
+          <div className="flex gap-1.5">
+            <button
+              onClick={handleCopy}
+              className="p-2 bg-[#1a1a20] hover:bg-[#31303b] rounded border border-gray-700/50 text-gray-400 transition-colors"
+            >
+              <Copy size={15} />
+            </button>
+            <button
+              onClick={handleDelete}
+              className="p-2 bg-[#1a1a20] hover:bg-[#31303b] rounded border border-gray-700/50 text-gray-400 transition-colors"
+            >
+              <Trash2 size={15} />
+            </button>
+            <button className="p-2 bg-[#1a1a20] hover:bg-[#31303b] rounded border border-gray-700/50 text-gray-400 transition-colors">
+              <Link size={15} />
+            </button>
+            <button className="p-2 bg-[#1a1a20] hover:bg-[#31303b] rounded border border-gray-700/50 text-gray-400 transition-colors">
+              <AlignCenter size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* --- Canvas Area --- */}
+      <div
+        ref={containerRef}
+        className="w-full h-full flex items-center justify-center relative"
+        style={{ backgroundColor: canvasBg }}
+      >
+        <canvas
+          ref={canvasRef}
+          className="cursor-crosshair"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        />
+
+        {/* Selection Overlay - Render handles for selected elements */}
+        {selectedIds.length > 0 &&
+          elements
+            .filter((el) => selectedIds.includes(el.id))
+            .map((selectedShape) => {
+              const bounds = getElementBounds(selectedShape);
+
+              const screenX = pan.x + (bounds.x * zoom) / 100;
+              const screenY = pan.y + (bounds.y * zoom) / 100;
+              const screenWidth = (bounds.width * zoom) / 100;
+              const screenHeight = (bounds.height * zoom) / 100;
+
+              return (
+                <div
+                  key={`selection-${selectedShape.id}`}
+                  className="absolute pointer-events-auto cursor-move"
+                  style={{
+                    left: `${screenX}px`,
+                    top: `${screenY}px`,
+                    width: `${screenWidth}px`,
+                    height: `${screenHeight}px`,
+                    transform: selectedShape.rotation
+                      ? `rotate(${selectedShape.rotation}rad)`
+                      : undefined,
+                    transformOrigin: "center center",
+                  }}
+                  onMouseDown={(e) => handleMoveStart(e, selectedShape.id)}
+                >
+                  {/* Selection Border */}
+                  <div className="absolute -inset-2 border-2 border-[#a8a5ff] rounded-lg pointer-events-none">
+                    {/* Resize Handles */}
+                    {[
+                      {
+                        pos: "top-0 left-0",
+                        handle: "top-left",
+                        cursor: "nwse-resize",
+                      },
+                      {
+                        pos: "top-0 left-1/2",
+                        handle: "top",
+                        cursor: "ns-resize",
+                      },
+                      {
+                        pos: "top-0 right-0",
+                        handle: "top-right",
+                        cursor: "nesw-resize",
+                      },
+                      {
+                        pos: "top-1/2 right-0",
+                        handle: "right",
+                        cursor: "ew-resize",
+                      },
+                      {
+                        pos: "bottom-0 right-0",
+                        handle: "bottom-right",
+                        cursor: "nwse-resize",
+                      },
+                      {
+                        pos: "bottom-0 left-1/2",
+                        handle: "bottom",
+                        cursor: "ns-resize",
+                      },
+                      {
+                        pos: "bottom-0 left-0",
+                        handle: "bottom-left",
+                        cursor: "nesw-resize",
+                      },
+                      {
+                        pos: "top-1/2 left-0",
+                        handle: "left",
+                        cursor: "ew-resize",
+                      },
+                    ].map((item, i) => (
+                      <div
+                        key={i}
+                        className={`absolute w-2 h-2 bg-white border border-[#a8a5ff] -translate-x-1/2 -translate-y-1/2 pointer-events-auto ${item.pos}`}
+                        style={{ cursor: item.cursor }}
+                        onMouseDown={(e) =>
+                          handleResizeStart(e, item.handle, selectedShape.id)
+                        }
+                      />
+                    ))}
+                    {/* Rotation Handle */}
+                    <div
+                      className="absolute top-[-24px] left-1/2 -translate-x-1/2 w-2 h-2 bg-white border border-[#a8a5ff] rounded-full cursor-grab pointer-events-auto"
+                      onMouseDown={(e) =>
+                        handleRotateStart(e, selectedShape.id)
+                      }
+                    />
+                    <div className="absolute top-[-22px] left-1/2 -translate-x-1/2 w-px h-4 bg-[#a8a5ff]" />
+                  </div>
+                </div>
+              );
+            })}
+      </div>
+
+      {/* --- Bottom Left Controls (Zoom) --- */}
+      <div className="absolute bottom-4 left-4 flex gap-2 z-50">
+        <div className="flex items-center bg-[#232329] rounded-lg border border-gray-700 p-1">
+          <button
+            onClick={handleZoomOut}
+            className="p-2 hover:bg-[#31303b] rounded text-gray-400 transition-colors"
+          >
+            <Minus size={16} />
+          </button>
+          <button
+            onClick={handleResetZoom}
+            className="text-xs font-mono px-3 text-gray-300 hover:text-white transition-colors min-w-[48px]"
+          >
+            {zoom}%
+          </button>
+          <button
+            onClick={handleZoomIn}
+            className="p-2 hover:bg-[#31303b] rounded text-gray-400 transition-colors"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+        <button
+          onClick={() => {
+            const state = historyRef.current.undo();
+            if (state) {
+              setElements(state.elements);
+              setSelectedIds(state.selectedIds);
+            }
+          }}
+          disabled={!historyRef.current.canUndo()}
+          className="p-2 bg-[#232329] hover:bg-[#31303b] rounded-lg border border-gray-700 text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Undo size={16} />
+        </button>
+        <button
+          onClick={() => {
+            const state = historyRef.current.redo();
+            if (state) {
+              setElements(state.elements);
+              setSelectedIds(state.selectedIds);
+            }
+          }}
+          disabled={!historyRef.current.canRedo()}
+          className="p-2 bg-[#232329] hover:bg-[#31303b] rounded-lg border border-gray-700 text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Redo size={16} />
+        </button>
+      </div>
+
+      {/* --- Bottom Right Controls (Help) --- */}
+      <div className="absolute bottom-4 right-4 z-50">
+        <button
+          onClick={() => setIsHelpOpen(true)}
+          className="p-2 bg-[#232329] hover:bg-[#31303b] rounded-full border border-gray-700 shadow-sm text-gray-400 transition-colors"
+        >
+          <HelpCircle size={20} />
+        </button>
+      </div>
+
+      {/* --- Help Modal --- */}
+      {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)} />}
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 {
-  "extends": "@dripl/typescript-config/base.json",
+  "extends": "@dripl/typescript-config/tsconfig.json",
   "compilerOptions": {
     "lib": ["ESNext", "DOM"],
     "module": "ESNext",

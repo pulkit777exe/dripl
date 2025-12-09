@@ -24,3 +24,12 @@ export interface TrailSegment {
   end: Point;
   timestamp: number;
 }
+
+
+export interface IconButtonProps {
+  icon: React.ReactNode;
+  isActive?: boolean;
+  label?: string;
+  onClick?: () => void;
+  className?: string;
+}
