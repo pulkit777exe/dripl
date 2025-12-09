@@ -59,6 +59,9 @@ importers:
       '@dripl/sync':
         specifier: workspace:*
         version: link:../../packages/sync
+      '@dripl/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@dripl/utils':
         specifier: workspace:*
         version: link:../../packages/utils
@@ -350,17 +353,26 @@ importers:
 
   packages/ui:
     dependencies:
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
       react:
         specifier: ^19.2.0
         version: 19.2.0
       react-dom:
         specifier: ^19.2.0
         version: 19.2.0(react@19.2.0)
+      tailwind-merge:
+        specifier: ^3.4.0
+        version: 3.4.0
     devDependencies:
-      '@repo/eslint-config':
+      '@dripl/common':
+        specifier: workspace:*
+        version: link:../common
+      '@dripl/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@repo/typescript-config':
+      '@dripl/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
       '@types/node':
