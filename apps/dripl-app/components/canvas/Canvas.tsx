@@ -62,6 +62,7 @@ import {
   AppState,
 } from "@/utils/canvasUtils";
 import { CanvasHistory } from "@/utils/canvasHistory";
+import { EraserTrail } from "../../eraser/EraserTrail";
 
 interface ColorSwatchProps {
   color: string;
@@ -310,12 +311,14 @@ export default function App() {
   const [sloppiness, setSloppiness] = useState(1);
   const [edges, setEdges] = useState<"sharp" | "round">("round");
   const [opacity, setOpacity] = useState(100);
+  const [tick, setTick] = useState(0); // For forcing re-renders (e.g. eraser animation)
 
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef(new CanvasHistory());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const eraserTrailRef = useRef<EraserTrail | null>(null);
 
   // Load from local storage on mount
   useEffect(() => {
@@ -502,6 +505,14 @@ export default function App() {
       drawShape(ctx, currentElement, false);
     }
 
+    // Initialize eraser trail if needed
+    if (!eraserTrailRef.current) {
+      eraserTrailRef.current = new EraserTrail(ctx);
+    }
+
+    // Render eraser trail
+    eraserTrailRef.current?.render(pan, zoom / 100);
+
     ctx.restore();
   }, [
     elements,
@@ -514,7 +525,26 @@ export default function App() {
     isRotating,
     rotateOffset,
     rotateStart,
+    tick,
   ]);
+
+  // Animation loop for eraser
+  useEffect(() => {
+    if (activeTool === "eraser" && isDrawing) {
+      let animationFrameId: number;
+
+      const loop = () => {
+        setTick((t) => t + 1);
+        animationFrameId = requestAnimationFrame(loop);
+      };
+
+      loop();
+
+      return () => {
+        cancelAnimationFrame(animationFrameId);
+      };
+    }
+  }, [activeTool, isDrawing]);
 
   // Get canvas coordinates from mouse event
   const getCanvasPoint = useCallback(
@@ -540,6 +570,13 @@ export default function App() {
       if (activeTool === "hand") {
         setIsPanning(true);
         setPanStart(point);
+        return;
+      }
+
+      // Check if erasing
+      if (activeTool === "eraser") {
+        eraserTrailRef.current?.startPath(point.x, point.y);
+        setIsDrawing(true); // Reuse isDrawing to track eraser state
         return;
       }
 
@@ -771,6 +808,28 @@ export default function App() {
         return;
       }
 
+      // Handle erasing
+      if (activeTool === "eraser" && isDrawing) {
+        eraserTrailRef.current?.addPoint(point.x, point.y);
+
+        // Check for intersections with elements
+        const elementsToRemove: string[] = [];
+        elements.forEach((element) => {
+          if (isPointInElement(point, element)) {
+            elementsToRemove.push(element.id);
+          }
+        });
+
+        if (elementsToRemove.length > 0) {
+          setElements((prev) =>
+            prev.filter((el) => !elementsToRemove.includes(el.id))
+          );
+          // We don't save history here to avoid too many history states while dragging
+          // We'll save history on mouse up
+        }
+        return;
+      }
+
       // Handle drawing
       if (isDrawing && startPoint && currentElement) {
         const updatedElement = { ...currentElement };
@@ -818,6 +877,13 @@ export default function App() {
     if (isPanning) {
       setIsPanning(false);
       setPanStart(null);
+      return;
+    }
+
+    if (activeTool === "eraser" && isDrawing) {
+      eraserTrailRef.current?.endPath();
+      setIsDrawing(false);
+      saveHistory();
       return;
     }
 
