@@ -1,6 +1,6 @@
-import Canvas from "@/components/Canvas";
+import Canvas from "@/components/canvas/Canvas";
 import { Sidebar } from "@/components/Sidebar";
-import { TopBar } from "@/components/TopBar";
+import { TopBar } from "@/components/canvas/TopBar";
 
 export default function CanvasPage() {
   return (
