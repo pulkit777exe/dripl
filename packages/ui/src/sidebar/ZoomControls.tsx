@@ -1,6 +1,6 @@
-import { cn } from "../lib/utils";
-import { IconButton } from "../common/IconButton";
-import { Tooltip } from "../common/Tooltip";
+import { cn } from "../lib/utils.js";
+import { IconButton } from "../common/IconButton.js";
+import { Tooltip } from "../common/Tooltip.js";
 
 interface ZoomControlsProps {
   zoom: number;

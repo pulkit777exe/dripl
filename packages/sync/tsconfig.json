@@ -1,9 +1,8 @@
 {
-  "extends": "@dripl/typescript-config/tsconfig.json",
+  "extends": "@dripl/typescript-config/base.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": ".",
-    "allowJs": true
+    "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json",
+    "composite": true
   },
-  "include": ["src", "eslint.config.js"]
+  "include": ["src"]
 }
