@@ -9,7 +9,7 @@ const nextConfig = {
     "@dripl/sync",
     "@dripl/utils"
   ],
-  serverExternalPackages: ['@prisma/client', '@dripl/database']
+  serverExternalPackages: ['@prisma/client', '"@dripl/db"']
 };
 
 module.exports = nextConfig;

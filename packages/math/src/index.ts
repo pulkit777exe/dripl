@@ -1,2 +1,2 @@
-export * from './geometry';
-export * from './collision';
+export * from "./geometry.js";
+export * from "./collision.js";

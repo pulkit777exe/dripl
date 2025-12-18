@@ -1,20 +1,20 @@
-import { DriplElement, Point } from '@dripl/common';
-import { isPointInRect } from './geometry';
+import { DriplElement, Point } from "@dripl/common";
+import { isPointInRect } from "./geometry.js";
 
 export const hitTest = (point: Point, element: DriplElement): boolean => {
   switch (element.type) {
-    case 'rectangle':
-    case 'ellipse':
-    case 'text':
+    case "rectangle":
+    case "ellipse":
+    case "text":
       return isPointInRect(point, {
         x: element.x,
         y: element.y,
         width: element.width,
         height: element.height,
       });
-    case 'arrow':
-    case 'line':
-    case 'freedraw':
+    case "arrow":
+    case "line":
+    case "freedraw":
       // TODO: Implement precise hit testing for linear elements
       return isPointInRect(point, {
         x: element.x,
