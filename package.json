@@ -14,7 +14,6 @@
   "devDependencies": {
     "@prisma/client": "^7.0.1",
     "@types/node": "latest",
-    "baseline-browser-mapping": "^2.8.32",
     "eslint": "latest",
     "prettier": "latest",
     "prisma": "^7.0.1",

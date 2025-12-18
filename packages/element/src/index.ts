@@ -1,3 +1,3 @@
-export * from "./factory";
-export * from "./renderer";
-export * from "./intersection";
+export * from "./factory.js";
+export * from "./renderer.js";
+export * from "./intersection.js";

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn } from "../lib/utils";
+import { cn } from "../lib/utils.js";
 
 interface TopNavProps {
   children?: React.ReactNode;
@@ -9,7 +9,13 @@ interface TopNavProps {
   className?: string;
 }
 
-export const TopNav = ({ children, left, center, right, className }: TopNavProps) => {
+export const TopNav = ({
+  children,
+  left,
+  center,
+  right,
+  className,
+}: TopNavProps) => {
   return (
     <header
       className={cn(

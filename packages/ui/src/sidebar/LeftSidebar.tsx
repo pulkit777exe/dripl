@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn } from "../lib/utils";
+import { cn } from "../lib/utils.js";
 
 interface LeftSidebarProps {
   children: React.ReactNode;
@@ -7,7 +7,11 @@ interface LeftSidebarProps {
   className?: string;
 }
 
-export const LeftSidebar = ({ children, collapsed, className }: LeftSidebarProps) => {
+export const LeftSidebar = ({
+  children,
+  collapsed,
+  className,
+}: LeftSidebarProps) => {
   return (
     <aside
       className={cn(

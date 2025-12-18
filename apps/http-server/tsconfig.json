@@ -1,0 +1,10 @@
+{
+  "extends": "@dripl/typescript-config/base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json",
+    "composite": true
+  },
+  "include": ["src/**/*"]
+}
