@@ -1,0 +1,31 @@
+{
+  "name": "http-server",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "nodemon ./dist/server.js",
+    "build": "tsc --build",
+    "dev": "npm run build && npm run start"
+  },
+  "dependencies": {
+    "@dripl/common": "workspace:*",
+    "@dripl/db": "workspace:*",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "express-session": "^1.18.2",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.18.2",
+    "@types/jsonwebtoken": "^9.0.10",
+    "nodemon": "^3.1.11",
+    "typescript": "^5.0.0",
+    "@dripl/typescript-config": "workspace:*"
+  }
+}

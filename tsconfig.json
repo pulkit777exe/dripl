@@ -1,18 +1,8 @@
 {
-  "extends": "./packages/typescript-config/base.json",
-  "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "target": "ES2020",
-    "jsx": "react-jsx",
-    "noEmit": true,
-    "allowImportingTsExtensions": true
-  },
-  "include": [],
-  "exclude": ["node_modules", "dist"],
+  "files": [],
   "references": [
     { "path": "./apps/dripl-app" },
+    { "path": "./apps/http-server" },
     { "path": "./apps/ws-server" },
     { "path": "./packages/common" },
     { "path": "./packages/db" },
@@ -20,7 +10,10 @@
     { "path": "./packages/math" },
     { "path": "./packages/state" },
     { "path": "./packages/storage" },
+    { "path": "./packages/store" },
     { "path": "./packages/sync" },
+
+    { "path": "./packages/typescript-config" },
     { "path": "./packages/ui" },
     { "path": "./packages/utils" }
   ]

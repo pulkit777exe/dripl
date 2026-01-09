@@ -1,4 +1,4 @@
-import { ShapeType } from '../constants';
+import { ShapeType } from "../constants.js";
 
 export interface Point {
   x: number;
@@ -17,36 +17,51 @@ export interface ElementBase {
   strokeWidth: number;
   opacity: number;
   isDeleted?: boolean;
+
+  // Rough.js properties for sketchy aesthetic
+  roughness?: number; // 0-3, default 1
+  strokeStyle?: "solid" | "dashed" | "dotted";
+  fillStyle?: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots";
+  seed?: number; // For consistent randomness across renders
+  angle?: number; // Rotation in radians
+  locked?: boolean; // Prevent editing
+  groupId?: string; // For grouping elements together
 }
 
 export interface RectangleElement extends ElementBase {
-  type: 'rectangle';
+  type: "rectangle";
 }
 
 export interface EllipseElement extends ElementBase {
-  type: 'ellipse';
+  type: "ellipse";
 }
 
 export interface LinearElement extends ElementBase {
-  type: 'arrow' | 'line';
+  type: "arrow" | "line";
   points: Point[];
 }
 
 export interface FreeDrawElement extends ElementBase {
-  type: 'freedraw';
+  type: "freedraw";
   points: Point[];
 }
 
 export interface TextElement extends ElementBase {
-  type: 'text';
+  type: "text";
   text: string;
   fontSize: number;
   fontFamily: string;
 }
 
-export type DriplElement = 
-  | RectangleElement 
-  | EllipseElement 
-  | LinearElement 
-  | FreeDrawElement 
-  | TextElement;
+export interface ImageElement extends ElementBase {
+  type: "image";
+  src: string;
+}
+
+export type DriplElement =
+  | RectangleElement
+  | EllipseElement
+  | LinearElement
+  | FreeDrawElement
+  | TextElement
+  | ImageElement;

@@ -1,6 +1,6 @@
 "use server";
 
-import { db } from "@dripl/database";
+import { db } from "@dripl/db";
 import { currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 

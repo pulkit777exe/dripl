@@ -1,29 +1,29 @@
 // Common Components
-export { IconButton } from "./common/IconButton";
-export { Separator } from "./common/Separator";
-export { Tooltip } from "./common/Tooltip";
+export { IconButton } from "./common/IconButton.js";
+export { Separator } from "./common/Separator.js";
+export { Tooltip } from "./common/Tooltip.js";
 
 // Toolbar Components
-export { Toolbar, ToolbarSeparator } from "./toolbar/Toolbar";
-export { ToolbarButton } from "./toolbar/ToolbarButton";
+export { Toolbar, ToolbarSeparator } from "./toolbar/Toolbar.js";
+export { ToolbarButton } from "./toolbar/ToolbarButton.js";
 
 // Navigation Components
-export { TopNav } from "./nav/TopNav";
+export { TopNav } from "./nav/TopNav.js";
 
 // Sidebar Components
-export { LeftSidebar } from "./sidebar/LeftSidebar";
-export { ZoomControls } from "./sidebar/ZoomControls";
+export { LeftSidebar } from "./sidebar/LeftSidebar.js";
+export { ZoomControls } from "./sidebar/ZoomControls.js";
 
 // Canvas Components
-export { CanvasContainer } from "./canvas/CanvasContainer";
-export { CanvasBackground } from "./canvas/CanvasBackground";
+export { CanvasContainer } from "./canvas/CanvasContainer.js";
+export { CanvasBackground } from "./canvas/CanvasBackground.js";
 
 // Panel Components
-export { PropertyPanel } from "./panels/PropertyPanel";
+export { PropertyPanel } from "./panels/PropertyPanel.js";
 
 // Layout Components
-export { AppShell } from "./layout/AppShell";
-export { EditorLayout } from "./layout/EditorLayout";
+export { AppShell } from "./layout/AppShell.js";
+export { EditorLayout } from "./layout/EditorLayout.js";
 
 // Utilities
-export { cn } from "./lib/utils";
+export { cn } from "./lib/utils.js";

@@ -1,111 +1,165 @@
-import React from "react";
-import { CanvasElement, Point } from "@/types/canvas";
-import { getElementBounds } from "@/utils/canvasUtils";
+"use client";
+
+import { useCanvasStore } from "@/lib/canvas-store";
+import { DriplElement } from "@dripl/common";
+import { memo } from "react";
 
 interface SelectionOverlayProps {
-  selectedIds: string[];
-  elements: CanvasElement[];
   zoom: number;
-  pan: Point;
-  onResizeStart: (
-    e: React.MouseEvent,
-    handle: string,
-    elementId: string
-  ) => void;
-  onRotateStart: (e: React.MouseEvent, elementId: string) => void;
+  panX: number;
+  panY: number;
+  onResizeStart: (handle: ResizeHandle, e: React.PointerEvent) => void;
+  onRotateStart: (e: React.PointerEvent) => void;
 }
 
-export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
-  selectedIds,
-  elements,
+export type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+
+const HANDLE_SIZE = 8;
+
+export const SelectionOverlay = memo(function SelectionOverlay({
   zoom,
-  pan,
+  panX,
+  panY,
   onResizeStart,
   onRotateStart,
-}) => {
-  if (selectedIds.length === 0) return null;
+}: SelectionOverlayProps) {
+  const elements = useCanvasStore((state) => state.elements);
+  const selectedIds = useCanvasStore((state) => state.selectedIds);
 
-  // For now, we only show handles for single selection
-  // Multi-selection bounding box logic would go here
-  if (selectedIds.length !== 1) return null;
+  if (selectedIds.size === 0) return null;
 
-  const element = elements.find((el) => el.id === selectedIds[0]);
-  if (!element) return null;
+  // Calculate bounding box of selection
+  const selectedElements = elements.filter((el) => selectedIds.has(el.id));
+  if (selectedElements.length === 0) return null;
 
-  const bounds = getElementBounds(element);
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
 
-  // Transform to screen coordinates
-  const screenX = (bounds.x * zoom) / 100 + pan.x;
-  const screenY = (bounds.y * zoom) / 100 + pan.y;
-  const screenWidth = (bounds.width * zoom) / 100;
-  const screenHeight = (bounds.height * zoom) / 100;
-  const rotation = element.rotation || 0;
+  selectedElements.forEach((el) => {
+    minX = Math.min(minX, el.x);
+    minY = Math.min(minY, el.y);
+    const width = "width" in el ? el.width : 0;
+    const height = "height" in el ? el.height : 0;
+    maxX = Math.max(maxX, el.x + width);
+    maxY = Math.max(maxY, el.y + height);
+  });
 
-  const handleStyle =
-    "absolute w-2.5 h-2.5 bg-white border border-[#a8a5ff] rounded-full z-10";
+  const x = minX * zoom + panX;
+  const y = minY * zoom + panY;
+  const w = (maxX - minX) * zoom;
+  const h = (maxY - minY) * zoom;
+
+  // Rotation (only for single element)
+  const angle =
+    selectedElements.length === 1 ? selectedElements[0]?.angle || 0 : 0;
+
+  // Only show handles for single selection for now
+  const showHandles = selectedElements.length === 1;
+
+  const handleStyle = (cursor: string): React.CSSProperties => ({
+    width: HANDLE_SIZE,
+    height: HANDLE_SIZE,
+    backgroundColor: "white",
+    border: "1px solid #6965db",
+    position: "absolute",
+    cursor: `${cursor}-resize`,
+    pointerEvents: "auto",
+    zIndex: 20,
+    boxSizing: "border-box", // Ensure border doesn't add to size
+  });
 
   return (
     <div
       className="absolute top-0 left-0 pointer-events-none"
       style={{
-        transform: `translate(${screenX}px, ${screenY}px) rotate(${rotation}rad)`,
-        width: screenWidth,
-        height: screenHeight,
+        transform: `translate(${x}px, ${y}px) rotate(${angle}rad)`,
+        width: w,
+        height: h,
+        border: "1px solid #6965db",
+        zIndex: 10,
         transformOrigin: "center center",
       }}
     >
-      {/* Selection Border */}
-      <div className="absolute inset-0 border border-[#a8a5ff] pointer-events-none" />
+      {showHandles && (
+        <>
+          {/* Corners */}
+          <div
+            style={{ ...handleStyle("nw"), top: -4, left: -4 }}
+            onPointerDown={(e) => onResizeStart("nw", e)}
+          />
+          <div
+            style={{ ...handleStyle("ne"), top: -4, right: -4 }}
+            onPointerDown={(e) => onResizeStart("ne", e)}
+          />
+          <div
+            style={{ ...handleStyle("se"), bottom: -4, right: -4 }}
+            onPointerDown={(e) => onResizeStart("se", e)}
+          />
+          <div
+            style={{ ...handleStyle("sw"), bottom: -4, left: -4 }}
+            onPointerDown={(e) => onResizeStart("sw", e)}
+          />
 
-      {/* Resize Handles */}
-      <div className="pointer-events-auto">
-        {/* Top Left */}
-        <div
-          className={`${handleStyle} -top-1.5 -left-1.5 cursor-nwse-resize`}
-          onMouseDown={(e) => onResizeStart(e, "top-left", element.id)}
-        />
-        {/* Top */}
-        <div
-          className={`${handleStyle} -top-1.5 left-1/2 -translate-x-1/2 cursor-ns-resize`}
-          onMouseDown={(e) => onResizeStart(e, "top", element.id)}
-        />
-        {/* Top Right */}
-        <div
-          className={`${handleStyle} -top-1.5 -right-1.5 cursor-nesw-resize`}
-          onMouseDown={(e) => onResizeStart(e, "top-right", element.id)}
-        />
-        {/* Right */}
-        <div
-          className={`${handleStyle} top-1/2 -right-1.5 -translate-y-1/2 cursor-ew-resize`}
-          onMouseDown={(e) => onResizeStart(e, "right", element.id)}
-        />
-        {/* Bottom Right */}
-        <div
-          className={`${handleStyle} -bottom-1.5 -right-1.5 cursor-nwse-resize`}
-          onMouseDown={(e) => onResizeStart(e, "bottom-right", element.id)}
-        />
-        {/* Bottom */}
-        <div
-          className={`${handleStyle} -bottom-1.5 left-1/2 -translate-x-1/2 cursor-ns-resize`}
-          onMouseDown={(e) => onResizeStart(e, "bottom", element.id)}
-        />
-        {/* Bottom Left */}
-        <div
-          className={`${handleStyle} -bottom-1.5 -left-1.5 cursor-nesw-resize`}
-          onMouseDown={(e) => onResizeStart(e, "bottom-left", element.id)}
-        />
-        {/* Left */}
-        <div
-          className={`${handleStyle} top-1/2 -left-1.5 -translate-y-1/2 cursor-ew-resize`}
-          onMouseDown={(e) => onResizeStart(e, "left", element.id)}
-        />
+          {/* Sides */}
+          <div
+            style={{
+              ...handleStyle("n"),
+              top: -4,
+              left: "50%",
+              transform: "translateX(-50%)",
+            }}
+            onPointerDown={(e) => onResizeStart("n", e)}
+          />
+          <div
+            style={{
+              ...handleStyle("e"),
+              top: "50%",
+              right: -4,
+              transform: "translateY(-50%)",
+            }}
+            onPointerDown={(e) => onResizeStart("e", e)}
+          />
+          <div
+            style={{
+              ...handleStyle("s"),
+              bottom: -4,
+              left: "50%",
+              transform: "translateX(-50%)",
+            }}
+            onPointerDown={(e) => onResizeStart("s", e)}
+          />
+          <div
+            style={{
+              ...handleStyle("w"),
+              top: "50%",
+              left: -4,
+              transform: "translateY(-50%)",
+            }}
+            onPointerDown={(e) => onResizeStart("w", e)}
+          />
 
-        {/* Rotation Handle */}
-        <div
-          className="absolute -top-8 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-white border border-[#a8a5ff] rounded-full cursor-move z-10"
-          onMouseDown={(e) => onRotateStart(e, element.id)}
-        />
-      </div>
+          {/* Rotation Handle */}
+          <div
+            style={{
+              width: HANDLE_SIZE,
+              height: HANDLE_SIZE,
+              backgroundColor: "white",
+              border: "1px solid #6965db",
+              borderRadius: "50%",
+              position: "absolute",
+              top: -24,
+              left: "50%",
+              transform: "translateX(-50%)",
+              cursor: "move",
+              pointerEvents: "auto",
+              zIndex: 20,
+            }}
+            onPointerDown={onRotateStart}
+          />
+        </>
+      )}
     </div>
   );
-};
+});

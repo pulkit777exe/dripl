@@ -1,10 +1,8 @@
 {
-  "extends": "@dripl/typescript-config/tsconfig.json",
+  "extends": "@dripl/typescript-config/base.json",
   "compilerOptions": {
-    "lib": ["ESNext", "DOM"],
-    "module": "ESNext",
-    "target": "ESNext",
-    "moduleResolution": "Bundler"
+    "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json",
+    "composite": true
   },
   "include": ["src"]
 }

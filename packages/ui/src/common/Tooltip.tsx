@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn } from "../lib/utils";
+import { cn } from "../lib/utils.js";
 
 interface TooltipProps {
   content: string;
@@ -8,7 +8,12 @@ interface TooltipProps {
   className?: string;
 }
 
-export const Tooltip = ({ content, children, side = "top", className }: TooltipProps) => {
+export const Tooltip = ({
+  content,
+  children,
+  side = "top",
+  className,
+}: TooltipProps) => {
   return (
     <div className="group relative flex items-center justify-center">
       {children}
