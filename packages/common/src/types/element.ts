@@ -17,6 +17,15 @@ export interface ElementBase {
   strokeWidth: number;
   opacity: number;
   isDeleted?: boolean;
+
+  // Rough.js properties for sketchy aesthetic
+  roughness?: number; // 0-3, default 1
+  strokeStyle?: "solid" | "dashed" | "dotted";
+  fillStyle?: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots";
+  seed?: number; // For consistent randomness across renders
+  angle?: number; // Rotation in radians
+  locked?: boolean; // Prevent editing
+  groupId?: string; // For grouping elements together
 }
 
 export interface RectangleElement extends ElementBase {
@@ -44,9 +53,15 @@ export interface TextElement extends ElementBase {
   fontFamily: string;
 }
 
+export interface ImageElement extends ElementBase {
+  type: "image";
+  src: string;
+}
+
 export type DriplElement =
   | RectangleElement
   | EllipseElement
   | LinearElement
   | FreeDrawElement
-  | TextElement;
+  | TextElement
+  | ImageElement;

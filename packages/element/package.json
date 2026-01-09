@@ -13,12 +13,13 @@
   "dependencies": {
     "@dripl/common": "workspace:*",
     "@dripl/math": "workspace:*",
-    "@dripl/utils": "workspace:*"
+    "@dripl/utils": "workspace:*",
+    "roughjs": "^4.6.6"
   },
   "devDependencies": {
     "@dripl/typescript-config": "workspace:*",
-    "typescript": "latest",
     "eslint": "latest",
+    "typescript": "latest",
     "vitest": "latest"
   }
 }
