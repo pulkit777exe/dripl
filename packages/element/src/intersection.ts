@@ -86,7 +86,7 @@ export const isPointInElement = (
     return pointInPolygon(point, outline);
   }
 
-  if (element.type === "text") {
+  if (element.type === "text" || element.type === "image") {
     return (
       point.x >= element.x &&
       point.x <= element.x + element.width &&
@@ -190,7 +190,7 @@ export const elementIntersectsSegment = (
     }
   }
 
-  if (element.type === "text") {
+  if (element.type === "text" || element.type === "image") {
     const corners: Point[] = [
       { x: element.x, y: element.y },
       { x: element.x + element.width, y: element.y },
