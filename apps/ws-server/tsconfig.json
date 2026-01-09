@@ -1,11 +1,11 @@
 {
-  "extends": "@dripl/typescript-config/tsconfig.json",
+  "extends": "@dripl/typescript-config/base.json",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "moduleResolution": "bundler",
-    "noEmit": false,
-    "allowImportingTsExtensions": false
+    "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json",
+    "composite": true,
+    "noEmit": false
   },
   "include": ["src"]
 }

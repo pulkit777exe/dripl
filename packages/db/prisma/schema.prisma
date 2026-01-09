@@ -10,14 +10,17 @@ model User {
   id        String   @id
   email     String   @unique
   name      String?
+  password  String
   image     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  teams       TeamMember[]
-  files       File[]
-  folders     Folder[]
-  sharedFiles SharedFile[]
+  teams             TeamMember[]
+  files             File[]
+  folders           Folder[]
+  sharedFiles       SharedFile[]
+  canvasRooms       CanvasRoom[]
+  canvasRoomMembers CanvasRoomMember[]
 }
 
 model Team {
@@ -93,4 +96,32 @@ model SharedFile {
   user User @relation(fields: [userId], references: [id])
 
   @@unique([fileId, userId])
+}
+
+model CanvasRoom {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  ownerId   String
+  content   String   @default("[]")
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner   User               @relation(fields: [ownerId], references: [id])
+  members CanvasRoomMember[]
+}
+
+model CanvasRoomMember {
+  id        String   @id @default(cuid())
+  roomId    String
+  userId    String
+  role      String   @default("EDITOR")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  room CanvasRoom @relation(fields: [roomId], references: [id])
+  user User       @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
 }

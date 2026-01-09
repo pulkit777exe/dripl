@@ -2,7 +2,10 @@
   "name": "@dripl/element",
   "version": "0.0.0",
   "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "lint": "eslint .",
     "test": "vitest run"
@@ -10,11 +13,13 @@
   "dependencies": {
     "@dripl/common": "workspace:*",
     "@dripl/math": "workspace:*",
-    "@dripl/utils": "workspace:*"
+    "@dripl/utils": "workspace:*",
+    "roughjs": "^4.6.6"
   },
   "devDependencies": {
-    "typescript": "latest",
+    "@dripl/typescript-config": "workspace:*",
     "eslint": "latest",
+    "typescript": "latest",
     "vitest": "latest"
   }
 }

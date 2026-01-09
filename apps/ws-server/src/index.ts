@@ -10,18 +10,22 @@ interface User {
   ws: WebSocket;
 }
 
+interface Cursor {
+  x: number;
+  y: number;
+}
+
 interface Room {
+  id: string;
   elements: DriplElement[];
   users: Map<string, User>;
+  cursors: Map<string, Cursor>;
 }
 
 const server = createServer();
 const wss = new WebSocketServer({ server });
 
-const room: Room = {
-  elements: [],
-  users: new Map(),
-};
+const rooms = new Map<string, Room>();
 
 function generateUserColor(): string {
   const colors = [
@@ -37,104 +41,27 @@ function generateUserColor(): string {
   return colors[Math.floor(Math.random() * colors.length)]!;
 }
 
-// user id
 function generateUserId(): string {
   const userId = uuidv7();
-
   return `user_${userId}`;
 }
 
-wss.on("connection", (ws) => {
-  const userId = generateUserId();
-  const userName = `User ${room.users.size + 1}`;
-  const color = generateUserColor();
+function getOrCreateRoom(roomId: string): Room {
+  if (!rooms.has(roomId)) {
+    rooms.set(roomId, {
+      id: roomId,
+      elements: [],
+      users: new Map(),
+      cursors: new Map(),
+    });
+  }
+  return rooms.get(roomId)!;
+}
 
-  const user: User = { userId, userName, color, ws };
-  room.users.set(userId, user);
+function broadcastToRoom(roomId: string, message: any, excludeUserId?: string) {
+  const room = rooms.get(roomId);
+  if (!room) return;
 
-  console.log(`User ${userName} (${userId}) connected`);
-
-  // Send current state to new user
-  const syncMessage = {
-    type: "sync_state",
-    userId: "server",
-    timestamp: Date.now(),
-    elements: room.elements,
-    users: Array.from(room.users.values()).map((u) => ({
-      userId: u.userId,
-      userName: u.userName,
-      color: u.color,
-    })),
-  };
-  ws.send(JSON.stringify(syncMessage));
-
-  // Broadcast user join to others
-  const joinMessage = {
-    type: "user_join",
-    userId,
-    userName,
-    color,
-    timestamp: Date.now(),
-  };
-  broadcast(joinMessage, userId);
-
-  ws.on("message", (data) => {
-    try {
-      const message = JSON.parse(data.toString());
-
-      // Handle different message types
-      switch (message.type) {
-        case "add_element":
-          room.elements.push(message.element);
-          broadcast(message, userId);
-          break;
-
-        case "update_element":
-          const index = room.elements.findIndex(
-            (e) => e.id === message.element.id
-          );
-          if (index !== -1) {
-            room.elements[index] = message.element;
-          }
-          broadcast(message, userId);
-          break;
-
-        case "delete_element":
-          room.elements = room.elements.filter(
-            (e) => e.id !== message.elementId
-          );
-          broadcast(message, userId);
-          break;
-
-        case "cursor_move":
-          // Just broadcast cursor movements, don't store
-          broadcast(message, userId);
-          break;
-
-        default:
-          console.log("Unknown message type:", message.type);
-      }
-    } catch (error) {
-      console.error("Failed to parse message:", error);
-    }
-  });
-
-  ws.on("close", () => {
-    room.users.delete(userId);
-    console.log(`User ${userName} (${userId}) disconnected`);
-
-    // Broadcast user leave
-    const leaveMessage = {
-      type: "user_leave",
-      userId,
-      timestamp: Date.now(),
-    };
-    broadcast(leaveMessage, userId);
-  });
-});
-
-// Broadcast message to all users except sender
-function broadcast(message: any, excludeUserId?: string) {
   const messageStr = JSON.stringify(message);
   room.users.forEach((user) => {
     if (
@@ -145,6 +72,206 @@ function broadcast(message: any, excludeUserId?: string) {
     }
   });
 }
+
+wss.on("connection", (ws) => {
+  let currentUserId: string | null = null;
+  let currentRoomId: string | null = null;
+
+  console.log("New WebSocket connection");
+
+  ws.on("message", (data) => {
+    try {
+      const message = JSON.parse(data.toString());
+
+      switch (message.type) {
+        case "join_room": {
+          const { roomId, userName } = message;
+          const userId = generateUserId();
+          const color = generateUserColor();
+
+          currentUserId = userId;
+          currentRoomId = roomId;
+
+          const room = getOrCreateRoom(roomId);
+          const user: User = {
+            userId,
+            userName: userName || `User ${room.users.size + 1}`,
+            color,
+            ws,
+          };
+          room.users.set(userId, user);
+
+          console.log(
+            `User ${user.userName} (${userId}) joined room ${roomId}`
+          );
+
+          // Send current room state to new user
+          const syncMessage = {
+            type: "sync_room_state",
+            userId: "server",
+            timestamp: Date.now(),
+            roomId,
+            elements: room.elements,
+            users: Array.from(room.users.values()).map((u) => ({
+              userId: u.userId,
+              userName: u.userName,
+              color: u.color,
+            })),
+            cursors: Array.from(room.cursors.entries()).map(
+              ([uid, cursor]) => ({
+                userId: uid,
+                ...cursor,
+              })
+            ),
+            yourUserId: userId,
+          };
+          ws.send(JSON.stringify(syncMessage));
+
+          // Broadcast user join to others in room
+          const joinMessage = {
+            type: "user_join",
+            userId,
+            userName: user.userName,
+            color,
+            timestamp: Date.now(),
+            roomId,
+          };
+          broadcastToRoom(roomId, joinMessage, userId);
+          break;
+        }
+
+        case "leave_room": {
+          if (currentRoomId && currentUserId) {
+            const room = rooms.get(currentRoomId);
+            if (room) {
+              room.users.delete(currentUserId);
+              room.cursors.delete(currentUserId);
+
+              const leaveMessage = {
+                type: "user_leave",
+                userId: currentUserId,
+                timestamp: Date.now(),
+                roomId: currentRoomId,
+              };
+              broadcastToRoom(currentRoomId, leaveMessage);
+
+              // Clean up empty rooms
+              if (room.users.size === 0) {
+                rooms.delete(currentRoomId);
+                console.log(`Room ${currentRoomId} deleted (empty)`);
+              }
+            }
+          }
+          currentRoomId = null;
+          currentUserId = null;
+          break;
+        }
+
+        case "add_element": {
+          if (currentRoomId) {
+            const room = rooms.get(currentRoomId);
+            if (room) {
+              room.elements.push(message.element);
+              broadcastToRoom(
+                currentRoomId,
+                message,
+                currentUserId || undefined
+              );
+            }
+          }
+          break;
+        }
+
+        case "update_element": {
+          if (currentRoomId) {
+            const room = rooms.get(currentRoomId);
+            if (room) {
+              const index = room.elements.findIndex(
+                (e) => e.id === message.element.id
+              );
+              if (index !== -1) {
+                room.elements[index] = message.element;
+              }
+              broadcastToRoom(
+                currentRoomId,
+                message,
+                currentUserId || undefined
+              );
+            }
+          }
+          break;
+        }
+
+        case "delete_element": {
+          if (currentRoomId) {
+            const room = rooms.get(currentRoomId);
+            if (room) {
+              room.elements = room.elements.filter(
+                (e) => e.id !== message.elementId
+              );
+              broadcastToRoom(
+                currentRoomId,
+                message,
+                currentUserId || undefined
+              );
+            }
+          }
+          break;
+        }
+
+        case "cursor_move": {
+          if (currentRoomId && currentUserId) {
+            const room = rooms.get(currentRoomId);
+            if (room) {
+              room.cursors.set(currentUserId, { x: message.x, y: message.y });
+              broadcastToRoom(
+                currentRoomId,
+                {
+                  ...message,
+                  userId: currentUserId,
+                },
+                currentUserId
+              );
+            }
+          }
+          break;
+        }
+
+        default:
+          console.log("Unknown message type:", message.type);
+      }
+    } catch (error) {
+      console.error("Failed to parse message:", error);
+    }
+  });
+
+  ws.on("close", () => {
+    if (currentRoomId && currentUserId) {
+      const room = rooms.get(currentRoomId);
+      if (room) {
+        room.users.delete(currentUserId);
+        room.cursors.delete(currentUserId);
+        console.log(
+          `User ${currentUserId} disconnected from room ${currentRoomId}`
+        );
+
+        const leaveMessage = {
+          type: "user_leave",
+          userId: currentUserId,
+          timestamp: Date.now(),
+          roomId: currentRoomId,
+        };
+        broadcastToRoom(currentRoomId, leaveMessage);
+
+        // Clean up empty rooms
+        if (room.users.size === 0) {
+          rooms.delete(currentRoomId);
+          console.log(`Room ${currentRoomId} deleted (empty)`);
+        }
+      }
+    }
+  });
+});
 
 const PORT = 3001;
 server.listen(PORT, () => {
