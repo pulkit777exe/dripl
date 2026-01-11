@@ -29,10 +29,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="min-h-dvh flex items-center justify-center bg-background">
       <div className="w-full max-w-md p-8 bg-card border border-border rounded-xl">
         <h1 className="text-2xl font-bold text-foreground mb-6">Login</h1>
-        
+
         {error && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-500 text-sm">
             {error}
@@ -77,7 +77,10 @@ export default function LoginPage() {
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
-          <Link href="/signup" className="text-indigo-500 hover:text-indigo-400">
+          <Link
+            href="/signup"
+            className="text-indigo-500 hover:text-indigo-400"
+          >
             Sign up
           </Link>
         </p>
