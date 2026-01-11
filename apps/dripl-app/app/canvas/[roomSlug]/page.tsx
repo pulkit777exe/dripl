@@ -13,7 +13,7 @@ interface CanvasRoomPageProps {
 
 export default function CanvasRoomPage({ params }: CanvasRoomPageProps) {
   return (
-    <div className="w-screen h-screen relative bg-background overflow-hidden">
+    <div className="w-screen h-dvh relative bg-background overflow-hidden">
       <CanvasToolbar />
       <PropertiesPanel />
       <CanvasControls />
