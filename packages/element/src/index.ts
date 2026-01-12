@@ -1,9 +1,14 @@
 export * from "./factory";
-export * from "./renderer";
 export * from "./intersection";
+export * from "./renderer";
 export {
   createRoughCanvas,
-  renderElement as renderRoughElement,
-  renderElements as renderRoughElements,
+  renderRoughElement,
+  renderRoughElements,
 } from "./rough-renderer";
+
 export * from "./shape-cache";
+
+// Future expansion 
+// export * from "./viewport";
+// export * from "./image-cache";

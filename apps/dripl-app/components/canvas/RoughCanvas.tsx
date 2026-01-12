@@ -10,10 +10,11 @@ import {
 } from "@dripl/element";
 import { RemoteCursors } from "./RemoteCursors";
 import type { DriplElement } from "@dripl/common";
-import { v7 as uuidv7 } from "uuid";
+import { v4 as uuidv4 } from "uuid";
 import { SelectionOverlay, ResizeHandle } from "./SelectionOverlay";
 import { NameInputModal } from "./NameInputModal";
 import { CollaboratorsList } from "./CollaboratorsList";
+import { throttle } from "@dripl/utils";
 
 interface Point {
   x: number;
@@ -86,6 +87,15 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
   const setZoom = useCanvasStore((state) => state.setZoom);
 
   const { send, isConnected } = useCanvasWebSocket(roomSlug, userName);
+
+  // Throttle cursor updates to avoid flooding websocket
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const throttledSend = useCallback(
+    throttle((data: any) => {
+      if (isConnected) send(data);
+    }, 50),
+    [isConnected, send]
+  );
 
   // Try to load name from localStorage or session?
   useEffect(() => {
@@ -202,7 +212,7 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
   const createElement = useCallback(
     (x: number, y: number): DriplElement | null => {
       const baseProps = {
-        id: uuidv7(),
+        id: uuidv4(),
         x,
         y,
         strokeColor: currentStrokeColor,
@@ -323,7 +333,7 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
               }
 
               const element: DriplElement = {
-                id: uuidv7(),
+                id: uuidv4(),
                 type: "image",
                 x: x - width / 2,
                 y: y - height / 2,
@@ -358,7 +368,7 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     const { x, y } = coords;
 
     // Broadcast cursor
-    send({ type: "cursor_move", x, y, timestamp: Date.now() });
+    throttledSend({ type: "cursor_move", x, y, timestamp: Date.now() });
 
     // Handle Space key for panning
     if (e.button === 1 || activeTool === "select") {
@@ -386,7 +396,7 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     }
 
     if (activeTool === "text") {
-      const id = uuidv7();
+      const id = uuidv4();
       setTextInput({ x, y, id });
       return;
     }
@@ -411,7 +421,7 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     const coords = getCanvasCoordinates(e);
     const { x, y } = coords;
 
-    send({ type: "cursor_move", x, y, timestamp: Date.now() });
+    throttledSend({ type: "cursor_move", x, y, timestamp: Date.now() });
 
     if (isResizing && initialElement && resizeHandle) {
       const el = initialElement;

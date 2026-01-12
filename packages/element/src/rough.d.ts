@@ -1,4 +1,4 @@
-declare module "roughjs/bundled/rough.esm.js" {
+declare module "roughjs" {
   const rough: {
     canvas(canvas: HTMLCanvasElement, config?: any): any;
     svg(svg: SVGSVGElement, config?: any): any;
