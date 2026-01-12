@@ -1,5 +1,17 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  image: string | null;
+}
+
+interface AuthResponse {
+  user: User;
+  token?: string;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -35,15 +47,22 @@ class ApiClient {
   }
 
   // Auth endpoints
-  async signup(data: { email: string; password: string; name?: string }) {
-    return this.request("/users/signup", {
+  async signup(data: {
+    email: string;
+    password: string;
+    name?: string;
+  }): Promise<AuthResponse> {
+    return this.request<AuthResponse>("/users/signup", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async login(data: { email: string; password: string }) {
-    return this.request("/users/login", {
+  async login(data: {
+    email: string;
+    password: string;
+  }): Promise<AuthResponse> {
+    return this.request<AuthResponse>("/users/login", {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -55,8 +74,8 @@ class ApiClient {
     });
   }
 
-  async getProfile() {
-    return this.request("/users/profile", {
+  async getProfile(): Promise<{ user: User }> {
+    return this.request<{ user: User }>("/users/profile", {
       method: "GET",
     });
   }

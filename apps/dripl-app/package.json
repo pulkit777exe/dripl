@@ -14,7 +14,6 @@
     "@dripl/db": "workspace:*",
     "@dripl/element": "workspace:*",
     "@dripl/math": "workspace:*",
-    "@dripl/state": "workspace:*",
     "@dripl/storage": "workspace:*",
     "@dripl/sync": "workspace:*",
     "@dripl/ui": "workspace:*",
