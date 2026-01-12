@@ -9,11 +9,14 @@
   },
   "dependencies": {
     "@dripl/common": "workspace:*",
+    "@dripl/db": "workspace:*",
     "@dripl/sync": "workspace:*",
+    "jsonwebtoken": "^9.0.2",
     "uuid": "^13.0.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^24.10.1",
     "@types/ws": "^8.18.1",
     "eslint": "^9.39.1",

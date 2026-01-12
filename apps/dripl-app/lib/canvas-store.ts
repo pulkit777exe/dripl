@@ -20,6 +20,15 @@ export interface CanvasState {
   roomSlug: string | null;
   isConnected: boolean;
 
+  // Auth/User info
+  userId: string | null;
+
+  // Persistence tracking
+  fileId: string | null;
+  fileName: string;
+  isSaving: boolean;
+  lastSaved: number | null;
+
   // Drawing state
   elements: DriplElement[];
   selectedIds: Set<string>;
@@ -99,6 +108,12 @@ export interface CanvasState {
   redo: () => void;
   pushHistory: () => void;
   clearHistory: () => void;
+
+  // Actions - Persistence
+  setUserId: (userId: string | null) => void;
+  setFileMetadata: (fileId: string | null, fileName: string) => void;
+  markSaving: (isSaving: boolean) => void;
+  markSaved: () => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -106,6 +121,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   roomId: null,
   roomSlug: null,
   isConnected: false,
+
+  // Initial state - Auth/User
+  userId: null,
+
+  // Initial state - Persistence
+  fileId: null,
+  fileName: "Untitled",
+  isSaving: false,
+  lastSaved: null,
 
   // Initial state - Drawing
   elements: [],
@@ -243,4 +267,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
   clearHistory: () => set({ history: [], historyIndex: -1 }),
+
+  // Actions - Persistence
+  setUserId: (userId) => set({ userId }),
+  setFileMetadata: (fileId, fileName) => set({ fileId, fileName }),
+  markSaving: (isSaving) => set({ isSaving }),
+  markSaved: () => set({ isSaving: false, lastSaved: Date.now() }),
 }));

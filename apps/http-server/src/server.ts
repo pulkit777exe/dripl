@@ -3,6 +3,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import { userRouter } from "./routes/UserRoute";
 import { fileRouter } from "./routes/FileRoute";
+import roomRoutes from "./routes/roomRoutes";
 
 const app: Express = express();
 const PORT = process.env.PORT || 3002;
@@ -21,8 +22,7 @@ app.use(cookieParser());
 // Routes
 app.use("/api/users", userRouter);
 app.use("/api/files", fileRouter);
-
-// Health check
+app.use("/api/rooms", roomRoutes);
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
