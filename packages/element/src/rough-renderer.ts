@@ -1,4 +1,4 @@
-import rough from "roughjs/bundled/rough.esm.js";
+import rough from "roughjs";
 import type { DriplElement } from "@dripl/common";
 import { getShapeFromCache, setShapeInCache } from "./shape-cache.js";
 
