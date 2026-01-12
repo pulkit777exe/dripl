@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { v7 as uuidv7 } from "uuid";
+import { v4 as uuidv4 } from "uuid";
 import {
   Search,
   Home,
@@ -33,7 +33,7 @@ export function LandingPage() {
   }, []);
 
   const handleCreateRoom = () => {
-    const newRoomId = uuidv7();
+    const newRoomId = uuidv4();
     router.push(`/canvas/${newRoomId}`);
   };
 
