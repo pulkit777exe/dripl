@@ -27,7 +27,7 @@ export const ZoomControls = ({
       )}
     >
       <Tooltip content="Zoom Out (-)">
-        <IconButton size="sm" onClick={onZoomOut}>
+        <IconButton size="sm" onClick={onZoomOut} aria-label="Zoom Out">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
@@ -45,12 +45,15 @@ export const ZoomControls = ({
       </Tooltip>
       <button
         onClick={onReset}
-        className="min-w-12 text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
+        className={cn(
+          "min-w-12 text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
+        )}
+        aria-label="Reset Zoom"
       >
         {Math.round(zoom * 100)}%
       </button>
       <Tooltip content="Zoom In (+)">
-        <IconButton size="sm" onClick={onZoomIn}>
+        <IconButton size="sm" onClick={onZoomIn} aria-label="Zoom In">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"

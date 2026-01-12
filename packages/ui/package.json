@@ -13,9 +13,9 @@
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
+    "@dripl/common": "workspace:*",
     "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
-    "@dripl/common": "workspace:*",
     "@types/node": "^22.15.3",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "motion": "^12.25.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.4.0"
