@@ -2,7 +2,9 @@
   "extends": "@dripl/typescript-config/base.json",
   "compilerOptions": {
     "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json",
-    "composite": true
+    "composite": true,
+    "moduleResolution": "bundler",
+    "module": "ESNext"
   },
   "include": ["src"]
 }

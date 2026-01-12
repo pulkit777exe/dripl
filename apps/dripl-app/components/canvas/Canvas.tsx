@@ -1339,7 +1339,7 @@ export default function App() {
   };
 
   return (
-    <div className="w-screen h-screen bg-[#121212] text-white overflow-hidden relative font-sans selection:bg-purple-500/30">
+    <div className="w-screen h-dvh bg-[#121212] text-white overflow-hidden relative font-sans selection:bg-purple-500/30">
       {/* Hidden file input */}
       <input
         ref={fileInputRef}

@@ -1,38 +1,76 @@
-import { DriplElement } from "@dripl/common";
+import type { DriplElement } from "@dripl/common";
 
-type Drawable = any; // Rough.js Drawable type
-
-// WeakMap to store cached shapes for each element
-// Using WeakMap ensures that when element objects are garbage collected,
-// their cached shapes are also removed automatically
-const shapeCache = new WeakMap<DriplElement, Drawable | Drawable[]>();
+export type Drawable = any;
 
 /**
- * Get cached shape for an element
+ * Shape cache keyed by a *stable* identifier: `${element.id}:${element.version}`.
+ *
+ * Why this design:
+ * - Survives immutable updates
+ * - Survives undo/redo (history snapshots)
+ * - Safe for collaboration / remote merges
+ * - Avoids WeakMap pitfalls (object identity instability)
+ */
+const shapeCache = new Map<string, Drawable | Drawable[]>();
+
+/**
+ * Build a stable cache key for an element.
+ * Element must have `id` and `version`.
+ */
+export function getShapeCacheKey(element: DriplElement): string {
+  const version = (element as any).version ?? 0;
+  return `${element.id}:${version}`;
+}
+
+/**
+ * Get cached Rough.js shape for an element
  */
 export function getShapeFromCache(
   element: DriplElement
 ): Drawable | Drawable[] | undefined {
-  return shapeCache.get(element);
+  return shapeCache.get(getShapeCacheKey(element));
 }
 
 /**
- * Set cached shape for an element
+ * Store Rough.js shape in cache
  */
 export function setShapeInCache(
   element: DriplElement,
   shape: Drawable | Drawable[]
 ): void {
-  shapeCache.set(element, shape);
+  shapeCache.set(getShapeCacheKey(element), shape);
 }
 
 /**
- * Clear cache for an element (e.g. when it changes)
- * Note: Since we use immutable updates for elements in the store,
- * a changed element is a new object, so we don't strictly need to delete
- * from the WeakMap unless we are mutating objects in place.
- * However, if we do mutate, this is useful.
+ * Remove a single element from cache
+ * (useful if you mutate in place, or during manual invalidation)
  */
 export function clearShapeFromCache(element: DriplElement): void {
-  shapeCache.delete(element);
+  shapeCache.delete(getShapeCacheKey(element));
+}
+
+/**
+ * Clear all cached shapes.
+ * Useful when:
+ * - Theme changes
+ * - Rough.js config changes
+ * - Major canvas reset
+ */
+export function clearAllShapeCache(): void {
+  shapeCache.clear();
+}
+
+/**
+ * Optional: limit cache size (safety valve for very large canvases)
+ */
+export function pruneShapeCache(maxSize: number = 5000): void {
+  if (shapeCache.size <= maxSize) return;
+
+  const extra = shapeCache.size - maxSize;
+  const keys = shapeCache.keys();
+
+  for (let i = 0; i < extra; i++) {
+    const k = keys.next().value;
+    if (k) shapeCache.delete(k);
+  }
 }

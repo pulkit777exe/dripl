@@ -16,21 +16,26 @@ type File = {
 
 interface FileBrowserProps {
   files: File[];
+  onCreateFile?: () => void;
 }
 
-export function FileBrowser({ files }: FileBrowserProps) {
+export function FileBrowser({ files, onCreateFile }: FileBrowserProps) {
   const [isPending, startTransition] = useTransition();
 
-  const onCreateFile = () => {
-    startTransition(async () => {
-      await handleCreateFile();
-    });
+  const handleCreate = () => {
+    if (onCreateFile) {
+      onCreateFile();
+    } else {
+      startTransition(async () => {
+        await handleCreateFile();
+      });
+    }
   };
 
   return (
     <div className="flex-1 p-8 overflow-auto bg-background">
       <div className="flex gap-4 mb-12">
-        <button 
+        <button
           onClick={onCreateFile}
           disabled={isPending}
           className="flex flex-col items-center justify-center w-48 h-32 rounded-xl border border-border bg-card hover:bg-accent/20 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
@@ -52,8 +57,8 @@ export function FileBrowser({ files }: FileBrowserProps) {
 
         <div className="divide-y divide-border">
           {files.map((file) => (
-            <Link 
-              key={file.id} 
+            <Link
+              key={file.id}
               href={`/file/${file.id}`}
               className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-accent/20 transition-colors group"
             >
@@ -65,13 +70,17 @@ export function FileBrowser({ files }: FileBrowserProps) {
               </div>
               <div className="col-span-2 text-xs text-muted-foreground">—</div>
               <div className="col-span-2 text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(file.createdAt), { addSuffix: true })}
+                {formatDistanceToNow(new Date(file.createdAt), {
+                  addSuffix: true,
+                })}
               </div>
               <div className="col-span-2 flex items-center justify-end gap-4">
                 <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(file.updatedAt), { addSuffix: true })}
+                  {formatDistanceToNow(new Date(file.updatedAt), {
+                    addSuffix: true,
+                  })}
                 </span>
-                <button 
+                <button
                   onClick={(e) => {
                     e.preventDefault();
                     // Add menu logic here
@@ -83,7 +92,7 @@ export function FileBrowser({ files }: FileBrowserProps) {
               </div>
             </Link>
           ))}
-          
+
           {files.length === 0 && (
             <div className="py-12 text-center text-muted-foreground text-sm">
               No files yet. Create one to get started.

@@ -1,4 +1,5 @@
 import { type JSX } from "react";
+import { cn } from "./lib/utils.js";
 
 export function Card({
   className,
@@ -13,7 +14,7 @@ export function Card({
 }): JSX.Element {
   return (
     <a
-      className={className}
+      className={cn(className)}
       href={`${href}?utm_source=create-turbo&utm_medium=basic&utm_campaign=create-turbo"`}
       rel="noopener noreferrer"
       target="_blank"

@@ -54,7 +54,7 @@ export default function DashboardPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-background">
+      <div className="flex items-center justify-center h-dvh bg-background">
         <div className="text-muted-foreground">Loading...</div>
       </div>
     );
@@ -65,7 +65,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-background text-foreground">
+    <div className="flex h-dvh w-full bg-background text-foreground">
       <FileBrowser files={files} onCreateFile={handleCreateFile} />
     </div>
   );

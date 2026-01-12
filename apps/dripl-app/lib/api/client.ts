@@ -12,7 +12,7 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       ...options,
       headers: {
@@ -62,13 +62,13 @@ class ApiClient {
   }
 
   // File endpoints
-  async getFiles() {
+  async getFiles(): Promise<{ files: any[] }> {
     return this.request("/files", {
       method: "GET",
     });
   }
 
-  async createFile(data: { name?: string }) {
+  async createFile(data: { name?: string }): Promise<{ file: any }> {
     return this.request("/files", {
       method: "POST",
       body: JSON.stringify(data),

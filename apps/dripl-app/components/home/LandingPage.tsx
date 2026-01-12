@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { v7 as uuidv7 } from "uuid";
+import { v4 as uuidv4 } from "uuid";
 import {
   Search,
   Home,
@@ -33,17 +33,17 @@ export function LandingPage() {
   }, []);
 
   const handleCreateRoom = () => {
-    const newRoomId = uuidv7();
+    const newRoomId = uuidv4();
     router.push(`/canvas/${newRoomId}`);
   };
 
   return (
-    <div className="flex h-screen bg-[#09090b] text-white font-sans overflow-hidden">
+    <div className="flex h-dvh bg-[#09090b] text-white font-sans overflow-hidden">
       {/* Sidebar */}
       <aside className="w-[280px] flex flex-col p-4 border-r border-[#1f1f22]">
         {/* Brand */}
         <div className="flex items-center gap-3 px-3 py-4 mb-6">
-          <div className="w-8 h-8 bg-gradient-to-br from-white/20 to-white/5 rounded-lg flex items-center justify-center border border-white/10 shadow-inner">
+          <div className="w-8 h-8 bg-linear-to-br from-white/20 to-white/5 rounded-lg flex items-center justify-center border border-white/10 shadow-inner">
             <Layers className="w-5 h-5 text-white" />
           </div>
           <span className="font-semibold text-lg tracking-tight">Dripl</span>
@@ -87,7 +87,7 @@ export function LandingPage() {
         {/* User / Footer */}
         <div className="mt-auto pt-6 border-t border-[#1f1f22] px-2">
           <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 border border-white/10" />
+            <div className="w-8 h-8 rounded-full bg-linear-to-br from-purple-500 to-indigo-500 border border-white/10" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">Pulkit</div>
               <div className="text-xs text-gray-500 truncate">Pro Plan</div>
