@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.35.5",
+    "@dotlottie/react-player": "^1.6.19",
     "@dripl/common": "workspace:*",
     "@dripl/db": "workspace:*",
     "@dripl/element": "workspace:*",
@@ -24,6 +25,7 @@
     "@tanstack/react-store": "^0.8.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "framer-motion": "^12.26.1",
     "idb": "^8.0.3",
     "lucide-react": "^0.555.0",
     "motion": "^12.25.0",
