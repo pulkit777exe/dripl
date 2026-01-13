@@ -1,8 +1,10 @@
 "use client";
 
 import { useCanvasStore } from "@/lib/canvas-store";
-import { DriplElement } from "@dripl/common";
+import { DriplElement, Point } from "@dripl/common";
 import { memo } from "react";
+import { getElementBounds } from "@dripl/math";
+import { Bounds } from "@dripl/math";
 
 interface SelectionOverlayProps {
   zoom: number;
@@ -10,6 +12,7 @@ interface SelectionOverlayProps {
   panY: number;
   onResizeStart: (handle: ResizeHandle, e: React.PointerEvent) => void;
   onRotateStart: (e: React.PointerEvent) => void;
+  marqueeSelection?: { start: Point; end: Point; active: boolean } | null;
 }
 
 export type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
@@ -22,13 +25,36 @@ export const SelectionOverlay = memo(function SelectionOverlay({
   panY,
   onResizeStart,
   onRotateStart,
+  marqueeSelection,
 }: SelectionOverlayProps) {
   const elements = useCanvasStore((state) => state.elements);
   const selectedIds = useCanvasStore((state) => state.selectedIds);
 
+  // Render marquee selection if active
+  if (marqueeSelection?.active) {
+    const x = Math.min(marqueeSelection.start.x, marqueeSelection.end.x) * zoom + panX;
+    const y = Math.min(marqueeSelection.start.y, marqueeSelection.end.y) * zoom + panY;
+    const w = Math.abs(marqueeSelection.end.x - marqueeSelection.start.x) * zoom;
+    const h = Math.abs(marqueeSelection.end.y - marqueeSelection.start.y) * zoom;
+
+    return (
+      <div
+        className="absolute top-0 left-0 pointer-events-none"
+        style={{
+          transform: `translate(${x}px, ${y}px)`,
+          width: w,
+          height: h,
+          border: "2px dashed #6965db",
+          backgroundColor: "rgba(105, 101, 219, 0.1)",
+          zIndex: 10,
+        }}
+      />
+    );
+  }
+
   if (selectedIds.size === 0) return null;
 
-  // Calculate bounding box of selection
+  // Calculate bounding box of selection using proper bounds calculation
   const selectedElements = elements.filter((el) => selectedIds.has(el.id));
   if (selectedElements.length === 0) return null;
 
@@ -38,12 +64,11 @@ export const SelectionOverlay = memo(function SelectionOverlay({
   let maxY = -Infinity;
 
   selectedElements.forEach((el) => {
-    minX = Math.min(minX, el.x);
-    minY = Math.min(minY, el.y);
-    const width = "width" in el ? el.width : 0;
-    const height = "height" in el ? el.height : 0;
-    maxX = Math.max(maxX, el.x + width);
-    maxY = Math.max(maxY, el.y + height);
+    const bounds = getElementBounds(el);
+    minX = Math.min(minX, bounds.x);
+    minY = Math.min(minY, bounds.y);
+    maxX = Math.max(maxX, bounds.x + bounds.width);
+    maxY = Math.max(maxY, bounds.y + bounds.height);
   });
 
   const x = minX * zoom + panX;
@@ -53,7 +78,7 @@ export const SelectionOverlay = memo(function SelectionOverlay({
 
   // Rotation (only for single element)
   const angle =
-    selectedElements.length === 1 ? selectedElements[0]?.angle || 0 : 0;
+    selectedElements.length === 1 ? (selectedElements[0]?.angle || 0) : 0;
 
   // Only show handles for single selection for now
   const showHandles = selectedElements.length === 1;

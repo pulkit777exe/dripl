@@ -1,7 +1,5 @@
 import type { Config } from "tailwindcss";
 
-// import animatePlugin from "tw-animate-css";
-
 const config: Config = {
   darkMode: "class",
   content: [
@@ -10,7 +8,17 @@ const config: Config = {
     "../../packages/ui/src/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
     extend: {
+      fontFamily: {
+        sans: ["var(--font-inter)", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -45,11 +53,27 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Attio-grade Monochromatic Scale
+        "canvas-white": "#FFFFFF",
+        "off-white": "#FAFAFA",
+        "vapor-grey": "#F4F4F5",
+        "structure-grey": "#E4E4E7",
+        "deep-charcoal": "#18181B",
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      backgroundImage: {
+        "grid-pattern": "url('/grid-pattern.svg')",
+      },
+      boxShadow: {
+        "attio-sm": "0px 1px 2px rgba(0,0,0,0.05)",
+        "attio-md":
+          "0px 4px 6px -1px rgba(0,0,0,0.1), 0px 2px 4px -1px rgba(0,0,0,0.06)",
+        "attio-lg":
+          "0px 10px 15px -3px rgba(0,0,0,0.1), 0px 4px 6px -2px rgba(0,0,0,0.05)",
       },
     },
   },

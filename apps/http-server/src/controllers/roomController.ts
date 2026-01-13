@@ -1,0 +1,278 @@
+import { Response } from "express";
+import { db } from "@dripl/db";
+import { AuthRequest } from "../middlewares/authMiddleware";
+
+// Generate a URL-safe random slug
+function generateSlug(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let slug = "";
+  for (let i = 0; i < 8; i++) {
+    slug += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return slug;
+}
+
+export class RoomController {
+  // Get all rooms for the authenticated user
+  static async getRooms(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const rooms = await db.canvasRoom.findMany({
+        where: {
+          OR: [
+            { ownerId: req.userId },
+            {
+              members: {
+                some: {
+                  userId: req.userId,
+                },
+              },
+            },
+          ],
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          isPublic: true,
+          createdAt: true,
+          updatedAt: true,
+          ownerId: true,
+        },
+      });
+
+      res.json({ rooms });
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  // Create a new room
+  static async createRoom(req: AuthRequest, res: Response): Promise<void> {
+    const { name, isPublic = false } = req.body;
+
+    try {
+      // Generate unique slug
+      let slug = generateSlug();
+      let attempts = 0;
+      while (attempts < 5) {
+        const existing = await db.canvasRoom.findUnique({ where: { slug } });
+        if (!existing) break;
+        slug = generateSlug();
+        attempts++;
+      }
+
+      const room = await db.canvasRoom.create({
+        data: {
+          slug,
+          name: name || "Untitled Room",
+          ownerId: req.userId!,
+          isPublic,
+          content: "[]",
+        },
+      });
+
+      res.status(201).json({
+        status: "room created",
+        room,
+      });
+    } catch (error) {
+      console.error("Error creating room:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  // Get a specific room by slug (for viewing/joining)
+  static async getRoom(req: AuthRequest, res: Response): Promise<void> {
+    const { slug } = req.params;
+
+    try {
+      const room = await db.canvasRoom.findUnique({
+        where: { slug },
+        include: {
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+          members: {
+            select: {
+              userId: true,
+              role: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!room) {
+        res.status(404).json({ error: "Room not found" });
+        return;
+      }
+
+      // Check access: must be owner, member, or room is public
+      const isOwner = room.ownerId === req.userId;
+      const isMember = room.members.some((m) => m.userId === req.userId);
+
+      if (!room.isPublic && !isOwner && !isMember) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
+
+      res.json({ room });
+    } catch (error) {
+      console.error("Error fetching room:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  // Update room settings
+  static async updateRoom(req: AuthRequest, res: Response): Promise<void> {
+    const { slug } = req.params;
+    const { name, isPublic, content } = req.body;
+
+    try {
+      const room = await db.canvasRoom.findUnique({ where: { slug } });
+
+      if (!room) {
+        res.status(404).json({ error: "Room not found" });
+        return;
+      }
+
+      // Only owner can update room settings
+      if (room.ownerId !== req.userId) {
+        res.status(403).json({ error: "Only the owner can update this room" });
+        return;
+      }
+
+      const updatedRoom = await db.canvasRoom.update({
+        where: { slug },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(isPublic !== undefined && { isPublic }),
+          ...(content !== undefined && { content }),
+        },
+      });
+
+      res.json({
+        status: "room updated",
+        room: updatedRoom,
+      });
+    } catch (error) {
+      console.error("Error updating room:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  // Delete a room
+  static async deleteRoom(req: AuthRequest, res: Response): Promise<void> {
+    const { slug } = req.params;
+
+    try {
+      const room = await db.canvasRoom.findUnique({ where: { slug } });
+
+      if (!room) {
+        res.status(404).json({ error: "Room not found" });
+        return;
+      }
+
+      // Only owner can delete room
+      if (room.ownerId !== req.userId) {
+        res.status(403).json({ error: "Only the owner can delete this room" });
+        return;
+      }
+
+      // Delete members first (cascade might not be set)
+      await db.canvasRoomMember.deleteMany({
+        where: { roomId: room.id },
+      });
+
+      await db.canvasRoom.delete({ where: { slug } });
+
+      res.json({ status: "room deleted" });
+    } catch (error) {
+      console.error("Error deleting room:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  // Add a member to the room
+  static async addMember(req: AuthRequest, res: Response): Promise<void> {
+    const { slug } = req.params;
+    const { userId, role = "EDITOR" } = req.body;
+
+    try {
+      const room = await db.canvasRoom.findUnique({ where: { slug } });
+
+      if (!room) {
+        res.status(404).json({ error: "Room not found" });
+        return;
+      }
+
+      // Only owner can add members
+      if (room.ownerId !== req.userId) {
+        res.status(403).json({ error: "Only the owner can add members" });
+        return;
+      }
+
+      const member = await db.canvasRoomMember.create({
+        data: {
+          roomId: room.id,
+          userId,
+          role,
+        },
+      });
+
+      res.status(201).json({
+        status: "member added",
+        member,
+      });
+    } catch (error) {
+      console.error("Error adding member:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  // Remove a member from the room
+  static async removeMember(req: AuthRequest, res: Response): Promise<void> {
+    const { slug, userId } = req.params;
+
+    try {
+      const room = await db.canvasRoom.findUnique({ where: { slug } });
+
+      if (!room) {
+        res.status(404).json({ error: "Room not found" });
+        return;
+      }
+
+      // Only owner can remove members
+      if (room.ownerId !== req.userId) {
+        res.status(403).json({ error: "Only the owner can remove members" });
+        return;
+      }
+
+      await db.canvasRoomMember.deleteMany({
+        where: {
+          roomId: room.id,
+          userId,
+        },
+      });
+
+      res.json({ status: "member removed" });
+    } catch (error) {
+      console.error("Error removing member:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+}

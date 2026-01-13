@@ -62,15 +62,30 @@ export function clearAllShapeCache(): void {
 
 /**
  * Optional: limit cache size (safety valve for very large canvases)
+ * Uses LRU (Least Recently Used) eviction for better performance
  */
 export function pruneShapeCache(maxSize: number = 5000): void {
   if (shapeCache.size <= maxSize) return;
 
   const extra = shapeCache.size - maxSize;
-  const keys = shapeCache.keys();
+  const keys = Array.from(shapeCache.keys());
 
+  // Delete oldest entries (first in Map iteration order)
   for (let i = 0; i < extra; i++) {
-    const k = keys.next().value;
-    if (k) shapeCache.delete(k);
+    shapeCache.delete(keys[i]!);
   }
+}
+
+/**
+ * Get cache statistics for monitoring
+ */
+export function getShapeCacheStats(): {
+  size: number;
+  maxSize: number;
+  hitRate?: number;
+} {
+  return {
+    size: shapeCache.size,
+    maxSize: 5000, // Default max size
+  };
 }

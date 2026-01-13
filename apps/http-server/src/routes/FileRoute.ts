@@ -4,7 +4,6 @@ import { authMiddleware } from "../middlewares/authMiddleware";
 
 const fileRouter: Router = Router();
 
-// All file routes require authentication
 fileRouter.use(authMiddleware);
 
 fileRouter.get("/", FileController.getFiles);

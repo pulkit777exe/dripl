@@ -1,5 +1,5 @@
 import { DriplElement, Point } from "@dripl/common";
-import { isPointInRect } from "./geometry.js";
+import { isPointInRect } from "./geometry";
 
 export const hitTest = (point: Point, element: DriplElement): boolean => {
   switch (element.type) {

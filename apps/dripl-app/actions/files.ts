@@ -21,6 +21,7 @@ export async function getFiles() {
     },
     create: {
       id: user.id,
+      password: "",
       email: user.emailAddresses[0].emailAddress,
       name: `${user.firstName} ${user.lastName}`,
       image: user.imageUrl,

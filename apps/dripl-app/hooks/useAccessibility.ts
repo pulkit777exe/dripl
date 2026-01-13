@@ -1,0 +1,128 @@
+"use client";
+
+import { useEffect, useCallback } from "react";
+import type { DriplElement } from "@dripl/common";
+
+export interface AccessibilityConfig {
+  announceSelection?: (count: number) => void;
+  announceToolChange?: (tool: string) => void;
+  announceUndo?: () => void;
+  announceRedo?: () => void;
+  announceElementCreated?: (type: string) => void;
+  announceElementDeleted?: (count: number) => void;
+  enabled?: boolean;
+}
+
+/**
+ * Hook for accessibility features
+ * Provides screen reader announcements and keyboard navigation support
+ */
+export function useAccessibility({
+  announceSelection,
+  announceToolChange,
+  announceUndo,
+  announceRedo,
+  announceElementCreated,
+  announceElementDeleted,
+  enabled = true,
+}: AccessibilityConfig) {
+  // Default announcement function using aria-live region
+  const defaultAnnounce = useCallback((message: string) => {
+    if (!enabled) return;
+
+    // Create or get aria-live region
+    let liveRegion = document.getElementById("aria-live-region");
+    if (!liveRegion) {
+      liveRegion = document.createElement("div");
+      liveRegion.id = "aria-live-region";
+      liveRegion.setAttribute("aria-live", "polite");
+      liveRegion.setAttribute("aria-atomic", "true");
+      liveRegion.className = "sr-only";
+      liveRegion.style.cssText =
+        "position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;";
+      document.body.appendChild(liveRegion);
+    }
+
+    liveRegion.textContent = message;
+    // Clear after a delay to allow re-announcement of same message
+    setTimeout(() => {
+      if (liveRegion) liveRegion.textContent = "";
+    }, 1000);
+  }, [enabled]);
+
+  const announce = useCallback(
+    (message: string) => {
+      defaultAnnounce(message);
+    },
+    [defaultAnnounce]
+  );
+
+  return {
+    announce,
+    announceSelection: (count: number) => {
+      const message = count === 0 
+        ? "Selection cleared" 
+        : count === 1 
+        ? "1 element selected" 
+        : `${count} elements selected`;
+      announceSelection?.(message) || announce(message);
+    },
+    announceToolChange: (tool: string) => {
+      const message = `${tool} tool activated`;
+      announceToolChange?.(message) || announce(message);
+    },
+    announceUndo: () => {
+      const message = "Undone";
+      announceUndo?.(message) || announce(message);
+    },
+    announceRedo: () => {
+      const message = "Redone";
+      announceRedo?.(message) || announce(message);
+    },
+    announceElementCreated: (type: string) => {
+      const message = `${type} created`;
+      announceElementCreated?.(message) || announce(message);
+    },
+    announceElementDeleted: (count: number) => {
+      const message = count === 1 ? "Element deleted" : `${count} elements deleted`;
+      announceElementDeleted?.(message) || announce(message);
+    },
+  };
+}
+
+/**
+ * Get accessible label for an element
+ */
+export function getElementAccessibleLabel(element: DriplElement): string {
+  switch (element.type) {
+    case "rectangle":
+      return `Rectangle at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
+    case "ellipse":
+      return `Ellipse at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
+    case "arrow":
+      return `Arrow from ${element.x}, ${element.y}`;
+    case "line":
+      return `Line from ${element.x}, ${element.y}`;
+    case "freedraw":
+      return `Freehand drawing at ${element.x}, ${element.y}`;
+    case "text":
+      return `Text: ${"text" in element ? element.text : ""}`;
+    case "image":
+      return `Image at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
+    default:
+      return `Element at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
+  }
+}
+
+/**
+ * Add ARIA attributes to canvas element
+ */
+export function addCanvasAriaAttributes(
+  canvas: HTMLCanvasElement,
+  role: string = "img",
+  label: string = "Drawing canvas"
+): void {
+  canvas.setAttribute("role", role);
+  canvas.setAttribute("aria-label", label);
+  canvas.setAttribute("tabindex", "0");
+}
