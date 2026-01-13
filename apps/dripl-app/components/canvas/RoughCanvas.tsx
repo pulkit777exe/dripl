@@ -3,11 +3,11 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useCanvasStore } from "@/lib/canvas-store";
 import { useCanvasWebSocket } from "@/hooks/useCanvasWebSocket";
+import { isPointInElement } from "@dripl/math";
 import {
-  createRoughCanvas,
-  renderRoughElements,
-  isPointInElement,
-} from "@dripl/element";
+  handleClickSelectionWithElements,
+  handleMarqueeSelectionEnd,
+} from "@/hooks/useEnhancedSelection";
 import { RemoteCursors } from "./RemoteCursors";
 import type { DriplElement } from "@dripl/common";
 import { v4 as uuidv4 } from "uuid";
@@ -15,6 +15,9 @@ import { SelectionOverlay, ResizeHandle } from "./SelectionOverlay";
 import { NameInputModal } from "./NameInputModal";
 import { CollaboratorsList } from "./CollaboratorsList";
 import { throttle } from "@dripl/utils";
+import { useCanvasRenderer } from "./CanvasRenderer";
+import { screenToCanvas, Viewport } from "@/utils/canvas-coordinates";
+import { useDrawingTools } from "@/hooks/useDrawingTools";
 
 interface Point {
   x: number;
@@ -26,9 +29,8 @@ interface CanvasProps {
 }
 
 export default function RoughCanvas({ roomSlug }: CanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const roughCanvasRef = useRef<any>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null!);
+  const containerRef = useRef<HTMLDivElement>(null!);
 
   const [userName, setUserName] = useState<string | null>(null);
 
@@ -51,6 +53,21 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
   } | null>(null);
   const [eraserPath, setEraserPath] = useState<Point[]>([]);
   const [lastPointerPos, setLastPointerPos] = useState<Point | null>(null);
+  const [marqueeSelection, setMarqueeSelection] = useState<{
+    start: Point;
+    end: Point;
+    active: boolean;
+  } | null>(null);
+
+  // Drawing tools hook
+  const {
+    currentPreview: drawingPreview,
+    startDrawing,
+    updateDrawing,
+    finishDrawing,
+    cancelDrawing,
+    isDrawing: isToolDrawing,
+  } = useDrawingTools();
 
   // Store
   const elements = useCanvasStore((state) => state.elements);
@@ -110,90 +127,36 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     localStorage.setItem("dripl_username", name);
   };
 
-  // Initialize Rough.js canvas
-  useEffect(() => {
-    if (canvasRef.current && !roughCanvasRef.current) {
-      roughCanvasRef.current = createRoughCanvas(canvasRef.current);
-    }
-  }, []);
+  // Viewport for renderer
+  const viewport: Viewport = {
+    x: panX,
+    y: panY,
+    width: containerRef.current?.clientWidth || 0,
+    height: containerRef.current?.clientHeight || 0,
+    zoom,
+  };
 
-  // Render elements
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    const rc = roughCanvasRef.current;
+  // Use new canvas renderer with requestAnimationFrame
+  useCanvasRenderer({
+    canvasRef,
+    containerRef,
+    elements,
+    selectedIds,
+    currentPreview: currentElement || drawingPreview,
+    eraserPath,
+    viewport,
+  });
 
-    if (!canvas || !ctx || !rc) return;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Apply transformations
-    ctx.save();
-    ctx.translate(panX, panY);
-    ctx.scale(zoom, zoom);
-
-    // Render all elements
-    renderRoughElements(rc, ctx, elements);
-
-    // Render current drawing element
-    if (currentElement) {
-      renderRoughElements(rc, ctx, [currentElement]);
-    }
-
-    // Render selection highlights
-    if (selectedIds.size > 0) {
-      ctx.save();
-      ctx.strokeStyle = "#6965db";
-      ctx.lineWidth = 1 / zoom;
-      ctx.setLineDash([5 / zoom, 5 / zoom]);
-      elements.forEach((el) => {
-        if (selectedIds.has(el.id)) {
-          // Draw bounding box
-          // Using simple bounds for now (can enhance with getElementBounds)
-          const padding = 4 / zoom;
-          ctx.strokeRect(
-            el.x - padding,
-            el.y - padding,
-            el.width + padding * 2,
-            el.height + padding * 2
-          );
-        }
-      });
-      ctx.restore();
-    }
-
-    // Render eraser trail
-    if (eraserPath.length > 0) {
-      ctx.strokeStyle = "#ff0000";
-      ctx.lineWidth = 10 / zoom;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.globalAlpha = 0.3;
-
-      ctx.beginPath();
-      ctx.moveTo(eraserPath[0]!.x, eraserPath[0]!.y);
-      for (let i = 1; i < eraserPath.length; i++) {
-        ctx.lineTo(eraserPath[i]!.x, eraserPath[i]!.y);
-      }
-      ctx.stroke();
-    }
-
-    ctx.restore();
-  }, [elements, currentElement, eraserPath, selectedIds, zoom, panX, panY]);
-
-  // Get canvas coordinates from mouse event
+  // Get canvas coordinates from mouse event using coordinate transformation
   const getCanvasCoordinates = useCallback(
-    (e: React.MouseEvent | React.DragEvent): Point => {
+    (e: React.MouseEvent | React.DragEvent | React.PointerEvent): Point => {
       const canvas = canvasRef.current;
       if (!canvas) return { x: 0, y: 0 };
 
       const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left - panX) / zoom;
-      const y = (e.clientY - rect.top - panY) / zoom;
-      return { x, y };
+      return screenToCanvas(e.clientX - rect.left, e.clientY - rect.top, viewport);
     },
-    [zoom, panX, panY]
+    [viewport]
   );
 
   // Find element at position (Hit Testing)
@@ -378,6 +341,7 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     if (activeTool === "select") {
       const element = getElementAtPosition(x, y);
       if (element) {
+        // Click on element - start dragging or toggle selection
         if (e.shiftKey) {
           selectElement(element.id, true);
         } else {
@@ -388,9 +352,15 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
         setIsDragging(true);
         setLastPointerPos({ x, y });
       } else {
+        // Click on empty space - start marquee selection
         if (!e.shiftKey) {
           clearSelection();
         }
+        setMarqueeSelection({
+          start: { x, y },
+          end: { x, y },
+          active: true,
+        });
       }
       return;
     }
@@ -407,6 +377,35 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
       return;
     }
 
+    // Use new drawing tools for shape tools
+    if (
+      activeTool === "rectangle" ||
+      activeTool === "ellipse" ||
+      activeTool === "diamond" ||
+      activeTool === "arrow" ||
+      activeTool === "line" ||
+      activeTool === "freedraw"
+    ) {
+      startDrawing(
+        { x, y },
+        activeTool,
+        e.shiftKey,
+        {
+          strokeColor: currentStrokeColor,
+          backgroundColor: currentBackgroundColor,
+          strokeWidth: currentStrokeWidth,
+          opacity: 1,
+          roughness: currentRoughness,
+          strokeStyle: currentStrokeStyle,
+          fillStyle: currentFillStyle,
+        },
+        elements
+      );
+      setIsDrawing(true);
+      return;
+    }
+
+    // Fallback for other tools
     const element = createElement(x, y);
     if (element) {
       setCurrentElement(element);
@@ -422,6 +421,15 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     const { x, y } = coords;
 
     throttledSend({ type: "cursor_move", x, y, timestamp: Date.now() });
+
+    // Update marquee selection
+    if (marqueeSelection?.active) {
+      setMarqueeSelection({
+        ...marqueeSelection,
+        end: { x, y },
+      });
+      return;
+    }
 
     if (isResizing && initialElement && resizeHandle) {
       const el = initialElement;
@@ -569,6 +577,21 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
       return;
     }
 
+    // Update drawing tools
+    if (
+      isToolDrawing &&
+      (activeTool === "rectangle" ||
+        activeTool === "ellipse" ||
+        activeTool === "diamond" ||
+        activeTool === "arrow" ||
+        activeTool === "line" ||
+        activeTool === "freedraw")
+    ) {
+      updateDrawing({ x, y }, e.shiftKey || false, elements);
+      return;
+    }
+
+    // Fallback for old tool implementation
     if (currentElement) {
       if (activeTool === "rectangle" || activeTool === "ellipse") {
         const width = x - currentElement.x;
@@ -598,7 +621,19 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
   };
 
   // Handle pointer up
-  const handlePointerUp = () => {
+  const handlePointerUp = (e?: React.PointerEvent) => {
+    // End marquee selection
+    if (marqueeSelection?.active) {
+      handleMarqueeSelectionEnd(
+        marqueeSelection,
+        elements,
+        setSelectedIds,
+        e?.shiftKey || false
+      );
+      setMarqueeSelection(null);
+      return;
+    }
+
     if (isResizing) {
       setIsResizing(false);
       setResizeHandle(null);
@@ -659,6 +694,23 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
         return;
       }
 
+      // Finish drawing with new tools
+      if (isToolDrawing) {
+        const finishedElement = finishDrawing();
+        if (finishedElement) {
+          addElement(finishedElement);
+          pushHistory();
+          send({
+            type: "add_element",
+            element: finishedElement,
+            timestamp: Date.now(),
+          });
+        }
+        setIsDrawing(false);
+        return;
+      }
+
+      // Fallback for old implementation
       if (currentElement) {
         addElement(currentElement);
         pushHistory();
@@ -706,20 +758,16 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     setTextInput(null);
   };
 
-  // Resize handler
+  // Viewport size update handler
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const resizeCanvas = () => {
-      const parent = canvas.parentElement;
-      if (parent) {
-        canvas.width = parent.clientWidth;
-        canvas.height = parent.clientHeight;
+    const updateViewportSize = () => {
+      if (containerRef.current) {
+        // Viewport size is updated in the renderer
       }
     };
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-    return () => window.removeEventListener("resize", resizeCanvas);
+    updateViewportSize();
+    window.addEventListener("resize", updateViewportSize);
+    return () => window.removeEventListener("resize", updateViewportSize);
   }, []);
 
   return (
@@ -744,6 +792,7 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
         panY={panY}
         onResizeStart={handleResizeStart}
         onRotateStart={handleRotateStart}
+        marqueeSelection={marqueeSelection}
       />
 
       <RemoteCursors />

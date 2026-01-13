@@ -36,6 +36,7 @@ export interface CanvasState {
     | "select"
     | "rectangle"
     | "ellipse"
+    | "diamond"
     | "arrow"
     | "line"
     | "freedraw"

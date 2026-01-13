@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect } from "react";
 import { useCanvasStore } from "@/lib/canvas-store";
 import {
@@ -14,14 +13,14 @@ import {
 } from "lucide-react";
 
 const tools = [
-  { id: "select" as const, icon: MousePointer, label: "Select (V)", key: "V" },
-  { id: "rectangle" as const, icon: Square, label: "Rectangle (R)", key: "R" },
-  { id: "ellipse" as const, icon: Circle, label: "Ellipse (E)", key: "E" },
-  { id: "arrow" as const, icon: ArrowRight, label: "Arrow (A)", key: "A" },
-  { id: "line" as const, icon: Minus, label: "Line (L)", key: "L" },
-  { id: "freedraw" as const, icon: Pencil, label: "Pen (P)", key: "P" },
-  { id: "text" as const, icon: Type, label: "Text (T)", key: "T" },
-  { id: "eraser" as const, icon: Eraser, label: "Eraser (E)", key: "E" },
+  { id: "select" as const, icon: MousePointer, label: "Select", shortcut: "V" },
+  { id: "rectangle" as const, icon: Square, label: "Rectangle", shortcut: "R" },
+  { id: "ellipse" as const, icon: Circle, label: "Ellipse", shortcut: "E" },
+  { id: "arrow" as const, icon: ArrowRight, label: "Arrow", shortcut: "A" },
+  { id: "line" as const, icon: Minus, label: "Line", shortcut: "L" },
+  { id: "freedraw" as const, icon: Pencil, label: "Pen", shortcut: "P" },
+  { id: "text" as const, icon: Type, label: "Text", shortcut: "T" },
+  { id: "eraser" as const, icon: Eraser, label: "Eraser", shortcut: "X" },
 ];
 
 export function CanvasToolbar() {
@@ -35,7 +34,7 @@ export function CanvasToolbar() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Tool shortcuts
       const tool = tools.find(
-        (t) => t.key.toLowerCase() === e.key.toLowerCase()
+        (t) => t.shortcut.toLowerCase() === e.key.toLowerCase()
       );
       if (
         tool &&
@@ -67,14 +66,20 @@ export function CanvasToolbar() {
       <div className="flex items-center gap-1 p-2 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg">
         {tools.map((tool) => {
           const Icon = tool.icon;
+          const isActive = activeTool === tool.id;
           return (
             <button
               key={tool.id}
               onClick={() => setActiveTool(tool.id)}
-              className={`p-2 rounded hover:bg-accent transition-colors ${
-                activeTool === tool.id ? "bg-accent" : ""
-              }`}
-              title={tool.label}
+              className={`
+                p-2 rounded transition-colors
+                ${isActive 
+                  ? "bg-accent" 
+                  : "hover:bg-accent/50"}
+              `}
+              title={`${tool.label} (${tool.shortcut})`}
+              aria-label={`${tool.label} tool, press ${tool.shortcut} to activate`}
+              aria-pressed={isActive}
             >
               <Icon className="w-5 h-5" />
             </button>
