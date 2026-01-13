@@ -13,7 +13,7 @@ importers:
         version: 7.0.1(prisma@7.0.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(typescript@5.9.3)
       '@types/node':
         specifier: latest
-        version: 25.0.6
+        version: 25.0.8
       eslint:
         specifier: latest
         version: 9.39.2(jiti@2.6.1)
@@ -269,7 +269,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: latest
-        version: 4.0.17(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
+        version: 4.0.17(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
 
   packages/db:
     dependencies:
@@ -325,7 +325,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: latest
-        version: 4.0.17(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
+        version: 4.0.17(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
 
   packages/eslint-config:
     devDependencies:
@@ -368,10 +368,13 @@ importers:
       '@dripl/common':
         specifier: workspace:*
         version: link:../common
-    devDependencies:
       '@dripl/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+    devDependencies:
+      '@dripl/element':
+        specifier: workspace:*
+        version: link:../element
       eslint:
         specifier: latest
         version: 9.39.2(jiti@2.6.1)
@@ -380,7 +383,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: latest
-        version: 4.0.17(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
+        version: 4.0.17(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
 
   packages/storage:
     dependencies:
@@ -399,7 +402,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: latest
-        version: 4.0.17(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
+        version: 4.0.17(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
 
   packages/store:
     dependencies:
@@ -434,7 +437,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.0.14
-        version: 4.0.14(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
+        version: 4.0.14(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
 
   packages/typescript-config: {}
 
@@ -494,7 +497,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: latest
-        version: 4.0.17(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
+        version: 4.0.17(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
 
 packages:
 
@@ -1572,8 +1575,8 @@ packages:
   '@types/node@24.10.1':
     resolution: {integrity: sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==}
 
-  '@types/node@25.0.6':
-    resolution: {integrity: sha512-NNu0sjyNxpoiW3YuVFfNz7mxSQ+S4X2G28uqg2s+CzoqoQjLPsWSbsFFyztIAqt2vb8kfEAsJNepMGPTxFDx3Q==}
+  '@types/node@25.0.8':
+    resolution: {integrity: sha512-powIePYMmC3ibL0UJ2i2s0WIbq6cg6UyVFQxSCpaPxxzAaziRfimGivjdF943sSGV6RADVbk0Nvlm5P/FB44Zg==}
 
   '@types/pg@8.16.0':
     resolution: {integrity: sha512-RmhMd/wD+CF8Dfo+cVIy3RR5cl8CyfXQ0tGgW6XBL8L4LM/UTEbNXYRbLwU6w+CgrKBNbrQWt4FUtTfaU5jSYQ==}
@@ -5071,7 +5074,7 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
-  '@types/node@25.0.6':
+  '@types/node@25.0.8':
     dependencies:
       undici-types: 7.16.0
 
@@ -5365,21 +5368,21 @@ snapshots:
     optionalDependencies:
       vite: 7.2.4(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
 
-  '@vitest/mocker@4.0.14(vite@7.2.4(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6))':
+  '@vitest/mocker@4.0.14(vite@7.2.4(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6))':
     dependencies:
       '@vitest/spy': 4.0.14
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 7.2.4(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
+      vite: 7.2.4(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
 
-  '@vitest/mocker@4.0.17(vite@7.2.4(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6))':
+  '@vitest/mocker@4.0.17(vite@7.2.4(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6))':
     dependencies:
       '@vitest/spy': 4.0.17
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 7.2.4(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
+      vite: 7.2.4(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
 
   '@vitest/pretty-format@4.0.14':
     dependencies:
@@ -7889,7 +7892,7 @@ snapshots:
       lightningcss: 1.30.2
       tsx: 4.20.6
 
-  vite@7.2.4(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6):
+  vite@7.2.4(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.3)
@@ -7898,7 +7901,7 @@ snapshots:
       rollup: 4.53.3
       tinyglobby: 0.2.15
     optionalDependencies:
-      '@types/node': 25.0.6
+      '@types/node': 25.0.8
       fsevents: 2.3.3
       jiti: 2.6.1
       lightningcss: 1.30.2
@@ -7941,10 +7944,10 @@ snapshots:
       - tsx
       - yaml
 
-  vitest@4.0.14(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6):
+  vitest@4.0.14(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6):
     dependencies:
       '@vitest/expect': 4.0.14
-      '@vitest/mocker': 4.0.14(vite@7.2.4(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6))
+      '@vitest/mocker': 4.0.14(vite@7.2.4(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6))
       '@vitest/pretty-format': 4.0.14
       '@vitest/runner': 4.0.14
       '@vitest/snapshot': 4.0.14
@@ -7961,10 +7964,10 @@ snapshots:
       tinyexec: 0.3.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vite: 7.2.4(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
+      vite: 7.2.4(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 25.0.6
+      '@types/node': 25.0.8
     transitivePeerDependencies:
       - jiti
       - less
@@ -7978,10 +7981,10 @@ snapshots:
       - tsx
       - yaml
 
-  vitest@4.0.17(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6):
+  vitest@4.0.17(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6):
     dependencies:
       '@vitest/expect': 4.0.17
-      '@vitest/mocker': 4.0.17(vite@7.2.4(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6))
+      '@vitest/mocker': 4.0.17(vite@7.2.4(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6))
       '@vitest/pretty-format': 4.0.17
       '@vitest/runner': 4.0.17
       '@vitest/snapshot': 4.0.17
@@ -7998,10 +8001,10 @@ snapshots:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vite: 7.2.4(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
+      vite: 7.2.4(@types/node@25.0.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 25.0.6
+      '@types/node': 25.0.8
     transitivePeerDependencies:
       - jiti
       - less
