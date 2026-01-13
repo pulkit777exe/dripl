@@ -627,7 +627,14 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
       handleMarqueeSelectionEnd(
         marqueeSelection,
         elements,
-        (el) => setSelectedIds(new Set(el)),
+        (value) => {
+          if (typeof value === "function") {
+            const nextSet = (value as (prev: Set<string>) => Set<string>)(selectedIds);
+            setSelectedIds(nextSet);
+          } else {
+            setSelectedIds(value);
+          }
+        },
         e?.shiftKey || false
       );
       setMarqueeSelection(null);

@@ -4,12 +4,12 @@ import { useEffect, useCallback } from "react";
 import type { DriplElement } from "@dripl/common";
 
 export interface AccessibilityConfig {
-  announceSelection?: (count: number) => void;
-  announceToolChange?: (tool: string) => void;
-  announceUndo?: () => void;
-  announceRedo?: () => void;
-  announceElementCreated?: (type: string) => void;
-  announceElementDeleted?: (count: number) => void;
+  announceSelection?: (message: string) => void;
+  announceToolChange?: (message: string) => void;
+  announceUndo?: (message: string) => void;
+  announceRedo?: (message: string) => void;
+  announceElementCreated?: (message: string) => void;
+  announceElementDeleted?: (message: string) => void;
   enabled?: boolean;
 }
 
@@ -90,9 +90,6 @@ export function useAccessibility({
   };
 }
 
-/**
- * Get accessible label for an element
- */
 export function getElementAccessibleLabel(element: DriplElement): string {
   switch (element.type) {
     case "rectangle":
@@ -109,14 +106,13 @@ export function getElementAccessibleLabel(element: DriplElement): string {
       return `Text: ${"text" in element ? element.text : ""}`;
     case "image":
       return `Image at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
-    default:
-      return `Element at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
+    default: {
+      const _exhaustive: never = element;
+      return `Element at position ${Math.round((_exhaustive as DriplElement).x)}, ${Math.round((_exhaustive as DriplElement).y)}`;
+    }
   }
 }
 
-/**
- * Add ARIA attributes to canvas element
- */
 export function addCanvasAriaAttributes(
   canvas: HTMLCanvasElement,
   role: string = "img",
