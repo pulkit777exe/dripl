@@ -332,7 +332,16 @@ export const elementIntersectsSegment = (
  * For freedraw elements, outline is simply their local points translated to world.
  */
 export const getFreedrawOutline = (element: FreeDrawElement): Point[] => {
-  return (element.points || []).map((p) =>
-    elementLocalPointToWorld(element, p)
-  );
-}
+  const points = element.points || [];
+  if (points.length === 0) return [];
+  
+  const world = points.map((p) => ({ x: element.x + p.x, y: element.y + p.y }));
+  const angle = (element.angle || 0) as number;
+  
+  if (!angle) return world;
+  
+  const cx = element.x + element.width / 2;
+  const cy = element.y + element.height / 2;
+  
+  return world.map((p) => rotatePoint(p, cx, cy, degToRad(angle)));
+};

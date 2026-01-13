@@ -5,6 +5,8 @@ export {
   createRoughCanvas,
   renderRoughElement,
   renderRoughElements,
+  type RoughCanvas,
+  type Drawable,
 } from "./rough-renderer";
 
 export * from "./shape-cache";

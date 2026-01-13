@@ -5,8 +5,8 @@ import type { DriplElement } from "@dripl/common";
 import {
   createRoughCanvas,
   renderRoughElements,
+  type RoughCanvas,
 } from "@dripl/element";
-import RoughCanvas from "./RoughCanvas";
 import { getElementBounds } from "@dripl/math";
 import { getVisibleElements } from "@/utils/viewport-culling";
 import { Viewport } from "@/utils/canvas-coordinates";
@@ -36,7 +36,7 @@ export function useCanvasRenderer({
   viewport,
   onFrameRequest,
 }: CanvasRendererProps) {
-  const roughCanvasRef = useRef<typeof RoughCanvas | null>(null);
+  const roughCanvasRef = useRef<RoughCanvas | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
   const lastRenderedElementsRef = useRef<DriplElement[]>([]);
   const lastSelectedIdsRef = useRef<Set<string>>(new Set());
