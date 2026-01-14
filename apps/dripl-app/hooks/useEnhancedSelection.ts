@@ -51,7 +51,7 @@ export function useEnhancedSelection(): UseEnhancedSelectionReturn {
 
   const handleClickSelection = useCallback(
     (point: Point, shiftKey: boolean): DriplElement | null => {
-      return null; // Will be implemented by caller with elements array
+      return null;
     },
     []
   );
@@ -111,16 +111,12 @@ export function useEnhancedSelection(): UseEnhancedSelectionReturn {
     updateMarqueeSelection,
     endMarqueeSelection,
     selectAll: () => {
-      // This will be called with elements from the component
     },
     deleteSelected,
     getSelectedElements,
   };
 }
 
-/**
- * Helper function to handle click selection with elements array
- */
 export function handleClickSelectionWithElements(
   point: Point,
   elements: DriplElement[],
@@ -132,7 +128,6 @@ export function handleClickSelectionWithElements(
 
   if (clickedElement) {
     if (shiftKey) {
-      // Toggle selection
       setSelectedIds((prev) => {
         const newSet = new Set(prev);
         if (newSet.has(clickedElement.id)) {
@@ -143,14 +138,12 @@ export function handleClickSelectionWithElements(
         return newSet;
       });
     } else {
-      // Select single element
       if (!selectedIds.has(clickedElement.id)) {
         setSelectedIds(new Set([clickedElement.id]));
       }
     }
     return clickedElement;
   } else {
-    // Deselect all if clicked empty space (unless shift is held)
     if (!shiftKey) {
       setSelectedIds(new Set());
     }
@@ -158,9 +151,6 @@ export function handleClickSelectionWithElements(
   }
 }
 
-/**
- * Helper function to handle marquee selection end
- */
 export function handleMarqueeSelectionEnd(
   marqueeSelection: MarqueeSelection | null,
   elements: DriplElement[],
@@ -179,14 +169,12 @@ export function handleMarqueeSelectionEnd(
   const elementsInRect = getElementsInSelectionRect(selectionRect, elements);
 
   if (shiftKey) {
-    // Add to existing selection
     setSelectedIds((prev) => {
       const newSet = new Set(prev);
       elementsInRect.forEach((el) => newSet.add(el.id));
       return newSet;
     });
   } else {
-    // Replace selection
     setSelectedIds(new Set(elementsInRect.map((el) => el.id)));
   }
 }

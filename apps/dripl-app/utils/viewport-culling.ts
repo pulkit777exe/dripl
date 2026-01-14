@@ -3,10 +3,6 @@ import { getElementBounds } from "@dripl/math";
 import { boundsIntersect, Bounds } from "@dripl/math";
 import { getViewportBounds, Viewport } from "./canvas-coordinates";
 
-/**
- * Get elements that are visible in the current viewport
- * This is a performance optimization to avoid rendering off-screen elements
- */
 export function getVisibleElements(
   elements: DriplElement[],
   viewport: Viewport

@@ -199,7 +199,6 @@ export function useDrawingTools(): UseDrawingToolsReturn {
             ...toolState,
             state: { ...toolState.state, points: newPoints },
           });
-          // For freedraw, we update preview less frequently for performance
           if (newPoints.length % 3 === 0 || newPoints.length < 10) {
             setCurrentPreview(
               createFreedrawElement(

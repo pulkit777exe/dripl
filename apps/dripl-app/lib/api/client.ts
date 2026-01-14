@@ -46,7 +46,6 @@ class ApiClient {
     return response.json();
   }
 
-  // Auth endpoints
   async signup(data: {
     email: string;
     password: string;
@@ -80,7 +79,6 @@ class ApiClient {
     });
   }
 
-  // File endpoints
   async getFiles(): Promise<{ files: any[] }> {
     return this.request("/files", {
       method: "GET",

@@ -8,10 +8,8 @@ interface MarketingLayoutProps {
 export function MarketingLayout({ children }: MarketingLayoutProps) {
   return (
     <div className="relative min-h-screen bg-canvas-white font-sans text-foreground selection:bg-structure-grey/30">
-      {/* Infinite Grid Background */}
       <div className="pointer-events-none fixed inset-0 z-0 bg-grid-pattern bg-size-[40px_40px] opacity-[0.4]" />
 
-      {/* Noise Overlay */}
       <div
         className="pointer-events-none fixed inset-0 z-0 opacity-[0.02] mix-blend-overlay"
         style={{

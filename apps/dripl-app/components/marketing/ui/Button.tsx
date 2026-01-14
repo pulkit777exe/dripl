@@ -21,8 +21,8 @@ export function Button({
   const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
     const { clientX, clientY } = e;
     const { left, top, width, height } = ref.current!.getBoundingClientRect();
-    const x = (clientX - (left + width / 2)) * 0.35; // Magnetic pull strength
-    const y = (clientY - (top + height / 2)) * 0.35;
+    const x = (clientX - (left + width / 2)) * 0.05;
+    const y = (clientY - (top + height / 2)) * 0.05;
     setPosition({ x, y });
   };
 

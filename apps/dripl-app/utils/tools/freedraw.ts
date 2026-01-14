@@ -5,9 +5,6 @@ export interface FreedrawToolState {
   isComplete: boolean;
 }
 
-/**
- * Smooth a path using Catmull-Rom splines
- */
 function smoothPath(points: Point[], tension: number = 0.5): Point[] {
   if (points.length < 3) return points;
 
@@ -30,9 +27,6 @@ function smoothPath(points: Point[], tension: number = 0.5): Point[] {
   return smoothed;
 }
 
-/**
- * Optimize point count by removing redundant points
- */
 function optimizePoints(points: Point[], threshold: number = 2): Point[] {
   if (points.length < 3) return points;
 
@@ -43,7 +37,6 @@ function optimizePoints(points: Point[], threshold: number = 2): Point[] {
     const curr = points[i]!;
     const next = points[i + 1]!;
 
-    // Calculate distance from current point to line between prev and next
     const dx = next.x - prev.x;
     const dy = next.y - prev.y;
     const length = Math.sqrt(dx * dx + dy * dy);
@@ -54,7 +47,6 @@ function optimizePoints(points: Point[], threshold: number = 2): Point[] {
           (dy * curr.x - dx * curr.y + next.x * prev.y - next.y * prev.x) / length
         );
 
-      // Keep point if it's far enough from the line
       if (distance > threshold) {
         optimized.push(curr);
       }
@@ -67,9 +59,6 @@ function optimizePoints(points: Point[], threshold: number = 2): Point[] {
   return optimized;
 }
 
-/**
- * Create a freedraw element with smoothed and optimized path
- */
 export function createFreedrawElement(
   state: FreedrawToolState,
   baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "points">
@@ -78,20 +67,17 @@ export function createFreedrawElement(
     throw new Error("Freedraw must have at least one point");
   }
 
-  // Smooth and optimize the path
   let processedPoints = state.points;
   if (processedPoints.length > 2) {
     processedPoints = smoothPath(processedPoints);
     processedPoints = optimizePoints(processedPoints);
   }
 
-  // Calculate bounds
   const minX = Math.min(...processedPoints.map((p) => p.x));
   const minY = Math.min(...processedPoints.map((p) => p.y));
   const maxX = Math.max(...processedPoints.map((p) => p.x));
   const maxY = Math.max(...processedPoints.map((p) => p.y));
 
-  // Points are stored relative to element position
   const relativePoints = processedPoints.map((p) => ({
     x: p.x - minX,
     y: p.y - minY,

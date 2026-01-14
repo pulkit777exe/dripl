@@ -44,7 +44,6 @@ export function useKeyboardShortcuts({
     (e: KeyboardEvent) => {
       if (!enabled) return;
 
-      // Don't trigger shortcuts when typing in input fields
       const target = e.target as HTMLElement;
       if (
         target.tagName === "INPUT" ||
@@ -57,7 +56,6 @@ export function useKeyboardShortcuts({
       const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
 
-      // Tool shortcuts (only when not holding modifier keys)
       if (!cmdOrCtrl && !e.shiftKey && !e.altKey) {
         switch (e.key.toLowerCase()) {
           case "v":
@@ -91,7 +89,6 @@ export function useKeyboardShortcuts({
         }
       }
 
-      // Command/Ctrl shortcuts
       if (cmdOrCtrl) {
         switch (e.key.toLowerCase()) {
           case "z":
@@ -120,7 +117,6 @@ export function useKeyboardShortcuts({
             return;
           case "g":
             e.preventDefault();
-            // Group (future feature)
             return;
           case "=":
           case "+":
@@ -138,14 +134,12 @@ export function useKeyboardShortcuts({
         }
       }
 
-      // Delete/Backspace
       if ((e.key === "Delete" || e.key === "Backspace") && !cmdOrCtrl) {
         e.preventDefault();
         deleteSelected();
         return;
       }
 
-      // Escape
       if (e.key === "Escape") {
         e.preventDefault();
         escape?.();

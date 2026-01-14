@@ -29,10 +29,8 @@ export function CanvasToolbar() {
   const undo = useCanvasStore((state) => state.undo);
   const redo = useCanvasStore((state) => state.redo);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Tool shortcuts
       const tool = tools.find(
         (t) => t.shortcut.toLowerCase() === e.key.toLowerCase()
       );
@@ -46,7 +44,6 @@ export function CanvasToolbar() {
         return;
       }
 
-      // Undo/Redo
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         e.preventDefault();
         if (e.shiftKey) {

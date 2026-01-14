@@ -11,7 +11,6 @@ export function Footer() {
     <footer className="relative w-full overflow-hidden bg-white pt-24 pb-12">
       <div className="container mx-auto px-6">
         <div className="grid grid-cols-2 gap-12 md:grid-cols-5">
-          {/* Col 1: Brand */}
           <div className="col-span-2 md:col-span-1">
             <h3 className="mb-4 font-medium tracking-tight text-deep-charcoal">
               Dripl
@@ -23,7 +22,6 @@ export function Footer() {
             </p>
           </div>
 
-          {/* Col 2-4: Links */}
           {Object.entries(FOOTER_LINKS).map(([category, links]) => (
             <div key={category} className="col-span-1">
               <h4 className="mb-4 text-xs font-semibold uppercase tracking-wider text-foreground/40">
@@ -50,7 +48,6 @@ export function Footer() {
           ))}
         </div>
 
-        {/* Bottom Bar: Giant Text */}
         <div className="mt-32 flex w-full justify-center opacity-10 select-none">
           <h1 className="text-[20vw] font-bold leading-none tracking-tighter text-deep-charcoal">
             DRIPL
