@@ -7,9 +7,6 @@ export interface TextToolState {
   fontFamily: string;
 }
 
-/**
- * Create a text element
- */
 export function createTextElement(
   state: TextToolState,
   baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "text" | "fontSize" | "fontFamily">
@@ -24,7 +21,7 @@ export function createTextElement(
     type: "text",
     x: state.position.x,
     y: state.position.y,
-    width: Math.max(estimatedWidth, 100), // Minimum width
+    width: Math.max(estimatedWidth, 100),
     height: estimatedHeight,
     text: state.text,
     fontSize: state.fontSize,
@@ -32,15 +29,11 @@ export function createTextElement(
   };
 }
 
-/**
- * Update text element dimensions based on actual text content
- */
 export function updateTextDimensions(
   element: TextElement,
   text: string,
   canvas?: HTMLCanvasElement
 ): TextElement {
-  // Use canvas to measure text if available
   let width = element.width;
   let height = element.height;
 
@@ -50,10 +43,9 @@ export function updateTextDimensions(
       ctx.font = `${element.fontSize}px ${element.fontFamily}`;
       const metrics = ctx.measureText(text);
       width = Math.max(metrics.width, 100);
-      height = element.fontSize * 1.2; // Line height
+      height = element.fontSize * 1.2;
     }
   } else {
-    // Fallback estimation
     width = Math.max(text.length * (element.fontSize * 0.6), 100);
     height = element.fontSize * 1.2;
   }

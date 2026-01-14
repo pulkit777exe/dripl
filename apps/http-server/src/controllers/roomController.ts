@@ -2,7 +2,6 @@ import { Response } from "express";
 import { db } from "@dripl/db";
 import { AuthRequest } from "../middlewares/authMiddleware";
 
-// Generate a URL-safe random slug
 function generateSlug(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
   let slug = "";
@@ -13,7 +12,6 @@ function generateSlug(): string {
 }
 
 export class RoomController {
-  // Get all rooms for the authenticated user
   static async getRooms(req: AuthRequest, res: Response): Promise<void> {
     try {
       const rooms = await db.canvasRoom.findMany({
@@ -50,12 +48,10 @@ export class RoomController {
     }
   }
 
-  // Create a new room
   static async createRoom(req: AuthRequest, res: Response): Promise<void> {
     const { name, isPublic = false } = req.body;
 
     try {
-      // Generate unique slug
       let slug = generateSlug();
       let attempts = 0;
       while (attempts < 5) {
@@ -85,7 +81,6 @@ export class RoomController {
     }
   }
 
-  // Get a specific room by slug (for viewing/joining)
   static async getRoom(req: AuthRequest, res: Response): Promise<void> {
     const { slug } = req.params;
 
@@ -121,7 +116,6 @@ export class RoomController {
         return;
       }
 
-      // Check access: must be owner, member, or room is public
       const isOwner = room.ownerId === req.userId;
       const isMember = room.members.some((m) => m.userId === req.userId);
 
@@ -137,7 +131,6 @@ export class RoomController {
     }
   }
 
-  // Update room settings
   static async updateRoom(req: AuthRequest, res: Response): Promise<void> {
     const { slug } = req.params;
     const { name, isPublic, content } = req.body;
@@ -150,7 +143,6 @@ export class RoomController {
         return;
       }
 
-      // Only owner can update room settings
       if (room.ownerId !== req.userId) {
         res.status(403).json({ error: "Only the owner can update this room" });
         return;
@@ -175,7 +167,6 @@ export class RoomController {
     }
   }
 
-  // Delete a room
   static async deleteRoom(req: AuthRequest, res: Response): Promise<void> {
     const { slug } = req.params;
 
@@ -187,13 +178,11 @@ export class RoomController {
         return;
       }
 
-      // Only owner can delete room
       if (room.ownerId !== req.userId) {
         res.status(403).json({ error: "Only the owner can delete this room" });
         return;
       }
 
-      // Delete members first (cascade might not be set)
       await db.canvasRoomMember.deleteMany({
         where: { roomId: room.id },
       });
@@ -207,7 +196,6 @@ export class RoomController {
     }
   }
 
-  // Add a member to the room
   static async addMember(req: AuthRequest, res: Response): Promise<void> {
     const { slug } = req.params;
     const { userId, role = "EDITOR" } = req.body;
@@ -220,7 +208,6 @@ export class RoomController {
         return;
       }
 
-      // Only owner can add members
       if (room.ownerId !== req.userId) {
         res.status(403).json({ error: "Only the owner can add members" });
         return;
@@ -244,7 +231,6 @@ export class RoomController {
     }
   }
 
-  // Remove a member from the room
   static async removeMember(req: AuthRequest, res: Response): Promise<void> {
     const { slug, userId } = req.params;
 
@@ -256,7 +242,6 @@ export class RoomController {
         return;
       }
 
-      // Only owner can remove members
       if (room.ownerId !== req.userId) {
         res.status(403).json({ error: "Only the owner can remove members" });
         return;

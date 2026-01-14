@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.35.5",
-    "@lottiefiles/dotlottie-react": "^4.0.0",
     "@dripl/common": "workspace:*",
     "@dripl/db": "workspace:*",
     "@dripl/element": "workspace:*",
@@ -19,6 +18,7 @@
     "@dripl/sync": "workspace:*",
     "@dripl/ui": "workspace:*",
     "@dripl/utils": "workspace:*",
+    "@lottiefiles/dotlottie-react": "^0.17.13",
     "@prisma/client": "^7.0.1",
     "@tailwindcss/postcss": "^4.1.17",
     "@tanstack/react-query": "^5.90.11",

@@ -3,13 +3,9 @@ import type { DriplElement, Point, LinearElement } from "@dripl/common";
 export interface LineToolState {
   points: Point[];
   isComplete: boolean;
-  shiftKey: boolean; // For 45° angle snapping
+  shiftKey: boolean;
 }
 
-/**
- * Create a line element
- * Supports multi-segment lines
- */
 export function createLineElement(
   state: LineToolState,
   baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "points">
@@ -20,7 +16,6 @@ export function createLineElement(
 
   let points = state.points;
 
-  // Apply 45° angle snapping if shift is held
   if (state.shiftKey && points.length >= 2) {
     const lastPoint = points[points.length - 1]!;
     const prevPoint = points[points.length - 2]!;
@@ -38,13 +33,11 @@ export function createLineElement(
     ];
   }
 
-  // Calculate bounds
   const minX = Math.min(...points.map((p) => p.x));
   const minY = Math.min(...points.map((p) => p.y));
   const maxX = Math.max(...points.map((p) => p.x));
   const maxY = Math.max(...points.map((p) => p.y));
 
-  // Points are stored relative to element position
   const relativePoints = points.map((p) => ({
     x: p.x - minX,
     y: p.y - minY,

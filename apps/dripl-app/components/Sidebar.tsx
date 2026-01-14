@@ -31,7 +31,6 @@ export function Sidebar({ activeTool = "select", onToolSelect }: SidebarProps) {
   return (
     <aside className="fixed left-0 top-0 z-50 flex h-full w-14 flex-col items-center border-r bg-background py-4">
       <div className="mb-4">
-        {/* Logo or Brand Icon could go here */}
         <div className="h-8 w-8 rounded bg-primary" />
       </div>
       <div className="flex flex-col gap-2">

@@ -18,7 +18,6 @@ export function Navbar() {
   return (
     <div className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4">
       <nav className="glass-card flex h-14 w-full max-w-[1040px] items-center justify-between rounded-full px-6 transition-all duration-300">
-        {/* Logo */}
         <Link
           href="/"
           className="font-medium tracking-tight text-deep-charcoal"
@@ -26,7 +25,6 @@ export function Navbar() {
           Dripl
         </Link>
 
-        {/* Links */}
         <div className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((link, index) => (
             <Link
@@ -48,7 +46,6 @@ export function Navbar() {
           ))}
         </div>
 
-        {/* CTA */}
         <Link
           href="/signup"
           className={cn(

@@ -27,9 +27,6 @@ export interface UseElementManipulationReturn {
   deleteSelectedElements: () => void;
 }
 
-/**
- * Hook for element manipulation operations
- */
 export function useElementManipulation({
   elements,
   selectedIds,
@@ -54,7 +51,6 @@ export function useElementManipulation({
           y: element.y + delta.y,
         };
 
-        // Move points for path-based elements
         if ("points" in updatedElement && updatedElement.points) {
           updatedElement.points = updatedElement.points.map((p) => ({
             x: p.x + delta.x,
@@ -93,7 +89,6 @@ export function useElementManipulation({
       let newWidth = element.width;
       let newHeight = element.height;
 
-      // Calculate new bounds based on handle
       switch (handle) {
         case "se": // South-east
           newWidth = Math.max(1, newPoint.x - element.x);
@@ -104,7 +99,7 @@ export function useElementManipulation({
             newHeight = size;
           }
           break;
-        case "sw": // South-west
+        case "sw":
           newWidth = Math.max(1, element.x + element.width - newPoint.x);
           newX = element.x + element.width - newWidth;
           newHeight = Math.max(1, newPoint.y - element.y);
@@ -115,7 +110,7 @@ export function useElementManipulation({
             newX = element.x + element.width - newWidth;
           }
           break;
-        case "ne": // North-east
+        case "ne":
           newWidth = Math.max(1, newPoint.x - element.x);
           newHeight = Math.max(1, element.y + element.height - newPoint.y);
           newY = element.y + element.height - newHeight;
@@ -126,7 +121,7 @@ export function useElementManipulation({
             newY = element.y + element.height - newHeight;
           }
           break;
-        case "nw": // North-west
+        case "nw":
           newWidth = Math.max(1, element.x + element.width - newPoint.x);
           newX = element.x + element.width - newWidth;
           newHeight = Math.max(1, element.y + element.height - newPoint.y);
@@ -139,26 +134,26 @@ export function useElementManipulation({
             newY = element.y + element.height - newHeight;
           }
           break;
-        case "e": // East
+        case "e":
           newWidth = Math.max(1, newPoint.x - element.x);
           if (shiftKey) {
             newHeight = (newWidth / element.width) * element.height;
           }
           break;
-        case "w": // West
+        case "w":
           newWidth = Math.max(1, element.x + element.width - newPoint.x);
           newX = element.x + element.width - newWidth;
           if (shiftKey) {
             newHeight = (newWidth / element.width) * element.height;
           }
           break;
-        case "s": // South
+        case "s":
           newHeight = Math.max(1, newPoint.y - element.y);
           if (shiftKey) {
             newWidth = (newHeight / element.height) * element.width;
           }
           break;
-        case "n": // North
+        case "n":
           newHeight = Math.max(1, element.y + element.height - newPoint.y);
           newY = element.y + element.height - newHeight;
           if (shiftKey) {
@@ -175,7 +170,6 @@ export function useElementManipulation({
         height: newHeight,
       };
 
-      // Scale points for linear elements
       if (
         "points" in updatedElement &&
         "points" in element &&
@@ -210,7 +204,6 @@ export function useElementManipulation({
       const element = elements.find((el) => el.id === elementId);
       if (!element) return;
 
-      // Snap to 15° increments if shift is held
       if (shiftKey) {
         const degrees = (angle * 180) / Math.PI;
         const snappedDegrees = Math.round(degrees / 15) * 15;
@@ -235,7 +228,7 @@ export function useElementManipulation({
   const duplicateElements = useCallback(
     (elementIds?: string[]) => {
       const idsToDuplicate = elementIds || Array.from(selectedIds);
-      const offset = 10; // Offset for duplicates
+      const offset = 10;
 
       idsToDuplicate.forEach((id) => {
         const element = elements.find((el) => el.id === id);
@@ -248,7 +241,6 @@ export function useElementManipulation({
           y: element.y + offset,
         };
 
-        // Duplicate points for path-based elements
         if ("points" in duplicated && duplicated.points) {
           duplicated.points = duplicated.points.map((p) => ({
             x: p.x + offset,

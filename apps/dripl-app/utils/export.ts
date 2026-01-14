@@ -12,9 +12,6 @@ export interface CanvasMetadata {
 
 const CANVAS_VERSION = "1.0.0";
 
-/**
- * Export canvas to PNG
- */
 export async function exportToPNG(
   elements: DriplElement[],
   options: {
@@ -31,28 +28,22 @@ export async function exportToPNG(
     height = 2000,
   } = options;
 
-  // Create offscreen canvas
   const canvas = document.createElement("canvas");
   canvas.width = width * scale;
   canvas.height = height * scale;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Failed to get canvas context");
 
-  // Fill background
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Create Rough.js canvas
   const rc = createRoughCanvas(canvas);
   if (!rc) throw new Error("Failed to create Rough canvas");
 
-  // Scale context
   ctx.scale(scale, scale);
 
-  // Render elements
   renderRoughElements(rc, ctx, elements);
 
-  // Convert to blob
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
@@ -68,9 +59,6 @@ export async function exportToPNG(
   });
 }
 
-/**
- * Export canvas to SVG
- */
 export function exportToSVG(
   elements: DriplElement[],
   options: {
@@ -86,7 +74,6 @@ export function exportToSVG(
   <rect width="${width}" height="${height}" fill="${backgroundColor}"/>
 `;
 
-  // Convert elements to SVG
   for (const element of elements) {
     if (element.isDeleted) continue;
 
@@ -141,9 +128,6 @@ export function exportToSVG(
   return svg;
 }
 
-/**
- * Export canvas to JSON
- */
 export function exportToJSON(
   elements: DriplElement[],
   metadata?: Partial<CanvasMetadata>
@@ -164,15 +148,11 @@ export function exportToJSON(
   return JSON.stringify(exportData, null, 2);
 }
 
-/**
- * Import canvas from JSON
- */
 export function importFromJSON(
   json: string
 ): { elements: DriplElement[]; metadata: CanvasMetadata } {
   const data = JSON.parse(json);
 
-  // Version migration (for future compatibility)
   if (data.version !== CANVAS_VERSION) {
     console.warn(
       `Importing canvas version ${data.version}, current version is ${CANVAS_VERSION}`
@@ -190,9 +170,6 @@ export function importFromJSON(
   };
 }
 
-/**
- * Download a blob as a file
- */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -204,9 +181,6 @@ export function downloadBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-/**
- * Download a string as a file
- */
 export function downloadString(
   content: string,
   filename: string,
@@ -216,9 +190,6 @@ export function downloadString(
   downloadBlob(blob, filename);
 }
 
-/**
- * Escape XML special characters
- */
 function escapeXml(unsafe: string): string {
   return unsafe
     .replace(/&/g, "&amp;")

@@ -13,7 +13,6 @@ export function createEllipseElement(
   let width = state.currentPoint.x - state.startPoint.x;
   let height = state.currentPoint.y - state.startPoint.y;
 
-  // If shift is held, make it a perfect circle
   if (state.shiftKey) {
     const size = Math.max(Math.abs(width), Math.abs(height));
     width = width < 0 ? -size : size;

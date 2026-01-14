@@ -36,7 +36,6 @@ export function TestimonialCarousel() {
       <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-32 bg-linear-to-l from-white to-transparent" />
 
       <div className="flex w-full">
-        {/* Infinite Marquee Track */}
         <motion.div
           animate={{ x: "-50%" }}
           transition={{
@@ -46,7 +45,6 @@ export function TestimonialCarousel() {
           }}
           className="flex w-max gap-8 px-8 hover:paused"
         >
-          {/* Duplicate set for seamless loop */}
           {[...TESTIMONIALS, ...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
             <div
               key={i}

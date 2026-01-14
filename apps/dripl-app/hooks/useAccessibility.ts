@@ -13,10 +13,6 @@ export interface AccessibilityConfig {
   enabled?: boolean;
 }
 
-/**
- * Hook for accessibility features
- * Provides screen reader announcements and keyboard navigation support
- */
 export function useAccessibility({
   announceSelection,
   announceToolChange,
@@ -26,11 +22,9 @@ export function useAccessibility({
   announceElementDeleted,
   enabled = true,
 }: AccessibilityConfig) {
-  // Default announcement function using aria-live region
   const defaultAnnounce = useCallback((message: string) => {
     if (!enabled) return;
 
-    // Create or get aria-live region
     let liveRegion = document.getElementById("aria-live-region");
     if (!liveRegion) {
       liveRegion = document.createElement("div");
@@ -44,7 +38,6 @@ export function useAccessibility({
     }
 
     liveRegion.textContent = message;
-    // Clear after a delay to allow re-announcement of same message
     setTimeout(() => {
       if (liveRegion) liveRegion.textContent = "";
     }, 1000);

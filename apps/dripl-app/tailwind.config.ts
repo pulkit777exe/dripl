@@ -18,8 +18,10 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ["var(--font-inter)", "sans-serif"],
+        serif: ["var(--font-instrument-serif)", "serif"],
       },
       colors: {
+        // Standard System Colors (Mapped to CSS Variables)
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -53,12 +55,14 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Attio-grade Monochromatic Scale
-        "canvas-white": "#FFFFFF",
-        "off-white": "#FAFAFA",
-        "vapor-grey": "#F4F4F5",
-        "structure-grey": "#E4E4E7",
-        "deep-charcoal": "#18181B",
+
+        // --- Custom Structural Palette (Mapped to System) ---
+        // This ensures "deep-charcoal" becomes white in Dark Mode automatically.
+        "deep-charcoal": "hsl(var(--primary))",    
+        "structure-grey": "hsl(var(--border))",    
+        "vapor-grey": "hsl(var(--secondary))",     
+        "canvas-white": "hsl(var(--background))",  
+        "off-white": "hsl(var(--muted))",          
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -66,17 +70,16 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       backgroundImage: {
-        "grid-pattern": "url('/grid-pattern.svg')",
+        // A pure CSS grid pattern (no SVG file needed)
+        "grid-pattern": "linear-gradient(to right, hsl(var(--border) / 0.4) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border) / 0.4) 1px, transparent 1px)",
       },
       boxShadow: {
-        "attio-sm": "0px 1px 2px rgba(0,0,0,0.05)",
-        "attio-md":
-          "0px 4px 6px -1px rgba(0,0,0,0.1), 0px 2px 4px -1px rgba(0,0,0,0.06)",
-        "attio-lg":
-          "0px 10px 15px -3px rgba(0,0,0,0.1), 0px 4px 6px -2px rgba(0,0,0,0.05)",
+        // High-end, subtle "Attio/Linear" style shadows
+        "attio-sm": "0px 1px 2px rgba(0, 0, 0, 0.04), 0px 1px 1px rgba(0, 0, 0, 0.02)",
+        "attio-md": "0px 4px 8px rgba(0, 0, 0, 0.04), 0px 2px 4px rgba(0, 0, 0, 0.02), 0 0 0 1px rgba(0,0,0,0.04)",
+        "attio-lg": "0px 12px 24px rgba(0, 0, 0, 0.06), 0px 4px 8px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0,0,0,0.04)",
       },
     },
   },
-  plugins: [],
 };
 export default config;

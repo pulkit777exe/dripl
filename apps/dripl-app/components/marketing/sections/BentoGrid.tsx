@@ -52,11 +52,9 @@ export function BentoGrid() {
                 </p>
               </div>
 
-              {/* Visual Placeholder */}
               <div className="mt-4 flex-1 rounded-xl bg-vapor-grey/50 border border-black/5" />
             </div>
 
-            {/* Background Dot pattern specific to cards */}
             <div className="pointer-events-none absolute inset-0 z-0 bg-grid-pattern bg-size-[20px_20px] opacity-30" />
           </motion.div>
         ))}

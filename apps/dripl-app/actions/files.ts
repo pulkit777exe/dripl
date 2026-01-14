@@ -11,7 +11,6 @@ export async function getFiles() {
     revalidatePath("/");
     throw new Error("User has no email address");
   }
-  // Ensure user exists in DB
   const dbUser = await db.user.upsert({
     where: { id: user.id },
     update: {
@@ -52,7 +51,7 @@ export async function createFile() {
     data: {
       name: "Untitled File",
       userId: user.id,
-      content: "[]", // Empty array of elements
+      content: "[]",
     },
   });
 
@@ -69,7 +68,6 @@ export async function getFile(id: string) {
   });
 
   if (!file || file.userId !== user.id) {
-    // TODO: Handle team/shared files check here
     return null;
   }
 

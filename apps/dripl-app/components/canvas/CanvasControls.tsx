@@ -16,7 +16,6 @@ export function CanvasControls() {
 
   return (
     <div className="fixed bottom-4 left-4 flex gap-4">
-      {/* Zoom Controls */}
       <div className="flex items-center bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg overflow-hidden">
         <button
           onClick={handleZoomOut}
@@ -37,7 +36,6 @@ export function CanvasControls() {
         </button>
       </div>
 
-      {/* Undo/Redo */}
       <div className="flex items-center bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg overflow-hidden">
         <button
           onClick={undo}

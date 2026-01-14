@@ -1,10 +1,3 @@
-/**
- * Performance optimization utilities
- */
-
-/**
- * Debounce a function call
- */
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
@@ -24,9 +17,6 @@ export function debounce<T extends (...args: any[]) => any>(
   };
 }
 
-/**
- * Throttle a function call
- */
 export function throttle<T extends (...args: any[]) => any>(
   func: T,
   limit: number
@@ -44,9 +34,6 @@ export function throttle<T extends (...args: any[]) => any>(
   };
 }
 
-/**
- * Batch multiple function calls into a single execution
- */
 export function batch<T extends (...args: any[]) => any>(
   func: T,
   delay: number = 0
@@ -70,9 +57,6 @@ export function batch<T extends (...args: any[]) => any>(
   };
 }
 
-/**
- * Memoize a function with a cache
- */
 export function memoize<T extends (...args: any[]) => any>(
   func: T,
   keyGenerator?: (...args: Parameters<T>) => string
@@ -94,9 +78,6 @@ export function memoize<T extends (...args: any[]) => any>(
   }) as T;
 }
 
-/**
- * Limit cache size to prevent memory leaks
- */
 export function limitCacheSize<K, V>(
   cache: Map<K, V>,
   maxSize: number

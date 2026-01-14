@@ -47,6 +47,6 @@ export const useHistory = ({
     canUndo,
     canRedo,
     clearHistory,
-    historyRef, // Exposed if needed for direct access
+    historyRef,
   };
 };

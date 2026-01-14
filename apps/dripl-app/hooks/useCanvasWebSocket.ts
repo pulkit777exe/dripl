@@ -5,7 +5,6 @@ import { useCanvasStore, RemoteUser, RemoteCursor } from "@/lib/canvas-store";
 import type { DriplElement } from "@dripl/common";
 import { saveCanvasToIndexedDB } from "@/lib/canvas-db";
 
-// Properly typed WebSocket message
 interface SyncRoomStateMessage {
   type: "sync_room_state";
   elements: DriplElement[];
@@ -95,7 +94,6 @@ export function useCanvasWebSocket(
 
   const send = useCallback((message: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      // Add unique message ID and timestamp for deduplication
       const messageWithId = {
         ...message,
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -111,7 +109,6 @@ export function useCanvasWebSocket(
     if (!userName) return;
 
     try {
-      // Build WebSocket URL with query parameters for authentication
       const wsUrl = new URL(WS_BASE_URL);
       wsUrl.searchParams.set("roomId", roomSlug);
       if (authToken) {
@@ -126,7 +123,6 @@ export function useCanvasWebSocket(
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
 
-        // Join the room
         send({
           type: "join_room",
           roomId: roomSlug,
@@ -142,28 +138,24 @@ export function useCanvasWebSocket(
             userId?: string;
           };
 
-          // Message deduplication: skip if we've already processed this message
           if (message.id) {
             if (processedMessagesRef.current.has(message.id)) {
-              return; // Already processed
+              return;
             }
             processedMessagesRef.current.add(message.id);
 
-            // Limit processed messages cache size (prevent memory leak)
             if (processedMessagesRef.current.size > 1000) {
               const firstId = processedMessagesRef.current.values().next().value;
               if (firstId) processedMessagesRef.current.delete(firstId);
             }
           }
 
-          // Conflict resolution: use timestamp to determine latest update
           if (message.type === "update_element" && message.timestamp && message.userId) {
             const elementId = (message as UpdateElementMessage).element.id;
             const lastTimestamp = lastMessageTimestampRef.current.get(elementId) || 0;
             
-            // Only apply if this is a newer update
             if (message.timestamp <= lastTimestamp) {
-              return; // Older update, ignore
+              return;
             }
             lastMessageTimestampRef.current.set(elementId, message.timestamp);
           }
@@ -171,13 +163,11 @@ export function useCanvasWebSocket(
           switch (message.type) {
             case "sync_room_state": {
               const syncMsg = message as SyncRoomStateMessage;
-              // Initial sync from server - clear processed messages
               processedMessagesRef.current.clear();
               lastMessageTimestampRef.current.clear();
               setElements(syncMsg.elements || []);
               setUserId(syncMsg.yourUserId);
 
-              // Add remote users
               if (syncMsg.users) {
                 syncMsg.users.forEach((user) => {
                   if (user.userId !== syncMsg.yourUserId) {
@@ -186,7 +176,6 @@ export function useCanvasWebSocket(
                 });
               }
 
-              // Add remote cursors
               if (syncMsg.cursors) {
                 syncMsg.cursors.forEach((cursor) => {
                   if (cursor.userId !== syncMsg.yourUserId) {
@@ -220,7 +209,6 @@ export function useCanvasWebSocket(
 
             case "add_element": {
               const addMsg = message as AddElementMessage;
-              // Don't add if it's from our own user (optimistic update already applied)
               if (addMsg.element && (!message.userId || message.userId !== elements.find(e => e.id === addMsg.element.id)?.id)) {
                 addElement(addMsg.element);
               }
@@ -229,8 +217,6 @@ export function useCanvasWebSocket(
 
             case "update_element": {
               const updateMsg = message as UpdateElementMessage;
-              // Apply remote update without adding to history
-              // The updateElement function should handle this, but we ensure it doesn't trigger history
               updateElement(updateMsg.element.id, updateMsg.element);
               break;
             }
@@ -268,7 +254,6 @@ export function useCanvasWebSocket(
         console.log("WebSocket disconnected");
         setIsConnected(false);
 
-        // Attempt to reconnect
         if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
           reconnectAttemptsRef.current++;
           const delay = Math.min(
@@ -305,18 +290,16 @@ export function useCanvasWebSocket(
     updateRemoteCursor,
   ]);
 
-  // Auto-save to IndexedDB when elements change
   useEffect(() => {
     const saveTimeout = setTimeout(() => {
       saveCanvasToIndexedDB(roomSlug, elements).catch((error) => {
         console.error("Failed to save to IndexedDB:", error);
       });
-    }, 1000); // Debounce saves by 1 second
+    }, 1000);
 
     return () => clearTimeout(saveTimeout);
   }, [elements, roomSlug]);
 
-  // Connect on mount, disconnect on unmount
   useEffect(() => {
     connect();
 

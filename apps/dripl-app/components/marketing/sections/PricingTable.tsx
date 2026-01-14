@@ -52,7 +52,6 @@ export function PricingTable() {
           No hidden fees. Cancel anytime.
         </p>
 
-        {/* Toggle */}
         <div className="inline-flex rounded-full border border-structure-grey bg-vapor-grey p-1">
           {(["monthly", "yearly"] as const).map((cycle) => (
             <button

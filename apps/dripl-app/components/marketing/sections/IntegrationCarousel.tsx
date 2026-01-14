@@ -31,7 +31,6 @@ export function IntegrationCarousel() {
                 height={48}
                 className="object-contain"
               />
-              {/* Tooltip */}
               <div className="absolute -top-10 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-deep-charcoal px-2 py-1 text-[10px] font-medium text-white shadow-lg group-hover:block">
                 {app.name} Supported
               </div>

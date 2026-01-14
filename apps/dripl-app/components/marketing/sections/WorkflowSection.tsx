@@ -10,7 +10,7 @@ const STEPS = [
     title: "Start with a mess. It's okay.",
     description:
       "Dump every idea onto the canvas. Images, text, links. Don't worry about order yet.",
-    color: "bg-blue-100", // Placeholder for specific illustrative SVG
+    color: "bg-blue-100",
   },
   {
     kicker: "Step 2: Refining",
@@ -50,7 +50,6 @@ export function WorkflowSection() {
           ))}
         </div>
 
-        {/* Scrolling Visuals (Right) */}
         <div className="flex w-full flex-col gap-40 md:w-1/2 md:gap-[50vh] md:pb-[50vh] md:pt-[20vh]">
           {STEPS.map((step, i) => (
             <motion.div
@@ -64,7 +63,6 @@ export function WorkflowSection() {
                 step.color
               )}
             >
-              {/* Placeholder Content */}
               <div className="text-center font-medium text-deep-charcoal/20">
                 Visual for {step.kicker}
               </div>

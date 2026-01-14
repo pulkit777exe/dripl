@@ -1,16 +1,13 @@
 import { Point } from "@dripl/common";
 
 export interface Viewport {
-  x: number; // panX
-  y: number; // panY
+  x: number;
+  y: number;
   width: number;
   height: number;
   zoom: number;
 }
 
-/**
- * Convert screen coordinates to canvas coordinates
- */
 export function screenToCanvas(
   screenX: number,
   screenY: number,
@@ -22,9 +19,6 @@ export function screenToCanvas(
   };
 }
 
-/**
- * Convert canvas coordinates to screen coordinates
- */
 export function canvasToScreen(
   canvasX: number,
   canvasY: number,
@@ -36,9 +30,6 @@ export function canvasToScreen(
   };
 }
 
-/**
- * Get viewport bounds in canvas space
- */
 export function getViewportBounds(viewport: Viewport): {
   x: number;
   y: number;

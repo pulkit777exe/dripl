@@ -37,7 +37,6 @@ export const useCanvas = ({
   const eraserTrailRef = useRef<EraserTrail | null>(null);
   const [tick, setTick] = useState(0);
 
-  // Animation loop for eraser
   useEffect(() => {
     if (activeTool === "eraser" && isDrawing) {
       let animationFrameId: number;
@@ -55,7 +54,6 @@ export const useCanvas = ({
     }
   }, [activeTool, isDrawing]);
 
-  // Main Render Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -63,27 +61,21 @@ export const useCanvas = ({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set canvas size
     const container = containerRef.current;
     if (container) {
-      // Handle high DPI displays could be added here
       canvas.width = container.clientWidth;
       canvas.height = container.clientHeight;
     }
 
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Apply zoom and pan
     ctx.save();
     ctx.translate(pan.x, pan.y);
     ctx.scale(zoom / 100, zoom / 100);
 
-    // Draw all elements
     elements.forEach((element) => {
       const isSelected = selectedIds.includes(element.id);
 
-      // Apply temporary offsets for smooth dragging
       let renderElement = element;
       if (isMoving && isSelected) {
         renderElement = {
@@ -109,17 +101,14 @@ export const useCanvas = ({
       drawShape(ctx, renderElement, isSelected);
     });
 
-    // Draw current element being drawn
     if (currentElement) {
       drawShape(ctx, currentElement, false);
     }
 
-    // Initialize eraser trail if needed
     if (!eraserTrailRef.current) {
       eraserTrailRef.current = new EraserTrail(ctx);
     }
 
-    // Render eraser trail
     eraserTrailRef.current?.render(pan, zoom / 100);
 
     ctx.restore();
@@ -134,7 +123,7 @@ export const useCanvas = ({
     isRotating,
     rotateOffset,
     rotateStart,
-    tick, // Re-render on tick for animations
+    tick,
   ]);
 
   // Helper to get canvas coordinates from mouse event
