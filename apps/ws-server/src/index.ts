@@ -1,12 +1,11 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer, IncomingMessage } from "http";
 import { DriplElement } from "@dripl/common";
-import { v7 as uuidv7 } from "uuid";
+import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "@dripl/db";
+import prisma from "@dripl/db";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret-key";
-const prisma = new PrismaClient();
 
 interface User {
   userId: string;
@@ -136,12 +135,8 @@ function extractRoomId(req: IncomingMessage): string | null {
 }
 
 wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
-  // Authenticate connection
   const authResult = verifyToken(req);
   const roomIdFromUrl = extractRoomId(req);
-
-  // If token is provided, verify it. If not, allow anonymous connections for now.
-  // This supports both authenticated and demo modes.
   const authenticatedUserId = authResult?.userId || null;
 
   let currentUserId: string | null = null;
@@ -158,9 +153,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
       switch (message.type) {
         case "join_room": {
           const { roomId, userName } = message;
-
-          // Use authenticated userId if available, otherwise generate one
-          const userId = authenticatedUserId || `anon_${uuidv7()}`;
+          const userId = authenticatedUserId || `anon_${uuidv4()}`;
           const color = generateUserColor();
 
           currentUserId = userId;
@@ -168,7 +161,6 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
 
           const room = getOrCreateRoom(roomId);
 
-          // Load elements from database if room is empty
           if (room.elements.length === 0) {
             try {
               const dbRoom = await prisma.canvasRoom.findUnique({
@@ -198,7 +190,6 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
             `User ${user.userName} (${userId}) joined room ${roomId}`
           );
 
-          // Send current room state to new user
           const syncMessage = {
             type: "sync_room_state",
             userId: "server",
@@ -220,7 +211,6 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
           };
           ws.send(JSON.stringify(syncMessage));
 
-          // Broadcast user join to others in room
           const joinMessage = {
             type: "user_join",
             userId,
@@ -248,7 +238,6 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
               };
               broadcastToRoom(currentRoomId, leaveMessage);
 
-              // Clean up empty rooms (but keep elements in database)
               if (room.users.size === 0) {
                 rooms.delete(currentRoomId);
                 console.log(
@@ -272,7 +261,6 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
                 message,
                 currentUserId || undefined
               );
-              // Schedule database save
               scheduleDatabaseSave(currentRoomId, room.elements);
             }
           }
@@ -294,7 +282,6 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
                 message,
                 currentUserId || undefined
               );
-              // Schedule database save
               scheduleDatabaseSave(currentRoomId, room.elements);
             }
           }
@@ -313,7 +300,6 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
                 message,
                 currentUserId || undefined
               );
-              // Schedule database save
               scheduleDatabaseSave(currentRoomId, room.elements);
             }
           }
@@ -364,7 +350,6 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
         };
         broadcastToRoom(currentRoomId, leaveMessage);
 
-        // Clean up empty rooms
         if (room.users.size === 0) {
           rooms.delete(currentRoomId);
           console.log(`Room ${currentRoomId} removed from memory (empty)`);
@@ -381,16 +366,11 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
 const PORT = process.env.WS_PORT || 3001;
 server.listen(PORT, () => {
   console.log(`WebSocket server running on port ${PORT}`);
-  console.log(
-    `JWT verification: ${JWT_SECRET === "secret-key" ? "using default secret (development only)" : "configured"}`
-  );
 });
 
-// Graceful shutdown
 process.on("SIGTERM", async () => {
   console.log("Shutting down...");
 
-  // Save all pending rooms
   for (const [roomId, room] of rooms) {
     if (room.elements.length > 0) {
       try {
