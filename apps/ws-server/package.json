@@ -2,10 +2,11 @@
   "name": "ws-server",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "build": "tsc -b",
+    "start": "node dist/index.js",
+    "dev": "tsc -b --watch & node --watch dist/index.js"
   },
   "dependencies": {
     "@dripl/common": "workspace:*",
