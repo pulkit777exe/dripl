@@ -52,7 +52,7 @@ export function useElementManipulation({
         };
 
         if ("points" in updatedElement && updatedElement.points) {
-          updatedElement.points = updatedElement.points.map((p) => ({
+          updatedElement.points = updatedElement.points.map((p: { x: number; y: number }) => ({
             x: p.x + delta.x,
             y: p.y + delta.y,
           }));
@@ -242,7 +242,7 @@ export function useElementManipulation({
         };
 
         if ("points" in duplicated && duplicated.points) {
-          duplicated.points = duplicated.points.map((p) => ({
+          duplicated.points = duplicated.points.map((p: { x: number; y: number }) => ({
             x: p.x + offset,
             y: p.y + offset,
           }));

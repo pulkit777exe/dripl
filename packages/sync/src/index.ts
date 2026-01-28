@@ -1,6 +1,7 @@
 import { SyncMessage, MessageType } from "./types";
 
 export * from "./types";
+export * from "./schemas";
 
 type EventHandler = (message: SyncMessage) => void;
 
@@ -56,7 +57,7 @@ export class SyncClient {
         const delay =
           this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
         console.log(
-          `Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+          `Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
         );
 
         setTimeout(() => {

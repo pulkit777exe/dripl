@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { db } from "@dripl/db";
+import prisma from "@dripl/db";
 import { AuthRequest } from "../middlewares/authMiddleware";
 
 function generateSlug(): string {
@@ -14,7 +14,7 @@ function generateSlug(): string {
 export class RoomController {
   static async getRooms(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const rooms = await db.canvasRoom.findMany({
+      const rooms = await prisma.canvasRoom.findMany({
         where: {
           OR: [
             { ownerId: req.userId },
@@ -55,13 +55,13 @@ export class RoomController {
       let slug = generateSlug();
       let attempts = 0;
       while (attempts < 5) {
-        const existing = await db.canvasRoom.findUnique({ where: { slug } });
+        const existing = await prisma.canvasRoom.findUnique({ where: { slug } });
         if (!existing) break;
         slug = generateSlug();
         attempts++;
       }
 
-      const room = await db.canvasRoom.create({
+      const room = await prisma.canvasRoom.create({
         data: {
           slug,
           name: name || "Untitled Room",
@@ -85,7 +85,7 @@ export class RoomController {
     const { slug } = req.params;
 
     try {
-      const room = await db.canvasRoom.findUnique({
+      const room = await prisma.canvasRoom.findUnique({
         where: { slug },
         include: {
           owner: {
@@ -136,7 +136,7 @@ export class RoomController {
     const { name, isPublic, content } = req.body;
 
     try {
-      const room = await db.canvasRoom.findUnique({ where: { slug } });
+      const room = await prisma.canvasRoom.findUnique({ where: { slug } });
 
       if (!room) {
         res.status(404).json({ error: "Room not found" });
@@ -148,7 +148,7 @@ export class RoomController {
         return;
       }
 
-      const updatedRoom = await db.canvasRoom.update({
+      const updatedRoom = await prisma.canvasRoom.update({
         where: { slug },
         data: {
           ...(name !== undefined && { name }),
@@ -171,7 +171,7 @@ export class RoomController {
     const { slug } = req.params;
 
     try {
-      const room = await db.canvasRoom.findUnique({ where: { slug } });
+      const room = await prisma.canvasRoom.findUnique({ where: { slug } });
 
       if (!room) {
         res.status(404).json({ error: "Room not found" });
@@ -183,11 +183,11 @@ export class RoomController {
         return;
       }
 
-      await db.canvasRoomMember.deleteMany({
+      await prisma.canvasRoomMember.deleteMany({
         where: { roomId: room.id },
       });
 
-      await db.canvasRoom.delete({ where: { slug } });
+      await prisma.canvasRoom.delete({ where: { slug } });
 
       res.json({ status: "room deleted" });
     } catch (error) {
@@ -201,7 +201,7 @@ export class RoomController {
     const { userId, role = "EDITOR" } = req.body;
 
     try {
-      const room = await db.canvasRoom.findUnique({ where: { slug } });
+      const room = await prisma.canvasRoom.findUnique({ where: { slug } });
 
       if (!room) {
         res.status(404).json({ error: "Room not found" });
@@ -213,7 +213,7 @@ export class RoomController {
         return;
       }
 
-      const member = await db.canvasRoomMember.create({
+      const member = await prisma.canvasRoomMember.create({
         data: {
           roomId: room.id,
           userId,
@@ -235,7 +235,7 @@ export class RoomController {
     const { slug, userId } = req.params;
 
     try {
-      const room = await db.canvasRoom.findUnique({ where: { slug } });
+      const room = await prisma.canvasRoom.findUnique({ where: { slug } });
 
       if (!room) {
         res.status(404).json({ error: "Room not found" });
@@ -247,7 +247,7 @@ export class RoomController {
         return;
       }
 
-      await db.canvasRoomMember.deleteMany({
+      await prisma.canvasRoomMember.deleteMany({
         where: {
           roomId: room.id,
           userId,

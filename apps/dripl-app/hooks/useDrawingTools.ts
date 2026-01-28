@@ -11,6 +11,7 @@ import { createLineElement, LineToolState } from "@/utils/tools/line";
 import { createFreedrawElement, FreedrawToolState } from "@/utils/tools/freedraw";
 import { createTextElement, TextToolState } from "@/utils/tools/text";
 import { createImageElement, ImageToolState, loadImage } from "@/utils/tools/image";
+import { useShapeRegistry } from "./useShapeRegistry";
 
 export type ToolType =
   | "select"
@@ -31,7 +32,7 @@ interface BaseToolProps {
   opacity: number;
   roughness: number;
   strokeStyle: "solid" | "dashed" | "dotted";
-  fillStyle: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots";
+  fillStyle: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots" | "dashed" | "zigzag-line";
 }
 
 export interface UseDrawingToolsReturn {
@@ -55,6 +56,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     | null
   >(null);
   const [baseProps, setBaseProps] = useState<BaseToolProps | null>(null);
+  const { createElement } = useShapeRegistry();
 
   const startDrawing = useCallback(
     (

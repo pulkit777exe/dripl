@@ -23,14 +23,18 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login");
+    } else if (!authLoading && user) {
+      // Check if there's an active canvas session
+      const lastCanvas = localStorage.getItem("dripl_last_canvas");
+      if (lastCanvas) {
+        // Navigate to the last active canvas
+        router.push(`/canvas/${lastCanvas}`);
+      } else {
+        // Load files for dashboard
+        loadFiles();
+      }
     }
   }, [user, authLoading, router]);
-
-  useEffect(() => {
-    if (user) {
-      loadFiles();
-    }
-  }, [user]);
 
   const loadFiles = async () => {
     try {
@@ -52,6 +56,12 @@ export default function DashboardPage() {
     }
   };
 
+  const handleStartNewCanvas = () => {
+    const newRoomSlug = crypto.randomUUID();
+    localStorage.setItem("dripl_last_canvas", newRoomSlug);
+    router.push(`/canvas/${newRoomSlug}`);
+  };
+
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center h-dvh bg-background">
@@ -64,9 +74,14 @@ export default function DashboardPage() {
     return null;
   }
 
+  // If we reach here, there's no active canvas session
   return (
     <div className="flex h-dvh w-full bg-background text-foreground">
-      <FileBrowser files={files} onCreateFile={handleCreateFile} />
+      <FileBrowser 
+        files={files} 
+        onCreateFile={handleCreateFile}
+        onStartNewCanvas={handleStartNewCanvas}
+      />
     </div>
   );
 }

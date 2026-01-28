@@ -8,7 +8,7 @@ export interface LineToolState {
 
 export function createLineElement(
   state: LineToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "points">
+  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "points"> & { id: string }
 ): LinearElement {
   if (state.points.length === 0) {
     throw new Error("Line must have at least one point");

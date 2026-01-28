@@ -8,6 +8,7 @@ export const COLORS = {
 export const SHAPES = {
   RECTANGLE: "rectangle",
   ELLIPSE: "ellipse",
+  DIAMOND: "diamond",
   ARROW: "arrow",
   LINE: "line",
   TEXT: "text",

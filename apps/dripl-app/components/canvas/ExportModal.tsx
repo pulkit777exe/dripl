@@ -173,7 +173,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           case "freedraw":
             if ("points" in el && el.points) {
               const points = el.points.map(
-                (p) => [p.x, p.y] as [number, number]
+                (p: any) => [p.x, p.y] as [number, number]
               );
               if (el.type === "freedraw") {
                 node = rc.curve(points, options);
@@ -201,7 +201,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
               "font-size",
               ("fontSize" in el ? el.fontSize || 16 : 16).toString()
             );
-            textNode.setAttribute("fill", el.strokeColor);
+            textNode.setAttribute("fill", el.strokeColor || "#000000");
             textNode.textContent = "text" in el ? el.text || "" : "";
             svg.appendChild(textNode);
             break;

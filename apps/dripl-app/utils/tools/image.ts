@@ -14,7 +14,7 @@ export interface ImageToolState {
  */
 export function createImageElement(
   state: ImageToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "src">
+  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "src"> & { id: string }
 ): ImageElement {
   return {
     ...baseProps,

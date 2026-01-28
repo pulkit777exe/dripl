@@ -3,6 +3,7 @@ import {
   Point,
   FreeDrawElement,
   LinearElement,
+  DiamondElement,
 } from "@dripl/common";
 import {
   Bounds,
@@ -27,7 +28,7 @@ function rotatePoint(
   p: Point,
   cx: number,
   cy: number,
-  angleRad: number
+  angleRad: number,
 ): Point {
   const dx = p.x - cx;
   const dy = p.y - cy;
@@ -43,7 +44,7 @@ function inverseRotatePoint(
   p: Point,
   cx: number,
   cy: number,
-  angleRad: number
+  angleRad: number,
 ): Point {
   // rotate by -angle
   return rotatePoint(p, cx, cy, -angleRad);
@@ -128,7 +129,7 @@ export const getElementBounds = (element: DriplElement): Bounds => {
  */
 export const isPointInElement = (
   point: Point,
-  element: DriplElement
+  element: DriplElement,
 ): boolean => {
   // Fast reject using AABB in world-space
   const bounds = getElementBounds(element);
@@ -182,6 +183,27 @@ export const isPointInElement = (
     return nx * nx + ny * ny <= 1;
   }
 
+  // Diamond: use point-in-polygon for 4 vertices
+  if (element.type === "diamond") {
+    const angle = (element.angle || 0) as number;
+    let local = point;
+    if (angle) {
+      const cx = element.x + element.width / 2;
+      const cy = element.y + element.height / 2;
+      local = inverseRotatePoint(point, cx, cy, degToRad(angle));
+    }
+
+    // Diamond vertices in element-local space
+    const vertices: Point[] = [
+      { x: element.x + element.width / 2, y: element.y }, // top
+      { x: element.x + element.width, y: element.y + element.height / 2 }, // right
+      { x: element.x + element.width / 2, y: element.y + element.height }, // bottom
+      { x: element.x, y: element.y + element.height / 2 }, // left
+    ];
+
+    return pointInPolygon(local, vertices);
+  }
+
   // Linear / freedraw: distance to segment with tolerance
   if (
     element.type === "freedraw" ||
@@ -225,7 +247,7 @@ export const isPointInElement = (
 export const elementIntersectsSegment = (
   element: DriplElement,
   segment: LineSegment,
-  threshold: number = 0
+  threshold: number = 0,
 ): boolean => {
   // Fast AABB check (include stroke width and threshold)
   const elBounds = getElementBounds(element);
@@ -266,6 +288,25 @@ export const elementIntersectsSegment = (
       : corners;
 
     return segmentIntersectsPolygon(segment, worldCorners);
+  }
+
+  if (element.type === "diamond") {
+    // Diamond vertices
+    const vertices: Point[] = [
+      { x: element.x + element.width / 2, y: element.y }, // top
+      { x: element.x + element.width, y: element.y + element.height / 2 }, // right
+      { x: element.x + element.width / 2, y: element.y + element.height }, // bottom
+      { x: element.x, y: element.y + element.height / 2 }, // left
+    ];
+
+    const angle = (element.angle || 0) as number;
+    const cx = element.x + element.width / 2;
+    const cy = element.y + element.height / 2;
+    const worldVertices = angle
+      ? vertices.map((v) => rotatePoint(v, cx, cy, degToRad(angle)))
+      : vertices;
+
+    return segmentIntersectsPolygon(segment, worldVertices);
   }
 
   if (element.type === "ellipse") {
@@ -334,14 +375,14 @@ export const elementIntersectsSegment = (
 export const getFreedrawOutline = (element: FreeDrawElement): Point[] => {
   const points = element.points || [];
   if (points.length === 0) return [];
-  
+
   const world = points.map((p) => ({ x: element.x + p.x, y: element.y + p.y }));
   const angle = (element.angle || 0) as number;
-  
+
   if (!angle) return world;
-  
+
   const cx = element.x + element.width / 2;
   const cy = element.y + element.height / 2;
-  
+
   return world.map((p) => rotatePoint(p, cx, cy, degToRad(angle)));
 };
