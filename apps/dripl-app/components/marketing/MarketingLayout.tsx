@@ -7,7 +7,7 @@ interface MarketingLayoutProps {
 
 export function MarketingLayout({ children }: MarketingLayoutProps) {
   return (
-    <div className="relative min-h-screen bg-canvas-white font-sans text-foreground selection:bg-structure-grey/30">
+    <div className="relative min-h-screen  font-sans text-foreground selection:bg-structure-grey/30">
       <div className="pointer-events-none fixed inset-0 z-0 bg-grid-pattern bg-size-[40px_40px] opacity-[0.4]" />
 
       <div

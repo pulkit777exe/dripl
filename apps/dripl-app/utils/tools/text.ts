@@ -9,7 +9,7 @@ export interface TextToolState {
 
 export function createTextElement(
   state: TextToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "text" | "fontSize" | "fontFamily">
+  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "text" | "fontSize" | "fontFamily"> & { id: string }
 ): TextElement {
   // Estimate text dimensions (rough approximation)
   // In a real implementation, you'd measure the actual text

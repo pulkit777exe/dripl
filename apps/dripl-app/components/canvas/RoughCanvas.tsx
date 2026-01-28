@@ -340,7 +340,7 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
 
     if (activeTool === "select") {
       const element = getElementAtPosition(x, y);
-      if (element) {
+      if (element && element.id) {
         // Click on element - start dragging or toggle selection
         if (e.shiftKey) {
           selectElement(element.id, true);
@@ -499,13 +499,15 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
         const scaleY =
           initialElement.height === 0 ? 1 : newHeight / initialElement.height;
 
-        updatedElement.points = initialElement.points.map((p) => ({
+        updatedElement.points = initialElement.points.map((p: { x: number; y: number }) => ({
           x: newX + (p.x - initialElement.x) * scaleX,
           y: newY + (p.y - initialElement.y) * scaleY,
         }));
       }
 
-      updateElement(el.id, updatedElement);
+      if (el.id) {
+        updateElement(el.id, updatedElement);
+      }
       send({
         type: "update_element",
         element: updatedElement,
@@ -525,7 +527,9 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
         angle: adjustedAngle,
       };
 
-      updateElement(initialElement.id, updatedElement);
+      if (initialElement.id) {
+        updateElement(initialElement.id, updatedElement);
+      }
       send({
         type: "update_element",
         element: updatedElement,
@@ -540,7 +544,7 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
 
       // Move selected elements
       elements.forEach((el) => {
-        if (selectedIds.has(el.id)) {
+        if (el.id && selectedIds.has(el.id)) {
           const updatedElement = {
             ...el,
             x: el.x + dx,
@@ -555,7 +559,9 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
             }));
           }
 
-          updateElement(el.id, updatedElement);
+          if (el.id) {
+        updateElement(el.id, updatedElement);
+      }
 
           // Broadcast update (throttled in real app, here direct)
           send({
@@ -678,7 +684,9 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
           // For now let's just use point in element
           for (const point of eraserPath) {
             if (isPointInElement(point, element)) {
-              elementsToErase.push(element.id);
+              if (element.id) {
+                elementsToErase.push(element.id);
+              }
               break;
             }
           }

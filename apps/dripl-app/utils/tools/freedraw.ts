@@ -61,7 +61,7 @@ function optimizePoints(points: Point[], threshold: number = 2): Point[] {
 
 export function createFreedrawElement(
   state: FreedrawToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "points">
+  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "points"> & { id: string }
 ): FreeDrawElement {
   if (state.points.length === 0) {
     throw new Error("Freedraw must have at least one point");

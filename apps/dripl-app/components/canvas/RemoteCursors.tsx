@@ -1,5 +1,6 @@
 "use client";
 
+import { useInterpolatedCursors } from "@/hooks/useInterpolatedCursors";
 import { useCanvasStore } from "@/lib/canvas-store";
 
 export function RemoteCursors() {
@@ -8,16 +9,20 @@ export function RemoteCursors() {
   const panX = useCanvasStore((state) => state.panX);
   const panY = useCanvasStore((state) => state.panY);
 
+  // Use interpolated cursors for smooth movement
+  const interpolatedCursors = useInterpolatedCursors(remoteCursors);
+
   return (
     <>
-      {Array.from(remoteCursors.entries()).map(([userId, cursor]) => (
+      {Array.from(interpolatedCursors.entries()).map(([userId, cursor]) => (
         <div
           key={userId}
-          className="absolute pointer-events-none z-50 transition-transform duration-100"
+          className="absolute pointer-events-none z-50"
           style={{
             left: `${cursor.x * zoom + panX}px`,
             top: `${cursor.y * zoom + panY}px`,
             transform: "translate(-50%, -50%)",
+            // No CSS transition - using requestAnimationFrame interpolation
           }}
         >
           {/* Cursor pointer */}

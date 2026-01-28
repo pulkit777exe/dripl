@@ -1,6 +1,6 @@
 {
   "name": "dripl-app",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -13,6 +13,7 @@
     "@dripl/common": "workspace:*",
     "@dripl/db": "workspace:*",
     "@dripl/element": "workspace:*",
+    "@dripl/encryption": "workspace:*",
     "@dripl/math": "workspace:*",
     "@dripl/storage": "workspace:*",
     "@dripl/sync": "workspace:*",

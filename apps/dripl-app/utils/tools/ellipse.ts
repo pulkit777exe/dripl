@@ -8,7 +8,7 @@ export interface EllipseToolState {
 
 export function createEllipseElement(
   state: EllipseToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height">
+  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height"> & { id: string }
 ): DriplElement {
   let width = state.currentPoint.x - state.startPoint.x;
   let height = state.currentPoint.y - state.startPoint.y;

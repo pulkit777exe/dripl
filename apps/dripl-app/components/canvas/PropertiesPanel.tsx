@@ -18,6 +18,12 @@ export function PropertiesPanel() {
     (state) => state.currentStrokeWidth
   );
   const currentRoughness = useCanvasStore((state) => state.currentRoughness);
+  const currentStrokeStyle = useCanvasStore(
+    (state) => state.currentStrokeStyle
+  );
+  const currentFillStyle = useCanvasStore(
+    (state) => state.currentFillStyle
+  );
 
   const setCurrentStrokeColor = useCanvasStore(
     (state) => state.setCurrentStrokeColor
@@ -31,9 +37,15 @@ export function PropertiesPanel() {
   const setCurrentRoughness = useCanvasStore(
     (state) => state.setCurrentRoughness
   );
+  const setCurrentStrokeStyle = useCanvasStore(
+    (state) => state.setCurrentStrokeStyle
+  );
+  const setCurrentFillStyle = useCanvasStore(
+    (state) => state.setCurrentFillStyle
+  );
 
   return (
-    <div className="fixed top-4 left-4 flex flex-col gap-2 pointer-events-auto">
+    <div className="fixed top-4 left-4 flex flex-col gap-2 pointer-events-auto z-100">
       <div className="p-4 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg w-64 space-y-4">
         <h3 className="font-semibold text-sm mb-2">Properties</h3>
 
@@ -101,6 +113,46 @@ export function PropertiesPanel() {
             onChange={(e) => setCurrentStrokeWidth(Number(e.target.value))}
             className="w-full"
           />
+        </div>
+
+        {/* Stroke Style */}
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Stroke Style</label>
+          <div className="flex gap-1">
+            {["solid", "dashed", "dotted"].map((style) => (
+              <button
+                key={style}
+                onClick={() => setCurrentStrokeStyle(style as any)}
+                className={`px-2 py-1 text-xs border rounded transition-colors ${
+                  currentStrokeStyle === style
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                {style}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Fill Style */}
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Fill Style</label>
+          <div className="flex gap-1 flex-wrap">
+            {["hachure", "solid", "zigzag", "cross-hatch", "dots", "dashed", "zigzag-line"].map((style) => (
+              <button
+                key={style}
+                onClick={() => setCurrentFillStyle(style as any)}
+                className={`px-2 py-1 text-xs border rounded transition-colors ${
+                  currentFillStyle === style
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                {style}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Roughness */}

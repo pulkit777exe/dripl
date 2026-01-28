@@ -4,14 +4,25 @@ import { DriplElement } from "@dripl/common";
 import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
 import prisma from "@dripl/db";
+import {
+  initRedis,
+  publishToRoom,
+  subscribeToRoom,
+  unsubscribeFromRoom,
+  cacheRoomState,
+  getCachedRoomState,
+  closeRedis,
+} from "./redis.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret-key";
+const HEARTBEAT_INTERVAL = 30000; // 30 seconds
 
 interface User {
   userId: string;
   userName: string;
   color: string;
   ws: WebSocket;
+  isAlive: boolean;
 }
 
 interface Cursor {
@@ -31,7 +42,6 @@ const wss = new WebSocketServer({ server });
 
 const rooms = new Map<string, Room>();
 
-// Debounced saves to database
 const saveTimeouts = new Map<string, NodeJS.Timeout>();
 const SAVE_DEBOUNCE_MS = 2000;
 
@@ -56,7 +66,7 @@ function scheduleDatabaseSave(roomSlug: string, elements: DriplElement[]) {
         console.error("Database save error:", error);
       }
       saveTimeouts.delete(roomSlug);
-    }, SAVE_DEBOUNCE_MS)
+    }, SAVE_DEBOUNCE_MS),
   );
 }
 
@@ -89,7 +99,7 @@ function getOrCreateRoom(roomId: string): Room {
 function broadcastToRoom(
   roomId: string,
   message: unknown,
-  excludeUserId?: string
+  excludeUserId?: string,
 ) {
   const room = rooms.get(roomId);
   if (!room) return;
@@ -105,7 +115,6 @@ function broadcastToRoom(
   });
 }
 
-// Verify JWT token from connection URL
 function verifyToken(req: IncomingMessage): { userId: string } | null {
   try {
     const url = new URL(req.url!, `http://${req.headers.host}`);
@@ -124,7 +133,6 @@ function verifyToken(req: IncomingMessage): { userId: string } | null {
   }
 }
 
-// Extract roomId from connection URL
 function extractRoomId(req: IncomingMessage): string | null {
   try {
     const url = new URL(req.url!, `http://${req.headers.host}`);
@@ -143,7 +151,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
   let currentRoomId: string | null = null;
 
   console.log(
-    `New WebSocket connection${authenticatedUserId ? ` (authenticated: ${authenticatedUserId})` : " (anonymous)"}`
+    `New WebSocket connection${authenticatedUserId ? ` (authenticated: ${authenticatedUserId})` : " (anonymous)"}`,
   );
 
   ws.on("message", async (data) => {
@@ -170,7 +178,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
               if (dbRoom && dbRoom.content) {
                 room.elements = JSON.parse(dbRoom.content as string) || [];
                 console.log(
-                  `Loaded ${room.elements.length} elements from database for room ${roomId}`
+                  `Loaded ${room.elements.length} elements from database for room ${roomId}`,
                 );
               }
             } catch (error) {
@@ -183,11 +191,12 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
             userName: userName || `User ${room.users.size + 1}`,
             color,
             ws,
+            isAlive: true,
           };
           room.users.set(userId, user);
 
           console.log(
-            `User ${user.userName} (${userId}) joined room ${roomId}`
+            `User ${user.userName} (${userId}) joined room ${roomId}`,
           );
 
           const syncMessage = {
@@ -205,7 +214,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
               ([uid, cursor]) => ({
                 userId: uid,
                 ...cursor,
-              })
+              }),
             ),
             yourUserId: userId,
           };
@@ -241,7 +250,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
               if (room.users.size === 0) {
                 rooms.delete(currentRoomId);
                 console.log(
-                  `Room ${currentRoomId} removed from memory (empty)`
+                  `Room ${currentRoomId} removed from memory (empty)`,
                 );
               }
             }
@@ -259,7 +268,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
               broadcastToRoom(
                 currentRoomId,
                 message,
-                currentUserId || undefined
+                currentUserId || undefined,
               );
               scheduleDatabaseSave(currentRoomId, room.elements);
             }
@@ -272,7 +281,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
             const room = rooms.get(currentRoomId);
             if (room) {
               const index = room.elements.findIndex(
-                (e) => e.id === message.element.id
+                (e) => e.id === message.element.id,
               );
               if (index !== -1) {
                 room.elements[index] = message.element;
@@ -280,7 +289,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
               broadcastToRoom(
                 currentRoomId,
                 message,
-                currentUserId || undefined
+                currentUserId || undefined,
               );
               scheduleDatabaseSave(currentRoomId, room.elements);
             }
@@ -293,12 +302,12 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
             const room = rooms.get(currentRoomId);
             if (room) {
               room.elements = room.elements.filter(
-                (e) => e.id !== message.elementId
+                (e) => e.id !== message.elementId,
               );
               broadcastToRoom(
                 currentRoomId,
                 message,
-                currentUserId || undefined
+                currentUserId || undefined,
               );
               scheduleDatabaseSave(currentRoomId, room.elements);
             }
@@ -317,7 +326,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
                   ...message,
                   userId: currentUserId,
                 },
-                currentUserId
+                currentUserId,
               );
             }
           }
@@ -339,7 +348,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
         room.users.delete(currentUserId);
         room.cursors.delete(currentUserId);
         console.log(
-          `User ${currentUserId} disconnected from room ${currentRoomId}`
+          `User ${currentUserId} disconnected from room ${currentRoomId}`,
         );
 
         const leaveMessage = {

@@ -149,7 +149,7 @@ export function useCanvasRenderer({
       ctx.setLineDash([5 / viewport.zoom, 5 / viewport.zoom]);
 
       visibleElements.forEach((el) => {
-        if (selectedIds.has(el.id)) {
+        if (el.id && selectedIds.has(el.id)) {
           const bounds = getElementBounds(el);
           const padding = 4 / viewport.zoom;
           ctx.strokeRect(

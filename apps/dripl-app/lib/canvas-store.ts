@@ -1,5 +1,10 @@
 import { create } from "zustand";
 import type { DriplElement } from "@dripl/common";
+import { initializeShapeRegistry } from "@/utils/shapes/shapeInitializer";
+import { shapeRegistry } from "@/utils/shapes/ShapeRegistry";
+
+// Initialize shape registry on store creation
+initializeShapeRegistry();
 
 export interface RemoteUser {
   userId: string;
@@ -51,7 +56,7 @@ export interface CanvasState {
   currentStrokeWidth: number;
   currentRoughness: number;
   currentStrokeStyle: "solid" | "dashed" | "dotted";
-  currentFillStyle: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots";
+  currentFillStyle: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots" | "dashed" | "zigzag-line";
 
   history: DriplElement[][];
   historyIndex: number;
@@ -148,7 +153,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     })),
   deleteElements: (ids) =>
     set((state) => ({
-      elements: state.elements.filter((el) => !ids.includes(el.id)),
+      elements: state.elements.filter((el) => el.id && !ids.includes(el.id)),
       selectedIds: new Set(
         Array.from(state.selectedIds).filter((id) => !ids.includes(id))
       ),

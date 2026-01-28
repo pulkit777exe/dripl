@@ -2,13 +2,14 @@ import rough from "roughjs";
 import type { DriplElement } from "@dripl/common";
 import { getShapeFromCache, setShapeInCache } from "./shape-cache";
 
-// Loose typing to avoid bundler issues
 export type RoughCanvas = any;
 export type Drawable = any;
 
 const generator = rough.generator();
 
-export function createRoughCanvas(canvas: HTMLCanvasElement): RoughCanvas | null {
+export function createRoughCanvas(
+  canvas: HTMLCanvasElement,
+): RoughCanvas | null {
   try {
     return rough.canvas(canvas);
   } catch (e) {
@@ -18,7 +19,6 @@ export function createRoughCanvas(canvas: HTMLCanvasElement): RoughCanvas | null
 }
 
 function cacheKey(element: DriplElement): string {
-  // element must have id + version
   return `${element.id}:${(element as any).version ?? 0}`;
 }
 
@@ -33,6 +33,7 @@ function generateShape(element: DriplElement): Drawable | Drawable[] {
     strokeStyle = "solid",
     fillStyle = "hachure",
     seed,
+    roundness = 0,
   } = element as any;
 
   const options = {
@@ -46,8 +47,13 @@ function generateShape(element: DriplElement): Drawable | Drawable[] {
       strokeStyle === "dashed"
         ? [10, 5]
         : strokeStyle === "dotted"
-        ? [2, 3]
-        : undefined,
+          ? [2, 3]
+          : undefined,
+    hachureAngle: 45,
+    hachureGap: strokeWidth * 2,
+    curveStepCount: 9,
+    simplification: 0.5,
+    roundness,
   };
 
   switch (element.type) {
@@ -57,11 +63,33 @@ function generateShape(element: DriplElement): Drawable | Drawable[] {
     case "ellipse":
       return generator.ellipse(width / 2, height / 2, width, height, options);
 
+    case "diamond": {
+      const topX = width / 2;
+      const topY = 0;
+      const rightX = width;
+      const rightY = height / 2;
+      const bottomX = width / 2;
+      const bottomY = height;
+      const leftX = 0;
+      const leftY = height / 2;
+      return generator.polygon(
+        [
+          [topX, topY],
+          [rightX, rightY],
+          [bottomX, bottomY],
+          [leftX, leftY],
+        ],
+        options,
+      );
+    }
+
     case "line":
     case "arrow":
     case "freedraw": {
       if ("points" in element && element.points.length > 1) {
-        const pts = element.points.map((p: any) => [p.x, p.y] as [number, number]);
+        const pts = element.points.map(
+          (p: any) => [p.x, p.y] as [number, number],
+        );
         return generator.linearPath(pts, options);
       }
       return [];
@@ -75,16 +103,15 @@ function generateShape(element: DriplElement): Drawable | Drawable[] {
 export function renderRoughElement(
   rc: RoughCanvas,
   ctx: CanvasRenderingContext2D,
-  element: DriplElement
+  element: DriplElement,
 ): void {
   if (element.isDeleted) return;
 
   ctx.save();
-  ctx.globalAlpha = element.opacity;
+  ctx.globalAlpha = element.opacity ?? 1;
 
   const { x, y, width, height, angle = 0 } = element;
 
-  // rotation
   if (angle !== 0) {
     const cx = x + width / 2;
     const cy = y + height / 2;
@@ -98,9 +125,11 @@ export function renderRoughElement(
     shape = generateShape(element);
     setShapeInCache(element as any, shape);
   }
-
-  // Non-linear shapes generated at (0,0)
-  const isLinear = element.type === "line" || element.type === "arrow" || element.type === "freedraw";
+  
+  const isLinear =
+    element.type === "line" ||
+    element.type === "arrow" ||
+    element.type === "freedraw";
 
   if (!isLinear) {
     ctx.translate(x, y);
@@ -118,7 +147,7 @@ export function renderRoughElement(
 export function renderRoughElements(
   rc: RoughCanvas,
   ctx: CanvasRenderingContext2D,
-  elements: DriplElement[]
+  elements: DriplElement[],
 ): void {
   for (const el of elements) {
     renderRoughElement(rc, ctx, el);
