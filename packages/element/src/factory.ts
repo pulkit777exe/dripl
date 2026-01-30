@@ -100,6 +100,14 @@ export const createElement = (
         points: [],
       };
 
+    case SHAPES.FRAME:
+      return {
+        ...base,
+        type: "frame" as const,
+        title: "Frame",
+        padding: 20,
+      };
+
     default:
       throw new Error(`Unknown shape type: ${type}`);
   }

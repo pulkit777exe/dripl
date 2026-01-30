@@ -209,6 +209,9 @@ export function drawShape(
     case "text":
       drawText(ctx, element);
       break;
+    case "frame":
+      drawFrame(ctx, element);
+      break;
   }
 
   ctx.restore();
@@ -422,6 +425,35 @@ function drawText(ctx: CanvasRenderingContext2D, element: CanvasElement): void {
   lines.forEach((line, i) => {
     ctx.fillText(line, element.x + 5, element.y + 5 + i * lineHeight);
   });
+}
+
+function drawFrame(ctx: CanvasRenderingContext2D, element: CanvasElement): void {
+  const frameElement = element as any;
+  
+  // Draw frame border
+  ctx.strokeRect(element.x, element.y, element.width, element.height);
+  
+  // Draw padding
+  const padding = frameElement.padding || 20;
+  ctx.setLineDash([5, 5]);
+  ctx.strokeRect(
+    element.x + padding,
+    element.y + padding,
+    element.width - 2 * padding,
+    element.height - 2 * padding
+  );
+  ctx.setLineDash([]);
+  
+  // Draw title
+  if (frameElement.title) {
+    ctx.fillStyle = element.strokeColor;
+    ctx.font = "14px Arial";
+    ctx.fillText(
+      frameElement.title,
+      element.x + 10,
+      element.y - 10
+    );
+  }
 }
 
 export function exportToPNG(

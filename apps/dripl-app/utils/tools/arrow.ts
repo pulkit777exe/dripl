@@ -3,6 +3,8 @@ import type { DriplElement, Point, LinearElement } from "@dripl/common";
 export interface ArrowToolState {
   points: Point[];
   isComplete: boolean;
+  isDragging: boolean;
+  currentPoint: Point | null;
 }
 
 export function createArrowElement(
@@ -31,6 +33,35 @@ export function createArrowElement(
     width: maxX - minX,
     height: maxY - minY,
     points: relativePoints,
+  };
+}
+
+export function addPointToArrow(point: Point, state: ArrowToolState): ArrowToolState {
+  return {
+    ...state,
+    points: [...state.points, point],
+  };
+}
+
+export function removePointFromArrow(index: number, state: ArrowToolState): ArrowToolState {
+  if (state.points.length <= 2) {
+    return state; // Need at least two points for an arrow
+  }
+
+  const newPoints = [...state.points];
+  newPoints.splice(index, 1);
+  return {
+    ...state,
+    points: newPoints,
+  };
+}
+
+export function updatePointInArrow(index: number, point: Point, state: ArrowToolState): ArrowToolState {
+  const newPoints = [...state.points];
+  newPoints[index] = point;
+  return {
+    ...state,
+    points: newPoints,
   };
 }
 

@@ -11,6 +11,7 @@ import { createLineElement, LineToolState } from "@/utils/tools/line";
 import { createFreedrawElement, FreedrawToolState } from "@/utils/tools/freedraw";
 import { createTextElement, TextToolState } from "@/utils/tools/text";
 import { createImageElement, ImageToolState, loadImage } from "@/utils/tools/image";
+import { createFrameElement, FrameToolState } from "@/utils/tools/frame";
 import { useShapeRegistry } from "./useShapeRegistry";
 
 export type ToolType =
@@ -23,6 +24,7 @@ export type ToolType =
   | "freedraw"
   | "text"
   | "image"
+  | "frame"
   | "eraser";
 
 interface BaseToolProps {
@@ -53,6 +55,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     | { type: "arrow"; state: ArrowToolState }
     | { type: "line"; state: LineToolState }
     | { type: "freedraw"; state: FreedrawToolState }
+    | { type: "frame"; state: FrameToolState }
     | null
   >(null);
   const [baseProps, setBaseProps] = useState<BaseToolProps | null>(null);
@@ -90,19 +93,25 @@ export function useDrawingTools(): UseDrawingToolsReturn {
         case "arrow":
           setToolState({
             type: "arrow",
-            state: { points: [point], isComplete: false },
+            state: { points: [point], isComplete: false, isDragging: false, currentPoint: null },
           });
           break;
         case "line":
           setToolState({
             type: "line",
-            state: { points: [point], isComplete: false, shiftKey },
+            state: { points: [point], isComplete: false, shiftKey, isDragging: false, currentPoint: null },
           });
           break;
         case "freedraw":
           setToolState({
             type: "freedraw",
             state: { points: [point], isComplete: false },
+          });
+          break;
+        case "frame":
+          setToolState({
+            type: "frame",
+            state: { startPoint: point, currentPoint: point, shiftKey },
           });
           break;
         default:
@@ -215,6 +224,19 @@ export function useDrawingTools(): UseDrawingToolsReturn {
           }
           break;
         }
+        case "frame":
+          setToolState({
+            ...toolState,
+            state: { ...toolState.state, currentPoint: point, shiftKey },
+          });
+          setCurrentPreview(
+            createFrameElement(toolState.state, {
+              id: uuidv4(),
+              ...baseProps,
+              seed: Math.floor(Math.random() * 1000000),
+            })
+          );
+          break;
       }
     },
     [toolState, baseProps]
