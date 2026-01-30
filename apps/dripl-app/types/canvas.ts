@@ -14,7 +14,8 @@ export interface CanvasElement {
     | "freedraw"
     | "text"
     | "ellipse"
-    | "image";
+    | "image"
+    | "frame";
   x: number;
   y: number;
   width: number;
@@ -114,6 +115,7 @@ export type ToolType =
   | "draw"
   | "text"
   | "image"
+  | "frame"
   | "eraser";
 
 export interface SelectionState {

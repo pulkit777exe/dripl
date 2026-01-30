@@ -26,6 +26,10 @@ export interface ElementBase {
   angle?: number; // Rotation in radians
   locked?: boolean; // Prevent editing
   groupId?: string; // For grouping elements together
+  zIndex?: number; // For element ordering
+  rotation?: number; // Rotation in degrees
+  flipHorizontal?: number; // -1 or 1
+  flipVertical?: number; // -1 or 1
 
   // Custom properties for extensions
   [key: string]: any;
@@ -51,6 +55,9 @@ export interface LinearElement extends ElementBase {
 export interface FreeDrawElement extends ElementBase {
   type: "freedraw";
   points: Point[];
+  brushSize?: number; // Base brush size
+  pressureValues?: number[]; // Pressure values for variable width
+  widths?: number[]; // Calculated widths for rendering
 }
 
 export interface TextElement extends ElementBase {
@@ -58,11 +65,20 @@ export interface TextElement extends ElementBase {
   text: string;
   fontSize: number;
   fontFamily: string;
+  textAlign?: "left" | "center" | "right";
+  verticalAlign?: "top" | "middle" | "bottom";
+  boundElementId?: string; // ID of element this text is bound to
 }
 
 export interface ImageElement extends ElementBase {
   type: "image";
   src: string;
+}
+
+export interface FrameElement extends ElementBase {
+  type: "frame";
+  title?: string;
+  padding?: number;
 }
 
 // Base type for all Dripl elements
@@ -73,7 +89,8 @@ export type DriplElement =
   | LinearElement
   | FreeDrawElement
   | TextElement
-  | ImageElement;
+  | ImageElement
+  | FrameElement;
 
 // Shape definition interface for registration
 export interface ShapeDefinition<T extends DriplElement = DriplElement> {

@@ -105,12 +105,12 @@ export function getElementAccessibleLabel(element: DriplElement): string {
     case "text":
       return `Text: ${"text" in element ? element.text : ""}`;
      case "image":
-      return `Image at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
-    case "diamond":
-      return `Diamond at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
-    default: {
-      const _exhaustive: never = element;
-      return `Element at position ${Math.round((_exhaustive as DriplElement).x)}, ${Math.round((_exhaustive as DriplElement).y)}`;
+       return `Image at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
+     case "frame":
+       return `Frame at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
+     default: {
+       const _exhaustive: never = element;
+       return `Element at position ${Math.round((_exhaustive as DriplElement).x)}, ${Math.round((_exhaustive as DriplElement).y)}`;
     }
   }
 }

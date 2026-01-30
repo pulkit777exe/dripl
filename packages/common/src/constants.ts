@@ -14,6 +14,7 @@ export const SHAPES = {
   TEXT: "text",
   FREEDRAW: "freedraw",
   IMAGE: "image",
+  FRAME: "frame",
 } as const;
 
 export type ShapeType = (typeof SHAPES)[keyof typeof SHAPES];

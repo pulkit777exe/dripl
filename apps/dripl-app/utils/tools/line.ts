@@ -3,6 +3,8 @@ import type { DriplElement, Point, LinearElement } from "@dripl/common";
 export interface LineToolState {
   points: Point[];
   isComplete: boolean;
+  isDragging: boolean;
+  currentPoint: Point | null;
   shiftKey: boolean;
 }
 
@@ -14,31 +16,12 @@ export function createLineElement(
     throw new Error("Line must have at least one point");
   }
 
-  let points = state.points;
+  const minX = Math.min(...state.points.map((p) => p.x));
+  const minY = Math.min(...state.points.map((p) => p.y));
+  const maxX = Math.max(...state.points.map((p) => p.x));
+  const maxY = Math.max(...state.points.map((p) => p.y));
 
-  if (state.shiftKey && points.length >= 2) {
-    const lastPoint = points[points.length - 1]!;
-    const prevPoint = points[points.length - 2]!;
-    const dx = lastPoint.x - prevPoint.x;
-    const dy = lastPoint.y - prevPoint.y;
-    const angle = Math.atan2(dy, dx);
-    const snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    points = [
-      ...points.slice(0, -1),
-      {
-        x: prevPoint.x + Math.cos(snappedAngle) * distance,
-        y: prevPoint.y + Math.sin(snappedAngle) * distance,
-      },
-    ];
-  }
-
-  const minX = Math.min(...points.map((p) => p.x));
-  const minY = Math.min(...points.map((p) => p.y));
-  const maxX = Math.max(...points.map((p) => p.x));
-  const maxY = Math.max(...points.map((p) => p.y));
-
-  const relativePoints = points.map((p) => ({
+  const relativePoints = state.points.map((p) => ({
     x: p.x - minX,
     y: p.y - minY,
   }));
@@ -51,5 +34,78 @@ export function createLineElement(
     width: maxX - minX,
     height: maxY - minY,
     points: relativePoints,
+  };
+}
+
+export function snapLineToElement(
+  point: Point,
+  elements: DriplElement[],
+  excludeId?: string,
+  snapThreshold: number = 10
+): Point {
+  let snappedPoint = point;
+  let minDistance = Infinity;
+
+  for (const element of elements) {
+    if (element.id === excludeId || element.isDeleted) continue;
+
+    const bounds = {
+      x: element.x,
+      y: element.y,
+      width: element.width,
+      height: element.height,
+    };
+
+    const edges = [
+      { x: bounds.x, y: bounds.y + bounds.height / 2 },
+      { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 },
+      { x: bounds.x + bounds.width / 2, y: bounds.y },
+      { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height },
+      { x: bounds.x, y: bounds.y },
+      { x: bounds.x + bounds.width, y: bounds.y },
+      { x: bounds.x, y: bounds.y + bounds.height },
+      { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+    ];
+
+    for (const edge of edges) {
+      const distance = Math.sqrt(
+        Math.pow(point.x - edge.x, 2) + Math.pow(point.y - edge.y, 2)
+      );
+      if (distance < snapThreshold && distance < minDistance) {
+        minDistance = distance;
+        snappedPoint = edge;
+      }
+    }
+  }
+
+  return snappedPoint;
+}
+
+export function addPointToLine(point: Point, state: LineToolState): LineToolState {
+  return {
+    ...state,
+    points: [...state.points, point],
+  };
+}
+
+export function removePointFromLine(index: number, state: LineToolState): LineToolState {
+  if (state.points.length <= 2) {
+    return state;
+  }
+
+  const newPoints = [...state.points];
+  newPoints.splice(index, 1);
+  return {
+    ...state,
+    points: newPoints,
+  };
+}
+
+export function updatePointInLine(index: number, point: Point, state: LineToolState): LineToolState {
+  const newPoints = [...state.points];
+  newPoints[index] = point;
+  return {
+    ...state,
+    points: newPoints,
   };
 }

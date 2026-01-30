@@ -7,6 +7,7 @@ import { createLineElement, LineToolState } from "@/utils/tools/line";
 import { createFreedrawElement, FreedrawToolState } from "@/utils/tools/freedraw";
 import { createTextElement, TextToolState } from "@/utils/tools/text";
 import { createImageElement, ImageToolState } from "@/utils/tools/image";
+import { createFrameElement, FrameToolState } from "@/utils/tools/frame";
 
 // Rectangle shape definition
 export const rectangleShape: ShapeDefinition = {
@@ -452,6 +453,92 @@ export const imageShape: ShapeDefinition = {
     return {
       src: imageElement.src,
       opacity: element.opacity,
+    };
+  },
+  setProperties: (element: DriplElement, properties: any) => {
+    return {
+      ...element,
+      ...properties,
+    };
+  },
+};
+
+// Frame shape definition
+export const frameShape: ShapeDefinition = {
+  type: "frame",
+  name: "Frame",
+  icon: "square",
+  category: "containers",
+  create: (props: Partial<DriplElement>) => ({
+    id: crypto.randomUUID(),
+    type: "frame" as const,
+    x: 0,
+    y: 0,
+    width: 300,
+    height: 200,
+    strokeColor: "#000000",
+    backgroundColor: "transparent",
+    strokeWidth: 2,
+    opacity: 1,
+    roughness: 1,
+    strokeStyle: "solid",
+    fillStyle: "hachure",
+    title: "Frame",
+    padding: 20,
+    ...props,
+  } as DriplElement),
+  validate: (element: any) => {
+    return element && 
+           element.type === "frame" && 
+           typeof element.x === "number" && 
+           typeof element.y === "number" && 
+           typeof element.width === "number" && 
+           typeof element.height === "number";
+  },
+  render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
+    const frameElement = element as any;
+    
+    ctx.strokeStyle = element.strokeColor || "#000000";
+    ctx.lineWidth = element.strokeWidth || 2;
+    ctx.globalAlpha = element.opacity || 1;
+    
+    // Draw frame border
+    ctx.strokeRect(element.x, element.y, element.width, element.height);
+    
+    // Draw padding
+    const padding = frameElement.padding || 20;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(
+      element.x + padding,
+      element.y + padding,
+      element.width - 2 * padding,
+      element.height - 2 * padding
+    );
+    ctx.setLineDash([]);
+    
+    // Draw title
+    if (frameElement.title) {
+      ctx.fillStyle = element.strokeColor || "#000000";
+      ctx.font = "14px Arial";
+      ctx.fillText(
+        frameElement.title,
+        element.x + 10,
+        element.y - 10
+      );
+    }
+  },
+  getProperties: (element: DriplElement) => {
+    const frameElement = element as any;
+    return {
+      strokeColor: element.strokeColor,
+      backgroundColor: element.backgroundColor,
+      strokeWidth: element.strokeWidth,
+      opacity: element.opacity,
+      roughness: element.roughness,
+      strokeStyle: element.strokeStyle,
+      fillStyle: element.fillStyle,
+      title: frameElement.title,
+      padding: frameElement.padding,
     };
   },
   setProperties: (element: DriplElement, properties: any) => {
