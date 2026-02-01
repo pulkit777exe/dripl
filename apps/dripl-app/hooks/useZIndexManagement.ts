@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import type { DriplElement } from "@dripl/common";
 import {
   sortElementsByZIndex,
-  sortElementsByZIndexDescending,
   bringToFront,
   sendToBack,
   bringForward,
   sendBackward,
-  updateElementsZIndex,
   getZIndexRange,
   normalizeZIndices,
 } from "@/utils/zIndexUtils";

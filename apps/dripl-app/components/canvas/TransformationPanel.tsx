@@ -1,7 +1,7 @@
 "use client";
 
 import type { DriplElement } from "@dripl/common";
-import { RotateCw, Move, Maximize, ArrowUpDown, ArrowLeftRight } from "lucide-react";
+import { RotateCw, ArrowUpDown, ArrowLeftRight } from "lucide-react";
 
 interface TransformationPanelProps {
   selectedElement: DriplElement | null;
@@ -26,17 +26,17 @@ export function TransformationPanel({
   };
 
   const handleRotate = () => {
-    const currentRotation = (selectedElement.rotation || 0) + 45;
+    const currentRotation = (selectedElement.rotation ?? 0) + 45;
     updateProperty("rotation", currentRotation);
   };
 
   const handleFlipHorizontal = () => {
-    const currentFlip = selectedElement.flipHorizontal || 1;
+    const currentFlip = selectedElement.flipHorizontal ?? 1;
     updateProperty("flipHorizontal", currentFlip === 1 ? -1 : 1);
   };
 
   const handleFlipVertical = () => {
-    const currentFlip = selectedElement.flipVertical || 1;
+    const currentFlip = selectedElement.flipVertical ?? 1;
     updateProperty("flipVertical", currentFlip === 1 ? -1 : 1);
   };
 
@@ -126,7 +126,7 @@ export function TransformationPanel({
             </button>
             <input
               type="number"
-              value={selectedElement.rotation || 0}
+              value={selectedElement.rotation ?? 0}
               onChange={(e) => updateProperty("rotation", Number(e.target.value))}
               className="flex-1 text-xs p-1 border rounded bg-background"
               min="0"

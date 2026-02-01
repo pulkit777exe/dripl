@@ -67,8 +67,7 @@ export function duplicateElements(
   // First pass: create duplicates without bound text
   selectedElements.forEach((element) => {
     if (element.type === "text" && element.boundElementId) {
-      // Skip bound text for now - we'll handle them after main elements are duplicated
-      return;
+      return; // Skip bound text for now - handle after main elements are duplicated
     }
     
     const duplicate = duplicateElement(element, offset);

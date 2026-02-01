@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import type { DriplElement, TextElement } from "@dripl/common";
 import {
   hasBoundText,
@@ -32,16 +32,12 @@ export function useTextBinding(
   onElementsChange: (newElements: DriplElement[]) => void
 ): UseTextBindingReturn {
   const hasBoundTextCallback = useCallback(
-    (element: DriplElement) => {
-      return hasBoundText(element, elements);
-    },
+    (element: DriplElement) => hasBoundText(element, elements),
     [elements]
   );
 
   const getBoundTextCallback = useCallback(
-    (element: DriplElement) => {
-      return getBoundText(element, elements);
-    },
+    (element: DriplElement) => getBoundText(element, elements),
     [elements]
   );
 
