@@ -1,5 +1,10 @@
 import { create } from "zustand";
 import type { DriplElement } from "@dripl/common";
+import { initializeShapeRegistry } from "@/utils/shapes/shapeInitializer";
+import { shapeRegistry } from "@/utils/shapes/ShapeRegistry";
+
+// Initialize shape registry on store creation
+initializeShapeRegistry();
 
 export interface RemoteUser {
   userId: string;
@@ -15,76 +20,71 @@ export interface RemoteCursor {
 }
 
 export interface CanvasState {
-  // Room info
   roomId: string | null;
   roomSlug: string | null;
   isConnected: boolean;
 
-  // Drawing state
+  userId: string | null;
+
+  fileId: string | null;
+  fileName: string;
+  isSaving: boolean;
+  lastSaved: number | null;
+
   elements: DriplElement[];
   selectedIds: Set<string>;
   activeTool:
     | "select"
     | "rectangle"
     | "ellipse"
+    | "diamond"
     | "arrow"
     | "line"
     | "freedraw"
     | "text"
     | "eraser";
 
-  // Collaboration
   remoteUsers: Map<string, RemoteUser>;
   remoteCursors: Map<string, RemoteCursor>;
 
-  // View state
   zoom: number;
   panX: number;
   panY: number;
 
-  // Style state
   currentStrokeColor: string;
   currentBackgroundColor: string;
   currentStrokeWidth: number;
   currentRoughness: number;
   currentStrokeStyle: "solid" | "dashed" | "dotted";
-  currentFillStyle: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots";
+  currentFillStyle: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots" | "dashed" | "zigzag-line";
 
-  // History
   history: DriplElement[][];
   historyIndex: number;
 
-  // Actions - Room
   setRoomId: (roomId: string | null) => void;
   setRoomSlug: (roomSlug: string | null) => void;
   setIsConnected: (isConnected: boolean) => void;
 
-  // Actions - Elements
   setElements: (elements: DriplElement[]) => void;
   addElement: (element: DriplElement) => void;
   updateElement: (id: string, updates: Partial<DriplElement>) => void;
   deleteElements: (ids: string[]) => void;
 
-  // Actions - Selection
   setSelectedIds: (ids: Set<string>) => void;
   selectElement: (id: string, addToSelection?: boolean) => void;
   clearSelection: () => void;
 
-  // Actions - Tool
   setActiveTool: (tool: CanvasState["activeTool"]) => void;
 
-  // Actions - Collaboration
   setRemoteUsers: (users: Map<string, RemoteUser>) => void;
   addRemoteUser: (user: RemoteUser) => void;
   removeRemoteUser: (userId: string) => void;
   updateRemoteCursor: (userId: string, cursor: RemoteCursor) => void;
   removeRemoteCursor: (userId: string) => void;
 
-  // Actions - View
   setZoom: (zoom: number) => void;
   setPan: (panX: number, panY: number) => void;
 
-  // Actions - Style
   setCurrentStrokeColor: (color: string) => void;
   setCurrentBackgroundColor: (color: string) => void;
   setCurrentStrokeWidth: (width: number) => void;
@@ -94,34 +94,40 @@ export interface CanvasState {
     style: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots"
   ) => void;
 
-  // Actions - History
   undo: () => void;
   redo: () => void;
   pushHistory: () => void;
   clearHistory: () => void;
+
+  setUserId: (userId: string | null) => void;
+  setFileMetadata: (fileId: string | null, fileName: string) => void;
+  markSaving: (isSaving: boolean) => void;
+  markSaved: () => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
-  // Initial state - Room
   roomId: null,
   roomSlug: null,
   isConnected: false,
 
-  // Initial state - Drawing
+  userId: null,
+
+  fileId: null,
+  fileName: "Untitled",
+  isSaving: false,
+  lastSaved: null,
+
   elements: [],
   selectedIds: new Set(),
   activeTool: "select",
 
-  // Initial state - Collaboration
   remoteUsers: new Map(),
   remoteCursors: new Map(),
 
-  // Initial state - View
   zoom: 1,
   panX: 0,
   panY: 0,
 
-  // Initial state - Style
   currentStrokeColor: "#000000",
   currentBackgroundColor: "transparent",
   currentStrokeWidth: 2,
@@ -129,16 +135,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   currentStrokeStyle: "solid",
   currentFillStyle: "hachure",
 
-  // Initial state - History
   history: [],
   historyIndex: -1,
 
-  // Actions - Room
   setRoomId: (roomId) => set({ roomId }),
   setRoomSlug: (roomSlug) => set({ roomSlug }),
   setIsConnected: (isConnected) => set({ isConnected }),
 
-  // Actions - Elements
   setElements: (elements) => set({ elements }),
   addElement: (element) =>
     set((state) => ({ elements: [...state.elements, element] })),
@@ -150,13 +153,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     })),
   deleteElements: (ids) =>
     set((state) => ({
-      elements: state.elements.filter((el) => !ids.includes(el.id)),
+      elements: state.elements.filter((el) => el.id && !ids.includes(el.id)),
       selectedIds: new Set(
         Array.from(state.selectedIds).filter((id) => !ids.includes(id))
       ),
     })),
 
-  // Actions - Selection
   setSelectedIds: (ids) => set({ selectedIds: ids }),
   selectElement: (id, addToSelection = false) =>
     set((state) => {
@@ -166,10 +168,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
   clearSelection: () => set({ selectedIds: new Set() }),
 
-  // Actions - Tool
   setActiveTool: (activeTool) => set({ activeTool }),
 
-  // Actions - Collaboration
   setRemoteUsers: (users) => set({ remoteUsers: users }),
   addRemoteUser: (user) =>
     set((state) => {
@@ -198,11 +198,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return { remoteCursors: newCursors };
     }),
 
-  // Actions - View
   setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(10, zoom)) }),
   setPan: (panX, panY) => set({ panX, panY }),
 
-  // Actions - Style
   setCurrentStrokeColor: (color) => set({ currentStrokeColor: color }),
   setCurrentBackgroundColor: (color) => set({ currentBackgroundColor: color }),
   setCurrentStrokeWidth: (width) => set({ currentStrokeWidth: width }),
@@ -210,7 +208,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setCurrentStrokeStyle: (style) => set({ currentStrokeStyle: style }),
   setCurrentFillStyle: (style) => set({ currentFillStyle: style }),
 
-  // Actions - History
   undo: () =>
     set((state) => {
       if (state.historyIndex > 0) {
@@ -243,4 +240,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
   clearHistory: () => set({ history: [], historyIndex: -1 }),
+
+  setUserId: (userId) => set({ userId }),
+  setFileMetadata: (fileId, fileName) => set({ fileId, fileName }),
+  markSaving: (isSaving) => set({ isSaving }),
+  markSaved: () => set({ isSaving: false, lastSaved: Date.now() }),
 }));

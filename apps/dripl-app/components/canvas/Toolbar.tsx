@@ -11,6 +11,7 @@ import {
   Image,
   Eraser,
   Edit3,
+  Layers,
 } from "lucide-react";
 import { ToolButton } from "./ToolButton";
 import { ToolType } from "@/types/canvas";
@@ -97,6 +98,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         isActive={activeTool === "eraser"}
         onClick={() => onToolChange("eraser")}
         title="Eraser (E)"
+      />
+      <ToolButton
+        icon={<Layers size={19} />}
+        isActive={activeTool === "frame"}
+        onClick={() => onToolChange("frame")}
+        title="Frame (F)"
       />
     </div>
   );

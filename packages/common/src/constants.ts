@@ -8,11 +8,13 @@ export const COLORS = {
 export const SHAPES = {
   RECTANGLE: "rectangle",
   ELLIPSE: "ellipse",
+  DIAMOND: "diamond",
   ARROW: "arrow",
   LINE: "line",
   TEXT: "text",
   FREEDRAW: "freedraw",
   IMAGE: "image",
+  FRAME: "frame",
 } as const;
 
 export type ShapeType = (typeof SHAPES)[keyof typeof SHAPES];

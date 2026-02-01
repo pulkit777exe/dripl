@@ -5,38 +5,33 @@ export const designTokens = {
     lg: 'rounded-2xl',    
   },
   
-  // Spacing
   spacing: {
-    xs: 'gap-1',   // 4px
-    sm: 'gap-2',   // 8px
-    md: 'gap-3',   // 12px
-    lg: 'gap-4',   // 16px
+    xs: 'gap-1',
+    sm: 'gap-2',
+    md: 'gap-3',
+    lg: 'gap-4',
   },
   
-  // Padding
   padding: {
-    sm: 'p-2',     // 8px
-    md: 'p-3',     // 12px
-    lg: 'p-4',     // 16px
+    sm: 'p-2',
+    md: 'p-3',
+    lg: 'p-4',
   },
   
-  // Standardized Shadows
   shadow: {
-    sm: 'shadow-sm',      // Subtle
-    md: 'shadow-md',      // Medium
-    lg: 'shadow-[0_8px_30px_rgb(0,0,0,0.12)]',  // Premium floating
+    sm: 'shadow-sm',
+    md: 'shadow-md',
+    lg: 'shadow-[0_8px_30px_rgb(0,0,0,0.12)]',
   },
   
-  // Backgrounds (glassmorphism)
   bg: {
     primary: 'bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md',
     secondary: 'bg-neutral-50/80 dark:bg-neutral-800/80 backdrop-blur-sm',
   },
   
-  // Icon sizes
   icon: {
-    sm: 'size-4',  // 16px
-    md: 'size-5',  // 20px
-    lg: 'size-6',  // 24px
+    sm: 'size-4',
+    md: 'size-5',
+    lg: 'size-6',
   },
 } as const;

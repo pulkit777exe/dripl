@@ -14,39 +14,34 @@ export interface CanvasElement {
     | "freedraw"
     | "text"
     | "ellipse"
-    | "image"; // Added image based on usage in Canvas.tsx
+    | "image"
+    | "frame";
   x: number;
   y: number;
   width: number;
   height: number;
 
-  // Stroke properties
   strokeColor: string;
   strokeWidth: number;
   strokeStyle: "solid" | "dashed" | "dotted";
 
-  // Fill properties
   backgroundColor: string;
   fillStyle?: "solid" | "hachure" | "cross-hatch";
 
-  // Visual properties
   opacity: number;
   roughness: number;
   roundness: number | { type: number };
   rotation?: number;
   angle?: number;
 
-  // Text properties
   text?: string;
   fontSize?: number;
   fontFamily?: string;
   textAlign?: "left" | "center" | "right";
   verticalAlign?: "top" | "middle" | "bottom";
 
-  // Path properties
   points?: Point[];
 
-  // Excalidraw-specific & misc
   seed?: number;
   version?: number;
   versionNonce?: number;
@@ -120,6 +115,7 @@ export type ToolType =
   | "draw"
   | "text"
   | "image"
+  | "frame"
   | "eraser";
 
 export interface SelectionState {

@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { db } from "@dripl/db";
+import prisma from "@dripl/db";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import { AuthRequest, generateToken } from "../middlewares/authMiddleware";
@@ -31,7 +31,7 @@ export class UserController {
     }
 
     try {
-      const userExists = await db.user.findUnique({
+      const userExists = await prisma.user.findUnique({
         where: { email },
       });
 
@@ -44,7 +44,7 @@ export class UserController {
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      const newUser = await db.user.create({
+      const newUser = await prisma.user.create({
         data: {
           id: randomUUID(),
           email,
@@ -56,12 +56,11 @@ export class UserController {
 
       const token = generateToken(newUser.id);
 
-      // Set cookie
       res.cookie("token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
       res.status(201).json({
@@ -93,7 +92,7 @@ export class UserController {
     }
 
     try {
-      const user = await db.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { email },
       });
 
@@ -149,7 +148,7 @@ export class UserController {
 
   static async getProfile(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const user = await db.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: req.userId },
         select: {
           id: true,
@@ -183,7 +182,7 @@ export class UserController {
     const { name, image } = req.body;
 
     try {
-      const updatedUser = await db.user.update({
+      const updatedUser = await prisma.user.update({
         where: { id: req.userId },
         data: {
           name,

@@ -22,7 +22,7 @@ export default function DashboardError({
         <p className="text-muted-foreground mb-4">{error.message}</p>
         <button
           onClick={reset}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors"
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md transition-colors"
         >
           Try again
         </button>

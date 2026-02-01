@@ -5,7 +5,9 @@
     "rootDir": "src",
     "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json",
     "composite": true,
-    "noEmit": false
+    "noEmit": false,
+    "module": "ESNext",
+    "moduleResolution": "bundler"
   },
   "include": ["src"]
 }
