@@ -6,9 +6,6 @@ export const STORAGE_KEYS = {
   STATE: "dripl-state",
 };
 
-/**
- * Get the bounding box of an element
- */
 export function getElementBounds(element: CanvasElement): Bounds {
   if (element.points && element.points.length > 0) {
     const xs = element.points.map((p) => p.x);
@@ -33,9 +30,6 @@ export function getElementBounds(element: CanvasElement): Bounds {
   };
 }
 
-/**
- * Check if a point is inside an element
- */
 export function isPointInElement(
   point: Point,
   element: CanvasElement
@@ -72,9 +66,6 @@ export function isPointInElement(
   }
 }
 
-/**
- * Check if point is in rectangle
- */
 function isPointInRect(point: Point, bounds: Bounds): boolean {
   return (
     point.x >= bounds.x &&
@@ -84,9 +75,6 @@ function isPointInRect(point: Point, bounds: Bounds): boolean {
   );
 }
 
-/**
- * Check if point is in ellipse
- */
 function isPointInEllipse(point: Point, bounds: Bounds): boolean {
   const centerX = bounds.x + bounds.width / 2;
   const centerY = bounds.y + bounds.height / 2;
@@ -99,9 +87,6 @@ function isPointInEllipse(point: Point, bounds: Bounds): boolean {
   return normalizedX * normalizedX + normalizedY * normalizedY <= 1;
 }
 
-/**
- * Check if point is near a path (for lines and freedraw)
- */
 function isPointNearPath(
   point: Point,
   points: Point[],
@@ -121,9 +106,6 @@ function isPointNearPath(
   return false;
 }
 
-/**
- * Calculate distance from point to line segment
- */
 function distanceToLineSegment(
   point: Point,
   lineStart: Point,
@@ -159,9 +141,6 @@ function distanceToLineSegment(
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-/**
- * Rotate a point around a center
- */
 function rotatePoint(point: Point, center: Point, angle: number): Point {
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
@@ -174,9 +153,6 @@ function rotatePoint(point: Point, center: Point, angle: number): Point {
   };
 }
 
-/**
- * Draw a shape on canvas context
- */
 export function drawShape(
   ctx: CanvasRenderingContext2D,
   element: CanvasElement,
@@ -233,6 +209,9 @@ export function drawShape(
     case "text":
       drawText(ctx, element);
       break;
+    case "frame":
+      drawFrame(ctx, element);
+      break;
   }
 
   ctx.restore();
@@ -249,7 +228,6 @@ function drawRectangle(
   const radius = roundnessValue * 12;
 
   if (radius > 0) {
-    // Rounded rectangle
     ctx.beginPath();
     ctx.moveTo(element.x + radius, element.y);
     ctx.lineTo(element.x + element.width - radius, element.y);
@@ -399,7 +377,6 @@ function drawFreedraw(
   ctx.beginPath();
   ctx.moveTo(firstPoint.x, firstPoint.y);
 
-  // Use quadratic curves for smoother lines
   for (let i = 1; i < element.points.length - 1; i++) {
     const currentPoint = element.points[i];
     const nextPoint = element.points[i + 1];
@@ -410,7 +387,6 @@ function drawFreedraw(
     ctx.quadraticCurveTo(currentPoint.x, currentPoint.y, xc, yc);
   }
 
-  // Last point
   const lastPoint = element.points[element.points.length - 1];
   if (lastPoint) {
     ctx.lineTo(lastPoint.x, lastPoint.y);
@@ -428,7 +404,6 @@ function drawText(ctx: CanvasRenderingContext2D, element: CanvasElement): void {
   ctx.fillStyle = element.strokeColor;
   ctx.textBaseline = "top";
 
-  // Draw text with word wrap
   const words = element.text.split(" ");
   const lines: string[] = [];
   let currentLine = "";
@@ -446,16 +421,41 @@ function drawText(ctx: CanvasRenderingContext2D, element: CanvasElement): void {
   }
   if (currentLine) lines.push(currentLine);
 
-  // Draw each line
   const lineHeight = fontSize * 1.2;
   lines.forEach((line, i) => {
     ctx.fillText(line, element.x + 5, element.y + 5 + i * lineHeight);
   });
 }
 
-/**
- * Export canvas to PNG
- */
+function drawFrame(ctx: CanvasRenderingContext2D, element: CanvasElement): void {
+  const frameElement = element as any;
+  
+  // Draw frame border
+  ctx.strokeRect(element.x, element.y, element.width, element.height);
+  
+  // Draw padding
+  const padding = frameElement.padding || 20;
+  ctx.setLineDash([5, 5]);
+  ctx.strokeRect(
+    element.x + padding,
+    element.y + padding,
+    element.width - 2 * padding,
+    element.height - 2 * padding
+  );
+  ctx.setLineDash([]);
+  
+  // Draw title
+  if (frameElement.title) {
+    ctx.fillStyle = element.strokeColor;
+    ctx.font = "14px Arial";
+    ctx.fillText(
+      frameElement.title,
+      element.x + 10,
+      element.y - 10
+    );
+  }
+}
+
 export function exportToPNG(
   canvas: HTMLCanvasElement,
   filename: string = "canvas.png"
@@ -471,9 +471,6 @@ export function exportToPNG(
   });
 }
 
-/**
- * Export canvas state to JSON
- */
 export function exportToJSON(
   elements: CanvasElement[],
   filename: string = "canvas.json"
@@ -488,9 +485,6 @@ export function exportToJSON(
   URL.revokeObjectURL(url);
 }
 
-/**
- * Import canvas state from JSON
- */
 export function importFromJSON(file: File): Promise<CanvasElement[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -507,9 +501,6 @@ export function importFromJSON(file: File): Promise<CanvasElement[]> {
   });
 }
 
-/**
- * Generate unique ID
- */
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }

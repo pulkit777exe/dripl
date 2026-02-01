@@ -1,12 +1,12 @@
 import { Response } from "express";
-import { db } from "@dripl/db";
+import prisma from "@dripl/db";
 import { randomUUID } from "crypto";
 import { AuthRequest } from "../middlewares/authMiddleware";
 
 export class FileController {
   static async getFiles(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const files = await db.file.findMany({
+      const files = await prisma.file.findMany({
         where: {
           userId: req.userId,
         },
@@ -37,7 +37,7 @@ export class FileController {
     const { name } = req.body;
 
     try {
-      const file = await db.file.create({
+      const file = await prisma.file.create({
         data: {
           id: randomUUID(),
           name: name || "Untitled",
@@ -62,7 +62,7 @@ export class FileController {
     const { fileId } = req.params;
 
     try {
-      const file = await db.file.findFirst({
+      const file = await prisma.file.findFirst({
         where: {
           id: fileId,
           userId: req.userId,
@@ -92,7 +92,7 @@ export class FileController {
     const { name, content } = req.body;
 
     try {
-      const file = await db.file.findFirst({
+      const file = await prisma.file.findFirst({
         where: {
           id: fileId,
           userId: req.userId,
@@ -106,7 +106,7 @@ export class FileController {
         return;
       }
 
-      const updatedFile = await db.file.update({
+      const updatedFile = await prisma.file.update({
         where: { id: fileId },
         data: {
           name,
@@ -130,7 +130,7 @@ export class FileController {
     const { fileId } = req.params;
 
     try {
-      const file = await db.file.findFirst({
+      const file = await prisma.file.findFirst({
         where: {
           id: fileId,
           userId: req.userId,
@@ -144,7 +144,7 @@ export class FileController {
         return;
       }
 
-      await db.file.delete({
+      await prisma.file.delete({
         where: { id: fileId },
       });
 

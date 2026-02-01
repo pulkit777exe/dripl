@@ -27,3 +27,22 @@ export { EditorLayout } from "./layout/EditorLayout.js";
 
 // Utilities
 export { cn } from "./lib/utils.js";
+
+// Tunnel Pattern
+export {
+  TunnelProvider,
+  TunnelOutlet,
+  TunnelInlet,
+  useTunnel,
+  TUNNEL_NAMES,
+} from "./tunnel/TunnelContext.js";
+export {
+  MenuInlet,
+  MenuOutlet,
+  ToolbarInlet,
+  ToolbarOutlet,
+  PropertiesInlet,
+  PropertiesOutlet,
+  StatusBarInlet,
+  StatusBarOutlet,
+} from "./tunnel/index.js";

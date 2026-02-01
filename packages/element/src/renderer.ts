@@ -20,10 +20,10 @@ export function renderElement2D(
 ): void {
   ctx.save();
 
-  ctx.globalAlpha = element.opacity;
-  ctx.lineWidth = element.strokeWidth;
-  ctx.strokeStyle = element.strokeColor;
-  ctx.fillStyle = element.backgroundColor;
+  ctx.globalAlpha = element.opacity ?? 1;
+  ctx.lineWidth = element.strokeWidth ?? 2;
+  ctx.strokeStyle = element.strokeColor ?? "#000000";
+  ctx.fillStyle = element.backgroundColor ?? "transparent";
 
   const { x, y, width, height, angle = 0 } = element;
 
@@ -60,7 +60,7 @@ export function renderElement2D(
     case "text":
       if ("text" in element && "fontSize" in element && "fontFamily" in element) {
         ctx.font = `${element.fontSize}px ${element.fontFamily}`;
-        ctx.fillStyle = element.strokeColor;
+        ctx.fillStyle = element.strokeColor ?? "#000000";
         ctx.fillText(element.text, x, y + element.fontSize);
       }
       break;

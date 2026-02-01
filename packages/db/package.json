@@ -2,10 +2,9 @@
   "name": "@dripl/db",
   "version": "0.0.0",
   "private": true,
-  "main": "./src/index.ts",
-  "type": "module",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./dist/index.js"
   },
   "scripts": {
     "lint": "eslint .",
@@ -15,14 +14,15 @@
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.0.1",
-    "@prisma/client": "^7.0.1",
+    "@prisma/client": "^7.2.0",
+    "dotenv": "^17.2.3",
     "pg": "^8.16.3"
   },
   "devDependencies": {
     "@dripl/typescript-config": "workspace:*",
     "@types/pg": "^8.11.0",
     "eslint": "^9.0.0",
-    "prisma": "^7.0.1",
+    "prisma": "^7.2.0",
     "typescript": "^5.0.0"
   }
 }

@@ -1,11 +1,6 @@
 import { DriplElement, ShapeType, SHAPES } from "@dripl/common";
 import { generateId } from "@dripl/utils";
 
-/**
- * All elements created by this factory include a `version` field.
- * Use `id:version` as a stable cache key so cached shapes survive
- * immutable updates and undo/redo.
- */
 import { ElementBase } from "@dripl/common";
 
 function makeBase(
@@ -13,9 +8,10 @@ function makeBase(
   y: number,
   width: number,
   height: number
-): Omit<ElementBase, "type"> {
+): ElementBase {
   return {
     id: generateId(),
+    type: "rectangle",
     x,
     y,
     width,
@@ -33,11 +29,6 @@ function makeBase(
   };
 }
 
-/**
- * Points returned from this factory are *relative* to element.x/element.y.
- * (i.e. a point {x:0,y:0} sits at element.x,element.y on the canvas).
- * Use this convention consistently across renderer, intersection and history.
- */
 export const createElement = (
   type: ShapeType,
   x: number,
@@ -51,19 +42,19 @@ export const createElement = (
     case SHAPES.RECTANGLE:
       return {
         ...base,
-        type: "rectangle",
+        type: "rectangle" as const,
       };
 
     case SHAPES.ELLIPSE:
       return {
         ...base,
-        type: "ellipse",
+        type: "ellipse" as const,
       };
 
     case SHAPES.TEXT:
       return {
         ...base,
-        type: "text",
+        type: "text" as const,
         text: "Text",
         fontSize: 20,
         fontFamily: "Arial",
@@ -72,24 +63,30 @@ export const createElement = (
     case SHAPES.IMAGE:
       return {
         ...base,
-        type: "image",
+        type: "image" as const,
         src: "",
       };
 
     case SHAPES.ARROW:
       return {
         ...base,
-        type: "arrow",
+        type: "arrow" as const,
         points: [
           { x: 0, y: 0 },
           { x: width, y: height },
         ],
       };
 
+    case SHAPES.DIAMOND:
+      return {
+        ...base,
+        type: "diamond" as const,
+      };
+
     case SHAPES.LINE:
       return {
         ...base,
-        type: "line",
+        type: "line" as const,
         points: [
           { x: 0, y: 0 },
           { x: width, y: height },
@@ -99,8 +96,16 @@ export const createElement = (
     case SHAPES.FREEDRAW:
       return {
         ...base,
-        type: "freedraw",
+        type: "freedraw" as const,
         points: [],
+      };
+
+    case SHAPES.FRAME:
+      return {
+        ...base,
+        type: "frame" as const,
+        title: "Frame",
+        padding: 20,
       };
 
     default:

@@ -13,7 +13,6 @@ export const authMiddleware = (
   next: NextFunction
 ): void => {
   try {
-    // Get token from cookie or Authorization header
     const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
 
     if (!token) {

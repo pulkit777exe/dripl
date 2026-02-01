@@ -1,13 +1,28 @@
 import { WebSocketServer, WebSocket } from "ws";
-import { createServer } from "http";
+import { createServer, IncomingMessage } from "http";
 import { DriplElement } from "@dripl/common";
-import { v7 as uuidv7 } from "uuid";
+import { v4 as uuidv4 } from "uuid";
+import jwt from "jsonwebtoken";
+import prisma from "@dripl/db";
+import {
+  initRedis,
+  publishToRoom,
+  subscribeToRoom,
+  unsubscribeFromRoom,
+  cacheRoomState,
+  getCachedRoomState,
+  closeRedis,
+} from "./redis.js";
+
+const JWT_SECRET = process.env.JWT_SECRET || "secret-key";
+const HEARTBEAT_INTERVAL = 30000; // 30 seconds
 
 interface User {
   userId: string;
   userName: string;
   color: string;
   ws: WebSocket;
+  isAlive: boolean;
 }
 
 interface Cursor {
@@ -27,6 +42,34 @@ const wss = new WebSocketServer({ server });
 
 const rooms = new Map<string, Room>();
 
+const saveTimeouts = new Map<string, NodeJS.Timeout>();
+const SAVE_DEBOUNCE_MS = 2000;
+
+function scheduleDatabaseSave(roomSlug: string, elements: DriplElement[]) {
+  if (saveTimeouts.has(roomSlug)) {
+    clearTimeout(saveTimeouts.get(roomSlug)!);
+  }
+
+  saveTimeouts.set(
+    roomSlug,
+    setTimeout(async () => {
+      try {
+        await prisma.canvasRoom.update({
+          where: { slug: roomSlug },
+          data: {
+            content: JSON.stringify(elements),
+            updatedAt: new Date(),
+          },
+        });
+        console.log(`✓ Saved room ${roomSlug} to database`);
+      } catch (error) {
+        console.error("Database save error:", error);
+      }
+      saveTimeouts.delete(roomSlug);
+    }, SAVE_DEBOUNCE_MS),
+  );
+}
+
 function generateUserColor(): string {
   const colors = [
     "#FF6B6B",
@@ -41,11 +84,6 @@ function generateUserColor(): string {
   return colors[Math.floor(Math.random() * colors.length)]!;
 }
 
-function generateUserId(): string {
-  const userId = uuidv7();
-  return `user_${userId}`;
-}
-
 function getOrCreateRoom(roomId: string): Room {
   if (!rooms.has(roomId)) {
     rooms.set(roomId, {
@@ -58,7 +96,11 @@ function getOrCreateRoom(roomId: string): Room {
   return rooms.get(roomId)!;
 }
 
-function broadcastToRoom(roomId: string, message: any, excludeUserId?: string) {
+function broadcastToRoom(
+  roomId: string,
+  message: unknown,
+  excludeUserId?: string,
+) {
   const room = rooms.get(roomId);
   if (!room) return;
 
@@ -73,39 +115,90 @@ function broadcastToRoom(roomId: string, message: any, excludeUserId?: string) {
   });
 }
 
-wss.on("connection", (ws) => {
+function verifyToken(req: IncomingMessage): { userId: string } | null {
+  try {
+    const url = new URL(req.url!, `http://${req.headers.host}`);
+    const token = url.searchParams.get("token");
+
+    if (!token) {
+      console.log("Connection rejected: No token provided");
+      return null;
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    return decoded;
+  } catch (error) {
+    console.log("Connection rejected: Invalid token", error);
+    return null;
+  }
+}
+
+function extractRoomId(req: IncomingMessage): string | null {
+  try {
+    const url = new URL(req.url!, `http://${req.headers.host}`);
+    return url.searchParams.get("roomId");
+  } catch {
+    return null;
+  }
+}
+
+wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
+  const authResult = verifyToken(req);
+  const roomIdFromUrl = extractRoomId(req);
+  const authenticatedUserId = authResult?.userId || null;
+
   let currentUserId: string | null = null;
   let currentRoomId: string | null = null;
 
-  console.log("New WebSocket connection");
+  console.log(
+    `New WebSocket connection${authenticatedUserId ? ` (authenticated: ${authenticatedUserId})` : " (anonymous)"}`,
+  );
 
-  ws.on("message", (data) => {
+  ws.on("message", async (data) => {
     try {
       const message = JSON.parse(data.toString());
 
       switch (message.type) {
         case "join_room": {
           const { roomId, userName } = message;
-          const userId = generateUserId();
+          const userId = authenticatedUserId || `anon_${uuidv4()}`;
           const color = generateUserColor();
 
           currentUserId = userId;
           currentRoomId = roomId;
 
           const room = getOrCreateRoom(roomId);
+
+          if (room.elements.length === 0) {
+            try {
+              const dbRoom = await prisma.canvasRoom.findUnique({
+                where: { slug: roomId },
+              });
+
+              if (dbRoom && dbRoom.content) {
+                room.elements = JSON.parse(dbRoom.content as string) || [];
+                console.log(
+                  `Loaded ${room.elements.length} elements from database for room ${roomId}`,
+                );
+              }
+            } catch (error) {
+              console.error("Failed to load room from database:", error);
+            }
+          }
+
           const user: User = {
             userId,
             userName: userName || `User ${room.users.size + 1}`,
             color,
             ws,
+            isAlive: true,
           };
           room.users.set(userId, user);
 
           console.log(
-            `User ${user.userName} (${userId}) joined room ${roomId}`
+            `User ${user.userName} (${userId}) joined room ${roomId}`,
           );
 
-          // Send current room state to new user
           const syncMessage = {
             type: "sync_room_state",
             userId: "server",
@@ -121,13 +214,12 @@ wss.on("connection", (ws) => {
               ([uid, cursor]) => ({
                 userId: uid,
                 ...cursor,
-              })
+              }),
             ),
             yourUserId: userId,
           };
           ws.send(JSON.stringify(syncMessage));
 
-          // Broadcast user join to others in room
           const joinMessage = {
             type: "user_join",
             userId,
@@ -155,10 +247,11 @@ wss.on("connection", (ws) => {
               };
               broadcastToRoom(currentRoomId, leaveMessage);
 
-              // Clean up empty rooms
               if (room.users.size === 0) {
                 rooms.delete(currentRoomId);
-                console.log(`Room ${currentRoomId} deleted (empty)`);
+                console.log(
+                  `Room ${currentRoomId} removed from memory (empty)`,
+                );
               }
             }
           }
@@ -175,8 +268,9 @@ wss.on("connection", (ws) => {
               broadcastToRoom(
                 currentRoomId,
                 message,
-                currentUserId || undefined
+                currentUserId || undefined,
               );
+              scheduleDatabaseSave(currentRoomId, room.elements);
             }
           }
           break;
@@ -187,7 +281,7 @@ wss.on("connection", (ws) => {
             const room = rooms.get(currentRoomId);
             if (room) {
               const index = room.elements.findIndex(
-                (e) => e.id === message.element.id
+                (e) => e.id === message.element.id,
               );
               if (index !== -1) {
                 room.elements[index] = message.element;
@@ -195,8 +289,9 @@ wss.on("connection", (ws) => {
               broadcastToRoom(
                 currentRoomId,
                 message,
-                currentUserId || undefined
+                currentUserId || undefined,
               );
+              scheduleDatabaseSave(currentRoomId, room.elements);
             }
           }
           break;
@@ -207,13 +302,14 @@ wss.on("connection", (ws) => {
             const room = rooms.get(currentRoomId);
             if (room) {
               room.elements = room.elements.filter(
-                (e) => e.id !== message.elementId
+                (e) => e.id !== message.elementId,
               );
               broadcastToRoom(
                 currentRoomId,
                 message,
-                currentUserId || undefined
+                currentUserId || undefined,
               );
+              scheduleDatabaseSave(currentRoomId, room.elements);
             }
           }
           break;
@@ -230,7 +326,7 @@ wss.on("connection", (ws) => {
                   ...message,
                   userId: currentUserId,
                 },
-                currentUserId
+                currentUserId,
               );
             }
           }
@@ -252,7 +348,7 @@ wss.on("connection", (ws) => {
         room.users.delete(currentUserId);
         room.cursors.delete(currentUserId);
         console.log(
-          `User ${currentUserId} disconnected from room ${currentRoomId}`
+          `User ${currentUserId} disconnected from room ${currentRoomId}`,
         );
 
         const leaveMessage = {
@@ -263,17 +359,44 @@ wss.on("connection", (ws) => {
         };
         broadcastToRoom(currentRoomId, leaveMessage);
 
-        // Clean up empty rooms
         if (room.users.size === 0) {
           rooms.delete(currentRoomId);
-          console.log(`Room ${currentRoomId} deleted (empty)`);
+          console.log(`Room ${currentRoomId} removed from memory (empty)`);
         }
       }
     }
   });
+
+  ws.on("error", (error) => {
+    console.error("WebSocket error:", error);
+  });
 });
 
-const PORT = 3001;
+const PORT = process.env.WS_PORT || 3001;
 server.listen(PORT, () => {
   console.log(`WebSocket server running on port ${PORT}`);
+});
+
+process.on("SIGTERM", async () => {
+  console.log("Shutting down...");
+
+  for (const [roomId, room] of rooms) {
+    if (room.elements.length > 0) {
+      try {
+        await prisma.canvasRoom.update({
+          where: { slug: roomId },
+          data: {
+            content: JSON.stringify(room.elements),
+            updatedAt: new Date(),
+          },
+        });
+        console.log(`Saved room ${roomId} before shutdown`);
+      } catch (error) {
+        console.error(`Failed to save room ${roomId}:`, error);
+      }
+    }
+  }
+
+  await prisma.$disconnect();
+  process.exit(0);
 });

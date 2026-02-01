@@ -11,10 +11,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dripl/common": "workspace:*"
+    "@dripl/common": "workspace:*",
+    "@dripl/typescript-config": "workspace:*"
   },
   "devDependencies": {
-    "@dripl/typescript-config": "workspace:*",
     "typescript": "latest",
     "eslint": "latest",
     "vitest": "latest"

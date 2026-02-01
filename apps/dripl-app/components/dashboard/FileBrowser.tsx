@@ -17,9 +17,10 @@ type File = {
 interface FileBrowserProps {
   files: File[];
   onCreateFile?: () => void;
+  onStartNewCanvas?: () => void;
 }
 
-export function FileBrowser({ files, onCreateFile }: FileBrowserProps) {
+export function FileBrowser({ files, onCreateFile, onStartNewCanvas }: FileBrowserProps) {
   const [isPending, startTransition] = useTransition();
 
   const handleCreate = () => {
@@ -36,11 +37,21 @@ export function FileBrowser({ files, onCreateFile }: FileBrowserProps) {
     <div className="flex-1 p-8 overflow-auto bg-background">
       <div className="flex gap-4 mb-12">
         <button
-          onClick={onCreateFile}
+          onClick={onStartNewCanvas}
           disabled={isPending}
           className="flex flex-col items-center justify-center w-48 h-32 rounded-xl border border-border bg-card hover:bg-accent/20 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="h-8 w-8 text-muted-foreground group-hover:text-foreground mb-2 transition-colors" />
+          <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground">
+            {isPending ? "Creating..." : "Start New Canvas"}
+          </span>
+        </button>
+        <button
+          onClick={onCreateFile}
+          disabled={isPending}
+          className="flex flex-col items-center justify-center w-48 h-32 rounded-xl border border-border bg-card hover:bg-accent/20 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <FileIcon className="h-8 w-8 text-muted-foreground group-hover:text-foreground mb-2 transition-colors" />
           <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground">
             {isPending ? "Creating..." : "Create a Blank File"}
           </span>

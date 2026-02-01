@@ -1340,7 +1340,6 @@ export default function App() {
 
   return (
     <div className="w-screen h-dvh bg-[#121212] text-white overflow-hidden relative font-sans selection:bg-purple-500/30">
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -1349,7 +1348,6 @@ export default function App() {
         className="hidden"
       />
 
-      {/* --- Top Bar (Menu & Title) --- */}
       <div className="absolute top-4 left-4 z-50 flex gap-2">
         <button
           onClick={() => {
@@ -1386,7 +1384,6 @@ export default function App() {
         </button>
       </div>
 
-      {/* --- Main Toolbar (Top Center) --- */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-[#232329] p-1.5 rounded-xl border border-gray-700 shadow-2xl flex items-center gap-0.5 z-50">
         <IconButton icon={<Lock size={17} />} />
         <div className="w-px h-6 bg-gray-700 mx-1.5" />
@@ -1451,7 +1448,6 @@ export default function App() {
         />
       </div>
 
-      {/* --- Left Menu Sidebar --- */}
       {isMenuOpen && (
         <div className="absolute top-20 left-4 w-[280px] bg-[#232329] rounded-xl border border-gray-700 shadow-2xl p-3 z-50 flex flex-col max-h-[calc(100vh-100px)]">
           <div className="flex-1 overflow-y-auto pr-1 space-y-0.5 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
@@ -1576,7 +1572,6 @@ export default function App() {
         </div>
       )}
 
-      {/* --- Library Sidebar --- */}
       {isLibraryOpen && (
         <div className="absolute top-20 left-4 w-[320px] bg-[#232329] rounded-xl border border-gray-700 shadow-2xl p-4 z-50 max-h-[calc(100vh-100px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
           <div className="flex items-center justify-between mb-4">
@@ -1618,7 +1613,6 @@ export default function App() {
         </div>
       )}
 
-      {/* --- Left Properties Panel --- */}
       {!isMenuOpen && !isLibraryOpen && selectedIds.length > 0 && (
         <div className="absolute top-20 left-4 w-60 bg-[#232329] rounded-xl border border-gray-700 shadow-2xl p-4 z-40 max-h-[calc(100vh-100px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
           <SectionLabel>Stroke</SectionLabel>
@@ -1809,7 +1803,6 @@ export default function App() {
         </div>
       )}
 
-      {/* --- Canvas Area --- */}
       <div
         ref={containerRef}
         className="w-full h-full flex items-center justify-center relative"
@@ -1824,7 +1817,6 @@ export default function App() {
           onMouseLeave={handleMouseUp}
         />
 
-        {/* Selection Overlay - Render handles for selected elements */}
         {selectedIds.length > 0 &&
           elements
             .filter((el) => selectedIds.includes(el.id))
@@ -1852,9 +1844,7 @@ export default function App() {
                   }}
                   onMouseDown={(e) => handleMoveStart(e, selectedShape.id)}
                 >
-                  {/* Selection Border */}
                   <div className="absolute -inset-2 border-2 border-[#a8a5ff] rounded-lg pointer-events-none">
-                    {/* Resize Handles */}
                     {[
                       {
                         pos: "top-0 left-0",
@@ -1906,7 +1896,6 @@ export default function App() {
                         }
                       />
                     ))}
-                    {/* Rotation Handle */}
                     <div
                       className="absolute top-[-24px] left-1/2 -translate-x-1/2 w-2 h-2 bg-white border border-[#a8a5ff] rounded-full cursor-grab pointer-events-auto"
                       onMouseDown={(e) =>
@@ -1920,7 +1909,6 @@ export default function App() {
             })}
       </div>
 
-      {/* --- Bottom Left Controls (Zoom) --- */}
       <div className="absolute bottom-4 left-4 flex gap-2 z-50">
         <div className="flex items-center bg-[#232329] rounded-lg border border-gray-700 p-1">
           <button
@@ -1970,7 +1958,6 @@ export default function App() {
         </button>
       </div>
 
-      {/* --- Bottom Right Controls (Help) --- */}
       <div className="absolute bottom-4 right-4 z-50">
         <button
           onClick={() => setIsHelpOpen(true)}
@@ -1980,7 +1967,6 @@ export default function App() {
         </button>
       </div>
 
-      {/* --- Help Modal --- */}
       {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)} />}
     </div>
   );

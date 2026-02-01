@@ -27,27 +27,23 @@ export const useSelection = ({ elements, setElements }: UseSelectionProps) => {
 
   const handleSelection = useCallback(
     (point: Point, isShiftKey: boolean) => {
-      // Find clicked element (reverse to find top-most first)
       const clickedElement = [...elements]
         .reverse()
         .find((el) => isPointInElement(point, el));
 
       if (clickedElement) {
         if (isShiftKey) {
-          // Toggle selection
           setSelectedIds((prev) =>
             prev.includes(clickedElement.id)
               ? prev.filter((id) => id !== clickedElement.id)
               : [...prev, clickedElement.id]
           );
         } else {
-          // Select single if not already selected
           if (!selectedIds.includes(clickedElement.id)) {
             setSelectedIds([clickedElement.id]);
           }
         }
       } else {
-        // Deselect all if clicked empty space
         setSelectedIds([]);
       }
 
@@ -60,7 +56,7 @@ export const useSelection = ({ elements, setElements }: UseSelectionProps) => {
     if (selectedIds.length > 0) {
       setElements((prev) => prev.filter((el) => !selectedIds.includes(el.id)));
       setSelectedIds([]);
-      return true; // Deleted something
+      return true;
     }
     return false;
   }, [selectedIds, setElements]);

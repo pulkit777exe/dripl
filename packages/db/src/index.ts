@@ -13,7 +13,7 @@ function createPrismaClient() {
   })
   
   if (process.env.NODE_ENV !== 'production') {
-    globalForPrisma.pool = pool
+    globalForPrisma.pool = pool;
   }
 
   const adapter = new PrismaPg(pool)
@@ -26,9 +26,7 @@ function createPrismaClient() {
 const prisma = globalForPrisma.prisma || createPrismaClient()
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma
+  globalForPrisma.prisma = prisma;
 }
 
-export default prisma
-export const db = prisma
-export * from '@prisma/client'
+export default prisma;
