@@ -14,41 +14,19 @@ interface ElementPropertiesProps {
 export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<ElementPropertiesProps> = {}) {
   const [showExportModal, setShowExportModal] = useState(false);
 
-  const currentStrokeColor = useCanvasStore(
-    (state) => state.currentStrokeColor
-  );
-  const currentBackgroundColor = useCanvasStore(
-    (state) => state.currentBackgroundColor
-  );
-  const currentStrokeWidth = useCanvasStore(
-    (state) => state.currentStrokeWidth
-  );
+  const currentStrokeColor = useCanvasStore((state) => state.currentStrokeColor);
+  const currentBackgroundColor = useCanvasStore((state) => state.currentBackgroundColor);
+  const currentStrokeWidth = useCanvasStore((state) => state.currentStrokeWidth);
   const currentRoughness = useCanvasStore((state) => state.currentRoughness);
-  const currentStrokeStyle = useCanvasStore(
-    (state) => state.currentStrokeStyle
-  );
-  const currentFillStyle = useCanvasStore(
-    (state) => state.currentFillStyle
-  );
+  const currentStrokeStyle = useCanvasStore((state) => state.currentStrokeStyle);
+  const currentFillStyle = useCanvasStore((state) => state.currentFillStyle);
 
-  const setCurrentStrokeColor = useCanvasStore(
-    (state) => state.setCurrentStrokeColor
-  );
-  const setCurrentBackgroundColor = useCanvasStore(
-    (state) => state.setCurrentBackgroundColor
-  );
-  const setCurrentStrokeWidth = useCanvasStore(
-    (state) => state.setCurrentStrokeWidth
-  );
-  const setCurrentRoughness = useCanvasStore(
-    (state) => state.setCurrentRoughness
-  );
-  const setCurrentStrokeStyle = useCanvasStore(
-    (state) => state.setCurrentStrokeStyle
-  );
-  const setCurrentFillStyle = useCanvasStore(
-    (state) => state.setCurrentFillStyle
-  );
+  const setCurrentStrokeColor = useCanvasStore((state) => state.setCurrentStrokeColor);
+  const setCurrentBackgroundColor = useCanvasStore((state) => state.setCurrentBackgroundColor);
+  const setCurrentStrokeWidth = useCanvasStore((state) => state.setCurrentStrokeWidth);
+  const setCurrentRoughness = useCanvasStore((state) => state.setCurrentRoughness);
+  const setCurrentStrokeStyle = useCanvasStore((state) => state.setCurrentStrokeStyle);
+  const setCurrentFillStyle = useCanvasStore((state) => state.setCurrentFillStyle);
 
   const updateElementProperty = (property: string, value: any) => {
     if (!selectedElement || !onUpdateElement) return;
@@ -75,7 +53,7 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">Text Content</label>
                 <textarea
-                  value={(selectedElement as TextElement).text || ""}
+                  value={(selectedElement as TextElement).text ?? ""}
                   onChange={(e) => updateElementProperty("text", e.target.value)}
                   className="w-full text-xs p-1 border rounded bg-background"
                   rows={3}
@@ -88,7 +66,7 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 <label className="text-xs text-muted-foreground">Font Size</label>
                 <input
                   type="number"
-                  value={(selectedElement as TextElement).fontSize || 16}
+                  value={(selectedElement as TextElement).fontSize ?? 16}
                   onChange={(e) => updateElementProperty("fontSize", Number(e.target.value))}
                   className="w-full text-xs p-1 border rounded bg-background"
                   min="8"
@@ -102,7 +80,7 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 <label className="text-xs text-muted-foreground">Brush Size</label>
                 <input
                   type="number"
-                  value={(selectedElement as FreeDrawElement).brushSize || 2}
+                  value={(selectedElement as FreeDrawElement).brushSize ?? 2}
                   onChange={(e) => updateElementProperty("brushSize", Number(e.target.value))}
                   className="w-full text-xs p-1 border rounded bg-background"
                   min="1"
@@ -116,7 +94,7 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 <label className="text-xs text-muted-foreground">Frame Title</label>
                 <input
                   type="text"
-                  value={(selectedElement as any).title || "Frame"}
+                  value={(selectedElement as any).title ?? "Frame"}
                   onChange={(e) => updateElementProperty("title", e.target.value)}
                   className="w-full text-xs p-1 border rounded bg-background"
                 />
@@ -128,7 +106,7 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 <label className="text-xs text-muted-foreground">Padding</label>
                 <input
                   type="number"
-                  value={(selectedElement as any).padding || 20}
+                  value={(selectedElement as any).padding ?? 20}
                   onChange={(e) => updateElementProperty("padding", Number(e.target.value))}
                   className="w-full text-xs p-1 border rounded bg-background"
                   min="0"
@@ -144,11 +122,11 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
-                    value={selectedElement.strokeColor || currentStrokeColor}
+                    value={selectedElement.strokeColor ?? currentStrokeColor}
                     onChange={(e) => updateElementProperty("strokeColor", e.target.value)}
                     className="w-full h-8 rounded cursor-pointer"
                   />
-                  <span className="text-xs font-mono">{selectedElement.strokeColor || currentStrokeColor}</span>
+                  <span className="text-xs font-mono">{selectedElement.strokeColor ?? currentStrokeColor}</span>
                 </div>
               </div>
             )}
@@ -162,7 +140,7 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                     value={
                       selectedElement.backgroundColor === "transparent"
                         ? "#ffffff"
-                        : selectedElement.backgroundColor || currentBackgroundColor
+                        : selectedElement.backgroundColor ?? currentBackgroundColor
                     }
                     onChange={(e) => updateElementProperty("backgroundColor", e.target.value)}
                     disabled={selectedElement.backgroundColor === "transparent"}
@@ -195,13 +173,13 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                   <label className="text-xs text-muted-foreground">
                     Stroke Width
                   </label>
-                  <span className="text-xs">{selectedElement.strokeWidth || currentStrokeWidth}px</span>
+                  <span className="text-xs">{selectedElement.strokeWidth ?? currentStrokeWidth}px</span>
                 </div>
                 <input
                   type="range"
                   min="1"
                   max="10"
-                  value={selectedElement.strokeWidth || currentStrokeWidth}
+                  value={selectedElement.strokeWidth ?? currentStrokeWidth}
                   onChange={(e) => updateElementProperty("strokeWidth", Number(e.target.value))}
                   className="w-full"
                 />
@@ -217,7 +195,7 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                       key={style}
                       onClick={() => updateElementProperty("strokeStyle", style)}
                       className={`px-2 py-1 text-xs border rounded transition-colors ${
-                        (selectedElement.strokeStyle || currentStrokeStyle) === style
+                        (selectedElement.strokeStyle ?? currentStrokeStyle) === style
                           ? "bg-accent text-accent-foreground"
                           : "hover:bg-accent"
                       }`}
@@ -238,7 +216,7 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                       key={style}
                       onClick={() => updateElementProperty("fillStyle", style)}
                       className={`px-2 py-1 text-xs border rounded transition-colors ${
-                        (selectedElement.fillStyle || currentFillStyle) === style
+                        (selectedElement.fillStyle ?? currentFillStyle) === style
                           ? "bg-accent text-accent-foreground"
                           : "hover:bg-accent"
                       }`}
@@ -255,14 +233,14 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 <label className="text-xs text-muted-foreground">
                   Sloppiness
                 </label>
-                <span className="text-xs">{selectedElement.roughness || currentRoughness}</span>
+                <span className="text-xs">{selectedElement.roughness ?? currentRoughness}</span>
               </div>
               <input
                 type="range"
                 min="0"
                 max="3"
                 step="0.5"
-                value={selectedElement.roughness || currentRoughness}
+                value={selectedElement.roughness ?? currentRoughness}
                 onChange={(e) => updateElementProperty("roughness", Number(e.target.value))}
                 className="w-full"
               />
@@ -274,11 +252,11 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 <label className="text-xs text-muted-foreground">
                   Z-Index
                 </label>
-                <span className="text-xs">{selectedElement.zIndex || 100}</span>
+                <span className="text-xs">{selectedElement.zIndex ?? 100}</span>
               </div>
               <input
                 type="number"
-                value={selectedElement.zIndex || 100}
+                value={selectedElement.zIndex ?? 100}
                 onChange={(e) => updateElementProperty("zIndex", Number(e.target.value))}
                 className="w-full text-xs p-1 border rounded bg-background"
                 min="0"
@@ -292,13 +270,13 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 <label className="text-xs text-muted-foreground">
                   Opacity
                 </label>
-                <span className="text-xs">{Math.round((selectedElement.opacity || 1) * 100)}%</span>
+                <span className="text-xs">{Math.round((selectedElement.opacity ?? 1) * 100)}%</span>
               </div>
               <input
                 type="range"
                 min="0"
                 max="100"
-                value={Math.round((selectedElement.opacity || 1) * 100)}
+                value={Math.round((selectedElement.opacity ?? 1) * 100)}
                 onChange={(e) => updateElementProperty("opacity", Number(e.target.value) / 100)}
                 className="w-full"
               />

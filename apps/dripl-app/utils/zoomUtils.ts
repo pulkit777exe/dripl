@@ -1,5 +1,5 @@
 import type { DriplElement, Point } from "@dripl/common";
-import { getBounds, rotateBounds } from "@dripl/math";
+import { getBounds } from "@dripl/math";
 
 export interface ZoomSettings {
   minZoom: number;
@@ -12,6 +12,24 @@ export const DEFAULT_ZOOM_SETTINGS: ZoomSettings = {
   maxZoom: 5,
   zoomStep: 0.1,
 };
+
+function getElementPoints(element: DriplElement): Point[] {
+  if (element.points) {
+    // For linear elements (lines, arrows, freedraw)
+    return element.points.map((point: Point) => ({
+      x: element.x + point.x,
+      y: element.y + point.y,
+    }));
+  }
+
+  // For rectangular elements
+  return [
+    { x: element.x, y: element.y },
+    { x: element.x + element.width, y: element.y },
+    { x: element.x, y: element.y + element.height },
+    { x: element.x + element.width, y: element.y + element.height },
+  ];
+}
 
 export function zoomToFit(
   elements: DriplElement[],
@@ -26,18 +44,7 @@ export function zoomToFit(
   // Calculate combined bounds of all elements
   const allPoints: Point[] = [];
   elements.forEach((element) => {
-    if (element.points) {
-      // For linear elements (lines, arrows, freedraw)
-      element.points.forEach((point: Point) => {
-        allPoints.push({ x: element.x + point.x, y: element.y + point.y });
-      });
-    } else {
-      // For rectangular elements
-      allPoints.push({ x: element.x, y: element.y });
-      allPoints.push({ x: element.x + element.width, y: element.y });
-      allPoints.push({ x: element.x, y: element.y + element.height });
-      allPoints.push({ x: element.x + element.width, y: element.y + element.height });
-    }
+    allPoints.push(...getElementPoints(element));
   });
 
   const bounds = getBounds(allPoints);
@@ -77,18 +84,7 @@ export function zoomToSelection(
   // Calculate combined bounds of selected elements
   const allPoints: Point[] = [];
   selectedElements.forEach((element) => {
-    if (element.points) {
-      // For linear elements (lines, arrows, freedraw)
-      element.points.forEach((point: Point) => {
-        allPoints.push({ x: element.x + point.x, y: element.y + point.y });
-      });
-    } else {
-      // For rectangular elements
-      allPoints.push({ x: element.x, y: element.y });
-      allPoints.push({ x: element.x + element.width, y: element.y });
-      allPoints.push({ x: element.x, y: element.y + element.height });
-      allPoints.push({ x: element.x + element.width, y: element.y + element.height });
-    }
+    allPoints.push(...getElementPoints(element));
   });
 
   const bounds = getBounds(allPoints);

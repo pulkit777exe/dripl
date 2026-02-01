@@ -87,7 +87,7 @@ function calculateVariableWidth(
   const widths = [];
   
   for (let i = 0; i < points.length; i++) {
-    const pressure = pressureValues[i] || 0.5;
+    const pressure = pressureValues[i] ?? 0.5;
     widths.push(baseWidth * (0.5 + pressure * 1.5)); // 0.75x to 2x width
   }
   
@@ -123,7 +123,7 @@ export function createFreedrawElement(
     calculatePressure(point, state.points.slice(0, index + 1))
   );
   
-  const brushSize = state.brushSize || 2;
+  const brushSize = state.brushSize ?? 2;
   const widths = calculateVariableWidth(processedPoints, brushSize, pressureValues);
 
   return {

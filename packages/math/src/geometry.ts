@@ -1,33 +1,33 @@
 import { Point } from "@dripl/common";
 
-export const distance = (a: Point, b: Point): number => {
+export function distance(a: Point, b: Point): number {
   return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
-};
+}
 
-export const rotate = (
+export function rotate(
   x: number,
   y: number,
   cx: number,
   cy: number,
   angle: number
-): [number, number] => {
+): [number, number] {
   return [
     (x - cx) * Math.cos(angle) - (y - cy) * Math.sin(angle) + cx,
     (x - cx) * Math.sin(angle) + (y - cy) * Math.cos(angle) + cy,
   ];
-};
+}
 
-export const isPointInRect = (
+export function isPointInRect(
   point: Point,
   rect: { x: number; y: number; width: number; height: number }
-): boolean => {
+): boolean {
   return (
     point.x >= rect.x &&
     point.x <= rect.x + rect.width &&
     point.y >= rect.y &&
     point.y <= rect.y + rect.height
   );
-};
+}
 
 // ===== NEW ERASER UTILITIES =====
 
@@ -46,10 +46,10 @@ export interface Bounds {
 /**
  * Calculate the shortest distance from a point to a line segment
  */
-export const distanceToSegment = (
+export function distanceToSegment(
   point: Point,
   segment: LineSegment
-): number => {
+): number {
   const { start, end } = segment;
   const l2 = Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2);
 
@@ -67,15 +67,15 @@ export const distanceToSegment = (
   };
 
   return distance(point, projection);
-};
+}
 
 /**
  * Check if two line segments intersect
  */
-export const segmentsIntersect = (
+export function segmentsIntersect(
   seg1: LineSegment,
   seg2: LineSegment
-): boolean => {
+): boolean {
   const { start: p1, end: p2 } = seg1;
   const { start: p3, end: p4 } = seg2;
 
@@ -86,12 +86,12 @@ export const segmentsIntersect = (
   return (
     ccw(p1, p3, p4) !== ccw(p2, p3, p4) && ccw(p1, p2, p3) !== ccw(p1, p2, p4)
   );
-};
+}
 
 /**
  * Get bounding box for an array of points
  */
-export const getBounds = (points: Point[]): Bounds => {
+export function getBounds(points: Point[]): Bounds {
   if (points.length === 0) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
@@ -114,24 +114,24 @@ export const getBounds = (points: Point[]): Bounds => {
     width: maxX - minX,
     height: maxY - minY,
   };
-};
+}
 
 /**
  * Check if two bounding boxes intersect
  */
-export const boundsIntersect = (bounds1: Bounds, bounds2: Bounds): boolean => {
+export function boundsIntersect(bounds1: Bounds, bounds2: Bounds): boolean {
   return !(
     bounds1.x + bounds1.width < bounds2.x ||
     bounds2.x + bounds2.width < bounds1.x ||
     bounds1.y + bounds1.height < bounds2.y ||
     bounds2.y + bounds2.height < bounds1.y
   );
-};
+}
 
 /**
  * Point in polygon test using ray casting algorithm
  */
-export const pointInPolygon = (point: Point, polygon: Point[]): boolean => {
+export function pointInPolygon(point: Point, polygon: Point[]): boolean {
   if (polygon.length < 3) return false;
 
   let inside = false;
@@ -149,15 +149,15 @@ export const pointInPolygon = (point: Point, polygon: Point[]): boolean => {
   }
 
   return inside;
-};
+}
 
 /**
  * Check if a line segment intersects with a polygon
  */
-export const segmentIntersectsPolygon = (
+export function segmentIntersectsPolygon(
   segment: LineSegment,
   polygon: Point[]
-): boolean => {
+): boolean {
   if (polygon.length < 2) return false;
 
   // Check if segment intersects any edge of the polygon
@@ -182,75 +182,75 @@ export const segmentIntersectsPolygon = (
   }
 
   return false;
-};
+}
 
 // ===== ADVANCED GEOMETRY OPERATIONS =====
 
 /**
  * Calculate center point of a bounds
  */
-export const getCenter = (bounds: Bounds): Point => {
+export function getCenter(bounds: Bounds): Point {
   return {
     x: bounds.x + bounds.width / 2,
     y: bounds.y + bounds.height / 2,
   };
-};
+}
 
 /**
  * Calculate midpoint between two points
  */
-export const getMidpoint = (p1: Point, p2: Point): Point => {
+export function getMidpoint(p1: Point, p2: Point): Point {
   return {
     x: (p1.x + p2.x) / 2,
     y: (p1.y + p2.y) / 2,
   };
-};
+}
 
 /**
  * Calculate vector between two points
  */
-export const getVector = (from: Point, to: Point): Point => {
+export function getVector(from: Point, to: Point): Point {
   return {
     x: to.x - from.x,
     y: to.y - from.y,
   };
-};
+}
 
 /**
  * Normalize a vector
  */
-export const normalizeVector = (vector: Point): Point => {
+export function normalizeVector(vector: Point): Point {
   const length = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
   if (length === 0) return { x: 0, y: 0 };
   return {
     x: vector.x / length,
     y: vector.y / length,
   };
-};
+}
 
 /**
  * Calculate angle between two points
  */
-export const getAngle = (p1: Point, p2: Point): number => {
+export function getAngle(p1: Point, p2: Point): number {
   return Math.atan2(p2.y - p1.y, p2.x - p1.x);
-};
+}
 
 /**
  * Calculate distance from point to rectangle
  */
-export const distanceToRect = (point: Point, rect: Bounds): number => {
+export function distanceToRect(point: Point, rect: Bounds): number {
   const dx = Math.max(Math.max(rect.x - point.x, 0), point.x - (rect.x + rect.width));
   const dy = Math.max(Math.max(rect.y - point.y, 0), point.y - (rect.y + rect.height));
   return Math.sqrt(dx * dx + dy * dy);
-};
+}
 
 /**
  * Calculate intersection point of two lines
  */
-export const getLineIntersection = (
+export function getLineIntersection(
   line1: LineSegment,
   line2: LineSegment
-): Point | null => {
+): Point | null {
   const { start: p1, end: p2 } = line1;
   const { start: p3, end: p4 } = line2;
 
@@ -269,12 +269,12 @@ export const getLineIntersection = (
   }
 
   return null;
-};
+}
 
 /**
  * Calculate bounding box that contains all given bounds
  */
-export const getUnionBounds = (boundsList: Bounds[]): Bounds => {
+export function getUnionBounds(boundsList: Bounds[]): Bounds {
   if (boundsList.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
 
   let minX = Infinity;
@@ -295,12 +295,12 @@ export const getUnionBounds = (boundsList: Bounds[]): Bounds => {
     width: maxX - minX,
     height: maxY - minY,
   };
-};
+}
 
 /**
  * Calculate bounding box intersection
  */
-export const getIntersectionBounds = (bounds1: Bounds, bounds2: Bounds): Bounds | null => {
+export function getIntersectionBounds(bounds1: Bounds, bounds2: Bounds): Bounds | null {
   const x1 = Math.max(bounds1.x, bounds2.x);
   const y1 = Math.max(bounds1.y, bounds2.y);
   const x2 = Math.min(bounds1.x + bounds1.width, bounds2.x + bounds2.width);
@@ -316,12 +316,12 @@ export const getIntersectionBounds = (bounds1: Bounds, bounds2: Bounds): Bounds 
   }
 
   return null;
-};
+}
 
 /**
  * Rotate bounds around center
  */
-export const rotateBounds = (bounds: Bounds, center: Point, angle: number): Bounds => {
+export function rotateBounds(bounds: Bounds, center: Point, angle: number): Bounds {
   // Rotate all corners
   const corners = [
     { x: bounds.x, y: bounds.y },
@@ -345,12 +345,12 @@ export const rotateBounds = (bounds: Bounds, center: Point, angle: number): Boun
     width: maxX - minX,
     height: maxY - minY,
   };
-};
+}
 
 /**
  * Scale bounds around center
  */
-export const scaleBounds = (bounds: Bounds, center: Point, scale: number): Bounds => {
+export function scaleBounds(bounds: Bounds, center: Point, scale: number): Bounds {
   const dx = (bounds.x - center.x) * scale;
   const dy = (bounds.y - center.y) * scale;
   const newWidth = bounds.width * scale;
@@ -362,4 +362,4 @@ export const scaleBounds = (bounds: Bounds, center: Point, scale: number): Bound
     width: newWidth,
     height: newHeight,
   };
-};
+}
