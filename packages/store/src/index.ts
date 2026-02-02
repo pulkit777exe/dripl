@@ -210,6 +210,7 @@ export const actions = {
   pushToHistory: () => {
     store.setState((state) => {
       const entry: HistoryEntry = {
+        elements: JSON.parse(JSON.stringify(state.elements)),
         timestamp: Date.now(),
       };
 
@@ -223,6 +224,7 @@ export const actions = {
         ...state,
         history: {
           past: newPast,
+          future: [],
         },
       };
     });

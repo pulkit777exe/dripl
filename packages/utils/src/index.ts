@@ -1,12 +1,12 @@
-export const generateId = (): string => {
+export function generateId(): string {
   return Math.random().toString(36).substr(2, 9);
-};
+}
 
-export const deepClone = <T>(obj: T): T => {
+export function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
-};
+}
 
-export const throttle = (func: Function, limit: number) => {
+export function throttle(func: Function, limit: number) {
   let inThrottle: boolean;
   return function(this: any, ...args: any[]) {
     if (!inThrottle) {
@@ -15,4 +15,4 @@ export const throttle = (func: Function, limit: number) => {
       setTimeout(() => (inThrottle = false), limit);
     }
   };
-};
+}

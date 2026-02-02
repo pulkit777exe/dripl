@@ -1,16 +1,7 @@
-/**
- * Performance utilities for canvas rendering
- * Implements viewport culling and rendering optimizations
- */
-
 import type { DriplElement } from "@dripl/common";
 import type { Bounds } from "./geometry";
 import { getElementBounds } from "./intersection";
 
-/**
- * Check if an element is within the visible viewport
- * Used for viewport culling - don't render off-screen elements
- */
 export function isElementInViewport(
   element: DriplElement,
   viewport: Bounds,
@@ -18,7 +9,6 @@ export function isElementInViewport(
 ): boolean {
   const bounds = getElementBounds(element);
 
-  // Add padding to catch elements that are partially visible
   const paddedViewport = {
     x: viewport.x - padding,
     y: viewport.y - padding,
@@ -26,7 +16,6 @@ export function isElementInViewport(
     height: viewport.height + padding * 2,
   };
 
-  // Check if bounds intersect
   return (
     bounds.x < paddedViewport.x + paddedViewport.width &&
     bounds.x + bounds.width > paddedViewport.x &&
@@ -35,9 +24,6 @@ export function isElementInViewport(
   );
 }
 
-/**
- * Get the current viewport bounds based on canvas size and pan/zoom
- */
 export function getViewportBounds(
   canvasWidth: number,
   canvasHeight: number,
@@ -54,10 +40,6 @@ export function getViewportBounds(
   };
 }
 
-/**
- * Filter elements to only those visible in viewport
- * Use this before rendering to improve performance
- */
 export function getVisibleElements(
   elements: DriplElement[],
   viewport: Bounds,
@@ -68,10 +50,6 @@ export function getVisibleElements(
   });
 }
 
-/**
- * Calculate dirty region for partial re-render
- * Returns the bounds that need to be redrawn
- */
 export function getDirtyRegion(
   changedElements: DriplElement[],
   previousBounds: Map<string, Bounds>,
@@ -84,14 +62,12 @@ export function getDirtyRegion(
   let maxY = -Infinity;
 
   for (const element of changedElements) {
-    // Include current bounds
     const bounds = getElementBounds(element);
     minX = Math.min(minX, bounds.x);
     minY = Math.min(minY, bounds.y);
     maxX = Math.max(maxX, bounds.x + bounds.width);
     maxY = Math.max(maxY, bounds.y + bounds.height);
 
-    // Include previous bounds (for moved/deleted elements)
     const prevBounds = previousBounds.get(element.id);
     if (prevBounds) {
       minX = Math.min(minX, prevBounds.x);
@@ -111,23 +87,17 @@ export function getDirtyRegion(
   };
 }
 
-/**
- * Debounce function for performance
- */
 export function debounce<T extends (...args: unknown[]) => void>(
   fn: T,
   ms: number,
 ): (...args: Parameters<T>) => void {
   let timeoutId: ReturnType<typeof setTimeout>;
-  return (...args: Parameters<T>) => {
+  return function(...args: Parameters<T>) {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => fn(...args), ms);
   };
 }
 
-/**
- * Throttle function for performance
- */
 export function throttle<T extends (...args: unknown[]) => void>(
   fn: T,
   ms: number,
@@ -135,7 +105,7 @@ export function throttle<T extends (...args: unknown[]) => void>(
   let lastCall = 0;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  return (...args: Parameters<T>) => {
+  return function(...args: Parameters<T>) {
     const now = Date.now();
     const remaining = ms - (now - lastCall);
 
