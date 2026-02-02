@@ -40,9 +40,9 @@ export const rectangleShape: ShapeDefinition = {
            typeof element.height === "number";
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
-    ctx.strokeStyle = element.strokeColor || "#000000";
-    ctx.lineWidth = element.strokeWidth || 2;
-    ctx.globalAlpha = element.opacity || 1;
+    ctx.strokeStyle = element.strokeColor ?? "#000000";
+    ctx.lineWidth = element.strokeWidth ?? 2;
+    ctx.globalAlpha = element.opacity ?? 1;
     
     if (element.backgroundColor && element.backgroundColor !== "transparent") {
       ctx.fillStyle = element.backgroundColor;
@@ -101,9 +101,9 @@ export const ellipseShape: ShapeDefinition = {
            typeof element.height === "number";
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
-    ctx.strokeStyle = element.strokeColor || "#000000";
-    ctx.lineWidth = element.strokeWidth || 2;
-    ctx.globalAlpha = element.opacity || 1;
+    ctx.strokeStyle = element.strokeColor ?? "#000000";
+    ctx.lineWidth = element.strokeWidth ?? 2;
+    ctx.globalAlpha = element.opacity ?? 1;
     
     ctx.beginPath();
     ctx.ellipse(
@@ -173,9 +173,9 @@ export const diamondShape: ShapeDefinition = {
            typeof element.height === "number";
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
-    ctx.strokeStyle = element.strokeColor || "#000000";
-    ctx.lineWidth = element.strokeWidth || 2;
-    ctx.globalAlpha = element.opacity || 1;
+    ctx.strokeStyle = element.strokeColor ?? "#000000";
+    ctx.lineWidth = element.strokeWidth ?? 2;
+    ctx.globalAlpha = element.opacity ?? 1;
     
     const centerX = element.x + element.width / 2;
     const centerY = element.y + element.height / 2;

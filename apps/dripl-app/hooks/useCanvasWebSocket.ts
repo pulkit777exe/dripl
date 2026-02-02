@@ -65,7 +65,7 @@ type WebSocketMessage =
   | CursorMoveMessage
   | { type: string };
 
-const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
+const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001";
 
 export function useCanvasWebSocket(
   roomSlug: string,

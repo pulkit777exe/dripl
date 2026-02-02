@@ -57,7 +57,7 @@ export function useCanvasRenderer({
     if (!canvas || !container) return;
 
     const resizeCanvas = () => {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = window.devicePixelRatio ?? 1;
       const rect = container.getBoundingClientRect();
       
       // Set display size

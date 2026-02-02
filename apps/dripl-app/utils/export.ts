@@ -81,13 +81,13 @@ export function exportToSVG(
       case "rectangle":
         svg += `  <rect x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" 
         fill="${element.backgroundColor}" stroke="${element.strokeColor}" stroke-width="${element.strokeWidth}" 
-        opacity="${element.opacity}" transform="rotate(${(element.angle || 0) * (180 / Math.PI)} ${element.x + element.width / 2} ${element.y + element.height / 2})"/>\n`;
+         opacity="${element.opacity}" transform="rotate(${(element.angle ?? 0) * (180 / Math.PI)} ${element.x + element.width / 2} ${element.y + element.height / 2})"/>\n`;
         break;
       case "ellipse":
         svg += `  <ellipse cx="${element.x + element.width / 2}" cy="${element.y + element.height / 2}" 
         rx="${element.width / 2}" ry="${element.height / 2}" 
         fill="${element.backgroundColor}" stroke="${element.strokeColor}" stroke-width="${element.strokeWidth}" 
-        opacity="${element.opacity}" transform="rotate(${(element.angle || 0) * (180 / Math.PI)} ${element.x + element.width / 2} ${element.y + element.height / 2})"/>\n`;
+         opacity="${element.opacity}" transform="rotate(${(element.angle ?? 0) * (180 / Math.PI)} ${element.x + element.width / 2} ${element.y + element.height / 2})"/>\n`;
         break;
       case "line":
       case "arrow":
