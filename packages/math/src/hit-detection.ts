@@ -2,15 +2,8 @@ import type { DriplElement, Point } from "@dripl/common";
 import { isPointInElement, getElementBounds } from "./intersection";
 import { Bounds, boundsIntersect, LineSegment, distanceToSegment } from "./geometry";
 
-/**
- * Enhanced hit detection for all element types including rotation
- * Re-exports intersection functions for convenience
- */
 export { isPointInElement, getElementBounds } from "./intersection";
 
-/**
- * Check if a point is inside a selection rectangle (marquee selection)
- */
 export function isPointInSelectionRect(
   point: Point,
   selectionRect: Bounds
@@ -23,22 +16,15 @@ export function isPointInSelectionRect(
   );
 }
 
-/**
- * Check if an element intersects with a selection rectangle
- * Works correctly with rotated elements
- */
 export function elementIntersectsSelectionRect(
   element: DriplElement,
   selectionRect: Bounds
 ): boolean {
-  // Fast AABB check
   const elementBounds = getElementBounds(element);
   if (!boundsIntersect(elementBounds, selectionRect)) {
     return false;
   }
 
-  // For rotated elements, check if any corner of the selection rect is inside the element
-  // or if any corner of the element is inside the selection rect
   const selectionCorners: Point[] = [
     { x: selectionRect.x, y: selectionRect.y },
     { x: selectionRect.x + selectionRect.width, y: selectionRect.y },
@@ -49,15 +35,12 @@ export function elementIntersectsSelectionRect(
     { x: selectionRect.x, y: selectionRect.y + selectionRect.height },
   ];
 
-  // Check if any selection corner is inside the element
   for (const corner of selectionCorners) {
     if (isPointInElement(corner, element)) {
       return true;
     }
   }
 
-  // Check if any element corner is inside the selection rect
-  // For rotated elements, we need to check the actual rotated corners
   const elementCorners: Point[] = [
     { x: element.x, y: element.y },
     { x: element.x + element.width, y: element.y },
@@ -72,7 +55,6 @@ export function elementIntersectsSelectionRect(
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
-    // Rotate corners
     for (let i = 0; i < elementCorners.length; i++) {
       const corner = elementCorners[i]!;
       const dx = corner.x - cx;
@@ -90,7 +72,6 @@ export function elementIntersectsSelectionRect(
     }
   }
 
-  // For linear elements, also check if any segment intersects the selection rect
   if (
     element.type === "arrow" ||
     element.type === "line" ||
@@ -107,7 +88,6 @@ export function elementIntersectsSelectionRect(
           },
         };
 
-        // Check if segment intersects selection rect
         const segBounds: Bounds = {
           x: Math.min(segment.start.x, segment.end.x),
           y: Math.min(segment.start.y, segment.end.y),
@@ -116,7 +96,6 @@ export function elementIntersectsSelectionRect(
         };
 
         if (boundsIntersect(segBounds, selectionRect)) {
-          // More precise check: see if segment intersects any edge of selection rect
           const selectionEdges: LineSegment[] = [
             {
               start: selectionCorners[0]!,
@@ -137,7 +116,6 @@ export function elementIntersectsSelectionRect(
           ];
 
           for (const edge of selectionEdges) {
-            // Simple intersection check (can be enhanced with proper line-line intersection)
             const d1 =
               (edge.end.x - edge.start.x) * (segment.start.y - edge.start.y) -
               (edge.end.y - edge.start.y) * (segment.start.x - edge.start.x);
@@ -165,15 +143,10 @@ export function elementIntersectsSelectionRect(
   return false;
 }
 
-/**
- * Find the top-most element at a given point
- * Returns null if no element is found
- */
 export function getElementAtPoint(
   point: Point,
   elements: DriplElement[]
 ): DriplElement | null {
-  // Iterate in reverse to find top-most element first
   for (let i = elements.length - 1; i >= 0; i--) {
     const element = elements[i];
     if (element && !element.isDeleted && isPointInElement(point, element)) {
@@ -183,9 +156,6 @@ export function getElementAtPoint(
   return null;
 }
 
-/**
- * Find all elements that intersect with a selection rectangle
- */
 export function getElementsInSelectionRect(
   selectionRect: Bounds,
   elements: DriplElement[]
