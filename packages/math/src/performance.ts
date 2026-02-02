@@ -31,7 +31,6 @@ export function getViewportBounds(
   panY: number,
   zoom: number,
 ): Bounds {
-  // Convert canvas coordinates to world coordinates
   return {
     x: -panX / zoom,
     y: -panY / zoom,
