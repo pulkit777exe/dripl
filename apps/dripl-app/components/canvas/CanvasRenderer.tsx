@@ -22,10 +22,6 @@ interface CanvasRendererProps {
   onFrameRequest?: () => void;
 }
 
-/**
- * Production-ready canvas renderer using requestAnimationFrame
- * Implements viewport culling, coordinate transformation, and smooth 60fps rendering
- */
 export function useCanvasRenderer({
   canvasRef,
   containerRef,
@@ -42,16 +38,14 @@ export function useCanvasRenderer({
   const lastSelectedIdsRef = useRef<Set<string>>(new Set());
   const needsRenderRef = useRef(true);
 
-  // Initialize Rough.js canvas
-  useEffect(() => {
+    useEffect(() => {
     if (canvasRef.current && !roughCanvasRef.current) {
       roughCanvasRef.current = createRoughCanvas(canvasRef.current);
       needsRenderRef.current = true;
     }
   }, [canvasRef]);
 
-  // Resize canvas to match container
-  useEffect(() => {
+    useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
@@ -60,16 +54,13 @@ export function useCanvasRenderer({
       const dpr = window.devicePixelRatio ?? 1;
       const rect = container.getBoundingClientRect();
       
-      // Set display size
-      canvas.style.width = `${rect.width}px`;
+        canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
       
-      // Set actual size in memory (scaled for high DPI)
-      canvas.width = rect.width * dpr;
+        canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
       
-      // Scale context to account for DPR
-      const ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.scale(dpr, dpr);
       }
@@ -82,8 +73,7 @@ export function useCanvasRenderer({
     return () => window.removeEventListener("resize", resizeCanvas);
   }, [canvasRef, containerRef]);
 
-  // Check if we need to re-render
-  useEffect(() => {
+    useEffect(() => {
     const elementsChanged =
       elements.length !== lastRenderedElementsRef.current.length ||
       elements.some(
@@ -103,7 +93,6 @@ export function useCanvasRenderer({
     }
   }, [elements, selectedIds, currentPreview, eraserPath]);
 
-  // Main render loop using requestAnimationFrame
   const renderFrame = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -114,35 +103,28 @@ export function useCanvasRenderer({
       return;
     }
 
-    // Only render if something changed or forced
-    if (!needsRenderRef.current) {
+        if (!needsRenderRef.current) {
       animationFrameIdRef.current = requestAnimationFrame(renderFrame);
       return;
     }
 
     needsRenderRef.current = false;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
+        ctx.clearRect(0, 0, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
 
-    // Get visible elements (viewport culling)
-    const visibleElements = getVisibleElements(elements, viewport);
+        const visibleElements = getVisibleElements(elements, viewport);
 
-    // Apply viewport transformations
-    ctx.save();
+        ctx.save();
     ctx.translate(viewport.x, viewport.y);
     ctx.scale(viewport.zoom, viewport.zoom);
 
-    // Render all visible elements
-    renderRoughElements(rc, ctx, visibleElements);
+        renderRoughElements(rc, ctx, visibleElements);
 
-    // Render current preview element (being drawn)
-    if (currentPreview) {
+        if (currentPreview) {
       renderRoughElements(rc, ctx, [currentPreview]);
     }
 
-    // Render selection highlights
-    if (selectedIds.size > 0) {
+        if (selectedIds.size > 0) {
       ctx.save();
       ctx.strokeStyle = "#6965db";
       ctx.lineWidth = 1 / viewport.zoom;
@@ -164,8 +146,7 @@ export function useCanvasRenderer({
       ctx.restore();
     }
 
-    // Render eraser trail
-    if (eraserPath.length > 0) {
+      if (eraserPath.length > 0) {
       ctx.save();
       ctx.strokeStyle = "#ff0000";
       ctx.lineWidth = 10 / viewport.zoom;
@@ -184,13 +165,11 @@ export function useCanvasRenderer({
 
     ctx.restore();
 
-    // Request next frame
-    animationFrameIdRef.current = requestAnimationFrame(renderFrame);
+      animationFrameIdRef.current = requestAnimationFrame(renderFrame);
     onFrameRequest?.();
   }, [canvasRef, elements, selectedIds, currentPreview, eraserPath, viewport, onFrameRequest]);
 
-  // Start render loop
-  useEffect(() => {
+    useEffect(() => {
     needsRenderRef.current = true;
     renderFrame();
 
@@ -201,8 +180,7 @@ export function useCanvasRenderer({
     };
   }, [renderFrame]);
 
-  // Force re-render when viewport changes
-  useEffect(() => {
+    useEffect(() => {
     needsRenderRef.current = true;
   }, [viewport.x, viewport.y, viewport.zoom]);
 
