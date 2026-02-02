@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from "uuid";
 import { SelectionOverlay, ResizeHandle } from "./SelectionOverlay";
 import { NameInputModal } from "./NameInputModal";
 import { CollaboratorsList } from "./CollaboratorsList";
+import { PropertiesPanel } from "./PropertiesPanel";
 import { throttle } from "@dripl/utils";
 import { useCanvasRenderer } from "./CanvasRenderer";
 import { screenToCanvas, Viewport } from "@/utils/canvas-coordinates";
@@ -59,7 +60,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     active: boolean;
   } | null>(null);
 
-  // Drawing tools hook
   const {
     currentPreview: drawingPreview,
     startDrawing,
@@ -69,7 +69,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     isDrawing: isToolDrawing,
   } = useDrawingTools();
 
-  // Store
   const elements = useCanvasStore((state) => state.elements);
   const activeTool = useCanvasStore((state) => state.activeTool);
   const selectedIds = useCanvasStore((state) => state.selectedIds);
@@ -105,7 +104,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
 
   const { send, isConnected } = useCanvasWebSocket(roomSlug, userName);
 
-  // Throttle cursor updates to avoid flooding websocket
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const throttledSend = useCallback(
     throttle((data: any) => {
@@ -114,7 +112,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     [isConnected, send]
   );
 
-  // Try to load name from localStorage or session?
   useEffect(() => {
     const storedName = localStorage.getItem("dripl_username");
     if (storedName) {
@@ -127,7 +124,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     localStorage.setItem("dripl_username", name);
   };
 
-  // Viewport for renderer
   const viewport: Viewport = {
     x: panX,
     y: panY,
@@ -136,7 +132,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     zoom,
   };
 
-  // Use new canvas renderer with requestAnimationFrame
   useCanvasRenderer({
     canvasRef,
     containerRef,
@@ -147,7 +142,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     viewport,
   });
 
-  // Get canvas coordinates from mouse event using coordinate transformation
   const getCanvasCoordinates = useCallback(
     (e: React.MouseEvent | React.DragEvent | React.PointerEvent): Point => {
       const canvas = canvasRef.current;
@@ -159,9 +153,7 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     [viewport]
   );
 
-  // Find element at position (Hit Testing)
   const getElementAtPosition = (x: number, y: number): DriplElement | null => {
-    // Iterate in reverse to find top-most element first
     for (let i = elements.length - 1; i >= 0; i--) {
       const element = elements[i];
       if (element && isPointInElement({ x, y }, element)) {
@@ -171,7 +163,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     return null;
   };
 
-  // Create element based on tool
   const createElement = useCallback(
     (x: number, y: number): DriplElement | null => {
       const baseProps = {
@@ -232,7 +223,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     ]
   );
 
-  // Resize Handler
   const handleResizeStart = useCallback(
     (handle: ResizeHandle, e: React.PointerEvent) => {
       e.stopPropagation();
@@ -251,7 +241,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     [selectedIds, elements, getCanvasCoordinates]
   );
 
-  // Rotate Handler
   const handleRotateStart = useCallback(
     (e: React.PointerEvent) => {
       e.stopPropagation();
@@ -268,7 +257,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     [selectedIds, elements]
   );
 
-  // Handle Drag & Drop
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
@@ -285,7 +273,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
           if (event.target?.result) {
             const img = new Image();
             img.onload = () => {
-              // Scale down if too large
               let width = img.width;
               let height = img.height;
               const maxSize = 500;
@@ -325,15 +312,12 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     }
   };
 
-  // Handle pointer down
   const handlePointerDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const coords = getCanvasCoordinates(e);
     const { x, y } = coords;
 
-    // Broadcast cursor
     throttledSend({ type: "cursor_move", x, y, timestamp: Date.now() });
 
-    // Handle Space key for panning
     if (e.button === 1 || activeTool === "select") {
       // Just a placeholder for panning logic
     }
@@ -341,7 +325,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     if (activeTool === "select") {
       const element = getElementAtPosition(x, y);
       if (element && element.id) {
-        // Click on element - start dragging or toggle selection
         if (e.shiftKey) {
           selectElement(element.id, true);
         } else {
@@ -352,7 +335,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
         setIsDragging(true);
         setLastPointerPos({ x, y });
       } else {
-        // Click on empty space - start marquee selection
         if (!e.shiftKey) {
           clearSelection();
         }
@@ -377,7 +359,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
       return;
     }
 
-    // Use new drawing tools for shape tools
     if (
       activeTool === "rectangle" ||
       activeTool === "ellipse" ||
@@ -405,7 +386,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
       return;
     }
 
-    // Fallback for other tools
     const element = createElement(x, y);
     if (element) {
       setCurrentElement(element);
@@ -413,7 +393,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     }
   };
 
-  // Handle pointer move
   const handlePointerMove = (
     e: React.MouseEvent<HTMLCanvasElement> | React.PointerEvent
   ) => {
@@ -422,7 +401,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
 
     throttledSend({ type: "cursor_move", x, y, timestamp: Date.now() });
 
-    // Update marquee selection
     if (marqueeSelection?.active) {
       setMarqueeSelection({
         ...marqueeSelection,
@@ -438,7 +416,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
       let newWidth = el.width;
       let newHeight = el.height;
 
-      // Calculate new bounds based on handle
       switch (resizeHandle) {
         case "se":
           newWidth = Math.max(1, x - el.x);
@@ -815,6 +792,23 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
       <CollaboratorsList />
 
       {!userName && <NameInputModal onSubmit={handleNameSubmit} />}
+
+      {/* Properties Panel */}
+      <div className="absolute top-6 right-6 z-20">
+        <PropertiesPanel
+          selectedElement={selectedIds.size === 1 ? elements.find(el => el.id === Array.from(selectedIds)[0]) || null : null}
+          onUpdateElement={(updatedElement) => {
+            if (updatedElement.id) {
+              updateElement(updatedElement.id, updatedElement);
+              send({
+                type: "update_element",
+                element: updatedElement,
+                timestamp: Date.now(),
+              });
+            }
+          }}
+        />
+      </div>
 
       {textInput && (
         <textarea

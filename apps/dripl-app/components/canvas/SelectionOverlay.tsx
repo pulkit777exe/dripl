@@ -2,7 +2,6 @@
 
 import { useCanvasStore } from "@/lib/canvas-store";
 import { DriplElement, Point } from "@dripl/common";
-import { memo } from "react";
 import { getElementBounds } from "@dripl/math";
 import { Bounds } from "@dripl/math";
 
@@ -19,7 +18,7 @@ export type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 
 const HANDLE_SIZE = 8;
 
-export const SelectionOverlay = memo(function SelectionOverlay({
+export function SelectionOverlay({
   zoom,
   panX,
   panY,
@@ -187,4 +186,4 @@ export const SelectionOverlay = memo(function SelectionOverlay({
       )}
     </div>
   );
-});
+}
