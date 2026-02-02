@@ -126,14 +126,13 @@ export function renderRoughElement(
     setShapeInCache(element as any, shape);
   }
   
-  const isLinear =
-    element.type === "line" ||
-    element.type === "arrow" ||
-    element.type === "freedraw";
+   const isLinear =
+     element.type === "line" ||
+     element.type === "arrow" ||
+     element.type === "freedraw";
 
-  if (!isLinear) {
-    ctx.translate(x, y);
-  }
+   // Always translate to element's position
+   ctx.translate(x, y);
 
   if (Array.isArray(shape)) {
     shape.forEach((s) => rc.draw(s));

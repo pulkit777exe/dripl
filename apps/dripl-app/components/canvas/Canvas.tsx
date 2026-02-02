@@ -285,13 +285,13 @@ export default function App() {
   // Move/Rotate State
   const [isMoving, setIsMoving] = useState(false);
   const [moveStart, setMoveStart] = useState<Point | null>(null);
-  const [moveOffset, setMoveOffset] = useState<Point>({ x: 0, y: 0 }); // Temporary offset during drag
+  const [moveOffset, setMoveOffset] = useState<Point>({ x: 0, y: 0 });
   const [isRotating, setIsRotating] = useState(false);
   const [rotateStart, setRotateStart] = useState<{
     angle: number;
     elementId: string;
   } | null>(null);
-  const [rotateOffset, setRotateOffset] = useState(0); // Temporary rotation during drag
+  const [rotateOffset, setRotateOffset] = useState(0);
 
   // Resize State
   const [isResizing, setIsResizing] = useState(false);
@@ -311,7 +311,7 @@ export default function App() {
   const [sloppiness, setSloppiness] = useState(1);
   const [edges, setEdges] = useState<"sharp" | "round">("round");
   const [opacity, setOpacity] = useState(100);
-  const [tick, setTick] = useState(0); // For forcing re-renders (e.g. eraser animation)
+  const [tick, setTick] = useState(0);
 
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -327,7 +327,7 @@ export default function App() {
     if (savedElements) {
       setElements(savedElements);
       // Initialize history with loaded elements
-      historyRef.current = new CanvasHistory(); // Reset history
+      historyRef.current = new CanvasHistory();
       historyRef.current.pushState({
         elements: savedElements,
         selectedIds: [],
@@ -576,7 +576,7 @@ export default function App() {
       // Check if erasing
       if (activeTool === "eraser") {
         eraserTrailRef.current?.startPath(point.x, point.y);
-        setIsDrawing(true); // Reuse isDrawing to track eraser state
+        setIsDrawing(true);
         return;
       }
 
@@ -1897,12 +1897,12 @@ export default function App() {
                       />
                     ))}
                     <div
-                      className="absolute top-[-24px] left-1/2 -translate-x-1/2 w-2 h-2 bg-white border border-[#a8a5ff] rounded-full cursor-grab pointer-events-auto"
+                      className="absolute top-6 left-1/2 -translate-x-1/2 w-2 h-2 bg-white border border-[#a8a5ff] rounded-full cursor-grab pointer-events-auto"
                       onMouseDown={(e) =>
                         handleRotateStart(e, selectedShape.id)
                       }
                     />
-                    <div className="absolute top-[-22px] left-1/2 -translate-x-1/2 w-px h-4 bg-[#a8a5ff]" />
+                    <div className="absolute -top-5.5 left-1/2 -translate-x-1/2 w-px h-4 bg-[#a8a5ff]" />
                   </div>
                 </div>
               );
@@ -1919,7 +1919,7 @@ export default function App() {
           </button>
           <button
             onClick={handleResetZoom}
-            className="text-xs font-mono px-3 text-gray-300 hover:text-white transition-colors min-w-[48px]"
+            className="text-xs font-mono px-3 text-gray-300 hover:text-white transition-colors min-w-12"
           >
             {zoom}%
           </button>

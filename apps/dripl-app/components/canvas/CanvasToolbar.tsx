@@ -59,30 +59,31 @@ export function CanvasToolbar() {
   }, [setActiveTool, undo, redo]);
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-10">
-      <div className="flex items-center gap-1 p-2 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg">
-        {tools.map((tool) => {
-          const Icon = tool.icon;
-          const isActive = activeTool === tool.id;
-          return (
-            <button
-              key={tool.id}
-              onClick={() => setActiveTool(tool.id)}
-              className={`
-                p-2 rounded transition-colors
-                ${isActive 
-                  ? "bg-accent" 
-                  : "hover:bg-accent/50"}
-              `}
-              title={`${tool.label} (${tool.shortcut})`}
-              aria-label={`${tool.label} tool, press ${tool.shortcut} to activate`}
-              aria-pressed={isActive}
-            >
-              <Icon className="w-5 h-5" />
-            </button>
-          );
-        })}
-      </div>
+    <div className="flex items-center gap-2 p-3 bg-[#1a1a24]/90 backdrop-blur-xl border border-[#333]/50 rounded-2xl shadow-2xl">
+      {tools.map((tool) => {
+        const Icon = tool.icon;
+        const isActive = activeTool === tool.id;
+        return (
+          <button
+            key={tool.id}
+            onClick={() => setActiveTool(tool.id)}
+            className={`
+              relative p-2 rounded-xl transition-all duration-200 ease-out
+              ${isActive 
+                ? "bg-[#6965db] text-white shadow-lg shadow-[#6965db]/40" 
+                : "text-[#a0a0a0] hover:text-white hover:bg-[#2a2a3a]"}
+            `}
+            title={`${tool.label} (${tool.shortcut})`}
+            aria-label={`${tool.label} tool, press ${tool.shortcut} to activate`}
+            aria-pressed={isActive}
+          >
+            <Icon className="w-6 h-6" />
+            {isActive && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full" />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
