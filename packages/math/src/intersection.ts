@@ -16,10 +16,6 @@ import {
   distance,
 } from "./geometry";
 
-/**
- * Helpers to handle rotation and coordinate spaces.
- * Elements store `points` relative to element.x/element.y and may have an `angle`.
- */
 function degToRad(deg: number) {
   return (deg * Math.PI) / 180;
 }
@@ -46,13 +42,9 @@ function inverseRotatePoint(
   cy: number,
   angleRad: number,
 ): Point {
-  // rotate by -angle
   return rotatePoint(p, cx, cy, -angleRad);
 }
 
-/**
- * Convert element-local points to world coordinates (apply element.x/y + rotation).
- */
 function elementLocalPointToWorld(el: DriplElement, pt: Point): Point {
   const world = { x: el.x + pt.x, y: el.y + pt.y };
   const angle = (el.angle || 0) as number;
@@ -62,10 +54,6 @@ function elementLocalPointToWorld(el: DriplElement, pt: Point): Point {
   return rotatePoint(world, cx, cy, degToRad(angle));
 }
 
-/**
- * Compute the tight axis-aligned bounding box for any element, taking rotation
- * and strokeWidth into account.
- */
 export const getElementBounds = (element: DriplElement): Bounds => {
   const padding = (element.strokeWidth || 0) / 2;
 
@@ -96,8 +84,6 @@ export const getElementBounds = (element: DriplElement): Bounds => {
     };
   }
 
-  // rectangle, ellipse, text, image
-  // compute corners and apply rotation
   const corners: Point[] = [
     { x: element.x, y: element.y },
     { x: element.x + element.width, y: element.y },
@@ -122,16 +108,10 @@ export const getElementBounds = (element: DriplElement): Bounds => {
   };
 };
 
-/**
- * Tests whether a world-space point lies inside an element.
- * For stroked linear elements (line/arrow/freedraw) we use distance-to-segment
- * with strokeWidth as tolerance. For filled shapes we use containment tests.
- */
 export const isPointInElement = (
   point: Point,
   element: DriplElement,
 ): boolean => {
-  // Fast reject using AABB in world-space
   const bounds = getElementBounds(element);
   if (
     point.x < bounds.x ||
@@ -142,7 +122,6 @@ export const isPointInElement = (
     return false;
   }
 
-  // For rectangle/text/image: transform point to element-local unrotated space
   if (
     element.type === "rectangle" ||
     element.type === "text" ||
@@ -164,7 +143,6 @@ export const isPointInElement = (
     );
   }
 
-  // Ellipse: use normalized coordinates in element-space
   if (element.type === "ellipse") {
     const angle = (element.angle || 0) as number;
     let local = point;
@@ -183,7 +161,6 @@ export const isPointInElement = (
     return nx * nx + ny * ny <= 1;
   }
 
-  // Diamond: use point-in-polygon for 4 vertices
   if (element.type === "diamond") {
     const angle = (element.angle || 0) as number;
     let local = point;
@@ -193,7 +170,6 @@ export const isPointInElement = (
       local = inverseRotatePoint(point, cx, cy, degToRad(angle));
     }
 
-    // Diamond vertices in element-local space
     const vertices: Point[] = [
       { x: element.x + element.width / 2, y: element.y }, // top
       { x: element.x + element.width, y: element.y + element.height / 2 }, // right
@@ -204,7 +180,6 @@ export const isPointInElement = (
     return pointInPolygon(local, vertices);
   }
 
-  // Linear / freedraw: distance to segment with tolerance
   if (
     element.type === "freedraw" ||
     element.type === "arrow" ||
@@ -212,7 +187,7 @@ export const isPointInElement = (
   ) {
     const pts = (element as FreeDrawElement | LinearElement).points || [];
     const worldPts = pts.map((p) => elementLocalPointToWorld(element, p));
-    const tolerance = (element.strokeWidth || 0) / 2 + 2; // small extra leeway
+    const tolerance = (element.strokeWidth || 0) / 2 + 2;
 
     if (worldPts.length === 1) {
       const only = worldPts[0]!;
@@ -224,8 +199,6 @@ export const isPointInElement = (
       if (distanceToSegment(point, seg) <= tolerance) return true;
     }
 
-    // For freedraw, if there are >2 points and path is closed, also consider polygon containment
-    // Heuristic: if first and last points are very close, treat as closed
     if (element.type === "freedraw" && worldPts.length > 2) {
       const first = worldPts[0]!;
       const last = worldPts[worldPts.length - 1]!;
@@ -240,16 +213,11 @@ export const isPointInElement = (
   return false;
 };
 
-/**
- * Check whether a world-space line segment intersects with an element.
- * We first perform a fast AABB check, then type-specific tests.
- */
 export const elementIntersectsSegment = (
   element: DriplElement,
   segment: LineSegment,
   threshold: number = 0,
 ): boolean => {
-  // Fast AABB check (include stroke width and threshold)
   const elBounds = getElementBounds(element);
   const segBounds: Bounds = {
     x: Math.min(segment.start.x, segment.end.x) - threshold,
@@ -260,7 +228,6 @@ export const elementIntersectsSegment = (
 
   if (!boundsIntersect(elBounds, segBounds)) return false;
 
-  // If either endpoint lies within the element, it's an intersection
   if (
     isPointInElement(segment.start, element) ||
     isPointInElement(segment.end, element)
