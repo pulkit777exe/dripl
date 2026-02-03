@@ -14,8 +14,8 @@ export function screenToCanvas(
   viewport: Viewport
 ): Point {
   return {
-    x: (screenX - viewport.x) / viewport.zoom,
-    y: (screenY - viewport.y) / viewport.zoom,
+    x: screenX / viewport.zoom - (viewport.x / viewport.zoom),
+    y: screenY / viewport.zoom - (viewport.y / viewport.zoom),
   };
 }
 

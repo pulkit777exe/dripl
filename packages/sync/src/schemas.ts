@@ -27,7 +27,6 @@ export const ElementBaseSchema = z.object({
   groupId: z.string().optional(),
 });
 
-// Shape-specific schemas
 export const RectangleSchema = ElementBaseSchema.extend({
   type: z.literal("rectangle"),
 });
