@@ -50,6 +50,11 @@ export interface DiamondElement extends ElementBase {
 export interface LinearElement extends ElementBase {
   type: "arrow" | "line";
   points: Point[];
+  labelId?: string; // ID of text element used as label
+  arrowHeads?: {
+    start?: boolean;
+    end?: boolean;
+  };
 }
 
 export interface FreeDrawElement extends ElementBase {
@@ -68,6 +73,7 @@ export interface TextElement extends ElementBase {
   textAlign?: "left" | "center" | "right";
   verticalAlign?: "top" | "middle" | "bottom";
   boundElementId?: string; // ID of element this text is bound to
+  containerId?: string; // ID of container element (for labeled arrows)
 }
 
 export interface ImageElement extends ElementBase {
