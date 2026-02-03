@@ -24,10 +24,6 @@ interface EncryptionState {
   hasKey: boolean;
 }
 
-/**
- * Hook for managing E2E encryption of canvas content
- * Key is stored in URL fragment and never sent to server
- */
 export function useEncryption(options: UseEncryptionOptions = {}) {
   const { enabled = true } = options;
   const [key, setKey] = useState<CryptoKey | null>(null);
@@ -38,7 +34,6 @@ export function useEncryption(options: UseEncryptionOptions = {}) {
     hasKey: false,
   });
 
-  // Extract key from URL on mount
   useEffect(() => {
     if (!enabled || typeof window === "undefined") {
       setState((s) => ({ ...s, isLoading: false }));
@@ -83,9 +78,6 @@ export function useEncryption(options: UseEncryptionOptions = {}) {
     loadKeyFromUrl();
   }, [enabled]);
 
-  /**
-   * Generate a new encryption key and add to URL
-   */
   const createNewKey = useCallback(async (): Promise<string | null> => {
     if (!enabled) return null;
 
@@ -93,13 +85,11 @@ export function useEncryption(options: UseEncryptionOptions = {}) {
       const newKey = await generateKey();
       const keyBase64 = await keyToBase64(newKey);
 
-      // Add key to URL fragment
       const url = new URL(window.location.href);
       const params = new URLSearchParams(url.hash.slice(1));
       params.set(ENCRYPTION_KEY_PARAM, keyBase64);
       url.hash = params.toString();
 
-      // Update URL without reload
       window.history.replaceState(null, "", url.toString());
 
       setKey(newKey);
@@ -113,9 +103,6 @@ export function useEncryption(options: UseEncryptionOptions = {}) {
     }
   }, [enabled]);
 
-  /**
-   * Encrypt elements for storage/transmission
-   */
   const encryptElements = useCallback(
     async (elements: DriplElement[]): Promise<EncryptedPayload | null> => {
       if (!enabled || !key) {
@@ -133,9 +120,6 @@ export function useEncryption(options: UseEncryptionOptions = {}) {
     [enabled, key],
   );
 
-  /**
-   * Decrypt elements from storage/transmission
-   */
   const decryptElements = useCallback(
     async (payload: EncryptedPayload): Promise<DriplElement[] | null> => {
       if (!enabled || !key) {
@@ -153,13 +137,9 @@ export function useEncryption(options: UseEncryptionOptions = {}) {
     [enabled, key],
   );
 
-  /**
-   * Get shareable URL with encryption key
-   */
   const getShareableUrl = useCallback(async (): Promise<string | null> => {
     if (!enabled) return window.location.href;
 
-    // Ensure we have a key
     if (!key) {
       await createNewKey();
     }

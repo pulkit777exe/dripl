@@ -16,7 +16,6 @@ export interface Binding {
   };
 }
 
-// Check if a point is near any element for snap-to functionality
 export function getSnapPoint(
   point: Point,
   elements: DriplElement[],
@@ -28,7 +27,6 @@ export function getSnapPoint(
       { x: element.x + element.width, y: element.y + element.height },
     ]);
 
-    // Check if point is near any edge
     const nearLeft = Math.abs(point.x - bounds.x) < snapThreshold;
     const nearRight = Math.abs(point.x - (bounds.x + bounds.width)) < snapThreshold;
     const nearTop = Math.abs(point.y - bounds.y) < snapThreshold;

@@ -70,7 +70,6 @@ export const rectangleShape: ShapeDefinition = {
   },
 };
 
-// Ellipse shape definition
 export const ellipseShape: ShapeDefinition = {
   type: "ellipse",
   name: "Ellipse",
@@ -142,7 +141,6 @@ export const ellipseShape: ShapeDefinition = {
   },
 };
 
-// Diamond shape definition
 export const diamondShape: ShapeDefinition = {
   type: "diamond",
   name: "Diamond",
@@ -215,7 +213,6 @@ export const diamondShape: ShapeDefinition = {
   },
 };
 
-// Arrow shape definition
 export const arrowShape: ShapeDefinition = {
   type: "arrow",
   name: "Arrow",
@@ -257,7 +254,6 @@ export const arrowShape: ShapeDefinition = {
     ctx.lineTo(arrowElement.points[1].x, arrowElement.points[1].y);
     ctx.stroke();
     
-    // Draw arrow head
     const dx = arrowElement.points[1].x - arrowElement.points[0].x;
     const dy = arrowElement.points[1].y - arrowElement.points[0].y;
     const angle = Math.atan2(dy, dx);
@@ -293,7 +289,6 @@ export const arrowShape: ShapeDefinition = {
   },
 };
 
-// Line shape definition
 export const lineShape: ShapeDefinition = {
   type: "line",
   name: "Line",
@@ -352,7 +347,6 @@ export const lineShape: ShapeDefinition = {
   },
 };
 
-// Text shape definition
 export const textShape: ShapeDefinition = {
   type: "text",
   name: "Text",
@@ -408,7 +402,6 @@ export const textShape: ShapeDefinition = {
   },
 };
 
-// Image shape definition
 export const imageShape: ShapeDefinition = {
   type: "image",
   name: "Image",
@@ -463,7 +456,6 @@ export const imageShape: ShapeDefinition = {
   },
 };
 
-// Frame shape definition
 export const frameShape: ShapeDefinition = {
   type: "frame",
   name: "Frame",
@@ -502,10 +494,8 @@ export const frameShape: ShapeDefinition = {
     ctx.lineWidth = element.strokeWidth || 2;
     ctx.globalAlpha = element.opacity || 1;
     
-    // Draw frame border
     ctx.strokeRect(element.x, element.y, element.width, element.height);
     
-    // Draw padding
     const padding = frameElement.padding || 20;
     ctx.setLineDash([5, 5]);
     ctx.strokeRect(
@@ -516,7 +506,6 @@ export const frameShape: ShapeDefinition = {
     );
     ctx.setLineDash([]);
     
-    // Draw title
     if (frameElement.title) {
       ctx.fillStyle = element.strokeColor || "#000000";
       ctx.font = "14px Arial";
@@ -549,7 +538,6 @@ export const frameShape: ShapeDefinition = {
   },
 };
 
-// Freedraw shape definition
 export const freedrawShape: ShapeDefinition = {
   type: "freedraw",
   name: "Freedraw",
@@ -609,7 +597,6 @@ export const freedrawShape: ShapeDefinition = {
   },
 };
 
-// Export all default shapes
 export const defaultShapes = [
   rectangleShape,
   ellipseShape,

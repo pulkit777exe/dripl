@@ -20,10 +20,6 @@ export interface KeyboardShortcutsConfig {
   enabled?: boolean;
 }
 
-/**
- * Hook for keyboard shortcuts
- * Implements all standard shortcuts for a drawing application
- */
 export function useKeyboardShortcuts({
   activeTool,
   setActiveTool,

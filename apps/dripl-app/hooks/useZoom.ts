@@ -41,7 +41,6 @@ export function useZoom(elements: DriplElement[]): UseZoomReturn {
     zoom: 1,
   });
 
-  // Update canvas size on resize
   useEffect(() => {
     const handleResize = () => {
       setViewport((prev) => ({
@@ -55,7 +54,6 @@ export function useZoom(elements: DriplElement[]): UseZoomReturn {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Calculate visible elements based on viewport
   const visibleElements = getVisibleElements(elements, viewport);
 
   const updateCanvasSize = useCallback(() => {
@@ -136,7 +134,6 @@ export function useZoom(elements: DriplElement[]): UseZoomReturn {
         );
 
         if (center) {
-          // Zoom around center point
           const dx = prev.x + (center.x * prev.zoom) - (center.x * boundedZoom);
           const dy = prev.y + (center.y * prev.zoom) - (center.y * boundedZoom);
           
