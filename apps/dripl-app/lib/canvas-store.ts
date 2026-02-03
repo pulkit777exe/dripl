@@ -3,7 +3,6 @@ import type { DriplElement } from "@dripl/common";
 import { initializeShapeRegistry } from "@/utils/shapes/shapeInitializer";
 import { shapeRegistry } from "@/utils/shapes/ShapeRegistry";
 
-// Initialize shape registry on store creation
 initializeShapeRegistry();
 
 export interface RemoteUser {

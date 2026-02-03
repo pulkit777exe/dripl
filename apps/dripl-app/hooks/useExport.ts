@@ -7,19 +7,13 @@ export type ExportFormat = "png" | "svg" | "json" | "clipboard";
 
 interface ExportOptions {
   format: ExportFormat;
-  quality?: number; // for PNG (0-1)
+  quality?: number;
   includeBackground?: boolean;
   selectedOnly?: boolean;
   scale?: number;
 }
 
-/**
- * Hook for exporting canvas content in various formats
- */
 export function useExport() {
-  /**
-   * Export elements to JSON string
-   */
   const toJSON = useCallback(
     (elements: DriplElement[], pretty: boolean = true): string => {
       const exportData = {
@@ -36,9 +30,6 @@ export function useExport() {
     [],
   );
 
-  /**
-   * Export canvas to PNG blob
-   */
   const toPNG = useCallback(
     async (
       canvas: HTMLCanvasElement,
@@ -46,7 +37,6 @@ export function useExport() {
     ): Promise<Blob> => {
       const { quality = 1, scale = 2 } = options;
 
-      // Create scaled canvas for higher resolution
       const scaledCanvas = document.createElement("canvas");
       scaledCanvas.width = canvas.width * scale;
       scaledCanvas.height = canvas.height * scale;
@@ -71,9 +61,6 @@ export function useExport() {
     [],
   );
 
-  /**
-   * Export to SVG (simplified - actual implementation would be more complex)
-   */
   const toSVG = useCallback(
     (elements: DriplElement[], width: number, height: number): string => {
       const visibleElements = elements.filter((el) => !el.isDeleted);
@@ -117,7 +104,7 @@ export function useExport() {
           font-size="${"fontSize" in element ? element.fontSize : 16}px">${element.text}</text>`;
             }
             break;
-          // Add more element types as needed
+          // Add more element types
         }
       }
 
@@ -130,9 +117,6 @@ export function useExport() {
     [],
   );
 
-  /**
-   * Copy to clipboard (JSON format)
-   */
   const toClipboard = useCallback(
     async (elements: DriplElement[]): Promise<void> => {
       const json = JSON.stringify({
@@ -145,9 +129,6 @@ export function useExport() {
     [],
   );
 
-  /**
-   * Download file helper
-   */
   const downloadFile = useCallback(
     (content: Blob | string, filename: string): void => {
       const blob =
@@ -166,9 +147,6 @@ export function useExport() {
     [],
   );
 
-  /**
-   * Main export function
-   */
   const exportCanvas = useCallback(
     async (
       elements: DriplElement[],

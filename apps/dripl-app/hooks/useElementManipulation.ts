@@ -41,19 +41,16 @@ export function useElementManipulation({
       const idsToMove = elementIds || Array.from(selectedIds);
       let hasChanges = false;
 
-      // First, find all elements to move including linked labels
       const allIdsToMove = new Set<string>();
       
       idsToMove.forEach((id) => {
         allIdsToMove.add(id);
         
-        // Find label associated with this arrow
         const element = elements.find((el) => el.id === id);
         if (element && element.type === "arrow" && (element as any).labelId) {
           allIdsToMove.add((element as any).labelId);
         }
         
-        // Find container associated with this label
         if (element && element.type === "text" && (element as any).containerId) {
           allIdsToMove.add((element as any).containerId);
         }
@@ -248,7 +245,6 @@ export function useElementManipulation({
       const idsToDuplicate = elementIds || Array.from(selectedIds);
       const offset = 10;
       
-      // First, find all elements to duplicate including linked labels
       const allElementsToDuplicate: DriplElement[] = [];
       
       idsToDuplicate.forEach((id) => {
@@ -256,7 +252,6 @@ export function useElementManipulation({
         if (element) {
           allElementsToDuplicate.push(element);
           
-          // Find label associated with this arrow
           if (element && element.type === "arrow" && (element as any).labelId) {
             const label = elements.find((el) => el.id === (element as any).labelId);
             if (label) {
@@ -266,7 +261,6 @@ export function useElementManipulation({
         }
       });
 
-      // Create a map to track new IDs for linked elements
       const idMap = new Map<string, string>();
       
       allElementsToDuplicate.forEach((element) => {
@@ -286,7 +280,6 @@ export function useElementManipulation({
           }));
         }
 
-        // Update references to linked elements
         if (duplicated.type === "arrow" && (duplicated as any).labelId) {
           (duplicated as any).labelId = idMap.get((duplicated as any).labelId) || (duplicated as any).labelId;
         }
@@ -313,7 +306,6 @@ export function useElementManipulation({
     const idsToDelete = Array.from(selectedIds);
     if (idsToDelete.length === 0) return;
 
-    // Find all linked labels to delete
     const allIdsToDelete = new Set<string>(idsToDelete);
     
     idsToDelete.forEach((id) => {
