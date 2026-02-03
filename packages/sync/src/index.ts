@@ -30,11 +30,9 @@ export class SyncClient {
       try {
         const message: SyncMessage = JSON.parse(event.data);
 
-        // Call type-specific handlers
         const typeHandlers = this.handlers.get(message.type) || [];
         typeHandlers.forEach((handler) => handler(message));
 
-        // Call global handlers
         const allHandlers = this.handlers.get("all") || [];
         allHandlers.forEach((handler) => handler(message));
       } catch (error) {
