@@ -174,16 +174,15 @@ export function useDrawingTools(): UseDrawingToolsReturn {
             ...toolState,
             state: { ...toolState.state, points: newPoints },
           });
-          setCurrentPreview(
-            createArrowElement(
-              { ...toolState.state, points: newPoints },
-              {
-                id: uuidv4(),
-                ...baseProps,
-                seed: Math.floor(Math.random() * 1000000),
-              }
-            )
-          );
+           const { arrow } = createArrowElement(
+             { ...toolState.state, points: newPoints },
+             {
+               id: uuidv4(),
+               ...baseProps,
+               seed: Math.floor(Math.random() * 1000000),
+             }
+           );
+           setCurrentPreview(arrow);
           break;
         }
         case "line": {

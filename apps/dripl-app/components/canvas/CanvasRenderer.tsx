@@ -20,6 +20,7 @@ interface CanvasRendererProps {
   eraserPath: Array<{ x: number; y: number }>;
   viewport: Viewport;
   onFrameRequest?: () => void;
+  theme?: "light" | "dark";
 }
 
 /**
@@ -35,6 +36,7 @@ export function useCanvasRenderer({
   eraserPath,
   viewport,
   onFrameRequest,
+  theme = "dark",
 }: CanvasRendererProps) {
   const roughCanvasRef = useRef<RoughCanvas | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
@@ -134,11 +136,11 @@ export function useCanvasRenderer({
     ctx.scale(viewport.zoom, viewport.zoom);
 
     // Render all visible elements
-    renderRoughElements(rc, ctx, visibleElements);
+    renderRoughElements(rc, ctx, visibleElements, theme);
 
     // Render current preview element (being drawn)
     if (currentPreview) {
-      renderRoughElements(rc, ctx, [currentPreview]);
+      renderRoughElements(rc, ctx, [currentPreview], theme);
     }
 
     // Render selection highlights

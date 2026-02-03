@@ -27,15 +27,15 @@ interface Point {
 
 interface CanvasProps {
   roomSlug: string;
+  theme: "light" | "dark";
 }
 
-export default function RoughCanvas({ roomSlug }: CanvasProps) {
+export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null!);
   const containerRef = useRef<HTMLDivElement>(null!);
 
   const [userName, setUserName] = useState<string | null>(null);
 
-  // Interaction State
   const [isDrawing, setIsDrawing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -140,6 +140,7 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     currentPreview: currentElement || drawingPreview,
     eraserPath,
     viewport,
+    theme,
   });
 
   const getCanvasCoordinates = useCallback(
@@ -461,7 +462,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
         height: newHeight,
       };
 
-      // Scale points for linear elements
       if (
         "points" in updatedElement &&
         initialElement &&
@@ -519,7 +519,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
       const dx = x - lastPointerPos.x;
       const dy = y - lastPointerPos.y;
 
-      // Move selected elements
       elements.forEach((el) => {
         if (el.id && selectedIds.has(el.id)) {
           const updatedElement = {
@@ -528,7 +527,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
             y: el.y + dy,
           };
 
-          // Move points for path based elements
           if ("points" in updatedElement && updatedElement.points) {
             updatedElement.points = updatedElement.points.map((p) => ({
               x: p.x + dx,
@@ -540,7 +538,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
         updateElement(el.id, updatedElement);
       }
 
-          // Broadcast update (throttled in real app, here direct)
           send({
             type: "update_element",
             element: updatedElement,
@@ -560,7 +557,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
       return;
     }
 
-    // Update drawing tools
     if (
       isToolDrawing &&
       (activeTool === "rectangle" ||
@@ -574,7 +570,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
       return;
     }
 
-    // Fallback for old tool implementation
     if (currentElement) {
       if (activeTool === "rectangle" || activeTool === "ellipse") {
         const width = x - currentElement.x;
@@ -648,17 +643,8 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
 
     if (isDrawing) {
       if (activeTool === "eraser") {
-        // Eraser logic (omitted intersection check for brevity, assumed separate function or same logic)
-        // ... Re-implementing simplified logic here or using helper
-        // Since I'm overwriting, I should include the logic.
-
-        // Find elements intersecting eraser path
-        // I need to implement findElementsInEraserPath logic again or reuse
         const elementsToErase: string[] = [];
         elements.forEach((element) => {
-          // Check intersection (simplified for now to bounding box)
-          // Real implementation would use segment intersection
-          // For now let's just use point in element
           for (const point of eraserPath) {
             if (isPointInElement(point, element)) {
               if (element.id) {
@@ -686,7 +672,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
         return;
       }
 
-      // Finish drawing with new tools
       if (isToolDrawing) {
         const finishedElement = finishDrawing();
         if (finishedElement) {
@@ -702,7 +687,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
         return;
       }
 
-      // Fallback for old implementation
       if (currentElement) {
         addElement(currentElement);
         pushHistory();
@@ -717,7 +701,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     }
   };
 
-  // Text submit handler
   const handleTextSubmit = (text: string) => {
     if (!textInput || !text.trim()) {
       setTextInput(null);
@@ -750,7 +733,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
     setTextInput(null);
   };
 
-  // Viewport size update handler
   useEffect(() => {
     const updateViewportSize = () => {
       if (containerRef.current) {
@@ -793,7 +775,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
 
       {!userName && <NameInputModal onSubmit={handleNameSubmit} />}
 
-      {/* Properties Panel */}
       <div className="absolute top-6 right-6 z-20">
         <PropertiesPanel
           selectedElement={selectedIds.size === 1 ? elements.find(el => el.id === Array.from(selectedIds)[0]) || null : null}
@@ -836,7 +817,6 @@ export default function RoughCanvas({ roomSlug }: CanvasProps) {
         />
       )}
 
-      {/* Basic Connection Status */}
       <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-sm bg-background/80 backdrop-blur-sm border">
         {isConnected ? (
           <span className="text-green-600">● Connected</span>

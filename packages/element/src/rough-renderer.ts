@@ -7,10 +7,28 @@ export type Drawable = any;
 
 const generator = rough.generator();
 
+// Offscreen canvas for performance optimization
+let offscreenCanvas: HTMLCanvasElement | null = null;
+let offscreenContext: CanvasRenderingContext2D | null = null;
+let offscreenRoughCanvas: RoughCanvas | null = null;
+
 export function createRoughCanvas(
   canvas: HTMLCanvasElement,
 ): RoughCanvas | null {
   try {
+    // Create offscreen canvas for performance optimization
+    if (!offscreenCanvas) {
+      offscreenCanvas = document.createElement("canvas");
+      offscreenContext = offscreenCanvas.getContext("2d");
+      offscreenRoughCanvas = rough.canvas(offscreenCanvas);
+    }
+    
+    // Ensure offscreen canvas matches size of main canvas
+    if (offscreenCanvas && canvas.width !== offscreenCanvas.width || canvas.height !== offscreenCanvas.height) {
+      offscreenCanvas.width = canvas.width;
+      offscreenCanvas.height = canvas.height;
+    }
+    
     return rough.canvas(canvas);
   } catch (e) {
     console.error("Failed to create Rough canvas", e);
@@ -104,6 +122,8 @@ export function renderRoughElement(
   rc: RoughCanvas,
   ctx: CanvasRenderingContext2D,
   element: DriplElement,
+  elements?: DriplElement[], // Added for label rendering
+  theme: "light" | "dark" = "dark", // Added for theme support
 ): void {
   if (element.isDeleted) return;
 
@@ -126,13 +146,35 @@ export function renderRoughElement(
     setShapeInCache(element as any, shape);
   }
   
-   const isLinear =
-     element.type === "line" ||
-     element.type === "arrow" ||
-     element.type === "freedraw";
+  const isLinear =
+    element.type === "line" ||
+    element.type === "arrow" ||
+    element.type === "freedraw";
 
-   // Always translate to element's position
-   ctx.translate(x, y);
+  // Always translate to element's position
+  ctx.translate(x, y);
+
+  // For labeled arrows, we need to create a hole for the label
+  if (element.type === "arrow" && (element as any).labelId && elements) {
+    const label = elements.find(el => el.id === (element as any).labelId);
+    
+    if (label && label.type === "text") {
+      // Calculate the bounds of the label in the arrow's coordinate system
+      const labelBounds = {
+        x: label.x - x,
+        y: label.y - y,
+        width: label.width,
+        height: label.height,
+      };
+      
+      // Create a hole in the arrow for the label
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = theme === "dark" ? "#0f0f13" : "#f8f9fa";
+      ctx.fillRect(labelBounds.x, labelBounds.y, labelBounds.width, labelBounds.height);
+      ctx.restore();
+    }
+  }
 
   if (Array.isArray(shape)) {
     shape.forEach((s) => rc.draw(s));
@@ -147,8 +189,24 @@ export function renderRoughElements(
   rc: RoughCanvas,
   ctx: CanvasRenderingContext2D,
   elements: DriplElement[],
+  theme: "light" | "dark" = "dark",
 ): void {
-  for (const el of elements) {
-    renderRoughElement(rc, ctx, el);
+  // Use offscreen canvas for rendering if available
+  if (offscreenCanvas && offscreenContext && offscreenRoughCanvas) {
+    // Clear offscreen canvas
+    offscreenContext.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+    
+    // Render elements to offscreen canvas
+    for (const el of elements) {
+      renderRoughElement(offscreenRoughCanvas, offscreenContext, el, elements, theme);
+    }
+    
+    // Copy offscreen canvas to main canvas
+    ctx.drawImage(offscreenCanvas, 0, 0);
+  } else {
+    // Fallback to direct rendering if offscreen canvas not available
+    for (const el of elements) {
+      renderRoughElement(rc, ctx, el, elements, theme);
+    }
   }
 }

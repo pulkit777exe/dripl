@@ -41,7 +41,25 @@ export function useElementManipulation({
       const idsToMove = elementIds || Array.from(selectedIds);
       let hasChanges = false;
 
+      // First, find all elements to move including linked labels
+      const allIdsToMove = new Set<string>();
+      
       idsToMove.forEach((id) => {
+        allIdsToMove.add(id);
+        
+        // Find label associated with this arrow
+        const element = elements.find((el) => el.id === id);
+        if (element && element.type === "arrow" && (element as any).labelId) {
+          allIdsToMove.add((element as any).labelId);
+        }
+        
+        // Find container associated with this label
+        if (element && element.type === "text" && (element as any).containerId) {
+          allIdsToMove.add((element as any).containerId);
+        }
+      });
+
+      allIdsToMove.forEach((id) => {
         const element = elements.find((el) => el.id === id);
         if (!element) return;
 
@@ -229,11 +247,29 @@ export function useElementManipulation({
     (elementIds?: string[]) => {
       const idsToDuplicate = elementIds || Array.from(selectedIds);
       const offset = 10;
-
+      
+      // First, find all elements to duplicate including linked labels
+      const allElementsToDuplicate: DriplElement[] = [];
+      
       idsToDuplicate.forEach((id) => {
         const element = elements.find((el) => el.id === id);
-        if (!element) return;
+        if (element) {
+          allElementsToDuplicate.push(element);
+          
+          // Find label associated with this arrow
+          if (element && element.type === "arrow" && (element as any).labelId) {
+            const label = elements.find((el) => el.id === (element as any).labelId);
+            if (label) {
+              allElementsToDuplicate.push(label);
+            }
+          }
+        }
+      });
 
+      // Create a map to track new IDs for linked elements
+      const idMap = new Map<string, string>();
+      
+      allElementsToDuplicate.forEach((element) => {
         const duplicated: DriplElement = {
           ...element,
           id: uuidv4(),
@@ -241,11 +277,21 @@ export function useElementManipulation({
           y: element.y + offset,
         };
 
+        idMap.set(element.id, duplicated.id);
+
         if ("points" in duplicated && duplicated.points) {
           duplicated.points = duplicated.points.map((p: { x: number; y: number }) => ({
             x: p.x + offset,
             y: p.y + offset,
           }));
+        }
+
+        // Update references to linked elements
+        if (duplicated.type === "arrow" && (duplicated as any).labelId) {
+          (duplicated as any).labelId = idMap.get((duplicated as any).labelId) || (duplicated as any).labelId;
+        }
+        if (duplicated.type === "text" && (duplicated as any).containerId) {
+          (duplicated as any).containerId = idMap.get((duplicated as any).containerId) || (duplicated as any).containerId;
         }
 
         addElement(duplicated);
@@ -267,8 +313,18 @@ export function useElementManipulation({
     const idsToDelete = Array.from(selectedIds);
     if (idsToDelete.length === 0) return;
 
-    deleteElements(idsToDelete);
+    // Find all linked labels to delete
+    const allIdsToDelete = new Set<string>(idsToDelete);
+    
     idsToDelete.forEach((id) => {
+      const element = elements.find((el) => el.id === id);
+      if (element && element.type === "arrow" && (element as any).labelId) {
+        allIdsToDelete.add((element as any).labelId);
+      }
+    });
+
+    deleteElements(Array.from(allIdsToDelete));
+    allIdsToDelete.forEach((id) => {
       send?.({
         type: "delete_element",
         elementId: id,

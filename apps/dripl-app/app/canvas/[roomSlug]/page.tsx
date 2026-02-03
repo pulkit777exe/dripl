@@ -5,6 +5,7 @@ import RoughCanvas from "@/components/canvas/RoughCanvas";
 import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
 import { PropertiesPanel } from "@/components/canvas/PropertiesPanel";
 import { CanvasControls } from "@/components/canvas/CanvasControls";
+import { useTheme } from "@/hooks/useTheme";
 
 interface CanvasRoomPageProps {
   params: Promise<{
@@ -14,9 +15,12 @@ interface CanvasRoomPageProps {
 
 export default function CanvasRoomPage({ params }: CanvasRoomPageProps) {
   const { roomSlug } = React.use(params);
+  const { effectiveTheme } = useTheme();
   
   return (
-    <div className="w-screen h-dvh relative overflow-hidden bg-[#0f0f13]">
+    <div className={`w-screen h-dvh relative overflow-hidden ${
+      effectiveTheme === "dark" ? "bg-[#0f0f13]" : "bg-[#f8f9fa]"
+    }`}>
       {/* Background texture */}
       <div className="absolute inset-0 opacity-10 pointer-events-none"
            style={{
@@ -25,7 +29,7 @@ export default function CanvasRoomPage({ params }: CanvasRoomPageProps) {
       />
       
       {/* Main canvas content */}
-      <RoughCanvas roomSlug={roomSlug} />
+      <RoughCanvas roomSlug={roomSlug} theme={effectiveTheme} />
       
       {/* Toolbar with enhanced styling */}
       <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20">
@@ -38,8 +42,12 @@ export default function CanvasRoomPage({ params }: CanvasRoomPageProps) {
       </div>
       
       {/* Decorative elements */}
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#6965db] to-transparent opacity-30 pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#6965db] to-transparent opacity-30 pointer-events-none" />
+      <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[${
+        effectiveTheme === "dark" ? "#6965db" : "#4f46e5"
+      }] to-transparent opacity-30 pointer-events-none`} />
+      <div className={`absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[${
+        effectiveTheme === "dark" ? "#6965db" : "#4f46e5"
+      }] to-transparent opacity-30 pointer-events-none`} />
     </div>
   );
 }

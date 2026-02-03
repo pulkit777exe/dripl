@@ -19,7 +19,10 @@ export interface RemoteCursor {
   color: string;
 }
 
+export type Theme = "light" | "dark" | "system";
+
 export interface CanvasState {
+  theme: Theme;
   roomId: string | null;
   roomSlug: string | null;
   isConnected: boolean;
@@ -84,6 +87,7 @@ export interface CanvasState {
 
   setZoom: (zoom: number) => void;
   setPan: (panX: number, panY: number) => void;
+  setTheme: (theme: Theme) => void;
 
   setCurrentStrokeColor: (color: string) => void;
   setCurrentBackgroundColor: (color: string) => void;
@@ -106,6 +110,7 @@ export interface CanvasState {
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
+  theme: "system",
   roomId: null,
   roomSlug: null,
   isConnected: false,
@@ -200,6 +205,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(10, zoom)) }),
   setPan: (panX, panY) => set({ panX, panY }),
+  setTheme: (theme: Theme) => set({ theme }),
 
   setCurrentStrokeColor: (color) => set({ currentStrokeColor: color }),
   setCurrentBackgroundColor: (color) => set({ currentBackgroundColor: color }),
