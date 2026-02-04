@@ -1,6 +1,6 @@
 "use client";
 
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -21,21 +21,47 @@ export function ThemeToggle() {
     );
   }
 
+  const toggleTheme = () => {
+    if (theme === "light") {
+      setTheme("dark");
+    } else if (theme === "dark") {
+      setTheme("system");
+    } else {
+      setTheme("light");
+    }
+  };
+
+  const getThemeIcon = () => {
+    if (theme === "dark") {
+      return <Sun className="w-4 h-4" />;
+    } else if (theme === "light") {
+      return <Moon className="w-4 h-4" />;
+    } else {
+      return <Monitor className="w-4 h-4" />;
+    }
+  };
+
+  const getThemeLabel = () => {
+    if (theme === "dark") {
+      return "Switch to light mode";
+    } else if (theme === "light") {
+      return "Switch to dark mode";
+    } else {
+      return "Switch to system mode";
+    }
+  };
+
   return (
     <button
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      onClick={toggleTheme}
       className={cn(
         "p-2 rounded-lg transition-all duration-200",
         "bg-card hover:bg-accent border border-border",
         "text-foreground hover:text-accent-foreground"
       )}
-      title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+      title={getThemeLabel()}
     >
-      {theme === "dark" ? (
-        <Sun className="w-4 h-4" />
-      ) : (
-        <Moon className="w-4 h-4" />
-      )}
+      {getThemeIcon()}
     </button>
   );
 }

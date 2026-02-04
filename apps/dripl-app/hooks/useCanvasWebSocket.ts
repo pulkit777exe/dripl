@@ -68,7 +68,7 @@ type WebSocketMessage =
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
 
 export function useCanvasWebSocket(
-  roomSlug: string,
+  roomSlug: string | null,
   userName: string | null,
   authToken?: string | null
 ) {
@@ -91,6 +91,18 @@ export function useCanvasWebSocket(
     (state) => state.updateRemoteCursor
   );
   const elements = useCanvasStore((state) => state.elements);
+
+  // If no roomSlug, return dummy implementation that doesn't connect to server
+  if (roomSlug === null) {
+    const dummySend = useCallback((message: Record<string, unknown>) => {
+      // Do nothing for local mode
+    }, []);
+
+    return {
+      send: dummySend,
+      isConnected: false,
+    };
+  }
 
   const send = useCallback((message: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

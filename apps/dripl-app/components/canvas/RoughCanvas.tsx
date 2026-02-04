@@ -3,6 +3,11 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useCanvasStore } from "@/lib/canvas-store";
 import { useCanvasWebSocket } from "@/hooks/useCanvasWebSocket";
+import { 
+  saveLocalCanvasToStorage, 
+  loadLocalCanvasFromStorage, 
+  LocalCanvasState 
+} from "@/utils/localCanvasStorage";
 import { isPointInElement } from "@dripl/math";
 import {
   handleClickSelectionWithElements,
@@ -26,7 +31,7 @@ interface Point {
 }
 
 interface CanvasProps {
-  roomSlug: string;
+  roomSlug: string | null;
   theme: "light" | "dark";
 }
 
@@ -101,6 +106,84 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const panY = useCanvasStore((state) => state.panY);
   const setPan = useCanvasStore((state) => state.setPan);
   const setZoom = useCanvasStore((state) => state.setZoom);
+
+  useEffect(() => {
+    if (roomSlug === null) {
+      console.log("Local canvas mode: loading from storage");
+      const { elements: savedElements, appState } = loadLocalCanvasFromStorage();
+      
+      if (savedElements) {
+        console.log("Loaded elements from storage:", savedElements);
+        setElements(savedElements);
+      }
+
+      if (appState) {
+        console.log("Loaded app state from storage:", appState);
+        if (appState.theme) useCanvasStore.getState().setTheme(appState.theme as any);
+        if (appState.zoom) useCanvasStore.getState().setZoom(appState.zoom);
+        if (appState.panX !== undefined && appState.panY !== undefined) {
+          useCanvasStore.getState().setPan(appState.panX, appState.panY);
+        }
+
+        if (appState.currentStrokeColor)
+          useCanvasStore.getState().setCurrentStrokeColor(appState.currentStrokeColor);
+        if (appState.currentBackgroundColor)
+          useCanvasStore.getState().setCurrentBackgroundColor(appState.currentBackgroundColor);
+        if (appState.currentStrokeWidth)
+          useCanvasStore.getState().setCurrentStrokeWidth(appState.currentStrokeWidth);
+        if (appState.currentRoughness)
+          useCanvasStore.getState().setCurrentRoughness(appState.currentRoughness);
+        if (appState.currentStrokeStyle)
+          useCanvasStore.getState().setCurrentStrokeStyle(appState.currentStrokeStyle as any);
+        if (appState.currentFillStyle)
+          useCanvasStore.getState().setCurrentFillStyle(appState.currentFillStyle as any);
+        if (appState.activeTool)
+          useCanvasStore.getState().setActiveTool(appState.activeTool as any);
+      }
+    }
+  }, [roomSlug]);
+
+  useEffect(() => {
+    if (roomSlug === null) {
+      const appState: LocalCanvasState = {
+        theme,
+        zoom,
+        panX,
+        panY,
+        currentStrokeColor,
+        currentBackgroundColor,
+        currentStrokeWidth,
+        currentRoughness,
+        currentStrokeStyle,
+        currentFillStyle,
+        activeTool,
+      };
+
+      console.log("Local canvas mode: saving to storage");
+      console.log("Elements to save:", elements);
+      console.log("State to save:", appState);
+
+      const timeoutId = setTimeout(() => {
+        saveLocalCanvasToStorage(elements, appState);
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [
+    roomSlug,
+    elements,
+    theme,
+    zoom,
+    panX,
+    panY,
+    currentStrokeColor,
+    currentBackgroundColor,
+    currentStrokeWidth,
+    currentRoughness,
+    currentStrokeStyle,
+    currentFillStyle,
+    activeTool,
+  ]);
 
   const { send, isConnected } = useCanvasWebSocket(roomSlug, userName);
 
@@ -598,9 +681,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
   };
 
-  // Handle pointer up
   const handlePointerUp = (e?: React.PointerEvent) => {
-    // End marquee selection
     if (marqueeSelection?.active) {
       handleMarqueeSelectionEnd(
         marqueeSelection,
@@ -750,6 +831,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       className="relative w-full h-full"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      style={{ 
+        backgroundColor: theme === "dark" ? "#121212" : "#f8f9fa"
+      }}
     >
       <canvas
         ref={canvasRef}
@@ -773,7 +857,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       <CollaboratorsList />
 
-      {!userName && <NameInputModal onSubmit={handleNameSubmit} />}
+      {!userName && roomSlug !== null && <NameInputModal onSubmit={handleNameSubmit} />}
 
       <div className="absolute top-6 right-6 z-20">
         <PropertiesPanel

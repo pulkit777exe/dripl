@@ -46,6 +46,7 @@ import {
   Library,
   Globe,
 } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 import { IconButton } from "../button/IconButton";
 import {
   CanvasElement,
@@ -257,23 +258,47 @@ const HelpModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
-// --- Main Application Component ---
 export default function App() {
-  // UI State
   const [activeTool, setActiveTool] = useState("select");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark" | "system">("dark");
+  const { theme, setTheme, effectiveTheme } = useTheme();
 
-  // Canvas State
   const [elements, setElements] = useState<CanvasElement[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [zoom, setZoom] = useState(100);
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
-  const [canvasBg, setCanvasBg] = useState("#121212");
+  const [canvasBg, setCanvasBg] = useState<string>(() => {
+    console.log("Canvas.tsx canvasBg initializer");
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const themeParam = params.get("theme");
+      console.log("Canvas.tsx theme parameter:", themeParam);
+      if (themeParam === "dark") {
+        return "#121212";
+      } else if (themeParam === "light") {
+        return "#f8f9fa";
+      }
+    }
+    const canvasBgDefault = effectiveTheme === "dark" ? "#121212" : "#f8f9fa";
+    console.log("Canvas.tsx fallback canvasBg:", canvasBgDefault);
+    return canvasBgDefault;
+  });
 
-  // Drawing State
+  useEffect(() => {
+    console.log("Canvas.tsx useEffect effectiveTheme:", effectiveTheme);
+    const params = new URLSearchParams(window.location.search);
+    const themeParam = params.get("theme");
+    if (themeParam === "dark") {
+      setCanvasBg("#121212");
+    } else if (themeParam === "light") {
+      setCanvasBg("#f8f9fa");
+    } else {
+      setCanvasBg(effectiveTheme === "dark" ? "#121212" : "#f8f9fa");
+    }
+  }, [effectiveTheme]);
+
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
   const [currentElement, setCurrentElement] = useState<CanvasElement | null>(
@@ -282,7 +307,6 @@ export default function App() {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState<Point | null>(null);
 
-  // Move/Rotate State
   const [isMoving, setIsMoving] = useState(false);
   const [moveStart, setMoveStart] = useState<Point | null>(null);
   const [moveOffset, setMoveOffset] = useState<Point>({ x: 0, y: 0 });
@@ -293,7 +317,6 @@ export default function App() {
   } | null>(null);
   const [rotateOffset, setRotateOffset] = useState(0);
 
-  // Resize State
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [resizeStart, setResizeStart] = useState<{
@@ -301,7 +324,6 @@ export default function App() {
     element: CanvasElement;
   } | null>(null);
 
-  // Default drawing properties
   const [strokeColor, setStrokeColor] = useState("#ffffff");
   const [backgroundColor, setBackgroundColor] = useState("transparent");
   const [strokeWidth, setStrokeWidth] = useState(2);
@@ -313,20 +335,17 @@ export default function App() {
   const [opacity, setOpacity] = useState(100);
   const [tick, setTick] = useState(0);
 
-  // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef(new CanvasHistory());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const eraserTrailRef = useRef<EraserTrail | null>(null);
 
-  // Load from local storage on mount
   useEffect(() => {
     const { elements: savedElements, appState } = loadFromLocalStorage();
 
     if (savedElements) {
       setElements(savedElements);
-      // Initialize history with loaded elements
       historyRef.current = new CanvasHistory();
       historyRef.current.pushState({
         elements: savedElements,
@@ -343,7 +362,6 @@ export default function App() {
       }
       if (appState.zoom) setZoom(appState.zoom.value);
 
-      // Restore tool properties
       if (appState.currentItemStrokeColor)
         setStrokeColor(appState.currentItemStrokeColor);
       if (appState.currentItemBackgroundColor)
@@ -360,7 +378,6 @@ export default function App() {
     }
   }, []);
 
-  // Save to local storage on change
   useEffect(() => {
     const appState: Partial<AppState> = {
       theme,
@@ -383,7 +400,6 @@ export default function App() {
       },
     };
 
-    // Debounce saving to avoid performance issues
     const timeoutId = setTimeout(() => {
       saveToLocalStorage(elements, appState);
     }, 500);
@@ -405,7 +421,6 @@ export default function App() {
     activeTool,
   ]);
 
-  // Color palettes
   const strokeColors = [
     "#ffc9c9",
     "#b2f2bb",
@@ -436,18 +451,15 @@ export default function App() {
     "#2e2e3a",
   ];
 
-  // Get selected element
   const selectedElement =
     selectedIds.length === 1
       ? elements.find((el) => el.id === selectedIds[0])
       : null;
 
-  // Save state to history
   const saveHistory = useCallback(() => {
     historyRef.current.pushState({ elements, selectedIds });
   }, [elements, selectedIds]);
 
-  // Render canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -455,26 +467,21 @@ export default function App() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set canvas size
     const container = containerRef.current;
     if (container) {
       canvas.width = container.clientWidth;
       canvas.height = container.clientHeight;
     }
 
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Apply zoom and pan
     ctx.save();
     ctx.translate(pan.x, pan.y);
     ctx.scale(zoom / 100, zoom / 100);
 
-    // Draw all elements
     elements.forEach((element) => {
       const isSelected = selectedIds.includes(element.id);
 
-      // Apply temporary offsets for smooth dragging
       let renderElement = element;
       if (isMoving && isSelected) {
         renderElement = {
@@ -500,17 +507,14 @@ export default function App() {
       drawShape(ctx, renderElement, isSelected);
     });
 
-    // Draw current element being drawn
     if (currentElement) {
       drawShape(ctx, currentElement, false);
     }
 
-    // Initialize eraser trail if needed
     if (!eraserTrailRef.current) {
       eraserTrailRef.current = new EraserTrail(ctx);
     }
 
-    // Render eraser trail
     eraserTrailRef.current?.render(pan, zoom / 100);
 
     ctx.restore();
@@ -528,7 +532,6 @@ export default function App() {
     tick,
   ]);
 
-  // Animation loop for eraser
   useEffect(() => {
     if (activeTool === "eraser" && isDrawing) {
       let animationFrameId: number;
@@ -546,7 +549,6 @@ export default function App() {
     }
   }, [activeTool, isDrawing]);
 
-  // Get canvas coordinates from mouse event
   const getCanvasPoint = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>): Point => {
       const canvas = canvasRef.current;
@@ -561,26 +563,22 @@ export default function App() {
     [zoom, pan]
   );
 
-  // Mouse down handler
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const point = getCanvasPoint(e);
 
-      // Check if panning (hand tool)
       if (activeTool === "hand") {
         setIsPanning(true);
         setPanStart(point);
         return;
       }
 
-      // Check if erasing
       if (activeTool === "eraser") {
         eraserTrailRef.current?.startPath(point.x, point.y);
         setIsDrawing(true);
         return;
       }
 
-      // Check if clicking on an element (selection mode)
       if (activeTool === "select") {
         const clickedElement = [...elements]
           .reverse()
@@ -588,24 +586,19 @@ export default function App() {
 
         if (clickedElement) {
           if (e.shiftKey) {
-            // Add to selection
             setSelectedIds((prev) => [...prev, clickedElement.id]);
           } else if (!selectedIds.includes(clickedElement.id)) {
-            // Select single element
             setSelectedIds([clickedElement.id]);
           }
         } else {
-          // Deselect all
           setSelectedIds([]);
         }
         return;
       }
 
-      // Start drawing
       setIsDrawing(true);
       setStartPoint(point);
 
-      // Create initial element based on tool
       const newElement: CanvasElement = {
         id: generateId(),
         type: activeTool as any,
@@ -645,7 +638,6 @@ export default function App() {
     ]
   );
 
-  // Handle resize start
   const handleResizeStart = useCallback(
     (e: React.MouseEvent, handle: string, elementId: string) => {
       e.stopPropagation();
@@ -668,7 +660,6 @@ export default function App() {
     [elements]
   );
 
-  // Handle resize
   const handleResize = useCallback(
     (e: React.MouseEvent) => {
       if (!isResizing || !resizeStart || !resizeHandle) return;
@@ -682,7 +673,6 @@ export default function App() {
         y: e.clientY - rect.top,
       };
 
-      // Calculate delta in canvas coordinates
       const dx = ((currentPoint.x - resizeStart.point.x) * 100) / zoom;
       const dy = ((currentPoint.y - resizeStart.point.y) * 100) / zoom;
 
@@ -692,7 +682,6 @@ export default function App() {
       let newWidth = original.width;
       let newHeight = original.height;
 
-      // Apply resize based on handle
       if (resizeHandle.includes("left")) {
         newX = original.x + dx;
         newWidth = original.width - dx;
@@ -708,7 +697,6 @@ export default function App() {
         newHeight = original.height + dy;
       }
 
-      // Handle negative dimensions (flipping)
       if (newWidth < 0) {
         newX += newWidth;
         newWidth = Math.abs(newWidth);
@@ -736,7 +724,6 @@ export default function App() {
     [isResizing, resizeStart, resizeHandle, zoom]
   );
 
-  // Handle resize end
   const handleResizeEnd = useCallback(() => {
     if (isResizing) {
       setIsResizing(false);
@@ -746,16 +733,13 @@ export default function App() {
     }
   }, [isResizing, saveHistory]);
 
-  // Mouse move handler
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      // Handle resizing
       if (isResizing) {
         handleResize(e);
         return;
       }
 
-      // Handle moving
       if (isMoving && moveStart && selectedIds.length > 0) {
         const canvas = canvasRef.current;
         if (canvas) {
@@ -768,13 +752,11 @@ export default function App() {
           const dx = ((currentPoint.x - moveStart.x) * 100) / zoom;
           const dy = ((currentPoint.y - moveStart.y) * 100) / zoom;
 
-          // Only update offset for smooth dragging
           setMoveOffset({ x: dx, y: dy });
         }
         return;
       }
 
-      // Handle rotating
       if (isRotating && rotateStart) {
         const element = elements.find((el) => el.id === rotateStart.elementId);
         if (element) {
@@ -791,7 +773,6 @@ export default function App() {
             const currentAngle = Math.atan2(mouseY - centerY, mouseX - centerX);
             const deltaAngle = currentAngle - rotateStart.angle;
 
-            // Only update offset for smooth rotation
             setRotateOffset(deltaAngle);
           }
         }
@@ -800,7 +781,6 @@ export default function App() {
 
       const point = getCanvasPoint(e);
 
-      // Handle panning
       if (isPanning && panStart) {
         const dx = point.x - panStart.x;
         const dy = point.y - panStart.y;
@@ -808,11 +788,9 @@ export default function App() {
         return;
       }
 
-      // Handle erasing
       if (activeTool === "eraser" && isDrawing) {
         eraserTrailRef.current?.addPoint(point.x, point.y);
 
-        // Check for intersections with elements
         const elementsToRemove: string[] = [];
         elements.forEach((element) => {
           if (isPointInElement(point, element)) {
@@ -824,21 +802,16 @@ export default function App() {
           setElements((prev) =>
             prev.filter((el) => !elementsToRemove.includes(el.id))
           );
-          // We don't save history here to avoid too many history states while dragging
-          // We'll save history on mouse up
         }
         return;
       }
 
-      // Handle drawing
       if (isDrawing && startPoint && currentElement) {
         const updatedElement = { ...currentElement };
 
         if (["arrow", "line", "freedraw"].includes(activeTool)) {
-          // Add point to path
           updatedElement.points = [...(updatedElement.points || []), point];
         } else {
-          // Update dimensions
           const width = point.x - startPoint.x;
           const height = point.y - startPoint.y;
 
@@ -872,7 +845,6 @@ export default function App() {
     ]
   );
 
-  // Mouse up handler
   const handleMouseUp = useCallback(() => {
     if (isPanning) {
       setIsPanning(false);
@@ -893,7 +865,6 @@ export default function App() {
     }
 
     if (isMoving) {
-      // Apply the accumulated offset to the actual elements
       setElements((prev) =>
         prev.map((el) => {
           if (selectedIds.includes(el.id)) {
@@ -919,7 +890,6 @@ export default function App() {
     }
 
     if (isRotating) {
-      // Apply the accumulated rotation to the actual element
       setElements((prev) =>
         prev.map((el) => {
           if (rotateStart && el.id === rotateStart.elementId) {
@@ -940,7 +910,6 @@ export default function App() {
     }
 
     if (isDrawing && currentElement) {
-      // Only add element if it has meaningful size
       const hasSize =
         currentElement.width > 5 ||
         currentElement.height > 5 ||
@@ -957,7 +926,6 @@ export default function App() {
     }
   }, [isDrawing, isPanning, isMoving, isRotating, currentElement, saveHistory]);
 
-  // Handle element move start
   const handleMoveStart = useCallback(
     (e: React.MouseEvent, elementId: string) => {
       e.stopPropagation();
@@ -976,7 +944,6 @@ export default function App() {
     []
   );
 
-  // Handle element move
   const handleMove = useCallback(
     (e: React.MouseEvent) => {
       if (!isMoving || !moveStart || selectedIds.length === 0) return;
@@ -1012,7 +979,6 @@ export default function App() {
     [isMoving, moveStart, selectedIds, zoom]
   );
 
-  // Handle element move end
   const handleMoveEnd = useCallback(() => {
     if (isMoving) {
       setIsMoving(false);
@@ -1021,7 +987,6 @@ export default function App() {
     }
   }, [isMoving, saveHistory]);
 
-  // Handle rotation start
   const handleRotateStart = useCallback(
     (e: React.MouseEvent, elementId: string) => {
       e.stopPropagation();
@@ -1047,7 +1012,6 @@ export default function App() {
     [elements, zoom, pan]
   );
 
-  // Handle rotation
   const handleRotate = useCallback(
     (e: React.MouseEvent) => {
       if (!isRotating || !rotateStart) return;
@@ -1086,7 +1050,6 @@ export default function App() {
     [isRotating, rotateStart, elements, zoom, pan]
   );
 
-  // Handle rotation end
   const handleRotateEnd = useCallback(() => {
     if (isRotating) {
       setIsRotating(false);
@@ -1095,10 +1058,8 @@ export default function App() {
     }
   }, [isRotating, saveHistory]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Tool shortcuts
       if (e.key === "v" || e.key === "1") setActiveTool("select");
       if (e.key === "h") setActiveTool("hand");
       if (e.key === "r" || e.key === "2") setActiveTool("rectangle");
@@ -1110,7 +1071,6 @@ export default function App() {
       if (e.key === "t" || e.key === "8") setActiveTool("text");
       if (e.key === "e" || e.key === "0") setActiveTool("eraser");
 
-      // Delete
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedIds.length > 0) {
           setElements((prev) =>
@@ -1121,7 +1081,6 @@ export default function App() {
         }
       }
 
-      // Undo/Redo
       if (e.ctrlKey || e.metaKey) {
         if (e.key === "z" && !e.shiftKey) {
           e.preventDefault();
@@ -1140,13 +1099,11 @@ export default function App() {
           }
         }
 
-        // Select all
         if (e.key === "a") {
           e.preventDefault();
           setSelectedIds(elements.map((el) => el.id));
         }
 
-        // Copy
         if (e.key === "c" && selectedIds.length > 0) {
           e.preventDefault();
           const selectedElements = elements.filter((el) =>
@@ -1155,7 +1112,6 @@ export default function App() {
           localStorage.setItem("clipboard", JSON.stringify(selectedElements));
         }
 
-        // Paste
         if (e.key === "v") {
           e.preventDefault();
           const clipboard = localStorage.getItem("clipboard");
@@ -1179,7 +1135,6 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedIds, elements, saveHistory]);
 
-  // Update selected element properties
   useEffect(() => {
     if (selectedElement) {
       setStrokeColor(selectedElement.strokeColor);
@@ -1196,7 +1151,6 @@ export default function App() {
     }
   }, [selectedElement]);
 
-  // Apply property changes to selected element
   const updateSelectedElement = useCallback(
     (updates: Partial<CanvasElement>) => {
       if (selectedIds.length > 0) {
@@ -1339,7 +1293,9 @@ export default function App() {
   };
 
   return (
-    <div className="w-screen h-dvh bg-[#121212] text-white overflow-hidden relative font-sans selection:bg-purple-500/30">
+    <div className={`w-screen h-dvh text-${theme === "dark" ? "white" : "gray-900"} overflow-hidden relative font-sans selection:bg-purple-500/30 ${
+      theme === "dark" ? "bg-[#121212]" : "bg-[#f8f9fa]"
+    }`}>
       <input
         ref={fileInputRef}
         type="file"
@@ -1354,7 +1310,10 @@ export default function App() {
             setIsMenuOpen(!isMenuOpen);
             setIsLibraryOpen(false);
           }}
-          className={`p-2 rounded-lg border border-gray-700 shadow-sm transition-colors ${isMenuOpen ? "bg-[#403c66] text-[#a8a5ff]" : "bg-[#232329] hover:bg-[#31303b] text-gray-300"}`}
+          className={`p-2 rounded-lg border border-gray-700 shadow-sm transition-colors ${isMenuOpen 
+            ? (theme === "dark" ? "bg-[#403c66] text-[#a8a5ff]" : "bg-[#e0e7ff] text-[#4f46e5]")
+            : (theme === "dark" ? "bg-[#232329] hover:bg-[#31303b] text-gray-300" : "bg-white hover:bg-gray-100 text-gray-800")
+          }`}
         >
           <Menu size={20} />
         </button>
@@ -1371,7 +1330,11 @@ export default function App() {
       </div>
 
       <div className="absolute top-4 right-4 z-50 flex gap-2">
-        <button className="px-3 py-1.5 bg-[#232329] text-xs font-medium hover:bg-[#31303b] rounded-lg border border-gray-700 text-gray-300 flex items-center gap-1.5">
+        <button className={`px-3 py-1.5 text-xs font-medium hover:bg-opacity-80 rounded-lg border flex items-center gap-1.5 ${
+          theme === "dark" 
+            ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-300"
+            : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
+        }`}>
           <Globe size={14} />
           Dripl+
         </button>
@@ -1379,12 +1342,18 @@ export default function App() {
           <Share2 size={14} />
           Share
         </button>
-        <button className="p-2 bg-[#232329] hover:bg-[#31303b] rounded-lg border border-gray-700 text-gray-400">
+        <button className={`p-2 hover:bg-opacity-80 rounded-lg border text-gray-400 ${
+          theme === "dark" 
+            ? "bg-[#232329] hover:bg-[#31303b] border-gray-700"
+            : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
+        }`}>
           <MoreHorizontal size={18} />
         </button>
       </div>
 
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-[#232329] p-1.5 rounded-xl border border-gray-700 shadow-2xl flex items-center gap-0.5 z-50">
+      <div className={`absolute top-4 left-1/2 -translate-x-1/2 p-1.5 rounded-xl border shadow-2xl flex items-center gap-0.5 z-50 ${
+        theme === "dark" ? "bg-[#232329] border-gray-700" : "bg-white border-gray-200"
+      }`}>
         <IconButton icon={<Lock size={17} />} />
         <div className="w-px h-6 bg-gray-700 mx-1.5" />
         <IconButton
@@ -1449,7 +1418,9 @@ export default function App() {
       </div>
 
       {isMenuOpen && (
-        <div className="absolute top-20 left-4 w-[280px] bg-[#232329] rounded-xl border border-gray-700 shadow-2xl p-3 z-50 flex flex-col max-h-[calc(100vh-100px)]">
+        <div className={`absolute top-20 left-4 w-[280px] rounded-xl border border-gray-700 shadow-2xl p-3 z-50 flex flex-col max-h-[calc(100vh-100px)] ${
+          theme === "dark" ? "bg-[#232329]" : "bg-white"
+        }`}>
           <div className="flex-1 overflow-y-auto pr-1 space-y-0.5 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
             <MenuItem
               icon={<FolderOpen size={18} />}
@@ -1614,7 +1585,9 @@ export default function App() {
       )}
 
       {!isMenuOpen && !isLibraryOpen && selectedIds.length > 0 && (
-        <div className="absolute top-20 left-4 w-60 bg-[#232329] rounded-xl border border-gray-700 shadow-2xl p-4 z-40 max-h-[calc(100vh-100px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+        <div className={`absolute top-20 left-4 w-60 rounded-xl border border-gray-700 shadow-2xl p-4 z-40 max-h-[calc(100vh-100px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent ${
+          theme === "dark" ? "bg-[#232329]" : "bg-white"
+        }`}>
           <SectionLabel>Stroke</SectionLabel>
           <div className="flex flex-wrap mb-2 gap-1">
             {strokeColors.map((c) => (
@@ -1910,7 +1883,9 @@ export default function App() {
       </div>
 
       <div className="absolute bottom-4 left-4 flex gap-2 z-50">
-        <div className="flex items-center bg-[#232329] rounded-lg border border-gray-700 p-1">
+        <div className={`flex items-center rounded-lg border p-1 ${
+          theme === "dark" ? "bg-[#232329] border-gray-700" : "bg-white border-gray-200"
+        }`}>
           <button
             onClick={handleZoomOut}
             className="p-2 hover:bg-[#31303b] rounded text-gray-400 transition-colors"
@@ -1939,7 +1914,11 @@ export default function App() {
             }
           }}
           disabled={!historyRef.current.canUndo()}
-          className="p-2 bg-[#232329] hover:bg-[#31303b] rounded-lg border border-gray-700 text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`p-2 hover:bg-opacity-80 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            theme === "dark" 
+              ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-400"
+              : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
+          }`}
         >
           <Undo size={16} />
         </button>
@@ -1952,7 +1931,11 @@ export default function App() {
             }
           }}
           disabled={!historyRef.current.canRedo()}
-          className="p-2 bg-[#232329] hover:bg-[#31303b] rounded-lg border border-gray-700 text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`p-2 hover:bg-opacity-80 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            theme === "dark" 
+              ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-400"
+              : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
+          }`}
         >
           <Redo size={16} />
         </button>
@@ -1961,7 +1944,11 @@ export default function App() {
       <div className="absolute bottom-4 right-4 z-50">
         <button
           onClick={() => setIsHelpOpen(true)}
-          className="p-2 bg-[#232329] hover:bg-[#31303b] rounded-full border border-gray-700 shadow-sm text-gray-400 transition-colors"
+          className={`p-2 hover:bg-opacity-80 rounded-full border shadow-sm transition-colors ${
+            theme === "dark" 
+              ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-400"
+              : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
+          }`}
         >
           <HelpCircle size={20} />
         </button>

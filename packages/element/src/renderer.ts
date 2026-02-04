@@ -27,7 +27,6 @@ export function renderElement2D(
 
   const { x, y, width, height, angle = 0 } = element;
 
-  // Apply rotation around element center
   if (angle !== 0) {
     const cx = x + width / 2;
     const cy = y + height / 2;
