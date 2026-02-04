@@ -1,2 +1,46 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+
+@theme inline {
+  --color-background: #f7f5f6;
+  --color-foreground: #323233;
+  --color-card: #f7f5f6;
+  --color-card-foreground: #323233;
+  --color-popover: #f7f5f6;
+  --color-popover-foreground: #323233;
+  --color-primary: #323233;
+  --color-primary-foreground: #f7f5f6;
+  --color-secondary: #f2f1f0;
+  --color-secondary-foreground: #323233;
+  --color-muted: #f2f1f0;
+  --color-muted-foreground: #323233;
+  --color-accent: #f2f1f0;
+  --color-accent-foreground: #323233;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #f7f5f6;
+  --color-border: #e5e5e5;
+  --color-input: #e5e5e5;
+  --color-ring: #323233;
+}
+
+.dark {
+  --color-background: #121112;
+  --color-foreground: #d6d6d6;
+  --color-card: #121112;
+  --color-card-foreground: #d6d6d6;
+  --color-popover: #121112;
+  --color-popover-foreground: #d6d6d6;
+  --color-primary: #d6d6d6;
+  --color-primary-foreground: #121112;
+  --color-secondary: #1a181a;
+  --color-secondary-foreground: #d6d6d6;
+  --color-muted: #1a181a;
+  --color-muted-foreground: #d6d6d6;
+  --color-accent: #1a181a;
+  --color-accent-foreground: #d6d6d6;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #121112;
+  --color-border: #1a181a;
+  --color-input: #1a181a;
+  --color-ring: #d6d6d6;
+}

@@ -19,7 +19,7 @@ export default function CanvasRoomPage({ params }: CanvasRoomPageProps) {
   
   return (
     <div className={`w-screen h-dvh relative overflow-hidden ${
-      effectiveTheme === "dark" ? "bg-[#0f0f13]" : "bg-[#f8f9fa]"
+      effectiveTheme === "dark" ? "bg-[#121112]" : "bg-[#f7f5f6]"
     }`}>
       <div className="absolute inset-0 opacity-10 pointer-events-none"
            style={{

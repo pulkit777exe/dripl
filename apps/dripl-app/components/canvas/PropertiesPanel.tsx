@@ -41,8 +41,8 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
 
   return (
     <div className="flex flex-col gap-2 pointer-events-auto z-100">
-      <div className="p-6 bg-[#1a1a24]/90 backdrop-blur-xl border border-[#333]/50 rounded-2xl shadow-2xl w-72 space-y-6">
-        <h3 className="text-lg font-semibold text-white mb-4">
+      <div className="p-6 bg-card/90 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl w-72 space-y-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4">
           {selectedElement ? "Properties" : "Canvas Properties"}
         </h3>
 
@@ -51,11 +51,11 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
             {/* Element Type Specific Properties */}
             {selectedElement.type === "text" && (
               <div className="space-y-2">
-                <label className="text-sm text-gray-400 font-medium">Text Content</label>
+                <label className="text-sm text-muted-foreground font-medium">Text Content</label>
                 <textarea
                   value={(selectedElement as TextElement).text ?? ""}
                   onChange={(e) => updateElementProperty("text", e.target.value)}
-                  className="w-full text-sm p-2 bg-[#2a2a3a] border border-[#333] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6965db] focus:border-transparent"
+                  className="w-full text-sm p-2 bg-accent border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   rows={3}
                 />
               </div>
@@ -63,12 +63,12 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
 
             {selectedElement.type === "text" && (
               <div className="space-y-2">
-                <label className="text-sm text-gray-400 font-medium">Font Size</label>
+                <label className="text-sm text-muted-foreground font-medium">Font Size</label>
                 <input
                   type="number"
                   value={(selectedElement as TextElement).fontSize ?? 16}
                   onChange={(e) => updateElementProperty("fontSize", Number(e.target.value))}
-                  className="w-full text-sm p-2 bg-[#2a2a3a] border border-[#333] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6965db] focus:border-transparent"
+                  className="w-full text-sm p-2 bg-accent border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   min="8"
                   max="72"
                 />
@@ -77,12 +77,12 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
 
             {selectedElement.type === "freedraw" && (
               <div className="space-y-2">
-                <label className="text-sm text-gray-400 font-medium">Brush Size</label>
+                <label className="text-sm text-muted-foreground font-medium">Brush Size</label>
                 <input
                   type="number"
                   value={(selectedElement as FreeDrawElement).brushSize ?? 2}
                   onChange={(e) => updateElementProperty("brushSize", Number(e.target.value))}
-                  className="w-full text-sm p-2 bg-[#2a2a3a] border border-[#333] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6965db] focus:border-transparent"
+                  className="w-full text-sm p-2 bg-accent border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   min="1"
                   max="20"
                 />
@@ -91,12 +91,12 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
 
             {selectedElement.type === "frame" && (
               <div className="space-y-2">
-                <label className="text-sm text-gray-400 font-medium">Frame Title</label>
+                <label className="text-sm text-muted-foreground font-medium">Frame Title</label>
                 <input
                   type="text"
                   value={(selectedElement as any).title ?? "Frame"}
                   onChange={(e) => updateElementProperty("title", e.target.value)}
-                  className="w-full text-sm p-2 bg-[#2a2a3a] border border-[#333] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6965db] focus:border-transparent"
+                  className="w-full text-sm p-2 bg-accent border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
             )}

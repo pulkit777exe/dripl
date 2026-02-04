@@ -59,7 +59,7 @@ export function CanvasToolbar() {
   }, [setActiveTool, undo, redo]);
 
   return (
-    <div className="flex items-center gap-2 p-3 bg-[#1a1a24]/90 backdrop-blur-xl border border-[#333]/50 rounded-2xl shadow-2xl">
+    <div className="flex items-center gap-2 p-3 bg-card/90 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl">
       {tools.map((tool) => {
         const Icon = tool.icon;
         const isActive = activeTool === tool.id;
@@ -70,8 +70,8 @@ export function CanvasToolbar() {
             className={`
               relative p-2 rounded-xl transition-all duration-200 ease-out
               ${isActive 
-                ? "bg-[#6965db] text-white shadow-lg shadow-[#6965db]/40" 
-                : "text-[#a0a0a0] hover:text-white hover:bg-[#2a2a3a]"}
+                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/40" 
+                : "text-muted-foreground hover:text-accent-foreground hover:bg-accent"}
             `}
             title={`${tool.label} (${tool.shortcut})`}
             aria-label={`${tool.label} tool, press ${tool.shortcut} to activate`}
@@ -79,7 +79,7 @@ export function CanvasToolbar() {
           >
             <Icon className="w-6 h-6" />
             {isActive && (
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full" />
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-primary-foreground rounded-full" />
             )}
           </button>
         );

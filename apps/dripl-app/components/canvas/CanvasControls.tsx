@@ -16,40 +16,40 @@ export function CanvasControls() {
 
   return (
     <div className="flex gap-4 z-100">
-      <div className="flex items-center bg-[#1a1a24]/90 backdrop-blur-xl border border-[#333]/50 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="flex items-center bg-card/90 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl overflow-hidden">
         <button
           onClick={handleZoomOut}
-          className="p-3 hover:bg-[#2a2a3a] transition-colors text-[#a0a0a0] hover:text-white"
+          className="p-3 hover:bg-accent transition-colors text-muted-foreground hover:text-accent-foreground"
           title="Zoom Out (-)"
         >
           <Minus className="w-5 h-5" />
         </button>
-        <span className="px-3 text-sm font-semibold min-w-16 text-center text-gray-300">
+        <span className="px-3 text-sm font-semibold min-w-16 text-center text-foreground">
           {Math.round(zoom * 100)}%
         </span>
         <button
           onClick={handleZoomIn}
-          className="p-3 hover:bg-[#2a2a3a] transition-colors text-[#a0a0a0] hover:text-white"
+          className="p-3 hover:bg-accent transition-colors text-muted-foreground hover:text-accent-foreground"
           title="Zoom In (+)"
         >
           <Plus className="w-5 h-5" />
         </button>
       </div>
 
-      <div className="flex items-center bg-[#1a1a24]/90 backdrop-blur-xl border border-[#333]/50 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="flex items-center bg-card/90 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl overflow-hidden">
         <button
           onClick={undo}
           disabled={historyIndex <= 0}
-          className="p-3 hover:bg-[#2a2a3a] transition-colors disabled:opacity-50 text-[#a0a0a0] hover:text-white"
+          className="p-3 hover:bg-accent transition-colors disabled:opacity-50 text-muted-foreground hover:text-accent-foreground"
           title="Undo (Ctrl+Z)"
         >
           <Undo2 className="w-5 h-5" />
         </button>
-        <div className="w-px h-6 bg-[#333]" />
+        <div className="w-px h-6 bg-border" />
         <button
           onClick={redo}
           disabled={historyIndex >= history.length - 1}
-          className="p-3 hover:bg-[#2a2a3a] transition-colors disabled:opacity-50 text-[#a0a0a0] hover:text-white"
+          className="p-3 hover:bg-accent transition-colors disabled:opacity-50 text-muted-foreground hover:text-accent-foreground"
           title="Redo (Ctrl+Shift+Z)"
         >
           <Redo2 className="w-5 h-5" />

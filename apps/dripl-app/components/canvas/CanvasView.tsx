@@ -7,6 +7,7 @@ interface CanvasViewProps {
   onMouseMove: (e: React.MouseEvent<HTMLCanvasElement>) => void;
   onMouseUp: () => void;
   cursor?: string;
+  theme?: "light" | "dark";
 }
 
 export const CanvasView: React.FC<CanvasViewProps> = ({
@@ -16,12 +17,18 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
   onMouseMove,
   onMouseUp,
   cursor = "default",
+  theme = "dark",
 }) => {
+  const canvasBg = theme === "dark" ? "#121212" : "#f8f9fa";
+  
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 z-0 overflow-hidden bg-[#121212]"
-      style={{ cursor }}
+      className="absolute inset-0 z-0 overflow-hidden"
+      style={{ 
+        cursor,
+        backgroundColor: canvasBg
+      }}
     >
       <canvas
         ref={canvasRef}
