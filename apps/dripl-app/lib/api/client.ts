@@ -31,7 +31,7 @@ class ApiClient {
         "Content-Type": "application/json",
         ...options.headers,
       },
-      credentials: "include", // Important for cookies
+      credentials: "include",
     };
 
     const response = await fetch(url, config);
@@ -108,6 +108,26 @@ class ApiClient {
   async deleteFile(id: string) {
     return this.request(`/files/${id}`, {
       method: "DELETE",
+    });
+  }
+
+  async createRoom(data: { name?: string; isPublic?: boolean }): Promise<{ room: any }> {
+    return this.request("/rooms", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateRoom(slug: string, data: { name?: string; isPublic?: boolean; content?: string }) {
+    return this.request(`/rooms/${slug}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getRoom(slug: string): Promise<{ room: any }> {
+    return this.request(`/rooms/${slug}`, {
+      method: "GET",
     });
   }
 }

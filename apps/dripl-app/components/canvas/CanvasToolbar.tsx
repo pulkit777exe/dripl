@@ -1,26 +1,42 @@
 "use client";
+
 import { useEffect } from "react";
 import { useCanvasStore } from "@/lib/canvas-store";
 import {
+  Lock,
+  Hand,
+  MousePointer2,
   Square,
   Circle,
   ArrowRight,
   Minus,
   Pencil,
   Type,
+  Image,
   Eraser,
-  MousePointer,
 } from "lucide-react";
+import { ExtraToolsDropdown } from "./ExtraToolsDropdown";
 
-const tools = [
-  { id: "select" as const, icon: MousePointer, label: "Select", shortcut: "V" },
-  { id: "rectangle" as const, icon: Square, label: "Rectangle", shortcut: "R" },
-  { id: "ellipse" as const, icon: Circle, label: "Ellipse", shortcut: "E" },
-  { id: "arrow" as const, icon: ArrowRight, label: "Arrow", shortcut: "A" },
-  { id: "line" as const, icon: Minus, label: "Line", shortcut: "L" },
-  { id: "freedraw" as const, icon: Pencil, label: "Pen", shortcut: "P" },
-  { id: "text" as const, icon: Type, label: "Text", shortcut: "T" },
-  { id: "eraser" as const, icon: Eraser, label: "Eraser", shortcut: "X" },
+interface Tool {
+  id: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  shortcuts: string[];
+  numericShortcut?: string;
+}
+
+const tools: Tool[] = [
+  { id: "hand", icon: Hand, label: "Hand", shortcuts: ["h"], numericShortcut: undefined },
+  { id: "select", icon: MousePointer2, label: "Selection", shortcuts: ["v", "1"], numericShortcut: "1" },
+  { id: "rectangle", icon: Square, label: "Rectangle", shortcuts: ["r", "2"], numericShortcut: "2" },
+  { id: "diamond", icon: Square, label: "Diamond", shortcuts: ["d", "3"], numericShortcut: "3" },
+  { id: "ellipse", icon: Circle, label: "Ellipse", shortcuts: ["o", "4"], numericShortcut: "4" },
+  { id: "arrow", icon: ArrowRight, label: "Arrow", shortcuts: ["a", "5"], numericShortcut: "5" },
+  { id: "line", icon: Minus, label: "Line", shortcuts: ["l", "6"], numericShortcut: "6" },
+  { id: "freedraw", icon: Pencil, label: "Freedraw", shortcuts: ["p", "7"], numericShortcut: "7" },
+  { id: "text", icon: Type, label: "Text", shortcuts: ["t", "8"], numericShortcut: "8" },
+  { id: "image", icon: Image, label: "Image", shortcuts: ["9"], numericShortcut: "9" },
+  { id: "eraser", icon: Eraser, label: "Eraser", shortcuts: ["e", "0"], numericShortcut: "0" },
 ];
 
 export function CanvasToolbar() {
@@ -31,25 +47,37 @@ export function CanvasToolbar() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const tool = tools.find(
-        (t) => t.shortcut.toLowerCase() === e.key.toLowerCase()
-      );
+      // Don't handle shortcuts when typing in inputs
+      const target = e.target as HTMLElement;
       if (
-        tool &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !(e.target as HTMLElement)?.closest("input, textarea")
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
       ) {
-        setActiveTool(tool.id);
         return;
       }
 
-      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
-        e.preventDefault();
-        if (e.shiftKey) {
-          redo();
-        } else {
-          undo();
+      // Don't handle shortcuts when modifier keys are pressed (except for undo/redo)
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+        }
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+
+      // Handle tool shortcuts
+      for (const tool of tools) {
+        if (tool.shortcuts.includes(key)) {
+          e.preventDefault();
+          setActiveTool(tool.id as any);
+          return;
         }
       }
     };
@@ -59,31 +87,59 @@ export function CanvasToolbar() {
   }, [setActiveTool, undo, redo]);
 
   return (
-    <div className="flex items-center gap-2 p-3 bg-card/90 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl">
+    <div className="absolute top-6 left-1/2 -translate-x-1/2 p-1.5 rounded-xl border shadow-2xl flex items-center gap-0.5 z-50 bg-[#232329] border-gray-700 pointer-events-auto">
+      {/* Lock button (non-interactive) */}
+      <button
+        className="p-2 rounded-lg text-gray-400 cursor-default"
+        disabled
+        aria-label="Lock"
+      >
+        <Lock size={17} />
+      </button>
+
+      {/* Separator */}
+      <div className="w-px h-6 bg-gray-700 mx-1.5" />
+
+      {/* Core tools */}
       {tools.map((tool) => {
         const Icon = tool.icon;
         const isActive = activeTool === tool.id;
+        const isDiamond = tool.id === "diamond";
+
         return (
           <button
             key={tool.id}
-            onClick={() => setActiveTool(tool.id)}
+            onClick={() => setActiveTool(tool.id as any)}
             className={`
-              relative p-2 rounded-xl transition-all duration-200 ease-out
-              ${isActive 
-                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/40" 
-                : "text-muted-foreground hover:text-accent-foreground hover:bg-accent"}
+              relative p-2 rounded-lg transition-colors
+              ${
+                isActive
+                  ? "bg-[#403c66] text-[#a8a5ff]"
+                  : "text-gray-300 hover:bg-[#31303b]"
+              }
             `}
-            title={`${tool.label} (${tool.shortcut})`}
-            aria-label={`${tool.label} tool, press ${tool.shortcut} to activate`}
+            title={`${tool.label} (${tool.shortcuts.join(" or ")})`}
+            aria-label={`${tool.label} tool`}
             aria-pressed={isActive}
           >
-            <Icon className="w-6 h-6" />
-            {isActive && (
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-primary-foreground rounded-full" />
+            {isDiamond ? (
+              <div className="rotate-45">
+                <Icon size={19} />
+              </div>
+            ) : (
+              <Icon size={19} />
+            )}
+            {tool.numericShortcut && (
+              <span className="absolute -bottom-0.5 -right-0.5 text-[10px] font-mono text-gray-400 leading-none">
+                {tool.numericShortcut}
+              </span>
             )}
           </button>
         );
       })}
+
+      {/* Extra Tools dropdown */}
+      <ExtraToolsDropdown />
     </div>
   );
 }

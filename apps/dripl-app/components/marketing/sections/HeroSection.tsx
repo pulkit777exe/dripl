@@ -18,7 +18,7 @@ export function HeroSection({ onStartDrawing }: { onStartDrawing?: () => void })
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="text-balance text-5xl font-medium leading-[1.1] tracking-[-0.04em] text-deep-charcoal md:text-7xl"
+          className="text-white text-5xl font-medium leading-[1.1] tracking-[-0.04em] md:text-7xl"
         >
           The social scheduling canvas.
         </motion.h1>
@@ -27,7 +27,7 @@ export function HeroSection({ onStartDrawing }: { onStartDrawing?: () => void })
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-          className="mt-6 max-w-[640px] text-lg font-light text-center leading-relaxed text-foreground/60 md:text-xl"
+          className="mt-6 max-w-[640px] text-lg font-light text-center leading-relaxed md:text-xl text-gray-400"
         >
           Stop thinking in lists. Dripl gives you an infinite collaborative
           workspace to plan, visualize, and schedule posts across every network

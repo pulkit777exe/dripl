@@ -28,7 +28,7 @@ function getDB(): Promise<IDBPDatabase> {
 
 export async function saveCanvasToIndexedDB(
   roomId: string,
-  elements: DriplElement[]
+  elements: DriplElement[],
 ): Promise<void> {
   try {
     const db = await getDB();
@@ -45,7 +45,7 @@ export async function saveCanvasToIndexedDB(
 }
 
 export async function loadCanvasFromIndexedDB(
-  roomId: string
+  roomId: string,
 ): Promise<DriplElement[]> {
   try {
     const db = await getDB();

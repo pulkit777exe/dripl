@@ -17,7 +17,7 @@ export function Navbar() {
 
   return (
     <div className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4">
-      <nav className="glass-card flex h-14 w-full max-w-[1040px] items-center justify-between rounded-full px-6 transition-all duration-300">
+      <nav className="glass-card flex h-14 w-full max-w-[1040px] items-center justify-between rounded-full px-6 transition-all duration-300 text-white">
         <Link
           href="/"
           className="font-medium tracking-tight text-deep-charcoal"
@@ -30,7 +30,7 @@ export function Navbar() {
             <Link
               key={link.name}
               href={link.href}
-              className="relative px-4 py-2 text-sm font-medium text-foreground/60 transition-colors hover:text-foreground"
+              className="relative px-4 py-2 text-sm font-medium text-w transition-colors hover:text-foreground"
               onMouseEnter={() => setHoveredIndex(index)}
               onMouseLeave={() => setHoveredIndex(null)}
             >

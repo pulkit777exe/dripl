@@ -10,7 +10,7 @@ export class EraserTrail {
 
   constructor(
     ctx: CanvasRenderingContext2D,
-    config: Partial<EraserConfig> = {}
+    config: Partial<EraserConfig> = {},
   ) {
     this.ctx = ctx;
     this.config = {
@@ -69,9 +69,6 @@ export class EraserTrail {
     this.state.elementsToErase.clear();
   }
 
-  /**
-   * Get the current trail points (streamlined)
-   */
   getTrailPoints(): EraserPoint[] {
     if (this.config.streamline && this.config.streamline > 0) {
       return streamlinePoints(this.state.points, this.config.streamline);
@@ -79,9 +76,6 @@ export class EraserTrail {
     return this.state.points;
   }
 
-  /**
-   * Get trail segments for intersection testing
-   */
   getTrailSegments(): TrailSegment[] {
     const points = this.getTrailPoints();
     const segments: TrailSegment[] = [];

@@ -24,7 +24,7 @@ export interface UseZIndexManagementReturn {
 
 export function useZIndexManagement(
   elements: DriplElement[],
-  onElementsChange: (newElements: DriplElement[]) => void
+  onElementsChange: (newElements: DriplElement[]) => void,
 ): UseZIndexManagementReturn {
   const sortedElements = sortElementsByZIndex(elements);
 
@@ -32,7 +32,7 @@ export function useZIndexManagement(
     (newElements: DriplElement[]) => {
       onElementsChange(newElements);
     },
-    [onElementsChange]
+    [onElementsChange],
   );
 
   const bringToFrontCallback = useCallback(
@@ -42,11 +42,11 @@ export function useZIndexManagement(
 
       const updatedElement = bringToFront(element, elements);
       const newElements = elements.map((el) =>
-        el.id === elementId ? updatedElement : el
+        el.id === elementId ? updatedElement : el,
       );
       handleUpdate(newElements);
     },
-    [elements, handleUpdate]
+    [elements, handleUpdate],
   );
 
   const sendToBackCallback = useCallback(
@@ -56,11 +56,11 @@ export function useZIndexManagement(
 
       const updatedElement = sendToBack(element, elements);
       const newElements = elements.map((el) =>
-        el.id === elementId ? updatedElement : el
+        el.id === elementId ? updatedElement : el,
       );
       handleUpdate(newElements);
     },
-    [elements, handleUpdate]
+    [elements, handleUpdate],
   );
 
   const bringForwardCallback = useCallback(
@@ -70,11 +70,11 @@ export function useZIndexManagement(
 
       const updatedElement = bringForward(element, elements);
       const newElements = elements.map((el) =>
-        el.id === elementId ? updatedElement : el
+        el.id === elementId ? updatedElement : el,
       );
       handleUpdate(newElements);
     },
-    [elements, handleUpdate]
+    [elements, handleUpdate],
   );
 
   const sendBackwardCallback = useCallback(
@@ -84,21 +84,21 @@ export function useZIndexManagement(
 
       const updatedElement = sendBackward(element, elements);
       const newElements = elements.map((el) =>
-        el.id === elementId ? updatedElement : el
+        el.id === elementId ? updatedElement : el,
       );
       handleUpdate(newElements);
     },
-    [elements, handleUpdate]
+    [elements, handleUpdate],
   );
 
   const getZIndexRangeCallback = useCallback(
     (elementIds: string[]) => {
       const selectedElements = elements.filter((el) =>
-        elementIds.includes(el.id)
+        elementIds.includes(el.id),
       );
       return getZIndexRange(selectedElements);
     },
-    [elements]
+    [elements],
   );
 
   const normalizeZIndicesCallback = useCallback(() => {
