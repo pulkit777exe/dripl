@@ -37,6 +37,7 @@ export interface CanvasState {
   selectedIds: Set<string>;
   activeTool:
     | "select"
+    | "hand"
     | "rectangle"
     | "ellipse"
     | "diamond"
@@ -44,6 +45,7 @@ export interface CanvasState {
     | "line"
     | "freedraw"
     | "text"
+    | "image"
     | "eraser";
 
   remoteUsers: Map<string, RemoteUser>;
@@ -58,7 +60,14 @@ export interface CanvasState {
   currentStrokeWidth: number;
   currentRoughness: number;
   currentStrokeStyle: "solid" | "dashed" | "dotted";
-  currentFillStyle: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots" | "dashed" | "zigzag-line";
+  currentFillStyle:
+    | "hachure"
+    | "solid"
+    | "zigzag"
+    | "cross-hatch"
+    | "dots"
+    | "dashed"
+    | "zigzag-line";
 
   history: DriplElement[][];
   historyIndex: number;
@@ -94,7 +103,7 @@ export interface CanvasState {
   setCurrentRoughness: (roughness: number) => void;
   setCurrentStrokeStyle: (style: "solid" | "dashed" | "dotted") => void;
   setCurrentFillStyle: (
-    style: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots"
+    style: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots",
   ) => void;
 
   undo: () => void;
@@ -152,14 +161,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   updateElement: (id, updates) =>
     set((state) => ({
       elements: state.elements.map((el) =>
-        el.id === id ? ({ ...el, ...updates } as DriplElement) : el
+        el.id === id ? ({ ...el, ...updates } as DriplElement) : el,
       ),
     })),
   deleteElements: (ids) =>
     set((state) => ({
       elements: state.elements.filter((el) => el.id && !ids.includes(el.id)),
       selectedIds: new Set(
-        Array.from(state.selectedIds).filter((id) => !ids.includes(id))
+        Array.from(state.selectedIds).filter((id) => !ids.includes(id)),
       ),
     })),
 

@@ -3,9 +3,11 @@
 import React from "react";
 import RoughCanvas from "@/components/canvas/RoughCanvas";
 import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
-import { PropertiesPanel } from "@/components/canvas/PropertiesPanel";
 import { CanvasControls } from "@/components/canvas/CanvasControls";
 import { useTheme } from "@/hooks/useTheme";
+import { TopBar } from "@/components/canvas/TopBar";
+import { CanvasBootstrap } from "@/components/canvas/CanvasBootstrap";
+import { CommandPalette } from "@/components/canvas/CommandPalette";
 
 interface CanvasRoomPageProps {
   params: Promise<{
@@ -27,7 +29,8 @@ export default function CanvasRoomPage({ params }: CanvasRoomPageProps) {
            }}
       />
       
-      <RoughCanvas roomSlug={roomSlug} theme={effectiveTheme} />
+      <TopBar />
+      <CanvasBootstrap mode="room" roomSlug={roomSlug} theme={effectiveTheme} />
       
       <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20">
         <CanvasToolbar />
@@ -43,6 +46,7 @@ export default function CanvasRoomPage({ params }: CanvasRoomPageProps) {
       <div className={`absolute bottom-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-[${
         effectiveTheme === "dark" ? "#6965db" : "#4f46e5"
       }] to-transparent opacity-30 pointer-events-none`} />
+      <CommandPalette />
     </div>
   );
 }

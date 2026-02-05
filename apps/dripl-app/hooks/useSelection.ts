@@ -36,7 +36,7 @@ export const useSelection = ({ elements, setElements }: UseSelectionProps) => {
           setSelectedIds((prev) =>
             prev.includes(clickedElement.id)
               ? prev.filter((id) => id !== clickedElement.id)
-              : [...prev, clickedElement.id]
+              : [...prev, clickedElement.id],
           );
         } else {
           if (!selectedIds.includes(clickedElement.id)) {
@@ -49,7 +49,7 @@ export const useSelection = ({ elements, setElements }: UseSelectionProps) => {
 
       return clickedElement;
     },
-    [elements, selectedIds]
+    [elements, selectedIds],
   );
 
   const deleteSelected = useCallback(() => {

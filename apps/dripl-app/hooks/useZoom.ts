@@ -92,17 +92,17 @@ export function useZoom(elements: DriplElement[]): UseZoomReturn {
       const { zoom, centerX, centerY } = zoomToFit(
         elementsToFit,
         viewport.width,
-        viewport.height
+        viewport.height,
       );
 
       setViewport((prev) => ({
         ...prev,
         zoom,
-        x: (prev.width / 2) - (centerX * zoom),
-        y: (prev.height / 2) - (centerY * zoom),
+        x: prev.width / 2 - centerX * zoom,
+        y: prev.height / 2 - centerY * zoom,
       }));
     },
-    [viewport.width, viewport.height]
+    [viewport.width, viewport.height],
   );
 
   const handleZoomToSelection = useCallback(
@@ -110,55 +110,52 @@ export function useZoom(elements: DriplElement[]): UseZoomReturn {
       const result = zoomToSelection(
         selectedElements,
         viewport.width,
-        viewport.height
+        viewport.height,
       );
 
       if (result) {
         setViewport((prev) => ({
           ...prev,
           zoom: result.zoom,
-          x: (prev.width / 2) - (result.centerX * result.zoom),
-          y: (prev.height / 2) - (result.centerY * result.zoom),
+          x: prev.width / 2 - result.centerX * result.zoom,
+          y: prev.height / 2 - result.centerY * result.zoom,
         }));
       }
     },
-    [viewport.width, viewport.height]
+    [viewport.width, viewport.height],
   );
 
-  const handleSetZoom = useCallback(
-    (newZoom: number, center?: Point) => {
-      setViewport((prev) => {
-        const boundedZoom = Math.min(
-          Math.max(newZoom, DEFAULT_ZOOM_SETTINGS.minZoom),
-          DEFAULT_ZOOM_SETTINGS.maxZoom
-        );
+  const handleSetZoom = useCallback((newZoom: number, center?: Point) => {
+    setViewport((prev) => {
+      const boundedZoom = Math.min(
+        Math.max(newZoom, DEFAULT_ZOOM_SETTINGS.minZoom),
+        DEFAULT_ZOOM_SETTINGS.maxZoom,
+      );
 
-        if (center) {
-          const dx = prev.x + (center.x * prev.zoom) - (center.x * boundedZoom);
-          const dy = prev.y + (center.y * prev.zoom) - (center.y * boundedZoom);
-          
-          return {
-            ...prev,
-            zoom: boundedZoom,
-            x: dx,
-            y: dy,
-          };
-        }
+      if (center) {
+        const dx = prev.x + center.x * prev.zoom - center.x * boundedZoom;
+        const dy = prev.y + center.y * prev.zoom - center.y * boundedZoom;
 
         return {
           ...prev,
           zoom: boundedZoom,
+          x: dx,
+          y: dy,
         };
-      });
-    },
-    []
-  );
+      }
+
+      return {
+        ...prev,
+        zoom: boundedZoom,
+      };
+    });
+  }, []);
 
   const handleGetMousePosition = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
       return getMousePosition(event, viewport);
     },
-    [viewport]
+    [viewport],
   );
 
   return {

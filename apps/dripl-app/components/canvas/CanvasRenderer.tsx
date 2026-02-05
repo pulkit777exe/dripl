@@ -23,10 +23,6 @@ interface CanvasRendererProps {
   theme?: "light" | "dark";
 }
 
-/**
- * Production-ready canvas renderer using requestAnimationFrame
- * Implements viewport culling, coordinate transformation, and smooth 60fps rendering
- */
 export function useCanvasRenderer({
   canvasRef,
   containerRef,
@@ -112,8 +108,19 @@ export function useCanvasRenderer({
     const rc = roughCanvasRef.current;
 
     if (!canvas || !ctx || !rc) {
+      console.log("Canvas or context or rough canvas not available");
       animationFrameIdRef.current = requestAnimationFrame(renderFrame);
       return;
+    }
+
+    console.log("Rendering frame - elements count:", elements.length);
+    if (elements.length > 0) {
+      console.log("First element details:", elements[0]);
+    }
+    const visibleElements = getVisibleElements(elements, viewport);
+    console.log("Rendering frame - visible elements count:", visibleElements.length);
+    if (visibleElements.length > 0) {
+      console.log("First visible element details:", visibleElements[0]);
     }
 
     // Only render if something changed or forced
@@ -127,8 +134,8 @@ export function useCanvasRenderer({
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
 
-    // Get visible elements (viewport culling)
-    const visibleElements = getVisibleElements(elements, viewport);
+     // Get visible elements (viewport culling)
+    // Already calculated above for logging
 
     // Apply viewport transformations
     ctx.save();

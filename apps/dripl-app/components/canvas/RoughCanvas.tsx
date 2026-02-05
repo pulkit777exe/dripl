@@ -3,10 +3,11 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useCanvasStore } from "@/lib/canvas-store";
 import { useCanvasWebSocket } from "@/hooks/useCanvasWebSocket";
-import { 
-  saveLocalCanvasToStorage, 
-  loadLocalCanvasFromStorage, 
-  LocalCanvasState 
+import {
+  saveLocalCanvasToStorage,
+  LocalCanvasState,
+  LOCAL_CANVAS_STORAGE_KEYS,
+  loadLocalCanvasFromStorage,
 } from "@/utils/localCanvasStorage";
 import { isPointInElement } from "@dripl/math";
 import {
@@ -43,6 +44,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState<Point | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<ResizeHandle | null>(null);
@@ -109,42 +112,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   useEffect(() => {
     if (roomSlug === null) {
-      console.log("Local canvas mode: loading from storage");
-      const { elements: savedElements, appState } = loadLocalCanvasFromStorage();
-      
-      if (savedElements) {
-        console.log("Loaded elements from storage:", savedElements);
-        setElements(savedElements);
-      }
-
-      if (appState) {
-        console.log("Loaded app state from storage:", appState);
-        if (appState.theme) useCanvasStore.getState().setTheme(appState.theme as any);
-        if (appState.zoom) useCanvasStore.getState().setZoom(appState.zoom);
-        if (appState.panX !== undefined && appState.panY !== undefined) {
-          useCanvasStore.getState().setPan(appState.panX, appState.panY);
-        }
-
-        if (appState.currentStrokeColor)
-          useCanvasStore.getState().setCurrentStrokeColor(appState.currentStrokeColor);
-        if (appState.currentBackgroundColor)
-          useCanvasStore.getState().setCurrentBackgroundColor(appState.currentBackgroundColor);
-        if (appState.currentStrokeWidth)
-          useCanvasStore.getState().setCurrentStrokeWidth(appState.currentStrokeWidth);
-        if (appState.currentRoughness)
-          useCanvasStore.getState().setCurrentRoughness(appState.currentRoughness);
-        if (appState.currentStrokeStyle)
-          useCanvasStore.getState().setCurrentStrokeStyle(appState.currentStrokeStyle as any);
-        if (appState.currentFillStyle)
-          useCanvasStore.getState().setCurrentFillStyle(appState.currentFillStyle as any);
-        if (appState.activeTool)
-          useCanvasStore.getState().setActiveTool(appState.activeTool as any);
-      }
-    }
-  }, [roomSlug]);
-
-  useEffect(() => {
-    if (roomSlug === null) {
       const appState: LocalCanvasState = {
         theme,
         zoom,
@@ -184,6 +151,77 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     currentFillStyle,
     activeTool,
   ]);
+
+  useEffect(() => {
+    if (roomSlug !== null) {
+      return;
+    }
+
+    const flushToStorage = () => {
+      const state = useCanvasStore.getState();
+
+      const appState: LocalCanvasState = {
+        theme,
+        zoom: state.zoom,
+        panX: state.panX,
+        panY: state.panY,
+        currentStrokeColor: state.currentStrokeColor,
+        currentBackgroundColor: state.currentBackgroundColor,
+        currentStrokeWidth: state.currentStrokeWidth,
+        currentRoughness: state.currentRoughness,
+        currentStrokeStyle: state.currentStrokeStyle,
+        currentFillStyle: state.currentFillStyle,
+        activeTool: state.activeTool,
+      };
+
+      saveLocalCanvasToStorage(state.elements, appState);
+    };
+
+    const handleVisibilityOrBlur = () => {
+      if (document.hidden) {
+        flushToStorage();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      flushToStorage();
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (
+        !event.key ||
+        (event.key !== LOCAL_CANVAS_STORAGE_KEYS.LOCAL_CANVAS_ELEMENTS &&
+          event.key !== LOCAL_CANVAS_STORAGE_KEYS.LOCAL_CANVAS_STATE)
+      ) {
+        return;
+      }
+
+      const { elements: savedElements, appState } = loadLocalCanvasFromStorage();
+
+      if (savedElements && savedElements.length) {
+        setElements(savedElements);
+      }
+
+      if (appState) {
+        if (appState.zoom) setZoom(appState.zoom);
+        if (appState.panX !== undefined && appState.panY !== undefined) {
+          setPan(appState.panX, appState.panY);
+        }
+      }
+    };
+
+    window.addEventListener("blur", handleVisibilityOrBlur);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityOrBlur);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("blur", handleVisibilityOrBlur);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityOrBlur);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [roomSlug, theme, setElements, setPan, setZoom]);
 
   const { send, isConnected } = useCanvasWebSocket(roomSlug, userName);
 
@@ -397,13 +435,29 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   };
 
   const handlePointerDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Check if event is from a UI element by checking if the target is not the canvas
+    if (e.target !== canvasRef.current) {
+      return;
+    }
+    
+    // Check if click is on any UI element by checking event path
+    if (e.nativeEvent.composedPath().some(el => {
+      const domElement = el as HTMLElement;
+      return domElement.classList && domElement.classList.contains('pointer-events-auto');
+    })) {
+      return;
+    }
+    
     const coords = getCanvasCoordinates(e);
     const { x, y } = coords;
 
     throttledSend({ type: "cursor_move", x, y, timestamp: Date.now() });
 
-    if (e.button === 1 || activeTool === "select") {
-      // Just a placeholder for panning logic
+    // Hand tool panning
+    if (activeTool === "hand") {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX, y: e.clientY });
+      return;
     }
 
     if (activeTool === "select") {
@@ -434,6 +488,60 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     if (activeTool === "text") {
       const id = uuidv4();
       setTextInput({ x, y, id });
+      return;
+    }
+
+    if (activeTool === "image") {
+      // Trigger file input for image upload
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.onchange = (event) => {
+        const file = (event.target as HTMLInputElement).files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            if (e.target?.result) {
+              const img = new Image();
+              img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+                const maxSize = 500;
+                if (width > maxSize || height > maxSize) {
+                  const ratio = Math.min(maxSize / width, maxSize / height);
+                  width *= ratio;
+                  height *= ratio;
+                }
+
+                const element: DriplElement = {
+                  id: uuidv4(),
+                  type: "image",
+                  x: x - width / 2,
+                  y: y - height / 2,
+                  width,
+                  height,
+                  strokeColor: "transparent",
+                  backgroundColor: "transparent",
+                  strokeWidth: 0,
+                  opacity: 1,
+                  src: e.target!.result as string,
+                };
+
+                addElement(element);
+                pushHistory();
+                send({
+                  type: "add_element",
+                  element,
+                  timestamp: Date.now(),
+                });
+              };
+              img.src = e.target.result as string;
+            }
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
       return;
     }
 
@@ -484,6 +592,15 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     const { x, y } = coords;
 
     throttledSend({ type: "cursor_move", x, y, timestamp: Date.now() });
+
+    // Hand tool panning
+    if (isPanning && panStart) {
+      const dx = e.clientX - panStart.x;
+      const dy = e.clientY - panStart.y;
+      setPan(panX + dx, panY + dy);
+      setPanStart({ x: e.clientX, y: e.clientY });
+      return;
+    }
 
     if (marqueeSelection?.active) {
       setMarqueeSelection({
@@ -682,6 +799,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   };
 
   const handlePointerUp = (e?: React.PointerEvent) => {
+    if (isPanning) {
+      setIsPanning(false);
+      setPanStart(null);
+      return;
+    }
+
     if (marqueeSelection?.active) {
       handleMarqueeSelectionEnd(
         marqueeSelection,
@@ -837,7 +960,17 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     >
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 cursor-crosshair"
+        className={`absolute inset-0 ${
+          activeTool === "hand"
+            ? isPanning
+              ? "cursor-grabbing"
+              : "cursor-grab"
+            : activeTool === "select"
+              ? "cursor-default"
+              : activeTool === "text"
+                ? "cursor-text"
+                : "cursor-crosshair"
+        }`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

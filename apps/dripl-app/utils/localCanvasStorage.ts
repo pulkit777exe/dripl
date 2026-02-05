@@ -5,6 +5,10 @@ const STORAGE_KEYS = {
   LOCAL_CANVAS_STATE: "dripl-rough-state",
 };
 
+// Exported for consumers that need to listen to storage changes
+// without duplicating the underlying key strings.
+export const LOCAL_CANVAS_STORAGE_KEYS = STORAGE_KEYS;
+
 export interface LocalCanvasState {
   theme: "light" | "dark" | "system";
   zoom: number;

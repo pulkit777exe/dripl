@@ -17,7 +17,7 @@ export const useHistory = ({
     (elements: CanvasElement[], selectedIds: string[]) => {
       historyRef.current.pushState({ elements, selectedIds });
     },
-    []
+    [],
   );
 
   const undo = useCallback(() => {

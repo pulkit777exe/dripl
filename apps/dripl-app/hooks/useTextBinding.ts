@@ -16,47 +16,67 @@ import {
 export interface UseTextBindingReturn {
   hasBoundText: (element: DriplElement) => boolean;
   getBoundText: (element: DriplElement) => TextElement | null;
-  createBoundText: (text: string, boundElement: DriplElement, baseProps?: Partial<TextElement>) => void;
-  updateBoundTextPosition: (boundElement: DriplElement, textElement: TextElement) => void;
+  createBoundText: (
+    text: string,
+    boundElement: DriplElement,
+    baseProps?: Partial<TextElement>,
+  ) => void;
+  updateBoundTextPosition: (
+    boundElement: DriplElement,
+    textElement: TextElement,
+  ) => void;
   updateAllBoundTextPositions: () => void;
   deleteBoundText: (elementId: string) => void;
   getElementsWithBoundText: () => Array<{
     element: DriplElement;
     boundText: TextElement | null;
   }>;
-  createTextElement: (text: string, point: { x: number; y: number }, baseProps?: Partial<TextElement>) => void;
+  createTextElement: (
+    text: string,
+    point: { x: number; y: number },
+    baseProps?: Partial<TextElement>,
+  ) => void;
 }
 
 export function useTextBinding(
   elements: DriplElement[],
-  onElementsChange: (newElements: DriplElement[]) => void
+  onElementsChange: (newElements: DriplElement[]) => void,
 ): UseTextBindingReturn {
   const hasBoundTextCallback = useCallback(
     (element: DriplElement) => hasBoundText(element, elements),
-    [elements]
+    [elements],
   );
 
   const getBoundTextCallback = useCallback(
     (element: DriplElement) => getBoundText(element, elements),
-    [elements]
+    [elements],
   );
 
   const createBoundTextCallback = useCallback(
-    (text: string, boundElement: DriplElement, baseProps?: Partial<TextElement>) => {
+    (
+      text: string,
+      boundElement: DriplElement,
+      baseProps?: Partial<TextElement>,
+    ) => {
       const newTextElement = createBoundText(text, boundElement, baseProps);
       onElementsChange([...elements, newTextElement]);
     },
-    [elements, onElementsChange]
+    [elements, onElementsChange],
   );
 
   const updateBoundTextPositionCallback = useCallback(
     (boundElement: DriplElement, textElement: TextElement) => {
-      const updatedTextElement = updateBoundTextPosition(boundElement, textElement);
+      const updatedTextElement = updateBoundTextPosition(
+        boundElement,
+        textElement,
+      );
       onElementsChange(
-        elements.map((el) => (el.id === textElement.id ? updatedTextElement : el))
+        elements.map((el) =>
+          el.id === textElement.id ? updatedTextElement : el,
+        ),
       );
     },
-    [elements, onElementsChange]
+    [elements, onElementsChange],
   );
 
   const updateAllBoundTextPositionsCallback = useCallback(() => {
@@ -69,7 +89,7 @@ export function useTextBinding(
       const updatedElements = deleteBoundText(elementId, elements);
       onElementsChange(updatedElements);
     },
-    [elements, onElementsChange]
+    [elements, onElementsChange],
   );
 
   const getElementsWithBoundTextCallback = useCallback(() => {
@@ -77,11 +97,15 @@ export function useTextBinding(
   }, [elements]);
 
   const createTextElementCallback = useCallback(
-    (text: string, point: { x: number; y: number }, baseProps?: Partial<TextElement>) => {
+    (
+      text: string,
+      point: { x: number; y: number },
+      baseProps?: Partial<TextElement>,
+    ) => {
       const newTextElement = createTextElement(text, point, baseProps);
       onElementsChange([...elements, newTextElement]);
     },
-    [elements, onElementsChange]
+    [elements, onElementsChange],
   );
 
   return {

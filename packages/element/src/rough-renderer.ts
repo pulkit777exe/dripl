@@ -185,7 +185,16 @@ export function renderRoughElements(
   elements: DriplElement[],
   theme: "light" | "dark" = "dark",
 ): void {
+  // Get the actual canvas dimensions from the context
+  const canvas = ctx.canvas;
+  
   if (offscreenCanvas && offscreenContext && offscreenRoughCanvas) {
+    // Ensure offscreen canvas matches actual canvas size
+    if (offscreenCanvas.width !== canvas.width || offscreenCanvas.height !== canvas.height) {
+      offscreenCanvas.width = canvas.width;
+      offscreenCanvas.height = canvas.height;
+    }
+    
     offscreenContext.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
     
     for (const el of elements) {

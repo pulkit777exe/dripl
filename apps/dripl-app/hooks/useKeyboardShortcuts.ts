@@ -157,7 +157,7 @@ export function useKeyboardShortcuts({
       onZoomIn,
       onZoomOut,
       onResetZoom,
-    ]
+    ],
   );
 
   useEffect(() => {

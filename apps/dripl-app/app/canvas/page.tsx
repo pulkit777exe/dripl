@@ -5,6 +5,9 @@ import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
 import { PropertiesPanel } from "@/components/canvas/PropertiesPanel";
 import { CanvasControls } from "@/components/canvas/CanvasControls";
 import { useTheme } from "@/hooks/useTheme";
+import { TopBar } from "@/components/canvas/TopBar";
+import { CanvasBootstrap } from "@/components/canvas/CanvasBootstrap";
+import { CommandPalette } from "@/components/canvas/CommandPalette";
 
 export default function CanvasPage() {
   const { effectiveTheme } = useTheme();
@@ -19,7 +22,24 @@ export default function CanvasPage() {
            }}
       />
       
-      <RoughCanvas roomSlug={null} theme={effectiveTheme} />
+      <div className="absolute top-4 right-4 z-100 bg-yellow-500 p-4 rounded shadow-xl pointer-events-auto">
+        <h1 className="text-xl font-bold text-black">TEST</h1>
+        <button 
+          className="px-4 py-2 bg-red-500 text-white rounded mt-2 hover:bg-red-600 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log("Test button clicked!");
+            alert("Test button clicked!");
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
+          Test Button
+        </button>
+      </div>
+      
+      <TopBar />
+      <CanvasBootstrap mode="local" theme={effectiveTheme} />
       
       <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20">
         <CanvasToolbar />
@@ -35,6 +55,7 @@ export default function CanvasPage() {
       <div className={`absolute bottom-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-[${
         effectiveTheme === "dark" ? "#6965db" : "#4f46e5"
       }] to-transparent opacity-30 pointer-events-none`} />
+      <CommandPalette />
     </div>
   );
 }
