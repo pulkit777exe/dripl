@@ -77,8 +77,8 @@ export default function DashboardPage() {
   // If we reach here, there's no active canvas session
   return (
     <div className="flex h-dvh w-full bg-background text-foreground">
-      <FileBrowser 
-        files={files} 
+      <FileBrowser
+        files={files}
         onCreateFile={handleCreateFile}
         onStartNewCanvas={handleStartNewCanvas}
       />

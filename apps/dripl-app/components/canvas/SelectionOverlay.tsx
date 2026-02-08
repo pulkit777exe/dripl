@@ -31,10 +31,14 @@ export function SelectionOverlay({
 
   // Render marquee selection if active
   if (marqueeSelection?.active) {
-    const x = Math.min(marqueeSelection.start.x, marqueeSelection.end.x) * zoom + panX;
-    const y = Math.min(marqueeSelection.start.y, marqueeSelection.end.y) * zoom + panY;
-    const w = Math.abs(marqueeSelection.end.x - marqueeSelection.start.x) * zoom;
-    const h = Math.abs(marqueeSelection.end.y - marqueeSelection.start.y) * zoom;
+    const x =
+      Math.min(marqueeSelection.start.x, marqueeSelection.end.x) * zoom + panX;
+    const y =
+      Math.min(marqueeSelection.start.y, marqueeSelection.end.y) * zoom + panY;
+    const w =
+      Math.abs(marqueeSelection.end.x - marqueeSelection.start.x) * zoom;
+    const h =
+      Math.abs(marqueeSelection.end.y - marqueeSelection.start.y) * zoom;
 
     return (
       <div
@@ -77,7 +81,7 @@ export function SelectionOverlay({
 
   // Rotation (only for single element)
   const angle =
-    selectedElements.length === 1 ? (selectedElements[0]?.angle || 0) : 0;
+    selectedElements.length === 1 ? selectedElements[0]?.angle || 0 : 0;
 
   // Only show handles for single selection for now
   const showHandles = selectedElements.length === 1;

@@ -5,7 +5,11 @@ import { Button } from "../ui/Button";
 import { Play } from "lucide-react";
 import { useRef } from "react";
 
-export function HeroSection({ onStartDrawing }: { onStartDrawing?: () => void }) {
+export function HeroSection({
+  onStartDrawing,
+}: {
+  onStartDrawing?: () => void;
+}) {
   const { scrollY } = useScroll();
   const rotateX = useTransform(scrollY, [0, 400], [5, 0]);
   const scale = useTransform(scrollY, [0, 400], [0.95, 1]);
@@ -40,8 +44,8 @@ export function HeroSection({ onStartDrawing }: { onStartDrawing?: () => void })
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
           className="mt-10 flex items-center gap-4"
         >
-           <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             className="h-14 px-8 text-lg"
             onClick={onStartDrawing}
           >

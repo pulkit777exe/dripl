@@ -26,7 +26,7 @@ export function getShapeCacheKey(element: DriplElement): string {
  * Get cached Rough.js shape for an element
  */
 export function getShapeFromCache(
-  element: DriplElement
+  element: DriplElement,
 ): Drawable | Drawable[] | undefined {
   return shapeCache.get(getShapeCacheKey(element));
 }
@@ -36,7 +36,7 @@ export function getShapeFromCache(
  */
 export function setShapeInCache(
   element: DriplElement,
-  shape: Drawable | Drawable[]
+  shape: Drawable | Drawable[],
 ): void {
   shapeCache.set(getShapeCacheKey(element), shape);
 }

@@ -26,7 +26,7 @@ export const Tooltip = ({
             "-left-full mr-2": side === "left",
             "-right-full ml-2": side === "right",
           },
-          className
+          className,
         )}
       >
         {content}

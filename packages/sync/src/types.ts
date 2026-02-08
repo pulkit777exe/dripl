@@ -1,13 +1,13 @@
-import { DriplElement } from '@dripl/common';
+import { DriplElement } from "@dripl/common";
 
-export type MessageType = 
-  | 'add_element'
-  | 'update_element'
-  | 'delete_element'
-  | 'cursor_move'
-  | 'user_join'
-  | 'user_leave'
-  | 'sync_state';
+export type MessageType =
+  | "add_element"
+  | "update_element"
+  | "delete_element"
+  | "cursor_move"
+  | "user_join"
+  | "user_leave"
+  | "sync_state";
 
 export interface BaseMessage {
   type: MessageType;
@@ -16,22 +16,22 @@ export interface BaseMessage {
 }
 
 export interface AddElementMessage extends BaseMessage {
-  type: 'add_element';
+  type: "add_element";
   element: DriplElement;
 }
 
 export interface UpdateElementMessage extends BaseMessage {
-  type: 'update_element';
+  type: "update_element";
   element: DriplElement;
 }
 
 export interface DeleteElementMessage extends BaseMessage {
-  type: 'delete_element';
+  type: "delete_element";
   elementId: string;
 }
 
 export interface CursorMoveMessage extends BaseMessage {
-  type: 'cursor_move';
+  type: "cursor_move";
   x: number;
   y: number;
   userName: string;
@@ -39,17 +39,17 @@ export interface CursorMoveMessage extends BaseMessage {
 }
 
 export interface UserJoinMessage extends BaseMessage {
-  type: 'user_join';
+  type: "user_join";
   userName: string;
   color: string;
 }
 
 export interface UserLeaveMessage extends BaseMessage {
-  type: 'user_leave';
+  type: "user_leave";
 }
 
 export interface SyncStateMessage extends BaseMessage {
-  type: 'sync_state';
+  type: "sync_state";
   elements: DriplElement[];
   users: Array<{
     userId: string;
@@ -58,7 +58,7 @@ export interface SyncStateMessage extends BaseMessage {
   }>;
 }
 
-export type SyncMessage = 
+export type SyncMessage =
   | AddElementMessage
   | UpdateElementMessage
   | DeleteElementMessage

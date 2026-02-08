@@ -90,7 +90,9 @@ export function LandingPage() {
             <div className="w-8 h-8 rounded-full bg-linear-to-br from-purple-500 to-indigo-500 border border-foreground/10" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">Pulkit</div>
-              <div className="text-xs text-muted-foreground truncate">Pro Plan</div>
+              <div className="text-xs text-muted-foreground truncate">
+                Pro Plan
+              </div>
             </div>
           </div>
         </div>
@@ -102,71 +104,71 @@ export function LandingPage() {
           {/* Header */}
           <div className="flex justify-between items-end mb-10">
             <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Tasks</h1>
-                <p className="text-muted-foreground">
-                  Manage your canvases and collaborative spaces.
-                </p>
-              </div>
-              <button
-                onClick={handleCreateRoom}
-                className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl font-medium hover:bg-primary/90 transition-colors shadow-lg shadow-primary/5"
-              >
-                <Plus className="w-5 h-5" />
-                Create Canvas
-              </button>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Tasks</h1>
+              <p className="text-muted-foreground">
+                Manage your canvases and collaborative spaces.
+              </p>
             </div>
+            <button
+              onClick={handleCreateRoom}
+              className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl font-medium hover:bg-primary/90 transition-colors shadow-lg shadow-primary/5"
+            >
+              <Plus className="w-5 h-5" />
+              Create Canvas
+            </button>
+          </div>
 
-            {/* Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Create New Card */}
-              <button
-                onClick={handleCreateRoom}
-                className="group flex flex-col items-center justify-center gap-4 h-64 rounded-3xl border border-dashed border-border bg-card hover:bg-accent hover:border-foreground/20 transition-all cursor-pointer"
+          {/* Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Create New Card */}
+            <button
+              onClick={handleCreateRoom}
+              className="group flex flex-col items-center justify-center gap-4 h-64 rounded-3xl border border-dashed border-border bg-card hover:bg-accent hover:border-foreground/20 transition-all cursor-pointer"
+            >
+              <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center group-hover:bg-primary/10 transition-colors border border-foreground/5">
+                <Plus className="w-6 h-6 text-muted-foreground group-hover:text-foreground" />
+              </div>
+              <span className="text-muted-foreground font-medium group-hover:text-foreground">
+                New Canvas
+              </span>
+            </button>
+
+            {/* Recent Rooms */}
+            {recentRooms.map((room) => (
+              <div
+                key={room.roomId}
+                onClick={() => router.push(`/canvas/${room.roomId}`)}
+                className="group relative flex flex-col h-64 rounded-3xl bg-card border border-border hover:border-foreground/10 p-1 cursor-pointer overflow-hidden hover:shadow-2xl hover:shadow-black/50 transition-all"
               >
-                <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center group-hover:bg-primary/10 transition-colors border border-foreground/5">
-                  <Plus className="w-6 h-6 text-muted-foreground group-hover:text-foreground" />
-                </div>
-                <span className="text-muted-foreground font-medium group-hover:text-foreground">
-                  New Canvas
-                </span>
-              </button>
-
-              {/* Recent Rooms */}
-              {recentRooms.map((room) => (
-                <div
-                  key={room.roomId}
-                  onClick={() => router.push(`/canvas/${room.roomId}`)}
-                  className="group relative flex flex-col h-64 rounded-3xl bg-card border border-border hover:border-foreground/10 p-1 cursor-pointer overflow-hidden hover:shadow-2xl hover:shadow-black/50 transition-all"
-                >
-                  {/* Preview Area */}
-                  <div className="flex-1 bg-accent rounded-[20px] mb-1 relative overflow-hidden group-hover:bg-primary/5 transition-colors">
-                    {/* Abstract placeholder for canvas content */}
-                    <div className="absolute inset-0 opacity-20 flex items-center justify-center">
-                      <Layers className="w-16 h-16 text-muted-foreground" />
-                    </div>
-
-                    <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-xs text-muted-foreground flex items-center gap-1 border border-foreground/5">
-                      <Clock className="w-3 h-3" />
-                      {new Date(room.lastModified).toLocaleDateString()}
-                    </div>
+                {/* Preview Area */}
+                <div className="flex-1 bg-accent rounded-[20px] mb-1 relative overflow-hidden group-hover:bg-primary/5 transition-colors">
+                  {/* Abstract placeholder for canvas content */}
+                  <div className="absolute inset-0 opacity-20 flex items-center justify-center">
+                    <Layers className="w-16 h-16 text-muted-foreground" />
                   </div>
 
-                  {/* Footer */}
-                  <div className="h-16 px-5 flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate max-w-[150px]">
-                        {room.roomId}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Edited just now
-                      </span>
-                    </div>
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-accent text-muted-foreground transition-colors">
-                      <MoreHorizontal className="w-5 h-5" />
-                    </div>
+                  <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-xs text-muted-foreground flex items-center gap-1 border border-foreground/5">
+                    <Clock className="w-3 h-3" />
+                    {new Date(room.lastModified).toLocaleDateString()}
                   </div>
                 </div>
-              ))}
+
+                {/* Footer */}
+                <div className="h-16 px-5 flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate max-w-[150px]">
+                      {room.roomId}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Edited just now
+                    </span>
+                  </div>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-accent text-muted-foreground transition-colors">
+                    <MoreHorizontal className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </main>

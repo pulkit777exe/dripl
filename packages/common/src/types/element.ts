@@ -21,7 +21,14 @@ export interface ElementBase {
   // Rough.js properties for sketchy aesthetic
   roughness?: number; // 0-3, default 1
   strokeStyle?: "solid" | "dashed" | "dotted";
-  fillStyle?: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots" | "dashed" | "zigzag-line";
+  fillStyle?:
+    | "hachure"
+    | "solid"
+    | "zigzag"
+    | "cross-hatch"
+    | "dots"
+    | "dashed"
+    | "zigzag-line";
   seed?: number; // For consistent randomness across renders
   angle?: number; // Rotation in radians
   locked?: boolean; // Prevent editing

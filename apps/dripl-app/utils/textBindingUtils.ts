@@ -4,15 +4,25 @@ import { getBounds } from "@dripl/math";
 /**
  * Check if an element has bound text
  */
-export function hasBoundText(element: DriplElement, elements: DriplElement[]): boolean {
-  return elements.some((el) => el.type === "text" && el.boundElementId === element.id);
+export function hasBoundText(
+  element: DriplElement,
+  elements: DriplElement[],
+): boolean {
+  return elements.some(
+    (el) => el.type === "text" && el.boundElementId === element.id,
+  );
 }
 
 /**
  * Get bound text for an element
  */
-export function getBoundText(element: DriplElement, elements: DriplElement[]): TextElement | null {
-  return elements.find((el) => el.type === "text" && el.boundElementId === element.id) as TextElement | null;
+export function getBoundText(
+  element: DriplElement,
+  elements: DriplElement[],
+): TextElement | null {
+  return elements.find(
+    (el) => el.type === "text" && el.boundElementId === element.id,
+  ) as TextElement | null;
 }
 
 /**
@@ -21,11 +31,14 @@ export function getBoundText(element: DriplElement, elements: DriplElement[]): T
 export function createBoundText(
   text: string,
   boundElement: DriplElement,
-  baseProps: Partial<TextElement> = {}
+  baseProps: Partial<TextElement> = {},
 ): TextElement {
   const bounds = getBounds([
     { x: boundElement.x, y: boundElement.y },
-    { x: boundElement.x + boundElement.width, y: boundElement.y + boundElement.height },
+    {
+      x: boundElement.x + boundElement.width,
+      y: boundElement.y + boundElement.height,
+    },
   ]);
 
   return {
@@ -51,11 +64,14 @@ export function createBoundText(
  */
 export function updateBoundTextPosition(
   boundElement: DriplElement,
-  textElement: TextElement
+  textElement: TextElement,
 ): TextElement {
   const bounds = getBounds([
     { x: boundElement.x, y: boundElement.y },
-    { x: boundElement.x + boundElement.width, y: boundElement.y + boundElement.height },
+    {
+      x: boundElement.x + boundElement.width,
+      y: boundElement.y + boundElement.height,
+    },
   ]);
 
   return {
@@ -69,13 +85,23 @@ export function updateBoundTextPosition(
 /**
  * Update all bound text positions when elements are moved
  */
-export function updateAllBoundTextPositions(elements: DriplElement[]): DriplElement[] {
-  const textElements = elements.filter((el) => el.type === "text" && el.boundElementId) as TextElement[];
-  const otherElements = elements.filter((el) => el.type !== "text" || !el.boundElementId);
+export function updateAllBoundTextPositions(
+  elements: DriplElement[],
+): DriplElement[] {
+  const textElements = elements.filter(
+    (el) => el.type === "text" && el.boundElementId,
+  ) as TextElement[];
+  const otherElements = elements.filter(
+    (el) => el.type !== "text" || !el.boundElementId,
+  );
 
   const updatedTextElements = textElements.map((textEl) => {
-    const boundElement = otherElements.find((el) => el.id === textEl.boundElementId);
-    return boundElement ? updateBoundTextPosition(boundElement, textEl) : textEl;
+    const boundElement = otherElements.find(
+      (el) => el.id === textEl.boundElementId,
+    );
+    return boundElement
+      ? updateBoundTextPosition(boundElement, textEl)
+      : textEl;
   });
 
   return otherElements.map((el) => {
@@ -90,8 +116,13 @@ export function updateAllBoundTextPositions(elements: DriplElement[]): DriplElem
 /**
  * Delete bound text when bound element is deleted
  */
-export function deleteBoundText(elementId: string, elements: DriplElement[]): DriplElement[] {
-  return elements.filter((el) => el.type !== "text" || el.boundElementId !== elementId);
+export function deleteBoundText(
+  elementId: string,
+  elements: DriplElement[],
+): DriplElement[] {
+  return elements.filter(
+    (el) => el.type !== "text" || el.boundElementId !== elementId,
+  );
 }
 
 /**
@@ -111,7 +142,11 @@ export function getElementsWithBoundText(elements: DriplElement[]): Array<{
 /**
  * Create text with proper bounds and formatting
  */
-export function createTextElement(text: string, point: { x: number; y: number }, baseProps: Partial<TextElement> = {}): TextElement {
+export function createTextElement(
+  text: string,
+  point: { x: number; y: number },
+  baseProps: Partial<TextElement> = {},
+): TextElement {
   return {
     id: crypto.randomUUID(),
     type: "text",

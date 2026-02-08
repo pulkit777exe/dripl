@@ -51,7 +51,9 @@ export const TextSchema = BaseElementSchema.extend({
 export const ImageSchema = BaseElementSchema.extend({
   type: z.literal("image"),
   src: z.string(), // Base64 or URL
-  mimeType: z.enum(["image/png", "image/jpeg", "image/gif", "image/webp"]).optional(),
+  mimeType: z
+    .enum(["image/png", "image/jpeg", "image/gif", "image/webp"])
+    .optional(),
 });
 
 export const ElementSchema = z.discriminatedUnion("type", [

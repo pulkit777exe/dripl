@@ -16,17 +16,20 @@ export interface UseDuplicationReturn {
   duplicateElements: (selectedIds: string[]) => DriplElement[];
   duplicateElementWithBoundText: (element: DriplElement) => DriplElement[];
   duplicateGroupWithBoundText: (groupId: string) => DriplElement[];
-  smartDuplicateElements: (selectedIds: string[], previousOffset?: number) => DriplElement[];
+  smartDuplicateElements: (
+    selectedIds: string[],
+    previousOffset?: number,
+  ) => DriplElement[];
   duplicateSymmetrically: (
     selectedIds: string[],
     axis?: "horizontal" | "vertical",
-    offset?: number
+    offset?: number,
   ) => DriplElement[];
 }
 
 export function useDuplication(
   elements: DriplElement[],
-  onElementsChange: (newElements: DriplElement[]) => void
+  onElementsChange: (newElements: DriplElement[]) => void,
 ): UseDuplicationReturn {
   const duplicateElementCallback = useCallback(
     (element: DriplElement) => {
@@ -34,7 +37,7 @@ export function useDuplication(
       onElementsChange([...elements, duplicate]);
       return duplicate;
     },
-    [elements, onElementsChange]
+    [elements, onElementsChange],
   );
 
   const duplicateElementsCallback = useCallback(
@@ -43,7 +46,7 @@ export function useDuplication(
       onElementsChange(newElements);
       return newElements;
     },
-    [elements, onElementsChange]
+    [elements, onElementsChange],
   );
 
   const duplicateElementWithBoundTextCallback = useCallback(
@@ -52,7 +55,7 @@ export function useDuplication(
       onElementsChange([...elements, ...duplicates]);
       return duplicates;
     },
-    [elements, onElementsChange]
+    [elements, onElementsChange],
   );
 
   const duplicateGroupWithBoundTextCallback = useCallback(
@@ -61,25 +64,38 @@ export function useDuplication(
       onElementsChange([...elements, ...duplicates]);
       return duplicates;
     },
-    [elements, onElementsChange]
+    [elements, onElementsChange],
   );
 
   const smartDuplicateElementsCallback = useCallback(
     (selectedIds: string[], previousOffset?: number) => {
-      const newElements = smartDuplicateElements(elements, selectedIds, previousOffset);
+      const newElements = smartDuplicateElements(
+        elements,
+        selectedIds,
+        previousOffset,
+      );
       onElementsChange(newElements);
       return newElements;
     },
-    [elements, onElementsChange]
+    [elements, onElementsChange],
   );
 
   const duplicateSymmetricallyCallback = useCallback(
-    (selectedIds: string[], axis?: "horizontal" | "vertical", offset?: number) => {
-      const newElements = duplicateSymmetrically(elements, selectedIds, axis, offset);
+    (
+      selectedIds: string[],
+      axis?: "horizontal" | "vertical",
+      offset?: number,
+    ) => {
+      const newElements = duplicateSymmetrically(
+        elements,
+        selectedIds,
+        axis,
+        offset,
+      );
       onElementsChange(newElements);
       return newElements;
     },
-    [elements, onElementsChange]
+    [elements, onElementsChange],
   );
 
   return {

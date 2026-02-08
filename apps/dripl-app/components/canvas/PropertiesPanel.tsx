@@ -11,31 +11,54 @@ interface ElementPropertiesProps {
   onUpdateElement: (element: DriplElement) => void;
 }
 
-export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<ElementPropertiesProps> = {}) {
+export function PropertiesPanel({
+  selectedElement,
+  onUpdateElement,
+}: Partial<ElementPropertiesProps> = {}) {
   const [showExportModal, setShowExportModal] = useState(false);
 
-  const currentStrokeColor = useCanvasStore((state) => state.currentStrokeColor);
-  const currentBackgroundColor = useCanvasStore((state) => state.currentBackgroundColor);
-  const currentStrokeWidth = useCanvasStore((state) => state.currentStrokeWidth);
+  const currentStrokeColor = useCanvasStore(
+    (state) => state.currentStrokeColor,
+  );
+  const currentBackgroundColor = useCanvasStore(
+    (state) => state.currentBackgroundColor,
+  );
+  const currentStrokeWidth = useCanvasStore(
+    (state) => state.currentStrokeWidth,
+  );
   const currentRoughness = useCanvasStore((state) => state.currentRoughness);
-  const currentStrokeStyle = useCanvasStore((state) => state.currentStrokeStyle);
+  const currentStrokeStyle = useCanvasStore(
+    (state) => state.currentStrokeStyle,
+  );
   const currentFillStyle = useCanvasStore((state) => state.currentFillStyle);
 
-  const setCurrentStrokeColor = useCanvasStore((state) => state.setCurrentStrokeColor);
-  const setCurrentBackgroundColor = useCanvasStore((state) => state.setCurrentBackgroundColor);
-  const setCurrentStrokeWidth = useCanvasStore((state) => state.setCurrentStrokeWidth);
-  const setCurrentRoughness = useCanvasStore((state) => state.setCurrentRoughness);
-  const setCurrentStrokeStyle = useCanvasStore((state) => state.setCurrentStrokeStyle);
-  const setCurrentFillStyle = useCanvasStore((state) => state.setCurrentFillStyle);
+  const setCurrentStrokeColor = useCanvasStore(
+    (state) => state.setCurrentStrokeColor,
+  );
+  const setCurrentBackgroundColor = useCanvasStore(
+    (state) => state.setCurrentBackgroundColor,
+  );
+  const setCurrentStrokeWidth = useCanvasStore(
+    (state) => state.setCurrentStrokeWidth,
+  );
+  const setCurrentRoughness = useCanvasStore(
+    (state) => state.setCurrentRoughness,
+  );
+  const setCurrentStrokeStyle = useCanvasStore(
+    (state) => state.setCurrentStrokeStyle,
+  );
+  const setCurrentFillStyle = useCanvasStore(
+    (state) => state.setCurrentFillStyle,
+  );
 
   const updateElementProperty = (property: string, value: any) => {
     if (!selectedElement || !onUpdateElement) return;
-    
+
     const updatedElement = {
       ...selectedElement,
       [property]: value,
     };
-    
+
     onUpdateElement(updatedElement);
   };
 
@@ -51,10 +74,14 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
             {/* Element Type Specific Properties */}
             {selectedElement.type === "text" && (
               <div className="space-y-2">
-                <label className="text-sm text-muted-foreground font-medium">Text Content</label>
+                <label className="text-sm text-muted-foreground font-medium">
+                  Text Content
+                </label>
                 <textarea
                   value={(selectedElement as TextElement).text ?? ""}
-                  onChange={(e) => updateElementProperty("text", e.target.value)}
+                  onChange={(e) =>
+                    updateElementProperty("text", e.target.value)
+                  }
                   className="w-full text-sm p-2 bg-accent border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   rows={3}
                 />
@@ -63,11 +90,15 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
 
             {selectedElement.type === "text" && (
               <div className="space-y-2">
-                <label className="text-sm text-muted-foreground font-medium">Font Size</label>
+                <label className="text-sm text-muted-foreground font-medium">
+                  Font Size
+                </label>
                 <input
                   type="number"
                   value={(selectedElement as TextElement).fontSize ?? 16}
-                  onChange={(e) => updateElementProperty("fontSize", Number(e.target.value))}
+                  onChange={(e) =>
+                    updateElementProperty("fontSize", Number(e.target.value))
+                  }
                   className="w-full text-sm p-2 bg-accent border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   min="8"
                   max="72"
@@ -77,11 +108,15 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
 
             {selectedElement.type === "freedraw" && (
               <div className="space-y-2">
-                <label className="text-sm text-muted-foreground font-medium">Brush Size</label>
+                <label className="text-sm text-muted-foreground font-medium">
+                  Brush Size
+                </label>
                 <input
                   type="number"
                   value={(selectedElement as FreeDrawElement).brushSize ?? 2}
-                  onChange={(e) => updateElementProperty("brushSize", Number(e.target.value))}
+                  onChange={(e) =>
+                    updateElementProperty("brushSize", Number(e.target.value))
+                  }
                   className="w-full text-sm p-2 bg-accent border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   min="1"
                   max="20"
@@ -91,11 +126,15 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
 
             {selectedElement.type === "frame" && (
               <div className="space-y-2">
-                <label className="text-sm text-muted-foreground font-medium">Frame Title</label>
+                <label className="text-sm text-muted-foreground font-medium">
+                  Frame Title
+                </label>
                 <input
                   type="text"
                   value={(selectedElement as any).title ?? "Frame"}
-                  onChange={(e) => updateElementProperty("title", e.target.value)}
+                  onChange={(e) =>
+                    updateElementProperty("title", e.target.value)
+                  }
                   className="w-full text-sm p-2 bg-accent border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
@@ -103,11 +142,15 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
 
             {selectedElement.type === "frame" && (
               <div className="space-y-2">
-                <label className="text-sm text-gray-400 font-medium">Padding</label>
+                <label className="text-sm text-gray-400 font-medium">
+                  Padding
+                </label>
                 <input
                   type="number"
                   value={(selectedElement as any).padding ?? 20}
-                  onChange={(e) => updateElementProperty("padding", Number(e.target.value))}
+                  onChange={(e) =>
+                    updateElementProperty("padding", Number(e.target.value))
+                  }
                   className="w-full text-sm p-2 bg-[#2a2a3a] border border-[#333] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6965db] focus:border-transparent"
                   min="0"
                   max="100"
@@ -118,54 +161,70 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
             {/* Common Properties */}
             {selectedElement.type !== "text" && (
               <div className="space-y-2">
-                <label className="text-sm text-gray-400 font-medium">Stroke Color</label>
+                <label className="text-sm text-gray-400 font-medium">
+                  Stroke Color
+                </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
                     value={selectedElement.strokeColor ?? currentStrokeColor}
-                    onChange={(e) => updateElementProperty("strokeColor", e.target.value)}
+                    onChange={(e) =>
+                      updateElementProperty("strokeColor", e.target.value)
+                    }
                     className="w-full h-10 rounded-lg cursor-pointer bg-[#2a2a3a] border border-[#333] focus:outline-none focus:ring-2 focus:ring-[#6965db] focus:border-transparent"
                   />
-                  <span className="text-xs font-mono text-gray-400">{selectedElement.strokeColor ?? currentStrokeColor}</span>
+                  <span className="text-xs font-mono text-gray-400">
+                    {selectedElement.strokeColor ?? currentStrokeColor}
+                  </span>
                 </div>
               </div>
             )}
 
-            {selectedElement.type !== "text" && selectedElement.type !== "freedraw" && (
-              <div className="space-y-2">
-                <label className="text-sm text-gray-400 font-medium">Background</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={
-                      selectedElement.backgroundColor === "transparent"
-                        ? "#ffffff"
-                        : selectedElement.backgroundColor ?? currentBackgroundColor
-                    }
-                    onChange={(e) => updateElementProperty("backgroundColor", e.target.value)}
-                    disabled={selectedElement.backgroundColor === "transparent"}
-                    className="w-full h-10 rounded-lg cursor-pointer bg-[#2a2a3a] border border-[#333] focus:outline-none focus:ring-2 focus:ring-[#6965db] focus:border-transparent disabled:opacity-50"
-                  />
-                  <button
-                    onClick={() =>
-                      updateElementProperty(
-                        "backgroundColor",
+            {selectedElement.type !== "text" &&
+              selectedElement.type !== "freedraw" && (
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-400 font-medium">
+                    Background
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={
                         selectedElement.backgroundColor === "transparent"
                           ? "#ffffff"
-                          : "transparent"
-                      )
-                    }
-                    className={`px-3 py-2 text-sm border rounded-lg transition-colors ${
-                      selectedElement.backgroundColor === "transparent"
-                        ? "bg-[#6965db] text-white border-[#6965db]"
-                        : "bg-[#2a2a3a] text-gray-400 border-[#333] hover:bg-[#3a3a4a]"
-                    }`}
-                  >
-                    {selectedElement.backgroundColor === "transparent" ? "None" : "Fill"}
-                  </button>
+                          : (selectedElement.backgroundColor ??
+                            currentBackgroundColor)
+                      }
+                      onChange={(e) =>
+                        updateElementProperty("backgroundColor", e.target.value)
+                      }
+                      disabled={
+                        selectedElement.backgroundColor === "transparent"
+                      }
+                      className="w-full h-10 rounded-lg cursor-pointer bg-[#2a2a3a] border border-[#333] focus:outline-none focus:ring-2 focus:ring-[#6965db] focus:border-transparent disabled:opacity-50"
+                    />
+                    <button
+                      onClick={() =>
+                        updateElementProperty(
+                          "backgroundColor",
+                          selectedElement.backgroundColor === "transparent"
+                            ? "#ffffff"
+                            : "transparent",
+                        )
+                      }
+                      className={`px-3 py-2 text-sm border rounded-lg transition-colors ${
+                        selectedElement.backgroundColor === "transparent"
+                          ? "bg-[#6965db] text-white border-[#6965db]"
+                          : "bg-[#2a2a3a] text-gray-400 border-[#333] hover:bg-[#3a3a4a]"
+                      }`}
+                    >
+                      {selectedElement.backgroundColor === "transparent"
+                        ? "None"
+                        : "Fill"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {selectedElement.type !== "text" && (
               <div className="space-y-2">
@@ -173,14 +232,18 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                   <label className="text-sm text-gray-400 font-medium">
                     Stroke Width
                   </label>
-                  <span className="text-sm text-gray-400">{selectedElement.strokeWidth ?? currentStrokeWidth}px</span>
+                  <span className="text-sm text-gray-400">
+                    {selectedElement.strokeWidth ?? currentStrokeWidth}px
+                  </span>
                 </div>
                 <input
                   type="range"
                   min="1"
                   max="10"
                   value={selectedElement.strokeWidth ?? currentStrokeWidth}
-                  onChange={(e) => updateElementProperty("strokeWidth", Number(e.target.value))}
+                  onChange={(e) =>
+                    updateElementProperty("strokeWidth", Number(e.target.value))
+                  }
                   className="w-full h-2 bg-[#333] rounded-lg appearance-none cursor-pointer accent-[#6965db]"
                 />
               </div>
@@ -188,14 +251,19 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
 
             {selectedElement.type !== "text" && (
               <div className="space-y-2">
-                <label className="text-sm text-gray-400 font-medium">Stroke Style</label>
+                <label className="text-sm text-gray-400 font-medium">
+                  Stroke Style
+                </label>
                 <div className="flex gap-2">
                   {["solid", "dashed", "dotted"].map((style) => (
                     <button
                       key={style}
-                      onClick={() => updateElementProperty("strokeStyle", style)}
+                      onClick={() =>
+                        updateElementProperty("strokeStyle", style)
+                      }
                       className={`px-3 py-2 text-sm border rounded-lg transition-colors ${
-                        (selectedElement.strokeStyle ?? currentStrokeStyle) === style
+                        (selectedElement.strokeStyle ?? currentStrokeStyle) ===
+                        style
                           ? "bg-[#6965db] text-white border-[#6965db]"
                           : "bg-[#2a2a3a] text-gray-400 border-[#333] hover:bg-[#3a3a4a]"
                       }`}
@@ -207,33 +275,49 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
               </div>
             )}
 
-            {selectedElement.type !== "text" && selectedElement.type !== "freedraw" && (
-              <div className="space-y-2">
-                <label className="text-sm text-gray-400 font-medium">Fill Style</label>
-                <div className="flex gap-2 flex-wrap">
-                  {["hachure", "solid", "zigzag", "cross-hatch", "dots", "dashed", "zigzag-line"].map((style) => (
-                    <button
-                      key={style}
-                      onClick={() => updateElementProperty("fillStyle", style)}
-                      className={`px-3 py-2 text-sm border rounded-lg transition-colors ${
-                        (selectedElement.fillStyle ?? currentFillStyle) === style
-                          ? "bg-[#6965db] text-white border-[#6965db]"
-                          : "bg-[#2a2a3a] text-gray-400 border-[#333] hover:bg-[#3a3a4a]"
-                      }`}
-                    >
-                      {style}
-                    </button>
-                  ))}
+            {selectedElement.type !== "text" &&
+              selectedElement.type !== "freedraw" && (
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-400 font-medium">
+                    Fill Style
+                  </label>
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      "hachure",
+                      "solid",
+                      "zigzag",
+                      "cross-hatch",
+                      "dots",
+                      "dashed",
+                      "zigzag-line",
+                    ].map((style) => (
+                      <button
+                        key={style}
+                        onClick={() =>
+                          updateElementProperty("fillStyle", style)
+                        }
+                        className={`px-3 py-2 text-sm border rounded-lg transition-colors ${
+                          (selectedElement.fillStyle ?? currentFillStyle) ===
+                          style
+                            ? "bg-[#6965db] text-white border-[#6965db]"
+                            : "bg-[#2a2a3a] text-gray-400 border-[#333] hover:bg-[#3a3a4a]"
+                        }`}
+                      >
+                        {style}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label className="text-sm text-gray-400 font-medium">
                   Sloppiness
                 </label>
-                <span className="text-sm text-gray-400">{selectedElement.roughness ?? currentRoughness}</span>
+                <span className="text-sm text-gray-400">
+                  {selectedElement.roughness ?? currentRoughness}
+                </span>
               </div>
               <input
                 type="range"
@@ -241,7 +325,9 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 max="3"
                 step="0.5"
                 value={selectedElement.roughness ?? currentRoughness}
-                onChange={(e) => updateElementProperty("roughness", Number(e.target.value))}
+                onChange={(e) =>
+                  updateElementProperty("roughness", Number(e.target.value))
+                }
                 className="w-full h-2 bg-[#333] rounded-lg appearance-none cursor-pointer accent-[#6965db]"
               />
             </div>
@@ -252,12 +338,16 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 <label className="text-sm text-gray-400 font-medium">
                   Z-Index
                 </label>
-                <span className="text-sm text-gray-400">{selectedElement.zIndex ?? 100}</span>
+                <span className="text-sm text-gray-400">
+                  {selectedElement.zIndex ?? 100}
+                </span>
               </div>
               <input
                 type="number"
                 value={selectedElement.zIndex ?? 100}
-                onChange={(e) => updateElementProperty("zIndex", Number(e.target.value))}
+                onChange={(e) =>
+                  updateElementProperty("zIndex", Number(e.target.value))
+                }
                 className="w-full text-sm p-2 bg-[#2a2a3a] border border-[#333] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6965db] focus:border-transparent"
                 min="0"
                 max="1000"
@@ -270,14 +360,18 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 <label className="text-sm text-gray-400 font-medium">
                   Opacity
                 </label>
-                <span className="text-sm text-gray-400">{Math.round((selectedElement.opacity ?? 1) * 100)}%</span>
+                <span className="text-sm text-gray-400">
+                  {Math.round((selectedElement.opacity ?? 1) * 100)}%
+                </span>
               </div>
               <input
                 type="range"
                 min="0"
                 max="100"
                 value={Math.round((selectedElement.opacity ?? 1) * 100)}
-                onChange={(e) => updateElementProperty("opacity", Number(e.target.value) / 100)}
+                onChange={(e) =>
+                  updateElementProperty("opacity", Number(e.target.value) / 100)
+                }
                 className="w-full h-2 bg-[#333] rounded-lg appearance-none cursor-pointer accent-[#6965db]"
               />
             </div>
@@ -286,7 +380,9 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
           <>
             {/* Default Properties Panel when no element is selected */}
             <div className="space-y-2">
-              <label className="text-sm text-gray-400 font-medium">Stroke Color</label>
+              <label className="text-sm text-gray-400 font-medium">
+                Stroke Color
+              </label>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
@@ -294,12 +390,16 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                   onChange={(e) => setCurrentStrokeColor(e.target.value)}
                   className="w-full h-10 rounded-lg cursor-pointer bg-[#2a2a3a] border border-[#333] focus:outline-none focus:ring-2 focus:ring-[#6965db] focus:border-transparent"
                 />
-                <span className="text-xs font-mono text-gray-400">{currentStrokeColor}</span>
+                <span className="text-xs font-mono text-gray-400">
+                  {currentStrokeColor}
+                </span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-gray-400 font-medium">Background</label>
+              <label className="text-sm text-gray-400 font-medium">
+                Background
+              </label>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
@@ -317,7 +417,7 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                     setCurrentBackgroundColor(
                       currentBackgroundColor === "transparent"
                         ? "#ffffff"
-                        : "transparent"
+                        : "transparent",
                     )
                   }
                   className={`px-3 py-2 text-sm border rounded-lg transition-colors ${
@@ -336,7 +436,9 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 <label className="text-sm text-gray-400 font-medium">
                   Stroke Width
                 </label>
-                <span className="text-sm text-gray-400">{currentStrokeWidth}px</span>
+                <span className="text-sm text-gray-400">
+                  {currentStrokeWidth}px
+                </span>
               </div>
               <input
                 type="range"
@@ -349,7 +451,9 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-gray-400 font-medium">Stroke Style</label>
+              <label className="text-sm text-gray-400 font-medium">
+                Stroke Style
+              </label>
               <div className="flex gap-2">
                 {["solid", "dashed", "dotted"].map((style) => (
                   <button
@@ -368,9 +472,19 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-gray-400 font-medium">Fill Style</label>
+              <label className="text-sm text-gray-400 font-medium">
+                Fill Style
+              </label>
               <div className="flex gap-2 flex-wrap">
-                {["hachure", "solid", "zigzag", "cross-hatch", "dots", "dashed", "zigzag-line"].map((style) => (
+                {[
+                  "hachure",
+                  "solid",
+                  "zigzag",
+                  "cross-hatch",
+                  "dots",
+                  "dashed",
+                  "zigzag-line",
+                ].map((style) => (
                   <button
                     key={style}
                     onClick={() => setCurrentFillStyle(style as any)}
@@ -391,7 +505,9 @@ export function PropertiesPanel({ selectedElement, onUpdateElement }: Partial<El
                 <label className="text-sm text-gray-400 font-medium">
                   Sloppiness
                 </label>
-                <span className="text-sm text-gray-400">{currentRoughness}</span>
+                <span className="text-sm text-gray-400">
+                  {currentRoughness}
+                </span>
               </div>
               <input
                 type="range"

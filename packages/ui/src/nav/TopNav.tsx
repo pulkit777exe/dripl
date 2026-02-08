@@ -23,7 +23,7 @@ export const TopNav = ({
         "bg-white/90 dark:bg-neutral-900/80 backdrop-blur-md",
         "border-b border-neutral-200/50 dark:border-neutral-800/50",
         "z-50",
-        className
+        className,
       )}
     >
       <div className="flex items-center gap-4">{left}</div>

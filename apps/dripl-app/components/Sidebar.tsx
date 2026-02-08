@@ -42,7 +42,7 @@ export function Sidebar({ activeTool = "select", onToolSelect }: SidebarProps) {
               "flex h-10 w-10 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground",
               activeTool === tool.id
                 ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground"
+                : "text-muted-foreground",
             )}
             title={tool.label}
           >

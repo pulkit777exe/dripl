@@ -14,7 +14,7 @@ export const CanvasContainer = ({
     <main
       className={cn(
         "relative flex-1 overflow-hidden bg-neutral-50/50 dark:bg-neutral-950/50",
-        className
+        className,
       )}
     >
       <div className="absolute inset-0 flex items-center justify-center">

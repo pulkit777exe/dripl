@@ -9,7 +9,7 @@ export function rotate(
   y: number,
   cx: number,
   cy: number,
-  angle: number
+  angle: number,
 ): [number, number] {
   return [
     (x - cx) * Math.cos(angle) - (y - cy) * Math.sin(angle) + cx,
@@ -19,7 +19,7 @@ export function rotate(
 
 export function isPointInRect(
   point: Point,
-  rect: { x: number; y: number; width: number; height: number }
+  rect: { x: number; y: number; width: number; height: number },
 ): boolean {
   return (
     point.x >= rect.x &&
@@ -46,10 +46,7 @@ export interface Bounds {
 /**
  * Calculate the shortest distance from a point to a line segment
  */
-export function distanceToSegment(
-  point: Point,
-  segment: LineSegment
-): number {
+export function distanceToSegment(point: Point, segment: LineSegment): number {
   const { start, end } = segment;
   const l2 = Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2);
 
@@ -74,7 +71,7 @@ export function distanceToSegment(
  */
 export function segmentsIntersect(
   seg1: LineSegment,
-  seg2: LineSegment
+  seg2: LineSegment,
 ): boolean {
   const { start: p1, end: p2 } = seg1;
   const { start: p3, end: p4 } = seg2;
@@ -156,7 +153,7 @@ export function pointInPolygon(point: Point, polygon: Point[]): boolean {
  */
 export function segmentIntersectsPolygon(
   segment: LineSegment,
-  polygon: Point[]
+  polygon: Point[],
 ): boolean {
   if (polygon.length < 2) return false;
 
@@ -239,8 +236,14 @@ export function getAngle(p1: Point, p2: Point): number {
  * Calculate distance from point to rectangle
  */
 export function distanceToRect(point: Point, rect: Bounds): number {
-  const dx = Math.max(Math.max(rect.x - point.x, 0), point.x - (rect.x + rect.width));
-  const dy = Math.max(Math.max(rect.y - point.y, 0), point.y - (rect.y + rect.height));
+  const dx = Math.max(
+    Math.max(rect.x - point.x, 0),
+    point.x - (rect.x + rect.width),
+  );
+  const dy = Math.max(
+    Math.max(rect.y - point.y, 0),
+    point.y - (rect.y + rect.height),
+  );
   return Math.sqrt(dx * dx + dy * dy);
 }
 
@@ -249,17 +252,22 @@ export function distanceToRect(point: Point, rect: Bounds): number {
  */
 export function getLineIntersection(
   line1: LineSegment,
-  line2: LineSegment
+  line2: LineSegment,
 ): Point | null {
   const { start: p1, end: p2 } = line1;
   const { start: p3, end: p4 } = line2;
 
-  const denominator = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+  const denominator =
+    (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
 
   if (denominator === 0) return null; // Parallel lines
 
-  const t = ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) / denominator;
-  const u = -((p1.x - p2.x) * (p1.y - p3.y) - (p1.y - p2.y) * (p1.x - p3.x)) / denominator;
+  const t =
+    ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) /
+    denominator;
+  const u =
+    -((p1.x - p2.x) * (p1.y - p3.y) - (p1.y - p2.y) * (p1.x - p3.x)) /
+    denominator;
 
   if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
     return {
@@ -300,7 +308,10 @@ export function getUnionBounds(boundsList: Bounds[]): Bounds {
 /**
  * Calculate bounding box intersection
  */
-export function getIntersectionBounds(bounds1: Bounds, bounds2: Bounds): Bounds | null {
+export function getIntersectionBounds(
+  bounds1: Bounds,
+  bounds2: Bounds,
+): Bounds | null {
   const x1 = Math.max(bounds1.x, bounds2.x);
   const y1 = Math.max(bounds1.y, bounds2.y);
   const x2 = Math.min(bounds1.x + bounds1.width, bounds2.x + bounds2.width);
@@ -321,7 +332,11 @@ export function getIntersectionBounds(bounds1: Bounds, bounds2: Bounds): Bounds 
 /**
  * Rotate bounds around center
  */
-export function rotateBounds(bounds: Bounds, center: Point, angle: number): Bounds {
+export function rotateBounds(
+  bounds: Bounds,
+  center: Point,
+  angle: number,
+): Bounds {
   // Rotate all corners
   const corners = [
     { x: bounds.x, y: bounds.y },
@@ -334,10 +349,10 @@ export function rotateBounds(bounds: Bounds, center: Point, angle: number): Boun
   });
 
   // Calculate new bounds
-  const minX = Math.min(...corners.map(p => p.x));
-  const minY = Math.min(...corners.map(p => p.y));
-  const maxX = Math.max(...corners.map(p => p.x));
-  const maxY = Math.max(...corners.map(p => p.y));
+  const minX = Math.min(...corners.map((p) => p.x));
+  const minY = Math.min(...corners.map((p) => p.y));
+  const maxX = Math.max(...corners.map((p) => p.x));
+  const maxY = Math.max(...corners.map((p) => p.y));
 
   return {
     x: minX,
@@ -350,7 +365,11 @@ export function rotateBounds(bounds: Bounds, center: Point, angle: number): Boun
 /**
  * Scale bounds around center
  */
-export function scaleBounds(bounds: Bounds, center: Point, scale: number): Bounds {
+export function scaleBounds(
+  bounds: Bounds,
+  center: Point,
+  scale: number,
+): Bounds {
   const dx = (bounds.x - center.x) * scale;
   const dy = (bounds.y - center.y) * scale;
   const newWidth = bounds.width * scale;

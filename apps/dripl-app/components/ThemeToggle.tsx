@@ -57,7 +57,7 @@ export function ThemeToggle() {
       className={cn(
         "p-2 rounded-lg transition-all duration-200",
         "bg-card hover:bg-accent border border-border",
-        "text-foreground hover:text-accent-foreground"
+        "text-foreground hover:text-accent-foreground",
       )}
       title={getThemeLabel()}
     >

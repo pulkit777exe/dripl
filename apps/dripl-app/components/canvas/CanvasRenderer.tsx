@@ -57,21 +57,21 @@ export function useCanvasRenderer({
     const resizeCanvas = () => {
       const dpr = window.devicePixelRatio || 1;
       const rect = container.getBoundingClientRect();
-      
+
       // Set display size
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
-      
+
       // Set actual size in memory (scaled for high DPI)
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
-      
+
       // Scale context to account for DPR
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.scale(dpr, dpr);
       }
-      
+
       needsRenderRef.current = true;
     };
 
@@ -87,14 +87,19 @@ export function useCanvasRenderer({
       elements.some(
         (el, i) =>
           el.id !== lastRenderedElementsRef.current[i]?.id ||
-          el !== lastRenderedElementsRef.current[i]
+          el !== lastRenderedElementsRef.current[i],
       );
 
     const selectionChanged =
       selectedIds.size !== lastSelectedIdsRef.current.size ||
       Array.from(selectedIds).some((id) => !lastSelectedIdsRef.current.has(id));
 
-    if (elementsChanged || selectionChanged || currentPreview || eraserPath.length > 0) {
+    if (
+      elementsChanged ||
+      selectionChanged ||
+      currentPreview ||
+      eraserPath.length > 0
+    ) {
       needsRenderRef.current = true;
       lastRenderedElementsRef.current = elements;
       lastSelectedIdsRef.current = new Set(selectedIds);
@@ -118,7 +123,10 @@ export function useCanvasRenderer({
       console.log("First element details:", elements[0]);
     }
     const visibleElements = getVisibleElements(elements, viewport);
-    console.log("Rendering frame - visible elements count:", visibleElements.length);
+    console.log(
+      "Rendering frame - visible elements count:",
+      visibleElements.length,
+    );
     if (visibleElements.length > 0) {
       console.log("First visible element details:", visibleElements[0]);
     }
@@ -132,9 +140,14 @@ export function useCanvasRenderer({
     needsRenderRef.current = false;
 
     // Clear canvas
-    ctx.clearRect(0, 0, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
+    ctx.clearRect(
+      0,
+      0,
+      canvas.width / (window.devicePixelRatio || 1),
+      canvas.height / (window.devicePixelRatio || 1),
+    );
 
-     // Get visible elements (viewport culling)
+    // Get visible elements (viewport culling)
     // Already calculated above for logging
 
     // Apply viewport transformations
@@ -165,7 +178,7 @@ export function useCanvasRenderer({
             bounds.x - padding,
             bounds.y - padding,
             bounds.width + padding * 2,
-            bounds.height + padding * 2
+            bounds.height + padding * 2,
           );
         }
       });
@@ -196,7 +209,15 @@ export function useCanvasRenderer({
     // Request next frame
     animationFrameIdRef.current = requestAnimationFrame(renderFrame);
     onFrameRequest?.();
-  }, [canvasRef, elements, selectedIds, currentPreview, eraserPath, viewport, onFrameRequest]);
+  }, [
+    canvasRef,
+    elements,
+    selectedIds,
+    currentPreview,
+    eraserPath,
+    viewport,
+    onFrameRequest,
+  ]);
 
   // Start render loop
   useEffect(() => {

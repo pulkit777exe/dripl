@@ -19,22 +19,29 @@ export interface LocalCanvasState {
   currentStrokeWidth: number;
   currentRoughness: number;
   currentStrokeStyle: "solid" | "dashed" | "dotted";
-  currentFillStyle: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots" | "dashed" | "zigzag-line";
+  currentFillStyle:
+    | "hachure"
+    | "solid"
+    | "zigzag"
+    | "cross-hatch"
+    | "dots"
+    | "dashed"
+    | "zigzag-line";
   activeTool: string;
 }
 
 export const saveLocalCanvasToStorage = (
   elements: DriplElement[],
-  state: LocalCanvasState
+  state: LocalCanvasState,
 ) => {
   try {
     localStorage.setItem(
       STORAGE_KEYS.LOCAL_CANVAS_ELEMENTS,
-      JSON.stringify(elements)
+      JSON.stringify(elements),
     );
     localStorage.setItem(
       STORAGE_KEYS.LOCAL_CANVAS_STATE,
-      JSON.stringify(state)
+      JSON.stringify(state),
     );
   } catch (error) {
     console.error("Error saving local canvas to storage:", error);

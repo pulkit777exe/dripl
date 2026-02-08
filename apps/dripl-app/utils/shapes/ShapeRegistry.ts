@@ -6,7 +6,9 @@ class ShapeRegistry {
 
   register<T extends DriplElement>(definition: ShapeDefinition<T>) {
     if (this.shapes.has(definition.type)) {
-      console.warn(`Shape type '${definition.type}' already registered. Overriding.`);
+      console.warn(
+        `Shape type '${definition.type}' already registered. Overriding.`,
+      );
     }
 
     this.shapes.set(definition.type, definition as unknown as ShapeDefinition);
@@ -34,7 +36,9 @@ class ShapeRegistry {
   }
 
   getByCategory(category: string): ShapeDefinition[] {
-    return Array.from(this.shapes.values()).filter((shape) => shape.category === category);
+    return Array.from(this.shapes.values()).filter(
+      (shape) => shape.category === category,
+    );
   }
 
   createElement(type: string, properties: Partial<DriplElement>): DriplElement {
@@ -61,7 +65,9 @@ class ShapeRegistry {
   renderElement(ctx: CanvasRenderingContext2D, element: DriplElement) {
     const definition = this.get(element.type);
     if (!definition) {
-      console.warn(`Shape type '${element.type}' not registered. Skipping rendering.`);
+      console.warn(
+        `Shape type '${element.type}' not registered. Skipping rendering.`,
+      );
       return;
     }
 
@@ -71,7 +77,9 @@ class ShapeRegistry {
   getElementProperties(element: DriplElement): any {
     const definition = this.get(element.type);
     if (!definition) {
-      console.warn(`Shape type '${element.type}' not registered. Returning empty properties.`);
+      console.warn(
+        `Shape type '${element.type}' not registered. Returning empty properties.`,
+      );
       return {};
     }
 
@@ -81,7 +89,9 @@ class ShapeRegistry {
   setElementProperties(element: DriplElement, properties: any): DriplElement {
     const definition = this.get(element.type);
     if (!definition) {
-      console.warn(`Shape type '${element.type}' not registered. Returning original element.`);
+      console.warn(
+        `Shape type '${element.type}' not registered. Returning original element.`,
+      );
       return element;
     }
 

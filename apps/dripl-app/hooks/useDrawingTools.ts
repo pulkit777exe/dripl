@@ -3,14 +3,28 @@
 import { useState, useCallback } from "react";
 import type { DriplElement, Point } from "@dripl/common";
 import { v4 as uuidv4 } from "uuid";
-import { createRectangleElement, RectangleToolState } from "@/utils/tools/rectangle";
+import {
+  createRectangleElement,
+  RectangleToolState,
+} from "@/utils/tools/rectangle";
 import { createEllipseElement, EllipseToolState } from "@/utils/tools/ellipse";
 import { createDiamondElement, DiamondToolState } from "@/utils/tools/diamond";
-import { createArrowElement, ArrowToolState, snapArrowToElement } from "@/utils/tools/arrow";
+import {
+  createArrowElement,
+  ArrowToolState,
+  snapArrowToElement,
+} from "@/utils/tools/arrow";
 import { createLineElement, LineToolState } from "@/utils/tools/line";
-import { createFreedrawElement, FreedrawToolState } from "@/utils/tools/freedraw";
+import {
+  createFreedrawElement,
+  FreedrawToolState,
+} from "@/utils/tools/freedraw";
 import { createTextElement, TextToolState } from "@/utils/tools/text";
-import { createImageElement, ImageToolState, loadImage } from "@/utils/tools/image";
+import {
+  createImageElement,
+  ImageToolState,
+  loadImage,
+} from "@/utils/tools/image";
 import { createFrameElement, FrameToolState } from "@/utils/tools/frame";
 import { useShapeRegistry } from "./useShapeRegistry";
 
@@ -34,20 +48,39 @@ interface BaseToolProps {
   opacity: number;
   roughness: number;
   strokeStyle: "solid" | "dashed" | "dotted";
-  fillStyle: "hachure" | "solid" | "zigzag" | "cross-hatch" | "dots" | "dashed" | "zigzag-line";
+  fillStyle:
+    | "hachure"
+    | "solid"
+    | "zigzag"
+    | "cross-hatch"
+    | "dots"
+    | "dashed"
+    | "zigzag-line";
 }
 
 export interface UseDrawingToolsReturn {
   currentPreview: DriplElement | null;
-  startDrawing: (point: Point, tool: ToolType, shiftKey: boolean, baseProps: BaseToolProps, elements?: DriplElement[]) => void;
-  updateDrawing: (point: Point, shiftKey: boolean, elements?: DriplElement[]) => void;
+  startDrawing: (
+    point: Point,
+    tool: ToolType,
+    shiftKey: boolean,
+    baseProps: BaseToolProps,
+    elements?: DriplElement[],
+  ) => void;
+  updateDrawing: (
+    point: Point,
+    shiftKey: boolean,
+    elements?: DriplElement[],
+  ) => void;
   finishDrawing: () => DriplElement | null;
   cancelDrawing: () => void;
   isDrawing: boolean;
 }
 
 export function useDrawingTools(): UseDrawingToolsReturn {
-  const [currentPreview, setCurrentPreview] = useState<DriplElement | null>(null);
+  const [currentPreview, setCurrentPreview] = useState<DriplElement | null>(
+    null,
+  );
   const [toolState, setToolState] = useState<
     | { type: "rectangle"; state: RectangleToolState }
     | { type: "ellipse"; state: EllipseToolState }
@@ -67,7 +100,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
       tool: ToolType,
       shiftKey: boolean,
       props: BaseToolProps,
-      elements?: DriplElement[]
+      elements?: DriplElement[],
     ) => {
       setBaseProps(props);
 
@@ -93,13 +126,24 @@ export function useDrawingTools(): UseDrawingToolsReturn {
         case "arrow":
           setToolState({
             type: "arrow",
-            state: { points: [point], isComplete: false, isDragging: false, currentPoint: null },
+            state: {
+              points: [point],
+              isComplete: false,
+              isDragging: false,
+              currentPoint: null,
+            },
           });
           break;
         case "line":
           setToolState({
             type: "line",
-            state: { points: [point], isComplete: false, shiftKey, isDragging: false, currentPoint: null },
+            state: {
+              points: [point],
+              isComplete: false,
+              shiftKey,
+              isDragging: false,
+              currentPoint: null,
+            },
           });
           break;
         case "freedraw":
@@ -118,7 +162,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
           break;
       }
     },
-    []
+    [],
   );
 
   const updateDrawing = useCallback(
@@ -136,7 +180,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
               id: uuidv4(),
               ...baseProps,
               seed: Math.floor(Math.random() * 1000000),
-            })
+            }),
           );
           break;
         case "ellipse":
@@ -149,7 +193,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
               id: uuidv4(),
               ...baseProps,
               seed: Math.floor(Math.random() * 1000000),
-            })
+            }),
           );
           break;
         case "diamond":
@@ -162,7 +206,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
               id: uuidv4(),
               ...baseProps,
               seed: Math.floor(Math.random() * 1000000),
-            })
+            }),
           );
           break;
         case "arrow": {
@@ -174,15 +218,15 @@ export function useDrawingTools(): UseDrawingToolsReturn {
             ...toolState,
             state: { ...toolState.state, points: newPoints },
           });
-           const { arrow } = createArrowElement(
-             { ...toolState.state, points: newPoints },
-             {
-               id: uuidv4(),
-               ...baseProps,
-               seed: Math.floor(Math.random() * 1000000),
-             }
-           );
-           setCurrentPreview(arrow);
+          const { arrow } = createArrowElement(
+            { ...toolState.state, points: newPoints },
+            {
+              id: uuidv4(),
+              ...baseProps,
+              seed: Math.floor(Math.random() * 1000000),
+            },
+          );
+          setCurrentPreview(arrow);
           break;
         }
         case "line": {
@@ -198,8 +242,8 @@ export function useDrawingTools(): UseDrawingToolsReturn {
                 id: uuidv4(),
                 ...baseProps,
                 seed: Math.floor(Math.random() * 1000000),
-              }
-            )
+              },
+            ),
           );
           break;
         }
@@ -217,8 +261,8 @@ export function useDrawingTools(): UseDrawingToolsReturn {
                   id: uuidv4(),
                   ...baseProps,
                   seed: Math.floor(Math.random() * 1000000),
-                }
-              )
+                },
+              ),
             );
           }
           break;
@@ -233,12 +277,12 @@ export function useDrawingTools(): UseDrawingToolsReturn {
               id: uuidv4(),
               ...baseProps,
               seed: Math.floor(Math.random() * 1000000),
-            })
+            }),
           );
           break;
       }
     },
-    [toolState, baseProps]
+    [toolState, baseProps],
   );
 
   const finishDrawing = useCallback((): DriplElement | null => {

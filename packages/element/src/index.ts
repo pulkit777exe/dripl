@@ -11,6 +11,6 @@ export {
 
 export * from "./shape-cache";
 
-// Future expansion 
+// Future expansion
 // export * from "./viewport";
 // export * from "./image-cache";

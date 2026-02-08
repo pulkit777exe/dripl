@@ -16,7 +16,7 @@ export const CanvasBackground = ({
     <div
       className={cn(
         "absolute inset-0 pointer-events-none opacity-40",
-        className
+        className,
       )}
       style={{
         backgroundImage: `radial-gradient(circle, currentColor ${dotSize}px, transparent ${dotSize}px)`,

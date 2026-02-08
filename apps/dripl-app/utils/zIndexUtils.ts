@@ -8,39 +8,60 @@ const Z_INDEX_STEP = 10;
  * Sort elements by z-index (ascending)
  */
 export function sortElementsByZIndex(elements: DriplElement[]): DriplElement[] {
-  return [...elements].sort((a, b) => (a.zIndex ?? DEFAULT_Z_INDEX) - (b.zIndex ?? DEFAULT_Z_INDEX));
+  return [...elements].sort(
+    (a, b) => (a.zIndex ?? DEFAULT_Z_INDEX) - (b.zIndex ?? DEFAULT_Z_INDEX),
+  );
 }
 
 /**
  * Sort elements by z-index (descending)
  */
-export function sortElementsByZIndexDescending(elements: DriplElement[]): DriplElement[] {
-  return [...elements].sort((a, b) => (b.zIndex ?? DEFAULT_Z_INDEX) - (a.zIndex ?? DEFAULT_Z_INDEX));
+export function sortElementsByZIndexDescending(
+  elements: DriplElement[],
+): DriplElement[] {
+  return [...elements].sort(
+    (a, b) => (b.zIndex ?? DEFAULT_Z_INDEX) - (a.zIndex ?? DEFAULT_Z_INDEX),
+  );
 }
 
 /**
  * Bring an element to the front
  */
-export function bringToFront(element: DriplElement, elements: DriplElement[]): DriplElement {
-  const maxZ = Math.max(...elements.map((el) => el.zIndex ?? DEFAULT_Z_INDEX), DEFAULT_Z_INDEX);
+export function bringToFront(
+  element: DriplElement,
+  elements: DriplElement[],
+): DriplElement {
+  const maxZ = Math.max(
+    ...elements.map((el) => el.zIndex ?? DEFAULT_Z_INDEX),
+    DEFAULT_Z_INDEX,
+  );
   return { ...element, zIndex: maxZ + Z_INDEX_STEP };
 }
 
 /**
  * Send an element to the back
  */
-export function sendToBack(element: DriplElement, elements: DriplElement[]): DriplElement {
-  const minZ = Math.min(...elements.map((el) => el.zIndex ?? DEFAULT_Z_INDEX), DEFAULT_Z_INDEX);
+export function sendToBack(
+  element: DriplElement,
+  elements: DriplElement[],
+): DriplElement {
+  const minZ = Math.min(
+    ...elements.map((el) => el.zIndex ?? DEFAULT_Z_INDEX),
+    DEFAULT_Z_INDEX,
+  );
   return { ...element, zIndex: minZ - Z_INDEX_STEP };
 }
 
 /**
  * Bring an element forward
  */
-export function bringForward(element: DriplElement, elements: DriplElement[]): DriplElement {
+export function bringForward(
+  element: DriplElement,
+  elements: DriplElement[],
+): DriplElement {
   const sortedElements = sortElementsByZIndex(elements);
   const currentIndex = sortedElements.findIndex((el) => el.id === element.id);
-  
+
   if (currentIndex === -1 || currentIndex === sortedElements.length - 1) {
     return element;
   }
@@ -57,10 +78,13 @@ export function bringForward(element: DriplElement, elements: DriplElement[]): D
 /**
  * Send an element backward
  */
-export function sendBackward(element: DriplElement, elements: DriplElement[]): DriplElement {
+export function sendBackward(
+  element: DriplElement,
+  elements: DriplElement[],
+): DriplElement {
   const sortedElements = sortElementsByZIndex(elements);
   const currentIndex = sortedElements.findIndex((el) => el.id === element.id);
-  
+
   if (currentIndex === -1 || currentIndex === 0) {
     return element;
   }
@@ -79,19 +103,26 @@ export function sendBackward(element: DriplElement, elements: DriplElement[]): D
  */
 export function updateElementsZIndex(
   elements: DriplElement[],
-  updates: Array<{ id: string; zIndex: number }>
+  updates: Array<{ id: string; zIndex: number }>,
 ): DriplElement[] {
-  const updateMap = new Map(updates.map((update) => [update.id, update.zIndex]));
+  const updateMap = new Map(
+    updates.map((update) => [update.id, update.zIndex]),
+  );
   return elements.map((element) => {
     const newZIndex = updateMap.get(element.id);
-    return newZIndex !== undefined ? { ...element, zIndex: newZIndex } : element;
+    return newZIndex !== undefined
+      ? { ...element, zIndex: newZIndex }
+      : element;
   });
 }
 
 /**
  * Get z-index range of selected elements
  */
-export function getZIndexRange(selectedElements: DriplElement[]): { min: number; max: number } {
+export function getZIndexRange(selectedElements: DriplElement[]): {
+  min: number;
+  max: number;
+} {
   const zIndices = selectedElements.map((el) => el.zIndex ?? DEFAULT_Z_INDEX);
   return {
     min: Math.min(...zIndices),

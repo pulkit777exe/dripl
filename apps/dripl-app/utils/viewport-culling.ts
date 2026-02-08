@@ -5,7 +5,7 @@ import { getViewportBounds, Viewport } from "./canvas-coordinates";
 
 export function getVisibleElements(
   elements: DriplElement[],
-  viewport: Viewport
+  viewport: Viewport,
 ): DriplElement[] {
   const viewportBounds = getViewportBounds(viewport);
   const viewportRect: Bounds = {

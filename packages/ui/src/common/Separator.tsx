@@ -13,12 +13,12 @@ export const Separator = React.forwardRef<HTMLDivElement, SeparatorProps>(
         className={cn(
           "bg-neutral-200 dark:bg-neutral-800",
           orientation === "horizontal" ? "h-px w-full" : "h-full w-px",
-          className
+          className,
         )}
         {...props}
       />
     );
-  }
+  },
 );
 
 Separator.displayName = "Separator";

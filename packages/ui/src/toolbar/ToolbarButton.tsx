@@ -26,7 +26,7 @@ export const ToolbarButton = React.forwardRef<
               isActive,
             "hover:bg-neutral-100 dark:hover:bg-neutral-800": !isActive,
           },
-          className
+          className,
         )}
         {...props}
       >

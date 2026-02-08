@@ -70,7 +70,7 @@ const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
 export function useCanvasWebSocket(
   roomSlug: string | null,
   userName: string | null,
-  authToken?: string | null
+  authToken?: string | null,
 ) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -88,7 +88,7 @@ export function useCanvasWebSocket(
   const addRemoteUser = useCanvasStore((state) => state.addRemoteUser);
   const removeRemoteUser = useCanvasStore((state) => state.removeRemoteUser);
   const updateRemoteCursor = useCanvasStore(
-    (state) => state.updateRemoteCursor
+    (state) => state.updateRemoteCursor,
   );
   const elements = useCanvasStore((state) => state.elements);
 
@@ -157,15 +157,22 @@ export function useCanvasWebSocket(
             processedMessagesRef.current.add(message.id);
 
             if (processedMessagesRef.current.size > 1000) {
-              const firstId = processedMessagesRef.current.values().next().value;
+              const firstId = processedMessagesRef.current
+                .values()
+                .next().value;
               if (firstId) processedMessagesRef.current.delete(firstId);
             }
           }
 
-          if (message.type === "update_element" && message.timestamp && message.userId) {
+          if (
+            message.type === "update_element" &&
+            message.timestamp &&
+            message.userId
+          ) {
             const elementId = (message as UpdateElementMessage).element.id;
-            const lastTimestamp = lastMessageTimestampRef.current.get(elementId) || 0;
-            
+            const lastTimestamp =
+              lastMessageTimestampRef.current.get(elementId) || 0;
+
             if (message.timestamp <= lastTimestamp) {
               return;
             }
@@ -221,7 +228,12 @@ export function useCanvasWebSocket(
 
             case "add_element": {
               const addMsg = message as AddElementMessage;
-              if (addMsg.element && (!message.userId || message.userId !== elements.find(e => e.id === addMsg.element.id)?.id)) {
+              if (
+                addMsg.element &&
+                (!message.userId ||
+                  message.userId !==
+                    elements.find((e) => e.id === addMsg.element.id)?.id)
+              ) {
                 addElement(addMsg.element);
               }
               break;
@@ -270,10 +282,10 @@ export function useCanvasWebSocket(
           reconnectAttemptsRef.current++;
           const delay = Math.min(
             1000 * Math.pow(2, reconnectAttemptsRef.current),
-            30000
+            30000,
           );
           console.log(
-            `Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current})`
+            `Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current})`,
           );
 
           reconnectTimeoutRef.current = setTimeout(() => {

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useCanvasStore } from "@/lib/canvas-store";
 import { Download, X } from "lucide-react";
 import { createRoughCanvas, renderRoughElement } from "@dripl/element";
-import rough from "roughjs"
+import rough from "roughjs";
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -165,7 +165,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
               el.y + el.height / 2,
               el.width,
               el.height,
-              options
+              options,
             );
             break;
           case "line":
@@ -173,7 +173,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           case "freedraw":
             if ("points" in el && el.points) {
               const points = el.points.map(
-                (p: any) => [p.x, p.y] as [number, number]
+                (p: any) => [p.x, p.y] as [number, number],
               );
               if (el.type === "freedraw") {
                 node = rc.curve(points, options);
@@ -186,20 +186,20 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             // RoughJS doesn't do text, specific SVG node needed
             const textNode = document.createElementNS(
               "http://www.w3.org/2000/svg",
-              "text"
+              "text",
             );
             textNode.setAttribute("x", el.x.toString());
             textNode.setAttribute(
               "y",
-              (el.y + ("fontSize" in el ? el.fontSize || 16 : 16)).toString()
+              (el.y + ("fontSize" in el ? el.fontSize || 16 : 16)).toString(),
             );
             textNode.setAttribute(
               "font-family",
-              "fontFamily" in el ? el.fontFamily || "sans-serif" : "sans-serif"
+              "fontFamily" in el ? el.fontFamily || "sans-serif" : "sans-serif",
             );
             textNode.setAttribute(
               "font-size",
-              ("fontSize" in el ? el.fontSize || 16 : 16).toString()
+              ("fontSize" in el ? el.fontSize || 16 : 16).toString(),
             );
             textNode.setAttribute("fill", el.strokeColor || "#000000");
             textNode.textContent = "text" in el ? el.text || "" : "";
@@ -209,7 +209,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             if ("src" in el && el.src) {
               const imgNode = document.createElementNS(
                 "http://www.w3.org/2000/svg",
-                "image"
+                "image",
               );
               imgNode.setAttribute("x", el.x.toString());
               imgNode.setAttribute("y", el.y.toString());

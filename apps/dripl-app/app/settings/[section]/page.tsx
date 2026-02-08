@@ -58,10 +58,7 @@ export default function SettingsPage() {
     <div className="min-h-dvh flex">
       {/* Sidebar */}
       <aside className="w-64 border-r border-gray-800 p-4">
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 mb-8"
-        >
+        <Link href="/dashboard" className="flex items-center gap-2 mb-8">
           <ArrowLeft size={16} />
           Back to Dashboard
         </Link>
@@ -75,9 +72,7 @@ export default function SettingsPage() {
                 key={key}
                 href={`/settings/${key}`}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                  section === key
-                    ? "bg-purple-600"
-                    : "hover:bg-gray-800"
+                  section === key ? "bg-purple-600" : "hover:bg-gray-800"
                 }`}
               >
                 <Icon size={18} />

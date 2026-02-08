@@ -1,4 +1,4 @@
-import { DriplElement } from '@dripl/common';
+import { DriplElement } from "@dripl/common";
 
 export interface StorageAdapter {
   save(elements: DriplElement[]): Promise<void>;
@@ -8,7 +8,7 @@ export interface StorageAdapter {
 export class LocalStorageAdapter implements StorageAdapter {
   private key: string;
 
-  constructor(key: string = 'dripl-data') {
+  constructor(key: string = "dripl-data") {
     this.key = key;
   }
 

@@ -39,7 +39,7 @@ export function BentoGrid() {
             transition={{ duration: 0.5, delay: i * 0.1 }}
             className={cn(
               "group relative overflow-hidden rounded-3xl border border-structure-grey bg-white p-8 transition-all duration-300 hover:-translate-y-[2px] hover:border-zinc-300 hover:shadow-attio-md",
-              card.className
+              card.className,
             )}
           >
             <div className="relative z-10 flex h-full flex-col justify-between">

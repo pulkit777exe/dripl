@@ -14,7 +14,10 @@ export interface ImageToolState {
  */
 export function createImageElement(
   state: ImageToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "src"> & { id: string }
+  baseProps: Omit<
+    DriplElement,
+    "type" | "x" | "y" | "width" | "height" | "src"
+  > & { id: string },
 ): ImageElement {
   return {
     ...baseProps,
@@ -32,7 +35,7 @@ export function createImageElement(
  */
 export async function loadImage(
   file: File | string,
-  maxSize: number = 1000
+  maxSize: number = 1000,
 ): Promise<{
   src: string;
   naturalWidth: number;

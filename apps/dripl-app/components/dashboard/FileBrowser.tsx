@@ -20,7 +20,11 @@ interface FileBrowserProps {
   onStartNewCanvas?: () => void;
 }
 
-export function FileBrowser({ files, onCreateFile, onStartNewCanvas }: FileBrowserProps) {
+export function FileBrowser({
+  files,
+  onCreateFile,
+  onStartNewCanvas,
+}: FileBrowserProps) {
   const [isPending, startTransition] = useTransition();
 
   const handleCreate = () => {

@@ -7,7 +7,9 @@ export interface DiamondToolState {
 }
 export function createDiamondElement(
   state: DiamondToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height"> & { id: string }
+  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height"> & {
+    id: string;
+  },
 ): DriplElement {
   let width = state.currentPoint.x - state.startPoint.x;
   let height = state.currentPoint.y - state.startPoint.y;

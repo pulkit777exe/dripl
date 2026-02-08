@@ -19,7 +19,15 @@ export const ElementBaseSchema = z.object({
   roughness: z.number().optional(),
   strokeStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
   fillStyle: z
-    .enum(["hachure", "solid", "zigzag", "cross-hatch", "dots", "dashed", "zigzag-line"])
+    .enum([
+      "hachure",
+      "solid",
+      "zigzag",
+      "cross-hatch",
+      "dots",
+      "dashed",
+      "zigzag-line",
+    ])
     .optional(),
   seed: z.number().optional(),
   angle: z.number().optional(),

@@ -257,7 +257,7 @@ export const elementIntersectsSegment = (
   }
 
   if (element.type === "diamond") {
-        const vertices: Point[] = [
+    const vertices: Point[] = [
       { x: element.x + element.width / 2, y: element.y },
       { x: element.x + element.width, y: element.y + element.height / 2 },
       { x: element.x + element.width / 2, y: element.y + element.height },
@@ -275,7 +275,7 @@ export const elementIntersectsSegment = (
   }
 
   if (element.type === "ellipse") {
-        const cx = element.x + element.width / 2;
+    const cx = element.x + element.width / 2;
     const cy = element.y + element.height / 2;
     const rx = element.width / 2;
     const ry = element.height / 2;
@@ -285,7 +285,7 @@ export const elementIntersectsSegment = (
       const a = (i / segments) * Math.PI * 2;
       pts.push({ x: cx + Math.cos(a) * rx, y: cy + Math.sin(a) * ry });
     }
-        const angle = (element.angle || 0) as number;
+    const angle = (element.angle || 0) as number;
     const centerX = cx;
     const centerY = cy;
     const worldPts = angle
@@ -303,19 +303,19 @@ export const elementIntersectsSegment = (
     const worldPts = pts.map((p) => elementLocalPointToWorld(element, p));
     const tolerance = (element.strokeWidth || 0) / 2 + threshold;
 
-        for (let i = 0; i < worldPts.length - 1; i++) {
+    for (let i = 0; i < worldPts.length - 1; i++) {
       const pathSeg: LineSegment = {
         start: worldPts[i]!,
         end: worldPts[i + 1]!,
       };
-          const d1 = distanceToSegment(segment.start, pathSeg);
+      const d1 = distanceToSegment(segment.start, pathSeg);
       const d2 = distanceToSegment(segment.end, pathSeg);
       const d3 = distanceToSegment(pathSeg.start, segment);
       const d4 = distanceToSegment(pathSeg.end, segment);
       if (Math.min(d1, d2, d3, d4) <= tolerance) return true;
     }
 
-        if (element.type === "freedraw" && worldPts.length > 2) {
+    if (element.type === "freedraw" && worldPts.length > 2) {
       const first = worldPts[0]!;
       const last = worldPts[worldPts.length - 1]!;
       if (distance(first, last) <= (element.strokeWidth || 0) / 2 + 1) {
