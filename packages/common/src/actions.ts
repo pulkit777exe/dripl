@@ -1,6 +1,6 @@
-import { DriplElement, Point } from "./types/element";
+import type { DriplElement, Point } from "./types/element";
 import { Scene } from "./scene";
-import { Delta, DeltaManager } from "./delta";
+import type { Delta, DeltaManager } from "./delta";
 
 export type ActionType =
   | "ADD_ELEMENT"

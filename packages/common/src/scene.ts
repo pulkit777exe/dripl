@@ -1,4 +1,4 @@
-import { DriplElement } from "./types/element";
+import type { DriplElement } from "./types/element";
 
 export interface SceneState {
   elements: DriplElement[];

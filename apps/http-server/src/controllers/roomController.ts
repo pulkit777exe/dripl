@@ -84,7 +84,7 @@ export class RoomController {
   }
 
   static async getRoom(req: AuthRequest, res: Response): Promise<void> {
-    const { slug } = req.params;
+    const { slug } = req.params as { slug: string };
 
     try {
       const room = await prisma.canvasRoom.findUnique({
@@ -134,7 +134,7 @@ export class RoomController {
   }
 
   static async updateRoom(req: AuthRequest, res: Response): Promise<void> {
-    const { slug } = req.params;
+    const { slug } = req.params as { slug: string };
     const { name, isPublic, content } = req.body;
 
     try {
@@ -170,7 +170,7 @@ export class RoomController {
   }
 
   static async deleteRoom(req: AuthRequest, res: Response): Promise<void> {
-    const { slug } = req.params;
+    const { slug } = req.params as { slug: string };
 
     try {
       const room = await prisma.canvasRoom.findUnique({ where: { slug } });
@@ -199,7 +199,7 @@ export class RoomController {
   }
 
   static async addMember(req: AuthRequest, res: Response): Promise<void> {
-    const { slug } = req.params;
+    const { slug } = req.params as { slug: string };
     const { userId, role = "EDITOR" } = req.body;
 
     try {
@@ -234,7 +234,7 @@ export class RoomController {
   }
 
   static async removeMember(req: AuthRequest, res: Response): Promise<void> {
-    const { slug, userId } = req.params;
+    const { slug, userId } = req.params as { slug: string; userId: string };
 
     try {
       const room = await prisma.canvasRoom.findUnique({ where: { slug } });

@@ -1,4 +1,4 @@
-import { ShapeType } from "../constants.js";
+// import { ShapeType } from "../constants";
 
 export interface Point {
   x: number;
