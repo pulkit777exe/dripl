@@ -21,12 +21,15 @@ export function createRoughCanvas(
       offscreenContext = offscreenCanvas.getContext("2d");
       offscreenRoughCanvas = rough.canvas(offscreenCanvas);
     }
-    
-    if (offscreenCanvas && canvas.width !== offscreenCanvas.width || canvas.height !== offscreenCanvas.height) {
+
+    if (
+      (offscreenCanvas && canvas.width !== offscreenCanvas.width) ||
+      canvas.height !== offscreenCanvas.height
+    ) {
       offscreenCanvas.width = canvas.width;
       offscreenCanvas.height = canvas.height;
     }
-    
+
     return rough.canvas(canvas);
   } catch (e) {
     console.error("Failed to create Rough canvas", e);
@@ -120,7 +123,7 @@ export function renderRoughElement(
   rc: _RoughCanvas,
   ctx: CanvasRenderingContext2D,
   element: DriplElement,
-  elements?: DriplElement[], 
+  elements?: DriplElement[],
   theme: "light" | "dark" = "dark",
 ): void {
   if (element.isDeleted) return;
@@ -143,7 +146,7 @@ export function renderRoughElement(
     shape = generateShape(element);
     setShapeInCache(element as any, shape);
   }
-  
+
   const isLinear =
     element.type === "line" ||
     element.type === "arrow" ||
@@ -152,8 +155,8 @@ export function renderRoughElement(
   ctx.translate(x, y);
 
   if (element.type === "arrow" && (element as any).labelId && elements) {
-    const label = elements.find(el => el.id === (element as any).labelId);
-    
+    const label = elements.find((el) => el.id === (element as any).labelId);
+
     if (label && label.type === "text") {
       const labelBounds = {
         x: label.x - x,
@@ -161,11 +164,16 @@ export function renderRoughElement(
         width: label.width,
         height: label.height,
       };
-      
+
       ctx.save();
       ctx.globalCompositeOperation = "destination-out";
       ctx.fillStyle = theme === "dark" ? "#0f0f13" : "#f8f9fa";
-      ctx.fillRect(labelBounds.x, labelBounds.y, labelBounds.width, labelBounds.height);
+      ctx.fillRect(
+        labelBounds.x,
+        labelBounds.y,
+        labelBounds.width,
+        labelBounds.height,
+      );
       ctx.restore();
     }
   }
@@ -187,20 +195,34 @@ export function renderRoughElements(
 ): void {
   // Get the actual canvas dimensions from the context
   const canvas = ctx.canvas;
-  
+
   if (offscreenCanvas && offscreenContext && offscreenRoughCanvas) {
     // Ensure offscreen canvas matches actual canvas size
-    if (offscreenCanvas.width !== canvas.width || offscreenCanvas.height !== canvas.height) {
+    if (
+      offscreenCanvas.width !== canvas.width ||
+      offscreenCanvas.height !== canvas.height
+    ) {
       offscreenCanvas.width = canvas.width;
       offscreenCanvas.height = canvas.height;
     }
-    
-    offscreenContext.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-    
+
+    offscreenContext.clearRect(
+      0,
+      0,
+      offscreenCanvas.width,
+      offscreenCanvas.height,
+    );
+
     for (const el of elements) {
-      renderRoughElement(offscreenRoughCanvas, offscreenContext, el, elements, theme);
+      renderRoughElement(
+        offscreenRoughCanvas,
+        offscreenContext,
+        el,
+        elements,
+        theme,
+      );
     }
-    
+
     ctx.drawImage(offscreenCanvas, 0, 0);
   } else {
     for (const el of elements) {

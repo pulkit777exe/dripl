@@ -16,7 +16,10 @@ export interface UseEnhancedSelectionReturn {
   marqueeSelection: MarqueeSelection | null;
   selectElement: (id: string, addToSelection?: boolean) => void;
   deselectAll: () => void;
-  handleClickSelection: (point: Point, shiftKey: boolean) => DriplElement | null;
+  handleClickSelection: (
+    point: Point,
+    shiftKey: boolean,
+  ) => DriplElement | null;
   startMarqueeSelection: (point: Point) => void;
   updateMarqueeSelection: (point: Point) => void;
   endMarqueeSelection: () => void;
@@ -27,7 +30,8 @@ export interface UseEnhancedSelectionReturn {
 
 export function useEnhancedSelection(): UseEnhancedSelectionReturn {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [marqueeSelection, setMarqueeSelection] = useState<MarqueeSelection | null>(null);
+  const [marqueeSelection, setMarqueeSelection] =
+    useState<MarqueeSelection | null>(null);
 
   const selectElement = useCallback((id: string, addToSelection = false) => {
     setSelectedIds((prev) => {
@@ -53,7 +57,7 @@ export function useEnhancedSelection(): UseEnhancedSelectionReturn {
     (point: Point, shiftKey: boolean): DriplElement | null => {
       return null;
     },
-    []
+    [],
   );
 
   const startMarqueeSelection = useCallback((point: Point) => {
@@ -98,7 +102,7 @@ export function useEnhancedSelection(): UseEnhancedSelectionReturn {
     (elements: DriplElement[]) => {
       return elements.filter((el) => selectedIds.has(el.id));
     },
-    [selectedIds]
+    [selectedIds],
   );
 
   return {
@@ -110,8 +114,7 @@ export function useEnhancedSelection(): UseEnhancedSelectionReturn {
     startMarqueeSelection,
     updateMarqueeSelection,
     endMarqueeSelection,
-    selectAll: () => {
-    },
+    selectAll: () => {},
     deleteSelected,
     getSelectedElements,
   };
@@ -122,7 +125,9 @@ export function handleClickSelectionWithElements(
   elements: DriplElement[],
   shiftKey: boolean,
   selectedIds: Set<string>,
-  setSelectedIds: (ids: Set<string> | ((prev: Set<string>) => Set<string>)) => void
+  setSelectedIds: (
+    ids: Set<string> | ((prev: Set<string>) => Set<string>),
+  ) => void,
 ): DriplElement | null {
   const clickedElement = getElementAtPoint(point, elements);
 
@@ -154,8 +159,10 @@ export function handleClickSelectionWithElements(
 export function handleMarqueeSelectionEnd(
   marqueeSelection: MarqueeSelection | null,
   elements: DriplElement[],
-  setSelectedIds: (ids: Set<string> | ((prev: Set<string>) => Set<string>)) => void,
-  shiftKey: boolean
+  setSelectedIds: (
+    ids: Set<string> | ((prev: Set<string>) => Set<string>),
+  ) => void,
+  shiftKey: boolean,
 ): void {
   if (!marqueeSelection || !marqueeSelection.active) return;
 

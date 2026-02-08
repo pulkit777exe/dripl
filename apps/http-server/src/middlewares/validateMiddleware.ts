@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from "express";
 export const validateSignup = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): void => {
   const { email, password } = req.body;
 
@@ -35,7 +35,7 @@ export const validateSignup = (
 export const validateLogin = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): void => {
   const { email, password } = req.body;
 

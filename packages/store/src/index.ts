@@ -1,7 +1,6 @@
 import { Store } from "@tanstack/store";
 import { DriplElement } from "@dripl/common";
 
-
 export interface User {
   userId: string;
   userName: string;
@@ -15,30 +14,39 @@ export interface AppState {
   scrollX: number;
   scrollY: number;
   viewModeEnabled: boolean;
-  
+
   gridSize: number;
   gridEnabled: boolean;
   snapToGrid: boolean;
-  
+
   theme: "light" | "dark";
   canvasBackgroundColor: string;
-  
-  activeTool: "selection" | "rectangle" | "ellipse" | "diamond" | "arrow" | "line" | "draw" | "text" | "image";
-  
+
+  activeTool:
+    | "selection"
+    | "rectangle"
+    | "ellipse"
+    | "diamond"
+    | "arrow"
+    | "line"
+    | "draw"
+    | "text"
+    | "image";
+
   selectedElementIds: Set<string>;
   editingTextId: string | null;
-  
+
   currentItemStrokeColor: string;
   currentItemBackgroundColor: string;
   currentItemStrokeWidth: number;
   currentItemRoughness: number;
   currentItemStrokeSharpness: "round" | "sharp";
-  
+
   fileId: string | null;
   fileName: string;
   isSaving: boolean;
   lastSaved: number | null;
-  
+
   isCollaborative: boolean;
   roomId: string | null;
   currentUserId: string | null;
@@ -58,7 +66,6 @@ export interface StoreState {
     future: HistoryEntry[];
   };
 }
-
 
 export const defaultAppState: AppState = {
   zoom: 1,
@@ -88,7 +95,6 @@ export const defaultAppState: AppState = {
   connectedUsers: new Map(),
 };
 
-
 export const store = new Store<StoreState>({
   appState: defaultAppState,
   elements: [],
@@ -98,15 +104,14 @@ export const store = new Store<StoreState>({
   },
 });
 
-
 const MAX_HISTORY_SIZE = 50;
 const HISTORY_THROTTLE_MS = 300;
 let historyThrottleTimeout: NodeJS.Timeout | null = null;
 
-
 export const actions = {
-   
-  setAppState: (updater: Partial<AppState> | ((prev: AppState) => Partial<AppState>)) => {
+  setAppState: (
+    updater: Partial<AppState> | ((prev: AppState) => Partial<AppState>),
+  ) => {
     store.setState((state) => ({
       ...state,
       appState: {
@@ -128,10 +133,9 @@ export const actions = {
     actions.setAppState({ scrollX, scrollY });
   },
 
- 
   setElements: (
     updater: DriplElement[] | ((prev: DriplElement[]) => DriplElement[]),
-    options: { addToHistory?: boolean; source?: "local" | "remote" } = {}
+    options: { addToHistory?: boolean; source?: "local" | "remote" } = {},
   ) => {
     const { addToHistory = true, source = "local" } = options;
 
@@ -163,29 +167,31 @@ export const actions = {
   updateElement: (
     elementId: string,
     updates: Partial<DriplElement>,
-    options?: { addToHistory?: boolean }
+    options?: { addToHistory?: boolean },
   ) => {
     actions.setElements(
       (prev) =>
         prev.map((el) => (el.id === elementId ? { ...el, ...updates } : el)),
-      options
+      options,
     );
   },
 
-  deleteElements: (elementIds: string[], options?: { addToHistory?: boolean }) => {
+  deleteElements: (
+    elementIds: string[],
+    options?: { addToHistory?: boolean },
+  ) => {
     actions.setElements(
       (prev) => prev.filter((el) => !elementIds.includes(el.id)),
-      options
+      options,
     );
-    
+
     actions.setAppState((prev) => {
       const newSelected = new Set(prev.selectedElementIds);
-      elementIds.forEach(id => newSelected.delete(id));
+      elementIds.forEach((id) => newSelected.delete(id));
       return { selectedElementIds: newSelected };
     });
   },
 
- 
   selectElements: (elementIds: string[]) => {
     actions.setAppState({ selectedElementIds: new Set(elementIds) });
   },
@@ -206,7 +212,6 @@ export const actions = {
     actions.setAppState({ selectedElementIds: new Set() });
   },
 
- 
   pushToHistory: () => {
     store.setState((state) => {
       const entry: HistoryEntry = {
@@ -215,7 +220,7 @@ export const actions = {
       };
 
       const newPast = [...state.history.past, entry];
-      
+
       if (newPast.length > MAX_HISTORY_SIZE) {
         newPast.shift();
       }
@@ -236,7 +241,7 @@ export const actions = {
 
       const previous = state.history.past[state.history.past.length - 1];
       const newPast = state.history.past.slice(0, -1);
-      
+
       const currentEntry: HistoryEntry = {
         elements: JSON.parse(JSON.stringify(state.elements)),
         timestamp: Date.now(),
@@ -259,7 +264,7 @@ export const actions = {
 
       const next = state.history.future[0];
       const newFuture = state.history.future.slice(1);
-      
+
       const currentEntry: HistoryEntry = {
         elements: JSON.parse(JSON.stringify(state.elements)),
         timestamp: Date.now(),
@@ -294,8 +299,11 @@ export const actions = {
     }));
   },
 
- 
-  setCollaborativeMode: (isCollaborative: boolean, roomId?: string, userId?: string) => {
+  setCollaborativeMode: (
+    isCollaborative: boolean,
+    roomId?: string,
+    userId?: string,
+  ) => {
     actions.setAppState({
       isCollaborative,
       roomId: roomId || null,
@@ -310,9 +318,14 @@ export const actions = {
       if (existing) {
         newUsers.set(userId, { ...existing, ...updates });
       } else {
-        newUsers.set(userId, { userId, userName: "Unknown", color: "#000000", ...updates });
+        newUsers.set(userId, {
+          userId,
+          userName: "Unknown",
+          color: "#000000",
+          ...updates,
+        });
       }
-      
+
       return {
         ...state,
         appState: {
@@ -327,7 +340,7 @@ export const actions = {
     store.setState((state) => {
       const newUsers = new Map(state.appState.connectedUsers);
       newUsers.delete(userId);
-      
+
       return {
         ...state,
         appState: {
@@ -376,7 +389,6 @@ export const actions = {
   },
 };
 
-
 export const selectors = {
   elements: (state: StoreState) => state.elements,
   appState: (state: StoreState) => state.appState,
@@ -386,7 +398,8 @@ export const selectors = {
     state.elements.find((el) => el.id === id),
   canUndo: (state: StoreState) => state.history.past.length > 0,
   canRedo: (state: StoreState) => state.history.future.length > 0,
-  connectedUsers: (state: StoreState) => Array.from(state.appState.connectedUsers.values()),
+  connectedUsers: (state: StoreState) =>
+    Array.from(state.appState.connectedUsers.values()),
 };
 
 export default store;

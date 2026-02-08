@@ -55,7 +55,9 @@ export class RoomController {
       let slug = generateSlug();
       let attempts = 0;
       while (attempts < 5) {
-        const existing = await prisma.canvasRoom.findUnique({ where: { slug } });
+        const existing = await prisma.canvasRoom.findUnique({
+          where: { slug },
+        });
         if (!existing) break;
         slug = generateSlug();
         attempts++;

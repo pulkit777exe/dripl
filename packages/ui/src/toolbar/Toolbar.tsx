@@ -15,7 +15,7 @@ export const Toolbar = ({ children, className }: ToolbarProps) => {
         "border border-neutral-200/50 dark:border-neutral-800/50",
         "rounded-2xl shadow-lg shadow-neutral-200/20 dark:shadow-black/20",
         "pointer-events-auto",
-        className
+        className,
       )}
     >
       {children}

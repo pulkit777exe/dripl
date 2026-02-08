@@ -61,7 +61,7 @@ export function PricingTable() {
                 "relative rounded-full px-6 py-2 text-sm font-medium transition-colors",
                 billing === cycle
                   ? "text-deep-charcoal"
-                  : "text-foreground/50 hover:text-foreground"
+                  : "text-foreground/50 hover:text-foreground",
               )}
             >
               {billing === cycle && (
@@ -90,7 +90,7 @@ export function PricingTable() {
             className={cn(
               "relative flex flex-col rounded-3xl border border-structure-grey bg-white p-8 transition-all hover:shadow-attio-lg",
               plan.highlight &&
-                "lg:-mt-4 lg:mb-4 lg:shadow-attio-md lg:border-deep-charcoal/10"
+                "lg:-mt-4 lg:mb-4 lg:shadow-attio-md lg:border-deep-charcoal/10",
             )}
           >
             {plan.highlight && (

@@ -58,11 +58,11 @@ const config: Config = {
 
         // --- Custom Structural Palette (Mapped to System) ---
         // This ensures "deep-charcoal" becomes white in Dark Mode automatically.
-        "deep-charcoal": "hsl(var(--primary))",    
-        "structure-grey": "hsl(var(--border))",    
-        "vapor-grey": "hsl(var(--secondary))",     
-        "canvas-white": "hsl(var(--background))",  
-        "off-white": "hsl(var(--muted))",          
+        "deep-charcoal": "hsl(var(--primary))",
+        "structure-grey": "hsl(var(--border))",
+        "vapor-grey": "hsl(var(--secondary))",
+        "canvas-white": "hsl(var(--background))",
+        "off-white": "hsl(var(--muted))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -71,13 +71,17 @@ const config: Config = {
       },
       backgroundImage: {
         // A pure CSS grid pattern (no SVG file needed)
-        "grid-pattern": "linear-gradient(to right, hsl(var(--border) / 0.4) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border) / 0.4) 1px, transparent 1px)",
+        "grid-pattern":
+          "linear-gradient(to right, hsl(var(--border) / 0.4) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border) / 0.4) 1px, transparent 1px)",
       },
       boxShadow: {
         // High-end, subtle "Attio/Linear" style shadows
-        "attio-sm": "0px 1px 2px rgba(0, 0, 0, 0.04), 0px 1px 1px rgba(0, 0, 0, 0.02)",
-        "attio-md": "0px 4px 8px rgba(0, 0, 0, 0.04), 0px 2px 4px rgba(0, 0, 0, 0.02), 0 0 0 1px rgba(0,0,0,0.04)",
-        "attio-lg": "0px 12px 24px rgba(0, 0, 0, 0.06), 0px 4px 8px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0,0,0,0.04)",
+        "attio-sm":
+          "0px 1px 2px rgba(0, 0, 0, 0.04), 0px 1px 1px rgba(0, 0, 0, 0.02)",
+        "attio-md":
+          "0px 4px 8px rgba(0, 0, 0, 0.04), 0px 2px 4px rgba(0, 0, 0, 0.02), 0 0 0 1px rgba(0,0,0,0.04)",
+        "attio-lg":
+          "0px 12px 24px rgba(0, 0, 0, 0.06), 0px 4px 8px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0,0,0,0.04)",
       },
     },
   },

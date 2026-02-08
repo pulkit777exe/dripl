@@ -84,10 +84,7 @@ export default function LibraryPage() {
       <header className="border-b border-gray-800 p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2"
-            >
+            <Link href="/dashboard" className="flex items-center gap-2">
               <ArrowLeft size={16} />
             </Link>
             <div className="flex items-center gap-2">

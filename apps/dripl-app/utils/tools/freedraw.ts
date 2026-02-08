@@ -20,8 +20,8 @@ function smoothPath(points: Point[], tension: number = 0.5): Point[] {
     // Catmull-Rom interpolation
     const t = tension;
     smoothed.push({
-      x: p1.x + t * (p2.x - p0.x) / 2,
-      y: p1.y + t * (p2.y - p0.y) / 2,
+      x: p1.x + (t * (p2.x - p0.x)) / 2,
+      y: p1.y + (t * (p2.y - p0.y)) / 2,
     });
   }
 
@@ -44,10 +44,10 @@ function optimizePoints(points: Point[], threshold: number = 2): Point[] {
     const length = Math.sqrt(dx * dx + dy * dy);
 
     if (length > 0) {
-      const distance =
-        Math.abs(
-          (dy * curr.x - dx * curr.y + next.x * prev.y - next.y * prev.x) / length
-        );
+      const distance = Math.abs(
+        (dy * curr.x - dx * curr.y + next.x * prev.y - next.y * prev.x) /
+          length,
+      );
 
       if (distance > threshold) {
         optimized.push(curr);
@@ -64,39 +64,42 @@ function optimizePoints(points: Point[], threshold: number = 2): Point[] {
 function calculatePressure(point: Point, points: Point[]): number {
   // Simple pressure simulation based on speed
   if (points.length < 2) return 0.5;
-  
+
   const prevPoint = points[points.length - 2];
   if (!prevPoint) return 0.5;
-  
+
   const dx = point.x - prevPoint.x;
   const dy = point.y - prevPoint.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
-  
+
   // Pressure decreases with speed
   const speed = distance / 16; // assuming 60fps
   const pressure = Math.max(0.3, Math.min(1, 1 - speed * 0.3));
-  
+
   return pressure;
 }
 
 function calculateVariableWidth(
   points: Point[],
   baseWidth: number,
-  pressureValues: number[]
+  pressureValues: number[],
 ): number[] {
   const widths = [];
-  
+
   for (let i = 0; i < points.length; i++) {
     const pressure = pressureValues[i] ?? 0.5;
     widths.push(baseWidth * (0.5 + pressure * 1.5)); // 0.75x to 2x width
   }
-  
+
   return widths;
 }
 
 export function createFreedrawElement(
   state: FreedrawToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "points"> & { id: string }
+  baseProps: Omit<
+    DriplElement,
+    "type" | "x" | "y" | "width" | "height" | "points"
+  > & { id: string },
 ): FreeDrawElement {
   if (state.points.length === 0) {
     throw new Error("Freedraw must have at least one point");
@@ -119,12 +122,16 @@ export function createFreedrawElement(
   }));
 
   // Calculate pressure values for variable width
-  const pressureValues = state.points.map((point, index) => 
-    calculatePressure(point, state.points.slice(0, index + 1))
+  const pressureValues = state.points.map((point, index) =>
+    calculatePressure(point, state.points.slice(0, index + 1)),
   );
-  
+
   const brushSize = state.brushSize ?? 2;
-  const widths = calculateVariableWidth(processedPoints, brushSize, pressureValues);
+  const widths = calculateVariableWidth(
+    processedPoints,
+    brushSize,
+    pressureValues,
+  );
 
   return {
     ...baseProps,
@@ -140,7 +147,10 @@ export function createFreedrawElement(
   };
 }
 
-export function addPointToFreedraw(point: Point, state: FreedrawToolState): FreedrawToolState {
+export function addPointToFreedraw(
+  point: Point,
+  state: FreedrawToolState,
+): FreedrawToolState {
   const pressure = calculatePressure(point, [...state.points, point]);
   return {
     ...state,
@@ -149,7 +159,10 @@ export function addPointToFreedraw(point: Point, state: FreedrawToolState): Free
   };
 }
 
-export function removePointFromFreedraw(index: number, state: FreedrawToolState): FreedrawToolState {
+export function removePointFromFreedraw(
+  index: number,
+  state: FreedrawToolState,
+): FreedrawToolState {
   const newPoints = [...state.points];
   newPoints.splice(index, 1);
   return {
@@ -158,10 +171,14 @@ export function removePointFromFreedraw(index: number, state: FreedrawToolState)
   };
 }
 
-export function updatePointInFreedraw(index: number, point: Point, state: FreedrawToolState): FreedrawToolState {
+export function updatePointInFreedraw(
+  index: number,
+  point: Point,
+  state: FreedrawToolState,
+): FreedrawToolState {
   const newPoints = [...state.points];
   newPoints[index] = point;
-  
+
   // Recalculate pressure values
   const newState = { ...state, points: newPoints };
   return newState;

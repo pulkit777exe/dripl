@@ -7,7 +7,7 @@ function makeBase(
   x: number,
   y: number,
   width: number,
-  height: number
+  height: number,
 ): ElementBase {
   return {
     id: generateId(),
@@ -34,7 +34,7 @@ export const createElement = (
   x: number,
   y: number,
   width = 100,
-  height = 100
+  height = 100,
 ): DriplElement => {
   const base = makeBase(x, y, width, height);
 
@@ -112,4 +112,3 @@ export const createElement = (
       throw new Error(`Unknown shape type: ${type}`);
   }
 };
-

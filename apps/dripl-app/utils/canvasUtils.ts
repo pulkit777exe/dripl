@@ -32,7 +32,7 @@ export function getElementBounds(element: CanvasElement): Bounds {
 
 export function isPointInElement(
   point: Point,
-  element: CanvasElement
+  element: CanvasElement,
 ): boolean {
   const bounds = getElementBounds(element);
 
@@ -42,7 +42,7 @@ export function isPointInElement(
     const rotatedPoint = rotatePoint(
       point,
       { x: centerX, y: centerY },
-      -element.rotation
+      -element.rotation,
     );
     point = rotatedPoint;
   }
@@ -90,7 +90,7 @@ function isPointInEllipse(point: Point, bounds: Bounds): boolean {
 function isPointNearPath(
   point: Point,
   points: Point[],
-  threshold: number = 5
+  threshold: number = 5,
 ): boolean {
   if (points.length < 2) return false;
 
@@ -109,7 +109,7 @@ function isPointNearPath(
 function distanceToLineSegment(
   point: Point,
   lineStart: Point,
-  lineEnd: Point
+  lineEnd: Point,
 ): number {
   const A = point.x - lineStart.x;
   const B = point.y - lineStart.y;
@@ -156,7 +156,7 @@ function rotatePoint(point: Point, center: Point, angle: number): Point {
 export function drawShape(
   ctx: CanvasRenderingContext2D,
   element: CanvasElement,
-  isSelected: boolean = false
+  isSelected: boolean = false,
 ): void {
   ctx.save();
 
@@ -219,7 +219,7 @@ export function drawShape(
 
 function drawRectangle(
   ctx: CanvasRenderingContext2D,
-  element: CanvasElement
+  element: CanvasElement,
 ): void {
   const roundnessValue =
     typeof element.roundness === "object"
@@ -235,21 +235,21 @@ function drawRectangle(
       element.x + element.width,
       element.y,
       element.x + element.width,
-      element.y + radius
+      element.y + radius,
     );
     ctx.lineTo(element.x + element.width, element.y + element.height - radius);
     ctx.quadraticCurveTo(
       element.x + element.width,
       element.y + element.height,
       element.x + element.width - radius,
-      element.y + element.height
+      element.y + element.height,
     );
     ctx.lineTo(element.x + radius, element.y + element.height);
     ctx.quadraticCurveTo(
       element.x,
       element.y + element.height,
       element.x,
-      element.y + element.height - radius
+      element.y + element.height - radius,
     );
     ctx.lineTo(element.x, element.y + radius);
     ctx.quadraticCurveTo(element.x, element.y, element.x + radius, element.y);
@@ -268,7 +268,7 @@ function drawRectangle(
 
 function drawCircle(
   ctx: CanvasRenderingContext2D,
-  element: CanvasElement
+  element: CanvasElement,
 ): void {
   const centerX = element.x + element.width / 2;
   const centerY = element.y + element.height / 2;
@@ -287,7 +287,7 @@ function drawCircle(
 
 function drawDiamond(
   ctx: CanvasRenderingContext2D,
-  element: CanvasElement
+  element: CanvasElement,
 ): void {
   const centerX = element.x + element.width / 2;
   const centerY = element.y + element.height / 2;
@@ -307,7 +307,7 @@ function drawDiamond(
 
 function drawArrow(
   ctx: CanvasRenderingContext2D,
-  element: CanvasElement
+  element: CanvasElement,
 ): void {
   if (!element.points || element.points.length < 2) return;
 
@@ -330,7 +330,7 @@ function drawArrow(
   if (lastPoint === undefined || secondLastPoint === undefined) return;
   const angle = Math.atan2(
     lastPoint.y - secondLastPoint.y,
-    lastPoint.x - secondLastPoint.x
+    lastPoint.x - secondLastPoint.x,
   );
   const arrowLength = 15;
   const arrowWidth = 10;
@@ -339,12 +339,12 @@ function drawArrow(
   ctx.moveTo(lastPoint.x, lastPoint.y);
   ctx.lineTo(
     lastPoint.x - arrowLength * Math.cos(angle - Math.PI / 6),
-    lastPoint.y - arrowLength * Math.sin(angle - Math.PI / 6)
+    lastPoint.y - arrowLength * Math.sin(angle - Math.PI / 6),
   );
   ctx.moveTo(lastPoint.x, lastPoint.y);
   ctx.lineTo(
     lastPoint.x - arrowLength * Math.cos(angle + Math.PI / 6),
-    lastPoint.y - arrowLength * Math.sin(angle + Math.PI / 6)
+    lastPoint.y - arrowLength * Math.sin(angle + Math.PI / 6),
   );
   ctx.stroke();
 }
@@ -367,7 +367,7 @@ function drawLine(ctx: CanvasRenderingContext2D, element: CanvasElement): void {
 
 function drawFreedraw(
   ctx: CanvasRenderingContext2D,
-  element: CanvasElement
+  element: CanvasElement,
 ): void {
   if (!element.points || element.points.length < 2) return;
 
@@ -427,12 +427,15 @@ function drawText(ctx: CanvasRenderingContext2D, element: CanvasElement): void {
   });
 }
 
-function drawFrame(ctx: CanvasRenderingContext2D, element: CanvasElement): void {
+function drawFrame(
+  ctx: CanvasRenderingContext2D,
+  element: CanvasElement,
+): void {
   const frameElement = element as any;
-  
+
   // Draw frame border
   ctx.strokeRect(element.x, element.y, element.width, element.height);
-  
+
   // Draw padding
   const padding = frameElement.padding || 20;
   ctx.setLineDash([5, 5]);
@@ -440,25 +443,21 @@ function drawFrame(ctx: CanvasRenderingContext2D, element: CanvasElement): void 
     element.x + padding,
     element.y + padding,
     element.width - 2 * padding,
-    element.height - 2 * padding
+    element.height - 2 * padding,
   );
   ctx.setLineDash([]);
-  
+
   // Draw title
   if (frameElement.title) {
     ctx.fillStyle = element.strokeColor;
     ctx.font = "14px Arial";
-    ctx.fillText(
-      frameElement.title,
-      element.x + 10,
-      element.y - 10
-    );
+    ctx.fillText(frameElement.title, element.x + 10, element.y - 10);
   }
 }
 
 export function exportToPNG(
   canvas: HTMLCanvasElement,
-  filename: string = "canvas.png"
+  filename: string = "canvas.png",
 ): void {
   canvas.toBlob((blob) => {
     if (!blob) return;
@@ -473,7 +472,7 @@ export function exportToPNG(
 
 export function exportToJSON(
   elements: CanvasElement[],
-  filename: string = "canvas.json"
+  filename: string = "canvas.json",
 ): void {
   const json = JSON.stringify({ elements, version: "1.0" }, null, 2);
   const blob = new Blob([json], { type: "application/json" });
@@ -506,7 +505,7 @@ export function generateId(): string {
 }
 export const saveToLocalStorage = (
   elements: CanvasElement[],
-  appState: Partial<AppState>
+  appState: Partial<AppState>,
 ) => {
   try {
     localStorage.setItem(STORAGE_KEYS.ELEMENTS, JSON.stringify(elements));

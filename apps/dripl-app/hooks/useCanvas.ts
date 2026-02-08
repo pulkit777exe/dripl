@@ -138,7 +138,7 @@ export const useCanvas = ({
 
       return { x, y };
     },
-    [zoom, pan]
+    [zoom, pan],
   );
 
   return {

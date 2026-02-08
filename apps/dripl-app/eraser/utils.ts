@@ -13,7 +13,7 @@ export const easeOut = (t: number): number => {
  */
 export const streamlinePoints = (
   points: EraserPoint[],
-  streamline: number = 0.5
+  streamline: number = 0.5,
 ): EraserPoint[] => {
   if (points.length < 2) return points;
 

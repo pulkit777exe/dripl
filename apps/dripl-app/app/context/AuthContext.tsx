@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import { apiClient } from "../../lib/api/client";
 import { useRouter } from "next/navigation";
 
@@ -39,14 +45,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Check for existing token in localStorage
       const storedToken = localStorage.getItem("dripl_token");
-      
+
       if (storedToken) {
         // Validate token
         const isValid = await validateToken(storedToken);
-        
+
         if (isValid) {
           setToken(storedToken);
-          
+
           // Try to get user profile
           try {
             const response = await apiClient.getProfile();
@@ -78,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const response = await apiClient.login({ email, password });
     setUser(response.user);
-    
+
     // Store token if received
     if (response.token) {
       localStorage.setItem("dripl_token", response.token);
@@ -89,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = async (email: string, password: string, name?: string) => {
     const response = await apiClient.signup({ email, password, name });
     setUser(response.user);
-    
+
     // Store token if received
     if (response.token) {
       localStorage.setItem("dripl_token", response.token);
@@ -103,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Logout failed:", error);
     }
-    
+
     localStorage.removeItem("dripl_token");
     localStorage.removeItem("dripl_last_canvas");
     setUser(null);
@@ -120,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const newToken = crypto.randomUUID();
     localStorage.setItem("dripl_token", newToken);
     setToken(newToken);
-    
+
     return newToken;
   };
 
@@ -128,8 +134,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // In a real implementation, this would validate against the server
       // For now, we'll just check if the token is in a valid UUID format
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
       // Also check token age (valid for 24 hours)
       const tokenAge = localStorage.getItem("dripl_token_age");
       if (tokenAge) {
@@ -138,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return false;
         }
       }
-      
+
       return uuidRegex.test(token);
     } catch (error) {
       return false;
@@ -146,17 +153,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      loading, 
-      token,
-      login, 
-      signup, 
-      logout, 
-      refreshUser,
-      generateToken,
-      validateToken,
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        token,
+        login,
+        signup,
+        logout,
+        refreshUser,
+        generateToken,
+        validateToken,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

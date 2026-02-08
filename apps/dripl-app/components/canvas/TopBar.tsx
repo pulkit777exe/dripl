@@ -36,7 +36,10 @@ export const TopBar: React.FC = () => {
           content: JSON.stringify(elements),
         });
 
-        console.log("Redirecting to new room:", `/canvas/${response.room.slug}`);
+        console.log(
+          "Redirecting to new room:",
+          `/canvas/${response.room.slug}`,
+        );
         router.push(`/canvas/${response.room.slug}`);
       }
     } catch (error) {
@@ -48,7 +51,7 @@ export const TopBar: React.FC = () => {
   return (
     <>
       <div className="absolute top-4 left-4 z-[100] flex gap-2 pointer-events-auto">
-        <button 
+        <button
           className="p-2 rounded-lg border border-border shadow-sm transition-colors bg-card hover:bg-accent text-foreground"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
@@ -56,7 +59,7 @@ export const TopBar: React.FC = () => {
           <Menu size={20} />
         </button>
 
-        <button 
+        <button
           className="p-2 rounded-lg border border-border shadow-sm transition-colors bg-card hover:bg-accent text-foreground"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
@@ -80,7 +83,7 @@ export const TopBar: React.FC = () => {
           <Globe size={14} />
           Dripl+
         </button>
-        <button 
+        <button
           className="px-4 py-1.5 bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 rounded-lg flex items-center gap-1.5 shadow-sm"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
@@ -88,7 +91,7 @@ export const TopBar: React.FC = () => {
           <Share2 size={14} />
           Share
         </button>
-        <button 
+        <button
           className="p-2 bg-card hover:bg-accent rounded-lg border border-border text-muted-foreground"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}

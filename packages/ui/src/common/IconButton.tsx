@@ -27,12 +27,12 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
             "size-9 p-2": size === "md",
             "size-10 p-2.5": size === "lg",
           },
-          className
+          className,
         )}
         {...props}
       />
     );
-  }
+  },
 );
 
 IconButton.displayName = "IconButton";

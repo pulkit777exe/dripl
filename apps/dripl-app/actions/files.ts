@@ -77,7 +77,7 @@ export async function getFile(id: string) {
 export async function updateFile(
   id: string,
   content: string,
-  preview?: string
+  preview?: string,
 ) {
   const user = await currentUser();
   if (!user) throw new Error("Unauthorized");

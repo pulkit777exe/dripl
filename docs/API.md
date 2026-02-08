@@ -140,7 +140,7 @@ const d = distance({ x: 0, y: 0 }, { x: 3, y: 4 });
 // Distance from point to line segment
 const dist = distanceToSegment(
   { x: 5, y: 5 },
-  { start: { x: 0, y: 0 }, end: { x: 10, y: 0 } }
+  { start: { x: 0, y: 0 }, end: { x: 10, y: 0 } },
 );
 ```
 
@@ -160,7 +160,7 @@ const bounds = getBounds([
 // Check if two bounds intersect
 const intersects = boundsIntersect(
   { x: 0, y: 0, width: 10, height: 10 },
-  { x: 5, y: 5, width: 10, height: 10 }
+  { x: 5, y: 5, width: 10, height: 10 },
 );
 // Returns: true
 ```

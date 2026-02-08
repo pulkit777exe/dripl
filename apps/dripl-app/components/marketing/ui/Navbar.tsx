@@ -50,7 +50,7 @@ export function Navbar() {
           href="/signup"
           className={cn(
             "flex h-8 items-center rounded-full bg-deep-charcoal px-4 text-sm font-medium text-white transition-transform hover:scale-105 active:scale-95",
-            "shadow-attio-sm hover:shadow-attio-md"
+            "shadow-attio-sm hover:shadow-attio-md",
           )}
         >
           Start for free

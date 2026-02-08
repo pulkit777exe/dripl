@@ -25,7 +25,6 @@ export interface TrailSegment {
   timestamp: number;
 }
 
-
 export interface IconButtonProps {
   icon: React.ReactNode;
   isActive?: boolean;

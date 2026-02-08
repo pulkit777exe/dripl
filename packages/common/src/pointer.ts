@@ -33,7 +33,7 @@ export class PointerManager {
     if (this.container) {
       this.removeEventListeners();
     }
-    
+
     this.container = container;
     this.setupEventListeners();
   }
@@ -61,28 +61,28 @@ export class PointerManager {
   getMovement(id: number): Point {
     const current = this.getPointer(id);
     const last = this.getLastPosition(id);
-    
+
     if (current && last) {
       return {
         x: current.point.x - last.x,
-        y: current.point.y - last.y
+        y: current.point.y - last.y,
       };
     }
-    
+
     return { x: 0, y: 0 };
   }
 
   getTotalMovement(id: number): Point {
     const current = this.getPointer(id);
     const down = this.getDownPosition(id);
-    
+
     if (current && down) {
       return {
         x: current.point.x - down.x,
-        y: current.point.y - down.y
+        y: current.point.y - down.y,
       };
     }
-    
+
     return { x: 0, y: 0 };
   }
 
@@ -111,7 +111,10 @@ export class PointerManager {
     this.container.removeEventListener("pointerdown", this.handlePointerDown);
     this.container.removeEventListener("pointermove", this.handlePointerMove);
     this.container.removeEventListener("pointerup", this.handlePointerUp);
-    this.container.removeEventListener("pointercancel", this.handlePointerCancel);
+    this.container.removeEventListener(
+      "pointercancel",
+      this.handlePointerCancel,
+    );
     this.container.removeEventListener("pointerleave", this.handlePointerUp);
   }
 
@@ -124,7 +127,7 @@ export class PointerManager {
     this.dispatchEvent({
       type: "pointer_down",
       pointer: pointerInfo,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   };
 
@@ -132,13 +135,16 @@ export class PointerManager {
     if (!this.activePointers.has(e.pointerId)) return;
 
     const pointerInfo: PointerInfo = this.createPointerInfo(e);
-    this.lastPosition.set(e.pointerId, this.activePointers.get(e.pointerId)!.point);
+    this.lastPosition.set(
+      e.pointerId,
+      this.activePointers.get(e.pointerId)!.point,
+    );
     this.activePointers.set(e.pointerId, pointerInfo);
 
     this.dispatchEvent({
       type: "pointer_move",
       pointer: pointerInfo,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   };
 
@@ -147,11 +153,11 @@ export class PointerManager {
     if (!pointerInfo) return;
 
     const finalInfo = this.createPointerInfo(e);
-    
+
     this.dispatchEvent({
       type: "pointer_up",
       pointer: finalInfo,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     this.activePointers.delete(e.pointerId);
@@ -164,11 +170,11 @@ export class PointerManager {
     if (!pointerInfo) return;
 
     const finalInfo = this.createPointerInfo(e);
-    
+
     this.dispatchEvent({
       type: "pointer_cancel",
       pointer: finalInfo,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     this.activePointers.delete(e.pointerId);
@@ -178,7 +184,7 @@ export class PointerManager {
 
   private createPointerInfo(e: globalThis.PointerEvent): PointerInfo {
     let button: "left" | "middle" | "right" | null = null;
-    
+
     if (e.button === 0) button = "left";
     if (e.button === 1) button = "middle";
     if (e.button === 2) button = "right";
@@ -189,7 +195,7 @@ export class PointerManager {
       point: this.getCanvasPoint(e),
       pressure: e.pressure,
       timestamp: e.timeStamp,
-      button: button
+      button: button,
     };
   }
 
@@ -208,12 +214,12 @@ export class PointerManager {
     const rect = this.container.getBoundingClientRect();
     return {
       x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      y: e.clientY - rect.top,
     };
   }
 
   private dispatchEvent(event: PointerEventData): void {
-    this.subscribers.forEach(callback => {
+    this.subscribers.forEach((callback) => {
       try {
         callback(event);
       } catch (error) {
@@ -273,7 +279,7 @@ export class DragDetector {
       case "pointer_move":
         if (this.dragStart) {
           this.dragEnd = event.pointer.point;
-          
+
           if (!this.isDragging) {
             const distance = this.getDragDistance();
             this.isDragging = distance >= this.minDragDistance;

@@ -302,7 +302,7 @@ export default function App() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
   const [currentElement, setCurrentElement] = useState<CanvasElement | null>(
-    null
+    null,
   );
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState<Point | null>(null);
@@ -328,7 +328,7 @@ export default function App() {
   const [backgroundColor, setBackgroundColor] = useState("transparent");
   const [strokeWidth, setStrokeWidth] = useState(2);
   const [strokeStyle, setStrokeStyle] = useState<"solid" | "dashed" | "dotted">(
-    "solid"
+    "solid",
   );
   const [sloppiness, setSloppiness] = useState(1);
   const [edges, setEdges] = useState<"sharp" | "round">("round");
@@ -560,7 +560,7 @@ export default function App() {
 
       return { x, y };
     },
-    [zoom, pan]
+    [zoom, pan],
   );
 
   const handleMouseDown = useCallback(
@@ -635,7 +635,7 @@ export default function App() {
       sloppiness,
       edges,
       getCanvasPoint,
-    ]
+    ],
   );
 
   const handleResizeStart = useCallback(
@@ -657,7 +657,7 @@ export default function App() {
       setResizeHandle(handle);
       setResizeStart({ point, element: { ...element } });
     },
-    [elements]
+    [elements],
   );
 
   const handleResize = useCallback(
@@ -718,10 +718,10 @@ export default function App() {
             };
           }
           return el;
-        })
+        }),
       );
     },
-    [isResizing, resizeStart, resizeHandle, zoom]
+    [isResizing, resizeStart, resizeHandle, zoom],
   );
 
   const handleResizeEnd = useCallback(() => {
@@ -800,7 +800,7 @@ export default function App() {
 
         if (elementsToRemove.length > 0) {
           setElements((prev) =>
-            prev.filter((el) => !elementsToRemove.includes(el.id))
+            prev.filter((el) => !elementsToRemove.includes(el.id)),
           );
         }
         return;
@@ -842,7 +842,7 @@ export default function App() {
       zoom,
       pan,
       getCanvasPoint,
-    ]
+    ],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -879,7 +879,7 @@ export default function App() {
             };
           }
           return el;
-        })
+        }),
       );
 
       setIsMoving(false);
@@ -899,7 +899,7 @@ export default function App() {
             };
           }
           return el;
-        })
+        }),
       );
 
       setIsRotating(false);
@@ -941,7 +941,7 @@ export default function App() {
       setIsMoving(true);
       setMoveStart(point);
     },
-    []
+    [],
   );
 
   const handleMove = useCallback(
@@ -971,12 +971,12 @@ export default function App() {
             };
           }
           return el;
-        })
+        }),
       );
 
       setMoveStart(currentPoint);
     },
-    [isMoving, moveStart, selectedIds, zoom]
+    [isMoving, moveStart, selectedIds, zoom],
   );
 
   const handleMoveEnd = useCallback(() => {
@@ -1009,7 +1009,7 @@ export default function App() {
       setIsRotating(true);
       setRotateStart({ angle, elementId });
     },
-    [elements, zoom, pan]
+    [elements, zoom, pan],
   );
 
   const handleRotate = useCallback(
@@ -1042,12 +1042,12 @@ export default function App() {
             };
           }
           return el;
-        })
+        }),
       );
 
       setRotateStart({ angle: currentAngle, elementId: rotateStart.elementId });
     },
-    [isRotating, rotateStart, elements, zoom, pan]
+    [isRotating, rotateStart, elements, zoom, pan],
   );
 
   const handleRotateEnd = useCallback(() => {
@@ -1074,7 +1074,7 @@ export default function App() {
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedIds.length > 0) {
           setElements((prev) =>
-            prev.filter((el) => !selectedIds.includes(el.id))
+            prev.filter((el) => !selectedIds.includes(el.id)),
           );
           setSelectedIds([]);
           saveHistory();
@@ -1107,7 +1107,7 @@ export default function App() {
         if (e.key === "c" && selectedIds.length > 0) {
           e.preventDefault();
           const selectedElements = elements.filter((el) =>
-            selectedIds.includes(el.id)
+            selectedIds.includes(el.id),
           );
           localStorage.setItem("clipboard", JSON.stringify(selectedElements));
         }
@@ -1156,13 +1156,13 @@ export default function App() {
       if (selectedIds.length > 0) {
         setElements((prev) =>
           prev.map((el) =>
-            selectedIds.includes(el.id) ? { ...el, ...updates } : el
-          )
+            selectedIds.includes(el.id) ? { ...el, ...updates } : el,
+          ),
         );
         saveHistory();
       }
     },
-    [selectedIds, saveHistory]
+    [selectedIds, saveHistory],
   );
 
   // Handlers for property changes
@@ -1228,7 +1228,7 @@ export default function App() {
   const handleResetCanvas = () => {
     if (
       confirm(
-        "Are you sure you want to reset the canvas? This will delete all elements."
+        "Are you sure you want to reset the canvas? This will delete all elements.",
       )
     ) {
       setElements([]);
@@ -1286,16 +1286,18 @@ export default function App() {
   const handleCopy = () => {
     if (selectedIds.length > 0) {
       const selectedElements = elements.filter((el) =>
-        selectedIds.includes(el.id)
+        selectedIds.includes(el.id),
       );
       localStorage.setItem("clipboard", JSON.stringify(selectedElements));
     }
   };
 
   return (
-    <div className={`w-screen h-dvh text-${theme === "dark" ? "white" : "gray-900"} overflow-hidden relative font-sans selection:bg-purple-500/30 ${
-      theme === "dark" ? "bg-[#121212]" : "bg-[#f8f9fa]"
-    }`}>
+    <div
+      className={`w-screen h-dvh text-${theme === "dark" ? "white" : "gray-900"} overflow-hidden relative font-sans selection:bg-purple-500/30 ${
+        theme === "dark" ? "bg-[#121212]" : "bg-[#f8f9fa]"
+      }`}
+    >
       <input
         ref={fileInputRef}
         type="file"
@@ -1310,9 +1312,14 @@ export default function App() {
             setIsMenuOpen(!isMenuOpen);
             setIsLibraryOpen(false);
           }}
-          className={`p-2 rounded-lg border border-gray-700 shadow-sm transition-colors ${isMenuOpen 
-            ? (theme === "dark" ? "bg-[#403c66] text-[#a8a5ff]" : "bg-[#e0e7ff] text-[#4f46e5]")
-            : (theme === "dark" ? "bg-[#232329] hover:bg-[#31303b] text-gray-300" : "bg-white hover:bg-gray-100 text-gray-800")
+          className={`p-2 rounded-lg border border-gray-700 shadow-sm transition-colors ${
+            isMenuOpen
+              ? theme === "dark"
+                ? "bg-[#403c66] text-[#a8a5ff]"
+                : "bg-[#e0e7ff] text-[#4f46e5]"
+              : theme === "dark"
+                ? "bg-[#232329] hover:bg-[#31303b] text-gray-300"
+                : "bg-white hover:bg-gray-100 text-gray-800"
           }`}
         >
           <Menu size={20} />
@@ -1330,11 +1337,13 @@ export default function App() {
       </div>
 
       <div className="absolute top-4 right-4 z-50 flex gap-2">
-        <button className={`px-3 py-1.5 text-xs font-medium hover:bg-opacity-80 rounded-lg border flex items-center gap-1.5 ${
-          theme === "dark" 
-            ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-300"
-            : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
-        }`}>
+        <button
+          className={`px-3 py-1.5 text-xs font-medium hover:bg-opacity-80 rounded-lg border flex items-center gap-1.5 ${
+            theme === "dark"
+              ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-300"
+              : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
+          }`}
+        >
           <Globe size={14} />
           Dripl+
         </button>
@@ -1342,18 +1351,24 @@ export default function App() {
           <Share2 size={14} />
           Share
         </button>
-        <button className={`p-2 hover:bg-opacity-80 rounded-lg border text-gray-400 ${
-          theme === "dark" 
-            ? "bg-[#232329] hover:bg-[#31303b] border-gray-700"
-            : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
-        }`}>
+        <button
+          className={`p-2 hover:bg-opacity-80 rounded-lg border text-gray-400 ${
+            theme === "dark"
+              ? "bg-[#232329] hover:bg-[#31303b] border-gray-700"
+              : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
+          }`}
+        >
           <MoreHorizontal size={18} />
         </button>
       </div>
 
-      <div className={`absolute top-4 left-1/2 -translate-x-1/2 p-1.5 rounded-xl border shadow-2xl flex items-center gap-0.5 z-50 ${
-        theme === "dark" ? "bg-[#232329] border-gray-700" : "bg-white border-gray-200"
-      }`}>
+      <div
+        className={`absolute top-4 left-1/2 -translate-x-1/2 p-1.5 rounded-xl border shadow-2xl flex items-center gap-0.5 z-50 ${
+          theme === "dark"
+            ? "bg-[#232329] border-gray-700"
+            : "bg-white border-gray-200"
+        }`}
+      >
         <IconButton icon={<Lock size={17} />} />
         <div className="w-px h-6 bg-gray-700 mx-1.5" />
         <IconButton
@@ -1418,9 +1433,11 @@ export default function App() {
       </div>
 
       {isMenuOpen && (
-        <div className={`absolute top-20 left-4 w-[280px] rounded-xl border border-gray-700 shadow-2xl p-3 z-50 flex flex-col max-h-[calc(100vh-100px)] ${
-          theme === "dark" ? "bg-[#232329]" : "bg-white"
-        }`}>
+        <div
+          className={`absolute top-20 left-4 w-[280px] rounded-xl border border-gray-700 shadow-2xl p-3 z-50 flex flex-col max-h-[calc(100vh-100px)] ${
+            theme === "dark" ? "bg-[#232329]" : "bg-white"
+          }`}
+        >
           <div className="flex-1 overflow-y-auto pr-1 space-y-0.5 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
             <MenuItem
               icon={<FolderOpen size={18} />}
@@ -1585,9 +1602,11 @@ export default function App() {
       )}
 
       {!isMenuOpen && !isLibraryOpen && selectedIds.length > 0 && (
-        <div className={`absolute top-20 left-4 w-60 rounded-xl border border-gray-700 shadow-2xl p-4 z-40 max-h-[calc(100vh-100px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent ${
-          theme === "dark" ? "bg-[#232329]" : "bg-white"
-        }`}>
+        <div
+          className={`absolute top-20 left-4 w-60 rounded-xl border border-gray-700 shadow-2xl p-4 z-40 max-h-[calc(100vh-100px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent ${
+            theme === "dark" ? "bg-[#232329]" : "bg-white"
+          }`}
+        >
           <SectionLabel>Stroke</SectionLabel>
           <div className="flex flex-wrap mb-2 gap-1">
             {strokeColors.map((c) => (
@@ -1883,9 +1902,13 @@ export default function App() {
       </div>
 
       <div className="absolute bottom-4 left-4 flex gap-2 z-50">
-        <div className={`flex items-center rounded-lg border p-1 ${
-          theme === "dark" ? "bg-[#232329] border-gray-700" : "bg-white border-gray-200"
-        }`}>
+        <div
+          className={`flex items-center rounded-lg border p-1 ${
+            theme === "dark"
+              ? "bg-[#232329] border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
           <button
             onClick={handleZoomOut}
             className="p-2 hover:bg-[#31303b] rounded text-gray-400 transition-colors"
@@ -1915,7 +1938,7 @@ export default function App() {
           }}
           disabled={!historyRef.current.canUndo()}
           className={`p-2 hover:bg-opacity-80 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-            theme === "dark" 
+            theme === "dark"
               ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-400"
               : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
           }`}
@@ -1932,7 +1955,7 @@ export default function App() {
           }}
           disabled={!historyRef.current.canRedo()}
           className={`p-2 hover:bg-opacity-80 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-            theme === "dark" 
+            theme === "dark"
               ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-400"
               : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
           }`}
@@ -1945,7 +1968,7 @@ export default function App() {
         <button
           onClick={() => setIsHelpOpen(true)}
           className={`p-2 hover:bg-opacity-80 rounded-full border shadow-sm transition-colors ${
-            theme === "dark" 
+            theme === "dark"
               ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-400"
               : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
           }`}

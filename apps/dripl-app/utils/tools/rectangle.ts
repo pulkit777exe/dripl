@@ -8,7 +8,9 @@ export interface RectangleToolState {
 
 export function createRectangleElement(
   state: RectangleToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height"> & { id: string }
+  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height"> & {
+    id: string;
+  },
 ): DriplElement {
   let width = state.currentPoint.x - state.startPoint.x;
   let height = state.currentPoint.y - state.startPoint.y;

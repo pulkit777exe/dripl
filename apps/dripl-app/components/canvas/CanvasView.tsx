@@ -20,14 +20,14 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
   theme = "dark",
 }) => {
   const canvasBg = theme === "dark" ? "#121212" : "#f8f9fa";
-  
+
   return (
     <div
       ref={containerRef}
       className="absolute inset-0 z-0 overflow-hidden"
-      style={{ 
+      style={{
         cursor,
-        backgroundColor: canvasBg
+        backgroundColor: canvasBg,
       }}
     >
       <canvas

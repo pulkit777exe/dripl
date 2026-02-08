@@ -21,7 +21,7 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
@@ -111,14 +111,20 @@ class ApiClient {
     });
   }
 
-  async createRoom(data: { name?: string; isPublic?: boolean }): Promise<{ room: any }> {
+  async createRoom(data: {
+    name?: string;
+    isPublic?: boolean;
+  }): Promise<{ room: any }> {
     return this.request("/rooms", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateRoom(slug: string, data: { name?: string; isPublic?: boolean; content?: string }) {
+  async updateRoom(
+    slug: string,
+    data: { name?: string; isPublic?: boolean; content?: string },
+  ) {
     return this.request(`/rooms/${slug}`, {
       method: "PUT",
       body: JSON.stringify(data),

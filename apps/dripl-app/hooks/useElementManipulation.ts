@@ -20,7 +20,7 @@ export interface UseElementManipulationReturn {
     elementId: string,
     handle: string,
     newPoint: Point,
-    shiftKey: boolean
+    shiftKey: boolean,
   ) => void;
   rotateElement: (elementId: string, angle: number, shiftKey: boolean) => void;
   duplicateElements: (elementIds?: string[]) => void;
@@ -42,16 +42,20 @@ export function useElementManipulation({
       let hasChanges = false;
 
       const allIdsToMove = new Set<string>();
-      
+
       idsToMove.forEach((id) => {
         allIdsToMove.add(id);
-        
+
         const element = elements.find((el) => el.id === id);
         if (element && element.type === "arrow" && (element as any).labelId) {
           allIdsToMove.add((element as any).labelId);
         }
-        
-        if (element && element.type === "text" && (element as any).containerId) {
+
+        if (
+          element &&
+          element.type === "text" &&
+          (element as any).containerId
+        ) {
           allIdsToMove.add((element as any).containerId);
         }
       });
@@ -67,10 +71,12 @@ export function useElementManipulation({
         };
 
         if ("points" in updatedElement && updatedElement.points) {
-          updatedElement.points = updatedElement.points.map((p: { x: number; y: number }) => ({
-            x: p.x + delta.x,
-            y: p.y + delta.y,
-          }));
+          updatedElement.points = updatedElement.points.map(
+            (p: { x: number; y: number }) => ({
+              x: p.x + delta.x,
+              y: p.y + delta.y,
+            }),
+          );
         }
 
         updateElement(id, updatedElement);
@@ -86,16 +92,11 @@ export function useElementManipulation({
         pushHistory();
       }
     },
-    [elements, selectedIds, updateElement, pushHistory, send]
+    [elements, selectedIds, updateElement, pushHistory, send],
   );
 
   const resizeElement = useCallback(
-    (
-      elementId: string,
-      handle: string,
-      newPoint: Point,
-      shiftKey: boolean
-    ) => {
+    (elementId: string, handle: string, newPoint: Point, shiftKey: boolean) => {
       const element = elements.find((el) => el.id === elementId);
       if (!element) return;
 
@@ -193,10 +194,8 @@ export function useElementManipulation({
           element.type === "line" ||
           element.type === "freedraw")
       ) {
-        const scaleX =
-          element.width === 0 ? 1 : newWidth / element.width;
-        const scaleY =
-          element.height === 0 ? 1 : newHeight / element.height;
+        const scaleX = element.width === 0 ? 1 : newWidth / element.width;
+        const scaleY = element.height === 0 ? 1 : newHeight / element.height;
 
         updatedElement.points = element.points.map((p) => ({
           x: (p.x - element.x + newX) * scaleX,
@@ -211,7 +210,7 @@ export function useElementManipulation({
         timestamp: Date.now(),
       });
     },
-    [elements, updateElement, send]
+    [elements, updateElement, send],
   );
 
   const rotateElement = useCallback(
@@ -237,23 +236,25 @@ export function useElementManipulation({
         timestamp: Date.now(),
       });
     },
-    [elements, updateElement, send]
+    [elements, updateElement, send],
   );
 
   const duplicateElements = useCallback(
     (elementIds?: string[]) => {
       const idsToDuplicate = elementIds || Array.from(selectedIds);
       const offset = 10;
-      
+
       const allElementsToDuplicate: DriplElement[] = [];
-      
+
       idsToDuplicate.forEach((id) => {
         const element = elements.find((el) => el.id === id);
         if (element) {
           allElementsToDuplicate.push(element);
-          
+
           if (element && element.type === "arrow" && (element as any).labelId) {
-            const label = elements.find((el) => el.id === (element as any).labelId);
+            const label = elements.find(
+              (el) => el.id === (element as any).labelId,
+            );
             if (label) {
               allElementsToDuplicate.push(label);
             }
@@ -262,7 +263,7 @@ export function useElementManipulation({
       });
 
       const idMap = new Map<string, string>();
-      
+
       allElementsToDuplicate.forEach((element) => {
         const duplicated: DriplElement = {
           ...element,
@@ -274,17 +275,23 @@ export function useElementManipulation({
         idMap.set(element.id, duplicated.id);
 
         if ("points" in duplicated && duplicated.points) {
-          duplicated.points = duplicated.points.map((p: { x: number; y: number }) => ({
-            x: p.x + offset,
-            y: p.y + offset,
-          }));
+          duplicated.points = duplicated.points.map(
+            (p: { x: number; y: number }) => ({
+              x: p.x + offset,
+              y: p.y + offset,
+            }),
+          );
         }
 
         if (duplicated.type === "arrow" && (duplicated as any).labelId) {
-          (duplicated as any).labelId = idMap.get((duplicated as any).labelId) || (duplicated as any).labelId;
+          (duplicated as any).labelId =
+            idMap.get((duplicated as any).labelId) ||
+            (duplicated as any).labelId;
         }
         if (duplicated.type === "text" && (duplicated as any).containerId) {
-          (duplicated as any).containerId = idMap.get((duplicated as any).containerId) || (duplicated as any).containerId;
+          (duplicated as any).containerId =
+            idMap.get((duplicated as any).containerId) ||
+            (duplicated as any).containerId;
         }
 
         addElement(duplicated);
@@ -299,7 +306,7 @@ export function useElementManipulation({
         pushHistory();
       }
     },
-    [elements, selectedIds, addElement, pushHistory, send]
+    [elements, selectedIds, addElement, pushHistory, send],
   );
 
   const deleteSelectedElements = useCallback(() => {
@@ -307,7 +314,7 @@ export function useElementManipulation({
     if (idsToDelete.length === 0) return;
 
     const allIdsToDelete = new Set<string>(idsToDelete);
-    
+
     idsToDelete.forEach((id) => {
       const element = elements.find((el) => el.id === id);
       if (element && element.type === "arrow" && (element as any).labelId) {

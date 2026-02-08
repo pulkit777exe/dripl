@@ -19,7 +19,7 @@ export const PropertyPanel = ({
         "bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm",
         "border border-neutral-200/50 dark:border-neutral-800/50",
         "shadow-sm",
-        className
+        className,
       )}
     >
       {title && (

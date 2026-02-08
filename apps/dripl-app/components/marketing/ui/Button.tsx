@@ -44,7 +44,7 @@ export function Button({
       className={cn(
         "relative flex h-12 items-center justify-center rounded-lg px-8 text-base font-medium transition-colors",
         variants[variant],
-        className
+        className,
       )}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}

@@ -10,7 +10,10 @@ export interface LineToolState {
 
 export function createLineElement(
   state: LineToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height" | "points"> & { id: string }
+  baseProps: Omit<
+    DriplElement,
+    "type" | "x" | "y" | "width" | "height" | "points"
+  > & { id: string },
 ): LinearElement {
   if (state.points.length === 0) {
     throw new Error("Line must have at least one point");
@@ -41,7 +44,7 @@ export function snapLineToElement(
   point: Point,
   elements: DriplElement[],
   excludeId?: string,
-  snapThreshold: number = 10
+  snapThreshold: number = 10,
 ): Point {
   let snappedPoint = point;
   let minDistance = Infinity;
@@ -69,7 +72,7 @@ export function snapLineToElement(
 
     for (const edge of edges) {
       const distance = Math.sqrt(
-        Math.pow(point.x - edge.x, 2) + Math.pow(point.y - edge.y, 2)
+        Math.pow(point.x - edge.x, 2) + Math.pow(point.y - edge.y, 2),
       );
       if (distance < snapThreshold && distance < minDistance) {
         minDistance = distance;
@@ -81,14 +84,20 @@ export function snapLineToElement(
   return snappedPoint;
 }
 
-export function addPointToLine(point: Point, state: LineToolState): LineToolState {
+export function addPointToLine(
+  point: Point,
+  state: LineToolState,
+): LineToolState {
   return {
     ...state,
     points: [...state.points, point],
   };
 }
 
-export function removePointFromLine(index: number, state: LineToolState): LineToolState {
+export function removePointFromLine(
+  index: number,
+  state: LineToolState,
+): LineToolState {
   if (state.points.length <= 2) {
     return state;
   }
@@ -101,7 +110,11 @@ export function removePointFromLine(index: number, state: LineToolState): LineTo
   };
 }
 
-export function updatePointInLine(index: number, point: Point, state: LineToolState): LineToolState {
+export function updatePointInLine(
+  index: number,
+  point: Point,
+  state: LineToolState,
+): LineToolState {
   const newPoints = [...state.points];
   newPoints[index] = point;
   return {

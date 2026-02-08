@@ -93,7 +93,9 @@ export function TransformationPanel({
               <input
                 type="number"
                 value={Math.round(selectedElement.width)}
-                onChange={(e) => updateProperty("width", Number(e.target.value))}
+                onChange={(e) =>
+                  updateProperty("width", Number(e.target.value))
+                }
                 className="w-full text-xs p-1 border rounded bg-background"
                 min="1"
                 step="1"
@@ -104,7 +106,9 @@ export function TransformationPanel({
               <input
                 type="number"
                 value={Math.round(selectedElement.height)}
-                onChange={(e) => updateProperty("height", Number(e.target.value))}
+                onChange={(e) =>
+                  updateProperty("height", Number(e.target.value))
+                }
                 className="w-full text-xs p-1 border rounded bg-background"
                 min="1"
                 step="1"
@@ -127,7 +131,9 @@ export function TransformationPanel({
             <input
               type="number"
               value={selectedElement.rotation ?? 0}
-              onChange={(e) => updateProperty("rotation", Number(e.target.value))}
+              onChange={(e) =>
+                updateProperty("rotation", Number(e.target.value))
+              }
               className="flex-1 text-xs p-1 border rounded bg-background"
               min="0"
               max="360"

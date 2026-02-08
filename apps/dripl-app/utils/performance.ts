@@ -1,6 +1,6 @@
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
-  wait: number
+  wait: number,
 ): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
 
@@ -19,7 +19,7 @@ export function debounce<T extends (...args: any[]) => any>(
 
 export function throttle<T extends (...args: any[]) => any>(
   func: T,
-  limit: number
+  limit: number,
 ): (...args: Parameters<T>) => void {
   let inThrottle: boolean;
   let lastResult: ReturnType<T>;
@@ -36,7 +36,7 @@ export function throttle<T extends (...args: any[]) => any>(
 
 export function batch<T extends (...args: any[]) => any>(
   func: T,
-  delay: number = 0
+  delay: number = 0,
 ): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
   let pendingArgs: Parameters<T> | null = null;
@@ -59,14 +59,12 @@ export function batch<T extends (...args: any[]) => any>(
 
 export function memoize<T extends (...args: any[]) => any>(
   func: T,
-  keyGenerator?: (...args: Parameters<T>) => string
+  keyGenerator?: (...args: Parameters<T>) => string,
 ): T {
   const cache = new Map<string, ReturnType<T>>();
 
   return ((...args: Parameters<T>): ReturnType<T> => {
-    const key = keyGenerator
-      ? keyGenerator(...args)
-      : JSON.stringify(args);
+    const key = keyGenerator ? keyGenerator(...args) : JSON.stringify(args);
 
     if (cache.has(key)) {
       return cache.get(key)!;
@@ -78,14 +76,11 @@ export function memoize<T extends (...args: any[]) => any>(
   }) as T;
 }
 
-export function limitCacheSize<K, V>(
-  cache: Map<K, V>,
-  maxSize: number
-): void {
+export function limitCacheSize<K, V>(cache: Map<K, V>, maxSize: number): void {
   if (cache.size > maxSize) {
     const keysToDelete = Array.from(cache.keys()).slice(
       0,
-      cache.size - maxSize
+      cache.size - maxSize,
     );
     keysToDelete.forEach((key) => cache.delete(key));
   }

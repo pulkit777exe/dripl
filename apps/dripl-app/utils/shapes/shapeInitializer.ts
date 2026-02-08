@@ -5,22 +5,27 @@ export function initializeShapeRegistry() {
   defaultShapes.forEach((shape) => {
     shapeRegistry.register(shape);
   });
-  
-  console.log(`Shape registry initialized with ${defaultShapes.length} default shapes`);
+
+  console.log(
+    `Shape registry initialized with ${defaultShapes.length} default shapes`,
+  );
 }
 
 export function getRegisteredShapes() {
   const shapes = shapeRegistry.getAll();
-  
-  const groupedShapes = shapes.reduce((groups, shape) => {
-    const category = shape.category || 'uncategorized';
-    if (!groups[category]) {
-      groups[category] = [];
-    }
-    groups[category].push(shape);
-    return groups;
-  }, {} as Record<string, typeof defaultShapes>);
-  
+
+  const groupedShapes = shapes.reduce(
+    (groups, shape) => {
+      const category = shape.category || "uncategorized";
+      if (!groups[category]) {
+        groups[category] = [];
+      }
+      groups[category].push(shape);
+      return groups;
+    },
+    {} as Record<string, typeof defaultShapes>,
+  );
+
   return groupedShapes;
 }
 

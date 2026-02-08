@@ -106,4 +106,3 @@ export async function loadInitialScene(
       return null;
   }
 }
-

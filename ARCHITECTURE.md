@@ -75,14 +75,20 @@ Components are designed to be extensible:
 ### Basic Usage
 
 ```typescript
-import { Scene, ActionCreator, ActionReducer, ActionDispatcher, DeltaManager } from "@dripl/common";
+import {
+  Scene,
+  ActionCreator,
+  ActionReducer,
+  ActionDispatcher,
+  DeltaManager,
+} from "@dripl/common";
 import { createElement } from "@dripl/element";
 import { SHAPES } from "@dripl/common";
 
 // Create initial scene
 const initialElements = [
   createElement(SHAPES.RECTANGLE, 100, 100, 200, 150),
-  createElement(SHAPES.ELLIPSE, 400, 100, 150, 150)
+  createElement(SHAPES.ELLIPSE, 400, 100, 150, 150),
 ];
 
 const scene = new Scene(initialElements);

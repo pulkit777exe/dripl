@@ -18,7 +18,7 @@ export interface UseBindingSystemReturn {
     targetElementId: string,
     sourcePoint: Point,
     targetPoint: Point,
-    type: "arrow" | "line" | "curve"
+    type: "arrow" | "line" | "curve",
   ) => void;
   deleteBinding: (bindingId: string) => void;
   deleteBindingsForElement: (elementId: string) => void;
@@ -37,7 +37,7 @@ export function useBindingSystem(): UseBindingSystemReturn {
       targetElementId: string,
       sourcePoint: Point,
       targetPoint: Point,
-      type: "arrow" | "line" | "curve"
+      type: "arrow" | "line" | "curve",
     ) => {
       const newBinding: Binding = {
         id: uuidv4(),
@@ -56,7 +56,7 @@ export function useBindingSystem(): UseBindingSystemReturn {
 
       setBindings((prev) => [...prev, newBinding]);
     },
-    []
+    [],
   );
 
   const deleteBinding = useCallback((bindingId: string) => {
@@ -68,8 +68,8 @@ export function useBindingSystem(): UseBindingSystemReturn {
       prev.filter(
         (binding) =>
           binding.sourceElementId !== elementId &&
-          binding.targetElementId !== elementId
-      )
+          binding.targetElementId !== elementId,
+      ),
     );
   }, []);
 
@@ -77,28 +77,28 @@ export function useBindingSystem(): UseBindingSystemReturn {
     (elementId: string, dx: number, dy: number) => {
       setBindings((prev) => updateBindingsForElement(elementId, dx, dy, prev));
     },
-    []
+    [],
   );
 
   const getSnapPointCallback = useCallback(
     (point: Point, elements: DriplElement[]) => {
       return getSnapPoint(point, elements);
     },
-    []
+    [],
   );
 
   const hasBindingsCallback = useCallback(
     (elementId: string) => {
       return hasBindings(elementId, bindings);
     },
-    [bindings]
+    [bindings],
   );
 
   const getElementBindingsCallback = useCallback(
     (elementId: string) => {
       return getElementBindings(elementId, bindings);
     },
-    [bindings]
+    [bindings],
   );
 
   return {

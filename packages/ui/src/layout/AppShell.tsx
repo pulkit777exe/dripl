@@ -11,7 +11,7 @@ export const AppShell = ({ children, className }: AppShellProps) => {
     <div
       className={cn(
         "flex h-dvh w-screen flex-col overflow-hidden bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100",
-        className
+        className,
       )}
     >
       {children}

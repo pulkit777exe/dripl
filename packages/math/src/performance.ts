@@ -91,7 +91,7 @@ export function debounce<T extends (...args: unknown[]) => void>(
   ms: number,
 ): (...args: Parameters<T>) => void {
   let timeoutId: ReturnType<typeof setTimeout>;
-  return function(...args: Parameters<T>) {
+  return function (...args: Parameters<T>) {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => fn(...args), ms);
   };
@@ -104,7 +104,7 @@ export function throttle<T extends (...args: unknown[]) => void>(
   let lastCall = 0;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  return function(...args: Parameters<T>) {
+  return function (...args: Parameters<T>) {
     const now = Date.now();
     const remaining = ms - (now - lastCall);
 

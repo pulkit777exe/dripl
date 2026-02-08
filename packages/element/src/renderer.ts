@@ -1,4 +1,9 @@
-import { DriplElement, FreeDrawElement, LinearElement, Point } from "@dripl/common";
+import {
+  DriplElement,
+  FreeDrawElement,
+  LinearElement,
+  Point,
+} from "@dripl/common";
 // import { getElementBounds } from "./intersection";
 
 export interface ViewportTransform {
@@ -9,14 +14,14 @@ export interface ViewportTransform {
 
 function applyViewportTransform(
   ctx: CanvasRenderingContext2D,
-  { zoom, scrollX, scrollY }: ViewportTransform
+  { zoom, scrollX, scrollY }: ViewportTransform,
 ) {
   ctx.setTransform(zoom, 0, 0, zoom, -scrollX * zoom, -scrollY * zoom);
 }
 
 export function renderElement2D(
   ctx: CanvasRenderingContext2D,
-  element: DriplElement
+  element: DriplElement,
 ): void {
   ctx.save();
 
@@ -50,14 +55,18 @@ export function renderElement2D(
         height / 2,
         0,
         0,
-        Math.PI * 2
+        Math.PI * 2,
       );
       ctx.fill();
       ctx.stroke();
       break;
 
     case "text":
-      if ("text" in element && "fontSize" in element && "fontFamily" in element) {
+      if (
+        "text" in element &&
+        "fontSize" in element &&
+        "fontFamily" in element
+      ) {
         ctx.font = `${element.fontSize}px ${element.fontFamily}`;
         ctx.fillStyle = element.strokeColor ?? "#000000";
         ctx.fillText(element.text, x, y + element.fontSize);
@@ -97,7 +106,7 @@ export function renderElement2D(
 export function renderElements2D(
   ctx: CanvasRenderingContext2D,
   elements: DriplElement[],
-  transform: ViewportTransform
+  transform: ViewportTransform,
 ): void {
   ctx.save();
   applyViewportTransform(ctx, transform);

@@ -13,9 +13,9 @@ function exampleUsage() {
   const initialElements = [
     createElement(SHAPES.RECTANGLE, 100, 100, 200, 150),
     createElement(SHAPES.ELLIPSE, 400, 100, 150, 150),
-    createElement(SHAPES.TEXT, 100, 300, 200, 50)
+    createElement(SHAPES.TEXT, 100, 300, 200, 50),
   ];
-  
+
   const scene = new Scene(initialElements);
   console.log("Initial scene elements:", scene.getElements().length);
 
@@ -33,21 +33,32 @@ function exampleUsage() {
 
   // 4. Dispatch actions
   console.log("\n--- Dispatching Actions ---");
-  
+
   // Add a new element
   const newElement = createElement(SHAPES.DIAMOND, 250, 400, 100, 100);
   actionDispatcher.dispatch(ActionCreator.addElement(newElement));
-  console.log("After adding element:", sceneHistory.getCurrentState()?.getElements().length);
+  console.log(
+    "After adding element:",
+    sceneHistory.getCurrentState()?.getElements().length,
+  );
 
   // Select an element
   const firstElementId = scene.getElements()[0].id;
   actionDispatcher.dispatch(ActionCreator.selectElement(firstElementId));
-  console.log("Selected elements:", sceneHistory.getCurrentState()?.getSelectedElements().length);
+  console.log(
+    "Selected elements:",
+    sceneHistory.getCurrentState()?.getSelectedElements().length,
+  );
 
   // Update an element
   const updates = { strokeColor: "#ff0000", strokeWidth: 3 };
-  actionDispatcher.dispatch(ActionCreator.updateElement(firstElementId, updates));
-  console.log("Element updated:", sceneHistory.getCurrentState()?.getElement(firstElementId));
+  actionDispatcher.dispatch(
+    ActionCreator.updateElement(firstElementId, updates),
+  );
+  console.log(
+    "Element updated:",
+    sceneHistory.getCurrentState()?.getElement(firstElementId),
+  );
 
   // 5. Use history system
   console.log("\n--- History System ---");
@@ -69,11 +80,11 @@ function exampleUsage() {
 
   // 7. Pointer interaction simulation
   console.log("\n--- Pointer Interaction ---");
-  
+
   // In a real app, we'd pass a DOM container
   // const container = document.getElementById('canvas-container');
   // const pointerManager = new PointerManager(container);
-  
+
   const pointerManager = new PointerManager(null);
   const dragDetector = new DragDetector(pointerManager);
 

@@ -45,7 +45,8 @@ export function CommandPalette() {
     () => [
       {
         id: "toggle-theme",
-        label: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+        label:
+          theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
         keywords: ["theme", "dark", "light", "appearance"],
         perform: () => {
           setTheme(theme === "dark" ? "light" : "dark");
@@ -216,4 +217,3 @@ export function CommandPalette() {
     </div>
   );
 }
-

@@ -22,19 +22,19 @@
 //     client.on('sync_state', (message) => {
 //       if (message.type === 'sync_state') {
 //         isReceivingRef.current = true;
-        
+
 //         // Clear existing elements and set server state
 //         canvasStore.setState(() => ({
 //           elements: message.elements,
 //           selectedIds: [],
 //           tool: 'selection',
 //         }));
-        
+
 //         lastElementCountRef.current = message.elements.length;
-        
+
 //         // Set users
 //         setUsers(message.users);
-        
+
 //         isReceivingRef.current = false;
 //       }
 //     });
@@ -71,7 +71,7 @@
 //     // Handle cursor movements
 //     client.on('cursor_move', (message) => {
 //       if (message.type === 'cursor_move') {
-//         setUsers(prev => prev.map(u => 
+//         setUsers(prev => prev.map(u =>
 //           u.userId === message.userId
 //             ? { ...u, cursorX: message.x, cursorY: message.y }
 //             : u
@@ -81,7 +81,7 @@
 
 //     // Connect to server
 //     client.connect();
-    
+
 //     // Set my user ID from Clerk
 //     setMyUserId(user.id);
 
@@ -89,14 +89,14 @@
 //     const unsubscribe = canvasStore.subscribe(() => {
 //       // Don't broadcast if we're receiving updates from server
 //       if (isReceivingRef.current) return;
-      
+
 //       const state = canvasStore.state;
-      
+
 //       // Check if new elements were added
 //       if (state.elements.length > lastElementCountRef.current) {
 //         // Get all new elements
 //         const newElements = state.elements.slice(lastElementCountRef.current);
-        
+
 //         // Broadcast each new element
 //         newElements.forEach((element) => {
 //           const message: AddElementMessage = {
@@ -105,10 +105,10 @@
 //             userId: user.id,
 //             timestamp: Date.now(),
 //           };
-          
+
 //           client.send(message);
 //         });
-        
+
 //         lastElementCountRef.current = state.elements.length;
 //       }
 //     });

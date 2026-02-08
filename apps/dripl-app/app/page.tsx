@@ -43,7 +43,7 @@ export default function Page() {
         // Generate token for anonymous user
         await generateToken();
       }
-      
+
       // Create new canvas or navigate to existing one
       const lastCanvas = localStorage.getItem("dripl_last_canvas");
       if (lastCanvas) {

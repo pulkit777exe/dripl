@@ -19,7 +19,7 @@ export async function exportToPNG(
     backgroundColor?: string;
     width?: number;
     height?: number;
-  } = {}
+  } = {},
 ): Promise<Blob> {
   const {
     scale = 2,
@@ -54,7 +54,7 @@ export async function exportToPNG(
         }
       },
       "image/png",
-      1.0
+      1.0,
     );
   });
 }
@@ -65,7 +65,7 @@ export function exportToSVG(
     width: number;
     height: number;
     backgroundColor?: string;
-  }
+  },
 ): string {
   const { width, height, backgroundColor = "#ffffff" } = options;
 
@@ -93,7 +93,10 @@ export function exportToSVG(
       case "arrow":
         if ("points" in element && element.points.length > 1) {
           const pathData = element.points
-            .map((p, i) => `${i === 0 ? "M" : "L"} ${element.x + p.x} ${element.y + p.y}`)
+            .map(
+              (p, i) =>
+                `${i === 0 ? "M" : "L"} ${element.x + p.x} ${element.y + p.y}`,
+            )
             .join(" ");
           svg += `  <path d="${pathData}" fill="none" stroke="${element.strokeColor}" 
           stroke-width="${element.strokeWidth}" opacity="${element.opacity}"/>\n`;
@@ -102,7 +105,10 @@ export function exportToSVG(
       case "freedraw":
         if ("points" in element && element.points.length > 1) {
           const pathData = element.points
-            .map((p, i) => `${i === 0 ? "M" : "L"} ${element.x + p.x} ${element.y + p.y}`)
+            .map(
+              (p, i) =>
+                `${i === 0 ? "M" : "L"} ${element.x + p.x} ${element.y + p.y}`,
+            )
             .join(" ");
           svg += `  <path d="${pathData}" fill="none" stroke="${element.strokeColor}" 
           stroke-width="${element.strokeWidth}" opacity="${element.opacity}"/>\n`;
@@ -130,7 +136,7 @@ export function exportToSVG(
 
 export function exportToJSON(
   elements: DriplElement[],
-  metadata?: Partial<CanvasMetadata>
+  metadata?: Partial<CanvasMetadata>,
 ): string {
   const exportData = {
     version: CANVAS_VERSION,
@@ -148,14 +154,15 @@ export function exportToJSON(
   return JSON.stringify(exportData, null, 2);
 }
 
-export function importFromJSON(
-  json: string
-): { elements: DriplElement[]; metadata: CanvasMetadata } {
+export function importFromJSON(json: string): {
+  elements: DriplElement[];
+  metadata: CanvasMetadata;
+} {
   const data = JSON.parse(json);
 
   if (data.version !== CANVAS_VERSION) {
     console.warn(
-      `Importing canvas version ${data.version}, current version is ${CANVAS_VERSION}`
+      `Importing canvas version ${data.version}, current version is ${CANVAS_VERSION}`,
     );
     // Future: Add migration logic here
   }
@@ -184,7 +191,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
 export function downloadString(
   content: string,
   filename: string,
-  mimeType: string = "text/plain"
+  mimeType: string = "text/plain",
 ): void {
   const blob = new Blob([content], { type: mimeType });
   downloadBlob(blob, filename);

@@ -60,7 +60,7 @@ export function WorkflowSection() {
               transition={{ duration: 0.5 }}
               className={cn(
                 "flex aspect-square w-full items-center justify-center rounded-3xl border border-structure-grey shadow-attio-lg",
-                step.color
+                step.color,
               )}
             >
               <div className="text-center font-medium text-deep-charcoal/20">
@@ -90,7 +90,7 @@ function StepText({
       index / STEPS.length,
       (index + 0.5) / STEPS.length,
     ],
-    [0.2, 1, 0.2]
+    [0.2, 1, 0.2],
   );
 
   return (

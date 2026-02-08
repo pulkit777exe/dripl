@@ -265,10 +265,6 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
   }
 
   return (
-    <RoughCanvas
-      roomSlug={mode === "room" ? roomSlug : null}
-      theme={theme}
-    />
+    <RoughCanvas roomSlug={mode === "room" ? roomSlug : null} theme={theme} />
   );
 }
-

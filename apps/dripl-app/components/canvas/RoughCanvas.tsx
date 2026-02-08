@@ -50,10 +50,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const [isRotating, setIsRotating] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<ResizeHandle | null>(null);
   const [initialElement, setInitialElement] = useState<DriplElement | null>(
-    null
+    null,
   );
   const [currentElement, setCurrentElement] = useState<DriplElement | null>(
-    null
+    null,
   );
   const [textInput, setTextInput] = useState<{
     x: number;
@@ -81,17 +81,17 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const activeTool = useCanvasStore((state) => state.activeTool);
   const selectedIds = useCanvasStore((state) => state.selectedIds);
   const currentStrokeColor = useCanvasStore(
-    (state) => state.currentStrokeColor
+    (state) => state.currentStrokeColor,
   );
   const currentStrokeWidth = useCanvasStore(
-    (state) => state.currentStrokeWidth
+    (state) => state.currentStrokeWidth,
   );
   const currentRoughness = useCanvasStore((state) => state.currentRoughness);
   const currentBackgroundColor = useCanvasStore(
-    (state) => state.currentBackgroundColor
+    (state) => state.currentBackgroundColor,
   );
   const currentStrokeStyle = useCanvasStore(
-    (state) => state.currentStrokeStyle
+    (state) => state.currentStrokeStyle,
   );
   const currentFillStyle = useCanvasStore((state) => state.currentFillStyle);
 
@@ -196,7 +196,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         return;
       }
 
-      const { elements: savedElements, appState } = loadLocalCanvasFromStorage();
+      const { elements: savedElements, appState } =
+        loadLocalCanvasFromStorage();
 
       if (savedElements && savedElements.length) {
         setElements(savedElements);
@@ -230,7 +231,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     throttle((data: any) => {
       if (isConnected) send(data);
     }, 50),
-    [isConnected, send]
+    [isConnected, send],
   );
 
   useEffect(() => {
@@ -270,9 +271,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       if (!canvas) return { x: 0, y: 0 };
 
       const rect = canvas.getBoundingClientRect();
-      return screenToCanvas(e.clientX - rect.left, e.clientY - rect.top, viewport);
+      return screenToCanvas(
+        e.clientX - rect.left,
+        e.clientY - rect.top,
+        viewport,
+      );
     },
-    [viewport]
+    [viewport],
   );
 
   const getElementAtPosition = (x: number, y: number): DriplElement | null => {
@@ -342,7 +347,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       currentRoughness,
       currentStrokeStyle,
       currentFillStyle,
-    ]
+    ],
   );
 
   const handleResizeStart = useCallback(
@@ -360,7 +365,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         }
       }
     },
-    [selectedIds, elements, getCanvasCoordinates]
+    [selectedIds, elements, getCanvasCoordinates],
   );
 
   const handleRotateStart = useCallback(
@@ -376,7 +381,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         }
       }
     },
-    [selectedIds, elements]
+    [selectedIds, elements],
   );
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -439,15 +444,20 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     if (e.target !== canvasRef.current) {
       return;
     }
-    
+
     // Check if click is on any UI element by checking event path
-    if (e.nativeEvent.composedPath().some(el => {
-      const domElement = el as HTMLElement;
-      return domElement.classList && domElement.classList.contains('pointer-events-auto');
-    })) {
+    if (
+      e.nativeEvent.composedPath().some((el) => {
+        const domElement = el as HTMLElement;
+        return (
+          domElement.classList &&
+          domElement.classList.contains("pointer-events-auto")
+        );
+      })
+    ) {
       return;
     }
-    
+
     const coords = getCanvasCoordinates(e);
     const { x, y } = coords;
 
@@ -572,7 +582,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           strokeStyle: currentStrokeStyle,
           fillStyle: currentFillStyle,
         },
-        elements
+        elements,
       );
       setIsDrawing(true);
       return;
@@ -586,7 +596,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   };
 
   const handlePointerMove = (
-    e: React.MouseEvent<HTMLCanvasElement> | React.PointerEvent
+    e: React.MouseEvent<HTMLCanvasElement> | React.PointerEvent,
   ) => {
     const coords = getCanvasCoordinates(e);
     const { x, y } = coords;
@@ -676,10 +686,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         const scaleY =
           initialElement.height === 0 ? 1 : newHeight / initialElement.height;
 
-        updatedElement.points = initialElement.points.map((p: { x: number; y: number }) => ({
-          x: newX + (p.x - initialElement.x) * scaleX,
-          y: newY + (p.y - initialElement.y) * scaleY,
-        }));
+        updatedElement.points = initialElement.points.map(
+          (p: { x: number; y: number }) => ({
+            x: newX + (p.x - initialElement.x) * scaleX,
+            y: newY + (p.y - initialElement.y) * scaleY,
+          }),
+        );
       }
 
       if (el.id) {
@@ -735,8 +747,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           }
 
           if (el.id) {
-        updateElement(el.id, updatedElement);
-      }
+            updateElement(el.id, updatedElement);
+          }
 
           send({
             type: "update_element",
@@ -811,13 +823,15 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         elements,
         (value) => {
           if (typeof value === "function") {
-            const nextSet = (value as (prev: Set<string>) => Set<string>)(selectedIds);
+            const nextSet = (value as (prev: Set<string>) => Set<string>)(
+              selectedIds,
+            );
             setSelectedIds(nextSet);
           } else {
             setSelectedIds(value);
           }
         },
-        e?.shiftKey || false
+        e?.shiftKey || false,
       );
       setMarqueeSelection(null);
       return;
@@ -954,8 +968,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       className="relative w-full h-full"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      style={{ 
-        backgroundColor: theme === "dark" ? "#121212" : "#f8f9fa"
+      style={{
+        backgroundColor: theme === "dark" ? "#121212" : "#f8f9fa",
       }}
     >
       <canvas
@@ -990,11 +1004,18 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       <CollaboratorsList />
 
-      {!userName && roomSlug !== null && <NameInputModal onSubmit={handleNameSubmit} />}
+      {!userName && roomSlug !== null && (
+        <NameInputModal onSubmit={handleNameSubmit} />
+      )}
 
       <div className="absolute top-6 right-6 z-20">
         <PropertiesPanel
-          selectedElement={selectedIds.size === 1 ? elements.find(el => el.id === Array.from(selectedIds)[0]) || null : null}
+          selectedElement={
+            selectedIds.size === 1
+              ? elements.find((el) => el.id === Array.from(selectedIds)[0]) ||
+                null
+              : null
+          }
           onUpdateElement={(updatedElement) => {
             if (updatedElement.id) {
               updateElement(updatedElement.id, updatedElement);
