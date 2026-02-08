@@ -1,4 +1,4 @@
-import { Point } from "./types/element";
+import type { Point } from "./types/element";
 
 export type PointerType = "mouse" | "touch" | "pen";
 

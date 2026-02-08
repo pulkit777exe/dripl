@@ -1,4 +1,4 @@
-import { DriplElement } from "./types/element";
+import type { DriplElement } from "./types/element";
 import { Scene } from "./scene";
 
 export type DeltaOperation = "add" | "update" | "delete" | "restore";
@@ -198,7 +198,11 @@ export class SceneHistory {
       this.states = this.states.slice(0, this.currentIndex + 1);
     }
 
-    this.states.push({ scene: scene.clone(), delta });
+    this.states.push(
+      delta !== undefined ?
+        { scene: scene.clone(), delta } :
+        { scene: scene.clone() }
+    );
     this.currentIndex++;
 
     if (this.states.length > this.maxHistorySize) {

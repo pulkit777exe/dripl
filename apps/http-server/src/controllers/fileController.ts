@@ -59,7 +59,7 @@ export class FileController {
   }
 
   static async getFile(req: AuthRequest, res: Response): Promise<void> {
-    const { fileId } = req.params;
+    const { fileId } = req.params as { fileId: string };
 
     try {
       const file = await prisma.file.findFirst({
@@ -88,7 +88,7 @@ export class FileController {
   }
 
   static async updateFile(req: AuthRequest, res: Response): Promise<void> {
-    const { fileId } = req.params;
+    const { fileId } = req.params as { fileId: string };
     const { name, content } = req.body;
 
     try {
@@ -127,7 +127,7 @@ export class FileController {
   }
 
   static async deleteFile(req: AuthRequest, res: Response): Promise<void> {
-    const { fileId } = req.params;
+    const { fileId } = req.params as { fileId: string };
 
     try {
       const file = await prisma.file.findFirst({

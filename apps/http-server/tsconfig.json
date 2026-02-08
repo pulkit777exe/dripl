@@ -6,5 +6,9 @@
     "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json",
     "composite": true
   },
+  "references": [
+    { "path": "../../packages/common" },
+    { "path": "../../packages/db" }
+  ],
   "include": ["src/**/*"]
 }
