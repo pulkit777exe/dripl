@@ -14,7 +14,6 @@
   },
   "devDependencies": {
     "@dripl/common": "workspace:*",
-    "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "@types/react": "19.2.2",

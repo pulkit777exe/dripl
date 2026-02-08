@@ -26,21 +26,51 @@
 .dark {
   --color-background: #121112;
   --color-foreground: #d6d6d6;
-  --color-card: #121112;
+  --color-card: #232329;
   --color-card-foreground: #d6d6d6;
-  --color-popover: #121112;
+  --color-popover: #232329;
   --color-popover-foreground: #d6d6d6;
-  --color-primary: #d6d6d6;
-  --color-primary-foreground: #121112;
+  --color-primary: #6965db;
+  --color-primary-foreground: #ffffff;
   --color-secondary: #1a181a;
   --color-secondary-foreground: #d6d6d6;
   --color-muted: #1a181a;
-  --color-muted-foreground: #d6d6d6;
-  --color-accent: #1a181a;
+  --color-muted-foreground: #888888;
+  --color-accent: #2a2a3a;
   --color-accent-foreground: #d6d6d6;
   --color-destructive: #ef4444;
   --color-destructive-foreground: #121112;
-  --color-border: #1a181a;
-  --color-input: #1a181a;
-  --color-ring: #d6d6d6;
+  --color-border: #333333;
+  --color-input: #2a2a3a;
+  --color-ring: #6965db;
+}
+
+/* Smooth zoom transition for canvas */
+.canvas-zoom-transition {
+  transition: transform 0.15s ease-out;
+}
+
+/* Smooth selection handle interactions */
+.selection-handle {
+  transition:
+    transform 0.1s ease-out,
+    box-shadow 0.1s ease-out;
+}
+
+.selection-handle:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 8px rgba(105, 101, 219, 0.5);
+}
+
+/* Button hover effects */
+.btn-smooth {
+  transition: all 0.15s ease-out;
+}
+
+.btn-smooth:hover {
+  transform: scale(1.02);
+}
+
+.btn-smooth:active {
+  transform: scale(0.98);
 }

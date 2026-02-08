@@ -78,6 +78,7 @@ export interface CanvasState {
 
   setElements: (elements: DriplElement[]) => void;
   addElement: (element: DriplElement) => void;
+  addElements: (elements: DriplElement[]) => void;
   updateElement: (id: string, updates: Partial<DriplElement>) => void;
   deleteElements: (ids: string[]) => void;
 
@@ -158,6 +159,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setElements: (elements) => set({ elements }),
   addElement: (element) =>
     set((state) => ({ elements: [...state.elements, element] })),
+  addElements: (newElements) =>
+    set((state) => ({ elements: [...state.elements, ...newElements] })),
   updateElement: (id, updates) =>
     set((state) => ({
       elements: state.elements.map((el) =>

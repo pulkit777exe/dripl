@@ -100,7 +100,7 @@ export function SelectionOverlay({
 
   return (
     <div
-      className="absolute top-0 left-0 pointer-events-none"
+      className="absolute top-0 left-0 pointer-events-none transition-all duration-150 ease-out"
       style={{
         transform: `translate(${x}px, ${y}px) rotate(${angle}rad)`,
         width: w,
