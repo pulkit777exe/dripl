@@ -213,10 +213,16 @@ export function useDrawingTools(): UseDrawingToolsReturn {
           const snappedPoint = elements
             ? snapArrowToElement(point, elements)
             : point;
-          const newPoints = [...toolState.state.points, snappedPoint];
+          // Arrow should only have 2 points: start and end
+          const startPoint = toolState.state.points[0] || point;
+          const newPoints = [startPoint, snappedPoint];
           setToolState({
             ...toolState,
-            state: { ...toolState.state, points: newPoints },
+            state: {
+              ...toolState.state,
+              points: newPoints,
+              currentPoint: snappedPoint,
+            },
           });
           const { arrow } = createArrowElement(
             { ...toolState.state, points: newPoints },
@@ -230,10 +236,34 @@ export function useDrawingTools(): UseDrawingToolsReturn {
           break;
         }
         case "line": {
-          const newPoints = [...toolState.state.points, point];
+          // Line should only have 2 points: start and end (for straight lines)
+          const startPoint = toolState.state.points[0] || point;
+          let endPoint = point;
+
+          // Shift key constrains to horizontal/vertical/45 degree angles
+          if (shiftKey) {
+            const dx = point.x - startPoint.x;
+            const dy = point.y - startPoint.y;
+            const angle = Math.atan2(dy, dx);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Snap to nearest 45 degree angle
+            const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+            endPoint = {
+              x: startPoint.x + Math.cos(snapAngle) * distance,
+              y: startPoint.y + Math.sin(snapAngle) * distance,
+            };
+          }
+
+          const newPoints = [startPoint, endPoint];
           setToolState({
             ...toolState,
-            state: { ...toolState.state, points: newPoints, shiftKey },
+            state: {
+              ...toolState.state,
+              points: newPoints,
+              shiftKey,
+              currentPoint: endPoint,
+            },
           });
           setCurrentPreview(
             createLineElement(

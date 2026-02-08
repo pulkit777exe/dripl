@@ -141,6 +141,38 @@ export function renderRoughElement(
     ctx.translate(-cx, -cy);
   }
 
+  // Handle text elements specially (they don't use Rough.js)
+  if (element.type === "text") {
+    const textEl = element as any;
+    ctx.translate(x, y);
+    ctx.fillStyle =
+      element.strokeColor || (theme === "dark" ? "#ffffff" : "#000000");
+    ctx.font = `${textEl.fontSize || 16}px ${textEl.fontFamily || "Inter"}`;
+    ctx.textBaseline = "top";
+
+    const text = textEl.text || "";
+    const lines = text.split("\n");
+    const lineHeight = (textEl.fontSize || 16) * 1.2;
+
+    lines.forEach((line: string, index: number) => {
+      ctx.fillText(line, 0, index * lineHeight);
+    });
+
+    ctx.restore();
+    return;
+  }
+
+  // Handle image elements specially
+  if (element.type === "image") {
+    const imgEl = element as any;
+    if (imgEl.src && imgEl._imageLoaded) {
+      ctx.translate(x, y);
+      ctx.drawImage(imgEl._imageLoaded, 0, 0, width, height);
+    }
+    ctx.restore();
+    return;
+  }
+
   let shape = getShapeFromCache(element as any);
   if (!shape) {
     shape = generateShape(element);
@@ -182,6 +214,51 @@ export function renderRoughElement(
     shape.forEach((s) => rc.draw(s));
   } else {
     rc.draw(shape);
+  }
+
+  // Render arrowheads for arrow elements
+  if (
+    element.type === "arrow" &&
+    (element as any).points &&
+    (element as any).points.length > 1
+  ) {
+    const points = (element as any).points;
+    const endPoint = points[points.length - 1];
+    const prevPoint = points[points.length - 2];
+
+    // Calculate angle
+    const angle = Math.atan2(
+      endPoint.y - prevPoint.y,
+      endPoint.x - prevPoint.x,
+    );
+
+    // Arrow head parameters
+    const headLength = 10 + (element.strokeWidth || 2) * 2;
+    const headAngle = Math.PI / 6; // 30 degrees
+
+    // Calculate vertices
+    const x1 = endPoint.x - headLength * Math.cos(angle - headAngle);
+    const y1 = endPoint.y - headLength * Math.sin(angle - headAngle);
+    const x2 = endPoint.x - headLength * Math.cos(angle + headAngle);
+    const y2 = endPoint.y - headLength * Math.sin(angle + headAngle);
+
+    // Draw using Rough.js for consistent style
+    const arrowHead = generator.polygon(
+      [
+        [endPoint.x, endPoint.y],
+        [x1, y1],
+        [x2, y2],
+      ],
+      {
+        stroke: element.strokeColor,
+        strokeWidth: element.strokeWidth,
+        fill: element.strokeColor,
+        fillStyle: "solid",
+        roughness: element.roughness,
+      },
+    );
+
+    rc.draw(arrowHead);
   }
 
   ctx.restore();
