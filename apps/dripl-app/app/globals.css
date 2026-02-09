@@ -8,19 +8,43 @@
   --color-card-foreground: #323233;
   --color-popover: #f7f5f6;
   --color-popover-foreground: #323233;
-  --color-primary: #323233;
-  --color-primary-foreground: #f7f5f6;
+  --color-primary: #6965db;
+  --color-primary-foreground: #ffffff;
   --color-secondary: #f2f1f0;
   --color-secondary-foreground: #323233;
   --color-muted: #f2f1f0;
-  --color-muted-foreground: #323233;
+  --color-muted-foreground: #6b7280;
   --color-accent: #f2f1f0;
   --color-accent-foreground: #323233;
   --color-destructive: #ef4444;
   --color-destructive-foreground: #f7f5f6;
   --color-border: #e5e5e5;
   --color-input: #e5e5e5;
-  --color-ring: #323233;
+  --color-ring: #6965db;
+}
+
+:root {
+  --color-toolbar-bg: #ffffff;
+  --color-toolbar-border: #e5e5e5;
+  --color-toolbar-divider: #e5e5e5;
+  --color-tool-active-bg: #ebe9ff;
+  --color-tool-active-text: #6965db;
+  --color-tool-inactive-text: #6b7280;
+  --color-tool-hover-bg: #f3f4f6;
+  --color-tool-hover-text: #374151;
+  --color-tool-active-shadow: rgba(105, 101, 219, 0.15);
+
+  --color-panel-bg: #ffffff;
+  --color-panel-border: #e5e5e5;
+  --color-panel-btn-bg: #f3f4f6;
+  --color-panel-btn-hover: #e5e7eb;
+  --color-panel-btn-active: #6965db;
+  --color-panel-label: #6b7280;
+  --color-panel-text: #374151;
+  --color-panel-divider: #e5e5e5;
+  --color-panel-slider: #d1d5db;
+
+  --color-canvas-bg: #f7f5f6;
 }
 
 .dark {
@@ -43,14 +67,34 @@
   --color-border: #333333;
   --color-input: #2a2a3a;
   --color-ring: #6965db;
+
+  --color-toolbar-bg: #232329;
+  --color-toolbar-border: #3f3f46;
+  --color-toolbar-divider: #3f3f46;
+  --color-tool-active-bg: #403c66;
+  --color-tool-active-text: #a8a5ff;
+  --color-tool-inactive-text: #9ca3af;
+  --color-tool-hover-bg: #31303b;
+  --color-tool-hover-text: #e5e7eb;
+  --color-tool-active-shadow: rgba(168, 165, 255, 0.2);
+
+  --color-panel-bg: #232329;
+  --color-panel-border: #333333;
+  --color-panel-btn-bg: #2a2a3a;
+  --color-panel-btn-hover: #3a3a4a;
+  --color-panel-btn-active: #6965db;
+  --color-panel-label: #9ca3af;
+  --color-panel-text: #ffffff;
+  --color-panel-divider: #333333;
+  --color-panel-slider: #333333;
+
+  --color-canvas-bg: #121112;
 }
 
-/* Smooth zoom transition for canvas */
 .canvas-zoom-transition {
   transition: transform 0.15s ease-out;
 }
 
-/* Smooth selection handle interactions */
 .selection-handle {
   transition:
     transform 0.1s ease-out,
@@ -62,7 +106,6 @@
   box-shadow: 0 0 8px rgba(105, 101, 219, 0.5);
 }
 
-/* Button hover effects */
 .btn-smooth {
   transition: all 0.15s ease-out;
 }

@@ -128,8 +128,8 @@ export function ExtraToolsDropdown() {
             relative p-2 rounded-lg transition-colors
             ${
               isOpen
-                ? "bg-[#403c66] text-[#a8a5ff]"
-                : "text-gray-300 hover:bg-[#31303b]"
+                ? "bg-[var(--color-tool-active-bg)] text-[var(--color-tool-active-text)]"
+                : "text-[var(--color-tool-inactive-text)] hover:bg-[var(--color-tool-hover-bg)]"
             }
           `}
           aria-label="Extra tools"
@@ -151,8 +151,8 @@ export function ExtraToolsDropdown() {
         </button>
 
         {isOpen && (
-          <div className="absolute top-full left-0 mt-1 w-56 bg-[#232329] rounded-lg border border-gray-700 shadow-2xl z-50 py-1">
-            <div className="px-2 py-1.5 text-[11px] font-medium text-gray-500 uppercase">
+          <div className="absolute top-full left-0 mt-1 w-56 bg-[var(--color-panel-bg)] rounded-lg border border-[var(--color-panel-border)] shadow-2xl z-50 py-1">
+            <div className="px-2 py-1.5 text-[11px] font-medium text-[var(--color-panel-label)] uppercase">
               Tools
             </div>
             {extraTools.map((tool) => {
@@ -166,17 +166,20 @@ export function ExtraToolsDropdown() {
                     w-full flex items-center justify-between px-3 py-2 text-sm transition-colors
                     ${
                       tool.disabled
-                        ? "text-gray-600 cursor-not-allowed"
-                        : "text-gray-300 hover:bg-[#31303b]"
+                        ? "text-[var(--color-panel-label)] opacity-50 cursor-not-allowed"
+                        : "text-[var(--color-panel-text)] hover:bg-[var(--color-panel-btn-hover)]"
                     }
                   `}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon size={18} className="text-gray-500" />
+                    <Icon
+                      size={18}
+                      className="text-[var(--color-panel-label)]"
+                    />
                     <span>{tool.label}</span>
                   </div>
                   {tool.shortcut && (
-                    <span className="text-xs text-gray-500 font-mono bg-[#1a1a20] px-1.5 py-0.5 rounded">
+                    <span className="text-xs text-[var(--color-panel-label)] font-mono bg-[var(--color-panel-btn-bg)] px-1.5 py-0.5 rounded">
                       {tool.shortcut}
                     </span>
                   )}
@@ -184,9 +187,9 @@ export function ExtraToolsDropdown() {
               );
             })}
 
-            <div className="w-full h-px bg-gray-700/50 my-2" />
+            <div className="w-full h-px bg-[var(--color-panel-divider)] my-2" />
 
-            <div className="px-2 py-1.5 text-[11px] font-medium text-gray-500 uppercase flex items-center gap-1">
+            <div className="px-2 py-1.5 text-[11px] font-medium text-[var(--color-panel-label)] uppercase flex items-center gap-1">
               <Sparkles size={12} className="text-[#6965db]" />
               AI Generate
             </div>
@@ -201,8 +204,8 @@ export function ExtraToolsDropdown() {
                     w-full flex items-center justify-between px-3 py-2 text-sm transition-colors
                     ${
                       tool.disabled
-                        ? "text-gray-600 cursor-not-allowed"
-                        : "text-gray-300 hover:bg-[#31303b]"
+                        ? "text-[var(--color-panel-label)] opacity-50 cursor-not-allowed"
+                        : "text-[var(--color-panel-text)] hover:bg-[var(--color-panel-btn-hover)]"
                     }
                   `}
                 >

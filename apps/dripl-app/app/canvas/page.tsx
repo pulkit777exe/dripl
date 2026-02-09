@@ -1,8 +1,6 @@
 "use client";
 
-import RoughCanvas from "@/components/canvas/RoughCanvas";
 import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
-import { PropertiesPanel } from "@/components/canvas/PropertiesPanel";
 import { CanvasControls } from "@/components/canvas/CanvasControls";
 import { useTheme } from "@/hooks/useTheme";
 import { TopBar } from "@/components/canvas/TopBar";
@@ -13,11 +11,7 @@ export default function CanvasPage() {
   const { effectiveTheme } = useTheme();
 
   return (
-    <div
-      className={`w-screen h-dvh relative overflow-hidden ${
-        effectiveTheme === "dark" ? "bg-[#121112]" : "bg-[#f7f5f6]"
-      }`}
-    >
+    <div className="w-screen h-dvh relative overflow-hidden bg-[var(--color-canvas-bg)]">
       <div
         className="absolute inset-0 opacity-10 pointer-events-none"
         style={{
@@ -25,22 +19,6 @@ export default function CanvasPage() {
             "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E\")",
         }}
       />
-
-      <div className="absolute top-4 right-4 z-100 bg-yellow-500 p-4 rounded shadow-xl pointer-events-auto">
-        <h1 className="text-xl font-bold text-black">TEST</h1>
-        <button
-          className="px-4 py-2 bg-red-500 text-white rounded mt-2 hover:bg-red-600 transition-colors"
-          onClick={(e) => {
-            e.stopPropagation();
-            console.log("Test button clicked!");
-            alert("Test button clicked!");
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
-          Test Button
-        </button>
-      </div>
 
       <TopBar />
       <CanvasBootstrap mode="local" theme={effectiveTheme} />
@@ -53,16 +31,8 @@ export default function CanvasPage() {
         <CanvasControls />
       </div>
 
-      <div
-        className={`absolute top-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-[${
-          effectiveTheme === "dark" ? "#6965db" : "#4f46e5"
-        }] to-transparent opacity-30 pointer-events-none`}
-      />
-      <div
-        className={`absolute bottom-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-[${
-          effectiveTheme === "dark" ? "#6965db" : "#4f46e5"
-        }] to-transparent opacity-30 pointer-events-none`}
-      />
+      <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-primary to-transparent opacity-30 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-primary to-transparent opacity-30 pointer-events-none" />
       <CommandPalette />
     </div>
   );
