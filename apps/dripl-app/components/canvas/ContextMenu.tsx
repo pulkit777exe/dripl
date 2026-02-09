@@ -58,14 +58,14 @@ export function ContextMenu({
   return (
     <div
       ref={menuRef}
-      className="absolute z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[200px]"
+      className="absolute z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[200px] text-foreground"
       style={{ left: `${x}px`, top: `${y}px` }}
       role="menu"
       aria-label="Element context menu"
     >
       {onCopy && (
         <button
-          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+          className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-2 text-foreground"
           onClick={() => {
             onCopy();
             onClose();
@@ -78,7 +78,7 @@ export function ContextMenu({
       )}
       {onPaste && (
         <button
-          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+          className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-2 text-foreground"
           onClick={() => {
             onPaste();
             onClose();
@@ -90,7 +90,7 @@ export function ContextMenu({
         </button>
       )}
       <button
-        className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+        className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-2 text-foreground"
         onClick={() => {
           onDuplicate();
           onClose();
@@ -100,9 +100,9 @@ export function ContextMenu({
         <Copy className="w-4 h-4" />
         Duplicate
       </button>
-      <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+      <div className="border-t border-border my-1" />
       <button
-        className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+        className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-2 text-foreground"
         onClick={() => {
           onBringToFront();
           onClose();
@@ -113,7 +113,7 @@ export function ContextMenu({
         Bring to Front
       </button>
       <button
-        className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+        className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-2 text-foreground"
         onClick={() => {
           onSendToBack();
           onClose();
@@ -123,9 +123,9 @@ export function ContextMenu({
         <RotateCcw className="w-4 h-4" />
         Send to Back
       </button>
-      <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+      <div className="border-t border-border my-1" />
       <button
-        className="w-full px-4 py-2 text-left hover:bg-red-100 dark:hover:bg-red-900 text-red-600 dark:text-red-400 flex items-center gap-2"
+        className="w-full px-4 py-2 text-left hover:bg-red-500/20 text-red-500 flex items-center gap-2"
         onClick={() => {
           onDelete();
           onClose();

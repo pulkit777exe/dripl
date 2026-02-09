@@ -176,10 +176,12 @@ export function PropertiesPanel({
 
   return (
     <div className="flex flex-col gap-2 pointer-events-auto z-50">
-      <div className="p-4 bg-[#232329] border border-[#333] rounded-xl shadow-2xl w-28 space-y-4">
+      <div className="p-4 bg-[var(--color-panel-bg)] border border-[var(--color-panel-border)] rounded-xl shadow-2xl w-28 space-y-4">
         {(!selectedElement || showProp("strokeColor")) && (
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400 font-medium">Stroke</label>
+            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+              Stroke
+            </label>
             <div className="flex flex-wrap gap-1.5">
               {STROKE_COLORS.map((color) => (
                 <button
@@ -191,8 +193,8 @@ export function PropertiesPanel({
                   }
                   className={`w-5 h-5 rounded border-2 transition-all ${
                     strokeColor === color
-                      ? "border-white scale-110"
-                      : "border-transparent hover:border-gray-500"
+                      ? "border-[var(--color-panel-text)] scale-110"
+                      : "border-transparent hover:border-[var(--color-panel-label)]"
                   }`}
                   style={{ backgroundColor: color }}
                 />
@@ -203,7 +205,7 @@ export function PropertiesPanel({
 
         {(!selectedElement || showProp("background")) && (
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400 font-medium">
+            <label className="text-xs text-[var(--color-panel-label)] font-medium">
               Background
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -217,8 +219,8 @@ export function PropertiesPanel({
                   }
                   className={`w-5 h-5 rounded border-2 transition-all ${
                     backgroundColor === color
-                      ? "border-white scale-110"
-                      : "border-transparent hover:border-gray-500"
+                      ? "border-[var(--color-panel-text)] scale-110"
+                      : "border-transparent hover:border-[var(--color-panel-label)]"
                   } ${color === "transparent" ? "bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22%3E%3Crect width=%224%22 height=%224%22 fill=%22%23ccc%22/%3E%3Crect x=%224%22 y=%224%22 width=%224%22 height=%224%22 fill=%22%23ccc%22/%3E%3C/svg%3E')]" : ""}`}
                   style={{
                     backgroundColor:
@@ -232,7 +234,7 @@ export function PropertiesPanel({
 
         {(!selectedElement || showProp("strokeWidth")) && (
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400 font-medium">
+            <label className="text-xs text-[var(--color-panel-label)] font-medium">
               Stroke width
             </label>
             <div className="flex gap-1">
@@ -246,8 +248,8 @@ export function PropertiesPanel({
                   }
                   className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                     strokeWidth === width
-                      ? "bg-[#6965db]"
-                      : "bg-[#2a2a3a] hover:bg-[#3a3a4a]"
+                      ? "bg-[var(--color-panel-btn-active)]"
+                      : "bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]"
                   }`}
                 >
                   <div
@@ -262,7 +264,7 @@ export function PropertiesPanel({
 
         {(!selectedElement || showProp("strokeStyle")) && (
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400 font-medium">
+            <label className="text-xs text-[var(--color-panel-label)] font-medium">
               Stroke style
             </label>
             <div className="flex gap-1">
@@ -276,12 +278,12 @@ export function PropertiesPanel({
                   }
                   className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                     strokeStyle === style
-                      ? "bg-[#6965db]"
-                      : "bg-[#2a2a3a] hover:bg-[#3a3a4a]"
+                      ? "bg-[var(--color-panel-btn-active)]"
+                      : "bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]"
                   }`}
                 >
                   <div
-                    className="w-5 border-t-2 border-white"
+                    className="w-5 border-t-2 border-[var(--color-panel-text)]"
                     style={{
                       borderStyle: style,
                     }}
@@ -294,7 +296,7 @@ export function PropertiesPanel({
 
         {(!selectedElement || showProp("sloppiness")) && (
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400 font-medium">
+            <label className="text-xs text-[var(--color-panel-label)] font-medium">
               Sloppiness
             </label>
             <div className="flex gap-1">
@@ -308,8 +310,8 @@ export function PropertiesPanel({
                   }
                   className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                     roughness === level
-                      ? "bg-[#6965db]"
-                      : "bg-[#2a2a3a] hover:bg-[#3a3a4a]"
+                      ? "bg-[var(--color-panel-btn-active)]"
+                      : "bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]"
                   }`}
                 >
                   <svg
@@ -334,7 +336,9 @@ export function PropertiesPanel({
 
         {showProp("edges") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400 font-medium">Edges</label>
+            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+              Edges
+            </label>
             <div className="flex gap-1">
               {["sharp", "round"].map((edge) => (
                 <button
@@ -342,12 +346,12 @@ export function PropertiesPanel({
                   onClick={() => updateElementProperty("edges", edge)}
                   className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                     (selectedElement as any)?.edges === edge
-                      ? "bg-[#6965db]"
-                      : "bg-[#2a2a3a] hover:bg-[#3a3a4a]"
+                      ? "bg-[var(--color-panel-btn-active)]"
+                      : "bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]"
                   }`}
                 >
                   <div
-                    className={`w-4 h-4 border-2 border-white ${
+                    className={`w-4 h-4 border-2 border-[var(--color-panel-text)] ${
                       edge === "round" ? "rounded" : ""
                     }`}
                   />
@@ -359,7 +363,7 @@ export function PropertiesPanel({
 
         {showProp("arrowType") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400 font-medium">
+            <label className="text-xs text-[var(--color-panel-label)] font-medium">
               Arrow type
             </label>
             <div className="flex gap-1">
@@ -369,8 +373,8 @@ export function PropertiesPanel({
                   onClick={() => updateElementProperty("arrowType", type)}
                   className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                     (selectedElement as any)?.arrowType === type
-                      ? "bg-[#6965db]"
-                      : "bg-[#2a2a3a] hover:bg-[#3a3a4a]"
+                      ? "bg-[var(--color-panel-btn-active)]"
+                      : "bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]"
                   }`}
                 >
                   <svg
@@ -395,7 +399,7 @@ export function PropertiesPanel({
 
         {showProp("arrowheads") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400 font-medium">
+            <label className="text-xs text-[var(--color-panel-label)] font-medium">
               Arrowheads
             </label>
             <div className="flex gap-1">
@@ -408,12 +412,14 @@ export function PropertiesPanel({
                 }
                 className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                   (selectedElement as any)?.startArrowhead
-                    ? "bg-[#6965db]"
-                    : "bg-[#2a2a3a] hover:bg-[#3a3a4a]"
+                    ? "bg-[var(--color-panel-btn-active)]"
+                    : "bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]"
                 }`}
                 title="Start arrowhead"
               >
-                <span className="text-xs text-white">←o</span>
+                <span className="text-xs text-[var(--color-panel-text)]">
+                  ←o
+                </span>
               </button>
               <button
                 onClick={() =>
@@ -424,12 +430,14 @@ export function PropertiesPanel({
                 }
                 className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                   (selectedElement as any)?.endArrowhead !== false
-                    ? "bg-[#6965db]"
-                    : "bg-[#2a2a3a] hover:bg-[#3a3a4a]"
+                    ? "bg-[var(--color-panel-btn-active)]"
+                    : "bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]"
                 }`}
                 title="End arrowhead"
               >
-                <span className="text-xs text-white">o→</span>
+                <span className="text-xs text-[var(--color-panel-text)]">
+                  o→
+                </span>
               </button>
             </div>
           </div>
@@ -438,10 +446,10 @@ export function PropertiesPanel({
         {(!selectedElement || showProp("opacity")) && (
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
-              <label className="text-xs text-gray-400 font-medium">
+              <label className="text-xs text-[var(--color-panel-label)] font-medium">
                 Opacity
               </label>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-[var(--color-panel-label)]">
                 {Math.round(opacity * 100)}
               </span>
             </div>
@@ -458,14 +466,16 @@ export function PropertiesPanel({
                     )
                   : null
               }
-              className="w-full h-1.5 bg-[#333] rounded-lg appearance-none cursor-pointer accent-[#6965db]"
+              className="w-full h-1.5 bg-[var(--color-panel-slider)] rounded-lg appearance-none cursor-pointer accent-[var(--color-panel-btn-active)]"
             />
           </div>
         )}
 
         {showProp("layers") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400 font-medium">Layers</label>
+            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+              Layers
+            </label>
             <div className="flex gap-1">
               <button
                 onClick={() =>
@@ -474,10 +484,13 @@ export function PropertiesPanel({
                     (selectedElement?.zIndex ?? 100) - 100,
                   )
                 }
-                className="flex-1 h-7 rounded bg-[#2a2a3a] hover:bg-[#3a3a4a] flex items-center justify-center transition-colors"
+                className="flex-1 h-7 rounded bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)] flex items-center justify-center transition-colors"
                 title="Send to back"
               >
-                <ChevronsDown size={14} className="text-white" />
+                <ChevronsDown
+                  size={14}
+                  className="text-[var(--color-panel-text)]"
+                />
               </button>
               <button
                 onClick={() =>
@@ -486,10 +499,13 @@ export function PropertiesPanel({
                     (selectedElement?.zIndex ?? 100) - 10,
                   )
                 }
-                className="flex-1 h-7 rounded bg-[#2a2a3a] hover:bg-[#3a3a4a] flex items-center justify-center transition-colors"
+                className="flex-1 h-7 rounded bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)] flex items-center justify-center transition-colors"
                 title="Send backward"
               >
-                <ChevronDown size={14} className="text-white" />
+                <ChevronDown
+                  size={14}
+                  className="text-[var(--color-panel-text)]"
+                />
               </button>
               <button
                 onClick={() =>
@@ -498,10 +514,13 @@ export function PropertiesPanel({
                     (selectedElement?.zIndex ?? 100) + 10,
                   )
                 }
-                className="flex-1 h-7 rounded bg-[#2a2a3a] hover:bg-[#3a3a4a] flex items-center justify-center transition-colors"
+                className="flex-1 h-7 rounded bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)] flex items-center justify-center transition-colors"
                 title="Bring forward"
               >
-                <ChevronUp size={14} className="text-white" />
+                <ChevronUp
+                  size={14}
+                  className="text-[var(--color-panel-text)]"
+                />
               </button>
               <button
                 onClick={() =>
@@ -510,10 +529,13 @@ export function PropertiesPanel({
                     (selectedElement?.zIndex ?? 100) + 100,
                   )
                 }
-                className="flex-1 h-7 rounded bg-[#2a2a3a] hover:bg-[#3a3a4a] flex items-center justify-center transition-colors"
+                className="flex-1 h-7 rounded bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)] flex items-center justify-center transition-colors"
                 title="Bring to front"
               >
-                <ChevronsUp size={14} className="text-white" />
+                <ChevronsUp
+                  size={14}
+                  className="text-[var(--color-panel-text)]"
+                />
               </button>
             </div>
           </div>
@@ -521,31 +543,45 @@ export function PropertiesPanel({
 
         {showProp("align") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400 font-medium">Align</label>
+            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+              Align
+            </label>
             <div className="flex gap-1 flex-wrap">
               <button
-                className="flex-1 h-7 rounded bg-[#2a2a3a] hover:bg-[#3a3a4a] flex items-center justify-center transition-colors"
+                className="flex-1 h-7 rounded bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)] flex items-center justify-center transition-colors"
                 title="Align left"
               >
-                <AlignLeft size={14} className="text-white" />
+                <AlignLeft
+                  size={14}
+                  className="text-[var(--color-panel-text)]"
+                />
               </button>
               <button
-                className="flex-1 h-7 rounded bg-[#2a2a3a] hover:bg-[#3a3a4a] flex items-center justify-center transition-colors"
+                className="flex-1 h-7 rounded bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)] flex items-center justify-center transition-colors"
                 title="Align center"
               >
-                <AlignCenter size={14} className="text-white" />
+                <AlignCenter
+                  size={14}
+                  className="text-[var(--color-panel-text)]"
+                />
               </button>
               <button
-                className="flex-1 h-7 rounded bg-[#2a2a3a] hover:bg-[#3a3a4a] flex items-center justify-center transition-colors"
+                className="flex-1 h-7 rounded bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)] flex items-center justify-center transition-colors"
                 title="Align right"
               >
-                <AlignRight size={14} className="text-white" />
+                <AlignRight
+                  size={14}
+                  className="text-[var(--color-panel-text)]"
+                />
               </button>
               <button
-                className="flex-1 h-7 rounded bg-[#2a2a3a] hover:bg-[#3a3a4a] flex items-center justify-center transition-colors"
+                className="flex-1 h-7 rounded bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)] flex items-center justify-center transition-colors"
                 title="Align middle"
               >
-                <AlignVerticalJustifyCenter size={14} className="text-white" />
+                <AlignVerticalJustifyCenter
+                  size={14}
+                  className="text-[var(--color-panel-text)]"
+                />
               </button>
             </div>
           </div>
@@ -553,38 +589,43 @@ export function PropertiesPanel({
 
         {showProp("actions") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400 font-medium">Actions</label>
+            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+              Actions
+            </label>
             <div className="flex gap-1">
               <button
                 onClick={onDuplicateElement}
-                className="flex-1 h-7 rounded bg-[#2a2a3a] hover:bg-[#3a3a4a] flex items-center justify-center transition-colors"
+                className="flex-1 h-7 rounded bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)] flex items-center justify-center transition-colors"
                 title="Duplicate"
               >
-                <Copy size={14} className="text-white" />
+                <Copy size={14} className="text-[var(--color-panel-text)]" />
               </button>
               <button
                 onClick={onDeleteElement}
-                className="flex-1 h-7 rounded bg-[#2a2a3a] hover:bg-red-900/50 flex items-center justify-center transition-colors"
+                className="flex-1 h-7 rounded bg-[var(--color-panel-btn-bg)] hover:bg-red-500/20 flex items-center justify-center transition-colors"
                 title="Delete"
               >
-                <Trash2 size={14} className="text-white" />
+                <Trash2 size={14} className="text-[var(--color-panel-text)]" />
               </button>
               <button
                 onClick={() => setShowExportModal(true)}
-                className="flex-1 h-7 rounded bg-[#2a2a3a] hover:bg-[#3a3a4a] flex items-center justify-center transition-colors"
+                className="flex-1 h-7 rounded bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)] flex items-center justify-center transition-colors"
                 title="Export"
               >
-                <Download size={14} className="text-white" />
+                <Download
+                  size={14}
+                  className="text-[var(--color-panel-text)]"
+                />
               </button>
             </div>
           </div>
         )}
 
         {!selectedElement && (
-          <div className="pt-2 border-t border-[#333]">
+          <div className="pt-2 border-t border-[var(--color-panel-divider)]">
             <button
               onClick={() => setShowExportModal(true)}
-              className="w-full flex items-center justify-center gap-2 p-2 bg-[#2a2a3a] text-gray-300 border border-[#333] rounded-lg hover:bg-[#3a3a4a] transition-colors text-xs"
+              className="w-full flex items-center justify-center gap-2 p-2 bg-[var(--color-panel-btn-bg)] text-[var(--color-panel-label)] border border-[var(--color-panel-border)] rounded-lg hover:bg-[var(--color-panel-btn-hover)] transition-colors text-xs"
             >
               <Download className="w-4 h-4" />
               Export

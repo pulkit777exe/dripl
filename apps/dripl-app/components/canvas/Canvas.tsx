@@ -1813,7 +1813,30 @@ export default function App() {
           elements
             .filter((el) => selectedIds.includes(el.id))
             .map((selectedShape) => {
-              const bounds = getElementBounds(selectedShape);
+              let displayElement = selectedShape;
+
+              if (isMoving && selectedIds.includes(selectedShape.id)) {
+                displayElement = {
+                  ...selectedShape,
+                  x: selectedShape.x + moveOffset.x,
+                  y: selectedShape.y + moveOffset.y,
+                  points: selectedShape.points?.map((p) => ({
+                    x: p.x + moveOffset.x,
+                    y: p.y + moveOffset.y,
+                  })),
+                };
+              } else if (
+                isRotating &&
+                rotateStart &&
+                rotateStart.elementId === selectedShape.id
+              ) {
+                displayElement = {
+                  ...selectedShape,
+                  rotation: (selectedShape.rotation || 0) + rotateOffset,
+                };
+              }
+
+              const bounds = getElementBounds(displayElement);
 
               const screenX = pan.x + (bounds.x * zoom) / 100;
               const screenY = pan.y + (bounds.y * zoom) / 100;
@@ -1829,8 +1852,8 @@ export default function App() {
                     top: `${screenY}px`,
                     width: `${screenWidth}px`,
                     height: `${screenHeight}px`,
-                    transform: selectedShape.rotation
-                      ? `rotate(${selectedShape.rotation}rad)`
+                    transform: displayElement.rotation
+                      ? `rotate(${displayElement.rotation}rad)`
                       : undefined,
                     transformOrigin: "center center",
                   }}

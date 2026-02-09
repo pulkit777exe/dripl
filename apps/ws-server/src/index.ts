@@ -13,9 +13,10 @@ import {
   getCachedRoomState,
   closeRedis,
 } from "./redis.js";
+import { messageSchema } from "./validation.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret-key";
-const HEARTBEAT_INTERVAL = 30000; // 30 seconds
+const HEARTBEAT_INTERVAL = 30000;
 
 interface User {
   userId: string;
@@ -37,8 +38,18 @@ interface Room {
   cursors: Map<string, Cursor>;
 }
 
+const MAX_CONNECTIONS_PER_IP = 10;
+const RATE_LIMIT_WINDOW_MS = 1000;
+const MAX_MESSAGES_PER_WINDOW = 50;
+
+const ipConnectionCounts = new Map<string, number>();
+const messageRateLimits = new WeakMap<
+  WebSocket,
+  { count: number; windowStart: number }
+>();
+
 const server = createServer();
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, maxPayload: 1024 * 1024 }); // 1MB limit
 
 const rooms = new Map<string, Room>();
 
@@ -121,14 +132,14 @@ function verifyToken(req: IncomingMessage): { userId: string } | null {
     const token = url.searchParams.get("token");
 
     if (!token) {
-      console.log("Connection rejected: No token provided");
+      // console.log("Connection check: No token provided (anonymous)");
       return null;
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
     return decoded;
   } catch (error) {
-    console.log("Connection rejected: Invalid token", error);
+    console.log("Connection check: Invalid token", error);
     return null;
   }
 }
@@ -143,6 +154,17 @@ function extractRoomId(req: IncomingMessage): string | null {
 }
 
 wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
+  const ip = req.socket.remoteAddress || "unknown";
+  const currentCount = ipConnectionCounts.get(ip) || 0;
+
+  if (currentCount >= MAX_CONNECTIONS_PER_IP) {
+    console.log(`Connection rejected: Rate limit exceeded for IP ${ip}`);
+    ws.close(1008, "Rate limit exceeded");
+    return;
+  }
+
+  ipConnectionCounts.set(ip, currentCount + 1);
+
   const authResult = verifyToken(req);
   const roomIdFromUrl = extractRoomId(req);
   const authenticatedUserId = authResult?.userId || null;
@@ -151,12 +173,45 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
   let currentRoomId: string | null = null;
 
   console.log(
-    `New WebSocket connection${authenticatedUserId ? ` (authenticated: ${authenticatedUserId})` : " (anonymous)"}`,
+    `New WebSocket connection from ${ip}${authenticatedUserId ? ` (authenticated: ${authenticatedUserId})` : " (anonymous)"}`,
   );
 
   ws.on("message", async (data) => {
+    // Rate Limiting Logic
+    const now = Date.now();
+    const rateLimitData = messageRateLimits.get(ws) || {
+      count: 0,
+      windowStart: now,
+    };
+
+    if (now - rateLimitData.windowStart > RATE_LIMIT_WINDOW_MS) {
+      // Reset window
+      rateLimitData.count = 1;
+      rateLimitData.windowStart = now;
+    } else {
+      rateLimitData.count++;
+      if (rateLimitData.count > MAX_MESSAGES_PER_WINDOW) {
+        if (rateLimitData.count === MAX_MESSAGES_PER_WINDOW + 1) {
+          console.warn(`Rate limit exceeded for user ${currentUserId || ip}`);
+          ws.send(
+            JSON.stringify({ type: "error", message: "Rate limit exceeded" }),
+          );
+        }
+        return; // Drop message
+      }
+    }
+    messageRateLimits.set(ws, rateLimitData);
+
     try {
-      const message = JSON.parse(data.toString());
+      const rawMessage = JSON.parse(data.toString());
+      const validation = messageSchema.safeParse(rawMessage);
+
+      if (!validation.success) {
+        // console.log("Invalid message format:", validation.error);
+        return;
+      }
+
+      const message = validation.data;
 
       switch (message.type) {
         case "join_room": {
@@ -334,7 +389,8 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
         }
 
         default:
-          console.log("Unknown message type:", message.type);
+          const _exhaustiveCheck: never = message;
+          console.log("Unknown message type:", _exhaustiveCheck);
       }
     } catch (error) {
       console.error("Failed to parse message:", error);
@@ -342,6 +398,12 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
   });
 
   ws.on("close", () => {
+    // Decrement connection count
+    const count = ipConnectionCounts.get(ip) || 0;
+    if (count > 0) {
+      ipConnectionCounts.set(ip, count - 1);
+    }
+
     if (currentRoomId && currentUserId) {
       const room = rooms.get(currentRoomId);
       if (room) {

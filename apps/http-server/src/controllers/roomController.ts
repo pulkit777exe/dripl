@@ -202,6 +202,18 @@ export class RoomController {
     const { slug } = req.params as { slug: string };
     const { userId, role = "EDITOR" } = req.body;
 
+    if (!userId) {
+      res.status(400).json({ error: "User ID is required" });
+      return;
+    }
+
+    if (!["EDITOR", "VIEWER"].includes(role)) {
+      res
+        .status(400)
+        .json({ error: "Invalid role. Must be 'EDITOR' or 'VIEWER'" });
+      return;
+    }
+
     try {
       const room = await prisma.canvasRoom.findUnique({ where: { slug } });
 
@@ -212,6 +224,22 @@ export class RoomController {
 
       if (room.ownerId !== req.userId) {
         res.status(403).json({ error: "Only the owner can add members" });
+        return;
+      }
+
+      const existingMember = await prisma.canvasRoomMember.findUnique({
+        where: {
+          roomId_userId: {
+            roomId: room.id,
+            userId,
+          },
+        },
+      });
+
+      if (existingMember) {
+        res
+          .status(409)
+          .json({ error: "User is already a member of this room" });
         return;
       }
 
@@ -246,6 +274,13 @@ export class RoomController {
 
       if (room.ownerId !== req.userId) {
         res.status(403).json({ error: "Only the owner can remove members" });
+        return;
+      }
+
+      if (room.ownerId === userId) {
+        res
+          .status(400)
+          .json({ error: "Owner cannot remove themselves from the room" });
         return;
       }
 

@@ -153,10 +153,10 @@ export function CanvasToolbar() {
   }, [setActiveTool, undo, redo]);
 
   return (
-    <div className="absolute top-6 left-1/2 -translate-x-1/2 p-1.5 rounded-xl border shadow-2xl flex items-center gap-0.5 z-50 bg-[#232329] border-gray-700 pointer-events-auto">
+    <div className="absolute top-6 left-1/2 -translate-x-1/2 p-1.5 rounded-xl border shadow-2xl flex items-center gap-0.5 z-50 bg-[var(--color-toolbar-bg)] border-[var(--color-toolbar-border)] pointer-events-auto">
       {/* Lock button (non-interactive) */}
       <button
-        className="p-2 rounded-lg text-gray-400 cursor-default"
+        className="p-2 rounded-lg text-[var(--color-tool-inactive-text)] cursor-default"
         disabled
         aria-label="Lock"
       >
@@ -164,7 +164,7 @@ export function CanvasToolbar() {
       </button>
 
       {/* Separator */}
-      <div className="w-px h-6 bg-gray-700 mx-1.5" />
+      <div className="w-px h-6 bg-[var(--color-toolbar-divider)] mx-1.5" />
 
       {/* Core tools */}
       {tools.map((tool) => {
@@ -180,8 +180,8 @@ export function CanvasToolbar() {
               relative p-2 rounded-lg transition-colors
               ${
                 isActive
-                  ? "bg-[#403c66] text-[#a8a5ff]"
-                  : "text-gray-300 hover:bg-[#31303b]"
+                  ? "bg-[var(--color-tool-active-bg)] text-[var(--color-tool-active-text)]"
+                  : "text-[var(--color-tool-inactive-text)] hover:bg-[var(--color-tool-hover-bg)]"
               }
             `}
             title={`${tool.label} (${tool.shortcuts.join(" or ")})`}
@@ -196,7 +196,7 @@ export function CanvasToolbar() {
               <Icon size={19} />
             )}
             {tool.numericShortcut && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[10px] font-mono text-gray-400 leading-none">
+              <span className="absolute -bottom-0.5 -right-0.5 text-[10px] font-mono text-[var(--color-tool-inactive-text)] leading-none">
                 {tool.numericShortcut}
               </span>
             )}
