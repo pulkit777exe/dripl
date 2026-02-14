@@ -278,12 +278,12 @@ export function PropertiesPanel({
                   }
                   className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                     strokeStyle === style
-                      ? "bg-[var(--color-panel-btn-active)]"
-                      : "bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]"
+                      ? "hover:bg-(--color-panel-btn-hover)"
+                      : "bg-(--color-panel-btn-hover) hover:bg-(--color-panel-btn-hover)"
                   }`}
                 >
                   <div
-                    className="w-5 border-t-2 border-[var(--color-panel-text)]"
+                    className="w-5 border-t-2 border-(--color-panel-text)"
                     style={{
                       borderStyle: style,
                     }}
@@ -296,7 +296,7 @@ export function PropertiesPanel({
 
         {(!selectedElement || showProp("sloppiness")) && (
           <div className="space-y-1.5">
-            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+            <label className="text-xs text-(--color-panel-label) font-medium">
               Sloppiness
             </label>
             <div className="flex gap-1">
@@ -310,8 +310,8 @@ export function PropertiesPanel({
                   }
                   className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                     roughness === level
-                      ? "bg-[var(--color-panel-btn-active)]"
-                      : "bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]"
+                      ? "bg-(--color-panel-btn-hover)"
+                      : "bg-(--color-panel-btn-hover) hover:bg-(--color-panel-btn-hover)"
                   }`}
                 >
                   <svg

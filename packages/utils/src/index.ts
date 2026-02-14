@@ -16,3 +16,6 @@ export function throttle(func: Function, limit: number) {
     }
   };
 }
+
+export * from "./encryption/index";
+export * from "./storage/index";

@@ -12,6 +12,7 @@ import {
   cacheRoomState,
   getCachedRoomState,
   closeRedis,
+  SERVER_ID,
 } from "./redis.js";
 import { messageSchema } from "./validation.js";
 
@@ -55,6 +56,14 @@ const rooms = new Map<string, Room>();
 
 const saveTimeouts = new Map<string, NodeJS.Timeout>();
 const SAVE_DEBOUNCE_MS = 2000;
+const CACHE_DEBOUNCE_MS = 500;
+const cacheTimeouts = new Map<string, NodeJS.Timeout>();
+
+let redisAvailable = false;
+
+// ---------------------------------------------------------------------------
+// Persistence helpers
+// ---------------------------------------------------------------------------
 
 function scheduleDatabaseSave(roomSlug: string, elements: DriplElement[]) {
   if (saveTimeouts.has(roomSlug)) {
@@ -80,6 +89,26 @@ function scheduleDatabaseSave(roomSlug: string, elements: DriplElement[]) {
     }, SAVE_DEBOUNCE_MS),
   );
 }
+
+function scheduleRedisCache(roomSlug: string, elements: DriplElement[]) {
+  if (!redisAvailable) return;
+
+  if (cacheTimeouts.has(roomSlug)) {
+    clearTimeout(cacheTimeouts.get(roomSlug)!);
+  }
+
+  cacheTimeouts.set(
+    roomSlug,
+    setTimeout(async () => {
+      await cacheRoomState(roomSlug, elements);
+      cacheTimeouts.delete(roomSlug);
+    }, CACHE_DEBOUNCE_MS),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Room helpers
+// ---------------------------------------------------------------------------
 
 function generateUserColor(): string {
   const colors = [
@@ -107,7 +136,11 @@ function getOrCreateRoom(roomId: string): Room {
   return rooms.get(roomId)!;
 }
 
-function broadcastToRoom(
+/**
+ * Broadcast a message to all **local** WebSocket connections in a room,
+ * optionally excluding a specific user.
+ */
+function broadcastToLocalClients(
   roomId: string,
   message: unknown,
   excludeUserId?: string,
@@ -126,13 +159,60 @@ function broadcastToRoom(
   });
 }
 
+/**
+ * Broadcast a message to all clients in a room, using Redis Pub/Sub when
+ * available so that clients connected to other server instances also receive
+ * the update.  Local clients on *this* instance are notified directly; the
+ * Redis subscriber handler takes care of clients on *other* instances.
+ */
+async function broadcastToRoom(
+  roomId: string,
+  message: unknown,
+  excludeUserId?: string,
+) {
+  // Always deliver to local clients immediately (low latency).
+  broadcastToLocalClients(roomId, message, excludeUserId);
+
+  // Publish to Redis so other server instances can relay to their clients.
+  if (redisAvailable) {
+    await publishToRoom(roomId, "broadcast", {
+      message,
+      excludeUserId,
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Redis subscription handler — receives messages published by OTHER instances
+// ---------------------------------------------------------------------------
+
+function handleRedisRoomMessage(type: string, payload: unknown) {
+  if (type !== "broadcast") return;
+
+  const { message, excludeUserId } = payload as {
+    message: Record<string, unknown>;
+    excludeUserId?: string;
+  };
+
+  const roomId = message.roomId as string | undefined;
+  if (!roomId) return;
+
+  // Deliver to all local clients (the sender already excluded themselves via
+  // excludeUserId, but that user lives on the *other* instance – we don't
+  // have that WebSocket here, so we can safely broadcast to everyone local).
+  broadcastToLocalClients(roomId, message);
+}
+
+// ---------------------------------------------------------------------------
+// Auth helpers
+// ---------------------------------------------------------------------------
+
 function verifyToken(req: IncomingMessage): { userId: string } | null {
   try {
     const url = new URL(req.url!, `http://${req.headers.host}`);
     const token = url.searchParams.get("token");
 
     if (!token) {
-      // console.log("Connection check: No token provided (anonymous)");
       return null;
     }
 
@@ -152,6 +232,28 @@ function extractRoomId(req: IncomingMessage): string | null {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Heartbeat — detect stale connections
+// ---------------------------------------------------------------------------
+
+const heartbeatInterval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    const user = (ws as any).__user as User | undefined;
+    if (user && !user.isAlive) {
+      ws.terminate();
+      return;
+    }
+    if (user) {
+      user.isAlive = false;
+    }
+    ws.ping();
+  });
+}, HEARTBEAT_INTERVAL);
+
+// ---------------------------------------------------------------------------
+// WebSocket connection handler
+// ---------------------------------------------------------------------------
 
 wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
   const ip = req.socket.remoteAddress || "unknown";
@@ -175,6 +277,12 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
   console.log(
     `New WebSocket connection from ${ip}${authenticatedUserId ? ` (authenticated: ${authenticatedUserId})` : " (anonymous)"}`,
   );
+
+  // Respond to pongs for heartbeat
+  ws.on("pong", () => {
+    const user = (ws as any).__user as User | undefined;
+    if (user) user.isAlive = true;
+  });
 
   ws.on("message", async (data) => {
     // Rate Limiting Logic
@@ -207,7 +315,6 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
       const validation = messageSchema.safeParse(rawMessage);
 
       if (!validation.success) {
-        // console.log("Invalid message format:", validation.error);
         return;
       }
 
@@ -224,21 +331,49 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
 
           const room = getOrCreateRoom(roomId);
 
+          // L1: In-memory → L2: Redis cache → L3: Database
           if (room.elements.length === 0) {
-            try {
-              const dbRoom = await prisma.canvasRoom.findUnique({
-                where: { slug: roomId },
-              });
+            let loaded = false;
 
-              if (dbRoom && dbRoom.content) {
-                room.elements = JSON.parse(dbRoom.content as string) || [];
+            // Try Redis cache first (fast)
+            if (redisAvailable) {
+              const cached = await getCachedRoomState(roomId);
+              if (cached && cached.length > 0) {
+                room.elements = cached;
+                loaded = true;
                 console.log(
-                  `Loaded ${room.elements.length} elements from database for room ${roomId}`,
+                  `Loaded ${room.elements.length} elements from Redis cache for room ${roomId}`,
                 );
               }
-            } catch (error) {
-              console.error("Failed to load room from database:", error);
             }
+
+            // Fall back to database
+            if (!loaded) {
+              try {
+                const dbRoom = await prisma.canvasRoom.findUnique({
+                  where: { slug: roomId },
+                });
+
+                if (dbRoom && dbRoom.content) {
+                  room.elements = JSON.parse(dbRoom.content as string) || [];
+                  console.log(
+                    `Loaded ${room.elements.length} elements from database for room ${roomId}`,
+                  );
+
+                  // Warm the Redis cache
+                  if (redisAvailable && room.elements.length > 0) {
+                    await cacheRoomState(roomId, room.elements);
+                  }
+                }
+              } catch (error) {
+                console.error("Failed to load room from database:", error);
+              }
+            }
+          }
+
+          // Subscribe to Redis channel for this room (first user on this instance)
+          if (redisAvailable && room.users.size === 0) {
+            await subscribeToRoom(roomId, handleRedisRoomMessage);
           }
 
           const user: User = {
@@ -249,11 +384,13 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
             isAlive: true,
           };
           room.users.set(userId, user);
+          (ws as any).__user = user;
 
           console.log(
             `User ${user.userName} (${userId}) joined room ${roomId}`,
           );
 
+          // Send full state to the joining user
           const syncMessage = {
             type: "sync_room_state",
             userId: "server",
@@ -275,6 +412,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
           };
           ws.send(JSON.stringify(syncMessage));
 
+          // Notify others
           const joinMessage = {
             type: "user_join",
             userId,
@@ -283,7 +421,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
             timestamp: Date.now(),
             roomId,
           };
-          broadcastToRoom(roomId, joinMessage, userId);
+          await broadcastToRoom(roomId, joinMessage, userId);
           break;
         }
 
@@ -300,9 +438,13 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
                 timestamp: Date.now(),
                 roomId: currentRoomId,
               };
-              broadcastToRoom(currentRoomId, leaveMessage);
+              await broadcastToRoom(currentRoomId, leaveMessage);
 
               if (room.users.size === 0) {
+                // No more local users — unsubscribe from Redis & clean up
+                if (redisAvailable) {
+                  await unsubscribeFromRoom(currentRoomId);
+                }
                 rooms.delete(currentRoomId);
                 console.log(
                   `Room ${currentRoomId} removed from memory (empty)`,
@@ -320,12 +462,13 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
             const room = rooms.get(currentRoomId);
             if (room) {
               room.elements.push(message.element);
-              broadcastToRoom(
+              await broadcastToRoom(
                 currentRoomId,
                 message,
                 currentUserId || undefined,
               );
               scheduleDatabaseSave(currentRoomId, room.elements);
+              scheduleRedisCache(currentRoomId, room.elements);
             }
           }
           break;
@@ -341,12 +484,13 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
               if (index !== -1) {
                 room.elements[index] = message.element;
               }
-              broadcastToRoom(
+              await broadcastToRoom(
                 currentRoomId,
                 message,
                 currentUserId || undefined,
               );
               scheduleDatabaseSave(currentRoomId, room.elements);
+              scheduleRedisCache(currentRoomId, room.elements);
             }
           }
           break;
@@ -359,12 +503,13 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
               room.elements = room.elements.filter(
                 (e) => e.id !== message.elementId,
               );
-              broadcastToRoom(
+              await broadcastToRoom(
                 currentRoomId,
                 message,
                 currentUserId || undefined,
               );
               scheduleDatabaseSave(currentRoomId, room.elements);
+              scheduleRedisCache(currentRoomId, room.elements);
             }
           }
           break;
@@ -375,7 +520,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
             const room = rooms.get(currentRoomId);
             if (room) {
               room.cursors.set(currentUserId, { x: message.x, y: message.y });
-              broadcastToRoom(
+              await broadcastToRoom(
                 currentRoomId,
                 {
                   ...message,
@@ -397,7 +542,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
     }
   });
 
-  ws.on("close", () => {
+  ws.on("close", async () => {
     // Decrement connection count
     const count = ipConnectionCounts.get(ip) || 0;
     if (count > 0) {
@@ -419,9 +564,12 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
           timestamp: Date.now(),
           roomId: currentRoomId,
         };
-        broadcastToRoom(currentRoomId, leaveMessage);
+        await broadcastToRoom(currentRoomId, leaveMessage);
 
         if (room.users.size === 0) {
+          if (redisAvailable) {
+            await unsubscribeFromRoom(currentRoomId);
+          }
           rooms.delete(currentRoomId);
           console.log(`Room ${currentRoomId} removed from memory (empty)`);
         }
@@ -434,14 +582,42 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
   });
 });
 
-const PORT = process.env.WS_PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`WebSocket server running on port ${PORT}`);
+// ---------------------------------------------------------------------------
+// Startup
+// ---------------------------------------------------------------------------
+
+async function start() {
+  // Attempt Redis connection — if it fails, the server works in
+  // single-instance mode with in-memory-only broadcasting.
+  redisAvailable = await initRedis();
+
+  if (redisAvailable) {
+    console.log("✓ Multi-instance mode: Redis Pub/Sub enabled");
+  } else {
+    console.log("⚠ Single-instance mode: Redis not available");
+  }
+
+  const PORT = process.env.WS_PORT || 3001;
+  server.listen(PORT, () => {
+    console.log(`WebSocket server running on port ${PORT}`);
+  });
+}
+
+start().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });
 
-process.on("SIGTERM", async () => {
+// ---------------------------------------------------------------------------
+// Graceful shutdown
+// ---------------------------------------------------------------------------
+
+async function gracefulShutdown() {
   console.log("Shutting down...");
 
+  clearInterval(heartbeatInterval);
+
+  // Save all rooms to database
   for (const [roomId, room] of rooms) {
     if (room.elements.length > 0) {
       try {
@@ -459,6 +635,10 @@ process.on("SIGTERM", async () => {
     }
   }
 
+  await closeRedis();
   await prisma.$disconnect();
   process.exit(0);
-});
+}
+
+process.on("SIGTERM", gracefulShutdown);
+process.on("SIGINT", gracefulShutdown);

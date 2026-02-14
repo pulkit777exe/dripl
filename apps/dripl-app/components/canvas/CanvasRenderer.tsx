@@ -163,28 +163,8 @@ export function useCanvasRenderer({
       renderRoughElements(rc, ctx, [currentPreview], theme);
     }
 
-    // Render selection highlights
-    if (selectedIds.size > 0) {
-      ctx.save();
-      ctx.strokeStyle = "#6965db";
-      ctx.lineWidth = 1 / viewport.zoom;
-      ctx.setLineDash([5 / viewport.zoom, 5 / viewport.zoom]);
-
-      visibleElements.forEach((el) => {
-        if (el.id && selectedIds.has(el.id)) {
-          const bounds = getElementBounds(el);
-          const padding = 4 / viewport.zoom;
-          ctx.strokeRect(
-            bounds.x - padding,
-            bounds.y - padding,
-            bounds.width + padding * 2,
-            bounds.height + padding * 2,
-          );
-        }
-      });
-
-      ctx.restore();
-    }
+    // Render selection highlights (handled by SelectionOverlay now)
+    // if (selectedIds.size > 0) { ... }
 
     // Render eraser trail
     if (eraserPath.length > 0) {

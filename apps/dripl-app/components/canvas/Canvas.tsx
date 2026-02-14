@@ -98,7 +98,7 @@ const ColorSwatch: React.FC<ColorSwatchProps> = ({
         className="absolute inset-0.5 rounded-sm opacity-50"
         style={{
           backgroundImage:
-            "linear-gradient(45deg, #404040 25%, transparent 25%, transparent 75%, #404040 75%, #404040), linear-gradient(45deg, #404040 25%, transparent 25%, transparent 75%, #404040 75%, #404040)",
+            "linear-gradient(45deg, var(--color-panel-slider) 25%, transparent 25%, transparent 75%, var(--color-panel-slider) 75%, var(--color-panel-slider)), linear-gradient(45deg, var(--color-panel-slider) 25%, transparent 25%, transparent 75%, var(--color-panel-slider) 75%, var(--color-panel-slider))",
           backgroundSize: "8px 8px",
           backgroundPosition: "0 0, 4px 4px",
         }}
@@ -131,16 +131,16 @@ const MenuItem: React.FC<MenuItemProps> = ({
     onClick={onClick}
     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md transition-colors text-sm group ${
       highlight
-        ? "text-[#a8a5ff] hover:bg-[#403c66]/30"
-        : "text-gray-300 hover:bg-[#31303b]"
+        ? "text-[var(--color-tool-active-text)] hover:bg-[var(--color-tool-active-bg)]/30"
+        : "text-[var(--color-tool-inactive-text)] hover:bg-[var(--color-tool-hover-bg)]"
     }`}
   >
     <div className="flex items-center gap-3">
       <span
         className={
           highlight
-            ? "text-[#a8a5ff]"
-            : "text-gray-500 group-hover:text-gray-400"
+            ? "text-[var(--color-tool-active-text)]"
+            : "text-[var(--color-tool-inactive-text)] group-hover:text-[var(--color-tool-hover-text)]"
         }
       >
         {icon}
@@ -148,7 +148,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
       <span className="font-normal">{label}</span>
     </div>
     {shortcut && (
-      <span className="text-xs text-gray-500 font-mono bg-[#1a1a20] px-1.5 py-0.5 rounded">
+      <span className="text-xs text-[var(--color-tool-inactive-text)] font-mono bg-[var(--color-panel-btn-bg)] px-1.5 py-0.5 rounded">
         {shortcut}
       </span>
     )}
@@ -156,7 +156,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
 );
 
 const MenuSeparator: React.FC = () => (
-  <div className="w-full h-px bg-gray-700/50 my-2" />
+  <div className="w-full h-px bg-[var(--color-panel-slider)]/50 my-2" />
 );
 
 const HelpModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -164,9 +164,9 @@ const HelpModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     toolName,
     shortcut,
   }) => (
-    <div className="flex justify-between items-center py-2 border-b border-gray-700/50 last:border-b-0">
-      <div className="text-gray-300 flex-1">{toolName}</div>
-      <div className="text-xs font-mono px-3 py-0.5 rounded-md bg-[#31303b] text-gray-400 border border-gray-700/50 min-w-[50px] text-center">
+    <div className="flex justify-between items-center py-2 border-b border-[var(--color-panel-slider)]/50 last:border-b-0">
+      <div className="text-[var(--color-tool-inactive-text)] flex-1">{toolName}</div>
+      <div className="text-xs font-mono px-3 py-0.5 rounded-md bg-[var(--color-tool-hover-bg)] text-[var(--color-tool-inactive-text)] border border-[var(--color-panel-slider)]/50 min-w-[50px] text-center">
         {shortcut}
       </div>
     </div>
@@ -176,7 +176,7 @@ const HelpModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     icon,
     label,
   }) => (
-    <button className="flex items-center gap-2 px-3 py-2 bg-[#1a1a20] hover:bg-[#31303b] rounded-lg text-sm text-gray-300 border border-gray-700/50 transition-colors">
+    <button className="flex items-center gap-2 px-3 py-2 bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-tool-hover-bg)] rounded-lg text-sm text-[var(--color-tool-inactive-text)] border border-[var(--color-panel-slider)]/50 transition-colors">
       {icon}
       {label}
     </button>
@@ -188,23 +188,23 @@ const HelpModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-5xl bg-[#232329] rounded-xl border border-gray-700 shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="w-full max-w-5xl bg-[var(--color-panel-bg)] rounded-xl border border-[var(--color-panel-slider)] shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center p-5 border-b border-gray-700/50">
-          <h2 className="text-xl font-semibold text-white flex items-center gap-3">
-            <HelpCircle size={24} className="text-[#a8a5ff]" />
+        <div className="flex justify-between items-center p-5 border-b border-[var(--color-panel-slider)]/50">
+          <h2 className="text-xl font-semibold text-[var(--color-panel-text)] flex items-center gap-3">
+            <HelpCircle size={24} className="text-[var(--color-tool-active-text)]" />
             Help
           </h2>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:bg-[#31303b] rounded-full transition-colors"
+            className="p-2 text-[var(--color-tool-inactive-text)] hover:bg-[var(--color-tool-hover-bg)] rounded-full transition-colors"
           >
             <X size={24} />
           </button>
         </div>
 
-        <div className="p-5 flex gap-3 border-b border-gray-700/50 flex-wrap">
+        <div className="p-5 flex gap-3 border-b border-[var(--color-panel-slider)]/50 flex-wrap">
           <HeaderButton icon={<BookOpen size={18} />} label="Documentation" />
           <HeaderButton icon={<ExternalLink size={18} />} label="Blog" />
           <HeaderButton icon={<Github size={18} />} label="GitHub" />
@@ -212,14 +212,14 @@ const HelpModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Keyboard size={20} className="text-gray-400" />
+          <h3 className="text-lg font-semibold text-[var(--color-panel-text)] mb-4 flex items-center gap-2">
+            <Keyboard size={20} className="text-[var(--color-tool-inactive-text)]" />
             Keyboard shortcuts
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-0 text-sm">
             <div>
-              <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 mt-4">
+              <h4 className="text-xs font-bold text-[var(--color-panel-label)] uppercase mb-2 mt-4">
                 Tools
               </h4>
               <ShortcutItem toolName="Hand (panning tool)" shortcut="H" />
@@ -236,7 +236,7 @@ const HelpModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </div>
 
             <div>
-              <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 mt-4">
+              <h4 className="text-xs font-bold text-[var(--color-panel-label)] uppercase mb-2 mt-4">
                 Editor
               </h4>
               <ShortcutItem toolName="Move canvas" shortcut="Space + Drag" />
@@ -276,12 +276,12 @@ export default function App() {
       const themeParam = params.get("theme");
       console.log("Canvas.tsx theme parameter:", themeParam);
       if (themeParam === "dark") {
-        return "#121212";
+        return "#121112"; // matches --color-canvas-bg in dark mode
       } else if (themeParam === "light") {
-        return "#f8f9fa";
+        return "#f7f5f6"; // matches --color-canvas-bg in light mode
       }
     }
-    const canvasBgDefault = effectiveTheme === "dark" ? "#121212" : "#f8f9fa";
+    const canvasBgDefault = effectiveTheme === "dark" ? "#121112" : "#f7f5f6";
     console.log("Canvas.tsx fallback canvasBg:", canvasBgDefault);
     return canvasBgDefault;
   });
@@ -291,11 +291,11 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const themeParam = params.get("theme");
     if (themeParam === "dark") {
-      setCanvasBg("#121212");
+      setCanvasBg("#121112"); // matches --color-canvas-bg in dark mode
     } else if (themeParam === "light") {
-      setCanvasBg("#f8f9fa");
+      setCanvasBg("#f7f5f6"); // matches --color-canvas-bg in light mode
     } else {
-      setCanvasBg(effectiveTheme === "dark" ? "#121212" : "#f8f9fa");
+      setCanvasBg(effectiveTheme === "dark" ? "#121112" : "#f7f5f6");
     }
   }, [effectiveTheme]);
 
@@ -443,12 +443,12 @@ export default function App() {
     "#4dabf7",
   ];
   const canvasBgColors = [
-    "#121212",
-    "#ffffff",
-    "#f8f9fa",
-    "#2d3a2e",
-    "#3a2e2d",
-    "#2e2e3a",
+    "#121112", // Dark canvas bg (matches --color-canvas-bg dark)
+    "#f7f5f6", // Light canvas bg (matches --color-canvas-bg light)
+    "#ffffff", // Pure white
+    "#2d3a2e", // Dark green tint
+    "#3a2e2d", // Dark warm tint
+    "#2e2e3a", // Dark cool tint
   ];
 
   const selectedElement =
@@ -1294,8 +1294,8 @@ export default function App() {
 
   return (
     <div
-      className={`w-screen h-dvh text-${theme === "dark" ? "white" : "gray-900"} overflow-hidden relative font-sans selection:bg-purple-500/30 ${
-        theme === "dark" ? "bg-[#121212]" : "bg-[#f8f9fa]"
+      className={`w-screen h-dvh overflow-hidden relative font-sans selection:bg-purple-500/30 ${
+        theme === "dark" ? "bg-[#121112] text-white" : "bg-[#f7f5f6] text-gray-900"
       }`}
     >
       <input
@@ -1330,7 +1330,15 @@ export default function App() {
             setIsLibraryOpen(!isLibraryOpen);
             setIsMenuOpen(false);
           }}
-          className={`p-2 rounded-lg border border-gray-700 shadow-sm transition-colors ${isLibraryOpen ? "bg-[#403c66] text-[#a8a5ff]" : "bg-[#232329] hover:bg-[#31303b] text-gray-300"}`}
+          className={`p-2 rounded-lg border shadow-sm transition-colors ${
+            isLibraryOpen
+              ? theme === "dark"
+                ? "bg-[#403c66] text-[#a8a5ff] border-gray-700"
+                : "bg-[#e0e7ff] text-[#4f46e5] border-gray-200"
+              : theme === "dark"
+                ? "bg-[#232329] hover:bg-[#31303b] text-gray-300 border-gray-700"
+                : "bg-white hover:bg-gray-100 text-gray-800 border-gray-200"
+          }`}
         >
           <Library size={20} />
         </button>
@@ -1495,9 +1503,9 @@ export default function App() {
             <MenuItem icon={<LogIn size={18} />} label="Sign in" highlight />
           </div>
 
-          <div className="pt-3 border-t border-gray-700/50 mt-3 space-y-3">
+          <div className={`pt-3 border-t mt-3 space-y-3 ${effectiveTheme === "dark" ? "border-gray-700/50" : "border-gray-200"}`}>
             <div className="px-2">
-              <div className="text-xs text-gray-400 mb-2 font-medium">
+              <div className={`text-xs mb-2 font-medium ${effectiveTheme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
                 Theme
               </div>
               <div className="flex items-center gap-2">
@@ -1505,8 +1513,12 @@ export default function App() {
                   onClick={() => setTheme("light")}
                   className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
                     theme === "light"
-                      ? "bg-[#403c66] text-[#a8a5ff]"
-                      : "bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]"
+                      ? effectiveTheme === "dark"
+                        ? "bg-[#403c66] text-[#a8a5ff]"
+                        : "bg-[#e0e7ff] text-[#4f46e5]"
+                      : effectiveTheme === "dark"
+                        ? "bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]"
+                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                   }`}
                 >
                   <Sun size={14} />
@@ -1516,7 +1528,9 @@ export default function App() {
                   className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
                     theme === "dark"
                       ? "bg-[#403c66] text-[#a8a5ff]"
-                      : "bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]"
+                      : effectiveTheme === "dark"
+                        ? "bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]"
+                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                   }`}
                 >
                   <Moon size={14} />
@@ -1525,8 +1539,12 @@ export default function App() {
                   onClick={() => setTheme("system")}
                   className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
                     theme === "system"
-                      ? "bg-[#403c66] text-[#a8a5ff]"
-                      : "bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]"
+                      ? effectiveTheme === "dark"
+                        ? "bg-[#403c66] text-[#a8a5ff]"
+                        : "bg-[#e0e7ff] text-[#4f46e5]"
+                      : effectiveTheme === "dark"
+                        ? "bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]"
+                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                   }`}
                 >
                   <Monitor size={14} />
@@ -1535,7 +1553,11 @@ export default function App() {
             </div>
 
             <div className="px-2">
-              <button className="w-full flex items-center justify-between px-3 py-2 bg-[#1a1a20] hover:bg-[#31303b] rounded-lg text-sm text-gray-300 transition-colors">
+              <button className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                effectiveTheme === "dark"
+                  ? "bg-[#1a1a20] hover:bg-[#31303b] text-gray-300"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+              }`}>
                 <span className="text-xs">English</span>
                 <ChevronDown size={14} />
               </button>

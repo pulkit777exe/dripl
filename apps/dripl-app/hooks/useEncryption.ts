@@ -8,7 +8,7 @@ import {
   keyToBase64,
   base64ToKey,
   type EncryptedPayload,
-} from "@dripl/encryption";
+} from "@dripl/utils";
 import type { DriplElement } from "@dripl/common";
 
 const ENCRYPTION_KEY_PARAM = "key";
