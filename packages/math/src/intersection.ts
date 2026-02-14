@@ -16,10 +16,6 @@ import {
   distance,
 } from "./geometry";
 
-function degToRad(deg: number) {
-  return (deg * Math.PI) / 180;
-}
-
 function rotatePoint(
   p: Point,
   cx: number,
@@ -51,7 +47,7 @@ function elementLocalPointToWorld(el: DriplElement, pt: Point): Point {
   if (!angle) return world;
   const cx = el.x + el.width / 2;
   const cy = el.y + el.height / 2;
-  return rotatePoint(world, cx, cy, degToRad(angle));
+  return rotatePoint(world, cx, cy, angle);
 }
 
 export const getElementBounds = (element: DriplElement): Bounds => {
@@ -96,7 +92,7 @@ export const getElementBounds = (element: DriplElement): Bounds => {
   const cy = element.y + element.height / 2;
 
   const worldCorners = angle
-    ? corners.map((c) => rotatePoint(c, cx, cy, degToRad(angle)))
+    ? corners.map((c) => rotatePoint(c, cx, cy, angle))
     : corners;
 
   const b = getBounds(worldCorners);
@@ -132,7 +128,7 @@ export const isPointInElement = (
     if (angle) {
       const cx = element.x + element.width / 2;
       const cy = element.y + element.height / 2;
-      local = inverseRotatePoint(point, cx, cy, degToRad(angle));
+      local = inverseRotatePoint(point, cx, cy, angle);
     }
 
     return (
@@ -149,7 +145,7 @@ export const isPointInElement = (
     if (angle) {
       const cx = element.x + element.width / 2;
       const cy = element.y + element.height / 2;
-      local = inverseRotatePoint(point, cx, cy, degToRad(angle));
+      local = inverseRotatePoint(point, cx, cy, angle);
     }
 
     const rx = element.width / 2;
@@ -167,7 +163,7 @@ export const isPointInElement = (
     if (angle) {
       const cx = element.x + element.width / 2;
       const cy = element.y + element.height / 2;
-      local = inverseRotatePoint(point, cx, cy, degToRad(angle));
+      local = inverseRotatePoint(point, cx, cy, angle);
     }
 
     const vertices: Point[] = [
@@ -250,7 +246,7 @@ export const elementIntersectsSegment = (
     const cx = element.x + element.width / 2;
     const cy = element.y + element.height / 2;
     const worldCorners = angle
-      ? corners.map((c) => rotatePoint(c, cx, cy, degToRad(angle)))
+      ? corners.map((c) => rotatePoint(c, cx, cy, angle))
       : corners;
 
     return segmentIntersectsPolygon(segment, worldCorners);
@@ -268,7 +264,7 @@ export const elementIntersectsSegment = (
     const cx = element.x + element.width / 2;
     const cy = element.y + element.height / 2;
     const worldVertices = angle
-      ? vertices.map((v) => rotatePoint(v, cx, cy, degToRad(angle)))
+      ? vertices.map((v) => rotatePoint(v, cx, cy, angle))
       : vertices;
 
     return segmentIntersectsPolygon(segment, worldVertices);
@@ -289,7 +285,7 @@ export const elementIntersectsSegment = (
     const centerX = cx;
     const centerY = cy;
     const worldPts = angle
-      ? pts.map((p) => rotatePoint(p, centerX, centerY, degToRad(angle)))
+      ? pts.map((p) => rotatePoint(p, centerX, centerY, angle))
       : pts;
     return segmentIntersectsPolygon(segment, worldPts);
   }
@@ -341,5 +337,5 @@ export const getFreedrawOutline = (element: FreeDrawElement): Point[] => {
   const cx = element.x + element.width / 2;
   const cy = element.y + element.height / 2;
 
-  return world.map((p) => rotatePoint(p, cx, cy, degToRad(angle)));
+  return world.map((p) => rotatePoint(p, cx, cy, angle));
 };

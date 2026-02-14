@@ -74,10 +74,11 @@ export function SelectionOverlay({
     maxY = Math.max(maxY, bounds.y + bounds.height);
   });
 
-  const x = minX * zoom + panX;
-  const y = minY * zoom + panY;
-  const w = (maxX - minX) * zoom;
-  const h = (maxY - minY) * zoom;
+  const SELECTION_PADDING = 4;
+  const x = minX * zoom + panX - SELECTION_PADDING;
+  const y = minY * zoom + panY - SELECTION_PADDING;
+  const w = (maxX - minX) * zoom + SELECTION_PADDING * 2;
+  const h = (maxY - minY) * zoom + SELECTION_PADDING * 2;
 
   // Rotation (only for single element)
   const angle =

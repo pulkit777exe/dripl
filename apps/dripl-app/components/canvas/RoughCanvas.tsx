@@ -620,8 +620,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (isResizing && initialElement && resizeHandle) {
+    if (isResizing && initialElement && resizeHandle && lastPointerPos) {
       const el = initialElement;
+      const dx = x - lastPointerPos.x;
+      const dy = y - lastPointerPos.y;
+
       let newX = el.x;
       let newY = el.y;
       let newWidth = el.width;
@@ -629,38 +632,38 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       switch (resizeHandle) {
         case "se":
-          newWidth = Math.max(1, x - el.x);
-          newHeight = Math.max(1, y - el.y);
+          newWidth = Math.max(1, el.width + dx);
+          newHeight = Math.max(1, el.height + dy);
           break;
         case "sw":
-          newWidth = Math.max(1, el.x + el.width - x);
-          newX = el.x + el.width - newWidth;
-          newHeight = Math.max(1, y - el.y);
+          newWidth = Math.max(1, el.width - dx);
+          newX = el.x + (el.width - newWidth);
+          newHeight = Math.max(1, el.height + dy);
           break;
         case "ne":
-          newWidth = Math.max(1, x - el.x);
-          newHeight = Math.max(1, el.y + el.height - y);
-          newY = el.y + el.height - newHeight;
+          newWidth = Math.max(1, el.width + dx);
+          newHeight = Math.max(1, el.height - dy);
+          newY = el.y + (el.height - newHeight);
           break;
         case "nw":
-          newWidth = Math.max(1, el.x + el.width - x);
-          newX = el.x + el.width - newWidth;
-          newHeight = Math.max(1, el.y + el.height - y);
-          newY = el.y + el.height - newHeight;
+          newWidth = Math.max(1, el.width - dx);
+          newX = el.x + (el.width - newWidth);
+          newHeight = Math.max(1, el.height - dy);
+          newY = el.y + (el.height - newHeight);
           break;
         case "e":
-          newWidth = Math.max(1, x - el.x);
+          newWidth = Math.max(1, el.width + dx);
           break;
         case "w":
-          newWidth = Math.max(1, el.x + el.width - x);
-          newX = el.x + el.width - newWidth;
+          newWidth = Math.max(1, el.width - dx);
+          newX = el.x + (el.width - newWidth);
           break;
         case "s":
-          newHeight = Math.max(1, y - el.y);
+          newHeight = Math.max(1, el.height + dy);
           break;
         case "n":
-          newHeight = Math.max(1, el.y + el.height - y);
-          newY = el.y + el.height - newHeight;
+          newHeight = Math.max(1, el.height - dy);
+          newY = el.y + (el.height - newHeight);
           break;
       }
 

@@ -4,17 +4,12 @@
     { "path": "./apps/dripl-app" },
     { "path": "./apps/http-server" },
     { "path": "./apps/ws-server" },
-    { "path": "./packages/common" },
     { "path": "./packages/db" },
+    { "path": "./packages/common" },
+    { "path": "./packages/dripl" },
     { "path": "./packages/element" },
     { "path": "./packages/math" },
-    { "path": "./packages/state" },
-    { "path": "./packages/storage" },
-    { "path": "./packages/store" },
-    { "path": "./packages/sync" },
-
-    { "path": "./packages/typescript-config" },
-    { "path": "./packages/ui" },
-    { "path": "./packages/utils" }
+    { "path": "./packages/utils" },
+    { "path": "./tooling/typescript-config" }
   ]
 }

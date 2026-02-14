@@ -10,6 +10,9 @@
     "lint": "eslint .",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@dripl/common": "workspace:*"
+  },
   "devDependencies": {
     "@dripl/typescript-config": "workspace:*",
     "typescript": "latest",

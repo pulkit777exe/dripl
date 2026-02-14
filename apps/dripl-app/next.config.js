@@ -4,12 +4,10 @@ const nextConfig = {
     "@dripl/common",
     "@dripl/element",
     "@dripl/math",
-    "@dripl/state",
-    "@dripl/storage",
-    "@dripl/sync",
+    "@dripl/dripl",
     "@dripl/utils"
   ],
-  serverExternalPackages: ['@prisma/client', '"@dripl/db"']
+  serverExternalPackages: ['@prisma/client', '@dripl/db']
 };
 
 module.exports = nextConfig;
