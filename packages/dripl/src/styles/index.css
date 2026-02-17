@@ -1,0 +1,404 @@
+/**
+ * Dripl Design System - Color Variables
+ * 
+ * This file contains all color variables for the Dripl application.
+ * Colors are organized by category and support both light and dark modes.
+ * 
+ * Usage:
+ * - Import this file in your main CSS: @import "@dripl/dripl/styles";
+ * - Use colors via Tailwind: bg-[var(--color-canvas-bg)]
+ * - Or via CSS: background-color: var(--color-canvas-bg);
+ */
+
+/* ============================================
+   BASE THEME COLORS (Light Mode Default)
+   ============================================ */
+
+:root {
+  /* ----------------------------------------
+     Canvas & Background Colors
+     ---------------------------------------- */
+  --color-canvas-bg: #f7f5f6;
+  --color-canvas-grid: #e5e5e5;
+  --color-canvas-grid-dark: #333333;
+  
+  /* ----------------------------------------
+     Toolbar Colors
+     ---------------------------------------- */
+  --color-toolbar-bg: #ffffff;
+  --color-toolbar-border: #e5e5e5;
+  --color-toolbar-divider: #e5e5e5;
+  --color-toolbar-shadow: rgba(0, 0, 0, 0.1);
+  
+  /* ----------------------------------------
+     Tool/Button States
+     ---------------------------------------- */
+  --color-tool-active-bg: #ebe9ff;
+  --color-tool-active-text: #6965db;
+  --color-tool-active-border: #6965db;
+  --color-tool-active-shadow: rgba(105, 101, 219, 0.15);
+  
+  --color-tool-inactive-bg: transparent;
+  --color-tool-inactive-text: #6b7280;
+  
+  --color-tool-hover-bg: #f3f4f6;
+  --color-tool-hover-text: #374151;
+  
+  --color-tool-disabled-bg: transparent;
+  --color-tool-disabled-text: #9ca3af;
+  
+  /* ----------------------------------------
+     Panel Colors (Properties Panel, etc.)
+     ---------------------------------------- */
+  --color-panel-bg: #ffffff;
+  --color-panel-border: #e5e5e5;
+  --color-panel-shadow: rgba(0, 0, 0, 0.05);
+  
+  --color-panel-header-bg: #f9fafb;
+  --color-panel-header-text: #374151;
+  
+  --color-panel-label: #6b7280;
+  --color-panel-text: #374151;
+  --color-panel-value: #111827;
+  
+  --color-panel-divider: #e5e5e5;
+  
+  --color-panel-btn-bg: #f3f4f6;
+  --color-panel-btn-hover: #e5e7eb;
+  --color-panel-btn-active: #6965db;
+  --color-panel-btn-text: #374151;
+  --color-panel-btn-active-text: #ffffff;
+  
+  --color-panel-slider-track: #d1d5db;
+  --color-panel-slider-fill: #6965db;
+  --color-panel-slider-thumb: #ffffff;
+  
+  --color-panel-input-bg: #ffffff;
+  --color-panel-input-border: #d1d5db;
+  --color-panel-input-text: #374151;
+  --color-panel-input-focus-border: #6965db;
+  
+  /* ----------------------------------------
+     Selection & Handles
+     ---------------------------------------- */
+  --color-selection-fill: rgba(105, 101, 219, 0.1);
+  --color-selection-stroke: #6965db;
+  --color-selection-handle-bg: #ffffff;
+  --color-selection-handle-border: #6965db;
+  --color-selection-handle-shadow: rgba(105, 101, 219, 0.3);
+  
+  /* ----------------------------------------
+     Context Menu
+     ---------------------------------------- */
+  --color-context-menu-bg: #ffffff;
+  --color-context-menu-border: #e5e5e5;
+  --color-context-menu-shadow: rgba(0, 0, 0, 0.15);
+  --color-context-menu-item-hover: #f3f4f6;
+  --color-context-menu-item-text: #374151;
+  --color-context-menu-item-icon: #6b7280;
+  --color-context-menu-divider: #e5e5e5;
+  
+  /* ----------------------------------------
+     Modal Colors
+     ---------------------------------------- */
+  --color-modal-overlay: rgba(0, 0, 0, 0.5);
+  --color-modal-bg: #ffffff;
+  --color-modal-border: #e5e5e5;
+  --color-modal-shadow: rgba(0, 0, 0, 0.2);
+  --color-modal-header-text: #111827;
+  --color-modal-body-text: #374151;
+  
+  /* ----------------------------------------
+     Text Colors
+     ---------------------------------------- */
+  --color-text-primary: #111827;
+  --color-text-secondary: #374151;
+  --color-text-tertiary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-text-disabled: #d1d5db;
+  --color-text-inverse: #ffffff;
+  --color-text-link: #6965db;
+  --color-text-link-hover: #5a56c8;
+  
+  /* ----------------------------------------
+     UI Component Colors
+     ---------------------------------------- */
+  --color-background: #f7f5f6;
+  --color-foreground: #323233;
+  --color-card: #f7f5f6;
+  --color-card-foreground: #323233;
+  --color-popover: #f7f5f6;
+  --color-popover-foreground: #323233;
+  --color-primary: #6965db;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f2f1f0;
+  --color-secondary-foreground: #323233;
+  --color-muted: #f2f1f0;
+  --color-muted-foreground: #6b7280;
+  --color-accent: #f2f1f0;
+  --color-accent-foreground: #323233;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #f7f5f6;
+  --color-border: #e5e5e5;
+  --color-input: #e5e5e5;
+  --color-ring: #6965db;
+  
+  /* ----------------------------------------
+     Status Colors
+     ---------------------------------------- */
+  --color-success: #22c55e;
+  --color-success-bg: #dcfce7;
+  --color-success-text: #166534;
+  
+  --color-warning: #f59e0b;
+  --color-warning-bg: #fef3c7;
+  --color-warning-text: #92400e;
+  
+  --color-error: #ef4444;
+  --color-error-bg: #fee2e2;
+  --color-error-text: #991b1b;
+  
+  --color-info: #3b82f6;
+  --color-info-bg: #dbeafe;
+  --color-info-text: #1e40af;
+  
+  /* ----------------------------------------
+     Shape/Element Colors
+     ---------------------------------------- */
+  --color-element-stroke: #000000;
+  --color-element-fill: transparent;
+  --color-element-stroke-selected: #6965db;
+  
+  /* ----------------------------------------
+     Collaborator Colors
+     ---------------------------------------- */
+  --color-cursor-outline: #ffffff;
+  --color-cursor-shadow: rgba(0, 0, 0, 0.3);
+  
+  /* ----------------------------------------
+     Animation & Transition
+     ---------------------------------------- */
+  --transition-fast: 0.1s ease-out;
+  --transition-normal: 0.15s ease-out;
+  --transition-slow: 0.3s ease-out;
+}
+
+/* ============================================
+   DARK MODE COLORS
+   ============================================ */
+
+.dark {
+  /* ----------------------------------------
+     Canvas & Background Colors
+     ---------------------------------------- */
+  --color-canvas-bg: #121112;
+  --color-canvas-grid: #333333;
+  --color-canvas-grid-dark: #1a1a1a;
+  
+  /* ----------------------------------------
+     Toolbar Colors
+     ---------------------------------------- */
+  --color-toolbar-bg: #232329;
+  --color-toolbar-border: #3f3f46;
+  --color-toolbar-divider: #3f3f46;
+  --color-toolbar-shadow: rgba(0, 0, 0, 0.3);
+  
+  /* ----------------------------------------
+     Tool/Button States
+     ---------------------------------------- */
+  --color-tool-active-bg: #403c66;
+  --color-tool-active-text: #a8a5ff;
+  --color-tool-active-border: #6965db;
+  --color-tool-active-shadow: rgba(168, 165, 255, 0.2);
+  
+  --color-tool-inactive-bg: transparent;
+  --color-tool-inactive-text: #9ca3af;
+  
+  --color-tool-hover-bg: #31303b;
+  --color-tool-hover-text: #e5e7eb;
+  
+  --color-tool-disabled-bg: transparent;
+  --color-tool-disabled-text: #6b7280;
+  
+  /* ----------------------------------------
+     Panel Colors (Properties Panel, etc.)
+     ---------------------------------------- */
+  --color-panel-bg: #232329;
+  --color-panel-border: #333333;
+  --color-panel-shadow: rgba(0, 0, 0, 0.2);
+  
+  --color-panel-header-bg: #2a2a3a;
+  --color-panel-header-text: #e5e7eb;
+  
+  --color-panel-label: #9ca3af;
+  --color-panel-text: #e5e7eb;
+  --color-panel-value: #ffffff;
+  
+  --color-panel-divider: #333333;
+  
+  --color-panel-btn-bg: #2a2a3a;
+  --color-panel-btn-hover: #3a3a4a;
+  --color-panel-btn-active: #6965db;
+  --color-panel-btn-text: #e5e7eb;
+  --color-panel-btn-active-text: #ffffff;
+  
+  --color-panel-slider-track: #333333;
+  --color-panel-slider-fill: #6965db;
+  --color-panel-slider-thumb: #ffffff;
+  
+  --color-panel-input-bg: #1a181a;
+  --color-panel-input-border: #333333;
+  --color-panel-input-text: #e5e7eb;
+  --color-panel-input-focus-border: #6965db;
+  
+  /* ----------------------------------------
+     Selection & Handles
+     ---------------------------------------- */
+  --color-selection-fill: rgba(105, 101, 219, 0.2);
+  --color-selection-stroke: #6965db;
+  --color-selection-handle-bg: #ffffff;
+  --color-selection-handle-border: #6965db;
+  --color-selection-handle-shadow: rgba(168, 165, 255, 0.4);
+  
+  /* ----------------------------------------
+     Context Menu
+     ---------------------------------------- */
+  --color-context-menu-bg: #232329;
+  --color-context-menu-border: #333333;
+  --color-context-menu-shadow: rgba(0, 0, 0, 0.4);
+  --color-context-menu-item-hover: #31303b;
+  --color-context-menu-item-text: #e5e7eb;
+  --color-context-menu-item-icon: #9ca3af;
+  --color-context-menu-divider: #333333;
+  
+  /* ----------------------------------------
+     Modal Colors
+     ---------------------------------------- */
+  --color-modal-overlay: rgba(0, 0, 0, 0.7);
+  --color-modal-bg: #232329;
+  --color-modal-border: #333333;
+  --color-modal-shadow: rgba(0, 0, 0, 0.4);
+  --color-modal-header-text: #ffffff;
+  --color-modal-body-text: #e5e7eb;
+  
+  /* ----------------------------------------
+     Text Colors
+     ---------------------------------------- */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #e5e7eb;
+  --color-text-tertiary: #9ca3af;
+  --color-text-muted: #6b7280;
+  --color-text-disabled: #4b5563;
+  --color-text-inverse: #111827;
+  --color-text-link: #a8a5ff;
+  --color-text-link-hover: #c4c1ff;
+  
+  /* ----------------------------------------
+     UI Component Colors
+     ---------------------------------------- */
+  --color-background: #121112;
+  --color-foreground: #d6d6d6;
+  --color-card: #232329;
+  --color-card-foreground: #d6d6d6;
+  --color-popover: #232329;
+  --color-popover-foreground: #d6d6d6;
+  --color-primary: #6965db;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #1a181a;
+  --color-secondary-foreground: #d6d6d6;
+  --color-muted: #1a181a;
+  --color-muted-foreground: #888888;
+  --color-accent: #2a2a3a;
+  --color-accent-foreground: #d6d6d6;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #121112;
+  --color-border: #333333;
+  --color-input: #2a2a3a;
+  --color-ring: #6965db;
+  
+  /* ----------------------------------------
+     Status Colors
+     ---------------------------------------- */
+  --color-success: #22c55e;
+  --color-success-bg: #052e16;
+  --color-success-text: #86efac;
+  
+  --color-warning: #f59e0b;
+  --color-warning-bg: #451a03;
+  --color-warning-text: #fcd34d;
+  
+  --color-error: #ef4444;
+  --color-error-bg: #450a0a;
+  --color-error-text: #fca5a5;
+  
+  --color-info: #3b82f6;
+  --color-info-bg: #1e3a5f;
+  --color-info-text: #93c5fd;
+  
+  /* ----------------------------------------
+     Shape/Element Colors
+     ---------------------------------------- */
+  --color-element-stroke: #ffffff;
+  --color-element-fill: transparent;
+  --color-element-stroke-selected: #6965db;
+  
+  /* ----------------------------------------
+     Collaborator Colors
+     ---------------------------------------- */
+  --color-cursor-outline: #000000;
+  --color-cursor-shadow: rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================
+   CANVAS SPECIFIC STYLES
+   ============================================ */
+
+.canvas-zoom-transition {
+  transition: transform var(--transition-normal);
+}
+
+.selection-handle {
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.selection-handle:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 8px var(--color-tool-active-shadow);
+}
+
+/* ============================================
+   BUTTON STYLES
+   ============================================ */
+
+.btn-smooth {
+  transition: all var(--transition-normal);
+}
+
+.btn-smooth:hover {
+  transform: scale(1.02);
+}
+
+.btn-smooth:active {
+  transform: scale(0.98);
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-tertiary { color: var(--color-text-tertiary); }
+.text-muted { color: var(--color-text-muted); }
+.text-disabled { color: var(--color-text-disabled); }
+.text-inverse { color: var(--color-text-inverse); }
+.text-link { color: var(--color-text-link); }
+
+.bg-canvas { background-color: var(--color-canvas-bg); }
+.bg-toolbar { background-color: var(--color-toolbar-bg); }
+.bg-panel { background-color: var(--color-panel-bg); }
+
+.border-toolbar { border-color: var(--color-toolbar-border); }
+.border-panel { border-color: var(--color-panel-border); }

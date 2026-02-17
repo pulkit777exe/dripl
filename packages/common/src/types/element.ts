@@ -18,6 +18,11 @@ export interface ElementBase {
   opacity?: number;
   isDeleted?: boolean;
 
+  // Version tracking for reconciliation (per TDD)
+  version?: number; // Incremented on each update for conflict resolution
+  versionNonce?: number; // Unique nonce for version updates
+  updated?: number; // Timestamp of last update
+
   // Rough.js properties for sketchy aesthetic
   roughness?: number; // 0-3, default 1
   strokeStyle?: "solid" | "dashed" | "dotted";

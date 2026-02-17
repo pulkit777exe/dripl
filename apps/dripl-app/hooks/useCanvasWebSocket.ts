@@ -5,6 +5,7 @@ import { useCanvasStore } from "@/lib/canvas-store";
 import type { RemoteUser, RemoteCursor } from "@/lib/canvas-store";
 import type { DriplElement } from "@dripl/common";
 import { saveCanvasToIndexedDB } from "@/lib/canvas-db";
+import { ReconciliationManager, reconcileElements } from "@/lib/reconciliation";
 
 // ---------------------------------------------------------------------------
 // Message types received from the server
@@ -99,6 +100,7 @@ export function useCanvasWebSocket(
   const reconnectAttemptsRef = useRef(0);
   const processedMessagesRef = useRef<Set<string>>(new Set());
   const lastMessageTimestampRef = useRef<Map<string, number>>(new Map());
+  const reconciliationManagerRef = useRef<ReconciliationManager>(new ReconciliationManager());
 
   const [isConnected, setIsConnectedLocal] = useState(false);
 
@@ -237,7 +239,19 @@ export function useCanvasWebSocket(
 
           case "update_element": {
             const updateMsg = message as UpdateElementMessage;
-            updateElement(updateMsg.element.id, updateMsg.element);
+            // Use reconciliation to check version before applying
+            const currentElements = useCanvasStore.getState().elements;
+            const reconciliationResult = reconcileElements(currentElements, [updateMsg.element]);
+            
+            if (reconciliationResult.accepted.length > 0) {
+              // Update accepted elements with reconciliation
+              reconciliationResult.accepted.forEach((el) => {
+                updateElement(el.id, el);
+              });
+              console.log("[Reconciliation] Accepted update for:", updateMsg.element.id, "version:", updateMsg.element.version);
+            } else {
+              console.log("[Reconciliation] Rejected update for:", updateMsg.element.id, "- version too old");
+            }
             break;
           }
 
