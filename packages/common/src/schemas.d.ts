@@ -1,0 +1,298 @@
+import { z } from "zod";
+export declare const ElementTypeSchema: z.ZodEnum<{
+    rectangle: "rectangle";
+    text: "text";
+    image: "image";
+    circle: "circle";
+    path: "path";
+}>;
+export declare const BaseElementSchema: z.ZodObject<{
+    id: z.ZodString;
+    type: z.ZodEnum<{
+        rectangle: "rectangle";
+        text: "text";
+        image: "image";
+        circle: "circle";
+        path: "path";
+    }>;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
+export declare const RectangleSchema: z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"rectangle">;
+    cornerRadius: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strip>;
+export declare const CircleSchema: z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"circle">;
+    radius: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
+export declare const PathSchema: z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"path">;
+    points: z.ZodArray<z.ZodArray<z.ZodNumber>>;
+}, z.core.$strip>;
+export declare const TextSchema: z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"text">;
+    text: z.ZodString;
+    fontSize: z.ZodDefault<z.ZodNumber>;
+    fontFamily: z.ZodDefault<z.ZodString>;
+    fontWeight: z.ZodOptional<z.ZodString>;
+    textAlign: z.ZodDefault<z.ZodEnum<{
+        left: "left";
+        center: "center";
+        right: "right";
+    }>>;
+}, z.core.$strip>;
+export declare const ImageSchema: z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"image">;
+    src: z.ZodString;
+    mimeType: z.ZodOptional<z.ZodEnum<{
+        "image/png": "image/png";
+        "image/jpeg": "image/jpeg";
+        "image/gif": "image/gif";
+        "image/webp": "image/webp";
+    }>>;
+}, z.core.$strip>;
+export declare const ElementSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"rectangle">;
+    cornerRadius: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strip>, z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"circle">;
+    radius: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>, z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"path">;
+    points: z.ZodArray<z.ZodArray<z.ZodNumber>>;
+}, z.core.$strip>, z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"text">;
+    text: z.ZodString;
+    fontSize: z.ZodDefault<z.ZodNumber>;
+    fontFamily: z.ZodDefault<z.ZodString>;
+    fontWeight: z.ZodOptional<z.ZodString>;
+    textAlign: z.ZodDefault<z.ZodEnum<{
+        left: "left";
+        center: "center";
+        right: "right";
+    }>>;
+}, z.core.$strip>, z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"image">;
+    src: z.ZodString;
+    mimeType: z.ZodOptional<z.ZodEnum<{
+        "image/png": "image/png";
+        "image/jpeg": "image/jpeg";
+        "image/gif": "image/gif";
+        "image/webp": "image/webp";
+    }>>;
+}, z.core.$strip>], "type">;
+export declare const CanvasContentSchema: z.ZodArray<z.ZodDiscriminatedUnion<[z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"rectangle">;
+    cornerRadius: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strip>, z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"circle">;
+    radius: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>, z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"path">;
+    points: z.ZodArray<z.ZodArray<z.ZodNumber>>;
+}, z.core.$strip>, z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"text">;
+    text: z.ZodString;
+    fontSize: z.ZodDefault<z.ZodNumber>;
+    fontFamily: z.ZodDefault<z.ZodString>;
+    fontWeight: z.ZodOptional<z.ZodString>;
+    textAlign: z.ZodDefault<z.ZodEnum<{
+        left: "left";
+        center: "center";
+        right: "right";
+    }>>;
+}, z.core.$strip>, z.ZodObject<{
+    id: z.ZodString;
+    x: z.ZodNumber;
+    y: z.ZodNumber;
+    width: z.ZodOptional<z.ZodNumber>;
+    height: z.ZodOptional<z.ZodNumber>;
+    rotation: z.ZodDefault<z.ZodNumber>;
+    opacity: z.ZodDefault<z.ZodNumber>;
+    fill: z.ZodOptional<z.ZodString>;
+    stroke: z.ZodOptional<z.ZodString>;
+    strokeWidth: z.ZodOptional<z.ZodNumber>;
+    type: z.ZodLiteral<"image">;
+    src: z.ZodString;
+    mimeType: z.ZodOptional<z.ZodEnum<{
+        "image/png": "image/png";
+        "image/jpeg": "image/jpeg";
+        "image/gif": "image/gif";
+        "image/webp": "image/webp";
+    }>>;
+}, z.core.$strip>], "type">>;
+export declare const CreateFileSchema: z.ZodObject<{
+    name: z.ZodString;
+    folderId: z.ZodOptional<z.ZodString>;
+    teamId: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export declare const UpdateFileSchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    content: z.ZodOptional<z.ZodString>;
+    preview: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export declare const FileSchema: z.ZodObject<{
+    id: z.ZodString;
+    name: z.ZodString;
+    content: z.ZodString;
+    preview: z.ZodNullable<z.ZodString>;
+    folderId: z.ZodNullable<z.ZodString>;
+    teamId: z.ZodNullable<z.ZodString>;
+    userId: z.ZodNullable<z.ZodString>;
+    createdAt: z.ZodDate;
+    updatedAt: z.ZodDate;
+}, z.core.$strip>;
+export type ElementType = z.infer<typeof ElementTypeSchema>;
+export type CanvasElement = z.infer<typeof ElementSchema>;
+export type CanvasContent = z.infer<typeof CanvasContentSchema>;
+export type CreateFileInput = z.infer<typeof CreateFileSchema>;
+export type UpdateFileInput = z.infer<typeof UpdateFileSchema>;
+//# sourceMappingURL=schemas.d.ts.map

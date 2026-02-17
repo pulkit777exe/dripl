@@ -25,6 +25,7 @@ import { throttle } from "@dripl/utils";
 import { useCanvasRenderer } from "./CanvasRenderer";
 import { screenToCanvas, Viewport } from "@/utils/canvas-coordinates";
 import { useDrawingTools } from "@/hooks/useDrawingTools";
+import { DualCanvas } from "./DualCanvas";
 
 interface Point {
   x: number;
@@ -62,6 +63,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   } | null>(null);
   const [eraserPath, setEraserPath] = useState<Point[]>([]);
   const [lastPointerPos, setLastPointerPos] = useState<Point | null>(null);
+  const [cursorPosition, setCursorPosition] = useState<Point | null>(null);
   const [marqueeSelection, setMarqueeSelection] = useState<{
     start: Point;
     end: Point;
@@ -254,20 +256,15 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     zoom,
   };
 
-  useCanvasRenderer({
-    canvasRef,
-    containerRef,
-    elements,
-    selectedIds,
-    currentPreview: currentElement || drawingPreview,
-    eraserPath,
-    viewport,
-    theme,
-  });
+  // NOTE: DualCanvas now handles rendering internally
+  // Removed useCanvasRenderer hook - now using DualCanvas component
+
+  const interactiveCanvasRef = useRef<HTMLCanvasElement>(null!);
 
   const getCanvasCoordinates = useCallback(
     (e: React.MouseEvent | React.DragEvent | React.PointerEvent): Point => {
-      const canvas = canvasRef.current;
+      // Use interactive canvas for coordinate calculations
+      const canvas = interactiveCanvasRef.current || canvasRef.current;
       if (!canvas) return { x: 0, y: 0 };
 
       const rect = canvas.getBoundingClientRect();
@@ -439,22 +436,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
   };
 
-  const handlePointerDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     // Check if event is from a UI element by checking if the target is not the canvas
-    if (e.target !== canvasRef.current) {
-      return;
-    }
-
-    // Check if click is on any UI element by checking event path
-    if (
-      e.nativeEvent.composedPath().some((el) => {
-        const domElement = el as HTMLElement;
-        return (
-          domElement.classList &&
-          domElement.classList.contains("pointer-events-auto")
-        );
-      })
-    ) {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('pointer-events-auto')) {
       return;
     }
 
@@ -600,6 +585,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   ) => {
     const coords = getCanvasCoordinates(e);
     const { x, y } = coords;
+    
+    // Update cursor position for interactive layer
+    setCursorPosition(coords);
 
     throttledSend({ type: "cursor_move", x, y, timestamp: Date.now() });
 
@@ -814,6 +802,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   };
 
   const handlePointerUp = (e?: React.PointerEvent) => {
+    // Clear cursor position when pointer is released
+    setCursorPosition(null);
+    
     if (isPanning) {
       setIsPanning(false);
       setPanStart(null);
@@ -975,23 +966,23 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         backgroundColor: theme === "dark" ? "#121212" : "#f8f9fa",
       }}
     >
-      <canvas
-        ref={canvasRef}
-        className={`absolute inset-0 ${
-          activeTool === "hand"
-            ? isPanning
-              ? "cursor-grabbing"
-              : "cursor-grab"
-            : activeTool === "select"
-              ? "cursor-default"
-              : activeTool === "text"
-                ? "cursor-text"
-                : "cursor-crosshair"
-        }`}
+      {/* Dual Canvas - Static + Interactive layers */}
+      <DualCanvas
+        containerRef={containerRef}
+        elements={elements}
+        selectedIds={selectedIds}
+        currentPreview={currentElement || drawingPreview}
+        eraserPath={eraserPath}
+        viewport={viewport}
+        theme={theme}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
+        cursorPosition={cursorPosition}
+        isDragging={isDragging}
+        isResizing={isResizing}
+        isDrawing={isDrawing}
+        marqueeSelection={marqueeSelection}
       />
 
       <SelectionOverlay
