@@ -133,7 +133,7 @@ export function drawShape(
     ctx.fillStyle = element.backgroundColor;
   }
 
-  switch (element.type) {
+   switch (element.type) {
     case "rectangle":
       drawRectangle(ctx, element);
       break;

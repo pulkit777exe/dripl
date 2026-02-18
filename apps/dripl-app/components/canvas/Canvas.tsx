@@ -1063,7 +1063,7 @@ export default function App() {
       if (e.key === "h") setActiveTool("hand");
       if (e.key === "r" || e.key === "2") setActiveTool("rectangle");
       if (e.key === "d" || e.key === "3") setActiveTool("diamond");
-      if (e.key === "o" || e.key === "4") setActiveTool("circle");
+      if (e.key === "o" || e.key === "4") setActiveTool("ellipse");
       if (e.key === "a" || e.key === "5") setActiveTool("arrow");
       if (e.key === "l" || e.key === "6") setActiveTool("line");
       if (e.key === "p" || e.key === "7") setActiveTool("draw");
@@ -1403,8 +1403,8 @@ export default function App() {
         />
         <IconButton
           icon={<Circle size={19} />}
-          isActive={activeTool === "circle"}
-          onClick={() => setActiveTool("circle")}
+          isActive={activeTool === "ellipse"}
+          onClick={() => setActiveTool("ellipse")}
         />
         <IconButton
           icon={<ArrowRight size={19} />}
