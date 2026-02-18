@@ -176,7 +176,7 @@ export function PropertiesPanel({
 
   return (
     <div className="flex flex-col gap-2 pointer-events-auto z-50">
-      <div className="p-4 bg-[var(--color-panel-bg)] border border-[var(--color-panel-border)] rounded-xl shadow-2xl w-28 space-y-4">
+      <div className="p-4 bg-[var(--color-panel-bg)] border border-[var(--color-panel-border)] rounded-xl shadow-2xl w-48 space-y-4">
         {(!selectedElement || showProp("strokeColor")) && (
           <div className="space-y-1.5">
             <label className="text-xs text-[var(--color-panel-label)] font-medium">

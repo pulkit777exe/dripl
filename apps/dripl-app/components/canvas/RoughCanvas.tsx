@@ -1002,7 +1002,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         <NameInputModal onSubmit={handleNameSubmit} />
       )}
 
-      <div className="absolute top-6 right-6 z-20">
+      <div className="absolute top-6 left-6 z-20">
         <PropertiesPanel
           selectedElement={
             selectedIds.size === 1
