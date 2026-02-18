@@ -48,9 +48,9 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { IconButton } from "../button/IconButton";
+import type { DriplElement, Point } from "@dripl/common";
+import type { AppState } from "@/types/canvas";
 import {
-  CanvasElement,
-  Point,
   drawShape,
   isPointInElement,
   getElementBounds,
@@ -60,7 +60,6 @@ import {
   generateId,
   saveToLocalStorage,
   loadFromLocalStorage,
-  AppState,
 } from "@/utils/canvasUtils";
 import { CanvasHistory } from "@/utils/canvasHistory";
 import { EraserTrail } from "../../eraser/EraserTrail";
@@ -265,7 +264,7 @@ export default function App() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const { theme, setTheme, effectiveTheme } = useTheme();
 
-  const [elements, setElements] = useState<CanvasElement[]>([]);
+  const [elements, setElements] = useState<DriplElement[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [zoom, setZoom] = useState(100);
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
@@ -301,7 +300,7 @@ export default function App() {
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
-  const [currentElement, setCurrentElement] = useState<CanvasElement | null>(
+  const [currentElement, setCurrentElement] = useState<DriplElement | null>(
     null,
   );
   const [isPanning, setIsPanning] = useState(false);
@@ -321,7 +320,7 @@ export default function App() {
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [resizeStart, setResizeStart] = useState<{
     point: Point;
-    element: CanvasElement;
+    element: DriplElement;
   } | null>(null);
 
   const [strokeColor, setStrokeColor] = useState("#ffffff");
@@ -599,7 +598,7 @@ export default function App() {
       setIsDrawing(true);
       setStartPoint(point);
 
-      const newElement: CanvasElement = {
+      const newElement: DriplElement = {
         id: generateId(),
         type: activeTool as any,
         x: point.x,
@@ -1116,7 +1115,7 @@ export default function App() {
           e.preventDefault();
           const clipboard = localStorage.getItem("clipboard");
           if (clipboard) {
-            const copiedElements = JSON.parse(clipboard) as CanvasElement[];
+            const copiedElements = JSON.parse(clipboard) as DriplElement[];
             const newElements = copiedElements.map((el) => ({
               ...el,
               id: generateId(),
@@ -1152,11 +1151,11 @@ export default function App() {
   }, [selectedElement]);
 
   const updateSelectedElement = useCallback(
-    (updates: Partial<CanvasElement>) => {
+    (updates: Partial<DriplElement>) => {
       if (selectedIds.length > 0) {
         setElements((prev) =>
           prev.map((el) =>
-            selectedIds.includes(el.id) ? ({ ...el, ...updates } as CanvasElement) : el,
+            selectedIds.includes(el.id) ? ({ ...el, ...updates } as DriplElement) : el,
           ),
         );
         saveHistory();
