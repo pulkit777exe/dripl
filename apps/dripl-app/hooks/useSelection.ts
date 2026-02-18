@@ -1,10 +1,10 @@
 import { useState, useCallback } from "react";
-import { CanvasElement, Point } from "@/types/canvas";
+import type { DriplElement, Point } from "@dripl/common";
 import { isPointInElement } from "@/utils/canvasUtils";
 
 interface UseSelectionProps {
-  elements: CanvasElement[];
-  setElements: React.Dispatch<React.SetStateAction<CanvasElement[]>>;
+  elements: DriplElement[];
+  setElements: React.Dispatch<React.SetStateAction<DriplElement[]>>;
 }
 
 export const useSelection = ({ elements, setElements }: UseSelectionProps) => {

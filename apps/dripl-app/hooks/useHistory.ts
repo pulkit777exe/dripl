@@ -1,9 +1,9 @@
 import { useRef, useCallback } from "react";
-import { CanvasElement } from "@/types/canvas";
+import type { DriplElement } from "@dripl/common";
 import { CanvasHistory } from "@/utils/canvasHistory";
 
 interface UseHistoryProps {
-  setElements: (elements: CanvasElement[]) => void;
+  setElements: (elements: DriplElement[]) => void;
   setSelectedIds: (ids: string[]) => void;
 }
 
@@ -14,7 +14,7 @@ export const useHistory = ({
   const historyRef = useRef(new CanvasHistory());
 
   const saveHistory = useCallback(
-    (elements: CanvasElement[], selectedIds: string[]) => {
+    (elements: DriplElement[], selectedIds: string[]) => {
       historyRef.current.pushState({ elements, selectedIds });
     },
     [],

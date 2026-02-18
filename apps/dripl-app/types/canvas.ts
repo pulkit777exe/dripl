@@ -7,7 +7,7 @@ export interface CanvasElement {
   id: string;
   type:
     | "rectangle"
-    | "circle"
+    | "ellipse"
     | "diamond"
     | "arrow"
     | "line"

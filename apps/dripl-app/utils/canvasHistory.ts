@@ -1,7 +1,7 @@
-import { CanvasElement } from "./canvasUtils";
+import type { DriplElement, Point } from "@dripl/common";
 
 export interface HistoryState {
-  elements: CanvasElement[];
+  elements: DriplElement[];
   selectedIds: string[];
 }
 
@@ -59,10 +59,13 @@ export class CanvasHistory {
 
   private cloneState(state: HistoryState): HistoryState {
     return {
-      elements: state.elements.map((el) => ({
-        ...el,
-        points: el.points ? [...el.points] : undefined,
-      })),
+      elements: state.elements.map((el) => {
+        const cloned = { ...el } as DriplElement;
+        if (el.points) {
+          cloned.points = el.points.map((p: Point) => ({ ...p }));
+        }
+        return cloned;
+      }),
       selectedIds: [...state.selectedIds],
     };
   }

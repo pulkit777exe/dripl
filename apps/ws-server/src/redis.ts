@@ -19,17 +19,38 @@ const SERVER_ID = crypto.randomUUID();
 
 export async function initRedis(): Promise<boolean> {
   try {
-    redisClient = new Redis(REDIS_URL);
-    publisher = new Redis(REDIS_URL);
-    subscriber = new Redis(REDIS_URL);
+    redisClient = new Redis(REDIS_URL, {
+      retryStrategy: () => null,
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
+      lazyConnect: true,
+    });
+    publisher = new Redis(REDIS_URL, {
+      retryStrategy: () => null,
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
+      lazyConnect: true,
+    });
+    subscriber = new Redis(REDIS_URL, {
+      retryStrategy: () => null,
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
+      lazyConnect: true,
+    });
 
+    // Suppress unhandled error events
+    redisClient.on('error', () => {});
+    publisher.on('error', () => {});
+    subscriber.on('error', () => {});
+
+    await redisClient.connect();
     await redisClient.ping();
     console.log("✓ Redis connected");
     return true;
   } catch (error) {
     console.warn(
       "Redis not available, running in single-instance mode:",
-      error,
+      (error as Error).message,
     );
     redisClient = null;
     publisher = null;

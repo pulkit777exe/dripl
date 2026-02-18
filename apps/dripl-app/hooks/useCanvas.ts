@@ -1,16 +1,16 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { CanvasElement, Point } from "@/types/canvas";
+import type { DriplElement, Point } from "@dripl/common";
 import { drawShape, getElementBounds } from "@/utils/canvasUtils";
 import { EraserTrail } from "@/eraser";
 
 interface UseCanvasProps {
-  elements: CanvasElement[];
+  elements: DriplElement[];
   selectedIds: string[];
   zoom: number;
   pan: Point;
   activeTool: string;
   isDrawing: boolean;
-  currentElement: CanvasElement | null;
+  currentElement: DriplElement | null;
   isMoving: boolean;
   moveOffset: Point;
   isRotating: boolean;
@@ -82,7 +82,7 @@ export const useCanvas = ({
           ...element,
           x: element.x + moveOffset.x,
           y: element.y + moveOffset.y,
-          points: element.points?.map((p) => ({
+          points: element.points?.map((p: Point) => ({
             x: p.x + moveOffset.x,
             y: p.y + moveOffset.y,
           })),
@@ -126,7 +126,6 @@ export const useCanvas = ({
     tick,
   ]);
 
-  // Helper to get canvas coordinates from mouse event
   const getCanvasPoint = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>): Point => {
       const canvas = canvasRef.current;
