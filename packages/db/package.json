@@ -2,12 +2,13 @@
   "name": "@dripl/db",
   "version": "0.0.0",
   "private": true,
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./dist/index.js"
   },
   "type": "module",
   "scripts": {
+    "build": "tsc -b",
     "lint": "eslint .",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

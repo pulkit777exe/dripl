@@ -1,70 +1,16 @@
-import { CanvasElement, Point, Bounds, AppState } from "@/types/canvas";
-export type { CanvasElement, Point, Bounds, AppState };
+import type { DriplElement, Point } from "@dripl/common";
+import type { Bounds, AppState } from "@/types/canvas";
+import { getElementBounds, isPointInElement } from "@dripl/math";
+export type { Point, Bounds, AppState };
+export type { DriplElement as CanvasElement };
 
 export const STORAGE_KEYS = {
   ELEMENTS: "dripl-elements",
   STATE: "dripl-state",
 };
 
-export function getElementBounds(element: CanvasElement): Bounds {
-  if (element.points && element.points.length > 0) {
-    const xs = element.points.map((p) => p.x);
-    const ys = element.points.map((p) => p.y);
-    const minX = Math.min(...xs);
-    const minY = Math.min(...ys);
-    const maxX = Math.max(...xs);
-    const maxY = Math.max(...ys);
-    return {
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY,
-    };
-  }
-
-  return {
-    x: element.x,
-    y: element.y,
-    width: element.width,
-    height: element.height,
-  };
-}
-
-export function isPointInElement(
-  point: Point,
-  element: CanvasElement,
-): boolean {
-  const bounds = getElementBounds(element);
-
-  if (element.rotation) {
-    const centerX = bounds.x + bounds.width / 2;
-    const centerY = bounds.y + bounds.height / 2;
-    const rotatedPoint = rotatePoint(
-      point,
-      { x: centerX, y: centerY },
-      -element.rotation,
-    );
-    point = rotatedPoint;
-  }
-
-  switch (element.type) {
-    case "rectangle":
-    case "diamond":
-    case "text":
-      return isPointInRect(point, bounds);
-
-    case "circle":
-      return isPointInEllipse(point, bounds);
-
-    case "arrow":
-    case "line":
-    case "freedraw":
-      return isPointNearPath(point, element.points || [], element.strokeWidth);
-
-    default:
-      return false;
-  }
-}
+// Re-export math functions for compatibility
+export { getElementBounds, isPointInElement };
 
 function isPointInRect(point: Point, bounds: Bounds): boolean {
   return (
@@ -155,12 +101,12 @@ function rotatePoint(point: Point, center: Point, angle: number): Point {
 
 export function drawShape(
   ctx: CanvasRenderingContext2D,
-  element: CanvasElement,
+  element: DriplElement,
   isSelected: boolean = false,
 ): void {
   ctx.save();
 
-  ctx.globalAlpha = element.opacity / 100;
+  ctx.globalAlpha = (element.opacity ?? 100) / 100;
 
   if (element.rotation) {
     const centerX = element.x + element.width / 2;
@@ -170,8 +116,8 @@ export function drawShape(
     ctx.translate(-centerX, -centerY);
   }
 
-  ctx.strokeStyle = element.strokeColor;
-  ctx.lineWidth = element.strokeWidth;
+  ctx.strokeStyle = element.strokeColor ?? "#000000";
+  ctx.lineWidth = element.strokeWidth ?? 1;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
@@ -183,7 +129,7 @@ export function drawShape(
     ctx.setLineDash([]);
   }
 
-  if (element.backgroundColor !== "transparent") {
+  if (element.backgroundColor && element.backgroundColor !== "transparent") {
     ctx.fillStyle = element.backgroundColor;
   }
 
@@ -191,8 +137,8 @@ export function drawShape(
     case "rectangle":
       drawRectangle(ctx, element);
       break;
-    case "circle":
-      drawCircle(ctx, element);
+    case "ellipse":
+      drawEllipse(ctx, element);
       break;
     case "diamond":
       drawDiamond(ctx, element);
@@ -219,7 +165,7 @@ export function drawShape(
 
 function drawRectangle(
   ctx: CanvasRenderingContext2D,
-  element: CanvasElement,
+  element: DriplElement,
 ): void {
   const roundnessValue =
     typeof element.roundness === "object"
@@ -266,9 +212,9 @@ function drawRectangle(
   ctx.stroke();
 }
 
-function drawCircle(
+function drawEllipse(
   ctx: CanvasRenderingContext2D,
-  element: CanvasElement,
+  element: DriplElement,
 ): void {
   const centerX = element.x + element.width / 2;
   const centerY = element.y + element.height / 2;
@@ -287,7 +233,7 @@ function drawCircle(
 
 function drawDiamond(
   ctx: CanvasRenderingContext2D,
-  element: CanvasElement,
+  element: DriplElement,
 ): void {
   const centerX = element.x + element.width / 2;
   const centerY = element.y + element.height / 2;
@@ -307,7 +253,7 @@ function drawDiamond(
 
 function drawArrow(
   ctx: CanvasRenderingContext2D,
-  element: CanvasElement,
+  element: DriplElement,
 ): void {
   if (!element.points || element.points.length < 2) return;
 
@@ -349,7 +295,7 @@ function drawArrow(
   ctx.stroke();
 }
 
-function drawLine(ctx: CanvasRenderingContext2D, element: CanvasElement): void {
+function drawLine(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   if (!element.points || element.points.length < 2) return;
 
   const firstPoint = element.points[0];
@@ -367,7 +313,7 @@ function drawLine(ctx: CanvasRenderingContext2D, element: CanvasElement): void {
 
 function drawFreedraw(
   ctx: CanvasRenderingContext2D,
-  element: CanvasElement,
+  element: DriplElement,
 ): void {
   if (!element.points || element.points.length < 2) return;
 
@@ -394,14 +340,14 @@ function drawFreedraw(
   ctx.stroke();
 }
 
-function drawText(ctx: CanvasRenderingContext2D, element: CanvasElement): void {
+function drawText(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   if (!element.text) return;
 
   const fontSize = element.fontSize || 16;
   const fontFamily = element.fontFamily || "Arial";
 
   ctx.font = `${fontSize}px ${fontFamily}`;
-  ctx.fillStyle = element.strokeColor;
+  ctx.fillStyle = element.strokeColor ?? "#000000";
   ctx.textBaseline = "top";
 
   const words = element.text.split(" ");
@@ -429,7 +375,7 @@ function drawText(ctx: CanvasRenderingContext2D, element: CanvasElement): void {
 
 function drawFrame(
   ctx: CanvasRenderingContext2D,
-  element: CanvasElement,
+  element: DriplElement,
 ): void {
   const frameElement = element as any;
 
@@ -449,7 +395,7 @@ function drawFrame(
 
   // Draw title
   if (frameElement.title) {
-    ctx.fillStyle = element.strokeColor;
+    ctx.fillStyle = element.strokeColor ?? "#000000";
     ctx.font = "14px Arial";
     ctx.fillText(frameElement.title, element.x + 10, element.y - 10);
   }
@@ -471,7 +417,7 @@ export function exportToPNG(
 }
 
 export function exportToJSON(
-  elements: CanvasElement[],
+  elements: DriplElement[],
   filename: string = "canvas.json",
 ): void {
   const json = JSON.stringify({ elements, version: "1.0" }, null, 2);
@@ -484,7 +430,7 @@ export function exportToJSON(
   URL.revokeObjectURL(url);
 }
 
-export function importFromJSON(file: File): Promise<CanvasElement[]> {
+export function importFromJSON(file: File): Promise<DriplElement[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -504,7 +450,7 @@ export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 export const saveToLocalStorage = (
-  elements: CanvasElement[],
+  elements: DriplElement[],
   appState: Partial<AppState>,
 ) => {
   try {

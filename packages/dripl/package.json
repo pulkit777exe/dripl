@@ -3,12 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./src/index.ts",
-    "./*": "./src/*",
-    "./styles": "./src/styles/index.css"
+    ".": "./dist/index.js",
+    "./*": "./dist/*",
+    "./styles": "./dist/styles/index.css"
   },
   "scripts": {
+    "build": "tsc -b",
     "lint": "eslint . --max-warnings 0",
     "generate:component": "turbo gen react-component",
     "check-types": "tsc --noEmit"

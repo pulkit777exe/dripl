@@ -1,12 +1,13 @@
 {
   "name": "@dripl/common",
   "version": "0.0.0",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./dist/index.js"
   },
   "scripts": {
+    "build": "tsc -b",
     "lint": "eslint .",
     "test": "vitest run"
   },

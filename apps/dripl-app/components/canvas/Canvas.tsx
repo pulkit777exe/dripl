@@ -488,7 +488,7 @@ export default function App() {
           ...element,
           x: element.x + moveOffset.x,
           y: element.y + moveOffset.y,
-          points: element.points?.map((p) => ({
+          points: element.points?.map((p: Point) => ({
             x: p.x + moveOffset.x,
             y: p.y + moveOffset.y,
           })),
@@ -872,7 +872,7 @@ export default function App() {
               ...el,
               x: el.x + moveOffset.x,
               y: el.y + moveOffset.y,
-              points: el.points?.map((p) => ({
+              points: el.points?.map((p: Point) => ({
                 x: p.x + moveOffset.x,
                 y: p.y + moveOffset.y,
               })),
@@ -967,7 +967,7 @@ export default function App() {
               ...el,
               x: el.x + dx,
               y: el.y + dy,
-              points: el.points?.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+              points: el.points?.map((p: Point) => ({ x: p.x + dx, y: p.y + dy })),
             };
           }
           return el;
@@ -1137,17 +1137,17 @@ export default function App() {
 
   useEffect(() => {
     if (selectedElement) {
-      setStrokeColor(selectedElement.strokeColor);
-      setBackgroundColor(selectedElement.backgroundColor);
-      setStrokeWidth(selectedElement.strokeWidth);
-      setStrokeStyle(selectedElement.strokeStyle);
-      setSloppiness(selectedElement.roughness);
+      setStrokeColor(selectedElement.strokeColor ?? "");
+      setBackgroundColor(selectedElement.backgroundColor ?? "");
+      setStrokeWidth(selectedElement.strokeWidth ?? 1);
+      setStrokeStyle(selectedElement.strokeStyle ?? "solid");
+      setSloppiness(selectedElement.roughness ?? 1);
       const roundnessValue =
         typeof selectedElement.roundness === "object"
           ? selectedElement.roundness.type
           : selectedElement.roundness;
       setEdges(roundnessValue > 0 ? "round" : "sharp");
-      setOpacity(selectedElement.opacity);
+      setOpacity(selectedElement.opacity ?? 100);
     }
   }, [selectedElement]);
 
@@ -1156,7 +1156,7 @@ export default function App() {
       if (selectedIds.length > 0) {
         setElements((prev) =>
           prev.map((el) =>
-            selectedIds.includes(el.id) ? { ...el, ...updates } : el,
+            selectedIds.includes(el.id) ? ({ ...el, ...updates } as CanvasElement) : el,
           ),
         );
         saveHistory();
@@ -1165,7 +1165,6 @@ export default function App() {
     [selectedIds, saveHistory],
   );
 
-  // Handlers for property changes
   const handleStrokeColorChange = (color: string) => {
     setStrokeColor(color);
     updateSelectedElement({ strokeColor: color });
@@ -1842,7 +1841,7 @@ export default function App() {
                   ...selectedShape,
                   x: selectedShape.x + moveOffset.x,
                   y: selectedShape.y + moveOffset.y,
-                  points: selectedShape.points?.map((p) => ({
+                  points: selectedShape.points?.map((p: Point) => ({
                     x: p.x + moveOffset.x,
                     y: p.y + moveOffset.y,
                   })),

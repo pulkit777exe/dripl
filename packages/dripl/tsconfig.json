@@ -4,7 +4,9 @@
     "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json",
     "composite": true,
     "moduleResolution": "bundler",
-    "module": "ESNext"
+    "module": "ESNext",
+    "outDir": "dist",
+    "rootDir": "src"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
