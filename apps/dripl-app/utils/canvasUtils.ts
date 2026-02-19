@@ -9,7 +9,6 @@ export const STORAGE_KEYS = {
   STATE: "dripl-state",
 };
 
-// Re-export math functions for compatibility
 export { getElementBounds, isPointInElement };
 
 function isPointInRect(point: Point, bounds: Bounds): boolean {
@@ -257,7 +256,6 @@ function drawArrow(
 ): void {
   if (!element.points || element.points.length < 2) return;
 
-  // Draw line
   ctx.beginPath();
   const firstPoint = element.points[0];
   if (!firstPoint) return;
@@ -270,7 +268,6 @@ function drawArrow(
   }
   ctx.stroke();
 
-  // Draw arrowhead at the end
   const lastPoint = element.points[element.points.length - 1];
   const secondLastPoint = element.points[element.points.length - 2];
   if (lastPoint === undefined || secondLastPoint === undefined) return;
