@@ -22,7 +22,7 @@ export function Sidebar({ activeTool = "select", onToolSelect }: SidebarProps) {
     { id: "select", icon: MousePointer2, label: "Select" },
     { id: "hand", icon: Hand, label: "Pan" },
     { id: "rectangle", icon: Square, label: "Rectangle" },
-    { id: "circle", icon: Circle, label: "Circle" },
+    { id: "ellipse", icon: Circle, label: "Ellipse" },
     { id: "text", icon: Type, label: "Text" },
     { id: "image", icon: ImageIcon, label: "Image" },
     { id: "draw", icon: Pencil, label: "Draw" },

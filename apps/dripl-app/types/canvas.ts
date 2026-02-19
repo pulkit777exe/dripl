@@ -3,57 +3,8 @@ export interface Point {
   y: number;
 }
 
-export interface CanvasElement {
-  id: string;
-  type:
-    | "rectangle"
-    | "ellipse"
-    | "diamond"
-    | "arrow"
-    | "line"
-    | "freedraw"
-    | "text"
-    | "ellipse"
-    | "image"
-    | "frame";
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-
-  strokeColor: string;
-  strokeWidth: number;
-  strokeStyle: "solid" | "dashed" | "dotted";
-
-  backgroundColor: string;
-  fillStyle?: "solid" | "hachure" | "cross-hatch";
-
-  opacity: number;
-  roughness: number;
-  roundness: number | { type: number };
-  rotation?: number;
-  angle?: number;
-
-  text?: string;
-  fontSize?: number;
-  fontFamily?: string;
-  textAlign?: "left" | "center" | "right";
-  verticalAlign?: "top" | "middle" | "bottom";
-
-  points?: Point[];
-
-  seed?: number;
-  version?: number;
-  versionNonce?: number;
-  isDeleted?: boolean;
-  groupIds?: string[];
-  frameId?: string | null;
-  boundElements?: Array<{ id: string; type: string }>;
-  updated?: number;
-  link?: string | null;
-  locked?: boolean;
-  index?: string;
-}
+import type { DriplElement } from "@dripl/common";
+export type { DriplElement };
 
 export interface Bounds {
   x: number;
@@ -109,7 +60,7 @@ export type ToolType =
   | "hand"
   | "rectangle"
   | "diamond"
-  | "circle"
+  | "ellipse"
   | "arrow"
   | "line"
   | "draw"

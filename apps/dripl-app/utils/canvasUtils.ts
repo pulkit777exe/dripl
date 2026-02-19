@@ -2,7 +2,7 @@ import type { DriplElement, Point } from "@dripl/common";
 import type { Bounds, AppState } from "@/types/canvas";
 import { getElementBounds, isPointInElement } from "@dripl/math";
 export type { Point, Bounds, AppState };
-export type { DriplElement as CanvasElement };
+export type { DriplElement };
 
 export const STORAGE_KEYS = {
   ELEMENTS: "dripl-elements",

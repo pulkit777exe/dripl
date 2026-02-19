@@ -6,10 +6,10 @@ import {
   zoomToFit,
   zoomToSelection,
   calculateZoom,
-  getVisibleElements,
   getMousePosition,
   DEFAULT_ZOOM_SETTINGS,
 } from "@/utils/zoomUtils";
+import { getVisibleElements } from "@/utils/viewport-culling";
 
 export interface Viewport {
   x: number;
