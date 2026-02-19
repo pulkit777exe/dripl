@@ -111,47 +111,7 @@ export function zoomToSelection(
   };
 }
 
-export function getVisibleElements(
-  elements: DriplElement[],
-  viewport: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    zoom: number;
-  },
-): DriplElement[] {
-  const visibleBounds = {
-    x: -viewport.x / viewport.zoom,
-    y: -viewport.y / viewport.zoom,
-    width: viewport.width / viewport.zoom,
-    height: viewport.height / viewport.zoom,
-  };
 
-  return elements.filter((element) => {
-    const elementBounds = element.points
-      ? getBounds(
-          element.points.map((p: Point) => ({
-            x: element.x + p.x,
-            y: element.y + p.y,
-          })),
-        )
-      : {
-          x: element.x,
-          y: element.y,
-          width: element.width,
-          height: element.height,
-        };
-
-    // Check if element bounds intersect with visible bounds
-    return (
-      elementBounds.x + elementBounds.width > visibleBounds.x &&
-      elementBounds.x < visibleBounds.x + visibleBounds.width &&
-      elementBounds.y + elementBounds.height > visibleBounds.y &&
-      elementBounds.y < visibleBounds.y + visibleBounds.height
-    );
-  });
-}
 
 export function calculateZoom(
   currentZoom: number,

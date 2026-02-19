@@ -1,13 +1,15 @@
 import { z } from "zod";
 
-// --- Element Schemas ---
-
 export const ElementTypeSchema = z.enum([
   "rectangle",
-  "circle",
-  "path",
+  "ellipse",
+  "diamond",
+  "arrow",
+  "line",
+  "freedraw",
   "text",
   "image",
+  "frame",
 ]);
 
 export const BaseElementSchema = z.object({
@@ -29,14 +31,36 @@ export const RectangleSchema = BaseElementSchema.extend({
   cornerRadius: z.number().default(0),
 });
 
-export const CircleSchema = BaseElementSchema.extend({
-  type: z.literal("circle"),
-  radius: z.number().optional(), // Can use width/height or radius
+export const EllipseSchema = BaseElementSchema.extend({
+  type: z.literal("ellipse"),
 });
 
-export const PathSchema = BaseElementSchema.extend({
-  type: z.literal("path"),
+export const LinearSchema = BaseElementSchema.extend({
+  type: z.literal("arrow").or(z.literal("line")),
   points: z.array(z.array(z.number())), // [[x,y], [x,y]]
+  labelId: z.string().optional(),
+  arrowHeads: z.object({
+    start: z.boolean().optional(),
+    end: z.boolean().optional(),
+  }).optional(),
+});
+
+export const FreeDrawSchema = BaseElementSchema.extend({
+  type: z.literal("freedraw"),
+  points: z.array(z.array(z.number())), // [[x,y], [x,y]]
+  brushSize: z.number().optional(),
+  pressureValues: z.array(z.number()).optional(),
+  widths: z.array(z.number()).optional(),
+});
+
+export const DiamondSchema = BaseElementSchema.extend({
+  type: z.literal("diamond"),
+});
+
+export const FrameSchema = BaseElementSchema.extend({
+  type: z.literal("frame"),
+  title: z.string().optional(),
+  padding: z.number().optional(),
 });
 
 export const TextSchema = BaseElementSchema.extend({
@@ -58,15 +82,16 @@ export const ImageSchema = BaseElementSchema.extend({
 
 export const ElementSchema = z.discriminatedUnion("type", [
   RectangleSchema,
-  CircleSchema,
-  PathSchema,
+  EllipseSchema,
+  DiamondSchema,
+  LinearSchema,
+  FreeDrawSchema,
   TextSchema,
   ImageSchema,
+  FrameSchema,
 ]);
 
 export const CanvasContentSchema = z.array(ElementSchema);
-
-// --- File/Canvas Schemas ---
 
 export const CreateFileSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -93,7 +118,6 @@ export const FileSchema = z.object({
 });
 
 export type ElementType = z.infer<typeof ElementTypeSchema>;
-export type CanvasElement = z.infer<typeof ElementSchema>;
 export type CanvasContent = z.infer<typeof CanvasContentSchema>;
 export type CreateFileInput = z.infer<typeof CreateFileSchema>;
 export type UpdateFileInput = z.infer<typeof UpdateFileSchema>;

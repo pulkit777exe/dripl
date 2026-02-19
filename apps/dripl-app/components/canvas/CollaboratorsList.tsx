@@ -1,7 +1,6 @@
 "use client";
 
 import { useCanvasStore } from "@/lib/canvas-store";
-import { User, Users } from "lucide-react";
 
 export function CollaboratorsList() {
   const remoteUsers = useCanvasStore((state) => state.remoteUsers);
@@ -19,10 +18,9 @@ export function CollaboratorsList() {
             style={{
               backgroundColor: user.color + "40",
               borderColor: user.color,
-            }} // tinted bg
+            }}
             title={user.userName}
           >
-            {/* Avatar Initials */}
             <span style={{ color: user.color }}>
               {user.userName.charAt(0).toUpperCase()}
             </span>

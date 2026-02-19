@@ -22,11 +22,12 @@ const rect = createElement("rectangle", {
   strokeWidth: 2,
 });
 
-// Create a circle
-const circle = createElement("circle", {
+// Create an ellipse
+const ellipse = createElement("ellipse", {
   x: 300,
   y: 300,
-  radius: 50,
+  width: 100,
+  height: 50,
   fill: "#ff0000",
 });
 
@@ -45,12 +46,15 @@ const path = createElement("path", {
 ### Element Types
 
 ```typescript
-type CanvasElement =
+type DriplElement =
   | RectangleElement
-  | CircleElement
-  | PathElement
+  | EllipseElement
+  | DiamondElement
+  | LinearElement
+  | FreeDrawElement
   | TextElement
-  | ImageElement;
+  | ImageElement
+  | FrameElement;
 
 interface BaseElement {
   id: string;
@@ -290,13 +294,17 @@ const fillColors = THEME_COLORS.fill;
 
 ```typescript
 const TOOLS = [
-  "selection",
+  "select",
   "hand",
   "rectangle",
-  "circle",
-  "path",
+  "ellipse",
+  "diamond",
+  "arrow",
+  "line",
+  "draw",
   "text",
   "image",
+  "frame",
   "eraser",
 ] as const;
 ```
@@ -308,7 +316,7 @@ const TOOLS = [
 ### Type Guards
 
 ```typescript
-function isRectangle(element: CanvasElement): element is RectangleElement {
+function isRectangle(element: DriplElement): element is RectangleElement {
   return element.type === "rectangle";
 }
 
@@ -322,11 +330,11 @@ if (isRectangle(element)) {
 
 ```typescript
 // Partial element update
-type ElementUpdate = Partial<CanvasElement> & { id: string };
+type ElementUpdate = Partial<DriplElement> & { id: string };
 
 // Pick specific properties
-type ElementPosition = Pick<CanvasElement, "x" | "y">;
+type ElementPosition = Pick<DriplElement, "x" | "y">;
 
 // Omit properties
-type ElementWithoutId = Omit<CanvasElement, "id">;
+type ElementWithoutId = Omit<DriplElement, "id">;
 ```
