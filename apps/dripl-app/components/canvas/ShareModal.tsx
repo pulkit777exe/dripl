@@ -45,7 +45,7 @@ export function ShareModal({
       onClick={onClose}
     >
       <div
-        className="bg-card border border-border rounded-2xl shadow-2xl w-[420px] p-6 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+        className="bg-card border border-border rounded-2xl shadow-2xl w-105 p-6 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}

@@ -58,7 +58,7 @@ export function ContextMenu({
   return (
     <div
       ref={menuRef}
-      className="absolute z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[200px] text-foreground"
+      className="absolute z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-50 text-foreground"
       style={{ left: `${x}px`, top: `${y}px` }}
       role="menu"
       aria-label="Element context menu"

@@ -1253,7 +1253,7 @@ export default function App() {
 
       {isMenuOpen && (
         <div
-          className={`absolute top-20 left-4 w-[280px] rounded-xl border border-gray-700 shadow-2xl p-3 z-50 flex flex-col max-h-[calc(100vh-100px)] ${
+          className={`absolute top-20 left-4 w-70 rounded-xl border border-gray-700 shadow-2xl p-3 z-50 flex flex-col max-h-[calc(100vh-100px)] ${
             theme === "dark" ? "bg-[#232329]" : "bg-white"
           }`}
         >

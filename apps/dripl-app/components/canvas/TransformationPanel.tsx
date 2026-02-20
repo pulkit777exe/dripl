@@ -57,7 +57,6 @@ export function TransformationPanel({
       <div className="p-4 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg w-64 space-y-4">
         <h3 className="font-semibold text-sm mb-2">Transformations</h3>
 
-        {/* Position */}
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Position</label>
           <div className="flex gap-1">
@@ -84,7 +83,6 @@ export function TransformationPanel({
           </div>
         </div>
 
-        {/* Size */}
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Size</label>
           <div className="flex gap-1">
@@ -117,7 +115,6 @@ export function TransformationPanel({
           </div>
         </div>
 
-        {/* Rotation */}
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Rotation</label>
           <div className="flex items-center gap-2">
@@ -143,7 +140,6 @@ export function TransformationPanel({
           </div>
         </div>
 
-        {/* Flip */}
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Flip</label>
           <div className="flex gap-1">
@@ -170,7 +166,6 @@ export function TransformationPanel({
           </div>
         </div>
 
-        {/* Actions */}
         <div className="space-y-1 pt-2 border-t">
           <label className="text-xs text-muted-foreground">Actions</label>
           <div className="grid grid-cols-2 gap-1">
