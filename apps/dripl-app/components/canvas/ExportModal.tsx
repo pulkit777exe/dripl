@@ -34,7 +34,6 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       maxY = Math.max(maxY, el.y + height);
     });
 
-    // Add padding
     return {
       minX: minX - 20,
       minY: minY - 20,

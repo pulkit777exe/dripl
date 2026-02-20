@@ -128,7 +128,7 @@ export function ExtraToolsDropdown() {
             relative p-2 rounded-lg transition-colors
             ${
               isOpen
-                ? "bg-[var(--color-tool-active-bg)] text-[var(--color-tool-active-text)]"
+                ? "bg-(--color-tool-active-bg) text-(--color-tool-active-text)"
                 : "text-[var(--color-tool-inactive-text)] hover:bg-[var(--color-tool-hover-bg)]"
             }
           `}
