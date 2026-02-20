@@ -1,17 +1,5 @@
 import type { DriplElement } from "@dripl/common";
-
-/**
- * Reconciliation Manager
- * 
- * Per TDD Section 5.4 & 10.2:
- * - Validates versions before applying updates
- * - Uses version-based conflict resolution
- * - Marks dirty regions for partial re-render
- * 
- * Reconciliation Rule:
- * if incoming.version > local.version → accept
- * else → discard
- */
+import type { AppState } from "@/types/canvas";
 
 export interface ReconciliationResult {
   accepted: DriplElement[];
@@ -19,16 +7,33 @@ export interface ReconciliationResult {
   needsRender: boolean;
 }
 
-/**
- * Reconcile incoming elements with local elements based on version
- */
+export const shouldDiscardRemoteElement = (
+  localAppState: AppState,
+  local: DriplElement | undefined,
+  remote: DriplElement,
+): boolean => {
+  if (
+    local &&
+    (
+      (local.version ?? 0) > (remote.version ?? 0) ||
+      (
+        (local.version ?? 0) === (remote.version ?? 0) &&
+        (local.versionNonce ?? 0) <= (remote.versionNonce ?? 0)
+      )
+    )
+  ) {
+    return true;
+  }
+  return false;
+};
+
 export function reconcileElements(
   localElements: DriplElement[],
   incomingElements: DriplElement[],
+  localAppState: AppState = {} as AppState,
 ): ReconciliationResult {
   const localMap = new Map<string, DriplElement>();
   
-  // Build local element map for O(1) lookup
   localElements.forEach((el) => {
     localMap.set(el.id, el);
   });
@@ -41,49 +46,47 @@ export function reconcileElements(
     const local = localMap.get(incoming.id);
 
     if (!local) {
-      // New element - always accept
       accepted.push(incoming);
       needsRender = true;
       continue;
     }
 
-    // Version-based reconciliation (per TDD)
-    const incomingVersion = incoming.version ?? 0;
-    const localVersion = local.version ?? 0;
+    const discardRemoteElement = shouldDiscardRemoteElement(
+      localAppState,
+      local,
+      incoming,
+    );
 
-    if (incomingVersion > localVersion) {
-      // Accept if incoming version is newer
+    if (discardRemoteElement) {
+      rejected.push(incoming);
+    } else {
       accepted.push(incoming);
       needsRender = true;
-    } else {
-      // Discard if local version is same or newer
-      rejected.push(incoming);
     }
   }
 
   return { accepted, rejected, needsRender };
 }
 
-/**
- * Check if an element update should be accepted based on version
- */
 export function shouldAcceptUpdate(
   localVersion: number,
   incomingVersion: number,
+  localVersionNonce: number,
+  incomingVersionNonce: number,
 ): boolean {
-  return incomingVersion > localVersion;
+  if (incomingVersion > localVersion) {
+    return true;
+  }
+  if (incomingVersion === localVersion && incomingVersionNonce < localVersionNonce) {
+    return true;
+  }
+  return false;
 }
 
-/**
- * Get the next version number for an element
- */
 export function getNextVersion(currentVersion: number | undefined): number {
   return (currentVersion ?? 0) + 1;
 }
 
-/**
- * Apply version to element when updating
- */
 export function withVersion<T extends DriplElement>(
   element: T,
   version?: number,
@@ -95,9 +98,6 @@ export function withVersion<T extends DriplElement>(
   };
 }
 
-/**
- * Create a new element with initial version
- */
 export function createWithInitialVersion<T extends DriplElement>(
   element: T,
 ): T {
@@ -109,9 +109,6 @@ export function createWithInitialVersion<T extends DriplElement>(
   };
 }
 
-/**
- * Merge element updates - accepts the newer version
- */
 export function mergeElement(
   local: DriplElement,
   incoming: DriplElement,
@@ -130,10 +127,6 @@ export function mergeElement(
   return local;
 }
 
-/**
- * Calculate dirty regions for elements that changed
- * Per TDD Section 12.1 - enables partial re-render
- */
 export function calculateDirtyRegions(
   elements: DriplElement[],
   previousElements: Map<string, DriplElement>,
@@ -143,9 +136,7 @@ export function calculateDirtyRegions(
   for (const element of elements) {
     const previous = previousElements.get(element.id);
 
-    // Element is new or changed
     if (!previous || previous.version !== element.version) {
-      // Include element bounds plus some padding for stroke
       const padding = (element.strokeWidth ?? 1) / 2 + 5;
       regions.push({
         x: element.x - padding,
@@ -159,32 +150,25 @@ export function calculateDirtyRegions(
   return regions;
 }
 
-/**
- * Reconciliation Manager class for more complex scenarios
- */
 export class ReconciliationManager {
   private localVersion: Map<string, number> = new Map();
+  private localVersionNonce: Map<string, number> = new Map();
   private pendingUpdates: DriplElement[] = [];
 
-  /**
-   * Process incoming elements and return reconciled list
-   */
   process(
     localElements: DriplElement[],
     incomingElements: DriplElement[],
   ): DriplElement[] {
     const result = reconcileElements(localElements, incomingElements);
     
-    // Update local version tracking
     result.accepted.forEach((el) => {
       this.localVersion.set(el.id, el.version ?? 0);
+      this.localVersionNonce.set(el.id, el.versionNonce ?? 0);
     });
 
     if (result.accepted.length > 0) {
-      // Merge accepted elements with local
       const localMap = new Map(localElements.map((el) => [el.id, el]));
       
-      // Apply accepted updates
       result.accepted.forEach((el) => {
         localMap.set(el.id, el);
       });
@@ -195,19 +179,18 @@ export class ReconciliationManager {
     return localElements;
   }
 
-  /**
-   * Get local version for an element
-   */
   getLocalVersion(elementId: string): number {
     return this.localVersion.get(elementId) ?? 0;
   }
 
-  /**
-   * Check if update should be accepted
-   */
-  shouldAccept(elementId: string, incomingVersion: number): boolean {
+  getLocalVersionNonce(elementId: string): number {
+    return this.localVersionNonce.get(elementId) ?? 0;
+  }
+
+  shouldAccept(elementId: string, incomingVersion: number, incomingVersionNonce: number = 0): boolean {
     const localVersion = this.getLocalVersion(elementId);
-    return shouldAcceptUpdate(localVersion, incomingVersion);
+    const localVersionNonce = this.getLocalVersionNonce(elementId);
+    return shouldAcceptUpdate(localVersion, incomingVersion, localVersionNonce, incomingVersionNonce);
   }
 }
 

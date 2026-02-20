@@ -1,9 +1,63 @@
 import type { DriplElement, TextElement } from "@dripl/common";
 import { getBounds } from "@dripl/math";
 
-/**
- * Check if an element has bound text
- */
+export const TEXT_ALIGN = {
+  LEFT: "left",
+  CENTER: "center",
+  RIGHT: "right",
+} as const;
+
+export const VERTICAL_ALIGN = {
+  TOP: "top",
+  MIDDLE: "middle",
+  BOTTOM: "bottom",
+} as const;
+
+const DEFAULT_FONT_SIZE = 16;
+const DEFAULT_FONT_FAMILY = "Arial";
+
+function measureText(text: string, fontSize: number): { width: number; height: number } {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return { width: 0, height: 0 };
+  
+  ctx.font = `${fontSize}px ${DEFAULT_FONT_FAMILY}`;
+  const metrics = ctx.measureText(text);
+  
+  return {
+    width: Math.ceil(metrics.width),
+    height: Math.ceil(fontSize * 1.2),
+  };
+}
+
+function wrapText(text: string, fontSize: number, maxWidth: number): string[] {
+  const words = text.split(" ").filter(word => word.length > 0);
+  const lines: string[] = [];
+  
+  if (words.length === 0) {
+    return [""];
+  }
+
+  let currentLine = words[0] as string;
+
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i] as string;
+    const testLine = `${currentLine} ${word}`;
+    const testWidth = measureText(testLine, fontSize).width;
+
+    if (testWidth <= maxWidth) {
+      currentLine = testLine;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  
+  lines.push(currentLine);
+
+  return lines;
+}
+
 export function hasBoundText(
   element: DriplElement,
   elements: DriplElement[],
@@ -13,9 +67,6 @@ export function hasBoundText(
   );
 }
 
-/**
- * Get bound text for an element
- */
 export function getBoundText(
   element: DriplElement,
   elements: DriplElement[],
@@ -25,9 +76,6 @@ export function getBoundText(
   ) as TextElement | null;
 }
 
-/**
- * Create bound text for an element
- */
 export function createBoundText(
   text: string,
   boundElement: DriplElement,
@@ -41,27 +89,33 @@ export function createBoundText(
     },
   ]);
 
+  const fontSize = baseProps.fontSize ?? DEFAULT_FONT_SIZE;
+  const fontFamily = baseProps.fontFamily ?? DEFAULT_FONT_FAMILY;
+  
+  const wrappedText = wrapText(text, fontSize, bounds.width - 10);
+  const textHeight = wrappedText.length * measureText("A", fontSize).height;
+
+  const x = bounds.x + bounds.width / 2;
+  const y = bounds.y + bounds.height / 2 - textHeight / 2;
+
   return {
     id: crypto.randomUUID(),
     type: "text",
-    text,
-    fontSize: baseProps.fontSize ?? 16,
-    fontFamily: baseProps.fontFamily ?? "Arial",
-    textAlign: baseProps.textAlign ?? "center",
-    verticalAlign: baseProps.verticalAlign ?? "bottom",
+    text: wrappedText.join("\n"),
+    fontSize,
+    fontFamily,
+    textAlign: baseProps.textAlign ?? TEXT_ALIGN.CENTER,
+    verticalAlign: baseProps.verticalAlign ?? VERTICAL_ALIGN.MIDDLE,
     strokeColor: baseProps.strokeColor ?? "#000000",
-    x: bounds.x + bounds.width / 2,
-    y: bounds.y + bounds.height + 5,
-    width: bounds.width,
-    height: 20,
+    x,
+    y,
+    width: bounds.width - 10,
+    height: textHeight,
     boundElementId: boundElement.id,
     ...baseProps,
   };
 }
 
-/**
- * Update bound text position when bound element is moved
- */
 export function updateBoundTextPosition(
   boundElement: DriplElement,
   textElement: TextElement,
@@ -74,17 +128,54 @@ export function updateBoundTextPosition(
     },
   ]);
 
+  const fontSize = textElement.fontSize ?? DEFAULT_FONT_SIZE;
+  const originalText = textElement.text.replace(/\n/g, " ");
+  const wrappedText = wrapText(originalText, fontSize, bounds.width - 10);
+  const textHeight = wrappedText.length * measureText("A", fontSize).height;
+
+  const x = bounds.x + bounds.width / 2;
+  const y = bounds.y + bounds.height / 2 - textHeight / 2;
+
   return {
     ...textElement,
-    x: bounds.x + bounds.width / 2,
-    y: bounds.y + bounds.height + 5,
-    width: bounds.width,
+    text: wrappedText.join("\n"),
+    x,
+    y,
+    width: bounds.width - 10,
+    height: textHeight,
   };
 }
 
+export function handleContainerResize(
+  container: DriplElement,
+  textElement: TextElement,
+  elements: DriplElement[],
+): DriplElement[] {
+  const updatedTextElement = updateBoundTextPosition(container, textElement);
+  
+  return elements.map(el => 
+    el.id === textElement.id ? updatedTextElement : el
+  );
+}
+
 /**
- * Update all bound text positions when elements are moved
+ * Unbind text from container (remove association)
  */
+export function unbindText(
+  textElement: TextElement,
+  elements: DriplElement[],
+): DriplElement[] {
+  // Remove boundElementId property from text element
+  const unboundTextElement = {
+    ...textElement,
+    boundElementId: undefined,
+  };
+
+  return elements.map(el => 
+    el.id === textElement.id ? unboundTextElement : el
+  );
+}
+
 export function updateAllBoundTextPositions(
   elements: DriplElement[],
 ): DriplElement[] {
@@ -113,9 +204,6 @@ export function updateAllBoundTextPositions(
   });
 }
 
-/**
- * Delete bound text when bound element is deleted
- */
 export function deleteBoundText(
   elementId: string,
   elements: DriplElement[],
@@ -125,9 +213,6 @@ export function deleteBoundText(
   );
 }
 
-/**
- * Get all elements with their bound text
- */
 export function getElementsWithBoundText(elements: DriplElement[]): Array<{
   element: DriplElement;
   boundText: TextElement | null;
@@ -139,9 +224,6 @@ export function getElementsWithBoundText(elements: DriplElement[]): Array<{
   }));
 }
 
-/**
- * Create text with proper bounds and formatting
- */
 export function createTextElement(
   text: string,
   point: { x: number; y: number },

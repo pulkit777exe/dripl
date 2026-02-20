@@ -5,11 +5,10 @@ import { useCanvasStore } from "@/lib/canvas-store";
 import type { RemoteUser, RemoteCursor } from "@/lib/canvas-store";
 import type { DriplElement } from "@dripl/common";
 import { saveCanvasToIndexedDB } from "@/lib/canvas-db";
-import { ReconciliationManager, reconcileElements } from "@/lib/reconciliation";
+import { ReconciliationManager, reconcileElements, shouldDiscardRemoteElement } from "@/lib/reconciliation";
+import type { AppState } from "@/types/canvas";
 
-// ---------------------------------------------------------------------------
-// Message types received from the server
-// ---------------------------------------------------------------------------
+const SYNC_FULL_SCENE_INTERVAL_MS = 20000;
 
 interface SyncRoomStateMessage {
   type: "sync_room_state";
@@ -71,24 +70,12 @@ type WebSocketMessage =
   | CursorMoveMessage
   | { type: string };
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
 const MAX_RECONNECT_ATTEMPTS = 5;
 const MAX_PROCESSED_IDS = 1000;
 const INDEXEDDB_SAVE_DEBOUNCE_MS = 1000;
 
-// ---------------------------------------------------------------------------
-// Noop helpers for local (non-room) mode
-// ---------------------------------------------------------------------------
-
 const NOOP_SEND = (_message: Record<string, unknown>) => {};
-
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
 
 export function useCanvasWebSocket(
   roomSlug: string | null,
@@ -101,13 +88,12 @@ export function useCanvasWebSocket(
   const processedMessagesRef = useRef<Set<string>>(new Set());
   const lastMessageTimestampRef = useRef<Map<string, number>>(new Map());
   const reconciliationManagerRef = useRef<ReconciliationManager>(new ReconciliationManager());
+  const fullSyncIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastBroadcastedSceneVersionRef = useRef<number>(0);
+  const broadcastedElementVersionsRef = useRef<Map<string, number>>(new Map());
 
   const [isConnected, setIsConnectedLocal] = useState(false);
 
-  // -----------------------------------------------------------------------
-  // Zustand store actions  (stable references — zustand selectors return
-  // the same function across renders)
-  // -----------------------------------------------------------------------
   const setIsConnected = useCanvasStore((s) => s.setIsConnected);
   const setElements = useCanvasStore((s) => s.setElements);
   const setUserId = useCanvasStore((s) => s.setUserId);
@@ -118,9 +104,6 @@ export function useCanvasWebSocket(
   const removeRemoteUser = useCanvasStore((s) => s.removeRemoteUser);
   const updateRemoteCursor = useCanvasStore((s) => s.updateRemoteCursor);
 
-  // -----------------------------------------------------------------------
-  // send()  — stable callback that simply writes to the current WebSocket
-  // -----------------------------------------------------------------------
   const send = useCallback((message: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       const messageWithId = {
@@ -128,6 +111,20 @@ export function useCanvasWebSocket(
         id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         timestamp: Date.now(),
       };
+      
+      // Track broadcasted elements
+      if (message.type === "sync_room_state" && message.elements) {
+        (message.elements as DriplElement[]).forEach(el => {
+          broadcastedElementVersionsRef.current.set(el.id, el.version ?? 0);
+        });
+      } else if (message.type === "add_element" && message.element) {
+        const element = message.element as DriplElement;
+        broadcastedElementVersionsRef.current.set(element.id, element.version ?? 0);
+      } else if (message.type === "update_element" && message.element) {
+        const element = message.element as DriplElement;
+        broadcastedElementVersionsRef.current.set(element.id, element.version ?? 0);
+      }
+      
       wsRef.current.send(JSON.stringify(messageWithId));
     } else {
       console.warn("WebSocket not connected, message not sent:", message.type);
@@ -149,19 +146,16 @@ export function useCanvasWebSocket(
           userId?: string;
         };
 
-        // --- deduplication ---
         if (message.id) {
           if (processedMessagesRef.current.has(message.id)) return;
           processedMessagesRef.current.add(message.id);
 
-          // Evict oldest to keep the set bounded
           if (processedMessagesRef.current.size > MAX_PROCESSED_IDS) {
             const first = processedMessagesRef.current.values().next().value;
             if (first) processedMessagesRef.current.delete(first);
           }
         }
 
-        // --- LWW timestamp guard for element updates ---
         if (
           message.type === "update_element" &&
           message.timestamp &&
@@ -174,12 +168,10 @@ export function useCanvasWebSocket(
           lastMessageTimestampRef.current.set(elementId, message.timestamp);
         }
 
-        // --- dispatch ---
         switch (message.type) {
           case "sync_room_state": {
             const syncMsg = message as SyncRoomStateMessage;
 
-            // Full state reset — clear dedup caches
             processedMessagesRef.current.clear();
             lastMessageTimestampRef.current.clear();
 
@@ -225,8 +217,6 @@ export function useCanvasWebSocket(
             const addMsg = message as AddElementMessage;
             if (!addMsg.element) break;
 
-            // Only add if not already present — use getState() to avoid
-            // stale closure over the elements array.
             const currentElements = useCanvasStore.getState().elements;
             const alreadyExists = currentElements.some(
               (e) => e.id === addMsg.element.id,
@@ -237,14 +227,12 @@ export function useCanvasWebSocket(
             break;
           }
 
-          case "update_element": {
+           case "update_element": {
             const updateMsg = message as UpdateElementMessage;
-            // Use reconciliation to check version before applying
             const currentElements = useCanvasStore.getState().elements;
             const reconciliationResult = reconcileElements(currentElements, [updateMsg.element]);
             
             if (reconciliationResult.accepted.length > 0) {
-              // Update accepted elements with reconciliation
               reconciliationResult.accepted.forEach((el) => {
                 updateElement(el.id, el);
               });
@@ -292,8 +280,55 @@ export function useCanvasWebSocket(
   );
 
   // -----------------------------------------------------------------------
-  // connect()  — creates a new WebSocket and wires up event handlers
+  // Track broadcasted element versions to avoid redundant updates
   // -----------------------------------------------------------------------
+  const trackBroadcastedElements = useCallback((elements: DriplElement[]) => {
+    elements.forEach(el => {
+      broadcastedElementVersionsRef.current.set(el.id, el.version ?? 0);
+    });
+  }, []);
+
+  // -----------------------------------------------------------------------
+  // Get syncable elements - only send elements that have been updated
+  // -----------------------------------------------------------------------
+  const getSyncableElements = useCallback((elements: DriplElement[]): DriplElement[] => {
+    return elements.reduce((acc, element) => {
+      const lastBroadcastedVersion = broadcastedElementVersionsRef.current.get(element.id);
+      if (
+        !lastBroadcastedVersion || 
+        (element.version ?? 0) > lastBroadcastedVersion
+      ) {
+        acc.push(element);
+      }
+      return acc;
+    }, [] as DriplElement[]);
+  }, []);
+
+  const queueBroadcastAllElements = useCallback(() => {
+    const currentElements = useCanvasStore.getState().elements;
+    const currentVersion = getSceneVersion(currentElements);
+    
+    if (currentVersion > lastBroadcastedSceneVersionRef.current) {
+      const syncableElements = getSyncableElements(currentElements);
+      
+      if (syncableElements.length > 0) {
+        send({
+          type: "sync_room_state",
+          elements: syncableElements,
+          timestamp: Date.now(),
+        });
+        trackBroadcastedElements(syncableElements);
+        lastBroadcastedSceneVersionRef.current = currentVersion;
+      }
+    }
+  }, [send, trackBroadcastedElements, getSyncableElements]);
+
+  const getSceneVersion = useCallback((elements: DriplElement[]): number => {
+    return elements.reduce((max, el) => {
+      return Math.max(max, el.version ?? 0);
+    }, 0);
+  }, []);
+
   const connect = useCallback(() => {
     if (!userName || !roomSlug) return;
 
@@ -313,9 +348,10 @@ export function useCanvasWebSocket(
         setIsConnectedLocal(true);
         reconnectAttemptsRef.current = 0;
 
-        // Re-join the room — the server responds with sync_room_state
-        // containing the latest elements, which handles reconnect state
-        // recovery automatically.
+        fullSyncIntervalRef.current = setInterval(() => {
+          queueBroadcastAllElements();
+        }, SYNC_FULL_SCENE_INTERVAL_MS);
+
         send({
           type: "join_room",
           roomId: roomSlug,
@@ -333,6 +369,11 @@ export function useCanvasWebSocket(
         console.log("WebSocket disconnected");
         setIsConnected(false);
         setIsConnectedLocal(false);
+
+        if (fullSyncIntervalRef.current) {
+          clearInterval(fullSyncIntervalRef.current);
+          fullSyncIntervalRef.current = null;
+        }
 
         if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
           reconnectAttemptsRef.current++;
@@ -356,9 +397,6 @@ export function useCanvasWebSocket(
     }
   }, [roomSlug, userName, authToken, send, handleMessage, setIsConnected]);
 
-  // -----------------------------------------------------------------------
-  // Persist elements to IndexedDB (debounced)
-  // -----------------------------------------------------------------------
   useEffect(() => {
     if (!roomSlug) return;
 
@@ -372,9 +410,6 @@ export function useCanvasWebSocket(
     return () => clearTimeout(saveTimeout);
   }, [roomSlug, useCanvasStore((s) => s.elements)]);
 
-  // -----------------------------------------------------------------------
-  // Lifecycle — connect on mount / reconnect on dependency change
-  // -----------------------------------------------------------------------
   useEffect(() => {
     if (!roomSlug) return;
 
@@ -391,13 +426,6 @@ export function useCanvasWebSocket(
     };
   }, [connect, roomSlug]);
 
-  // -----------------------------------------------------------------------
-  // Return values
-  // -----------------------------------------------------------------------
-
-  // For local (non-room) mode, return a no-op so callers don't need null
-  // checks.  All hooks above still execute (just short-circuit early) so
-  // we never violate the Rules of Hooks.
   if (roomSlug === null) {
     return {
       send: NOOP_SEND,

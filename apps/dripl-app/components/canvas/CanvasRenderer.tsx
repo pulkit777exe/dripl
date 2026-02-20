@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useMemo } from "react";
 import type { DriplElement } from "@dripl/common";
 import {
   createRoughCanvas,
@@ -10,6 +10,10 @@ import {
 import { getElementBounds } from "@dripl/math";
 import { getVisibleElements } from "@/utils/viewport-culling";
 import { Viewport } from "@/utils/canvas-coordinates";
+import { AnimationController } from "@/utils/animationController";
+
+let sceneNonceCounter = 0;
+const generateSceneNonce = () => sceneNonceCounter++;
 
 interface CanvasRendererProps {
   canvasRef: React.RefObject<HTMLCanvasElement>;
@@ -21,6 +25,7 @@ interface CanvasRendererProps {
   viewport: Viewport;
   onFrameRequest?: () => void;
   theme?: "light" | "dark";
+  sceneNonce?: number;
 }
 
 export function useCanvasRenderer({
@@ -33,6 +38,7 @@ export function useCanvasRenderer({
   viewport,
   onFrameRequest,
   theme = "dark",
+  sceneNonce = generateSceneNonce(),
 }: CanvasRendererProps) {
   const roughCanvasRef = useRef<RoughCanvas | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
@@ -40,7 +46,10 @@ export function useCanvasRenderer({
   const lastSelectedIdsRef = useRef<Set<string>>(new Set());
   const needsRenderRef = useRef(true);
 
-  // Initialize Rough.js canvas
+  const visibleElements = useMemo(() => {
+    return getVisibleElements(elements, viewport);
+  }, [elements, viewport, sceneNonce]);
+
   useEffect(() => {
     if (canvasRef.current && !roughCanvasRef.current) {
       roughCanvasRef.current = createRoughCanvas(canvasRef.current);
@@ -48,7 +57,6 @@ export function useCanvasRenderer({
     }
   }, [canvasRef]);
 
-  // Resize canvas to match container
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -58,15 +66,12 @@ export function useCanvasRenderer({
       const dpr = window.devicePixelRatio || 1;
       const rect = container.getBoundingClientRect();
 
-      // Set display size
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
 
-      // Set actual size in memory (scaled for high DPI)
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
 
-      // Scale context to account for DPR
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.scale(dpr, dpr);
@@ -106,7 +111,7 @@ export function useCanvasRenderer({
     }
   }, [elements, selectedIds, currentPreview, eraserPath]);
 
-  // Main render loop using requestAnimationFrame
+  // Main render loop using AnimationController
   const renderFrame = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -114,26 +119,13 @@ export function useCanvasRenderer({
 
     if (!canvas || !ctx || !rc) {
       console.log("Canvas or context or rough canvas not available");
-      animationFrameIdRef.current = requestAnimationFrame(renderFrame);
+      requestAnimationFrame(renderFrame);
       return;
-    }
-
-    console.log("Rendering frame - elements count:", elements.length);
-    if (elements.length > 0) {
-      console.log("First element details:", elements[0]);
-    }
-    const visibleElements = getVisibleElements(elements, viewport);
-    console.log(
-      "Rendering frame - visible elements count:",
-      visibleElements.length,
-    );
-    if (visibleElements.length > 0) {
-      console.log("First visible element details:", visibleElements[0]);
     }
 
     // Only render if something changed or forced
     if (!needsRenderRef.current) {
-      animationFrameIdRef.current = requestAnimationFrame(renderFrame);
+      requestAnimationFrame(renderFrame);
       return;
     }
 
@@ -147,15 +139,12 @@ export function useCanvasRenderer({
       canvas.height / (window.devicePixelRatio || 1),
     );
 
-    // Get visible elements (viewport culling)
-    // Already calculated above for logging
-
     // Apply viewport transformations
     ctx.save();
     ctx.translate(viewport.x, viewport.y);
     ctx.scale(viewport.zoom, viewport.zoom);
 
-    // Render all visible elements
+    // Render all visible elements (using memoized results)
     renderRoughElements(rc, ctx, visibleElements, theme);
 
     // Render current preview element (being drawn)
@@ -187,11 +176,11 @@ export function useCanvasRenderer({
     ctx.restore();
 
     // Request next frame
-    animationFrameIdRef.current = requestAnimationFrame(renderFrame);
+    requestAnimationFrame(renderFrame);
     onFrameRequest?.();
   }, [
     canvasRef,
-    elements,
+    visibleElements, // Use memoized visible elements instead of raw elements
     selectedIds,
     currentPreview,
     eraserPath,
