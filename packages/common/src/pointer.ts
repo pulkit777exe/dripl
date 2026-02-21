@@ -1,4 +1,4 @@
-import type { Point } from "./types/element";
+import type { Point, DriplElement } from "./types/element";
 
 export type PointerType = "mouse" | "touch" | "pen";
 
@@ -14,6 +14,23 @@ export interface PointerInfo {
 export interface PointerEventData {
   type: "pointer_down" | "pointer_move" | "pointer_up" | "pointer_cancel";
   pointer: PointerInfo;
+  timestamp: number;
+}
+
+/**
+ * Snapshot of element state at pointer down for baseline-derived interaction.
+ * Spec §4.6 Interaction Engine. Use to compute final geometry from baseline + pointer delta
+ * instead of incremental updates (avoids drift, predictable undo).
+ */
+export interface PointerDownState {
+  /** Pointer id. */
+  pointerId: number;
+  /** Canvas point at pointer down. */
+  downPoint: Point;
+  /** Frozen copy of elements involved (e.g. selected) at pointer down. */
+  originalElements: ReadonlyArray<DriplElement>;
+  /** Element ids that are being dragged/transformed. */
+  elementIds: ReadonlyArray<string>;
   timestamp: number;
 }
 

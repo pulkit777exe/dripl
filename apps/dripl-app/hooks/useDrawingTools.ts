@@ -316,14 +316,54 @@ export function useDrawingTools(): UseDrawingToolsReturn {
   );
 
   const finishDrawing = useCallback((): DriplElement | null => {
-    if (!toolState || !baseProps || !currentPreview) {
+    if (!toolState || !baseProps) {
       setToolState(null);
       setBaseProps(null);
       setCurrentPreview(null);
       return null;
     }
 
-    const element = currentPreview;
+    const props = {
+      id: uuidv4(),
+      ...baseProps,
+      seed: Math.floor(Math.random() * 1000000),
+    };
+
+    let element: DriplElement | null = currentPreview;
+
+    if (!element) {
+      switch (toolState.type) {
+        case "rectangle":
+          element = createRectangleElement(toolState.state, props);
+          break;
+        case "ellipse":
+          element = createEllipseElement(toolState.state, props);
+          break;
+        case "diamond":
+          element = createDiamondElement(toolState.state, props);
+          break;
+        case "arrow": {
+          const { arrow } = createArrowElement(toolState.state, props);
+          element = arrow;
+          break;
+        }
+        case "line":
+          element = createLineElement(
+            { ...toolState.state, points: toolState.state.points },
+            props,
+          );
+          break;
+        case "freedraw":
+          element = createFreedrawElement(toolState.state, props);
+          break;
+        case "frame":
+          element = createFrameElement(toolState.state, props);
+          break;
+        default:
+          break;
+      }
+    }
+
     setToolState(null);
     setBaseProps(null);
     setCurrentPreview(null);

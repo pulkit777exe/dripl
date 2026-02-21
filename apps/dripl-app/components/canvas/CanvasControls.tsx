@@ -15,44 +15,48 @@ export function CanvasControls() {
   const handleZoomOut = () => setZoom(Math.max(zoom - 0.1, 0.1));
 
   return (
-    <div className="flex gap-4 z-100">
-      <div className="flex items-center bg-card/90 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl overflow-hidden">
+    <div className="flex items-center gap-2 z-100">
+      <div className="flex items-center bg-toolbar-bg border border-toolbar-border rounded-lg shadow-lg overflow-hidden">
         <button
           onClick={handleZoomOut}
-          className="p-3 hover:bg-accent transition-colors text-muted-foreground hover:text-accent-foreground"
+          className="p-2.5 hover:bg-tool-hover-bg transition-colors text-tool-inactive-text hover:text-tool-hover-text"
           title="Zoom Out (-)"
+          aria-label="Zoom out"
         >
-          <Minus className="w-5 h-5" />
+          <Minus className="size-5" />
         </button>
-        <span className="px-3 text-sm font-semibold min-w-16 text-center text-foreground">
+        <span className="px-3 text-sm tabular-nums min-w-14 text-center text-foreground">
           {Math.round(zoom * 100)}%
         </span>
         <button
           onClick={handleZoomIn}
-          className="p-3 hover:bg-accent transition-colors text-muted-foreground hover:text-accent-foreground"
+          className="p-2.5 hover:bg-tool-hover-bg transition-colors text-tool-inactive-text hover:text-tool-hover-text"
           title="Zoom In (+)"
+          aria-label="Zoom in"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="size-5" />
         </button>
       </div>
 
-      <div className="flex items-center bg-card/90 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="flex items-center bg-toolbar-bg border border-toolbar-border rounded-lg shadow-lg overflow-hidden">
         <button
           onClick={undo}
           disabled={historyIndex <= 0}
-          className="p-3 hover:bg-accent transition-colors disabled:opacity-50 text-muted-foreground hover:text-accent-foreground"
+          className="p-2.5 hover:bg-tool-hover-bg transition-colors disabled:opacity-50 text-tool-inactive-text hover:text-tool-hover-text"
           title="Undo (Ctrl+Z)"
+          aria-label="Undo"
         >
-          <Undo2 className="w-5 h-5" />
+          <Undo2 className="size-5" />
         </button>
-        <div className="w-px h-6 bg-border" />
+        <div className="w-px h-5 bg-toolbar-divider" />
         <button
           onClick={redo}
           disabled={historyIndex >= history.length - 1}
-          className="p-3 hover:bg-accent transition-colors disabled:opacity-50 text-muted-foreground hover:text-accent-foreground"
+          className="p-2.5 hover:bg-tool-hover-bg transition-colors disabled:opacity-50 text-tool-inactive-text hover:text-tool-hover-text"
           title="Redo (Ctrl+Shift+Z)"
+          aria-label="Redo"
         >
-          <Redo2 className="w-5 h-5" />
+          <Redo2 className="size-5" />
         </button>
       </div>
     </div>

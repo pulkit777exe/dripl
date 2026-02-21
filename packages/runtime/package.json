@@ -1,0 +1,23 @@
+{
+  "name": "@dripl/runtime",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": { ".": "./dist/index.js" },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dripl/common": "workspace:*",
+    "@dripl/element": "workspace:*",
+    "@dripl/math": "workspace:*"
+  },
+  "devDependencies": {
+    "@dripl/typescript-config": "workspace:*",
+    "eslint": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

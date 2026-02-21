@@ -2,9 +2,15 @@
 
 import { useCanvasStore } from "@/lib/canvas-store";
 
-export function CollaboratorsList() {
+interface CollaboratorsListProps {
+  roomSlug: string | null;
+}
+
+export function CollaboratorsList({ roomSlug }: CollaboratorsListProps) {
   const remoteUsers = useCanvasStore((state) => state.remoteUsers);
   const isConnected = useCanvasStore((state) => state.isConnected);
+
+  if (roomSlug === null) return null;
 
   if (!isConnected && remoteUsers.size === 0) return null;
 

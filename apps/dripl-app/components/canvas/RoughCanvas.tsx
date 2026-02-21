@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useCanvasStore } from "@/lib/canvas-store";
 import { useCanvasWebSocket } from "@/hooks/useCanvasWebSocket";
 import {
@@ -15,7 +15,21 @@ import {
   handleMarqueeSelectionEnd,
 } from "@/hooks/useEnhancedSelection";
 import { RemoteCursors } from "./RemoteCursors";
-import type { DriplElement } from "@dripl/common";
+import {
+  ActionCreator,
+  type DriplElement,
+  type PointerDownState,
+} from "@dripl/common";
+import {
+  getRuntimeStore,
+  updateRuntimeStoreSnapshot,
+  snapshotFromState,
+} from "@/lib/runtime-store-bridge";
+import {
+  captureDragBaseline,
+  applyDeltaToBaseline,
+  mergeDragPreview,
+} from "@/utils/dragBaseline";
 import { v4 as uuidv4 } from "uuid";
 import { SelectionOverlay, ResizeHandle } from "./SelectionOverlay";
 import { NameInputModal } from "./NameInputModal";
@@ -38,8 +52,13 @@ interface CanvasProps {
 }
 
 export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null!);
-  const containerRef = useRef<HTMLDivElement>(null!);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerReady, setContainerReady] = useState(false);
+
+  const setContainerRef = useCallback((el: HTMLDivElement | null) => {
+    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    setContainerReady(!!el);
+  }, []);
 
   const [userName, setUserName] = useState<string | null>(null);
 
@@ -69,6 +88,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     end: Point;
     active: boolean;
   } | null>(null);
+  const [dragBaseline, setDragBaseline] = useState<PointerDownState | null>(
+    null,
+  );
+  const [dragTotalDelta, setDragTotalDelta] = useState<Point | null>(null);
 
   const {
     currentPreview: drawingPreview,
@@ -133,7 +156,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       console.log("State to save:", appState);
 
       const timeoutId = setTimeout(() => {
-        saveLocalCanvasToStorage(elements, appState);
+        saveLocalCanvasToStorage(elements, appState, selectedIds);
       }, 500);
 
       return () => clearTimeout(timeoutId);
@@ -141,6 +164,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   }, [
     roomSlug,
     elements,
+    selectedIds,
     theme,
     zoom,
     panX,
@@ -176,7 +200,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         activeTool: state.activeTool,
       };
 
-      saveLocalCanvasToStorage(state.elements, appState);
+      saveLocalCanvasToStorage(state.elements, appState, state.selectedIds);
     };
 
     const handleVisibilityOrBlur = () => {
@@ -192,17 +216,24 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     const handleStorage = (event: StorageEvent) => {
       if (
         !event.key ||
-        (event.key !== LOCAL_CANVAS_STORAGE_KEYS.LOCAL_CANVAS_ELEMENTS &&
-          event.key !== LOCAL_CANVAS_STORAGE_KEYS.LOCAL_CANVAS_STATE)
+        (event.key !== LOCAL_CANVAS_STORAGE_KEYS.CANVAS &&
+          event.key !== LOCAL_CANVAS_STORAGE_KEYS.STATE &&
+          event.key !== LOCAL_CANVAS_STORAGE_KEYS.STRUCTURED)
       ) {
         return;
       }
 
-      const { elements: savedElements, appState } =
+      const { elements: savedElements, appState, selectedIds: savedSelectedIds } =
         loadLocalCanvasFromStorage();
 
       if (savedElements && savedElements.length) {
         setElements(savedElements);
+        updateRuntimeStoreSnapshot(
+          snapshotFromState(savedElements, savedSelectedIds ?? []),
+        );
+      }
+      if (savedSelectedIds?.length) {
+        setSelectedIds(new Set(savedSelectedIds));
       }
 
       if (appState) {
@@ -259,20 +290,20 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   // NOTE: DualCanvas now handles rendering internally
   // Removed useCanvasRenderer hook - now using DualCanvas component
 
-  const interactiveCanvasRef = useRef<HTMLCanvasElement>(null!);
-
   const getCanvasCoordinates = useCallback(
     (e: React.MouseEvent | React.DragEvent | React.PointerEvent): Point => {
-      // Use interactive canvas for coordinate calculations
-      const canvas = interactiveCanvasRef.current || canvasRef.current;
+      // Use the event target (the canvas that received the event) for correct coordinates
+      const target = e.target as Node;
+      const canvas =
+        target && target instanceof HTMLCanvasElement
+          ? target
+          : containerRef.current?.querySelector("canvas");
       if (!canvas) return { x: 0, y: 0 };
 
       const rect = canvas.getBoundingClientRect();
-      return screenToCanvas(
-        e.clientX - rect.left,
-        e.clientY - rect.top,
-        viewport,
-      );
+      const pixelX = e.clientX - rect.left;
+      const pixelY = e.clientY - rect.top;
+      return screenToCanvas(pixelX, pixelY, viewport);
     },
     [viewport],
   );
@@ -465,6 +496,15 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
             setSelectedIds(new Set([element.id]));
           }
         }
+        setDragBaseline(
+          captureDragBaseline(
+            { x, y },
+            selectedIds,
+            elements,
+            e.pointerId ?? 0,
+          ),
+        );
+        setDragTotalDelta({ x: 0, y: 0 });
         setIsDragging(true);
         setLastPointerPos({ x, y });
       } else {
@@ -718,37 +758,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (isDragging && activeTool === "select" && lastPointerPos) {
-      const dx = x - lastPointerPos.x;
-      const dy = y - lastPointerPos.y;
-
-      elements.forEach((el) => {
-        if (el.id && selectedIds.has(el.id)) {
-          const updatedElement = {
-            ...el,
-            x: el.x + dx,
-            y: el.y + dy,
-          };
-
-          if ("points" in updatedElement && updatedElement.points) {
-            updatedElement.points = updatedElement.points.map((p) => ({
-              x: p.x + dx,
-              y: p.y + dy,
-            }));
-          }
-
-          if (el.id) {
-            updateElement(el.id, updatedElement);
-          }
-
-          send({
-            type: "update_element",
-            element: updatedElement,
-            timestamp: Date.now(),
-          });
-        }
-      });
-
+    if (isDragging && activeTool === "select" && dragBaseline) {
+      const totalDelta = {
+        x: x - dragBaseline.downPoint.x,
+        y: y - dragBaseline.downPoint.y,
+      };
+      setDragTotalDelta(totalDelta);
       setLastPointerPos({ x, y });
       return;
     }
@@ -847,9 +862,30 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     if (isDragging) {
+      if (dragBaseline && dragTotalDelta) {
+        const finalElements = applyDeltaToBaseline(dragBaseline, dragTotalDelta);
+        const runtimeStore = getRuntimeStore();
+        if (runtimeStore) {
+          const actions = finalElements.map((el) =>
+            ActionCreator.updateElement(el.id, el),
+          );
+          runtimeStore.commitBatch(actions, "CAPTURE_ONCE");
+        } else {
+          finalElements.forEach((el) => updateElement(el.id, el));
+          pushHistory();
+        }
+        finalElements.forEach((el) => {
+          send?.({
+            type: "update_element",
+            element: el,
+            timestamp: Date.now(),
+          });
+        });
+      }
+      setDragBaseline(null);
+      setDragTotalDelta(null);
       setIsDragging(false);
       setLastPointerPos(null);
-      pushHistory();
       return;
     }
 
@@ -887,8 +923,16 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       if (isToolDrawing) {
         const finishedElement = finishDrawing();
         if (finishedElement) {
-          addElement(finishedElement);
-          pushHistory();
+          const runtimeStore = getRuntimeStore();
+          if (runtimeStore) {
+            runtimeStore.commit(
+              ActionCreator.addElement(finishedElement),
+              "IMMEDIATELY",
+            );
+          } else {
+            addElement(finishedElement);
+            pushHistory();
+          }
           send({
             type: "add_element",
             element: finishedElement,
@@ -956,34 +1000,43 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     return () => window.removeEventListener("resize", updateViewportSize);
   }, []);
 
+  const elementsForRender = useMemo(() => {
+    if (dragBaseline && dragTotalDelta) {
+      return mergeDragPreview(elements, dragBaseline, dragTotalDelta);
+    }
+    return elements;
+  }, [elements, dragBaseline, dragTotalDelta]);
+
   return (
     <div
-      ref={containerRef}
+      ref={setContainerRef}
       className="relative w-full h-full"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       style={{
-        backgroundColor: theme === "dark" ? "#121212" : "#f8f9fa",
+        backgroundColor: "var(--color-canvas-bg)",
       }}
     >
-      {/* Dual Canvas - Static + Interactive layers */}
-      <DualCanvas
-        containerRef={containerRef}
-        elements={elements}
-        selectedIds={selectedIds}
-        currentPreview={currentElement || drawingPreview}
-        eraserPath={eraserPath}
-        viewport={viewport}
-        theme={theme}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        cursorPosition={cursorPosition}
-        isDragging={isDragging}
-        isResizing={isResizing}
-        isDrawing={isDrawing}
-        marqueeSelection={marqueeSelection}
-      />
+      {/* Dual Canvas - Static + Interactive layers; only mount when container is ready so pointer events work */}
+      {containerReady && (
+        <DualCanvas
+          containerRef={containerRef as React.RefObject<HTMLDivElement>}
+          elements={elementsForRender}
+          selectedIds={selectedIds}
+          currentPreview={currentElement || drawingPreview}
+          eraserPath={eraserPath}
+          viewport={viewport}
+          theme={theme}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          cursorPosition={cursorPosition}
+          isDragging={isDragging}
+          isResizing={isResizing}
+          isDrawing={isDrawing}
+          marqueeSelection={marqueeSelection}
+        />
+      )}
 
       <SelectionOverlay
         zoom={zoom}
@@ -996,7 +1049,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       <RemoteCursors />
 
-      <CollaboratorsList />
+      <CollaboratorsList roomSlug={roomSlug} />
 
       {!userName && roomSlug !== null && (
         <NameInputModal onSubmit={handleNameSubmit} />

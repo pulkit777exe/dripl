@@ -6,45 +6,72 @@ export interface SceneState {
   editingTextId: string | null;
 }
 
+/**
+ * Dual-map Scene: elementsMap (all), nonDeletedElementsMap (active), cached orderedElements.
+ * Spec §4.1 Scene (Element Collection Engine). O(1) lookup; ordering stability.
+ */
 export class Scene {
-  private elements: Map<string, DriplElement> = new Map();
+  /** All elements by id (including deleted). */
+  private elementsMap: Map<string, DriplElement> = new Map();
+  /** Active elements by id (non-deleted). Kept in sync for O(1) lookup. */
+  private nonDeletedElementsMap: Map<string, DriplElement> = new Map();
+  /** Cached ordered list of active elements; invalidated on add/delete/order change. */
+  private orderedElementsCache: DriplElement[] | null = null;
   private selectedElementIds: Set<string> = new Set();
   private editingTextId: string | null = null;
 
   constructor(initialElements: DriplElement[] = []) {
     initialElements.forEach((element) => {
+      this.elementsMap.set(element.id, element);
       if (!element.isDeleted) {
-        this.elements.set(element.id, element);
+        this.nonDeletedElementsMap.set(element.id, element);
       }
     });
+    this.reindexOrderedElements();
+  }
+
+  private reindexOrderedElements(): void {
+    this.orderedElementsCache = Array.from(this.nonDeletedElementsMap.values());
   }
 
   getElements(): DriplElement[] {
-    return Array.from(this.elements.values()).filter(
-      (element) => !element.isDeleted,
-    );
+    if (this.orderedElementsCache === null) this.reindexOrderedElements();
+    return this.orderedElementsCache ?? [];
   }
 
   getElement(id: string): DriplElement | undefined {
-    return this.elements.get(id);
+    return this.elementsMap.get(id);
   }
 
   addElement(element: DriplElement): void {
-    this.elements.set(element.id, element);
-  }
-
-  updateElement(id: string, updates: Partial<DriplElement>): void {
-    const element = this.elements.get(id);
-    if (element) {
-      this.elements.set(id, { ...element, ...updates } as DriplElement);
+    this.elementsMap.set(element.id, element);
+    if (!element.isDeleted) {
+      this.nonDeletedElementsMap.set(element.id, element);
+      this.orderedElementsCache = null;
     }
   }
 
-  deleteElement(id: string): void {
-    const element = this.elements.get(id);
-    if (element) {
-      this.elements.set(id, { ...element, isDeleted: true });
+  updateElement(id: string, updates: Partial<DriplElement>): void {
+    const element = this.elementsMap.get(id);
+    if (!element) return;
+    const next = { ...element, ...updates } as DriplElement;
+    this.elementsMap.set(id, next);
+    if (next.isDeleted) {
+      this.nonDeletedElementsMap.delete(id);
       this.selectedElementIds.delete(id);
+    } else {
+      this.nonDeletedElementsMap.set(id, next);
+    }
+    this.orderedElementsCache = null;
+  }
+
+  deleteElement(id: string): void {
+    const element = this.elementsMap.get(id);
+    if (element) {
+      this.elementsMap.set(id, { ...element, isDeleted: true });
+      this.nonDeletedElementsMap.delete(id);
+      this.selectedElementIds.delete(id);
+      this.orderedElementsCache = null;
     }
   }
 
@@ -53,15 +80,17 @@ export class Scene {
   }
 
   restoreElement(id: string): void {
-    const element = this.elements.get(id);
+    const element = this.elementsMap.get(id);
     if (element) {
-      this.elements.set(id, { ...element, isDeleted: false });
+      this.elementsMap.set(id, { ...element, isDeleted: false });
+      this.nonDeletedElementsMap.set(id, { ...element, isDeleted: false });
+      this.orderedElementsCache = null;
     }
   }
 
   getSelectedElements(): DriplElement[] {
     return Array.from(this.selectedElementIds)
-      .map((id) => this.elements.get(id))
+      .map((id) => this.elementsMap.get(id))
       .filter(
         (element): element is DriplElement =>
           element !== undefined && !element.isDeleted,
@@ -140,10 +169,7 @@ export class Scene {
   }
 
   clone(): Scene {
-    const cloned = new Scene();
-    this.getElements().forEach((element) => {
-      cloned.addElement({ ...element });
-    });
+    const cloned = new Scene(this.getElements().map((el) => ({ ...el })));
     cloned.setSelectedElements(Array.from(this.selectedElementIds));
     cloned.setEditingTextId(this.editingTextId);
     return cloned;

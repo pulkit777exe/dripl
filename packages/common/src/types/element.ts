@@ -99,6 +99,21 @@ export interface FrameElement extends ElementBase {
   padding?: number;
 }
 
+// Normalized binding model for constraints (Spec §5.3 Binding Constraint System)
+export type BindingMode = "inside" | "orbit";
+
+export interface NormalizedBinding {
+  /** Target element id this binding attaches to. */
+  elementId: string;
+  /**
+   * Fixed point in the element's local, normalized coordinate system.
+   * For frames/rects: [0,0] top-left, [1,1] bottom-right.
+   * For linear elements: [0,0] is start, [1,0] is end on normalized axis.
+   */
+  fixedPoint: Point;
+  mode: BindingMode;
+}
+
 // Base type for all Dripl elements
 export type DriplElement =
   | RectangleElement

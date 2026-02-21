@@ -116,54 +116,48 @@ export const TopBar: React.FC = () => {
     <>
       <div className="absolute top-4 left-4 z-100 flex gap-2 pointer-events-auto">
         <button
-          className="p-2 rounded-lg border border-border shadow-sm transition-colors bg-card hover:bg-accent text-foreground"
+          className="p-2 rounded-md border border-toolbar-border bg-toolbar-bg hover:bg-tool-hover-bg text-foreground transition-colors duration-150"
           onClick={(e) => {
             e.stopPropagation();
             setIsMenuOpen(!isMenuOpen);
           }}
           onMouseDown={(e) => e.stopPropagation()}
+          aria-label="Open menu"
         >
           <MenuIcon size={20} />
         </button>
 
         <button
-          className="p-2 rounded-lg border border-border shadow-sm transition-colors bg-card hover:bg-accent text-foreground"
+          className="p-2 rounded-md border border-toolbar-border bg-toolbar-bg hover:bg-tool-hover-bg text-foreground transition-colors duration-150"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
+          aria-label="Library"
         >
           <Library size={20} />
         </button>
       </div>
 
-      <div className="absolute top-4 right-4 z-100 flex gap-2 pointer-events-auto">
+      <div className="absolute top-4 right-4 z-100 flex items-center gap-2 pointer-events-auto">
+        <span className="text-sm font-medium text-foreground px-2">
+          Excalidraw+
+        </span>
         <button
-          className="px-3 py-1.5 bg-yellow-500 text-xs font-medium hover:bg-yellow-600 rounded-lg border border-yellow-700 text-black flex items-center gap-1.5 transition-transform hover:scale-105"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDriplPlusClick();
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          disabled={loading}
-        >
-          <Globe size={14} />
-          Dripl+
-        </button>
-        <button
-          className="px-4 py-1.5 bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 rounded-lg flex items-center gap-1.5 shadow-sm transition-transform hover:scale-105"
+          className="px-4 py-1.5 bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 rounded-lg flex items-center gap-1.5 transition-opacity duration-150"
           onClick={(e) => {
             e.stopPropagation();
             setIsShareModalOpen(true);
           }}
           onMouseDown={(e) => e.stopPropagation()}
+          aria-label="Share"
         >
           <Share2 size={14} />
           Share
         </button>
         <button
-          className="p-2 bg-card hover:bg-accent rounded-lg border border-border text-muted-foreground transition-colors"
+          className="p-2 rounded-md bg-toolbar-bg hover:bg-tool-hover-bg border border-toolbar-border text-foreground transition-colors duration-150"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
+          aria-label="Document options"
         >
           <MoreHorizontal size={18} />
         </button>

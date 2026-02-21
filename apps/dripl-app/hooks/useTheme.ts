@@ -18,25 +18,13 @@ export function useTheme() {
   };
 
   const getEffectiveTheme = (): "light" | "dark" => {
-    if (theme === "system") {
+    if (theme === "system" || !theme) {
       return getSystemTheme();
     }
-    return theme as "light" | "dark";
+    return theme === "dark" ? "dark" : "light";
   };
 
-  const [effectiveTheme, setEffectiveTheme] = useState<"light" | "dark">(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const themeParam = params.get("theme");
-      console.log("Theme parameter:", themeParam);
-      if (themeParam === "dark" || themeParam === "light") {
-        return themeParam;
-      }
-    }
-    const defaultTheme = getEffectiveTheme();
-    console.log("Default theme:", defaultTheme);
-    return defaultTheme;
-  });
+  const [effectiveTheme, setEffectiveTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     if (theme) {
@@ -45,28 +33,20 @@ export function useTheme() {
   }, [theme, setCanvasTheme]);
 
   useEffect(() => {
-    console.log("useEffect theme update");
     const params = new URLSearchParams(window.location.search);
     const themeParam = params.get("theme");
-    console.log("useEffect theme parameter:", themeParam);
-    if (!themeParam) {
-      const newEffectiveTheme = getEffectiveTheme();
-      console.log("useEffect newEffectiveTheme:", newEffectiveTheme);
-      setEffectiveTheme(newEffectiveTheme);
-
-      if (typeof document !== "undefined") {
-        const root = document.documentElement;
-        root.classList.remove("light", "dark");
-        root.classList.add(newEffectiveTheme);
-      }
+    if (themeParam === "dark" || themeParam === "light") {
+      setEffectiveTheme(themeParam);
+      return;
     }
-  }, [theme]);
+    const resolved = resolvedTheme ?? getEffectiveTheme();
+    setEffectiveTheme(resolved === "dark" ? "dark" : "light");
+  }, [theme, resolvedTheme]);
 
   useEffect(() => {
     if (theme === "system") {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
       const handleChange = () => setEffectiveTheme(getSystemTheme());
-
       mediaQuery.addEventListener("change", handleChange);
       return () => mediaQuery.removeEventListener("change", handleChange);
     }

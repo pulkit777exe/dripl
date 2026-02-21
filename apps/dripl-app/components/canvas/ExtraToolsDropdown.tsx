@@ -128,8 +128,8 @@ export function ExtraToolsDropdown() {
             relative p-2 rounded-lg transition-colors
             ${
               isOpen
-                ? "bg-(--color-tool-active-bg) text-(--color-tool-active-text)"
-                : "text-[var(--color-tool-inactive-text)] hover:bg-[var(--color-tool-hover-bg)]"
+                ? "bg-tool-active-bg text-tool-active-text "
+                : "text-tool-inactive-text hover:bg-tool-hover-bg "
             }
           `}
           aria-label="Extra tools"
@@ -151,8 +151,8 @@ export function ExtraToolsDropdown() {
         </button>
 
         {isOpen && (
-          <div className="absolute top-full left-0 mt-1 w-56 bg-[var(--color-panel-bg)] rounded-lg border border-[var(--color-panel-border)] shadow-2xl z-50 py-1">
-            <div className="px-2 py-1.5 text-[11px] font-medium text-[var(--color-panel-label)] uppercase">
+          <div className="absolute top-full left-0 mt-1 w-56 bg-panel-bg rounded-lg border border-panel-border shadow-2xl z-50 py-1 ">
+            <div className="px-2 py-1.5 text-[11px] font-medium text-panel-label uppercase ">
               Tools
             </div>
             {extraTools.map((tool) => {
@@ -166,20 +166,20 @@ export function ExtraToolsDropdown() {
                     w-full flex items-center justify-between px-3 py-2 text-sm transition-colors
                     ${
                       tool.disabled
-                        ? "text-[var(--color-panel-label)] opacity-50 cursor-not-allowed"
-                        : "text-[var(--color-panel-text)] hover:bg-[var(--color-panel-btn-hover)]"
+                        ? "text-panel-label opacity-50 cursor-not-allowed "
+                        : "text-panel-text hover:bg-panel-btn-hover "
                     }
                   `}
                 >
                   <div className="flex items-center gap-3">
                     <Icon
                       size={18}
-                      className="text-[var(--color-panel-label)]"
+                      className="text-panel-label "
                     />
                     <span>{tool.label}</span>
                   </div>
                   {tool.shortcut && (
-                    <span className="text-xs text-[var(--color-panel-label)] font-mono bg-[var(--color-panel-btn-bg)] px-1.5 py-0.5 rounded">
+                    <span className="text-xs text-panel-label font-mono bg-panel-btn-bg px-1.5 py-0.5 rounded  dark:bg-dark-panel-btn-bg">
                       {tool.shortcut}
                     </span>
                   )}
@@ -187,10 +187,10 @@ export function ExtraToolsDropdown() {
               );
             })}
 
-            <div className="w-full h-px bg-[var(--color-panel-divider)] my-2" />
+            <div className="w-full h-px bg-panel-divider my-2 " />
 
-            <div className="px-2 py-1.5 text-[11px] font-medium text-[var(--color-panel-label)] uppercase flex items-center gap-1">
-              <Sparkles size={12} className="text-[#6965db]" />
+            <div className="px-2 py-1.5 text-[11px] font-medium text-panel-label uppercase flex items-center gap-1 ">
+              <Sparkles size={12} className="text-primary" />
               AI Generate
             </div>
             {generateTools.map((tool) => {
@@ -204,13 +204,13 @@ export function ExtraToolsDropdown() {
                     w-full flex items-center justify-between px-3 py-2 text-sm transition-colors
                     ${
                       tool.disabled
-                        ? "text-[var(--color-panel-label)] opacity-50 cursor-not-allowed"
-                        : "text-[var(--color-panel-text)] hover:bg-[var(--color-panel-btn-hover)]"
+                        ? "text-panel-label opacity-50 cursor-not-allowed "
+                        : "text-panel-text hover:bg-panel-btn-hover "
                     }
                   `}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon size={18} className="text-[#6965db]" />
+                    <Icon size={18} className="text-primary" />
                     <span>{tool.label}</span>
                   </div>
                 </button>

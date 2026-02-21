@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { DriplElement } from "@dripl/common";
+import { getRuntimeStore } from "@/lib/runtime-store-bridge";
 import { initializeShapeRegistry } from "@/utils/shapes/shapeInitializer";
 import { shapeRegistry } from "@/utils/shapes/ShapeRegistry";
 
@@ -225,7 +226,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setCurrentStrokeStyle: (style) => set({ currentStrokeStyle: style }),
   setCurrentFillStyle: (style) => set({ currentFillStyle: style }),
 
-  undo: () =>
+  undo: () => {
+    const runtime = getRuntimeStore();
+    if (runtime) {
+      runtime.undo();
+      return;
+    }
     set((state) => {
       if (state.historyIndex > 0) {
         const newIndex = state.historyIndex - 1;
@@ -235,8 +241,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         };
       }
       return state;
-    }),
-  redo: () =>
+    });
+  },
+  redo: () => {
+    const runtime = getRuntimeStore();
+    if (runtime) {
+      runtime.redo();
+      return;
+    }
     set((state) => {
       if (state.historyIndex < state.history.length - 1) {
         const newIndex = state.historyIndex + 1;
@@ -246,7 +258,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         };
       }
       return state;
-    }),
+    });
+  },
   pushHistory: () =>
     set((state) => {
       const newHistory = state.history.slice(0, state.historyIndex + 1);

@@ -47,7 +47,7 @@ export function useCanvasRenderer({
   const needsRenderRef = useRef(true);
 
   const visibleElements = useMemo(() => {
-    return getVisibleElements(elements, viewport);
+    return getVisibleElements(elements, viewport, sceneNonce);
   }, [elements, viewport, sceneNonce]);
 
   useEffect(() => {

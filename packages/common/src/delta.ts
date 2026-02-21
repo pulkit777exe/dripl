@@ -15,6 +15,31 @@ export interface Delta {
 export class DeltaManager {
   private deltas: Delta[] = [];
   private maxHistorySize: number = 100;
+  /** When true, createXDelta does not add to internal list (for Store to take delta only). */
+  private transientMode: boolean = false;
+  private lastCreatedDelta: Delta | null = null;
+
+  setTransientMode(value: boolean): void {
+    this.transientMode = value;
+    if (!value) this.lastCreatedDelta = null;
+  }
+
+  /** Returns the last delta created while in transient mode; call after reduce. */
+  getLastCreatedDelta(): Delta | null {
+    return this.lastCreatedDelta;
+  }
+
+  takeLastCreatedDelta(): Delta | null {
+    const d = this.lastCreatedDelta;
+    this.lastCreatedDelta = null;
+    return d;
+  }
+
+  private recordDelta(delta: Delta): Delta {
+    if (!this.transientMode) this.addDelta(delta);
+    else this.lastCreatedDelta = delta;
+    return delta;
+  }
 
   createAddDelta(element: DriplElement): Delta {
     const delta: Delta = {
@@ -24,8 +49,7 @@ export class DeltaManager {
       timestamp: Date.now(),
       after: element,
     };
-    this.addDelta(delta);
-    return delta;
+    return this.recordDelta(delta);
   }
 
   createUpdateDelta(
@@ -41,8 +65,7 @@ export class DeltaManager {
       before,
       after,
     };
-    this.addDelta(delta);
-    return delta;
+    return this.recordDelta(delta);
   }
 
   createDeleteDelta(elementId: string, before: Partial<DriplElement>): Delta {
@@ -53,8 +76,7 @@ export class DeltaManager {
       timestamp: Date.now(),
       before,
     };
-    this.addDelta(delta);
-    return delta;
+    return this.recordDelta(delta);
   }
 
   createRestoreDelta(elementId: string, after: Partial<DriplElement>): Delta {
@@ -65,8 +87,7 @@ export class DeltaManager {
       timestamp: Date.now(),
       after,
     };
-    this.addDelta(delta);
-    return delta;
+    return this.recordDelta(delta);
   }
 
   applyDelta(scene: Scene, delta: Delta): Scene {

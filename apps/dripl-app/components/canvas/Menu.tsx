@@ -112,13 +112,13 @@ export function Menu({
   return (
     <div
       ref={menuRef}
-      className="absolute top-14 left-4 z-200 bg-card border border-border rounded-xl shadow-2xl w-64 py-2 pointer-events-auto animate-in fade-in slide-in-from-top-2 duration-200"
+      className="absolute top-14 left-4 z-200 bg-panel-bg border border-panel-border rounded-xl shadow-xl w-64 py-2 pointer-events-auto animate-in fade-in slide-in-from-top-2 duration-200"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
       {menuItems.map((item, index) =>
         item.divider ? (
-          <div key={index} className="h-px bg-border my-2" />
+          <div key={index} className="h-px bg-panel-divider my-2" />
         ) : (
           <button
             key={index}
@@ -126,14 +126,14 @@ export function Menu({
               item.onClick?.();
               if (!item.onClick) onClose();
             }}
-            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-panel-menu-active transition-colors duration-150"
           >
             {item.icon && (
               <item.icon size={16} className="text-muted-foreground" />
             )}
             <span className="flex-1 text-left">{item.label}</span>
             {item.shortcut && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground tabular-nums">
                 {item.shortcut}
               </span>
             )}
@@ -141,7 +141,7 @@ export function Menu({
         ),
       )}
 
-      <div className="h-px bg-border my-2" />
+      <div className="h-px bg-panel-divider my-2" />
 
       {externalLinks.map((link, index) => (
         <a
@@ -149,49 +149,52 @@ export function Menu({
           href={link.href}
           target={link.href.startsWith("http") ? "_blank" : undefined}
           rel="noopener noreferrer"
-          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-panel-menu-active transition-colors duration-150"
         >
           <link.icon size={16} className="text-muted-foreground" />
           <span>{link.label}</span>
         </a>
       ))}
 
-      <div className="h-px bg-border my-2" />
+      <div className="h-px bg-panel-divider my-2" />
 
       <div className="px-4 py-2">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-foreground">Theme</span>
-          <div className="flex gap-1 bg-accent rounded-lg p-0.5">
+          <div className="flex gap-1 bg-panel-btn-bg rounded-lg p-0.5">
             <button
               onClick={() => setTheme("light")}
-              className={`p-1.5 rounded-md transition-colors ${
+              className={`p-1.5 rounded-md transition-colors duration-150 ${
                 theme === "light"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               title="Light"
+              aria-label="Light theme"
             >
               <Sun size={14} />
             </button>
             <button
               onClick={() => setTheme("dark")}
-              className={`p-1.5 rounded-md transition-colors ${
+              className={`p-1.5 rounded-md transition-colors duration-150 ${
                 theme === "dark"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               title="Dark"
+              aria-label="Dark theme"
             >
               <Moon size={14} />
             </button>
             <button
               onClick={() => setTheme("system")}
-              className={`p-1.5 rounded-md transition-colors ${
+              className={`p-1.5 rounded-md transition-colors duration-150 ${
                 theme === "system"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               title="System"
+              aria-label="System theme"
             >
               <Monitor size={14} />
             </button>
@@ -202,14 +205,14 @@ export function Menu({
       <div className="px-4 py-2">
         <div className="flex items-center justify-between">
           <span className="text-sm text-foreground">Language</span>
-          <select className="bg-accent border border-border rounded-lg px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+          <select className="bg-panel-btn-bg border border-panel-border rounded-lg px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
             <option value="en">English</option>
           </select>
         </div>
       </div>
 
       <div className="px-4 py-2">
-        <span className="text-sm text-muted-foreground block mb-2">
+        <span className="text-sm text-panel-label block mb-2">
           Canvas background
         </span>
         <div className="flex gap-2">
@@ -217,13 +220,14 @@ export function Menu({
             <button
               key={color}
               onClick={() => setCanvasBackground(color)}
-              className={`w-6 h-6 rounded border-2 transition-all ${
+              className={`w-6 h-6 rounded border-2 transition-all duration-150 ${
                 canvasBackground === color
                   ? "border-primary scale-110"
-                  : "border-transparent hover:border-muted-foreground"
+                  : "border-transparent hover:border-panel-label"
               }`}
               style={{ backgroundColor: color }}
               title={color}
+              aria-label={`Canvas background ${color}`}
             />
           ))}
         </div>

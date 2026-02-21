@@ -1,94 +1,130 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Light mode: Excalidraw-style — canvas white, UI light grey, accent purple */
 @theme inline {
-  --color-background: #f7f5f6;
-  --color-foreground: #323233;
-  --color-card: #f7f5f6;
-  --color-card-foreground: #323233;
-  --color-popover: #f7f5f6;
-  --color-popover-foreground: #323233;
-  --color-primary: #6965db;
+  --color-background: #f0f0f0;
+  --color-foreground: #333333;
+  --color-card: #ffffff;
+  --color-card-foreground: #333333;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #333333;
+  --color-primary: #6b46c1;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #f2f1f0;
-  --color-secondary-foreground: #323233;
-  --color-muted: #f2f1f0;
+  --color-secondary: #f0f0f0;
+  --color-secondary-foreground: #333333;
+  --color-muted: #f0f0f0;
   --color-muted-foreground: #6b7280;
-  --color-accent: #f2f1f0;
-  --color-accent-foreground: #323233;
+  --color-accent: #f0f0f0;
+  --color-accent-foreground: #333333;
   --color-destructive: #ef4444;
-  --color-destructive-foreground: #f7f5f6;
+  --color-destructive-foreground: #ffffff;
   --color-border: #e5e5e5;
   --color-input: #e5e5e5;
-  --color-ring: #6965db;
+  --color-ring: #6b46c1;
+
+  --color-toolbar-bg: #f0f0f0;
+  --color-toolbar-border: #e5e5e5;
+  --color-toolbar-divider: #e5e5e5;
+  --color-tool-active-bg: #e0ccff;
+  --color-tool-active-text: #6b46c1;
+  --color-tool-inactive-text: #333333;
+  --color-tool-hover-bg: #e5e5e5;
+  --color-tool-hover-text: #333333;
+  --color-tool-active-shadow: rgba(107, 70, 193, 0.15);
+
+  --color-panel-bg: #f0f0f0;
+  --color-panel-border: #e5e5e5;
+  --color-panel-btn-bg: #e5e5e5;
+  --color-panel-btn-hover: #d1d5db;
+  --color-panel-btn-active: #6b46c1;
+  --color-panel-label: #6b7280;
+  --color-panel-text: #333333;
+  --color-panel-divider: #e5e5e5;
+  --color-panel-slider: #d1d5db;
+  --color-panel-menu-active: #e0ccff;
+
+  --color-canvas-bg: #ffffff;
+  --color-hint-bg: #e5e5e5;
+  --color-hint-text: #6b7280;
+  --color-panel-menu-active: #e0ccff;
 }
 
 :root {
-  --color-toolbar-bg: #ffffff;
+  --color-toolbar-bg: #f0f0f0;
   --color-toolbar-border: #e5e5e5;
   --color-toolbar-divider: #e5e5e5;
-  --color-tool-active-bg: #ebe9ff;
-  --color-tool-active-text: #6965db;
-  --color-tool-inactive-text: #6b7280;
-  --color-tool-hover-bg: #f3f4f6;
-  --color-tool-hover-text: #374151;
-  --color-tool-active-shadow: rgba(105, 101, 219, 0.15);
+  --color-tool-active-bg: #e0ccff;
+  --color-tool-active-text: #6b46c1;
+  --color-tool-inactive-text: #333333;
+  --color-tool-hover-bg: #e5e5e5;
+  --color-tool-hover-text: #333333;
+  --color-tool-active-shadow: rgba(107, 70, 193, 0.15);
 
-  --color-panel-bg: #ffffff;
+  --color-panel-bg: #f0f0f0;
   --color-panel-border: #e5e5e5;
-  --color-panel-btn-bg: #f3f4f6;
-  --color-panel-btn-hover: #e5e7eb;
-  --color-panel-btn-active: #6965db;
+  --color-panel-btn-bg: #e5e5e5;
+  --color-panel-btn-hover: #d1d5db;
+  --color-panel-btn-active: #6b46c1;
   --color-panel-label: #6b7280;
-  --color-panel-text: #374151;
+  --color-panel-text: #333333;
   --color-panel-divider: #e5e5e5;
   --color-panel-slider: #d1d5db;
+  --color-panel-menu-active: #e0ccff;
 
-  --color-canvas-bg: #f7f5f6;
+  --color-canvas-bg: #ffffff;
+  --color-hint-bg: #e5e5e5;
+  --color-hint-text: #6b7280;
 }
 
-.dark {
-  --color-background: #121112;
-  --color-foreground: #d6d6d6;
-  --color-card: #232329;
-  --color-card-foreground: #d6d6d6;
-  --color-popover: #232329;
-  --color-popover-foreground: #d6d6d6;
-  --color-primary: #6965db;
+/* Dark mode: Excalidraw-style — canvas #202022, UI #2E2E30, accent #6C47FF / #8A5CF6
+   Apply when html has class "dark" (set by next-themes). */
+.dark,
+html.dark {
+  --color-background: #1b1c1e;
+  --color-foreground: #e8e8e8;
+  --color-card: #2e2e30;
+  --color-card-foreground: #e8e8e8;
+  --color-popover: #2e2e30;
+  --color-popover-foreground: #e8e8e8;
+  --color-primary: #6c47ff;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #1a181a;
-  --color-secondary-foreground: #d6d6d6;
-  --color-muted: #1a181a;
-  --color-muted-foreground: #888888;
-  --color-accent: #2a2a3a;
-  --color-accent-foreground: #d6d6d6;
+  --color-secondary: #2e2e30;
+  --color-secondary-foreground: #e8e8e8;
+  --color-muted: #2e2e30;
+  --color-muted-foreground: #9ca3af;
+  --color-accent: #31303b;
+  --color-accent-foreground: #e8e8e8;
   --color-destructive: #ef4444;
-  --color-destructive-foreground: #121112;
-  --color-border: #333333;
-  --color-input: #2a2a3a;
-  --color-ring: #6965db;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #3f3f46;
+  --color-input: #3f3f46;
+  --color-ring: #6c47ff;
 
-  --color-toolbar-bg: #232329;
+  --color-toolbar-bg: #2e2e30;
   --color-toolbar-border: #3f3f46;
   --color-toolbar-divider: #3f3f46;
-  --color-tool-active-bg: #403c66;
-  --color-tool-active-text: #a8a5ff;
-  --color-tool-inactive-text: #9ca3af;
-  --color-tool-hover-bg: #31303b;
-  --color-tool-hover-text: #e5e7eb;
-  --color-tool-active-shadow: rgba(168, 165, 255, 0.2);
+  --color-tool-active-bg: #6c47ff;
+  --color-tool-active-text: #ffffff;
+  --color-tool-inactive-text: #e8e8e8;
+  --color-tool-hover-bg: #3f3f46;
+  --color-tool-hover-text: #e8e8e8;
+  --color-tool-active-shadow: rgba(108, 71, 255, 0.25);
 
-  --color-panel-bg: #232329;
-  --color-panel-border: #333333;
-  --color-panel-btn-bg: #2a2a3a;
-  --color-panel-btn-hover: #3a3a4a;
-  --color-panel-btn-active: #6965db;
+  --color-panel-bg: #2e2e30;
+  --color-panel-border: #3f3f46;
+  --color-panel-btn-bg: #3f3f46;
+  --color-panel-btn-hover: #4a4a4f;
+  --color-panel-btn-active: #6c47ff;
   --color-panel-label: #9ca3af;
-  --color-panel-text: #ffffff;
-  --color-panel-divider: #333333;
-  --color-panel-slider: #333333;
+  --color-panel-text: #e8e8e8;
+  --color-panel-divider: #3f3f46;
+  --color-panel-slider: #4a4a4f;
+  --color-panel-menu-active: #47326d;
 
-  --color-canvas-bg: #121112;
+  --color-canvas-bg: #202022;
+  --color-hint-bg: #4d4d4f;
+  --color-hint-text: #9ca3af;
 }
 
 .canvas-zoom-transition {

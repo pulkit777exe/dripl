@@ -153,10 +153,10 @@ export function CanvasToolbar() {
   }, [setActiveTool, undo, redo]);
 
   return (
-    <div className="absolute top-6 left-1/2 -translate-x-1/2 p-1.5 rounded-xl border shadow-2xl flex items-center gap-0.5 z-50 bg-(--color-toolbar-bg) border-(--color-toolbar-border) pointer-events-auto">
+    <div className="absolute top-6 left-1/2 -translate-x-1/2 p-1.5 rounded-lg border shadow-lg flex items-center gap-0.5 z-50 bg-toolbar-bg border-toolbar-border pointer-events-auto">
       {/* Lock button (non-interactive) */}
       <button
-        className="p-2 rounded-lg text-(--color-tool-inactive-text) cursor-default"
+        className="p-2 rounded-md text-tool-inactive-text cursor-default"
         disabled
         aria-label="Lock"
       >
@@ -164,7 +164,7 @@ export function CanvasToolbar() {
       </button>
 
       {/* Separator */}
-      <div className="w-px h-6 bg-(--color-toolbar-divider) mx-1.5" />
+      <div className="w-px h-6 bg-toolbar-divider mx-1.5" />
 
       {/* Core tools */}
       {tools.map((tool) => {
@@ -177,11 +177,11 @@ export function CanvasToolbar() {
             key={tool.id}
             onClick={() => setActiveTool(tool.id as any)}
             className={`
-              relative p-2 rounded-lg transition-colors
+              relative p-2 rounded-md transition-colors duration-150
               ${
                 isActive
-                  ? "bg-(--color-tool-active-bg) text-(--color-tool-active-text)"
-                  : "text-(--color-tool-inactive-text) hover:bg-(--color-tool-hover-bg)"
+                  ? "bg-tool-active-bg text-tool-active-text"
+                  : "text-tool-inactive-text hover:bg-tool-hover-bg"
               }
             `}
             title={`${tool.label} (${tool.shortcuts.join(" or ")})`}
@@ -196,7 +196,7 @@ export function CanvasToolbar() {
               <Icon size={19} />
             )}
             {tool.numericShortcut && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[10px] font-mono text-(--color-tool-inactive-text) leading-none">
+              <span className="absolute -bottom-0.5 -right-0.5 text-[10px] font-mono text-tool-inactive-text leading-none opacity-80">
                 {tool.numericShortcut}
               </span>
             )}

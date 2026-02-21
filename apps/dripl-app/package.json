@@ -15,6 +15,7 @@
     "@dripl/dripl": "workspace:*",
     "@dripl/element": "workspace:*",
     "@dripl/math": "workspace:*",
+    "@dripl/runtime": "workspace:*",
     "@dripl/utils": "workspace:*",
     "@google/generative-ai": "^0.24.1",
     "@lottiefiles/dotlottie-react": "^0.17.13",
