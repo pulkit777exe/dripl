@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { LocalStorageAdapter } from "./storage";
+import { LocalStorageAdapter, StorageError } from "./storage";
 import type { DriplElement } from "@dripl/common";
 
 describe("utils/storage", () => {
@@ -63,7 +63,8 @@ describe("utils/storage", () => {
         throw mockError;
       });
 
-      await expect(adapter.save(testElements)).rejects.toThrow(mockError);
+      await expect(adapter.save(testElements)).rejects.toThrow(StorageError);
+      await expect(adapter.save(testElements)).rejects.toThrow("Failed to save elements");
     });
 
     it("should load elements from localStorage", async () => {
@@ -89,15 +90,15 @@ describe("utils/storage", () => {
       expect(loadedElements).toEqual(testElements);
     });
 
-    it("should return empty array when load operation fails", async () => {
+    it("should throw error when load operation fails", async () => {
       const adapter = new LocalStorageAdapter("test-dripl-data");
       const mockError = new Error("Storage access denied");
       ((global as any).localStorage.getItem as vi.Mock).mockImplementation(() => {
         throw mockError;
       });
 
-      const loadedElements = await adapter.load();
-      expect(loadedElements).toEqual([]);
+      await expect(adapter.load()).rejects.toThrow(StorageError);
+      await expect(adapter.load()).rejects.toThrow("Failed to load elements");
     });
 
     it("should return empty array if no data in localStorage", async () => {
