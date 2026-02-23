@@ -1,4 +1,5 @@
 import { IconButtonProps } from "@/eraser";
+import { cn } from "@/lib/utils";
 
 export const IconButton: React.FC<IconButtonProps> = ({
   icon,
@@ -6,18 +7,21 @@ export const IconButton: React.FC<IconButtonProps> = ({
   onClick,
   className = "",
 }) => {
+  const handleClick = () => {
+    console.log("IconButton clicked", icon);
+    if (onClick) onClick();
+  };
+
   return (
     <button
-      onClick={onClick}
-      className={`
-        p-2 rounded-lg transition-colors flex items-center justify-center
-        ${
-          isActive
-            ? "bg-[#403c66] text-[#a8a5ff]"
-            : "hover:bg-[#31303b] text-gray-400"
-        }
-        ${className}
-      `}
+      onClick={handleClick}
+      className={cn(
+        "p-2 rounded-lg transition-colors flex items-center justify-center",
+        isActive 
+          ? "bg-(--color-tool-active-bg) text-(--color-tool-active-text)" 
+          : "hover:bg-(--color-tool-hover-bg) text-(--color-tool-inactive-text) hover:text-(--color-tool-hover-text)",
+        className
+      )}
     >
       {icon}
     </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import type { DriplElement } from "@dripl/common";
 
 import RoughCanvas from "@/components/canvas/RoughCanvas";
@@ -82,6 +83,26 @@ function applyAppStateToStore(appState: Partial<LocalCanvasState> | null) {
 
 export function CanvasBootstrap(props: CanvasBootstrapProps) {
   const { theme } = props;
+  const { resolvedTheme } = useTheme();
+
+  // Keep the default stroke colour in sync with the active theme so new
+  // elements are visible on the canvas without the user having to pick a
+  // colour manually (dark → white, light → near-black, matching Excalidraw).
+  useEffect(() => {
+    const isDark = resolvedTheme === "dark";
+    const store = useCanvasStore.getState();
+    // Only update if the user hasn't chosen a custom colour yet (still one of
+    // the automatic defaults).
+    const current = store.currentStrokeColor;
+    if (
+      current === "#000000" ||
+      current === "#1e1e1e" ||
+      current === "#ffffff"
+    ) {
+      store.setCurrentStrokeColor(isDark ? "#ffffff" : "#1e1e1e");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedTheme]);
 
   const setElements = useCanvasStore((state) => state.setElements);
   const setSelectedIds = useCanvasStore((state) => state.setSelectedIds);
@@ -123,8 +144,11 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
 
     const bootstrap = async () => {
       if (mode === "local") {
-        const { elements, appState, selectedIds: loadedSelectedIds } =
-          loadLocalCanvasFromStorage();
+        const {
+          elements,
+          appState,
+          selectedIds: loadedSelectedIds,
+        } = loadLocalCanvasFromStorage();
 
         const initialElements = elements as DriplElement[] | null;
 
@@ -251,7 +275,8 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
           // we'll use a promise to wait for the user's decision.
           const shouldOverride = await new Promise<boolean>((resolve) => {
             const modal = document.createElement("div");
-            modal.className = "fixed inset-0 bg-black/60 z-100 flex items-center justify-center p-4";
+            modal.className =
+              "fixed inset-0 bg-black/60 z-100 flex items-center justify-center p-4";
             modal.innerHTML = `
               <div class="w-full max-w-2xl bg-[#232329] rounded-xl border border-[#3f3f46] shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
                 <div class="flex justify-between items-center p-6 border-b border-[#3f3f46]">
@@ -328,30 +353,40 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
               document.body.removeChild(modal);
             });
 
-            modal.querySelector(".cancel-btn")?.addEventListener("click", () => {
-              resolve(false);
-              document.body.removeChild(modal);
-            });
+            modal
+              .querySelector(".cancel-btn")
+              ?.addEventListener("click", () => {
+                resolve(false);
+                document.body.removeChild(modal);
+              });
 
-            modal.querySelector(".replace-btn")?.addEventListener("click", () => {
-              resolve(true);
-              document.body.removeChild(modal);
-            });
+            modal
+              .querySelector(".replace-btn")
+              ?.addEventListener("click", () => {
+                resolve(true);
+                document.body.removeChild(modal);
+              });
 
-            modal.querySelector(".export-image-btn")?.addEventListener("click", () => {
-              // In a real app, this would trigger an export
-              alert("Export as image functionality coming soon!");
-            });
+            modal
+              .querySelector(".export-image-btn")
+              ?.addEventListener("click", () => {
+                // In a real app, this would trigger an export
+                alert("Export as image functionality coming soon!");
+              });
 
-            modal.querySelector(".save-disk-btn")?.addEventListener("click", () => {
-              // In a real app, this would trigger a save to disk
-              alert("Save to disk functionality coming soon!");
-            });
+            modal
+              .querySelector(".save-disk-btn")
+              ?.addEventListener("click", () => {
+                // In a real app, this would trigger a save to disk
+                alert("Save to disk functionality coming soon!");
+              });
 
-            modal.querySelector(".export-cloud-btn")?.addEventListener("click", () => {
-              // In a real app, this would trigger a cloud export
-              alert("Export to Dripl+ functionality coming soon!");
-            });
+            modal
+              .querySelector(".export-cloud-btn")
+              ?.addEventListener("click", () => {
+                // In a real app, this would trigger a cloud export
+                alert("Export to Dripl+ functionality coming soon!");
+              });
 
             // Close on outside click
             modal.addEventListener("click", (e) => {
@@ -407,4 +442,3 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
     <RoughCanvas roomSlug={mode === "room" ? roomSlug : null} theme={theme} />
   );
 }
-

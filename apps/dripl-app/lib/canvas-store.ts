@@ -143,7 +143,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   panX: 0,
   panY: 0,
 
-  currentStrokeColor: "#000000",
+  currentStrokeColor: "#1e1e1e",
   currentBackgroundColor: "transparent",
   currentStrokeWidth: 2,
   currentRoughness: 1,

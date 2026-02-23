@@ -27,21 +27,22 @@ interface ElementPropertiesProps {
 }
 
 const STROKE_COLORS = [
-  "#6965db",
-  "#e03131",
-  "#2f9e44",
-  "#1971c2",
-  "#f08c00",
-  "#ffffff",
+  "#1e1e1e", // Near-black (Excalidraw default in light)
+  "#e03131", // Red
+  "#2f9e44", // Green
+  "#1971c2", // Blue
+  "#f08c00", // Orange
+  "#6965db", // Purple
+  "#ffffff", // White (visible in dark mode)
 ];
 
 const BACKGROUND_COLORS = [
   "transparent",
-  "#6965db",
-  "#1971c2",
-  "#2f9e44",
-  "#f08c00",
-  "#e03131",
+  "#ffc9c9", // Light red
+  "#b2f2bb", // Light green
+  "#a5d8ff", // Light blue
+  "#ffec99", // Light yellow
+  "#e0dcff", // Light purple
 ];
 
 const SHAPE_PROPERTIES = {
@@ -234,7 +235,7 @@ export function PropertiesPanel({
 
         {(!selectedElement || showProp("strokeWidth")) && (
           <div className="space-y-1.5">
-            <label className="text-xs text-panel-label font-medium ">
+            <label className="text-xs text-panel-label font-medium">
               Stroke width
             </label>
             <div className="flex gap-1">
@@ -248,12 +249,12 @@ export function PropertiesPanel({
                   }
                   className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                     strokeWidth === width
-                      ? "bg-[var(--color-panel-btn-active)]"
-                      : "bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]"
+                      ? "bg-panel-btn-active"
+                      : "bg-panel-btn-bg hover:bg-panel-btn-hover"
                   }`}
                 >
                   <div
-                    className="bg-white rounded-full"
+                    className="bg-panel-text rounded-full"
                     style={{ width: width * 2 + 4, height: width + 1 }}
                   />
                 </button>
@@ -264,7 +265,7 @@ export function PropertiesPanel({
 
         {(!selectedElement || showProp("strokeStyle")) && (
           <div className="space-y-1.5">
-            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+            <label className="text-xs text-panel-label font-medium">
               Stroke style
             </label>
             <div className="flex gap-1">
@@ -278,15 +279,13 @@ export function PropertiesPanel({
                   }
                   className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                     strokeStyle === style
-                      ? "hover:bg-(--color-panel-btn-hover)"
-                      : "bg-(--color-panel-btn-hover) hover:bg-(--color-panel-btn-hover)"
+                      ? "bg-panel-btn-active"
+                      : "bg-panel-btn-bg hover:bg-panel-btn-hover"
                   }`}
                 >
                   <div
-                    className="w-5 border-t-2 border-(--color-panel-text)"
-                    style={{
-                      borderStyle: style,
-                    }}
+                    className="w-5 border-t-2 border-panel-text"
+                    style={{ borderStyle: style }}
                   />
                 </button>
               ))}
@@ -296,7 +295,7 @@ export function PropertiesPanel({
 
         {(!selectedElement || showProp("sloppiness")) && (
           <div className="space-y-1.5">
-            <label className="text-xs text-(--color-panel-label) font-medium">
+            <label className="text-xs text-panel-label font-medium">
               Sloppiness
             </label>
             <div className="flex gap-1">
@@ -310,8 +309,8 @@ export function PropertiesPanel({
                   }
                   className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                     roughness === level
-                      ? "bg-(--color-panel-btn-hover)"
-                      : "bg-(--color-panel-btn-hover) hover:bg-(--color-panel-btn-hover)"
+                      ? "bg-panel-btn-active"
+                      : "bg-panel-btn-bg hover:bg-panel-btn-hover"
                   }`}
                 >
                   <svg
@@ -336,7 +335,7 @@ export function PropertiesPanel({
 
         {showProp("edges") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+            <label className="text-xs text--(--color-panel-label) font-medium">
               Edges
             </label>
             <div className="flex gap-1">
@@ -346,7 +345,7 @@ export function PropertiesPanel({
                   onClick={() => updateElementProperty("edges", edge)}
                   className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                     (selectedElement as any)?.edges === edge
-                      ? "bg-[var(--color-panel-btn-active)]"
+                      ? "bg--(--color-panel-btn-active)"
                       : "bg-panel-btn-bg  hover:bg-panel-btn-hover "
                   }`}
                 >
@@ -363,7 +362,7 @@ export function PropertiesPanel({
 
         {showProp("arrowType") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+            <label className="text-xs text--(--color-panel-label) font-medium">
               Arrow type
             </label>
             <div className="flex gap-1">
@@ -373,7 +372,7 @@ export function PropertiesPanel({
                   onClick={() => updateElementProperty("arrowType", type)}
                   className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                     (selectedElement as any)?.arrowType === type
-                      ? "bg-[var(--color-panel-btn-active)]"
+                      ? "bg--(--color-panel-btn-active)"
                       : "bg-panel-btn-bg  hover:bg-panel-btn-hover "
                   }`}
                 >
@@ -399,7 +398,7 @@ export function PropertiesPanel({
 
         {showProp("arrowheads") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+            <label className="text-xs text--(--color-panel-label) font-medium">
               Arrowheads
             </label>
             <div className="flex gap-1">
@@ -412,14 +411,12 @@ export function PropertiesPanel({
                 }
                 className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                   (selectedElement as any)?.startArrowhead
-                    ? "bg-[var(--color-panel-btn-active)]"
+                    ? "bg--(--color-panel-btn-active)"
                     : "bg-panel-btn-bg  hover:bg-panel-btn-hover "
                 }`}
                 title="Start arrowhead"
               >
-                <span className="text-xs text-panel-text ">
-                  ←o
-                </span>
+                <span className="text-xs text-panel-text ">←o</span>
               </button>
               <button
                 onClick={() =>
@@ -430,14 +427,12 @@ export function PropertiesPanel({
                 }
                 className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
                   (selectedElement as any)?.endArrowhead !== false
-                    ? "bg-[var(--color-panel-btn-active)]"
+                    ? "bg--(--color-panel-btn-active)"
                     : "bg-panel-btn-bg  hover:bg-panel-btn-hover "
                 }`}
                 title="End arrowhead"
               >
-                <span className="text-xs text-panel-text ">
-                  o→
-                </span>
+                <span className="text-xs text-panel-text ">o→</span>
               </button>
             </div>
           </div>
@@ -446,10 +441,10 @@ export function PropertiesPanel({
         {(!selectedElement || showProp("opacity")) && (
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
-              <label className="text-xs text-[var(--color-panel-label)] font-medium">
+              <label className="text-xs text--(--color-panel-label) font-medium">
                 Opacity
               </label>
-              <span className="text-xs text-[var(--color-panel-label)]">
+              <span className="text-xs text--(--color-panel-label)">
                 {Math.round(opacity * 100)}
               </span>
             </div>
@@ -466,14 +461,14 @@ export function PropertiesPanel({
                     )
                   : null
               }
-              className="w-full h-1.5 bg-[var(--color-panel-slider)] rounded-lg appearance-none cursor-pointer accent-[var(--color-panel-btn-active)]"
+              className="w-full h-1.5 bg--(--color-panel-slider) rounded-lg appearance-none cursor-pointer accent--(--color-panel-btn-active)"
             />
           </div>
         )}
 
         {showProp("layers") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+            <label className="text-xs text--(--color-panel-label) font-medium">
               Layers
             </label>
             <div className="flex gap-1">
@@ -487,10 +482,7 @@ export function PropertiesPanel({
                 className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Send to back"
               >
-                <ChevronsDown
-                  size={14}
-                  className="text-panel-text "
-                />
+                <ChevronsDown size={14} className="text-panel-text " />
               </button>
               <button
                 onClick={() =>
@@ -502,10 +494,7 @@ export function PropertiesPanel({
                 className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Send backward"
               >
-                <ChevronDown
-                  size={14}
-                  className="text-panel-text "
-                />
+                <ChevronDown size={14} className="text-panel-text " />
               </button>
               <button
                 onClick={() =>
@@ -517,10 +506,7 @@ export function PropertiesPanel({
                 className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Bring forward"
               >
-                <ChevronUp
-                  size={14}
-                  className="text-panel-text "
-                />
+                <ChevronUp size={14} className="text-panel-text " />
               </button>
               <button
                 onClick={() =>
@@ -532,10 +518,7 @@ export function PropertiesPanel({
                 className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Bring to front"
               >
-                <ChevronsUp
-                  size={14}
-                  className="text-panel-text "
-                />
+                <ChevronsUp size={14} className="text-panel-text " />
               </button>
             </div>
           </div>
@@ -543,7 +526,7 @@ export function PropertiesPanel({
 
         {showProp("align") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+            <label className="text-xs text--(--color-panel-label) font-medium">
               Align
             </label>
             <div className="flex gap-1 flex-wrap">
@@ -551,28 +534,19 @@ export function PropertiesPanel({
                 className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Align left"
               >
-                <AlignLeft
-                  size={14}
-                  className="text-panel-text "
-                />
+                <AlignLeft size={14} className="text-panel-text " />
               </button>
               <button
                 className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Align center"
               >
-                <AlignCenter
-                  size={14}
-                  className="text-panel-text "
-                />
+                <AlignCenter size={14} className="text-panel-text " />
               </button>
               <button
                 className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Align right"
               >
-                <AlignRight
-                  size={14}
-                  className="text-panel-text "
-                />
+                <AlignRight size={14} className="text-panel-text " />
               </button>
               <button
                 className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
@@ -589,7 +563,7 @@ export function PropertiesPanel({
 
         {showProp("actions") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-[var(--color-panel-label)] font-medium">
+            <label className="text-xs text--(--color-panel-label) font-medium">
               Actions
             </label>
             <div className="flex gap-1">
@@ -612,10 +586,7 @@ export function PropertiesPanel({
                 className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Export"
               >
-                <Download
-                  size={14}
-                  className="text-panel-text "
-                />
+                <Download size={14} className="text-panel-text " />
               </button>
             </div>
           </div>
@@ -625,7 +596,7 @@ export function PropertiesPanel({
           <div className="pt-2 border-t border-panel-divider ">
             <button
               onClick={() => setShowExportModal(true)}
-              className="w-full flex items-center justify-center gap-2 p-2 bg-panel-btn-bg  text-[var(--color-panel-label)] border border-[var(--color-panel-border)] rounded-lg hover:bg-panel-btn-hover  transition-colors text-xs"
+              className="w-full flex items-center justify-center gap-2 p-2 bg-panel-btn-bg  text--(--color-panel-label) border border--(--color-panel-border) rounded-lg hover:bg-panel-btn-hover  transition-colors text-xs"
             >
               <Download className="w-4 h-4" />
               Export

@@ -60,7 +60,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     setContainerReady(!!el);
   }, []);
 
-  const [userName, setUserName] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>("Test User");
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -468,6 +468,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    console.log("handlePointerDown called", e.target, activeTool);
     // Check if event is from a UI element by checking if the target is not the canvas
     const target = e.target as HTMLElement;
     if (target.classList.contains('pointer-events-auto')) {
@@ -520,7 +521,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (activeTool === "text") {
+     if (activeTool === "text") {
+      console.log("Text tool activated, creating text input at", x, y);
       const id = uuidv4();
       setTextInput({ x, y, id });
       return;
@@ -958,6 +960,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   };
 
   const handleTextSubmit = (text: string) => {
+    console.log("handleTextSubmit called with text:", text);
     if (!textInput || !text.trim()) {
       setTextInput(null);
       return;
@@ -1078,18 +1081,27 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       {textInput && (
         <textarea
-          autoFocus
-          className="absolute border-2 border-blue-500 bg-transparent outline-none resize-none"
+          ref={(el) => el?.focus()}
+          className="absolute border-2 border-blue-500 bg-white outline-none resize-none"
           style={{
-            left: `${textInput.x * zoom + panX}px`,
-            top: `${textInput.y * zoom + panY}px`,
+            left: `${textInput.x}px`,
+            top: `${textInput.y}px`,
             fontSize: "16px",
             fontFamily: "Inter",
-            color: currentStrokeColor,
+            color: "black",
             minWidth: "200px",
             minHeight: "24px",
+            zIndex: 1000,
           }}
-          onBlur={(e) => handleTextSubmit(e.target.value)}
+          onBlur={(e) => {
+            console.log("Textarea blurred with text:", e.target.value);
+            // Don't immediately submit empty text - this prevents the textarea
+            // from closing before user can start typing
+            if (e.target.value.trim()) {
+              handleTextSubmit(e.target.value);
+            }
+            // If empty, we keep the textarea open
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -1099,6 +1111,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
               setTextInput(null);
             }
           }}
+          placeholder="Type text..."
         />
       )}
 

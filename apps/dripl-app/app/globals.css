@@ -1,132 +1,123 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Light mode: Excalidraw-style — canvas white, UI light grey, accent purple */
-@theme inline {
-  --color-background: #f0f0f0;
-  --color-foreground: #333333;
-  --color-card: #ffffff;
-  --color-card-foreground: #333333;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #333333;
-  --color-primary: #6b46c1;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #f0f0f0;
-  --color-secondary-foreground: #333333;
-  --color-muted: #f0f0f0;
-  --color-muted-foreground: #6b7280;
-  --color-accent: #f0f0f0;
-  --color-accent-foreground: #333333;
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #ffffff;
-  --color-border: #e5e5e5;
-  --color-input: #e5e5e5;
-  --color-ring: #6b46c1;
-
-  --color-toolbar-bg: #f0f0f0;
-  --color-toolbar-border: #e5e5e5;
-  --color-toolbar-divider: #e5e5e5;
-  --color-tool-active-bg: #e0ccff;
-  --color-tool-active-text: #6b46c1;
-  --color-tool-inactive-text: #333333;
-  --color-tool-hover-bg: #e5e5e5;
-  --color-tool-hover-text: #333333;
-  --color-tool-active-shadow: rgba(107, 70, 193, 0.15);
-
-  --color-panel-bg: #f0f0f0;
-  --color-panel-border: #e5e5e5;
-  --color-panel-btn-bg: #e5e5e5;
-  --color-panel-btn-hover: #d1d5db;
-  --color-panel-btn-active: #6b46c1;
-  --color-panel-label: #6b7280;
-  --color-panel-text: #333333;
-  --color-panel-divider: #e5e5e5;
-  --color-panel-slider: #d1d5db;
-  --color-panel-menu-active: #e0ccff;
-
-  --color-canvas-bg: #ffffff;
-  --color-hint-bg: #e5e5e5;
-  --color-hint-text: #6b7280;
-  --color-panel-menu-active: #e0ccff;
+/* ─── Typography: Caveat (Wimpy Kid / hand-drawn look) ────────────────────── */
+html,
+body,
+* {
+  font-family: var(--font-caveat), "Caveat", cursive;
 }
 
+/* ─── Light mode (default) ────────────────────────────────────────────────── */
+/* Matches Excalidraw: white canvas, light-grey UI chrome, indigo accent       */
 :root {
-  --color-toolbar-bg: #f0f0f0;
-  --color-toolbar-border: #e5e5e5;
-  --color-toolbar-divider: #e5e5e5;
-  --color-tool-active-bg: #e0ccff;
-  --color-tool-active-text: #6b46c1;
-  --color-tool-inactive-text: #333333;
-  --color-tool-hover-bg: #e5e5e5;
-  --color-tool-hover-text: #333333;
-  --color-tool-active-shadow: rgba(107, 70, 193, 0.15);
+  --color-background:            #f5f5f5;
+  --color-foreground:            #1e1e1e;
+  --color-card:                  #ffffff;
+  --color-card-foreground:       #1e1e1e;
+  --color-popover:               #ffffff;
+  --color-popover-foreground:    #1e1e1e;
+  --color-primary:               #6965db;
+  --color-primary-foreground:    #ffffff;
+  --color-secondary:             #ececec;
+  --color-secondary-foreground:  #1e1e1e;
+  --color-muted:                 #ececec;
+  --color-muted-foreground:      #6b7280;
+  --color-accent:                #ececec;
+  --color-accent-foreground:     #1e1e1e;
+  --color-destructive:           #e03131;
+  --color-destructive-foreground:#ffffff;
+  --color-border:                #e0e0e0;
+  --color-input:                 #e0e0e0;
+  --color-ring:                  #6965db;
 
-  --color-panel-bg: #f0f0f0;
-  --color-panel-border: #e5e5e5;
-  --color-panel-btn-bg: #e5e5e5;
-  --color-panel-btn-hover: #d1d5db;
-  --color-panel-btn-active: #6b46c1;
-  --color-panel-label: #6b7280;
-  --color-panel-text: #333333;
-  --color-panel-divider: #e5e5e5;
-  --color-panel-slider: #d1d5db;
-  --color-panel-menu-active: #e0ccff;
+  /* Toolbar */
+  --color-toolbar-bg:            #ffffff;
+  --color-toolbar-border:        #e0e0e0;
+  --color-toolbar-divider:       #e0e0e0;
+  --color-tool-active-bg:        #e0dcff;
+  --color-tool-active-text:      #6965db;
+  --color-tool-inactive-text:    #1e1e1e;
+  --color-tool-hover-bg:         #ececec;
+  --color-tool-hover-text:       #1e1e1e;
+  --color-tool-active-shadow:    rgba(105, 101, 219, 0.18);
 
-  --color-canvas-bg: #ffffff;
-  --color-hint-bg: #e5e5e5;
-  --color-hint-text: #6b7280;
+  /* Side panel */
+  --color-panel-bg:              #ffffff;
+  --color-panel-border:          #e0e0e0;
+  --color-panel-btn-bg:          #ececec;
+  --color-panel-btn-hover:       #dcdcdc;
+  --color-panel-btn-active:      #6965db;
+  --color-panel-label:           #6b7280;
+  --color-panel-text:            #1e1e1e;
+  --color-panel-divider:         #e0e0e0;
+  --color-panel-slider:          #d1d5db;
+  --color-panel-menu-active:     #e0dcff;
+
+  --color-canvas-bg:             #ffffff;
+  --color-hint-bg:               #e0e0e0;
+  --color-hint-text:             #6b7280;
+
+  /* Default new-element stroke (visible on white canvas) */
+  --color-default-stroke:        #1e1e1e;
 }
 
-/* Dark mode: Excalidraw-style — canvas #202022, UI #2E2E30, accent #6C47FF / #8A5CF6
-   Apply when html has class "dark" (set by next-themes). */
+/* ─── Dark mode ────────────────────────────────────────────────────────────── */
+/* Matches Excalidraw dark: canvas #1e1e1e, UI #232329, accent #6965db         */
 .dark,
 html.dark {
-  --color-background: #1b1c1e;
-  --color-foreground: #e8e8e8;
-  --color-card: #2e2e30;
-  --color-card-foreground: #e8e8e8;
-  --color-popover: #2e2e30;
-  --color-popover-foreground: #e8e8e8;
-  --color-primary: #6c47ff;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #2e2e30;
-  --color-secondary-foreground: #e8e8e8;
-  --color-muted: #2e2e30;
-  --color-muted-foreground: #9ca3af;
-  --color-accent: #31303b;
-  --color-accent-foreground: #e8e8e8;
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #ffffff;
-  --color-border: #3f3f46;
-  --color-input: #3f3f46;
-  --color-ring: #6c47ff;
+  --color-background:            #121212;
+  --color-foreground:            #e8e8e8;
+  --color-card:                  #232329;
+  --color-card-foreground:       #e8e8e8;
+  --color-popover:               #232329;
+  --color-popover-foreground:    #e8e8e8;
+  --color-primary:               #7c7cf8;
+  --color-primary-foreground:    #ffffff;
+  --color-secondary:             #2a2a2f;
+  --color-secondary-foreground:  #e8e8e8;
+  --color-muted:                 #2a2a2f;
+  --color-muted-foreground:      #9ca3af;
+  --color-accent:                #2e2e35;
+  --color-accent-foreground:     #e8e8e8;
+  --color-destructive:           #e03131;
+  --color-destructive-foreground:#ffffff;
+  --color-border:                #373740;
+  --color-input:                 #373740;
+  --color-ring:                  #7c7cf8;
 
-  --color-toolbar-bg: #2e2e30;
-  --color-toolbar-border: #3f3f46;
-  --color-toolbar-divider: #3f3f46;
-  --color-tool-active-bg: #6c47ff;
-  --color-tool-active-text: #ffffff;
-  --color-tool-inactive-text: #e8e8e8;
-  --color-tool-hover-bg: #3f3f46;
-  --color-tool-hover-text: #e8e8e8;
-  --color-tool-active-shadow: rgba(108, 71, 255, 0.25);
+  /* Toolbar */
+  --color-toolbar-bg:            #232329;
+  --color-toolbar-border:        #373740;
+  --color-toolbar-divider:       #373740;
+  --color-tool-active-bg:        #403e6b;
+  --color-tool-active-text:      #c5c3f9;
+  --color-tool-inactive-text:    #e8e8e8;
+  --color-tool-hover-bg:         #2e2e35;
+  --color-tool-hover-text:       #e8e8e8;
+  --color-tool-active-shadow:    rgba(124, 124, 248, 0.25);
 
-  --color-panel-bg: #2e2e30;
-  --color-panel-border: #3f3f46;
-  --color-panel-btn-bg: #3f3f46;
-  --color-panel-btn-hover: #4a4a4f;
-  --color-panel-btn-active: #6c47ff;
-  --color-panel-label: #9ca3af;
-  --color-panel-text: #e8e8e8;
-  --color-panel-divider: #3f3f46;
-  --color-panel-slider: #4a4a4f;
-  --color-panel-menu-active: #47326d;
+  /* Side panel */
+  --color-panel-bg:              #232329;
+  --color-panel-border:          #373740;
+  --color-panel-btn-bg:          #2e2e35;
+  --color-panel-btn-hover:       #3a3a45;
+  --color-panel-btn-active:      #6965db;
+  --color-panel-label:           #9ca3af;
+  --color-panel-text:            #e8e8e8;
+  --color-panel-divider:         #373740;
+  --color-panel-slider:          #3a3a45;
+  --color-panel-menu-active:     #323056;
 
-  --color-canvas-bg: #202022;
-  --color-hint-bg: #4d4d4f;
-  --color-hint-text: #9ca3af;
+  --color-canvas-bg:             #1e1e1e;
+  --color-hint-bg:               #373740;
+  --color-hint-text:             #9ca3af;
+
+  /* Default new-element stroke (visible on dark canvas) */
+  --color-default-stroke:        #ffffff;
 }
 
+/* ─── Micro-interactions ──────────────────────────────────────────────────── */
 .canvas-zoom-transition {
   transition: transform 0.15s ease-out;
 }

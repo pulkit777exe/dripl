@@ -251,6 +251,7 @@ function drawFreedraw(
 }
 
 function drawText(ctx: CanvasRenderingContext2D, element: DriplElement): void {
+  console.log("drawText called with element:", element);
   if (!element.text) return;
 
   const fontSize = element.fontSize || 16;

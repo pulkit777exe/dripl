@@ -70,7 +70,7 @@ import { MenuSeparator } from "./MenuSeparator";
 import HelpModal from "./HelpModal";
 
 export default function App() {
-  const [activeTool, setActiveTool] = useState("select");
+  const [activeTool, setActiveTool] = useState("text");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -376,25 +376,28 @@ export default function App() {
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      console.log("handleMouseDown triggered", e.button);
+      console.log("handleMouseDown triggered", e.button, "Active tool:", activeTool);
+      const toolToUse = activeTool;
+      
+      const canvasPoint = getCanvasPoint(e);
       const point = getCanvasPoint(e);
 
-      if (activeTool === "hand") {
+      if (toolToUse === "hand") {
         setIsPanning(true);
-        setPanStart(point);
+        setPanStart(canvasPoint);
         return;
       }
 
-      if (activeTool === "eraser") {
-        eraserTrailRef.current?.startPath(point.x, point.y);
+      if (toolToUse === "eraser") {
+        eraserTrailRef.current?.startPath(canvasPoint.x, canvasPoint.y);
         setIsDrawing(true);
         return;
       }
 
-      if (activeTool === "select") {
+      if (toolToUse === "select") {
         const clickedElement = [...elements]
           .reverse()
-          .find((el) => isPointInElement(point, el));
+          .find((el) => isPointInElement(canvasPoint, el));
 
         if (clickedElement) {
           if (e.shiftKey) {
@@ -409,13 +412,13 @@ export default function App() {
       }
 
       setIsDrawing(true);
-      setStartPoint(point);
+      setStartPoint(canvasPoint);
 
       const newElement: DriplElement = {
         id: generateId(),
-        type: activeTool as any,
-        x: point.x,
-        y: point.y,
+        type: toolToUse as any,
+        x: canvasPoint.x,
+        y: canvasPoint.y,
         width: 0,
         height: 0,
         strokeColor,
@@ -425,10 +428,10 @@ export default function App() {
         opacity,
         roughness: sloppiness,
         roundness: edges === "round" ? 1 : 0,
-        points: ["arrow", "line", "freedraw"].includes(activeTool)
-          ? [point]
+        points: ["arrow", "line", "freedraw"].includes(toolToUse)
+          ? [canvasPoint]
           : undefined,
-        text: activeTool === "text" ? "Text" : undefined,
+        text: toolToUse === "text" ? "Text" : undefined,
         fontSize: 16,
         fontFamily: "Arial",
       };
@@ -721,14 +724,25 @@ export default function App() {
       return;
     }
 
-    if (isDrawing && currentElement) {
+     console.log("handleMouseUp called", isDrawing, currentElement);
+     if (isDrawing && currentElement) {
       const hasSize =
+        currentElement.type === "text" ||
         currentElement.width > 5 ||
         currentElement.height > 5 ||
         (currentElement.points && currentElement.points.length > 1);
 
       if (hasSize) {
-        setElements((prev) => [...prev, currentElement]);
+        // For text elements, set default dimensions if not provided
+        const elementToAdd = currentElement.type === "text" && (!currentElement.width || !currentElement.height) 
+          ? {
+              ...currentElement,
+              width: 200,
+              height: 24
+            }
+          : currentElement;
+          
+        setElements((prev) => [...prev, elementToAdd]);
         saveHistory();
       }
 
@@ -1234,10 +1248,13 @@ export default function App() {
           isActive={activeTool === "draw"}
           onClick={() => setActiveTool("draw")}
         />
-        <IconButton
+         <IconButton
           icon={<Type size={19} />}
           isActive={activeTool === "text"}
-          onClick={() => setActiveTool("text")}
+          onClick={() => {
+            console.log("Text tool button clicked");
+            setActiveTool("text");
+          }}
         />
         <IconButton
           icon={<Image size={19} />}
