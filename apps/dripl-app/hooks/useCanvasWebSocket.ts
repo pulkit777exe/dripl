@@ -5,7 +5,11 @@ import { useCanvasStore } from "@/lib/canvas-store";
 import type { RemoteUser, RemoteCursor } from "@/lib/canvas-store";
 import type { DriplElement } from "@dripl/common";
 import { saveCanvasToIndexedDB } from "@/lib/canvas-db";
-import { ReconciliationManager, reconcileElements, shouldDiscardRemoteElement } from "@/lib/reconciliation";
+import {
+  ReconciliationManager,
+  reconcileElements,
+  shouldDiscardRemoteElement,
+} from "@/lib/reconciliation";
 import type { AppState } from "@/types/canvas";
 
 const SYNC_FULL_SCENE_INTERVAL_MS = 20000;
@@ -87,7 +91,9 @@ export function useCanvasWebSocket(
   const reconnectAttemptsRef = useRef(0);
   const processedMessagesRef = useRef<Set<string>>(new Set());
   const lastMessageTimestampRef = useRef<Map<string, number>>(new Map());
-  const reconciliationManagerRef = useRef<ReconciliationManager>(new ReconciliationManager());
+  const reconciliationManagerRef = useRef<ReconciliationManager>(
+    new ReconciliationManager(),
+  );
   const fullSyncIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastBroadcastedSceneVersionRef = useRef<number>(0);
   const broadcastedElementVersionsRef = useRef<Map<string, number>>(new Map());
@@ -111,20 +117,26 @@ export function useCanvasWebSocket(
         id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         timestamp: Date.now(),
       };
-      
+
       // Track broadcasted elements
       if (message.type === "sync_room_state" && message.elements) {
-        (message.elements as DriplElement[]).forEach(el => {
+        (message.elements as DriplElement[]).forEach((el) => {
           broadcastedElementVersionsRef.current.set(el.id, el.version ?? 0);
         });
       } else if (message.type === "add_element" && message.element) {
         const element = message.element as DriplElement;
-        broadcastedElementVersionsRef.current.set(element.id, element.version ?? 0);
+        broadcastedElementVersionsRef.current.set(
+          element.id,
+          element.version ?? 0,
+        );
       } else if (message.type === "update_element" && message.element) {
         const element = message.element as DriplElement;
-        broadcastedElementVersionsRef.current.set(element.id, element.version ?? 0);
+        broadcastedElementVersionsRef.current.set(
+          element.id,
+          element.version ?? 0,
+        );
       }
-      
+
       wsRef.current.send(JSON.stringify(messageWithId));
     } else {
       console.warn("WebSocket not connected, message not sent:", message.type);
@@ -227,18 +239,29 @@ export function useCanvasWebSocket(
             break;
           }
 
-           case "update_element": {
+          case "update_element": {
             const updateMsg = message as UpdateElementMessage;
             const currentElements = useCanvasStore.getState().elements;
-            const reconciliationResult = reconcileElements(currentElements, [updateMsg.element]);
-            
+            const reconciliationResult = reconcileElements(currentElements, [
+              updateMsg.element,
+            ]);
+
             if (reconciliationResult.accepted.length > 0) {
               reconciliationResult.accepted.forEach((el) => {
                 updateElement(el.id, el);
               });
-              console.log("[Reconciliation] Accepted update for:", updateMsg.element.id, "version:", updateMsg.element.version);
+              console.log(
+                "[Reconciliation] Accepted update for:",
+                updateMsg.element.id,
+                "version:",
+                updateMsg.element.version,
+              );
             } else {
-              console.log("[Reconciliation] Rejected update for:", updateMsg.element.id, "- version too old");
+              console.log(
+                "[Reconciliation] Rejected update for:",
+                updateMsg.element.id,
+                "- version too old",
+              );
             }
             break;
           }
@@ -283,7 +306,7 @@ export function useCanvasWebSocket(
   // Track broadcasted element versions to avoid redundant updates
   // -----------------------------------------------------------------------
   const trackBroadcastedElements = useCallback((elements: DriplElement[]) => {
-    elements.forEach(el => {
+    elements.forEach((el) => {
       broadcastedElementVersionsRef.current.set(el.id, el.version ?? 0);
     });
   }, []);
@@ -291,26 +314,30 @@ export function useCanvasWebSocket(
   // -----------------------------------------------------------------------
   // Get syncable elements - only send elements that have been updated
   // -----------------------------------------------------------------------
-  const getSyncableElements = useCallback((elements: DriplElement[]): DriplElement[] => {
-    return elements.reduce((acc, element) => {
-      const lastBroadcastedVersion = broadcastedElementVersionsRef.current.get(element.id);
-      if (
-        !lastBroadcastedVersion || 
-        (element.version ?? 0) > lastBroadcastedVersion
-      ) {
-        acc.push(element);
-      }
-      return acc;
-    }, [] as DriplElement[]);
-  }, []);
+  const getSyncableElements = useCallback(
+    (elements: DriplElement[]): DriplElement[] => {
+      return elements.reduce((acc, element) => {
+        const lastBroadcastedVersion =
+          broadcastedElementVersionsRef.current.get(element.id);
+        if (
+          !lastBroadcastedVersion ||
+          (element.version ?? 0) > lastBroadcastedVersion
+        ) {
+          acc.push(element);
+        }
+        return acc;
+      }, [] as DriplElement[]);
+    },
+    [],
+  );
 
   const queueBroadcastAllElements = useCallback(() => {
     const currentElements = useCanvasStore.getState().elements;
     const currentVersion = getSceneVersion(currentElements);
-    
+
     if (currentVersion > lastBroadcastedSceneVersionRef.current) {
       const syncableElements = getSyncableElements(currentElements);
-      
+
       if (syncableElements.length > 0) {
         send({
           type: "sync_room_state",

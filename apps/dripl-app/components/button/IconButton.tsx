@@ -17,10 +17,10 @@ export const IconButton: React.FC<IconButtonProps> = ({
       onClick={handleClick}
       className={cn(
         "p-2 rounded-lg transition-colors flex items-center justify-center",
-        isActive 
-          ? "bg-(--color-tool-active-bg) text-(--color-tool-active-text)" 
+        isActive
+          ? "bg-(--color-tool-active-bg) text-(--color-tool-active-text)"
           : "hover:bg-(--color-tool-hover-bg) text-(--color-tool-inactive-text) hover:text-(--color-tool-hover-text)",
-        className
+        className,
       )}
     >
       {icon}

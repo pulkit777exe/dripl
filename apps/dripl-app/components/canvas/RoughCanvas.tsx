@@ -56,7 +56,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const [containerReady, setContainerReady] = useState(false);
 
   const setContainerRef = useCallback((el: HTMLDivElement | null) => {
-    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current =
+      el;
     setContainerReady(!!el);
   }, []);
 
@@ -223,8 +224,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         return;
       }
 
-      const { elements: savedElements, appState, selectedIds: savedSelectedIds } =
-        loadLocalCanvasFromStorage();
+      const {
+        elements: savedElements,
+        appState,
+        selectedIds: savedSelectedIds,
+      } = loadLocalCanvasFromStorage();
 
       if (savedElements && savedElements.length) {
         setElements(savedElements);
@@ -471,7 +475,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     console.log("handlePointerDown called", e.target, activeTool);
     // Check if event is from a UI element by checking if the target is not the canvas
     const target = e.target as HTMLElement;
-    if (target.classList.contains('pointer-events-auto')) {
+    if (target.classList.contains("pointer-events-auto")) {
       return;
     }
 
@@ -521,7 +525,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-     if (activeTool === "text") {
+    if (activeTool === "text") {
       console.log("Text tool activated, creating text input at", x, y);
       const id = uuidv4();
       setTextInput({ x, y, id });
@@ -627,7 +631,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   ) => {
     const coords = getCanvasCoordinates(e);
     const { x, y } = coords;
-    
+
     // Update cursor position for interactive layer
     setCursorPosition(coords);
 
@@ -821,7 +825,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const handlePointerUp = (e?: React.PointerEvent) => {
     // Clear cursor position when pointer is released
     setCursorPosition(null);
-    
+
     if (isPanning) {
       setIsPanning(false);
       setPanStart(null);
@@ -865,7 +869,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
     if (isDragging) {
       if (dragBaseline && dragTotalDelta) {
-        const finalElements = applyDeltaToBaseline(dragBaseline, dragTotalDelta);
+        const finalElements = applyDeltaToBaseline(
+          dragBaseline,
+          dragTotalDelta,
+        );
         const runtimeStore = getRuntimeStore();
         if (runtimeStore) {
           const actions = finalElements.map((el) =>

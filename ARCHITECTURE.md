@@ -75,6 +75,7 @@ The canvas is the heart of Dripl, built as a modular system with multiple layers
 **File**: `apps/dripl-app/lib/canvas-store.ts`
 
 Uses Zustand for state management with:
+
 - Canvas state (zoom, pan, theme)
 - Element management
 - Tool state
@@ -87,6 +88,7 @@ Uses Zustand for state management with:
 **File**: `apps/dripl-app/components/canvas/CanvasControls.tsx`
 
 Provides UI controls for:
+
 - Tool selection
 - Color picker
 - Stroke width
@@ -98,6 +100,7 @@ Provides UI controls for:
 **File**: `packages/element/src/renderer.ts`
 
 Multiple rendering engines:
+
 - **HTML5 Canvas Renderer** - Standard rendering
 - **Rough Renderer** - Hand-drawn style (roughjs)
 - **Vector Renderer** - SVG-based rendering
@@ -107,6 +110,7 @@ Multiple rendering engines:
 **File**: `packages/common/src/types/element.ts`
 
 Supported element types:
+
 - Rectangle
 - Ellipse
 - Diamond
@@ -118,6 +122,7 @@ Supported element types:
 - Frame
 
 Each element type has:
+
 - Properties (x, y, width, height, rotation, opacity)
 - Styling (stroke color, background color, stroke width, roughness)
 - Serialization schema
@@ -133,6 +138,7 @@ Dynamic shape registration system allowing custom shapes to be added without mod
 **File**: `apps/dripl-app/hooks/useDrawingTools.ts`
 
 Available tools:
+
 - Select
 - Hand (pan)
 - Rectangle
@@ -153,6 +159,7 @@ Each tool has state management and event handlers.
 **File**: `apps/dripl-app/hooks/useCanvasWebSocket.ts`
 
 Real-time collaboration via WebSockets:
+
 - User presence detection
 - Remote cursor tracking
 - Real-time element synchronization
@@ -160,6 +167,7 @@ Real-time collaboration via WebSockets:
 - Full scene sync
 
 WebSocket messages:
+
 - `sync_room_state` - Initial room state
 - `user_join` - User joined
 - `user_leave` - User left
@@ -173,6 +181,7 @@ WebSocket messages:
 **File**: `apps/dripl-app/lib/reconciliation.ts`
 
 Handles conflict resolution between local and remote state changes:
+
 - Version tracking
 - Conflict detection
 - Automatic resolution
@@ -185,6 +194,7 @@ Handles conflict resolution between local and remote state changes:
 **File**: `packages/db/prisma/schema.prisma`
 
 Data models:
+
 - User
 - Team
 - File
@@ -210,6 +220,7 @@ Temporary storage for unsaved changes.
 **File**: `apps/dripl-app/utils/canvasHistory.ts`
 
 Undo/Redo functionality with:
+
 - Unlimited history depth
 - Grouped actions
 - Branching history support
@@ -219,6 +230,7 @@ Undo/Redo functionality with:
 **File**: `apps/dripl-app/utils/actionSystem.ts`
 
 Command-based architecture:
+
 - Action registry
 - Action execution
 - Key bindings
@@ -230,6 +242,7 @@ Command-based architecture:
 **File**: `apps/dripl-app/utils/export.ts`
 
 Export formats:
+
 - PNG
 - JSON
 - SVG (planned)
@@ -240,6 +253,7 @@ Export formats:
 **File**: `apps/dripl-app/hooks/useAccessibility.ts`
 
 Accessibility features:
+
 - Keyboard navigation
 - Screen reader support
 - High contrast mode
@@ -272,6 +286,7 @@ Accessibility features:
 **File**: `packages/dripl/src/theme/colors.ts`
 
 Theme system supporting:
+
 - Light mode
 - Dark mode
 - System theme detection
@@ -286,6 +301,7 @@ Theme system supporting:
 **File**: `packages/dripl/src/index.ts`
 
 Reusable components:
+
 - Buttons
 - Cards
 - Canvas components
@@ -299,6 +315,7 @@ Reusable components:
 **File**: `apps/dripl-app/components/canvas/`
 
 Canvas-specific components:
+
 - TopBar
 - Toolbar
 - PropertiesPanel
@@ -358,6 +375,7 @@ Utility modules:
 **File**: `packages/math/src/`
 
 Geometry operations:
+
 - `geometry.ts` - Basic geometric operations
 - `intersection.ts` - Line intersections
 - `collision.ts` - Collision detection
@@ -369,6 +387,7 @@ Geometry operations:
 **File**: `apps/dripl-app/app/context/AuthContext.tsx`
 
 Uses Clerk for authentication:
+
 - Email/password login
 - Social login
 - User profiles
@@ -379,6 +398,7 @@ Uses Clerk for authentication:
 **File**: `packages/dripl/src/theme/`
 
 Theme context and colors definitions:
+
 - `colors.ts` - Color definitions
 - `canvas-colors.ts` - Canvas-specific colors
 - `ThemeContext.tsx` - Theme context
@@ -488,6 +508,7 @@ Available endpoints:
 **File**: `apps/dripl-app/hooks/useCanvasWebSocket.ts`
 
 Real-time communication:
+
 - Room synchronization
 - User presence
 - Cursor tracking

@@ -54,7 +54,7 @@ interface InteractiveCanvasAppState {
 }
 
 const getRelevantAppStateProps = (
-  props: InteractiveCanvasProps
+  props: InteractiveCanvasProps,
 ): InteractiveCanvasAppState => {
   return {
     zoom: props.viewport.zoom,
@@ -73,30 +73,40 @@ const getRelevantAppStateProps = (
 
 const areEqual = (
   prevProps: InteractiveCanvasProps,
-  nextProps: InteractiveCanvasProps
+  nextProps: InteractiveCanvasProps,
 ): boolean => {
   const selectionChanged =
     prevProps.selectedIds.size !== nextProps.selectedIds.size ||
     Array.from(prevProps.selectedIds).some(
-      (id) => !nextProps.selectedIds.has(id)
+      (id) => !nextProps.selectedIds.has(id),
     );
 
   const previewChanged = prevProps.currentPreview !== nextProps.currentPreview;
-  const eraserPathChanged = JSON.stringify(prevProps.eraserPath) !== JSON.stringify(nextProps.eraserPath);
+  const eraserPathChanged =
+    JSON.stringify(prevProps.eraserPath) !==
+    JSON.stringify(nextProps.eraserPath);
 
   const interactiveChanged =
     prevProps.isDragging !== nextProps.isDragging ||
     prevProps.isResizing !== nextProps.isResizing ||
     prevProps.isDrawing !== nextProps.isDrawing ||
-    JSON.stringify(prevProps.marqueeSelection) !== JSON.stringify(nextProps.marqueeSelection) ||
-    JSON.stringify(prevProps.cursorPosition) !== JSON.stringify(nextProps.cursorPosition);
+    JSON.stringify(prevProps.marqueeSelection) !==
+      JSON.stringify(nextProps.marqueeSelection) ||
+    JSON.stringify(prevProps.cursorPosition) !==
+      JSON.stringify(nextProps.cursorPosition);
 
   const viewportChanged =
     prevProps.viewport.x !== nextProps.viewport.x ||
     prevProps.viewport.y !== nextProps.viewport.y ||
     prevProps.viewport.zoom !== nextProps.viewport.zoom;
 
-  if (selectionChanged || previewChanged || eraserPathChanged || interactiveChanged || viewportChanged) {
+  if (
+    selectionChanged ||
+    previewChanged ||
+    eraserPathChanged ||
+    interactiveChanged ||
+    viewportChanged
+  ) {
     return false;
   }
 
@@ -154,7 +164,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   useEffect(() => {
     if (interactiveCanvasRef.current && !interactiveRoughCanvasRef.current) {
       interactiveRoughCanvasRef.current = createRoughCanvas(
-        interactiveCanvasRef.current
+        interactiveCanvasRef.current,
       );
     }
   }, []);
@@ -239,7 +249,10 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
 
         ctx.save();
         ctx.strokeStyle = theme === "dark" ? "#6c47ff" : "#6b46c1";
-        ctx.fillStyle = theme === "dark" ? "rgba(168, 165, 255, 0.1)" : "rgba(99, 102, 241, 0.1)";
+        ctx.fillStyle =
+          theme === "dark"
+            ? "rgba(168, 165, 255, 0.1)"
+            : "rgba(99, 102, 241, 0.1)";
         ctx.lineWidth = 1 / viewport.zoom;
         ctx.setLineDash([4 / viewport.zoom, 4 / viewport.zoom]);
 
@@ -261,13 +274,13 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
 
             const handles = [
               { x: bounds.x, y: bounds.y },
-              { x: bounds.x + bounds.width, y: bounds.y }, 
+              { x: bounds.x + bounds.width, y: bounds.y },
               { x: bounds.x, y: bounds.y + bounds.height },
               { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
               { x: bounds.x + bounds.width / 2, y: bounds.y },
               { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height },
               { x: bounds.x, y: bounds.y + bounds.height / 2 },
-              { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 }, 
+              { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 },
             ];
 
             handles.forEach((handle) => {
@@ -275,7 +288,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
                 handle.x - handleSize / 2,
                 handle.y - handleSize / 2,
                 handleSize,
-                handleSize
+                handleSize,
               );
             });
           }
@@ -292,7 +305,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
 
         const { x, y } = cursorPosition;
         const size = 20 / viewport.zoom;
-        
+
         ctx.beginPath();
         ctx.moveTo(x - size, y);
         ctx.lineTo(x + size, y);
@@ -307,7 +320,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
 
       return state;
     },
-    []
+    [],
   );
 
   useEffect(() => {
@@ -335,7 +348,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       AnimationController.start(
         INTERACTIVE_SCENE_ANIMATION_KEY,
         renderInteractiveScene,
-        {}
+        {},
       );
     }
 

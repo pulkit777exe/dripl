@@ -12,18 +12,18 @@ let pendingRenderCallback: (() => void) | null = null;
  */
 export function throttleRender(callback: () => void): void {
   const now = Date.now();
-  
+
   // If we're within the throttle window, schedule a future call
   if (now - lastRenderTime < RENDER_THROTTLE_MS) {
     // If there's already a pending request, cancel it
     if (pendingRenderCallback) {
       return; // Already scheduled
     }
-    
+
     // Schedule next render after throttle window
     const delay = RENDER_THROTTLE_MS - (now - lastRenderTime);
     pendingRenderCallback = callback;
-    
+
     setTimeout(() => {
       if (pendingRenderCallback === callback) {
         pendingRenderCallback = null;
@@ -43,7 +43,7 @@ export function throttleRender(callback: () => void): void {
  */
 export function throttleRenderRAF(callback: () => void): void {
   const now = Date.now();
-  
+
   if (now - lastRenderTime < RENDER_THROTTLE_MS) {
     if (!pendingRenderCallback) {
       pendingRenderCallback = callback;

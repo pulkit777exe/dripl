@@ -20,9 +20,9 @@ export interface UseHistoryReturn {
 
 export function useHistory(options: UseHistoryOptions = {}): UseHistoryReturn {
   const { maxHistorySize = 50 } = options;
-  
+
   const historyRef = useRef<CanvasHistory | null>(null);
-  
+
   const getHistory = useCallback(() => {
     if (!historyRef.current) {
       historyRef.current = new CanvasHistory(maxHistorySize);
@@ -30,9 +30,12 @@ export function useHistory(options: UseHistoryOptions = {}): UseHistoryReturn {
     return historyRef.current;
   }, [maxHistorySize]);
 
-  const push = useCallback((elements: readonly DriplElement[]) => {
-    getHistory().push(elements);
-  }, [getHistory]);
+  const push = useCallback(
+    (elements: readonly DriplElement[]) => {
+      getHistory().push(elements);
+    },
+    [getHistory],
+  );
 
   const undo = useCallback(() => {
     return getHistory().undo();

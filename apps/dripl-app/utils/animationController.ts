@@ -2,9 +2,7 @@ import type { DriplElement } from "@dripl/common";
 
 type AnimationKey = string;
 type AnimationState = Record<string, any>;
-type AnimationUpdate = (
-  state: AnimationState
-) => AnimationState | undefined;
+type AnimationUpdate = (state: AnimationState) => AnimationState | undefined;
 
 interface AnimationInfo {
   key: AnimationKey;
@@ -19,7 +17,7 @@ class AnimationController {
   static start(
     key: AnimationKey,
     update: AnimationUpdate,
-    initialState: AnimationState = {}
+    initialState: AnimationState = {},
   ): void {
     if (this.animations.has(key)) {
       return;

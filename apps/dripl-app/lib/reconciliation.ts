@@ -14,13 +14,9 @@ export const shouldDiscardRemoteElement = (
 ): boolean => {
   if (
     local &&
-    (
-      (local.version ?? 0) > (remote.version ?? 0) ||
-      (
-        (local.version ?? 0) === (remote.version ?? 0) &&
-        (local.versionNonce ?? 0) <= (remote.versionNonce ?? 0)
-      )
-    )
+    ((local.version ?? 0) > (remote.version ?? 0) ||
+      ((local.version ?? 0) === (remote.version ?? 0) &&
+        (local.versionNonce ?? 0) <= (remote.versionNonce ?? 0)))
   ) {
     return true;
   }
@@ -33,7 +29,7 @@ export function reconcileElements(
   localAppState: AppState = {} as AppState,
 ): ReconciliationResult {
   const localMap = new Map<string, DriplElement>();
-  
+
   localElements.forEach((el) => {
     localMap.set(el.id, el);
   });
@@ -77,7 +73,10 @@ export function shouldAcceptUpdate(
   if (incomingVersion > localVersion) {
     return true;
   }
-  if (incomingVersion === localVersion && incomingVersionNonce < localVersionNonce) {
+  if (
+    incomingVersion === localVersion &&
+    incomingVersionNonce < localVersionNonce
+  ) {
     return true;
   }
   return false;
@@ -131,7 +130,12 @@ export function calculateDirtyRegions(
   elements: DriplElement[],
   previousElements: Map<string, DriplElement>,
 ): Array<{ x: number; y: number; width: number; height: number }> {
-  const regions: Array<{ x: number; y: number; width: number; height: number }> = [];
+  const regions: Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }> = [];
 
   for (const element of elements) {
     const previous = previousElements.get(element.id);
@@ -160,7 +164,7 @@ export class ReconciliationManager {
     incomingElements: DriplElement[],
   ): DriplElement[] {
     const result = reconcileElements(localElements, incomingElements);
-    
+
     result.accepted.forEach((el) => {
       this.localVersion.set(el.id, el.version ?? 0);
       this.localVersionNonce.set(el.id, el.versionNonce ?? 0);
@@ -168,7 +172,7 @@ export class ReconciliationManager {
 
     if (result.accepted.length > 0) {
       const localMap = new Map(localElements.map((el) => [el.id, el]));
-      
+
       result.accepted.forEach((el) => {
         localMap.set(el.id, el);
       });
@@ -187,10 +191,19 @@ export class ReconciliationManager {
     return this.localVersionNonce.get(elementId) ?? 0;
   }
 
-  shouldAccept(elementId: string, incomingVersion: number, incomingVersionNonce: number = 0): boolean {
+  shouldAccept(
+    elementId: string,
+    incomingVersion: number,
+    incomingVersionNonce: number = 0,
+  ): boolean {
     const localVersion = this.getLocalVersion(elementId);
     const localVersionNonce = this.getLocalVersionNonce(elementId);
-    return shouldAcceptUpdate(localVersion, incomingVersion, localVersionNonce, incomingVersionNonce);
+    return shouldAcceptUpdate(
+      localVersion,
+      incomingVersion,
+      localVersionNonce,
+      incomingVersionNonce,
+    );
   }
 }
 

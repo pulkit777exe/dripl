@@ -16,7 +16,8 @@ export function getDragTargetIds(
   selectedIds.forEach((id) => {
     const el = elements.find((e) => e.id === id);
     if (!el) return;
-    if (el.type === "arrow" && "labelId" in el && el.labelId) ids.add(el.labelId);
+    if (el.type === "arrow" && "labelId" in el && el.labelId)
+      ids.add(el.labelId);
     if (el.type === "text" && "containerId" in el && el.containerId)
       ids.add(el.containerId);
   });
@@ -31,7 +32,9 @@ export function captureDragBaseline(
   pointerId: number,
 ): PointerDownState {
   const elementIds = getDragTargetIds(selectedIds, elements);
-  const originalElements = elements.filter((el) => el.id && elementIds.has(el.id));
+  const originalElements = elements.filter(
+    (el) => el.id && elementIds.has(el.id),
+  );
   return {
     pointerId,
     downPoint: { ...downPoint },
@@ -75,6 +78,6 @@ export function mergeDragPreview(
   const previewElements = applyDeltaToBaseline(baseline, totalDelta);
   const previewById = new Map(previewElements.map((el) => [el.id, el]));
   return sceneElements.map((el) =>
-    draggedIds.has(el.id) ? previewById.get(el.id) ?? el : el,
+    draggedIds.has(el.id) ? (previewById.get(el.id) ?? el) : el,
   );
 }

@@ -202,16 +202,27 @@ export const loadLocalCanvasFromStorage = (): {
     if (state) {
       const excalidrawState: ExcalidrawState = JSON.parse(state);
       parsedState = {
-        theme: (localStorage.getItem(STORAGE_KEYS.THEME) as "light" | "dark" | "system") || "dark",
+        theme:
+          (localStorage.getItem(STORAGE_KEYS.THEME) as
+            | "light"
+            | "dark"
+            | "system") || "dark",
         zoom: excalidrawState.zoom?.value ?? 1,
         panX: excalidrawState.scrollX ?? 0,
         panY: excalidrawState.scrollY ?? 0,
         currentStrokeColor: excalidrawState.currentItemStrokeColor || "#1e1e1e",
-        currentBackgroundColor: excalidrawState.currentItemBackgroundColor || "transparent",
+        currentBackgroundColor:
+          excalidrawState.currentItemBackgroundColor || "transparent",
         currentStrokeWidth: excalidrawState.currentItemStrokeWidth ?? 2,
         currentRoughness: excalidrawState.currentItemRoughness ?? 1,
-        currentStrokeStyle: (excalidrawState.currentItemStrokeStyle as "solid" | "dashed" | "dotted") || "solid",
-        currentFillStyle: (excalidrawState.currentItemFillStyle as LocalCanvasState["currentFillStyle"]) || "hachure",
+        currentStrokeStyle:
+          (excalidrawState.currentItemStrokeStyle as
+            | "solid"
+            | "dashed"
+            | "dotted") || "solid",
+        currentFillStyle:
+          (excalidrawState.currentItemFillStyle as LocalCanvasState["currentFillStyle"]) ||
+          "hachure",
         activeTool: "select",
       };
     }

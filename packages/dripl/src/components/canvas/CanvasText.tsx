@@ -44,15 +44,15 @@ export function CanvasText({
 }: CanvasTextProps) {
   const colors = useCanvasColors();
   const isDark = colors.canvasBackground === "#1e1e1e";
-  
+
   const textColor = useMemo(() => {
     if (color) {
       return color;
     }
-    
+
     return getReadableTextColor(backgroundColor, isDark);
   }, [color, backgroundColor, isDark]);
-  
+
   const anchorX = useMemo(() => {
     switch (textAlign) {
       case "center":
@@ -63,7 +63,7 @@ export function CanvasText({
         return "start";
     }
   }, [textAlign]);
-  
+
   const dy = useMemo(() => {
     switch (verticalAlign) {
       case "middle":
@@ -74,11 +74,10 @@ export function CanvasText({
         return "0.9em";
     }
   }, [verticalAlign]);
-  
-  const transform = rotation !== 0 
-    ? `rotate(${rotation} ${x} ${y})` 
-    : undefined;
-  
+
+  const transform =
+    rotation !== 0 ? `rotate(${rotation} ${x} ${y})` : undefined;
+
   return (
     <text
       x={x}
@@ -108,7 +107,7 @@ export function CanvasText({
 export function useCanvasTextStyles() {
   const colors = useCanvasColors();
   const isDark = colors.canvasBackground === "#1e1e1e";
-  
+
   return useMemo(
     () => ({
       primary: {
@@ -139,7 +138,7 @@ export function useCanvasTextStyles() {
         fontWeight: 600,
       },
     }),
-    [colors, isDark]
+    [colors, isDark],
   );
 }
 

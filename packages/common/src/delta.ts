@@ -220,9 +220,9 @@ export class SceneHistory {
     }
 
     this.states.push(
-      delta !== undefined ?
-        { scene: scene.clone(), delta } :
-        { scene: scene.clone() }
+      delta !== undefined
+        ? { scene: scene.clone(), delta }
+        : { scene: scene.clone() },
     );
     this.currentIndex++;
 

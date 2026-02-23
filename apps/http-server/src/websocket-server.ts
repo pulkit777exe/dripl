@@ -90,7 +90,11 @@ function broadcastToRoom(
 
   room.users.forEach((_, clientUserId) => {
     clients.forEach((client, ws) => {
-      if (client.roomId === roomId && client.userId !== clientUserId && ws !== excludeWs) {
+      if (
+        client.roomId === roomId &&
+        client.userId !== clientUserId &&
+        ws !== excludeWs
+      ) {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(messageStr);
         }
@@ -120,7 +124,9 @@ function handleMessage(ws: WebSocket, message: WSMessage): void {
       const boardId = message.boardId as string;
       const userId = message.userId as string;
       const userName = (message.userName as string) || "Anonymous";
-      const color = (message.color as string) || "#" + Math.floor(Math.random() * 16777215).toString(16);
+      const color =
+        (message.color as string) ||
+        "#" + Math.floor(Math.random() * 16777215).toString(16);
       const lastKnownVersion = (message.lastKnownVersion as number) || 0;
 
       // Join room
@@ -135,7 +141,7 @@ function handleMessage(ws: WebSocket, message: WSMessage): void {
 
       // Send initial state
       const elements = Array.from(room.elementsMap.values());
-      
+
       // Calculate missing diffs if reconnecting
       let missingDiffs: DriplElement[] = [];
       if (lastKnownVersion < room.latestVersion) {
@@ -154,18 +160,22 @@ function handleMessage(ws: WebSocket, message: WSMessage): void {
       });
 
       // Notify others
-      broadcastToRoom(boardId, {
-        type: "user_join",
-        userId,
-        userName,
-        color,
-      }, ws);
+      broadcastToRoom(
+        boardId,
+        {
+          type: "user_join",
+          userId,
+          userName,
+          color,
+        },
+        ws,
+      );
       break;
     }
 
     case "add_element": {
       if (!client.roomId || !client.userId) return;
-      
+
       const element = message.element as DriplElement;
       if (!element || !element.id) return;
 
@@ -188,10 +198,14 @@ function handleMessage(ws: WebSocket, message: WSMessage): void {
       room.latestVersion = element.version!;
 
       // Broadcast to others
-      broadcastToRoom(client.roomId, {
-        type: "add_element",
-        element,
-      }, ws);
+      broadcastToRoom(
+        client.roomId,
+        {
+          type: "add_element",
+          element,
+        },
+        ws,
+      );
 
       console.log(`[WS] Element added: ${element.id} v${element.version}`);
       break;
@@ -199,7 +213,7 @@ function handleMessage(ws: WebSocket, message: WSMessage): void {
 
     case "update_element": {
       if (!client.roomId) return;
-      
+
       const element = message.element as DriplElement;
       if (!element || !element.id) return;
 
@@ -214,7 +228,7 @@ function handleMessage(ws: WebSocket, message: WSMessage): void {
       }
 
       const existing = room.elementsMap.get(element.id);
-      
+
       // Version-based reconciliation (per TDD)
       if (existing && (element.version ?? 0) <= (existing.version ?? 0)) {
         // Discard if version is not newer
@@ -231,10 +245,14 @@ function handleMessage(ws: WebSocket, message: WSMessage): void {
       room.latestVersion = element.version!;
 
       // Broadcast to others
-      broadcastToRoom(client.roomId, {
-        type: "update_element",
-        element,
-      }, ws);
+      broadcastToRoom(
+        client.roomId,
+        {
+          type: "update_element",
+          element,
+        },
+        ws,
+      );
 
       console.log(`[WS] Element updated: ${element.id} v${element.version}`);
       break;
@@ -242,7 +260,7 @@ function handleMessage(ws: WebSocket, message: WSMessage): void {
 
     case "delete_element": {
       if (!client.roomId) return;
-      
+
       const elementId = message.elementId as string;
       if (!elementId) return;
 
@@ -253,10 +271,14 @@ function handleMessage(ws: WebSocket, message: WSMessage): void {
       room.elementsMap.delete(elementId);
 
       // Broadcast to others
-      broadcastToRoom(client.roomId, {
-        type: "delete_element",
-        elementId,
-      }, ws);
+      broadcastToRoom(
+        client.roomId,
+        {
+          type: "delete_element",
+          elementId,
+        },
+        ws,
+      );
 
       console.log(`[WS] Element deleted: ${elementId}`);
       break;
@@ -264,7 +286,7 @@ function handleMessage(ws: WebSocket, message: WSMessage): void {
 
     case "cursor_move": {
       if (!client.roomId || !client.userId) return;
-      
+
       const x = message.x as number;
       const y = message.y as number;
 
@@ -278,14 +300,18 @@ function handleMessage(ws: WebSocket, message: WSMessage): void {
       }
 
       // Broadcast to others (no persistence per TDD)
-      broadcastToRoom(client.roomId, {
-        type: "cursor_move",
-        userId: client.userId,
-        x,
-        y,
-        userName: user?.userName,
-        color: user?.color,
-      }, ws);
+      broadcastToRoom(
+        client.roomId,
+        {
+          type: "cursor_move",
+          userId: client.userId,
+          x,
+          y,
+          userName: user?.userName,
+          color: user?.color,
+        },
+        ws,
+      );
       break;
     }
 
@@ -331,12 +357,12 @@ function handleClose(ws: WebSocket): void {
  */
 export function createWebSocketServer(port: number = 3001): void {
   const server = createServer();
-  
+
   const wss = new WebSocketServer({ server });
 
   wss.on("connection", (ws: WebSocket) => {
     console.log("[WS] New client connected");
-    
+
     // Track client
     clients.set(ws, {
       ws,
@@ -367,7 +393,9 @@ export function createWebSocketServer(port: number = 3001): void {
     rooms.forEach((room, boardId) => {
       if (room.users.size > 0) {
         // In production: save to database
-        console.log(`[WS] Snapshot for room ${boardId}: ${room.elementsMap.size} elements, v${room.latestVersion}`);
+        console.log(
+          `[WS] Snapshot for room ${boardId}: ${room.elementsMap.size} elements, v${room.latestVersion}`,
+        );
         room.lastSnapshotAt = Date.now();
       }
     });
@@ -379,8 +407,9 @@ export function createWebSocketServer(port: number = 3001): void {
 }
 
 // Run if called directly - ES module compatible check
-const isMainModule = process.argv[1]?.includes('websocket-server') || 
-                      process.argv[1]?.includes('src/websocket-server');
+const isMainModule =
+  process.argv[1]?.includes("websocket-server") ||
+  process.argv[1]?.includes("src/websocket-server");
 
 if (isMainModule) {
   createWebSocketServer();

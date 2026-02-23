@@ -35,14 +35,15 @@ export function SelectionBox({
   style,
 }: SelectionBoxProps) {
   const colors = useCanvasColors();
-  
+
   const fillColor = fill ?? colors.selectionFill;
   const strokeColor = stroke ?? colors.selectionStroke;
-  
-  const transform = rotation !== 0 
-    ? `rotate(${rotation} ${x + width / 2} ${y + height / 2})` 
-    : undefined;
-  
+
+  const transform =
+    rotation !== 0
+      ? `rotate(${rotation} ${x + width / 2} ${y + height / 2})`
+      : undefined;
+
   return (
     <rect
       x={x}
@@ -73,14 +74,14 @@ export interface SelectionBoxWithHandlesProps extends SelectionBoxProps {
   onHandleMouseDown?: (handle: HandlePosition, e: React.MouseEvent) => void;
 }
 
-export type HandlePosition = 
-  | "nw" 
-  | "n" 
-  | "ne" 
-  | "e" 
-  | "se" 
-  | "s" 
-  | "sw" 
+export type HandlePosition =
+  | "nw"
+  | "n"
+  | "ne"
+  | "e"
+  | "se"
+  | "s"
+  | "sw"
   | "w"
   | "rotation";
 
@@ -98,29 +99,57 @@ export function SelectionBoxWithHandles({
   ...props
 }: SelectionBoxWithHandlesProps) {
   const colors = useCanvasColors();
-  
+
   const handleFillColor = handleFill ?? colors.canvasBackground;
   const handleStrokeColor = handleStroke ?? colors.selectionStroke;
-  
+
   const handles = useMemo(() => {
     if (!showHandles) return [];
-    
+
     const halfHandle = handleSize / 2;
     const handles: { position: HandlePosition; x: number; y: number }[] = [];
-    
+
     handles.push({ position: "nw", x: x - halfHandle, y: y - halfHandle });
-    handles.push({ position: "ne", x: x + width - halfHandle, y: y - halfHandle });
-    handles.push({ position: "se", x: x + width - halfHandle, y: y + height - halfHandle });
-    handles.push({ position: "sw", x: x - halfHandle, y: y + height - halfHandle });
-    
-    handles.push({ position: "n", x: x + width / 2 - halfHandle, y: y - halfHandle });
-    handles.push({ position: "e", x: x + width - halfHandle, y: y + height / 2 - halfHandle });
-    handles.push({ position: "s", x: x + width / 2 - halfHandle, y: y + height - halfHandle });
-    handles.push({ position: "w", x: x - halfHandle, y: y + height / 2 - halfHandle });
-    
+    handles.push({
+      position: "ne",
+      x: x + width - halfHandle,
+      y: y - halfHandle,
+    });
+    handles.push({
+      position: "se",
+      x: x + width - halfHandle,
+      y: y + height - halfHandle,
+    });
+    handles.push({
+      position: "sw",
+      x: x - halfHandle,
+      y: y + height - halfHandle,
+    });
+
+    handles.push({
+      position: "n",
+      x: x + width / 2 - halfHandle,
+      y: y - halfHandle,
+    });
+    handles.push({
+      position: "e",
+      x: x + width - halfHandle,
+      y: y + height / 2 - halfHandle,
+    });
+    handles.push({
+      position: "s",
+      x: x + width / 2 - halfHandle,
+      y: y + height - halfHandle,
+    });
+    handles.push({
+      position: "w",
+      x: x - halfHandle,
+      y: y + height / 2 - halfHandle,
+    });
+
     return handles;
   }, [showHandles, x, y, width, height, handleSize]);
-  
+
   return (
     <g>
       <SelectionBox
@@ -152,9 +181,12 @@ export function SelectionBoxWithHandles({
   );
 }
 
-function getCursorForHandle(position: HandlePosition, rotation: number): string {
+function getCursorForHandle(
+  position: HandlePosition,
+  rotation: number,
+): string {
   const normalizedRotation = ((rotation % 360) + 360) % 360;
-  
+
   const cursors: Record<HandlePosition, string> = {
     nw: "nwse-resize",
     se: "nwse-resize",
@@ -166,7 +198,7 @@ function getCursorForHandle(position: HandlePosition, rotation: number): string 
     w: "ew-resize",
     rotation: "grab",
   };
-  
+
   return cursors[position];
 }
 

@@ -40,8 +40,6 @@ import {
   X,
   BookOpen,
   ExternalLink,
-  Youtube,
-  Keyboard,
   Edit3,
   Library,
   Globe,
@@ -376,9 +374,14 @@ export default function App() {
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      console.log("handleMouseDown triggered", e.button, "Active tool:", activeTool);
+      console.log(
+        "handleMouseDown triggered",
+        e.button,
+        "Active tool:",
+        activeTool,
+      );
       const toolToUse = activeTool;
-      
+
       const canvasPoint = getCanvasPoint(e);
       const point = getCanvasPoint(e);
 
@@ -724,8 +727,8 @@ export default function App() {
       return;
     }
 
-     console.log("handleMouseUp called", isDrawing, currentElement);
-     if (isDrawing && currentElement) {
+    console.log("handleMouseUp called", isDrawing, currentElement);
+    if (isDrawing && currentElement) {
       const hasSize =
         currentElement.type === "text" ||
         currentElement.width > 5 ||
@@ -734,14 +737,16 @@ export default function App() {
 
       if (hasSize) {
         // For text elements, set default dimensions if not provided
-        const elementToAdd = currentElement.type === "text" && (!currentElement.width || !currentElement.height) 
-          ? {
-              ...currentElement,
-              width: 200,
-              height: 24
-            }
-          : currentElement;
-          
+        const elementToAdd =
+          currentElement.type === "text" &&
+          (!currentElement.width || !currentElement.height)
+            ? {
+                ...currentElement,
+                width: 200,
+                height: 24,
+              }
+            : currentElement;
+
         setElements((prev) => [...prev, elementToAdd]);
         saveHistory();
       }
@@ -793,7 +798,10 @@ export default function App() {
               ...el,
               x: el.x + dx,
               y: el.y + dy,
-              points: el.points?.map((p: Point) => ({ x: p.x + dx, y: p.y + dy })),
+              points: el.points?.map((p: Point) => ({
+                x: p.x + dx,
+                y: p.y + dy,
+              })),
             };
           }
           return el;
@@ -982,7 +990,9 @@ export default function App() {
       if (selectedIds.length > 0) {
         setElements((prev) =>
           prev.map((el) =>
-            selectedIds.includes(el.id) ? ({ ...el, ...updates } as DriplElement) : el,
+            selectedIds.includes(el.id)
+              ? ({ ...el, ...updates } as DriplElement)
+              : el,
           ),
         );
         saveHistory();
@@ -1120,7 +1130,9 @@ export default function App() {
   return (
     <div
       className={`w-screen h-dvh overflow-hidden relative font-sans selection:bg-purple-500/30 ${
-        theme === "dark" ? "bg-[#121112] text-white" : "bg-[#f7f5f6] text-gray-900"
+        theme === "dark"
+          ? "bg-[#121112] text-white"
+          : "bg-[#f7f5f6] text-gray-900"
       }`}
     >
       <input
@@ -1248,7 +1260,7 @@ export default function App() {
           isActive={activeTool === "draw"}
           onClick={() => setActiveTool("draw")}
         />
-         <IconButton
+        <IconButton
           icon={<Type size={19} />}
           isActive={activeTool === "text"}
           onClick={() => {
@@ -1331,9 +1343,13 @@ export default function App() {
             <MenuItem icon={<LogIn size={18} />} label="Sign in" highlight />
           </div>
 
-          <div className={`pt-3 border-t mt-3 space-y-3 ${effectiveTheme === "dark" ? "border-gray-700/50" : "border-gray-200"}`}>
+          <div
+            className={`pt-3 border-t mt-3 space-y-3 ${effectiveTheme === "dark" ? "border-gray-700/50" : "border-gray-200"}`}
+          >
             <div className="px-2">
-              <div className={`text-xs mb-2 font-medium ${effectiveTheme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+              <div
+                className={`text-xs mb-2 font-medium ${effectiveTheme === "dark" ? "text-gray-400" : "text-gray-500"}`}
+              >
                 Theme
               </div>
               <div className="flex items-center gap-2">
@@ -1381,11 +1397,13 @@ export default function App() {
             </div>
 
             <div className="px-2">
-              <button className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                effectiveTheme === "dark"
-                  ? "bg-[#1a1a20] hover:bg-[#31303b] text-gray-300"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-              }`}>
+              <button
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                  effectiveTheme === "dark"
+                    ? "bg-[#1a1a20] hover:bg-[#31303b] text-gray-300"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                }`}
+              >
                 <span className="text-xs">English</span>
                 <ChevronDown size={14} />
               </button>

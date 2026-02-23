@@ -76,7 +76,8 @@ export function LoadFromLinkModal({
                 Loading external drawing will replace your existing content.
               </h3>
               <p className="text-gray-400">
-                You can back up your drawing first using one of the options below.
+                You can back up your drawing first using one of the options
+                below.
               </p>
             </div>
           </div>
@@ -91,7 +92,8 @@ export function LoadFromLinkModal({
                 Export as image
               </h4>
               <p className="text-sm text-gray-400 mb-4">
-                Export the scene data as an image from which you can import later.
+                Export the scene data as an image from which you can import
+                later.
               </p>
               <button
                 onClick={onExportAsImage}

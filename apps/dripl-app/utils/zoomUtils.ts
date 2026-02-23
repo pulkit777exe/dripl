@@ -111,8 +111,6 @@ export function zoomToSelection(
   };
 }
 
-
-
 export function calculateZoom(
   currentZoom: number,
   delta: number,

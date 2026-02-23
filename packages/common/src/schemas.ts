@@ -39,10 +39,12 @@ export const LinearSchema = BaseElementSchema.extend({
   type: z.literal("arrow").or(z.literal("line")),
   points: z.array(z.array(z.number())), // [[x,y], [x,y]]
   labelId: z.string().optional(),
-  arrowHeads: z.object({
-    start: z.boolean().optional(),
-    end: z.boolean().optional(),
-  }).optional(),
+  arrowHeads: z
+    .object({
+      start: z.boolean().optional(),
+      end: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 export const FreeDrawSchema = BaseElementSchema.extend({

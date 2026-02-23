@@ -6,11 +6,13 @@ import type React from "react";
 export type ActionSource = "ui" | "keyboard" | "contextMenu" | "api";
 
 // Result type from performing an action
-export type ActionResult = {
-  elements?: DriplElement[];
-  appState?: Partial<AppState>;
-  captureUpdate?: boolean;
-} | false;
+export type ActionResult =
+  | {
+      elements?: DriplElement[];
+      appState?: Partial<AppState>;
+      captureUpdate?: boolean;
+    }
+  | false;
 
 // Action type definition
 export interface Action {
@@ -22,20 +24,20 @@ export interface Action {
     elements: DriplElement[],
     appState: AppState,
     value?: any,
-    app?: any
+    app?: any,
   ) => ActionResult;
   keyPriority?: number;
   keyTest?: (
     event: React.KeyboardEvent | KeyboardEvent,
     appState: AppState,
     elements: DriplElement[],
-    app?: any
+    app?: any,
   ) => boolean;
   predicate?: (
     elements: DriplElement[],
     appState: AppState,
     appProps: any,
-    app?: any
+    app?: any,
   ) => boolean;
   checked?: (appState: AppState) => boolean;
   trackEvent?: boolean | { category: string; action?: string };
@@ -45,12 +47,14 @@ export interface Action {
 // Action manager to coordinate actions
 export class ActionManager {
   private actions: Map<string, Action> = new Map();
-  
+
   constructor(
-    private updater: (actionResult: ActionResult | Promise<ActionResult>) => void,
+    private updater: (
+      actionResult: ActionResult | Promise<ActionResult>,
+    ) => void,
     private getAppState: () => AppState,
     private getElements: () => DriplElement[],
-    private app?: any
+    private app?: any,
   ) {}
 
   registerAction(action: Action) {
@@ -58,7 +62,7 @@ export class ActionManager {
   }
 
   registerAll(actions: Action[]) {
-    actions.forEach(action => this.registerAction(action));
+    actions.forEach((action) => this.registerAction(action));
   }
 
   getAction(name: string): Action | undefined {
@@ -72,31 +76,45 @@ export class ActionManager {
   executeAction(
     action: Action | string,
     source: ActionSource = "api",
-    value: any = null
+    value: any = null,
   ): void {
-    const actionInstance = typeof action === "string" ? this.getAction(action) : action;
-    
+    const actionInstance =
+      typeof action === "string" ? this.getAction(action) : action;
+
     if (!actionInstance) {
-      console.warn(`Action not found: ${typeof action === "string" ? action : "unknown"}`);
+      console.warn(
+        `Action not found: ${typeof action === "string" ? action : "unknown"}`,
+      );
       return;
     }
 
     // Check if action is enabled
-    if (actionInstance.predicate && 
-        !actionInstance.predicate(this.getElements(), this.getAppState(), null, this.app)) {
+    if (
+      actionInstance.predicate &&
+      !actionInstance.predicate(
+        this.getElements(),
+        this.getAppState(),
+        null,
+        this.app,
+      )
+    ) {
       return;
     }
 
     // Track event
     if (actionInstance.trackEvent) {
-      const category = typeof actionInstance.trackEvent === "object" 
-        ? actionInstance.trackEvent.category 
-        : "actions";
-      const actionName = typeof actionInstance.trackEvent === "object" 
-        ? actionInstance.trackEvent.action || actionInstance.name 
-        : actionInstance.name;
-      
-      console.log(`[Analytics] Tracked action: ${actionName} (${category}) from ${source}`);
+      const category =
+        typeof actionInstance.trackEvent === "object"
+          ? actionInstance.trackEvent.category
+          : "actions";
+      const actionName =
+        typeof actionInstance.trackEvent === "object"
+          ? actionInstance.trackEvent.action || actionInstance.name
+          : actionInstance.name;
+
+      console.log(
+        `[Analytics] Tracked action: ${actionName} (${category}) from ${source}`,
+      );
     }
 
     // Perform action
@@ -104,7 +122,7 @@ export class ActionManager {
       this.getElements(),
       this.getAppState(),
       value,
-      this.app
+      this.app,
     );
 
     // Update app state
@@ -115,49 +133,62 @@ export class ActionManager {
 
   handleKeyDown(event: React.KeyboardEvent | KeyboardEvent): boolean {
     const canvasActions = this.app?.props?.canvasActions || {};
-    
+
     const matchingActions = Array.from(this.actions.values())
       .sort((a, b) => (b.keyPriority || 0) - (a.keyPriority || 0))
-      .filter(action => 
-        (canvasActions[action.name] !== false) &&
-        action.keyTest &&
-        action.keyTest(event, this.getAppState(), this.getElements(), this.app)
+      .filter(
+        (action) =>
+          canvasActions[action.name] !== false &&
+          action.keyTest &&
+          action.keyTest(
+            event,
+            this.getAppState(),
+            this.getElements(),
+            this.app,
+          ),
       );
 
     if (matchingActions.length !== 1) {
       if (matchingActions.length > 1) {
-        console.warn("Multiple actions match shortcut:", matchingActions.map(a => a.name));
+        console.warn(
+          "Multiple actions match shortcut:",
+          matchingActions.map((a) => a.name),
+        );
       }
       return false;
     }
 
     const action = matchingActions[0] as Action;
-    
+
     event.preventDefault();
     event.stopPropagation();
     this.executeAction(action, "keyboard");
-    
+
     return true;
   }
 }
 
 // Helper function to track actions
 export function trackAction(
-  action: Action, 
-  source: ActionSource, 
-  appState: AppState, 
-  elements: DriplElement[], 
-  app: any, 
-  value: any
+  action: Action,
+  source: ActionSource,
+  appState: AppState,
+  elements: DriplElement[],
+  app: any,
+  value: any,
 ): void {
   if (action.trackEvent) {
-    const category = typeof action.trackEvent === "object" 
-      ? action.trackEvent.category 
-      : "actions";
-    const actionName = typeof action.trackEvent === "object" 
-      ? action.trackEvent.action || action.name 
-      : action.name;
-    
-    console.log(`[Analytics] Tracked action: ${actionName} (${category}) from ${source}`);
+    const category =
+      typeof action.trackEvent === "object"
+        ? action.trackEvent.category
+        : "actions";
+    const actionName =
+      typeof action.trackEvent === "object"
+        ? action.trackEvent.action || action.name
+        : action.name;
+
+    console.log(
+      `[Analytics] Tracked action: ${actionName} (${category}) from ${source}`,
+    );
   }
 }

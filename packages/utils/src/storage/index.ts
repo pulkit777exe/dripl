@@ -13,11 +13,21 @@ export class LocalStorageAdapter implements StorageAdapter {
   }
 
   async save(elements: DriplElement[]): Promise<void> {
-    localStorage.setItem(this.key, JSON.stringify(elements));
+    try {
+      localStorage.setItem(this.key, JSON.stringify(elements));
+    } catch (error) {
+      console.error("Error saving elements to localStorage:", error);
+      throw error;
+    }
   }
 
   async load(): Promise<DriplElement[]> {
-    const data = localStorage.getItem(this.key);
-    return data ? JSON.parse(data) : [];
+    try {
+      const data = localStorage.getItem(this.key);
+      return data ? JSON.parse(data) : [];
+    } catch (error) {
+      console.error("Error loading elements from localStorage:", error);
+      return [];
+    }
   }
 }

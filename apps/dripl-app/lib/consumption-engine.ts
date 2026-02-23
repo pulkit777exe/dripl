@@ -9,14 +9,14 @@ import {
 
 /**
  * Consumption Engine
- * 
+ *
  * Per TDD Section 5.4:
  * - Accepts new/updated elements
  * - Validates versions
  * - Applies reconciliation rules
  * - Marks dirty regions
  * - Schedules partial re-render
- * 
+ *
  * Flow:
  * Incoming Diff → Reconciliation → Scene Store Update → Dirty Marking → Engine Paint
  */
@@ -40,7 +40,12 @@ export class ConsumptionEngine {
   private currentVersion: number = 0;
   private options: ConsumptionOptions;
   private callbacks: Set<ConsumptionCallback> = new Set();
-  private dirtyRegions: Array<{ x: number; y: number; width: number; height: number }> = [];
+  private dirtyRegions: Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }> = [];
   private pendingRender: boolean = false;
 
   constructor(options: ConsumptionOptions = {}) {
@@ -71,10 +76,13 @@ export class ConsumptionEngine {
    */
   consume(incomingElements: DriplElement[]): ConsumptionResult {
     const localArray = Array.from(this.localElements.values());
-    
+
     // Step 1: Reconciliation (per TDD Section 5.4)
-    const reconciliationResult = reconcileElements(localArray, incomingElements);
-    
+    const reconciliationResult = reconcileElements(
+      localArray,
+      incomingElements,
+    );
+
     if (reconciliationResult.accepted.length === 0) {
       return {
         elements: localArray,
@@ -167,7 +175,12 @@ export class ConsumptionEngine {
   /**
    * Get dirty regions for partial re-render
    */
-  getDirtyRegions(): Array<{ x: number; y: number; width: number; height: number }> {
+  getDirtyRegions(): Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }> {
     return this.dirtyRegions;
   }
 
@@ -214,7 +227,7 @@ export class ConsumptionEngine {
    */
   validateElement(element: unknown): element is DriplElement {
     if (!element || typeof element !== "object") return false;
-    
+
     const el = element as Record<string, unknown>;
     return (
       typeof el.id === "string" &&
@@ -230,14 +243,18 @@ export class ConsumptionEngine {
    * Validate array of elements
    */
   validateElements(elements: unknown[]): DriplElement[] {
-    return elements.filter((el): el is DriplElement => this.validateElement(el));
+    return elements.filter((el): el is DriplElement =>
+      this.validateElement(el),
+    );
   }
 }
 
 /**
  * Create a consumption engine instance
  */
-export function createConsumptionEngine(options?: ConsumptionOptions): ConsumptionEngine {
+export function createConsumptionEngine(
+  options?: ConsumptionOptions,
+): ConsumptionEngine {
   return new ConsumptionEngine(options);
 }
 

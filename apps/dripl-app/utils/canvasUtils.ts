@@ -45,7 +45,7 @@ export function drawShape(
     ctx.fillStyle = element.backgroundColor;
   }
 
-   switch (element.type) {
+  switch (element.type) {
     case "rectangle":
       drawRectangle(ctx, element);
       break;
@@ -163,10 +163,7 @@ function drawDiamond(
   ctx.stroke();
 }
 
-function drawArrow(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-): void {
+function drawArrow(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   if (!element.points || element.points.length < 2) return;
 
   ctx.beginPath();
@@ -284,10 +281,7 @@ function drawText(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   });
 }
 
-function drawFrame(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-): void {
+function drawFrame(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   const frameElement = element as any;
 
   // Draw frame border

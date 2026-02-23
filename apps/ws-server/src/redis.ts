@@ -39,9 +39,9 @@ export async function initRedis(): Promise<boolean> {
     });
 
     // Suppress unhandled error events
-    redisClient.on('error', () => {});
-    publisher.on('error', () => {});
-    subscriber.on('error', () => {});
+    redisClient.on("error", () => {});
+    publisher.on("error", () => {});
+    subscriber.on("error", () => {});
 
     await redisClient.connect();
     await redisClient.ping();

@@ -24,7 +24,9 @@ export function useTheme() {
     return theme === "dark" ? "dark" : "light";
   };
 
-  const [effectiveTheme, setEffectiveTheme] = useState<"light" | "dark">("light");
+  const [effectiveTheme, setEffectiveTheme] = useState<"light" | "dark">(
+    "light",
+  );
 
   useEffect(() => {
     if (theme) {

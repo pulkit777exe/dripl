@@ -49,8 +49,7 @@ export function getVisibleElements(
 
   // When viewport has no size (e.g. before container is laid out), show all elements
   // so shapes are not hidden until the next layout.
-  const hasValidViewport =
-    viewportRect.width > 0 && viewportRect.height > 0;
+  const hasValidViewport = viewportRect.width > 0 && viewportRect.height > 0;
 
   const visibleElements = hasValidViewport
     ? elements.filter((element) => {

@@ -15,10 +15,7 @@ export function deriveBindingEndpoint(
   fixedPoint: Point,
 ): Point {
   const b = getElementBounds(element);
-  if (
-    element.type === "arrow" ||
-    element.type === "line"
-  ) {
+  if (element.type === "arrow" || element.type === "line") {
     const points = (element as { points?: Point[] }).points;
     if (points && points.length >= 2) {
       const t = Math.max(0, Math.min(1, fixedPoint.x));

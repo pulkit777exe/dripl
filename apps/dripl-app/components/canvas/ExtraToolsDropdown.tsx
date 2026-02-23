@@ -172,10 +172,7 @@ export function ExtraToolsDropdown() {
                   `}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon
-                      size={18}
-                      className="text-panel-label "
-                    />
+                    <Icon size={18} className="text-panel-label " />
                     <span>{tool.label}</span>
                   </div>
                   {tool.shortcut && (

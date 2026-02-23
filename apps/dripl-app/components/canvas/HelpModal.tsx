@@ -1,6 +1,14 @@
 "use client";
 
-import { HelpCircle, X, BookOpen, ExternalLink, Github, Youtube, Keyboard } from "lucide-react";
+import {
+  HelpCircle,
+  X,
+  BookOpen,
+  ExternalLink,
+  Github,
+  Youtube,
+  Keyboard,
+} from "lucide-react";
 
 interface HelpModalProps {
   onClose: () => void;
@@ -12,7 +20,9 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
     shortcut,
   }) => (
     <div className="flex justify-between items-center py-2 border-b border-[var(--color-panel-slider)]/50 last:border-b-0">
-      <div className="text-[var(--color-tool-inactive-text)] flex-1">{toolName}</div>
+      <div className="text-[var(--color-tool-inactive-text)] flex-1">
+        {toolName}
+      </div>
       <div className="text-xs font-mono px-3 py-0.5 rounded-md bg-[var(--color-tool-hover-bg)] text-[var(--color-tool-inactive-text)] border border-[var(--color-panel-slider)]/50 min-w-[50px] text-center">
         {shortcut}
       </div>
@@ -40,7 +50,10 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       >
         <div className="flex justify-between items-center p-5 border-b border-[var(--color-panel-slider)]/50">
           <h2 className="text-xl font-semibold text-[var(--color-panel-text)] flex items-center gap-3">
-            <HelpCircle size={24} className="text-[var(--color-tool-active-text)]" />
+            <HelpCircle
+              size={24}
+              className="text-[var(--color-tool-active-text)]"
+            />
             Help
           </h2>
           <button

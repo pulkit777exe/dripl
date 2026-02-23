@@ -16,7 +16,7 @@ class AnimationController {
   static start<T = any>(
     key: string,
     callback: AnimationCallback<T>,
-    initialState: T = {} as T
+    initialState: T = {} as T,
   ): void {
     if (this.animations.has(key)) {
       return;

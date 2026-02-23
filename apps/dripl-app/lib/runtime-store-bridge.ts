@@ -2,11 +2,7 @@
  * Bridge between @dripl/runtime Store and app Zustand store.
  * Phase 1: single path for scene mutations; syncs Store snapshot to Zustand for rendering.
  */
-import {
-  Store,
-  createSnapshot,
-  type StoreSnapshot,
-} from "@dripl/runtime";
+import { Store, createSnapshot, type StoreSnapshot } from "@dripl/runtime";
 
 let storeInstance: Store | null = null;
 let syncUnsubscribe: (() => void) | null = null;

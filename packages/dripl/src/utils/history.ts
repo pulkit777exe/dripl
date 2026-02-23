@@ -75,11 +75,13 @@ export class HistoryManager<T> {
 
 function cloneElement(el: DriplElement): DriplElement {
   const base = { ...el };
-  
+
   if ("points" in el && el.points) {
-    (base as { points: Point[] }).points = el.points.map((p: Point) => ({ ...p }));
+    (base as { points: Point[] }).points = el.points.map((p: Point) => ({
+      ...p,
+    }));
   }
-  
+
   return base as DriplElement;
 }
 

@@ -23,10 +23,7 @@ export interface ArrowRoutingOptions {
 /**
  * Calculate points for a straight arrow
  */
-export function calculateStraightPath(
-  start: Point,
-  end: Point,
-): Point[] {
+export function calculateStraightPath(start: Point, end: Point): Point[] {
   return [start, end];
 }
 
@@ -40,21 +37,21 @@ export function calculateCurvedPath(
 ): Point[] {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
-  
+
   // Calculate control points for quadratic bezier
   const midX = (start.x + end.x) / 2;
   const midY = (start.y + end.y) / 2;
-  
+
   // Offset perpendicular to the line
   const length = Math.sqrt(dx * dx + dy * dy);
-  const offsetX = -dy / length * length * curvature * 0.25;
-  const offsetY = dx / length * length * curvature * 0.25;
-  
+  const offsetX = (-dy / length) * length * curvature * 0.25;
+  const offsetY = (dx / length) * length * curvature * 0.25;
+
   const controlPoint: Point = {
     x: midX + offsetX,
     y: midY + offsetY,
   };
-  
+
   return [start, controlPoint, end];
 }
 
@@ -62,17 +59,14 @@ export function calculateCurvedPath(
  * Calculate points for an elbow (orthogonal) arrow
  * Uses Manhattan distance routing
  */
-export function calculateElbowPath(
-  start: Point,
-  end: Point,
-): Point[] {
+export function calculateElbowPath(start: Point, end: Point): Point[] {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
-  
+
   // Determine whether to go horizontal first or vertical first
   // based on which distance is longer
   const goHorizontalFirst = Math.abs(dx) > Math.abs(dy);
-  
+
   if (goHorizontalFirst) {
     // Horizontal then vertical
     return [
@@ -140,12 +134,12 @@ export function getArrowheadPoints(
         },
       ];
     }
-    
+
     case "dot": {
       // Dot - return center point (render as circle)
       return [tip];
     }
-    
+
     case "bar": {
       // Bar - perpendicular line at tip
       const perpX = -direction.y;
@@ -161,7 +155,7 @@ export function getArrowheadPoints(
         },
       ];
     }
-    
+
     case "diamond": {
       // Diamond shape
       const base = {
@@ -186,7 +180,7 @@ export function getArrowheadPoints(
         },
       ];
     }
-    
+
     case "none":
     default:
       return [];
@@ -196,18 +190,15 @@ export function getArrowheadPoints(
 /**
  * Calculate direction vector from line segment
  */
-export function getDirectionVector(
-  start: Point,
-  end: Point,
-): Point {
+export function getDirectionVector(start: Point, end: Point): Point {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
   const length = Math.sqrt(dx * dx + dy * dy);
-  
+
   if (length === 0) {
     return { x: 1, y: 0 };
   }
-  
+
   return {
     x: dx / length,
     y: dy / length,
@@ -224,7 +215,7 @@ export function snapToShapeBinding(
   threshold: number = 20,
 ): Point {
   const bounds = getElementBounds(element);
-  
+
   // Calculate anchor points on shape edges
   const anchorPoints: Point[] = [
     { x: bounds.x, y: bounds.y + bounds.height / 2 }, // Left center
@@ -232,21 +223,21 @@ export function snapToShapeBinding(
     { x: bounds.x + bounds.width / 2, y: bounds.y }, // Top center
     { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height }, // Bottom center
   ];
-  
+
   let closestPoint: Point = point;
   let closestDistance = threshold;
-  
+
   for (const anchor of anchorPoints) {
     const distance = Math.sqrt(
       Math.pow(point.x - anchor.x, 2) + Math.pow(point.y - anchor.y, 2),
     );
-    
+
     if (distance < closestDistance) {
       closestDistance = distance;
       closestPoint = anchor;
     }
   }
-  
+
   return closestPoint;
 }
 
@@ -264,20 +255,20 @@ export function calculateArrowBinding(
   targetElement: DriplElement,
 ): ArrowBinding | null {
   const bounds = getElementBounds(targetElement);
-  
+
   // Calculate focus (position on edge as 0-1 value)
   const centerX = bounds.x + bounds.width / 2;
   const centerY = bounds.y + bounds.height / 2;
-  
+
   const dx = arrowEnd.x - centerX;
   const dy = arrowEnd.y - centerY;
-  
+
   // Determine which edge the arrow is pointing to
   const absDx = Math.abs(dx);
   const absDy = Math.abs(dy);
-  
+
   let focus: number;
-  
+
   if (absDx > absDy) {
     // Pointing to left or right edge
     if (dx > 0) {
@@ -297,7 +288,7 @@ export function calculateArrowBinding(
       focus = 0.5 - (dx / bounds.width) * 0.5;
     }
   }
-  
+
   return {
     elementId: targetElement.id,
     focus: Math.max(0, Math.min(1, focus)),
@@ -313,7 +304,7 @@ export function recalculateBinding(
   element: DriplElement,
 ): Point {
   const bounds = getElementBounds(element);
-  
+
   // Calculate point on edge based on focus value
   if (binding.focus < 0.25) {
     // Top edge

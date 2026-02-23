@@ -34,7 +34,7 @@ const getRelevantAppStateProps = (
   elements: DriplElement[],
   selectedIds: Set<string>,
   viewport: Viewport,
-  theme: "light" | "dark"
+  theme: "light" | "dark",
 ): StaticCanvasAppState => {
   return {
     zoom: viewport.zoom,
@@ -49,20 +49,20 @@ const getRelevantAppStateProps = (
 
 const areEqual = (
   prevProps: StaticCanvasProps,
-  nextProps: StaticCanvasProps
+  nextProps: StaticCanvasProps,
 ): boolean => {
   const prevState = getRelevantAppStateProps(
     prevProps.elements,
     prevProps.selectedIds,
     prevProps.viewport,
-    prevProps.theme || "dark"
+    prevProps.theme || "dark",
   );
 
   const nextState = getRelevantAppStateProps(
     nextProps.elements,
     nextProps.selectedIds,
     nextProps.viewport,
-    nextProps.theme || "dark"
+    nextProps.theme || "dark",
   );
 
   // Check if elements changed
@@ -94,7 +94,7 @@ const areEqual = (
   const selectionChanged =
     prevProps.selectedIds.size !== nextProps.selectedIds.size ||
     Array.from(prevProps.selectedIds).some(
-      (id) => !nextProps.selectedIds.has(id)
+      (id) => !nextProps.selectedIds.has(id),
     );
 
   // Check if viewport changed
@@ -128,9 +128,7 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
 
   useEffect(() => {
     if (staticCanvasRef.current && !staticRoughCanvasRef.current) {
-      staticRoughCanvasRef.current = createRoughCanvas(
-        staticCanvasRef.current
-      );
+      staticRoughCanvasRef.current = createRoughCanvas(staticCanvasRef.current);
     }
   }, []);
 
@@ -187,7 +185,7 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
             bounds.x - 5,
             bounds.y - 5,
             bounds.width + 10,
-            bounds.height + 10
+            bounds.height + 10,
           );
         }
       });

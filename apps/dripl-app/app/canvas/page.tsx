@@ -77,9 +77,7 @@ export default function CanvasPage() {
       </div>
 
       <CommandPalette />
-      {isHelpOpen && (
-        <HelpModal onClose={() => setIsHelpOpen(false)} />
-      )}
+      {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)} />}
     </div>
   );
 }

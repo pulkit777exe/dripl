@@ -16,14 +16,17 @@ export const VERTICAL_ALIGN = {
 const DEFAULT_FONT_SIZE = 16;
 const DEFAULT_FONT_FAMILY = "Arial";
 
-function measureText(text: string, fontSize: number): { width: number; height: number } {
+function measureText(
+  text: string,
+  fontSize: number,
+): { width: number; height: number } {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (!ctx) return { width: 0, height: 0 };
-  
+
   ctx.font = `${fontSize}px ${DEFAULT_FONT_FAMILY}`;
   const metrics = ctx.measureText(text);
-  
+
   return {
     width: Math.ceil(metrics.width),
     height: Math.ceil(fontSize * 1.2),
@@ -31,9 +34,9 @@ function measureText(text: string, fontSize: number): { width: number; height: n
 }
 
 function wrapText(text: string, fontSize: number, maxWidth: number): string[] {
-  const words = text.split(" ").filter(word => word.length > 0);
+  const words = text.split(" ").filter((word) => word.length > 0);
   const lines: string[] = [];
-  
+
   if (words.length === 0) {
     return [""];
   }
@@ -52,7 +55,7 @@ function wrapText(text: string, fontSize: number, maxWidth: number): string[] {
       currentLine = word;
     }
   }
-  
+
   lines.push(currentLine);
 
   return lines;
@@ -91,7 +94,7 @@ export function createBoundText(
 
   const fontSize = baseProps.fontSize ?? DEFAULT_FONT_SIZE;
   const fontFamily = baseProps.fontFamily ?? DEFAULT_FONT_FAMILY;
-  
+
   const wrappedText = wrapText(text, fontSize, bounds.width - 10);
   const textHeight = wrappedText.length * measureText("A", fontSize).height;
 
@@ -152,9 +155,9 @@ export function handleContainerResize(
   elements: DriplElement[],
 ): DriplElement[] {
   const updatedTextElement = updateBoundTextPosition(container, textElement);
-  
-  return elements.map(el => 
-    el.id === textElement.id ? updatedTextElement : el
+
+  return elements.map((el) =>
+    el.id === textElement.id ? updatedTextElement : el,
   );
 }
 
@@ -171,8 +174,8 @@ export function unbindText(
     boundElementId: undefined,
   };
 
-  return elements.map(el => 
-    el.id === textElement.id ? unboundTextElement : el
+  return elements.map((el) =>
+    el.id === textElement.id ? unboundTextElement : el,
   );
 }
 
