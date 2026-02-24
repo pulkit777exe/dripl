@@ -13,8 +13,8 @@ export const VERTICAL_ALIGN = {
   BOTTOM: "bottom",
 } as const;
 
-const DEFAULT_FONT_SIZE = 16;
-const DEFAULT_FONT_FAMILY = "Arial";
+const DEFAULT_FONT_SIZE = 20;
+const DEFAULT_FONT_FAMILY = "Caveat";
 
 function measureText(
   text: string,
@@ -24,7 +24,7 @@ function measureText(
   const ctx = canvas.getContext("2d");
   if (!ctx) return { width: 0, height: 0 };
 
-  ctx.font = `${fontSize}px ${DEFAULT_FONT_FAMILY}`;
+  ctx.font = `${fontSize}px ${DEFAULT_FONT_FAMILY}, cursive`;
   const metrics = ctx.measureText(text);
 
   return {
@@ -237,7 +237,7 @@ export function createTextElement(
     type: "text",
     text,
     fontSize: baseProps.fontSize ?? 16,
-    fontFamily: baseProps.fontFamily ?? "Arial",
+    fontFamily: baseProps.fontFamily ?? "Caveat",
     textAlign: baseProps.textAlign ?? "left",
     verticalAlign: baseProps.verticalAlign ?? "top",
     strokeColor: baseProps.strokeColor ?? "#000000",

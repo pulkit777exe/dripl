@@ -79,30 +79,22 @@ export default function App() {
   const [zoom, setZoom] = useState(100);
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
   const [canvasBg, setCanvasBg] = useState<string>(() => {
-    console.log("Canvas.tsx canvasBg initializer");
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const themeParam = params.get("theme");
-      console.log("Canvas.tsx theme parameter:", themeParam);
-      if (themeParam === "dark") {
-        return "#121112"; // matches --color-canvas-bg in dark mode
-      } else if (themeParam === "light") {
-        return "#f7f5f6"; // matches --color-canvas-bg in light mode
-      }
+      if (themeParam === "dark") return "#121112";
+      else if (themeParam === "light") return "#f7f5f6";
     }
-    const canvasBgDefault = effectiveTheme === "dark" ? "#121112" : "#f7f5f6";
-    console.log("Canvas.tsx fallback canvasBg:", canvasBgDefault);
-    return canvasBgDefault;
+    return effectiveTheme === "dark" ? "#121112" : "#f7f5f6";
   });
 
   useEffect(() => {
-    console.log("Canvas.tsx useEffect effectiveTheme:", effectiveTheme);
     const params = new URLSearchParams(window.location.search);
     const themeParam = params.get("theme");
     if (themeParam === "dark") {
-      setCanvasBg("#121112"); // matches --color-canvas-bg in dark mode
+      setCanvasBg("#121112");
     } else if (themeParam === "light") {
-      setCanvasBg("#f7f5f6"); // matches --color-canvas-bg in light mode
+      setCanvasBg("#f7f5f6");
     } else {
       setCanvasBg(effectiveTheme === "dark" ? "#121112" : "#f7f5f6");
     }
@@ -374,12 +366,6 @@ export default function App() {
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      console.log(
-        "handleMouseDown triggered",
-        e.button,
-        "Active tool:",
-        activeTool,
-      );
       const toolToUse = activeTool;
 
       const canvasPoint = getCanvasPoint(e);
@@ -435,8 +421,8 @@ export default function App() {
           ? [canvasPoint]
           : undefined,
         text: toolToUse === "text" ? "Text" : undefined,
-        fontSize: 16,
-        fontFamily: "Arial",
+        fontSize: 20,
+        fontFamily: "Caveat",
       };
 
       setCurrentElement(newElement);
@@ -727,7 +713,6 @@ export default function App() {
       return;
     }
 
-    console.log("handleMouseUp called", isDrawing, currentElement);
     if (isDrawing && currentElement) {
       const hasSize =
         currentElement.type === "text" ||

@@ -248,13 +248,12 @@ function drawFreedraw(
 }
 
 function drawText(ctx: CanvasRenderingContext2D, element: DriplElement): void {
-  console.log("drawText called with element:", element);
   if (!element.text) return;
 
-  const fontSize = element.fontSize || 16;
-  const fontFamily = element.fontFamily || "Arial";
+  const fontSize = element.fontSize || 20;
+  const fontFamily = element.fontFamily || "Caveat";
 
-  ctx.font = `${fontSize}px ${fontFamily}`;
+  ctx.font = `${fontSize}px ${fontFamily}, cursive`;
   ctx.fillStyle = element.strokeColor ?? "#000000";
   ctx.textBaseline = "top";
 
@@ -301,7 +300,7 @@ function drawFrame(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   // Draw title
   if (frameElement.title) {
     ctx.fillStyle = element.strokeColor ?? "#000000";
-    ctx.font = "14px Arial";
+    ctx.font = "14px Caveat, cursive";
     ctx.fillText(frameElement.title, element.x + 10, element.y - 10);
   }
 }

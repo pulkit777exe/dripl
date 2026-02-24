@@ -13,11 +13,10 @@ import {
   AlignCenter,
   AlignRight,
   AlignVerticalJustifyCenter,
-  RotateCcw,
 } from "lucide-react";
 import { useState } from "react";
 import { ExportModal } from "./ExportModal";
-import type { DriplElement, TextElement, FreeDrawElement } from "@dripl/common";
+import type { DriplElement } from "@dripl/common";
 
 interface ElementPropertiesProps {
   selectedElement: DriplElement | null;
@@ -26,26 +25,29 @@ interface ElementPropertiesProps {
   onDuplicateElement?: () => void;
 }
 
+
 const STROKE_COLORS = [
-  "#1e1e1e", // Near-black (Excalidraw default in light)
-  "#e03131", // Red
-  "#2f9e44", // Green
-  "#1971c2", // Blue
-  "#f08c00", // Orange
-  "#6965db", // Purple
-  "#ffffff", // White (visible in dark mode)
+  { value: "#1e1e1e", label: "Black" },
+  { value: "#e03131", label: "Red" },
+  { value: "#2f9e44", label: "Green" },
+  { value: "#1971c2", label: "Blue" },
+  { value: "#f08c00", label: "Orange" },
+  { value: "#6965db", label: "Purple" },
+  { value: "#c2255c", label: "Pink" },
+  { value: "#ffffff", label: "White" },
 ];
 
 const BACKGROUND_COLORS = [
-  "transparent",
-  "#ffc9c9", // Light red
-  "#b2f2bb", // Light green
-  "#a5d8ff", // Light blue
-  "#ffec99", // Light yellow
-  "#e0dcff", // Light purple
+  { value: "transparent", label: "None" },
+  { value: "#ffc9c9", label: "Light Red" },
+  { value: "#b2f2bb", label: "Light Green" },
+  { value: "#a5d8ff", label: "Light Blue" },
+  { value: "#ffec99", label: "Light Yellow" },
+  { value: "#e0dcff", label: "Light Purple" },
 ];
 
-const SHAPE_PROPERTIES = {
+
+const SHAPE_PROPERTIES: Record<string, string[]> = {
   rectangle: [
     "strokeColor",
     "background",
@@ -115,6 +117,102 @@ const SHAPE_PROPERTIES = {
   frame: ["strokeColor", "opacity", "layers", "actions"],
 };
 
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label
+      className="text-xs font-medium select-none"
+      style={{ color: "var(--color-panel-label)" }}
+    >
+      {children}
+    </label>
+  );
+}
+
+
+interface RowBtnProps {
+  active: boolean;
+  onClick: () => void;
+  title?: string;
+  children: React.ReactNode;
+}
+
+function RowBtn({ active, onClick, title, children }: RowBtnProps) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="flex-1 h-7 rounded flex items-center justify-center transition-all duration-120"
+      style={
+        active
+          ? {
+              backgroundColor: "var(--color-panel-btn-active)",
+              color: "var(--color-panel-btn-active-text, #fff)",
+              boxShadow: "inset 0 1px 2px rgba(0,0,0,0.15)",
+            }
+          : {
+              backgroundColor: "var(--color-panel-btn-bg)",
+              color: "var(--color-panel-text)",
+            }
+      }
+      onMouseEnter={(e) => {
+        if (!active)
+          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+            "var(--color-panel-btn-hover)";
+      }}
+      onMouseLeave={(e) => {
+        if (!active)
+          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+            "var(--color-panel-btn-bg)";
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+
+function ActionBtn({
+  onClick,
+  title,
+  danger,
+  children,
+}: {
+  onClick?: () => void;
+  title?: string;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="flex-1 h-7 rounded flex items-center justify-center transition-all duration-120"
+      style={{
+        backgroundColor: "var(--color-panel-btn-bg)",
+        color: "var(--color-panel-text)",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.backgroundColor = danger
+          ? "rgba(224,49,49,0.15)"
+          : "var(--color-panel-btn-hover)";
+        if (danger)
+          (e.currentTarget as HTMLButtonElement).style.color =
+            "var(--color-destructive)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+          "var(--color-panel-btn-bg)";
+        (e.currentTarget as HTMLButtonElement).style.color =
+          "var(--color-panel-text)";
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+
 export function PropertiesPanel({
   selectedElement,
   onUpdateElement,
@@ -123,49 +221,31 @@ export function PropertiesPanel({
 }: Partial<ElementPropertiesProps> = {}) {
   const [showExportModal, setShowExportModal] = useState(false);
 
-  const currentStrokeColor = useCanvasStore(
-    (state) => state.currentStrokeColor,
-  );
+  const currentStrokeColor = useCanvasStore((s) => s.currentStrokeColor);
   const currentBackgroundColor = useCanvasStore(
-    (state) => state.currentBackgroundColor,
+    (s) => s.currentBackgroundColor,
   );
-  const currentStrokeWidth = useCanvasStore(
-    (state) => state.currentStrokeWidth,
-  );
-  const currentRoughness = useCanvasStore((state) => state.currentRoughness);
-  const currentStrokeStyle = useCanvasStore(
-    (state) => state.currentStrokeStyle,
-  );
+  const currentStrokeWidth = useCanvasStore((s) => s.currentStrokeWidth);
+  const currentRoughness = useCanvasStore((s) => s.currentRoughness);
+  const currentStrokeStyle = useCanvasStore((s) => s.currentStrokeStyle);
 
-  const setCurrentStrokeColor = useCanvasStore(
-    (state) => state.setCurrentStrokeColor,
-  );
+  const setCurrentStrokeColor = useCanvasStore((s) => s.setCurrentStrokeColor);
   const setCurrentBackgroundColor = useCanvasStore(
-    (state) => state.setCurrentBackgroundColor,
+    (s) => s.setCurrentBackgroundColor,
   );
-  const setCurrentStrokeWidth = useCanvasStore(
-    (state) => state.setCurrentStrokeWidth,
-  );
-  const setCurrentRoughness = useCanvasStore(
-    (state) => state.setCurrentRoughness,
-  );
-  const setCurrentStrokeStyle = useCanvasStore(
-    (state) => state.setCurrentStrokeStyle,
-  );
+  const setCurrentStrokeWidth = useCanvasStore((s) => s.setCurrentStrokeWidth);
+  const setCurrentRoughness = useCanvasStore((s) => s.setCurrentRoughness);
+  const setCurrentStrokeStyle = useCanvasStore((s) => s.setCurrentStrokeStyle);
 
-  const updateElementProperty = (property: string, value: any) => {
+  const updateProp = (property: string, value: unknown) => {
     if (!selectedElement || !onUpdateElement) return;
-    onUpdateElement({ ...selectedElement, [property]: value });
+    onUpdateElement({ ...selectedElement, [property]: value } as DriplElement);
   };
 
-  const getVisibleProperties = () => {
-    if (!selectedElement) return [];
-    const type = selectedElement.type as keyof typeof SHAPE_PROPERTIES;
-    return SHAPE_PROPERTIES[type] || [];
-  };
-
-  const visibleProps = getVisibleProperties();
-  const showProp = (prop: string) => visibleProps.includes(prop);
+  const visibleProps = selectedElement
+    ? (SHAPE_PROPERTIES[selectedElement.type] ?? [])
+    : [];
+  const showProp = (p: string) => !selectedElement || visibleProps.includes(p);
 
   const strokeColor = selectedElement?.strokeColor ?? currentStrokeColor;
   const backgroundColor =
@@ -175,57 +255,48 @@ export function PropertiesPanel({
   const strokeStyle = selectedElement?.strokeStyle ?? currentStrokeStyle;
   const opacity = selectedElement?.opacity ?? 1;
 
-  return (
-    <div className="flex flex-col gap-2 pointer-events-auto z-50">
-      <div className="p-4 bg-panel-bg border border-panel-border rounded-xl shadow-2xl w-48 space-y-4 ">
-        {(!selectedElement || showProp("strokeColor")) && (
-          <div className="space-y-1.5">
-            <label className="text-xs text-panel-label font-medium ">
-              Stroke
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {STROKE_COLORS.map((color) => (
-                <button
-                  key={color}
-                  onClick={() =>
-                    selectedElement
-                      ? updateElementProperty("strokeColor", color)
-                      : setCurrentStrokeColor(color)
-                  }
-                  className={`w-5 h-5 rounded border-2 transition-all ${
-                    strokeColor === color
-                      ? "border-panel-text scale-110 "
-                      : "border-transparent hover:border-panel-label "
-                  }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+  // Slide-in: when an element is selected → is-visible; otherwise no-selection
+  const panelClass = `properties-panel${selectedElement ? " is-visible" : " no-selection"}`;
 
-        {(!selectedElement || showProp("background")) && (
+  return (
+    <div className={`flex flex-col gap-2 z-50 ${panelClass}`}>
+      <div
+        className="p-4 rounded-xl shadow-2xl w-48 space-y-3"
+        style={{
+          backgroundColor: "var(--color-panel-bg)",
+          border: "1px solid var(--color-panel-border)",
+        }}
+      >
+        {/* ── Stroke colour ─────────────────────────────────────────────── */}
+        {showProp("strokeColor") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-panel-label font-medium ">
-              Background
-            </label>
+            <SectionLabel>Stroke</SectionLabel>
             <div className="flex flex-wrap gap-1.5">
-              {BACKGROUND_COLORS.map((color) => (
+              {STROKE_COLORS.map(({ value, label }) => (
                 <button
-                  key={color}
+                  key={value}
                   onClick={() =>
                     selectedElement
-                      ? updateElementProperty("backgroundColor", color)
-                      : setCurrentBackgroundColor(color)
+                      ? updateProp("strokeColor", value)
+                      : setCurrentStrokeColor(value)
                   }
-                  className={`w-5 h-5 rounded border-2 transition-all ${
-                    backgroundColor === color
-                      ? "border-panel-text scale-110 "
-                      : "border-transparent hover:border-panel-label "
-                  } ${color === "transparent" ? "bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22%3E%3Crect width=%224%22 height=%224%22 fill=%22%23ccc%22/%3E%3Crect x=%224%22 y=%224%22 width=%224%22 height=%224%22 fill=%22%23ccc%22/%3E%3C/svg%3E')]" : ""}`}
+                  title={label}
+                  aria-label={label}
+                  className="w-5 h-5 rounded transition-all duration-120"
                   style={{
-                    backgroundColor:
-                      color === "transparent" ? undefined : color,
+                    backgroundColor: value,
+                    border:
+                      strokeColor === value
+                        ? "2px solid var(--color-panel-text)"
+                        : value === "#ffffff"
+                          ? "1.5px solid var(--color-panel-border)"
+                          : "2px solid transparent",
+                    transform:
+                      strokeColor === value ? "scale(1.18)" : "scale(1)",
+                    boxShadow:
+                      strokeColor === value
+                        ? "0 0 0 1px var(--color-panel-bg)"
+                        : "none",
                   }}
                 />
               ))}
@@ -233,156 +304,193 @@ export function PropertiesPanel({
           </div>
         )}
 
-        {(!selectedElement || showProp("strokeWidth")) && (
+        {/* ── Background colour ─────────────────────────────────────────── */}
+        {showProp("background") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-panel-label font-medium">
-              Stroke width
-            </label>
-            <div className="flex gap-1">
-              {[1, 2, 4].map((width) => (
+            <SectionLabel>Background</SectionLabel>
+            <div className="flex flex-wrap gap-1.5">
+              {BACKGROUND_COLORS.map(({ value, label }) => (
                 <button
-                  key={width}
+                  key={value}
                   onClick={() =>
                     selectedElement
-                      ? updateElementProperty("strokeWidth", width)
-                      : setCurrentStrokeWidth(width)
+                      ? updateProp("backgroundColor", value)
+                      : setCurrentBackgroundColor(value)
                   }
-                  className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
-                    strokeWidth === width
-                      ? "bg-panel-btn-active"
-                      : "bg-panel-btn-bg hover:bg-panel-btn-hover"
+                  title={label}
+                  aria-label={label}
+                  className={`w-5 h-5 rounded transition-all duration-120${
+                    value === "transparent"
+                      ? " bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22%3E%3Crect width=%224%22 height=%224%22 fill=%22%23ddd%22/%3E%3Crect x=%224%22 y=%224%22 width=%224%22 height=%224%22 fill=%22%23ddd%22/%3E%3C/svg%3E')]"
+                      : ""
                   }`}
-                >
-                  <div
-                    className="bg-panel-text rounded-full"
-                    style={{ width: width * 2 + 4, height: width + 1 }}
-                  />
-                </button>
+                  style={{
+                    backgroundColor:
+                      value === "transparent" ? undefined : value,
+                    border:
+                      backgroundColor === value
+                        ? "2px solid var(--color-panel-text)"
+                        : "2px solid transparent",
+                    transform:
+                      backgroundColor === value ? "scale(1.18)" : "scale(1)",
+                    boxShadow:
+                      backgroundColor === value
+                        ? "0 0 0 1px var(--color-panel-bg)"
+                        : "none",
+                  }}
+                />
               ))}
             </div>
           </div>
         )}
 
-        {(!selectedElement || showProp("strokeStyle")) && (
+        {/* Divider when both stroke and bg are visible */}
+        {showProp("strokeColor") && showProp("background") && (
+          <div
+            className="h-px"
+            style={{ backgroundColor: "var(--color-panel-divider)" }}
+          />
+        )}
+
+        {/* ── Stroke width ──────────────────────────────────────────────── */}
+        {showProp("strokeWidth") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-panel-label font-medium">
-              Stroke style
-            </label>
+            <SectionLabel>Stroke width</SectionLabel>
             <div className="flex gap-1">
-              {["solid", "dashed", "dotted"].map((style) => (
-                <button
-                  key={style}
+              {[1, 2, 4].map((w) => (
+                <RowBtn
+                  key={w}
+                  active={strokeWidth === w}
                   onClick={() =>
                     selectedElement
-                      ? updateElementProperty("strokeStyle", style)
-                      : setCurrentStrokeStyle(style as any)
+                      ? updateProp("strokeWidth", w)
+                      : setCurrentStrokeWidth(w)
                   }
-                  className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
-                    strokeStyle === style
-                      ? "bg-panel-btn-active"
-                      : "bg-panel-btn-bg hover:bg-panel-btn-hover"
-                  }`}
+                  title={`Width ${w}`}
                 >
                   <div
-                    className="w-5 border-t-2 border-panel-text"
-                    style={{ borderStyle: style }}
+                    className="rounded-full"
+                    style={{
+                      width: w * 5 + 4,
+                      height: w + 1,
+                      backgroundColor: "currentColor",
+                    }}
                   />
-                </button>
+                </RowBtn>
               ))}
             </div>
           </div>
         )}
 
-        {(!selectedElement || showProp("sloppiness")) && (
+        {/* ── Stroke style ──────────────────────────────────────────────── */}
+        {showProp("strokeStyle") && (
           <div className="space-y-1.5">
-            <label className="text-xs text-panel-label font-medium">
-              Sloppiness
-            </label>
+            <SectionLabel>Stroke style</SectionLabel>
+            <div className="flex gap-1">
+              {(["solid", "dashed", "dotted"] as const).map((s) => (
+                <RowBtn
+                  key={s}
+                  active={strokeStyle === s}
+                  onClick={() =>
+                    selectedElement
+                      ? updateProp("strokeStyle", s)
+                      : setCurrentStrokeStyle(s)
+                  }
+                  title={s}
+                >
+                  <div
+                    className="w-5 border-t-2"
+                    style={{
+                      borderStyle: s,
+                      borderColor: "currentColor",
+                    }}
+                  />
+                </RowBtn>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Sloppiness ────────────────────────────────────────────────── */}
+        {showProp("sloppiness") && (
+          <div className="space-y-1.5">
+            <SectionLabel>Sloppiness</SectionLabel>
             <div className="flex gap-1">
               {[0, 1, 2].map((level) => (
-                <button
+                <RowBtn
                   key={level}
+                  active={roughness === level}
                   onClick={() =>
                     selectedElement
-                      ? updateElementProperty("roughness", level)
+                      ? updateProp("roughness", level)
                       : setCurrentRoughness(level)
                   }
-                  className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
-                    roughness === level
-                      ? "bg-panel-btn-active"
-                      : "bg-panel-btn-bg hover:bg-panel-btn-hover"
-                  }`}
+                  title={["Architect", "Artist", "Cartoonist"][level]}
                 >
                   <svg
                     width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
+                    height="14"
+                    viewBox="0 0 24 18"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
+                    strokeLinecap="round"
                   >
-                    {level === 0 && <path d="M6 12h12" />}
-                    {level === 1 && <path d="M6 12c2-1 4 1 6 0s4-1 6 0" />}
+                    {level === 0 && <path d="M4 9h16" />}
+                    {level === 1 && <path d="M4 9c3-2 5 2 8 0s5-2 8 0" />}
                     {level === 2 && (
-                      <path d="M6 12c1-2 2 2 3 0s2 2 3 0 2 2 3 0 2 2 3 0" />
+                      <path d="M4 9c1-3 2 3 4 0s2 3 4 0 2 3 4 0 2 3 4 0" />
                     )}
                   </svg>
-                </button>
+                </RowBtn>
               ))}
             </div>
           </div>
         )}
 
+        {/* ── Edges ─────────────────────────────────────────────────────── */}
         {showProp("edges") && (
           <div className="space-y-1.5">
-            <label className="text-xs text--(--color-panel-label) font-medium">
-              Edges
-            </label>
+            <SectionLabel>Edges</SectionLabel>
             <div className="flex gap-1">
-              {["sharp", "round"].map((edge) => (
-                <button
+              {(["sharp", "round"] as const).map((edge) => (
+                <RowBtn
                   key={edge}
-                  onClick={() => updateElementProperty("edges", edge)}
-                  className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
-                    (selectedElement as any)?.edges === edge
-                      ? "bg--(--color-panel-btn-active)"
-                      : "bg-panel-btn-bg  hover:bg-panel-btn-hover "
-                  }`}
+                  active={(selectedElement as any)?.edges === edge}
+                  onClick={() => updateProp("edges", edge)}
+                  title={edge}
                 >
                   <div
-                    className={`w-4 h-4 border-2 border-panel-text  ${
-                      edge === "round" ? "rounded" : ""
-                    }`}
+                    className={`w-4 h-4 border-2 ${edge === "round" ? "rounded" : ""}`}
+                    style={{ borderColor: "currentColor" }}
                   />
-                </button>
+                </RowBtn>
               ))}
             </div>
           </div>
         )}
 
+        {/* ── Arrow type ────────────────────────────────────────────────── */}
         {showProp("arrowType") && (
           <div className="space-y-1.5">
-            <label className="text-xs text--(--color-panel-label) font-medium">
-              Arrow type
-            </label>
+            <SectionLabel>Arrow type</SectionLabel>
             <div className="flex gap-1">
-              {["straight", "curved", "elbow"].map((type) => (
-                <button
+              {(["straight", "curved", "elbow"] as const).map((type) => (
+                <RowBtn
                   key={type}
-                  onClick={() => updateElementProperty("arrowType", type)}
-                  className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
-                    (selectedElement as any)?.arrowType === type
-                      ? "bg--(--color-panel-btn-active)"
-                      : "bg-panel-btn-bg  hover:bg-panel-btn-hover "
-                  }`}
+                  active={(selectedElement as any)?.arrowType === type}
+                  onClick={() => updateProp("arrowType", type)}
+                  title={type}
                 >
                   <svg
-                    width="16"
-                    height="16"
+                    width="14"
+                    height="14"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
                     {type === "straight" && <path d="M5 12h14M15 6l6 6-6 6" />}
                     {type === "curved" && (
@@ -390,61 +498,54 @@ export function PropertiesPanel({
                     )}
                     {type === "elbow" && <path d="M5 19v-7h14M15 6l6 6-6 6" />}
                   </svg>
-                </button>
+                </RowBtn>
               ))}
             </div>
           </div>
         )}
 
+        {/* ── Arrowheads ────────────────────────────────────────────────── */}
         {showProp("arrowheads") && (
           <div className="space-y-1.5">
-            <label className="text-xs text--(--color-panel-label) font-medium">
-              Arrowheads
-            </label>
+            <SectionLabel>Arrowheads</SectionLabel>
             <div className="flex gap-1">
-              <button
+              <RowBtn
+                active={!!(selectedElement as any)?.startArrowhead}
                 onClick={() =>
-                  updateElementProperty(
+                  updateProp(
                     "startArrowhead",
                     !(selectedElement as any)?.startArrowhead,
                   )
                 }
-                className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
-                  (selectedElement as any)?.startArrowhead
-                    ? "bg--(--color-panel-btn-active)"
-                    : "bg-panel-btn-bg  hover:bg-panel-btn-hover "
-                }`}
                 title="Start arrowhead"
               >
-                <span className="text-xs text-panel-text ">←o</span>
-              </button>
-              <button
+                <span className="text-xs">←●</span>
+              </RowBtn>
+              <RowBtn
+                active={(selectedElement as any)?.endArrowhead !== false}
                 onClick={() =>
-                  updateElementProperty(
+                  updateProp(
                     "endArrowhead",
                     !(selectedElement as any)?.endArrowhead,
                   )
                 }
-                className={`flex-1 h-7 rounded flex items-center justify-center transition-colors ${
-                  (selectedElement as any)?.endArrowhead !== false
-                    ? "bg--(--color-panel-btn-active)"
-                    : "bg-panel-btn-bg  hover:bg-panel-btn-hover "
-                }`}
                 title="End arrowhead"
               >
-                <span className="text-xs text-panel-text ">o→</span>
-              </button>
+                <span className="text-xs">●→</span>
+              </RowBtn>
             </div>
           </div>
         )}
 
-        {(!selectedElement || showProp("opacity")) && (
+        {/* ── Opacity ───────────────────────────────────────────────────── */}
+        {showProp("opacity") && (
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
-              <label className="text-xs text--(--color-panel-label) font-medium">
-                Opacity
-              </label>
-              <span className="text-xs text--(--color-panel-label)">
+              <SectionLabel>Opacity</SectionLabel>
+              <span
+                className="text-xs tabular-nums"
+                style={{ color: "var(--color-panel-label)" }}
+              >
                 {Math.round(opacity * 100)}
               </span>
             </div>
@@ -455,150 +556,124 @@ export function PropertiesPanel({
               value={Math.round(opacity * 100)}
               onChange={(e) =>
                 selectedElement
-                  ? updateElementProperty(
-                      "opacity",
-                      Number(e.target.value) / 100,
-                    )
-                  : null
+                  ? updateProp("opacity", Number(e.target.value) / 100)
+                  : undefined
               }
-              className="w-full h-1.5 bg--(--color-panel-slider) rounded-lg appearance-none cursor-pointer accent--(--color-panel-btn-active)"
+              className="w-full"
             />
           </div>
         )}
 
+        {/* ── Layers ────────────────────────────────────────────────────── */}
         {showProp("layers") && (
           <div className="space-y-1.5">
-            <label className="text-xs text--(--color-panel-label) font-medium">
-              Layers
-            </label>
+            <SectionLabel>Layers</SectionLabel>
             <div className="flex gap-1">
-              <button
+              <ActionBtn
                 onClick={() =>
-                  updateElementProperty(
-                    "zIndex",
-                    (selectedElement?.zIndex ?? 100) - 100,
-                  )
+                  updateProp("zIndex", (selectedElement?.zIndex ?? 100) - 100)
                 }
-                className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Send to back"
               >
-                <ChevronsDown size={14} className="text-panel-text " />
-              </button>
-              <button
+                <ChevronsDown size={13} />
+              </ActionBtn>
+              <ActionBtn
                 onClick={() =>
-                  updateElementProperty(
-                    "zIndex",
-                    (selectedElement?.zIndex ?? 100) - 10,
-                  )
+                  updateProp("zIndex", (selectedElement?.zIndex ?? 100) - 10)
                 }
-                className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Send backward"
               >
-                <ChevronDown size={14} className="text-panel-text " />
-              </button>
-              <button
+                <ChevronDown size={13} />
+              </ActionBtn>
+              <ActionBtn
                 onClick={() =>
-                  updateElementProperty(
-                    "zIndex",
-                    (selectedElement?.zIndex ?? 100) + 10,
-                  )
+                  updateProp("zIndex", (selectedElement?.zIndex ?? 100) + 10)
                 }
-                className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Bring forward"
               >
-                <ChevronUp size={14} className="text-panel-text " />
-              </button>
-              <button
+                <ChevronUp size={13} />
+              </ActionBtn>
+              <ActionBtn
                 onClick={() =>
-                  updateElementProperty(
-                    "zIndex",
-                    (selectedElement?.zIndex ?? 100) + 100,
-                  )
+                  updateProp("zIndex", (selectedElement?.zIndex ?? 100) + 100)
                 }
-                className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Bring to front"
               >
-                <ChevronsUp size={14} className="text-panel-text " />
-              </button>
+                <ChevronsUp size={13} />
+              </ActionBtn>
             </div>
           </div>
         )}
 
+        {/* ── Align ─────────────────────────────────────────────────────── */}
         {showProp("align") && (
           <div className="space-y-1.5">
-            <label className="text-xs text--(--color-panel-label) font-medium">
-              Align
-            </label>
+            <SectionLabel>Align</SectionLabel>
             <div className="flex gap-1 flex-wrap">
-              <button
-                className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
-                title="Align left"
-              >
-                <AlignLeft size={14} className="text-panel-text " />
-              </button>
-              <button
-                className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
-                title="Align center"
-              >
-                <AlignCenter size={14} className="text-panel-text " />
-              </button>
-              <button
-                className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
-                title="Align right"
-              >
-                <AlignRight size={14} className="text-panel-text " />
-              </button>
-              <button
-                className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
-                title="Align middle"
-              >
-                <AlignVerticalJustifyCenter
-                  size={14}
-                  className="text-panel-text "
-                />
-              </button>
+              <ActionBtn title="Align left">
+                <AlignLeft size={13} />
+              </ActionBtn>
+              <ActionBtn title="Align center">
+                <AlignCenter size={13} />
+              </ActionBtn>
+              <ActionBtn title="Align right">
+                <AlignRight size={13} />
+              </ActionBtn>
+              <ActionBtn title="Align middle">
+                <AlignVerticalJustifyCenter size={13} />
+              </ActionBtn>
             </div>
           </div>
         )}
 
+        {/* ── Actions ───────────────────────────────────────────────────── */}
         {showProp("actions") && (
           <div className="space-y-1.5">
-            <label className="text-xs text--(--color-panel-label) font-medium">
-              Actions
-            </label>
+            <div
+              className="h-px"
+              style={{ backgroundColor: "var(--color-panel-divider)" }}
+            />
             <div className="flex gap-1">
-              <button
-                onClick={onDuplicateElement}
-                className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
-                title="Duplicate"
-              >
-                <Copy size={14} className="text-panel-text " />
-              </button>
-              <button
-                onClick={onDeleteElement}
-                className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-red-500/20 flex items-center justify-center transition-colors"
-                title="Delete"
-              >
-                <Trash2 size={14} className="text-panel-text " />
-              </button>
-              <button
+              <ActionBtn onClick={onDuplicateElement} title="Duplicate">
+                <Copy size={13} />
+              </ActionBtn>
+              <ActionBtn onClick={onDeleteElement} title="Delete" danger>
+                <Trash2 size={13} />
+              </ActionBtn>
+              <ActionBtn
                 onClick={() => setShowExportModal(true)}
-                className="flex-1 h-7 rounded bg-panel-btn-bg  hover:bg-panel-btn-hover  flex items-center justify-center transition-colors"
                 title="Export"
               >
-                <Download size={14} className="text-panel-text " />
-              </button>
+                <Download size={13} />
+              </ActionBtn>
             </div>
           </div>
         )}
 
+        {/* ── Global export (no selection) ──────────────────────────────── */}
         {!selectedElement && (
-          <div className="pt-2 border-t border-panel-divider ">
+          <div
+            className="pt-2"
+            style={{ borderTop: "1px solid var(--color-panel-divider)" }}
+          >
             <button
               onClick={() => setShowExportModal(true)}
-              className="w-full flex items-center justify-center gap-2 p-2 bg-panel-btn-bg  text--(--color-panel-label) border border--(--color-panel-border) rounded-lg hover:bg-panel-btn-hover  transition-colors text-xs"
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs transition-all duration-120"
+              style={{
+                backgroundColor: "var(--color-panel-btn-bg)",
+                color: "var(--color-panel-label)",
+                border: "1px solid var(--color-panel-border)",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                  "var(--color-panel-btn-hover)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                  "var(--color-panel-btn-bg)";
+              }}
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-3.5 h-3.5" />
               Export
             </button>
           </div>

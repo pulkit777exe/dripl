@@ -204,7 +204,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
               opacity: 1,
               text: "Local Canvas Test",
               fontSize: 24,
-              fontFamily: "Arial",
+              fontFamily: "Caveat",
               seed: Math.floor(Math.random() * 1000000),
             },
           ];

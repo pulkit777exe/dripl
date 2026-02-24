@@ -118,7 +118,6 @@ export function useCanvasWebSocket(
         timestamp: Date.now(),
       };
 
-      // Track broadcasted elements
       if (message.type === "sync_room_state" && message.elements) {
         (message.elements as DriplElement[]).forEach((el) => {
           broadcastedElementVersionsRef.current.set(el.id, el.version ?? 0);
@@ -143,12 +142,6 @@ export function useCanvasWebSocket(
     }
   }, []);
 
-  // -----------------------------------------------------------------------
-  // handleMessage()  — processes an incoming server message.
-  //
-  // Uses `useCanvasStore.getState()` for element lookups so we never close
-  // over a stale `elements` array.
-  // -----------------------------------------------------------------------
   const handleMessage = useCallback(
     (event: MessageEvent) => {
       try {
@@ -246,23 +239,9 @@ export function useCanvasWebSocket(
               updateMsg.element,
             ]);
 
-            if (reconciliationResult.accepted.length > 0) {
-              reconciliationResult.accepted.forEach((el) => {
-                updateElement(el.id, el);
-              });
-              console.log(
-                "[Reconciliation] Accepted update for:",
-                updateMsg.element.id,
-                "version:",
-                updateMsg.element.version,
-              );
-            } else {
-              console.log(
-                "[Reconciliation] Rejected update for:",
-                updateMsg.element.id,
-                "- version too old",
-              );
-            }
+            reconciliationResult.accepted.forEach((el) => {
+              updateElement(el.id, el);
+            });
             break;
           }
 
@@ -284,7 +263,8 @@ export function useCanvasWebSocket(
           }
 
           default:
-            console.log("Unknown message type:", message.type);
+            // Silently ignore unknown/future message types
+            break;
         }
       } catch (error) {
         console.error("Failed to parse WebSocket message:", error);
@@ -302,18 +282,12 @@ export function useCanvasWebSocket(
     ],
   );
 
-  // -----------------------------------------------------------------------
-  // Track broadcasted element versions to avoid redundant updates
-  // -----------------------------------------------------------------------
   const trackBroadcastedElements = useCallback((elements: DriplElement[]) => {
     elements.forEach((el) => {
       broadcastedElementVersionsRef.current.set(el.id, el.version ?? 0);
     });
   }, []);
 
-  // -----------------------------------------------------------------------
-  // Get syncable elements - only send elements that have been updated
-  // -----------------------------------------------------------------------
   const getSyncableElements = useCallback(
     (elements: DriplElement[]): DriplElement[] => {
       return elements.reduce((acc, element) => {
@@ -370,7 +344,6 @@ export function useCanvasWebSocket(
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log("WebSocket connected");
         setIsConnected(true);
         setIsConnectedLocal(true);
         reconnectAttemptsRef.current = 0;
@@ -388,12 +361,11 @@ export function useCanvasWebSocket(
 
       ws.onmessage = handleMessage;
 
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
+      ws.onerror = () => {
+        console.warn("WebSocket connection error (server may be unavailable)");
       };
 
       ws.onclose = () => {
-        console.log("WebSocket disconnected");
         setIsConnected(false);
         setIsConnectedLocal(false);
 
@@ -408,15 +380,10 @@ export function useCanvasWebSocket(
             1000 * Math.pow(2, reconnectAttemptsRef.current),
             30000,
           );
-          console.log(
-            `Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current})`,
-          );
 
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, delay);
-        } else {
-          console.error("Max reconnection attempts reached");
         }
       };
     } catch (error) {

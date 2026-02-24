@@ -17,7 +17,20 @@ const config = {
     },
     extend: {
       fontFamily: {
-        sans: ["var(--font-caveat)", "Caveat", "cursive"],
+        sans: [
+          "var(--font-inter)",
+          "Inter",
+          "ui-sans-serif",
+          "system-ui",
+          "sans-serif",
+        ],
+        inter: [
+          "var(--font-inter)",
+          "Inter",
+          "ui-sans-serif",
+          "system-ui",
+          "sans-serif",
+        ],
         caveat: ["var(--font-caveat)", "Caveat", "cursive"],
       },
       colors: {
@@ -70,6 +83,7 @@ const config = {
         "panel-btn-bg": "var(--color-panel-btn-bg)",
         "panel-btn-hover": "var(--color-panel-btn-hover)",
         "panel-btn-active": "var(--color-panel-btn-active)",
+        "panel-btn-active-text": "var(--color-panel-btn-active-text)",
         "panel-label": "var(--color-panel-label)",
         "panel-text": "var(--color-panel-text)",
         "panel-divider": "var(--color-panel-divider)",

@@ -16,7 +16,67 @@ interface SelectionOverlayProps {
 
 export type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 
-const HANDLE_SIZE = 8;
+const H = 8;
+
+
+const CORNER_HANDLES: { id: ResizeHandle; css: React.CSSProperties }[] = [
+  { id: "nw", css: { top: -H / 2, left: -H / 2, cursor: "nw-resize" } },
+  { id: "ne", css: { top: -H / 2, right: -H / 2, cursor: "ne-resize" } },
+  { id: "se", css: { bottom: -H / 2, right: -H / 2, cursor: "se-resize" } },
+  { id: "sw", css: { bottom: -H / 2, left: -H / 2, cursor: "sw-resize" } },
+];
+
+const EDGE_HANDLES: { id: ResizeHandle; css: React.CSSProperties }[] = [
+  {
+    id: "n",
+    css: {
+      top: -H / 2,
+      left: "50%",
+      transform: "translateX(-50%)",
+      cursor: "n-resize",
+    },
+  },
+  {
+    id: "e",
+    css: {
+      top: "50%",
+      right: -H / 2,
+      transform: "translateY(-50%)",
+      cursor: "e-resize",
+    },
+  },
+  {
+    id: "s",
+    css: {
+      bottom: -H / 2,
+      left: "50%",
+      transform: "translateX(-50%)",
+      cursor: "s-resize",
+    },
+  },
+  {
+    id: "w",
+    css: {
+      top: "50%",
+      left: -H / 2,
+      transform: "translateY(-50%)",
+      cursor: "w-resize",
+    },
+  },
+];
+
+
+const baseHandle: React.CSSProperties = {
+  width: H,
+  height: H,
+  backgroundColor: "#ffffff",
+  border: "1.5px solid #6965db",
+  borderRadius: 2,
+  position: "absolute",
+  pointerEvents: "auto",
+  zIndex: 20,
+  boxSizing: "border-box",
+};
 
 export function SelectionOverlay({
   zoom,
@@ -29,26 +89,25 @@ export function SelectionOverlay({
   const elements = useCanvasStore((state) => state.elements);
   const selectedIds = useCanvasStore((state) => state.selectedIds);
 
-  // Render marquee selection if active
   if (marqueeSelection?.active) {
-    const x =
+    const mx =
       Math.min(marqueeSelection.start.x, marqueeSelection.end.x) * zoom + panX;
-    const y =
+    const my =
       Math.min(marqueeSelection.start.y, marqueeSelection.end.y) * zoom + panY;
-    const w =
+    const mw =
       Math.abs(marqueeSelection.end.x - marqueeSelection.start.x) * zoom;
-    const h =
+    const mh =
       Math.abs(marqueeSelection.end.y - marqueeSelection.start.y) * zoom;
 
     return (
       <div
         className="absolute top-0 left-0 pointer-events-none"
         style={{
-          transform: `translate(${x}px, ${y}px)`,
-          width: w,
-          height: h,
-          border: "2px dashed #6965db",
-          backgroundColor: "rgba(105, 101, 219, 0.1)",
+          transform: `translate(${mx}px, ${my}px)`,
+          width: mw,
+          height: mh,
+          border: "1.5px dashed #6965db",
+          backgroundColor: "rgba(105,101,219,0.08)",
           zIndex: 10,
         }}
       />
@@ -57,135 +116,97 @@ export function SelectionOverlay({
 
   if (selectedIds.size === 0) return null;
 
-  // Calculate bounding box of selection using proper bounds calculation
-  const selectedElements = elements.filter((el) => selectedIds.has(el.id));
-  if (selectedElements.length === 0) return null;
+  const selected = elements.filter((el) => selectedIds.has(el.id));
+  if (selected.length === 0) return null;
 
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
 
-  selectedElements.forEach((el) => {
-    const bounds = getElementBounds(el);
-    minX = Math.min(minX, bounds.x);
-    minY = Math.min(minY, bounds.y);
-    maxX = Math.max(maxX, bounds.x + bounds.width);
-    maxY = Math.max(maxY, bounds.y + bounds.height);
+  selected.forEach((el) => {
+    const b = getElementBounds(el);
+    minX = Math.min(minX, b.x);
+    minY = Math.min(minY, b.y);
+    maxX = Math.max(maxX, b.x + b.width);
+    maxY = Math.max(maxY, b.y + b.height);
   });
 
-  const SELECTION_PADDING = 4;
-  const x = minX * zoom + panX - SELECTION_PADDING;
-  const y = minY * zoom + panY - SELECTION_PADDING;
-  const w = (maxX - minX) * zoom + SELECTION_PADDING * 2;
-  const h = (maxY - minY) * zoom + SELECTION_PADDING * 2;
+  const PAD = 6;
+  const sx = minX * zoom + panX - PAD;
+  const sy = minY * zoom + panY - PAD;
+  const sw = (maxX - minX) * zoom + PAD * 2;
+  const sh = (maxY - minY) * zoom + PAD * 2;
 
-  // Rotation (only for single element)
-  const angle =
-    selectedElements.length === 1 ? selectedElements[0]?.angle || 0 : 0;
-
-  // Only show handles for single selection for now
-  const showHandles = selectedElements.length === 1;
-
-  const handleStyle = (cursor: string): React.CSSProperties => ({
-    width: HANDLE_SIZE,
-    height: HANDLE_SIZE,
-    backgroundColor: "white",
-    border: "1px solid #6965db",
-    position: "absolute",
-    cursor: `${cursor}-resize`,
-    pointerEvents: "auto",
-    zIndex: 20,
-    boxSizing: "border-box", // Ensure border doesn't add to size
-  });
+  const angle = selected.length === 1 ? (selected[0]?.angle ?? 0) : 0;
+  const showHandles = selected.length === 1;
 
   return (
     <div
-      className="absolute top-0 left-0 pointer-events-none transition-all duration-150 ease-out"
+      className="absolute top-0 left-0 pointer-events-none"
       style={{
-        transform: `translate(${x}px, ${y}px) rotate(${angle}rad)`,
-        width: w,
-        height: h,
-        border: "1px solid #6965db",
-        zIndex: 10,
+        transform: `translate(${sx}px, ${sy}px) rotate(${angle}rad)`,
         transformOrigin: "center center",
+        width: sw,
+        height: sh,
+        border: "1.5px solid #6965db",
+        zIndex: 10,
+        borderRadius: 2,
       }}
     >
       {showHandles && (
         <>
-          {/* Corners */}
-          <div
-            style={{ ...handleStyle("nw"), top: -4, left: -4 }}
-            onPointerDown={(e) => onResizeStart("nw", e)}
-          />
-          <div
-            style={{ ...handleStyle("ne"), top: -4, right: -4 }}
-            onPointerDown={(e) => onResizeStart("ne", e)}
-          />
-          <div
-            style={{ ...handleStyle("se"), bottom: -4, right: -4 }}
-            onPointerDown={(e) => onResizeStart("se", e)}
-          />
-          <div
-            style={{ ...handleStyle("sw"), bottom: -4, left: -4 }}
-            onPointerDown={(e) => onResizeStart("sw", e)}
-          />
+          {CORNER_HANDLES.map(({ id, css }) => (
+            <div
+              key={id}
+              className="resize-handle"
+              style={{ ...baseHandle, ...css }}
+              onPointerDown={(e) => onResizeStart(id, e)}
+            />
+          ))}
 
-          {/* Sides */}
-          <div
-            style={{
-              ...handleStyle("n"),
-              top: -4,
-              left: "50%",
-              transform: "translateX(-50%)",
-            }}
-            onPointerDown={(e) => onResizeStart("n", e)}
-          />
-          <div
-            style={{
-              ...handleStyle("e"),
-              top: "50%",
-              right: -4,
-              transform: "translateY(-50%)",
-            }}
-            onPointerDown={(e) => onResizeStart("e", e)}
-          />
-          <div
-            style={{
-              ...handleStyle("s"),
-              bottom: -4,
-              left: "50%",
-              transform: "translateX(-50%)",
-            }}
-            onPointerDown={(e) => onResizeStart("s", e)}
-          />
-          <div
-            style={{
-              ...handleStyle("w"),
-              top: "50%",
-              left: -4,
-              transform: "translateY(-50%)",
-            }}
-            onPointerDown={(e) => onResizeStart("w", e)}
-          />
+          {EDGE_HANDLES.map(({ id, css }) => (
+            <div
+              key={id}
+              className="resize-handle"
+              style={{
+                ...baseHandle,
+                ...css,
+              }}
+              onPointerDown={(e) => onResizeStart(id, e)}
+            />
+          ))}
 
-          {/* Rotation Handle */}
           <div
+            className="rotate-handle"
             style={{
-              width: HANDLE_SIZE,
-              height: HANDLE_SIZE,
-              backgroundColor: "white",
-              border: "1px solid #6965db",
+              width: H,
+              height: H,
+              backgroundColor: "#ffffff",
+              border: "1.5px solid #6965db",
               borderRadius: "50%",
               position: "absolute",
               top: -24,
               left: "50%",
               transform: "translateX(-50%)",
-              cursor: "move",
+              cursor: "grab",
               pointerEvents: "auto",
               zIndex: 20,
             }}
             onPointerDown={onRotateStart}
+          />
+
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              width: 1,
+              height: 14,
+              backgroundColor: "#6965db",
+              top: -14,
+              left: "50%",
+              transform: "translateX(-50%)",
+              opacity: 0.6,
+            }}
           />
         </>
       )}

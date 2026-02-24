@@ -103,6 +103,31 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     isDrawing: isToolDrawing,
   } = useDrawingTools();
 
+  // ── Interaction refs — avoid stale closures and React re-render latency ──
+  // These are mutated directly on every pointermove for zero-lag interaction.
+  const interactionRef = useRef<{
+    // Resize
+    resizing: boolean;
+    resizeHandle: ResizeHandle | null;
+    resizeStartPos: Point | null; // canvas coords at pointerdown
+    resizeInitialEl: DriplElement | null; // frozen snapshot at pointerdown
+    // Drag
+    dragging: boolean;
+    dragStartPos: Point | null; // canvas coords at pointerdown
+    // Rotate
+    rotating: boolean;
+    rotateInitialEl: DriplElement | null;
+  }>({
+    resizing: false,
+    resizeHandle: null,
+    resizeStartPos: null,
+    resizeInitialEl: null,
+    dragging: false,
+    dragStartPos: null,
+    rotating: false,
+    rotateInitialEl: null,
+  });
+
   const elements = useCanvasStore((state) => state.elements);
   const activeTool = useCanvasStore((state) => state.activeTool);
   const selectedIds = useCanvasStore((state) => state.selectedIds);
@@ -151,10 +176,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         currentFillStyle,
         activeTool,
       };
-
-      console.log("Local canvas mode: saving to storage");
-      console.log("Elements to save:", elements);
-      console.log("State to save:", appState);
 
       const timeoutId = setTimeout(() => {
         saveLocalCanvasToStorage(elements, appState, selectedIds);
@@ -389,10 +410,16 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       if (selectedIdsArray.length === 1) {
         const element = elements.find((el) => el.id === selectedIdsArray[0]);
         if (element) {
+          const startPos = getCanvasCoordinates(e);
+          // Write to ref immediately — no setState lag
+          interactionRef.current.resizing = true;
+          interactionRef.current.resizeHandle = handle;
+          interactionRef.current.resizeStartPos = startPos;
+          interactionRef.current.resizeInitialEl = JSON.parse(
+            JSON.stringify(element),
+          );
           setIsResizing(true);
           setResizeHandle(handle);
-          setInitialElement(JSON.parse(JSON.stringify(element)));
-          setLastPointerPos(getCanvasCoordinates(e));
           e.currentTarget.setPointerCapture(e.pointerId);
         }
       }
@@ -407,6 +434,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       if (selectedIdsArray.length === 1) {
         const element = elements.find((el) => el.id === selectedIdsArray[0]);
         if (element) {
+          interactionRef.current.rotating = true;
+          interactionRef.current.rotateInitialEl = JSON.parse(
+            JSON.stringify(element),
+          );
           setIsRotating(true);
           setInitialElement(JSON.parse(JSON.stringify(element)));
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -472,7 +503,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    console.log("handlePointerDown called", e.target, activeTool);
     // Check if event is from a UI element by checking if the target is not the canvas
     const target = e.target as HTMLElement;
     if (target.classList.contains("pointer-events-auto")) {
@@ -501,10 +531,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
             setSelectedIds(new Set([element.id]));
           }
         }
+        // Capture drag start in ref for zero-lag tracking
+        interactionRef.current.dragging = true;
+        interactionRef.current.dragStartPos = { x, y };
         setDragBaseline(
           captureDragBaseline(
             { x, y },
-            selectedIds,
+            selectedIds.has(element.id) ? selectedIds : new Set([element.id]),
             elements,
             e.pointerId ?? 0,
           ),
@@ -526,7 +559,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     if (activeTool === "text") {
-      console.log("Text tool activated, creating text input at", x, y);
       const id = uuidv4();
       setTextInput({ x, y, id });
       return;
@@ -654,54 +686,61 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (isResizing && initialElement && resizeHandle && lastPointerPos) {
-      const el = initialElement;
-      const dx = x - lastPointerPos.x;
-      const dy = y - lastPointerPos.y;
+    // ── Resize (ref-based total-delta from frozen start) ─────────────────
+    if (
+      interactionRef.current.resizing &&
+      interactionRef.current.resizeInitialEl &&
+      interactionRef.current.resizeStartPos
+    ) {
+      const el = interactionRef.current.resizeInitialEl;
+      const handle = interactionRef.current.resizeHandle!;
+      // Total delta from the frozen pointer-down position
+      const dx = x - interactionRef.current.resizeStartPos.x;
+      const dy = y - interactionRef.current.resizeStartPos.y;
 
       let newX = el.x;
       let newY = el.y;
       let newWidth = el.width;
       let newHeight = el.height;
 
-      switch (resizeHandle) {
+      switch (handle) {
         case "se":
-          newWidth = Math.max(1, el.width + dx);
-          newHeight = Math.max(1, el.height + dy);
+          newWidth = Math.max(4, el.width + dx);
+          newHeight = Math.max(4, el.height + dy);
           break;
         case "sw":
-          newWidth = Math.max(1, el.width - dx);
-          newX = el.x + (el.width - newWidth);
-          newHeight = Math.max(1, el.height + dy);
+          newWidth = Math.max(4, el.width - dx);
+          newX = el.x + el.width - newWidth;
+          newHeight = Math.max(4, el.height + dy);
           break;
         case "ne":
-          newWidth = Math.max(1, el.width + dx);
-          newHeight = Math.max(1, el.height - dy);
-          newY = el.y + (el.height - newHeight);
+          newWidth = Math.max(4, el.width + dx);
+          newHeight = Math.max(4, el.height - dy);
+          newY = el.y + el.height - newHeight;
           break;
         case "nw":
-          newWidth = Math.max(1, el.width - dx);
-          newX = el.x + (el.width - newWidth);
-          newHeight = Math.max(1, el.height - dy);
-          newY = el.y + (el.height - newHeight);
+          newWidth = Math.max(4, el.width - dx);
+          newX = el.x + el.width - newWidth;
+          newHeight = Math.max(4, el.height - dy);
+          newY = el.y + el.height - newHeight;
           break;
         case "e":
-          newWidth = Math.max(1, el.width + dx);
+          newWidth = Math.max(4, el.width + dx);
           break;
         case "w":
-          newWidth = Math.max(1, el.width - dx);
-          newX = el.x + (el.width - newWidth);
+          newWidth = Math.max(4, el.width - dx);
+          newX = el.x + el.width - newWidth;
           break;
         case "s":
-          newHeight = Math.max(1, el.height + dy);
+          newHeight = Math.max(4, el.height + dy);
           break;
         case "n":
-          newHeight = Math.max(1, el.height - dy);
-          newY = el.y + (el.height - newHeight);
+          newHeight = Math.max(4, el.height - dy);
+          newY = el.y + el.height - newHeight;
           break;
       }
 
-      const updatedElement = {
+      const updatedElement: DriplElement = {
         ...el,
         x: newX,
         y: newY,
@@ -709,32 +748,24 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         height: newHeight,
       };
 
+      // Scale points for line/arrow/freedraw
       if (
-        "points" in updatedElement &&
-        initialElement &&
-        "points" in initialElement &&
-        initialElement.points &&
-        (initialElement.type === "arrow" ||
-          initialElement.type === "line" ||
-          initialElement.type === "freedraw")
+        (el.type === "arrow" || el.type === "line" || el.type === "freedraw") &&
+        el.points &&
+        el.points.length > 0
       ) {
-        const scaleX =
-          initialElement.width === 0 ? 1 : newWidth / initialElement.width;
-        const scaleY =
-          initialElement.height === 0 ? 1 : newHeight / initialElement.height;
-
-        updatedElement.points = initialElement.points.map(
-          (p: { x: number; y: number }) => ({
-            x: newX + (p.x - initialElement.x) * scaleX,
-            y: newY + (p.y - initialElement.y) * scaleY,
-          }),
-        );
+        const scaleX = el.width === 0 ? 1 : newWidth / el.width;
+        const scaleY = el.height === 0 ? 1 : newHeight / el.height;
+        (updatedElement as any).points = el.points.map((p: Point) => ({
+          x: newX + (p.x - el.x) * scaleX,
+          y: newY + (p.y - el.y) * scaleY,
+        }));
       }
 
       if (el.id) {
         updateElement(el.id, updatedElement);
       }
-      send({
+      throttledSend({
         type: "update_element",
         element: updatedElement,
         timestamp: Date.now(),
@@ -742,21 +773,22 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (isRotating && initialElement) {
-      const cx = initialElement.x + initialElement.width / 2;
-      const cy = initialElement.y + initialElement.height / 2;
-      const angle = Math.atan2(y - cy, x - cx);
-      const adjustedAngle = angle + Math.PI / 2;
+    // ── Rotate ────────────────────────────────────────────────────────────
+    if (
+      interactionRef.current.rotating &&
+      interactionRef.current.rotateInitialEl
+    ) {
+      const el = interactionRef.current.rotateInitialEl;
+      const cx = el.x + el.width / 2;
+      const cy = el.y + el.height / 2;
+      // atan2 gives 0 at east; we want 0 at north so offset by -PI/2
+      const angle = Math.atan2(y - cy, x - cx) + Math.PI / 2;
 
-      const updatedElement = {
-        ...initialElement,
-        angle: adjustedAngle,
-      };
-
-      if (initialElement.id) {
-        updateElement(initialElement.id, updatedElement);
+      const updatedElement = { ...el, angle };
+      if (el.id) {
+        updateElement(el.id, updatedElement);
       }
-      send({
+      throttledSend({
         type: "update_element",
         element: updatedElement,
         timestamp: Date.now(),
@@ -764,10 +796,16 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (isDragging && activeTool === "select" && dragBaseline) {
+    // ── Drag selected elements (immediate visual update) ─────────────────
+    if (
+      interactionRef.current.dragging &&
+      activeTool === "select" &&
+      interactionRef.current.dragStartPos &&
+      dragBaseline
+    ) {
       const totalDelta = {
-        x: x - dragBaseline.downPoint.x,
-        y: y - dragBaseline.downPoint.y,
+        x: x - interactionRef.current.dragStartPos.x,
+        y: y - interactionRef.current.dragStartPos.y,
       };
       setDragTotalDelta(totalDelta);
       setLastPointerPos({ x, y });
@@ -853,6 +891,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     if (isResizing) {
+      interactionRef.current.resizing = false;
+      interactionRef.current.resizeHandle = null;
+      interactionRef.current.resizeStartPos = null;
+      interactionRef.current.resizeInitialEl = null;
       setIsResizing(false);
       setResizeHandle(null);
       setInitialElement(null);
@@ -861,6 +903,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     if (isRotating) {
+      interactionRef.current.rotating = false;
+      interactionRef.current.rotateInitialEl = null;
       setIsRotating(false);
       setInitialElement(null);
       pushHistory();
@@ -868,6 +912,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     if (isDragging) {
+      interactionRef.current.dragging = false;
+      interactionRef.current.dragStartPos = null;
       if (dragBaseline && dragTotalDelta) {
         const finalElements = applyDeltaToBaseline(
           dragBaseline,
@@ -884,7 +930,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           pushHistory();
         }
         finalElements.forEach((el) => {
-          send?.({
+          throttledSend({
             type: "update_element",
             element: el,
             timestamp: Date.now(),
@@ -967,7 +1013,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   };
 
   const handleTextSubmit = (text: string) => {
-    console.log("handleTextSubmit called with text:", text);
     if (!textInput || !text.trim()) {
       setTextInput(null);
       return;
@@ -985,8 +1030,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       strokeWidth: 1,
       opacity: 1,
       text,
-      fontSize: 16,
-      fontFamily: "Inter",
+      fontSize: 20,
+      fontFamily: "Caveat",
     };
 
     addElement(textElement);
@@ -1009,6 +1054,67 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     window.addEventListener("resize", updateViewportSize);
     return () => window.removeEventListener("resize", updateViewportSize);
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      )
+        return;
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        const { selectedIds: ids, elements: els } = useCanvasStore.getState();
+        if (ids.size > 0) {
+          e.preventDefault();
+          const idsArr = Array.from(ids);
+          deleteElements(idsArr);
+          clearSelection();
+          pushHistory();
+          idsArr.forEach((id) => {
+            throttledSend({
+              type: "delete_element",
+              elementId: id,
+              timestamp: Date.now(),
+            });
+          });
+        }
+      }
+
+      if (e.key === "Escape") {
+        clearSelection();
+        setTextInput(null);
+        cancelDrawing();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    deleteElements,
+    clearSelection,
+    pushHistory,
+    throttledSend,
+    cancelDrawing,
+  ]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.08 : 0.08;
+        setZoom(
+          Math.max(0.1, Math.min(5, useCanvasStore.getState().zoom + delta)),
+        );
+      }
+    };
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => container.removeEventListener("wheel", handleWheel);
+  }, [containerReady, setZoom]);
 
   const elementsForRender = useMemo(() => {
     if (dragBaseline && dragTotalDelta) {
@@ -1089,25 +1195,26 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       {textInput && (
         <textarea
           ref={(el) => el?.focus()}
-          className="absolute border-2 border-blue-500 bg-white outline-none resize-none"
+          // canvas-text-input class forces Caveat font (see globals.css)
+          className="canvas-text-input absolute outline-none resize-none"
           style={{
-            left: `${textInput.x}px`,
-            top: `${textInput.y}px`,
-            fontSize: "16px",
-            fontFamily: "Inter",
-            color: "black",
-            minWidth: "200px",
-            minHeight: "24px",
+            left: `${textInput.x * zoom + panX}px`,
+            top: `${textInput.y * zoom + panY}px`,
+            fontSize: `${20 * zoom}px`,
+            lineHeight: 1.4,
+            color: "var(--color-default-stroke)",
+            background: "transparent",
+            border: "1.5px dashed #6965db",
+            borderRadius: 2,
+            minWidth: "160px",
+            minHeight: "28px",
+            padding: "2px 4px",
             zIndex: 1000,
           }}
           onBlur={(e) => {
-            console.log("Textarea blurred with text:", e.target.value);
-            // Don't immediately submit empty text - this prevents the textarea
-            // from closing before user can start typing
             if (e.target.value.trim()) {
               handleTextSubmit(e.target.value);
             }
-            // If empty, we keep the textarea open
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -1118,7 +1225,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
               setTextInput(null);
             }
           }}
-          placeholder="Type text..."
+          placeholder="Type text…"
         />
       )}
 
