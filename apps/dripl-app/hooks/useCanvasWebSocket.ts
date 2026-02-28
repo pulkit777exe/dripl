@@ -87,6 +87,7 @@ export function useCanvasWebSocket(
   authToken?: string | null,
 ) {
   const wsRef = useRef<WebSocket | null>(null);
+  const unmountingRef = useRef(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const reconnectAttemptsRef = useRef(0);
   const processedMessagesRef = useRef<Set<string>>(new Set());
@@ -100,6 +101,7 @@ export function useCanvasWebSocket(
 
   const [isConnected, setIsConnectedLocal] = useState(false);
 
+  const elements = useCanvasStore((s) => s.elements);
   const setIsConnected = useCanvasStore((s) => s.setIsConnected);
   const setElements = useCanvasStore((s) => s.setElements);
   const setUserId = useCanvasStore((s) => s.setUserId);
@@ -331,6 +333,7 @@ export function useCanvasWebSocket(
   }, []);
 
   const connect = useCallback(() => {
+    unmountingRef.current = false;
     if (!userName || !roomSlug) return;
 
     try {
@@ -374,6 +377,8 @@ export function useCanvasWebSocket(
           fullSyncIntervalRef.current = null;
         }
 
+        if (unmountingRef.current) return;
+
         if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
           reconnectAttemptsRef.current++;
           const delay = Math.min(
@@ -394,7 +399,6 @@ export function useCanvasWebSocket(
   useEffect(() => {
     if (!roomSlug) return;
 
-    const elements = useCanvasStore.getState().elements;
     const saveTimeout = setTimeout(() => {
       saveCanvasToIndexedDB(roomSlug, elements).catch((error) => {
         console.error("Failed to save to IndexedDB:", error);
@@ -402,7 +406,7 @@ export function useCanvasWebSocket(
     }, INDEXEDDB_SAVE_DEBOUNCE_MS);
 
     return () => clearTimeout(saveTimeout);
-  }, [roomSlug, useCanvasStore((s) => s.elements)]);
+  }, [roomSlug, elements]);
 
   useEffect(() => {
     if (!roomSlug) return;
@@ -410,8 +414,10 @@ export function useCanvasWebSocket(
     connect();
 
     return () => {
+      unmountingRef.current = true;
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = undefined;
       }
       if (wsRef.current) {
         wsRef.current.close();

@@ -403,10 +403,15 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
               color: u.color,
             })),
             cursors: Array.from(room.cursors.entries()).map(
-              ([uid, cursor]) => ({
-                userId: uid,
-                ...cursor,
-              }),
+              ([uid, cursor]) => {
+                const user = room.users.get(uid);
+                return {
+                  userId: uid,
+                  ...cursor,
+                  userName: user?.userName ?? "Unknown",
+                  color: user?.color ?? "#000000",
+                };
+              },
             ),
             yourUserId: userId,
           };
@@ -520,11 +525,14 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
             const room = rooms.get(currentRoomId);
             if (room) {
               room.cursors.set(currentUserId, { x: message.x, y: message.y });
+              const user = room.users.get(currentUserId);
               await broadcastToRoom(
                 currentRoomId,
                 {
                   ...message,
                   userId: currentUserId,
+                  userName: message.userName ?? user?.userName ?? "Unknown",
+                  color: message.color ?? user?.color ?? "#000000",
                 },
                 currentUserId,
               );

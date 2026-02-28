@@ -8,6 +8,7 @@ import {
 import {
   createSnapshot,
   cloneSnapshot,
+  freezeSnapshotDev,
   type StoreSnapshot,
 } from "./snapshot.js";
 import { shouldCaptureToHistory, type CaptureMode } from "./capture.js";
@@ -178,7 +179,7 @@ export class Store {
   }
 
   private notify(): void {
-    const snapshot = this.getSnapshot();
+    const snapshot = freezeSnapshotDev(this.getSnapshot());
     this.subscribers.forEach((fn) => fn(snapshot));
   }
 }

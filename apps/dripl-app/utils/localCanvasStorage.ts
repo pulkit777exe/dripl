@@ -167,7 +167,14 @@ export const saveLocalCanvasToStorage = (
     const timestamp = Date.now();
     localStorage.setItem(STORAGE_KEYS.VERSION_DATA, timestamp.toString());
     localStorage.setItem(STORAGE_KEYS.VERSION_FILES, timestamp.toString());
-    localStorage.setItem(STORAGE_KEYS.COLLAB, JSON.stringify({ username: "" }));
+    const collabUsername =
+      typeof window !== "undefined"
+        ? localStorage.getItem("dripl_username") || ""
+        : "";
+    localStorage.setItem(
+      STORAGE_KEYS.COLLAB,
+      JSON.stringify({ username: collabUsername }),
+    );
   } catch (error) {
     console.error("Error saving local canvas to storage:", error);
   }

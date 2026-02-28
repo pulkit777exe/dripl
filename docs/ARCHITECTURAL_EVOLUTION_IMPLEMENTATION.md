@@ -159,16 +159,17 @@ Goal: Enforce dependency rules, introduce invariants, separate Scene & Store.
 
 - [x] **Document** the layer rule in `ARCHITECTURE.md`: `common → math → element → runtime → ui/app`; utils isolated; no lower→upper imports; UI no domain logic.
 - [x] **Add** a `runtime` (or `core`) package: depends only on `@dripl/common`, `@dripl/math`, `@dripl/element`. No dependency on `apps/dripl-app` or `packages/dripl`.
-- [ ] **Lint/CI:** Enforce that `apps/dripl-app` does not import domain logic from paths that should live in runtime (e.g. no direct element mutation helpers in app except via a single Store facade).
+- [ ] **Lint/CI:** Enforce that `apps/dripl-app` does not import domain logic from paths that should live in runtime (e.g. no direct element mutation helpers in app except via a single Store facade).  
+  - **Plan:** Add an eslint rule (or Nx/Turbo module-boundary rule) that prevents `apps/dripl-app` from importing from `packages/common/src/scene`, `packages/runtime/src/store`, etc. except via `apps/dripl-app/lib/runtime-store-bridge.ts`. This is enforcement only; behavior is already implemented.
 
 ### 2.2 Scene Separation
 
-- [ ] **Extend** `packages/common` (or move to runtime) Scene to dual-map model:
+- [x] **Extend** `packages/common` Scene to dual-map model (implemented):
   - `elementsMap`: all elements (including deleted).
-  - `nonDeletedElementsMap`: active only; or derive from elementsMap + isDeleted.
+  - `nonDeletedElementsMap`: active only.
   - Cached `orderedElements` array, invalidated on add/delete/order change; reindexing function.
-- [ ] **O(1)** getElement(id); ordering guarantees for frames (e.g. children index < frame index).
-- [ ] **Decision:** Keep selection/editingTextId on Scene or move to Store snapshot. Spec says “Extract element storage from UI store”; selection can live in StoreSnapshot.
+- [x] **O(1)** getElement(id); ordering guarantees for frames (e.g. children index < frame index) via `getOrderedElementsWithFrames` in `@dripl/math/constraints`.
+- [x] **Decision:** Selection/editing state lives in `StoreSnapshot` (runtime); Scene is responsible only for element storage and ordering.
 
 ### 2.3 Store Abstraction (Minimal for Phase 1)
 
@@ -178,23 +179,27 @@ Goal: Enforce dependency rules, introduce invariants, separate Scene & Store.
   - `StoreDelta`: reversible delta (can wrap or align with `packages/common` Delta).
   - `Store.commit(action, captureMode)`: apply action via ActionReducer; if captureMode says capture, push delta to History. maybeClone when capturing.
 - [x] **Single path:** First migrated path: add element (e.g. rectangle) via Store.commit; rest of app can still use existing store until Phase 2.
+- [x] **Bridge usage:** App delegates `undo`/`redo` to runtime Store when present; legacy snapshot history remains as a fallback for non-runtime flows.
 
 ### 2.4 Invariants (Documented and Enforced)
 
 - [x] **Document** in ARCHITECTURE.md: Element immutability; state transitions only via Store; renderer does not mutate Scene/Store.
-- [ ] **Add** runtime checks in dev: e.g. Object.freeze of snapshot or elements in dev mode; or immutable data structures for Scene.
+- [ ] **Add** runtime checks in dev: e.g. Object.freeze of snapshot or elements in dev mode; or immutable data structures for Scene.  
+  - **Plan:** In `@dripl/runtime` and `@dripl/common/scene`, add a `freezeSnapshotsInDev()` helper (gated behind `process.env.NODE_ENV !== "production"`) that `Object.freeze`s snapshots / element arrays returned from the Store. Wire this into tests and optionally into Next dev mode via a feature flag.
 
 ### 2.5 App Wiring (Minimal)
 
-- [ ] **Introduce** a small “bridge” in app: a Store instance (from runtime) that owns Scene and (later) delta History. App Zustand store can hold: view state only (zoom, pan, theme, activeTool, remoteCursors, etc.) and a reference to “current snapshot” or subscribe to Store for current snapshot.
-- [x] **First migration step:** One use case (e.g. “add rectangle”) goes through Store.commit + common Action type; rest of app can still use existing store until Phase 2.
+- [x] **Introduce** a small “bridge” in app: a Store instance (from runtime) that owns Scene and delta History. App Zustand store holds view state (zoom, pan, theme, activeTool, remoteCursors, etc.) and mirrors elements/selection from the Store snapshot via `runtime-store-bridge.ts`.
+- [x] **First migration step:** One use case (e.g. “add rectangle”) goes through Store.commit + common Action type; most canvas mutations now go through the runtime Store when present, with legacy paths retained only as a fallback.
 
 ---
 
 ## 3. Phase 2 — State Evolution Stability (Summary)
 
 - **Done:** Delta-only history in runtime Store; undo/redo delegate from canvas-store to Store when runtime is in use; single source of truth for history when using runtime.
-- **Remaining:** maybeClone and diff(snapshotA, snapshotB) for efficiency and debugging.
+- **Remaining (implementation plan):**
+  - **maybeClone:** Only clone snapshots or scene structures when `captureMode` requires capturing into history. For EPHEMERAL / NEVER, operate on transient views without cloning to reduce GC pressure.
+  - **diff(snapshotA, snapshotB):** Provide a debug-only helper in runtime that walks two snapshots and returns a structured diff (added/removed/changed elements, selection changes). This is not used at runtime in the app, but is invaluable for tests and tooling.
 
 ## 4. Phase 3 — Interaction Stability (Summary)
 
@@ -203,21 +208,25 @@ Goal: Enforce dependency rules, introduce invariants, separate Scene & Store.
   - **Baseline-derived move:** `apps/dripl-app/utils/dragBaseline.ts` — `captureDragBaseline`, `getDragTargetIds`, `applyDeltaToBaseline`, `mergeDragPreview`.
   - **RoughCanvas:** On pointer down (select + on element) capture baseline; on move only update `dragTotalDelta` (no store writes); on pointer up apply `applyDeltaToBaseline` once and `Store.commitBatch(actions, "CAPTURE_ONCE")` or legacy path. Single undo step for whole drag.
   - **Store:** `commitBatch(actions, captureMode)` so one undo reverts an entire batch.
-- **Remaining:** Resize/rotate could use the same baseline pattern (capture on start, commit on end).
+- **Remaining:** Resize/rotate could use the same baseline pattern (capture on start, commit on end).  
+  - **Plan:** Extend `PointerDownState` with resize/rotate metadata (handle, center point); add `captureResizeBaseline` / `captureRotateBaseline` helpers and reuse `applyDeltaToBaseline` shape to compute final geometry only once at pointer up, committing via `commitBatch`.
 
 ## 5. Phase 4 — Constraint Stability (Summary)
 
 - **Done:**
   - `NormalizedBinding` and `BindingMode` in `packages/common/src/types/element.ts` (elementId, fixedPoint, mode).
   - **Constraint helpers in `@dripl/math`:** `packages/math/src/constraints.ts` — `deriveBindingEndpoint(element, fixedPoint)`, `getBindingEndpoint(binding, elements)`, `boundsContain`, `isElementInFrame`, `getOrderedElementsWithFrames`. Endpoints derived from fixedPoint + element bounds; linear elements use fixedPoint.x as t along the path. Frame ordering: children before frame when `frameId` is present.
-- **Remaining:** Wire `getBindingEndpoint` into arrow/connector rendering when migrating to NormalizedBinding.
+- **Remaining:** Wire `getBindingEndpoint` into arrow/connector rendering when migrating to NormalizedBinding.  
+  - **Plan:** When we migrate connectors to `NormalizedBinding`, replace ad‑hoc endpoint math in the renderer with calls to `deriveBindingEndpoint` / `getBindingEndpoint`, and store bindings on the arrow elements instead of duplicating world-space coordinates.
 
 ## 6. Phase 5 — Projection Stability (Summary)
 
 - **Done:**
   - **Viewport culling in main canvas path:** `StaticCanvas` and `InteractiveCanvas` use `getVisibleElements(elements, viewport)` (via `useMemo`) and render only visible elements.
   - **Cache by version/hash:** `getVisibleElements(elements, viewport, sceneVersion?)` — cache key is optional `sceneVersion` or a cheap hash (`length` + first/last element id); no `JSON.stringify` for invalidation. `CanvasRenderer` passes `sceneNonce` as `sceneVersion`.
-- **Remaining:** Document or enforce renderer purity; RAF-throttled updates if needed.
+- **Remaining:** Document or enforce renderer purity; RAF-throttled updates if needed.  
+  - **Renderer purity:** Add a short “Renderer contract” section in `ARCHITECTURE.md` and unit tests around `renderRoughElements` asserting it does not mutate inputs. Optionally freeze elements in dev before calling into the renderer to catch violations.  
+  - **RAF-throttling:** The interactive canvas already uses an `AnimationController` to batch draws. We can extend this to ensure all pointer-driven redraws go through a single `requestAnimationFrame` loop (no extra synchronous `draw` calls), keeping the projection layer strictly frame-based.
 
 ---
 

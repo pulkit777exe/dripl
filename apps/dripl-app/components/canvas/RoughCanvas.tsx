@@ -30,6 +30,7 @@ import {
   applyDeltaToBaseline,
   mergeDragPreview,
 } from "@/utils/dragBaseline";
+import { getOrCreateCollaboratorName } from "@/utils/username";
 import { v4 as uuidv4 } from "uuid";
 import { SelectionOverlay, ResizeHandle } from "./SelectionOverlay";
 import { NameInputModal } from "./NameInputModal";
@@ -61,7 +62,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     setContainerReady(!!el);
   }, []);
 
-  const [userName, setUserName] = useState<string | null>("Test User");
+  const [userName, setUserName] = useState<string | null>(() =>
+    getOrCreateCollaboratorName(),
+  );
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -293,10 +296,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   );
 
   useEffect(() => {
-    const storedName = localStorage.getItem("dripl_username");
-    if (storedName) {
-      setUserName(storedName);
-    }
+    const stored = getOrCreateCollaboratorName();
+    setUserName(stored);
   }, []);
 
   const handleNameSubmit = (name: string) => {
@@ -512,7 +513,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     const coords = getCanvasCoordinates(e);
     const { x, y } = coords;
 
-    throttledSend({ type: "cursor_move", x, y, timestamp: Date.now() });
+    throttledSend({
+      type: "cursor_move",
+      x,
+      y,
+      userName: userName ?? undefined,
+      timestamp: Date.now(),
+    });
 
     // Hand tool panning
     if (activeTool === "hand") {
@@ -667,7 +674,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     // Update cursor position for interactive layer
     setCursorPosition(coords);
 
-    throttledSend({ type: "cursor_move", x, y, timestamp: Date.now() });
+    throttledSend({
+      type: "cursor_move",
+      x,
+      y,
+      userName: userName ?? undefined,
+      timestamp: Date.now(),
+    });
 
     // Hand tool panning
     if (isPanning && panStart) {
@@ -1158,6 +1171,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         zoom={zoom}
         panX={panX}
         panY={panY}
+        elements={elementsForRender}
+        selectedIds={selectedIds}
         onResizeStart={handleResizeStart}
         onRotateStart={handleRotateStart}
         marqueeSelection={marqueeSelection}

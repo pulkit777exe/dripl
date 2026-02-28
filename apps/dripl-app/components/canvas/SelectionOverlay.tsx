@@ -1,6 +1,5 @@
 "use client";
 
-import { useCanvasStore } from "@/lib/canvas-store";
 import { DriplElement, Point } from "@dripl/common";
 import { getElementBounds } from "@dripl/math";
 import { Bounds } from "@dripl/math";
@@ -9,6 +8,8 @@ interface SelectionOverlayProps {
   zoom: number;
   panX: number;
   panY: number;
+  elements: DriplElement[];
+  selectedIds: Set<string>;
   onResizeStart: (handle: ResizeHandle, e: React.PointerEvent) => void;
   onRotateStart: (e: React.PointerEvent) => void;
   marqueeSelection?: { start: Point; end: Point; active: boolean } | null;
@@ -82,13 +83,12 @@ export function SelectionOverlay({
   zoom,
   panX,
   panY,
+  elements,
+  selectedIds,
   onResizeStart,
   onRotateStart,
   marqueeSelection,
 }: SelectionOverlayProps) {
-  const elements = useCanvasStore((state) => state.elements);
-  const selectedIds = useCanvasStore((state) => state.selectedIds);
-
   if (marqueeSelection?.active) {
     const mx =
       Math.min(marqueeSelection.start.x, marqueeSelection.end.x) * zoom + panX;
