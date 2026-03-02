@@ -45,13 +45,14 @@ export function DualCanvas({
   isDrawing,
   marqueeSelection,
 }: DualCanvasProps) {
-  // Make sure containerRef has current before rendering
-  if (!containerRef || !containerRef.current) {
-    return null;
-  }
-
   return (
-    <div className="absolute inset-0">
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+      }}
+    >
       <StaticCanvas
         containerRef={containerRef}
         elements={elements}

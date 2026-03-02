@@ -36,7 +36,7 @@ export default function CanvasRoomPage({ params }: CanvasRoomPageProps) {
       <TopBar />
       <CanvasBootstrap mode="room" roomSlug={roomSlug} theme={effectiveTheme} />
 
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20">
+      <div className="absolute top-0.5 left-1/2 -translate-x-1/2 z-20">
         <CanvasToolbar />
       </div>
 

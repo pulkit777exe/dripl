@@ -456,7 +456,7 @@ export default function App() {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
       };
-
+      console.log("handleResizeStart", handle, elementId);
       setIsResizing(true);
       setResizeHandle(handle);
       setResizeStart({ point, element: { ...element } });
@@ -530,6 +530,7 @@ export default function App() {
 
   const handleResizeEnd = useCallback(() => {
     if (isResizing) {
+      console.log("handleResizeEnd");
       setIsResizing(false);
       setResizeHandle(null);
       setResizeStart(null);

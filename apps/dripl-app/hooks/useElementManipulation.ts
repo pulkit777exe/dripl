@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import type { DriplElement, Point } from "@dripl/common";
 import { v4 as uuidv4 } from "uuid";
+import { resizeSingleElement } from "@dripl/element";
 
 export interface UseElementManipulationProps {
   elements: DriplElement[];
@@ -96,7 +97,7 @@ export function useElementManipulation({
   );
 
   const resizeElement = useCallback(
-    (elementId: string, handle: string, newPoint: Point, shiftKey: boolean) => {
+    (elementId: string, handle: string, newPoint: Point, shiftKey: boolean, altKey: boolean = false) => {
       const element = elements.find((el) => el.id === elementId);
       if (!element) return;
 
@@ -110,9 +111,12 @@ export function useElementManipulation({
           newWidth = Math.max(1, newPoint.x - element.x);
           newHeight = Math.max(1, newPoint.y - element.y);
           if (shiftKey) {
-            const size = Math.max(newWidth, newHeight);
-            newWidth = size;
-            newHeight = size;
+            const aspectRatio = element.width / element.height;
+            if (newWidth / newHeight > aspectRatio) {
+              newHeight = newWidth / aspectRatio;
+            } else {
+              newWidth = newHeight * aspectRatio;
+            }
           }
           break;
         case "sw":
@@ -120,9 +124,12 @@ export function useElementManipulation({
           newX = element.x + element.width - newWidth;
           newHeight = Math.max(1, newPoint.y - element.y);
           if (shiftKey) {
-            const size = Math.max(newWidth, newHeight);
-            newWidth = size;
-            newHeight = size;
+            const aspectRatio = element.width / element.height;
+            if (newWidth / newHeight > aspectRatio) {
+              newHeight = newWidth / aspectRatio;
+            } else {
+              newWidth = newHeight * aspectRatio;
+            }
             newX = element.x + element.width - newWidth;
           }
           break;
@@ -131,9 +138,12 @@ export function useElementManipulation({
           newHeight = Math.max(1, element.y + element.height - newPoint.y);
           newY = element.y + element.height - newHeight;
           if (shiftKey) {
-            const size = Math.max(newWidth, newHeight);
-            newWidth = size;
-            newHeight = size;
+            const aspectRatio = element.width / element.height;
+            if (newWidth / newHeight > aspectRatio) {
+              newHeight = newWidth / aspectRatio;
+            } else {
+              newWidth = newHeight * aspectRatio;
+            }
             newY = element.y + element.height - newHeight;
           }
           break;
@@ -143,9 +153,12 @@ export function useElementManipulation({
           newHeight = Math.max(1, element.y + element.height - newPoint.y);
           newY = element.y + element.height - newHeight;
           if (shiftKey) {
-            const size = Math.max(newWidth, newHeight);
-            newWidth = size;
-            newHeight = size;
+            const aspectRatio = element.width / element.height;
+            if (newWidth / newHeight > aspectRatio) {
+              newHeight = newWidth / aspectRatio;
+            } else {
+              newWidth = newHeight * aspectRatio;
+            }
             newX = element.x + element.width - newWidth;
             newY = element.y + element.height - newHeight;
           }
@@ -178,30 +191,22 @@ export function useElementManipulation({
           break;
       }
 
-      const updatedElement: DriplElement = {
+      let resizedProperties = resizeSingleElement(
+        newWidth,
+        newHeight,
+        element,
+        element,
+        handle as any,
+        {
+          shouldMaintainAspectRatio: shiftKey,
+          shouldResizeFromCenter: altKey,
+        },
+      );
+
+      const updatedElement = {
         ...element,
-        x: newX,
-        y: newY,
-        width: newWidth,
-        height: newHeight,
-      };
-
-      if (
-        "points" in updatedElement &&
-        "points" in element &&
-        element.points &&
-        (element.type === "arrow" ||
-          element.type === "line" ||
-          element.type === "freedraw")
-      ) {
-        const scaleX = element.width === 0 ? 1 : newWidth / element.width;
-        const scaleY = element.height === 0 ? 1 : newHeight / element.height;
-
-        updatedElement.points = element.points.map((p) => ({
-          x: (p.x - element.x + newX) * scaleX,
-          y: (p.y - element.y + newY) * scaleY,
-        }));
-      }
+        ...resizedProperties,
+      } as DriplElement;
 
       updateElement(elementId, updatedElement);
       send?.({

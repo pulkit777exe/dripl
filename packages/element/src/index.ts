@@ -1,6 +1,10 @@
 export * from "./factory";
 export * from "./intersection";
 export * from "./renderer";
+export * from "./resizeElements";
+export * from "./renderElement";
+export * from "./ShapeCache";
+export * from "./staticScene";
 export {
   createRoughCanvas,
   renderRoughElement,
@@ -8,8 +12,6 @@ export {
   type RoughCanvas,
   type Drawable,
 } from "./rough-renderer";
-
-export * from "./shape-cache";
 
 // Future expansion
 // export * from "./viewport";

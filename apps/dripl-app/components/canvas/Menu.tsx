@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import {
   FolderOpen,
@@ -56,6 +56,12 @@ type MenuItem =
     }
   | { divider: true };
 
+function useIsMounted() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted;
+}
+
 export function Menu({
   isOpen,
   onClose,
@@ -66,8 +72,8 @@ export function Menu({
 }: MenuProps) {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
+  const mounted = useIsMounted();
 
-  // Close on outside click
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -119,10 +125,8 @@ export function Menu({
     { icon: UserPlus, label: "Sign up", href: "/signup" },
   ];
 
-  const isDark = resolvedTheme === "dark";
-  const bgSwatches = isDark
-    ? CANVAS_BACKGROUNDS_DARK
-    : CANVAS_BACKGROUNDS_LIGHT;
+  const isDark = mounted && resolvedTheme === "dark";
+  const bgSwatches = isDark ? CANVAS_BACKGROUNDS_DARK : CANVAS_BACKGROUNDS_LIGHT;
 
   return (
     <div
@@ -241,7 +245,7 @@ export function Menu({
             style={{ backgroundColor: "var(--color-panel-btn-bg)" }}
           >
             {(["light", "dark", "system"] as const).map((t) => {
-              const isSelected = theme === t;
+              const isSelected = mounted && theme === t;
               const Icon = t === "light" ? Sun : t === "dark" ? Moon : Monitor;
               return (
                 <button

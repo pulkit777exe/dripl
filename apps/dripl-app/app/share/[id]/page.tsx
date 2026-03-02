@@ -56,7 +56,7 @@ export default async function SharePage({ params }: SharePageProps) {
         theme={theme}
       />
 
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20">
+      <div className="absolute top-0.5 left-1/2 -translate-x-1/2 z-20">
         <CanvasToolbar />
       </div>
 
@@ -72,7 +72,6 @@ export default async function SharePage({ params }: SharePageProps) {
       />
       <CommandPalette />
 
-      {/* Banner indicating this is a shared canvas */}
       <div className="absolute bottom-6 right-6 z-20 bg-blue-600 px-4 py-2 rounded-lg text-white font-medium shadow-lg">
         Viewing Shared Canvas
       </div>

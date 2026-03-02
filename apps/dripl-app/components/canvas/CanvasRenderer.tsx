@@ -2,11 +2,7 @@
 
 import { useRef, useEffect, useCallback, useMemo } from "react";
 import type { DriplElement } from "@dripl/common";
-import {
-  createRoughCanvas,
-  renderRoughElements,
-  type RoughCanvas,
-} from "@dripl/element";
+import { renderStaticScene, createRoughCanvas, renderRoughElements, RoughCanvas } from "@dripl/element";
 import { getElementBounds } from "@dripl/math";
 import { getVisibleElements } from "@/utils/viewport-culling";
 import { Viewport } from "@/utils/canvas-coordinates";
@@ -115,10 +111,9 @@ export function useCanvasRenderer({
   const renderFrame = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    const rc = roughCanvasRef.current;
 
-    if (!canvas || !ctx || !rc) {
-      console.log("Canvas or context or rough canvas not available");
+    if (!canvas || !ctx) {
+      console.log("Canvas or context not available");
       requestAnimationFrame(renderFrame);
       return;
     }
@@ -131,29 +126,32 @@ export function useCanvasRenderer({
 
     needsRenderRef.current = false;
 
-    // Clear canvas
-    ctx.clearRect(
-      0,
-      0,
-      canvas.width / (window.devicePixelRatio || 1),
-      canvas.height / (window.devicePixelRatio || 1),
-    );
-
-    // Apply viewport transformations
-    ctx.save();
-    ctx.translate(viewport.x, viewport.y);
-    ctx.scale(viewport.zoom, viewport.zoom);
-
-    // Render all visible elements (using memoized results)
-    renderRoughElements(rc, ctx, visibleElements, theme);
+    // Render static scene
+    const dpr = window.devicePixelRatio || 1;
+    renderStaticScene(canvas, visibleElements, viewport, {
+      gridEnabled: false,
+      gridSize: 20,
+      zoom: viewport.zoom,
+      theme,
+      dpr,
+    });
 
     // Render current preview element (being drawn)
     if (currentPreview) {
-      renderRoughElements(rc, ctx, [currentPreview], theme);
+      const previewCanvas = document.createElement("canvas");
+      previewCanvas.width = canvas.width;
+      previewCanvas.height = canvas.height;
+      const previewCtx = previewCanvas.getContext("2d");
+      if (previewCtx) {
+        // Render preview element on temporary canvas
+        const rc = createRoughCanvas(previewCanvas);
+        if (rc) {
+          renderRoughElements(rc, previewCtx, [currentPreview], theme);
+        }
+        // Draw temporary canvas to main canvas
+        ctx.drawImage(previewCanvas, 0, 0);
+      }
     }
-
-    // Render selection highlights (handled by SelectionOverlay now)
-    // if (selectedIds.size > 0) { ... }
 
     // Render eraser trail
     if (eraserPath.length > 0) {
@@ -172,8 +170,6 @@ export function useCanvasRenderer({
       ctx.stroke();
       ctx.restore();
     }
-
-    ctx.restore();
 
     // Request next frame
     requestAnimationFrame(renderFrame);
