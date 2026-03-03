@@ -4,6 +4,8 @@ import { getRuntimeStore } from "@/lib/runtime-store-bridge";
 import { initializeShapeRegistry } from "@/utils/shapes/shapeInitializer";
 import { shapeRegistry } from "@/utils/shapes/ShapeRegistry";
 
+export type DrawingLifecycle = "idle" | "drawing" | "committing";
+
 initializeShapeRegistry();
 
 export interface RemoteUser {
@@ -33,6 +35,10 @@ export interface CanvasState {
   fileName: string;
   isSaving: boolean;
   lastSaved: number | null;
+
+  drawingLifecycle: DrawingLifecycle;
+  draftElement: DriplElement | null;
+  isEditingElementId: string | null;
 
   elements: DriplElement[];
   selectedIds: Set<string>;
@@ -76,6 +82,13 @@ export interface CanvasState {
   setRoomId: (roomId: string | null) => void;
   setRoomSlug: (roomSlug: string | null) => void;
   setIsConnected: (isConnected: boolean) => void;
+
+  setDraftElement: (element: DriplElement | null) => void;
+  updateDraftElement: (updates: Partial<DriplElement>) => void;
+  commitDraft: () => DriplElement | null;
+  setDrawingLifecycle: (lifecycle: DrawingLifecycle) => void;
+
+  setEditingElementId: (id: string | null) => void;
 
   setElements: (elements: DriplElement[]) => void;
   addElement: (element: DriplElement) => void;
@@ -132,6 +145,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   isSaving: false,
   lastSaved: null,
 
+  drawingLifecycle: "idle",
+  draftElement: null,
+  isEditingElementId: null,
+
   elements: [],
   selectedIds: new Set(),
   activeTool: "select",
@@ -157,6 +174,54 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setRoomSlug: (roomSlug) => set({ roomSlug }),
   setIsConnected: (isConnected) => set({ isConnected }),
 
+  setDraftElement: (element) =>
+    set({
+      draftElement: element,
+      drawingLifecycle: element ? "drawing" : "idle",
+    }),
+
+  updateDraftElement: (updates) =>
+    set((state) => ({
+      draftElement:
+        state.draftElement !== null
+          ? ({ ...state.draftElement, ...updates } as DriplElement)
+          : null,
+    })),
+
+   commitDraft: () => {
+    const state = get();
+    const draft = state.draftElement;
+    if (!draft) return null;
+
+    set({ drawingLifecycle: "committing" });
+
+    const elementToCommit = {
+      ...draft,
+      version: 1,
+      versionNonce: Math.floor(Math.random() * 2_147_483_647),
+      updated: Date.now(),
+    };
+
+    set((s) => {
+      const newElements = [...s.elements, elementToCommit];
+      const newHistory = s.history.slice(0, s.historyIndex + 1);
+      newHistory.push([...newElements]);
+      return {
+        elements: newElements,
+        draftElement: null,
+        drawingLifecycle: "idle",
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+      };
+    });
+
+    return elementToCommit;
+  },
+
+  setDrawingLifecycle: (lifecycle) => set({ drawingLifecycle: lifecycle }),
+
+  setEditingElementId: (id) => set({ isEditingElementId: id }),
+
   setElements: (elements) => set({ elements }),
   addElement: (element) =>
     set((state) => ({ elements: [...state.elements, element] })),
@@ -165,7 +230,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   updateElement: (id, updates) =>
     set((state) => ({
       elements: state.elements.map((el) =>
-        el.id === id ? ({ ...el, ...updates } as DriplElement) : el,
+        el.id === id
+          ? ({
+              ...el,
+              ...updates,
+              version: (el.version ?? 0) + 1,
+              versionNonce: Math.floor(Math.random() * 2_147_483_647),
+              updated: Date.now(),
+            } as DriplElement)
+          : el,
       ),
     })),
   deleteElements: (ids) =>

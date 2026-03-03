@@ -7,32 +7,114 @@ export interface ReconciliationResult {
   needsRender: boolean;
 }
 
+export interface ReconcileOptions {
+  /**
+   * ID of the element currently being actively edited locally (e.g. being
+   * dragged, resized, or rotated). Any remote update for this ID is
+   * unconditionally rejected — the local edit always wins.
+   */
+  editingElementId?: string | null;
+
+  /**
+   * ID of the draft element currently being drawn. Remote messages must never
+   * overwrite the draft; it is not yet in the committed elements[] array so
+   * this acts as a safety guard in case the IDs somehow collide (shouldn't
+   * happen with uuid-v4, but we protect it anyway).
+   */
+  draftElementId?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Core per-element decision
+// ---------------------------------------------------------------------------
+
+/**
+ * Decides whether to discard an incoming remote element.
+ *
+ * Resolution rules (applied in priority order):
+ *
+ * 1. **Active edit lock** – If the element is being interactively edited
+ *    locally (`editingElementId`), *always* reject the remote version.
+ *    The user's in-flight gesture owns that element until pointer-up.
+ *
+ * 2. **Draft protection** – If the incoming ID matches `draftElementId`,
+ *    reject unconditionally (the draft is not committed yet).
+ *
+ * 3. **Higher version wins** – If local version > remote version, discard
+ *    remote. The higher version represents more recent mutations.
+ *
+ * 4. **Tie-break on equal versions** – When versions are equal,
+ *    *lower* versionNonce wins. This is deterministic across all peers
+ *    (every client running the same comparison will reach the same outcome).
+ *
+ * 5. **No local copy** – Always accept (new element from remote).
+ */
 export const shouldDiscardRemoteElement = (
-  localAppState: AppState,
   local: DriplElement | undefined,
   remote: DriplElement,
+  options: ReconcileOptions = {},
 ): boolean => {
-  if (
-    local &&
-    ((local.version ?? 0) > (remote.version ?? 0) ||
-      ((local.version ?? 0) === (remote.version ?? 0) &&
-        (local.versionNonce ?? 0) <= (remote.versionNonce ?? 0)))
-  ) {
+  const { editingElementId, draftElementId } = options;
+
+  // Rule 1 — Active edit lock.
+  if (editingElementId && remote.id === editingElementId) {
     return true;
   }
+
+  // Rule 2 — Draft protection.
+  if (draftElementId && remote.id === draftElementId) {
+    return true;
+  }
+
+  // Rules 3 & 4 only apply when we have a local copy.
+  if (!local) return false;
+
+  const localV = local.version ?? 0;
+  const remoteV = remote.version ?? 0;
+
+  // Rule 3 — Higher version wins.
+  if (localV > remoteV) return true;
+
+  // Rule 4 — Equal version tie-break: lower nonce wins.
+  if (localV === remoteV) {
+    const localN = local.versionNonce ?? 0;
+    const remoteN = remote.versionNonce ?? 0;
+    // Discard remote when local nonce is lower (local wins tie).
+    if (localN <= remoteN) return true;
+  }
+
   return false;
 };
 
+// ---------------------------------------------------------------------------
+// Main reconcile function
+// ---------------------------------------------------------------------------
+
+/**
+ * Reconciles an array of incoming remote elements against the current local
+ * snapshot.
+ *
+ * - Elements with no local counterpart are always accepted (new additions).
+ * - Existing elements follow the conflict resolution rules in
+ *   `shouldDiscardRemoteElement`.
+ * - `draftElement` is never touched regardless of what the remote sends.
+ */
 export function reconcileElements(
   localElements: DriplElement[],
   incomingElements: DriplElement[],
-  localAppState: AppState = {} as AppState,
+  /** @deprecated Pass options instead — kept for backwards compat */
+  localAppState: AppState | ReconcileOptions = {} as AppState,
+  options: ReconcileOptions = {},
 ): ReconciliationResult {
-  const localMap = new Map<string, DriplElement>();
+  // Support the old (localAppState, no extra options) and new
+  // (localAppState + options) call signatures seamlessly.
+  const resolvedOptions: ReconcileOptions =
+    "editingElementId" in localAppState || "draftElementId" in localAppState
+      ? (localAppState as ReconcileOptions)
+      : options;
 
-  localElements.forEach((el) => {
-    localMap.set(el.id, el);
-  });
+  const localMap = new Map<string, DriplElement>();
+  localElements.forEach((el) => localMap.set(el.id, el));
 
   const accepted: DriplElement[] = [];
   const rejected: DriplElement[] = [];
@@ -41,19 +123,13 @@ export function reconcileElements(
   for (const incoming of incomingElements) {
     const local = localMap.get(incoming.id);
 
-    if (!local) {
-      accepted.push(incoming);
-      needsRender = true;
-      continue;
-    }
-
-    const discardRemoteElement = shouldDiscardRemoteElement(
-      localAppState,
+    const discard = shouldDiscardRemoteElement(
       local,
       incoming,
+      resolvedOptions,
     );
 
-    if (discardRemoteElement) {
+    if (discard) {
       rejected.push(incoming);
     } else {
       accepted.push(incoming);
@@ -70,9 +146,7 @@ export function shouldAcceptUpdate(
   localVersionNonce: number,
   incomingVersionNonce: number,
 ): boolean {
-  if (incomingVersion > localVersion) {
-    return true;
-  }
+  if (incomingVersion > localVersion) return true;
   if (
     incomingVersion === localVersion &&
     incomingVersionNonce < localVersionNonce
@@ -103,7 +177,7 @@ export function createWithInitialVersion<T extends DriplElement>(
   return {
     ...element,
     version: 1,
-    versionNonce: Math.random(),
+    versionNonce: Math.floor(Math.random() * 2_147_483_647),
     updated: Date.now(),
   };
 }
@@ -154,16 +228,20 @@ export function calculateDirtyRegions(
   return regions;
 }
 
+// ---------------------------------------------------------------------------
+// ReconciliationManager
+// ---------------------------------------------------------------------------
+
 export class ReconciliationManager {
   private localVersion: Map<string, number> = new Map();
   private localVersionNonce: Map<string, number> = new Map();
-  private pendingUpdates: DriplElement[] = [];
 
   process(
     localElements: DriplElement[],
     incomingElements: DriplElement[],
+    options: ReconcileOptions = {},
   ): DriplElement[] {
-    const result = reconcileElements(localElements, incomingElements);
+    const result = reconcileElements(localElements, incomingElements, options);
 
     result.accepted.forEach((el) => {
       this.localVersion.set(el.id, el.version ?? 0);

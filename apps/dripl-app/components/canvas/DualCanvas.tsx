@@ -10,7 +10,8 @@ interface DualCanvasProps {
   containerRef: React.RefObject<HTMLDivElement>;
   elements: DriplElement[];
   selectedIds: Set<string>;
-  currentPreview: DriplElement | null;
+  /** The in-progress draft element. NOT part of elements[]. */
+  draftElement: DriplElement | null;
   eraserPath: Point[];
   viewport: Viewport;
   theme?: "light" | "dark";
@@ -32,7 +33,7 @@ export function DualCanvas({
   containerRef,
   elements,
   selectedIds,
-  currentPreview,
+  draftElement,
   eraserPath,
   viewport,
   theme = "dark",
@@ -65,7 +66,7 @@ export function DualCanvas({
         containerRef={containerRef}
         elements={elements}
         selectedIds={selectedIds}
-        currentPreview={currentPreview}
+        draftElement={draftElement}
         eraserPath={eraserPath}
         viewport={viewport}
         theme={theme}

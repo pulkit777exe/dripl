@@ -17,7 +17,8 @@ interface InteractiveCanvasProps {
   containerRef: React.RefObject<HTMLDivElement>;
   elements: DriplElement[];
   selectedIds: Set<string>;
-  currentPreview: DriplElement | null;
+  /** The in-progress draft element. Never part of committed elements[]. */
+  draftElement: DriplElement | null;
   eraserPath: Point[];
   viewport: Viewport;
   theme?: "light" | "dark";
@@ -40,7 +41,7 @@ interface InteractiveCanvasAppState {
   x: number;
   y: number;
   selectedIds: Set<string>;
-  currentPreview: DriplElement | null;
+  draftElement: DriplElement | null;
   eraserPath: Point[];
   cursorPosition: Point | null;
   isDragging: boolean;
@@ -61,7 +62,7 @@ const getRelevantAppStateProps = (
     x: props.viewport.x,
     y: props.viewport.y,
     selectedIds: props.selectedIds,
-    currentPreview: props.currentPreview || null,
+    draftElement: props.draftElement || null,
     eraserPath: props.eraserPath,
     cursorPosition: props.cursorPosition || null,
     isDragging: !!props.isDragging,
@@ -81,7 +82,7 @@ const areEqual = (
       (id) => !nextProps.selectedIds.has(id),
     );
 
-  const previewChanged = prevProps.currentPreview !== nextProps.currentPreview;
+  const previewChanged = prevProps.draftElement !== nextProps.draftElement;
   const eraserPathChanged =
     JSON.stringify(prevProps.eraserPath) !==
     JSON.stringify(nextProps.eraserPath);
@@ -119,7 +120,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   containerRef,
   elements,
   selectedIds,
-  currentPreview,
+  draftElement,
   eraserPath,
   viewport,
   theme = "dark",
@@ -146,7 +147,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     rc: RoughCanvas;
     elements: DriplElement[];
     selectedIds: Set<string>;
-    currentPreview: DriplElement | null;
+    draftElement: DriplElement | null;
     eraserPath: Point[];
     cursorPosition: Point | null;
     isDragging: boolean;
@@ -199,7 +200,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
         rc,
         elements,
         selectedIds,
-        currentPreview,
+        draftElement,
         eraserPath,
         cursorPosition,
         isDragging,
@@ -220,8 +221,8 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       ctx.translate(viewport.x, viewport.y);
       ctx.scale(viewport.zoom, viewport.zoom);
 
-      if (currentPreview) {
-        renderRoughElements(rc, ctx, [currentPreview], theme);
+      if (draftElement) {
+        renderRoughElements(rc, ctx, [draftElement], theme);
       }
 
       if (eraserPath.length > 0) {
@@ -333,7 +334,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       rc: interactiveRoughCanvasRef.current,
       elements: visibleElements,
       selectedIds,
-      currentPreview: currentPreview || null,
+      draftElement: draftElement || null,
       eraserPath,
       cursorPosition: cursorPosition || null,
       isDragging: !!isDragging,
@@ -360,7 +361,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   }, [
     visibleElements,
     selectedIds,
-    currentPreview,
+    draftElement,
     eraserPath,
     cursorPosition,
     isDragging,

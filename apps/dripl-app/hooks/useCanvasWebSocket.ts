@@ -9,6 +9,7 @@ import {
   ReconciliationManager,
   reconcileElements,
   shouldDiscardRemoteElement,
+  type ReconcileOptions,
 } from "@/lib/reconciliation";
 import type { AppState } from "@/types/canvas";
 
@@ -112,6 +113,14 @@ export function useCanvasWebSocket(
   const removeRemoteUser = useCanvasStore((s) => s.removeRemoteUser);
   const updateRemoteCursor = useCanvasStore((s) => s.updateRemoteCursor);
 
+  const getReconcileOptions = useCallback((): ReconcileOptions => {
+    const state = useCanvasStore.getState();
+    return {
+      editingElementId: state.isEditingElementId ?? null,
+      draftElementId: state.draftElement?.id ?? null,
+    };
+  }, []);
+
   const send = useCallback((message: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       const messageWithId = {
@@ -182,7 +191,33 @@ export function useCanvasWebSocket(
             processedMessagesRef.current.clear();
             lastMessageTimestampRef.current.clear();
 
-            setElements(syncMsg.elements || []);
+            const opts = getReconcileOptions();
+            const currentElements = useCanvasStore.getState().elements;
+            const reconciliationResult = reconcileElements(
+              currentElements,
+              syncMsg.elements || [],
+              opts,
+            );
+
+            if (reconciliationResult.needsRender) {
+              // Create a map of current elements for quick lookup
+              const currentMap = new Map<string, DriplElement>();
+              currentElements.forEach((el) => currentMap.set(el.id, el));
+
+              // Merge accepted elements with current elements (preserving unmodified elements)
+              const mergedElements = [...currentElements];
+              reconciliationResult.accepted.forEach((incoming) => {
+                const index = mergedElements.findIndex((el) => el.id === incoming.id);
+                if (index !== -1) {
+                  mergedElements[index] = incoming;
+                } else {
+                  mergedElements.push(incoming);
+                }
+              });
+
+              setElements(mergedElements);
+            }
+
             setUserId(syncMsg.yourUserId);
 
             syncMsg.users?.forEach((user) => {
@@ -236,10 +271,24 @@ export function useCanvasWebSocket(
 
           case "update_element": {
             const updateMsg = message as UpdateElementMessage;
+            if (!updateMsg.element?.id) break;
+
+            const opts = getReconcileOptions();
+            if (
+              (opts.editingElementId &&
+                updateMsg.element.id === opts.editingElementId) ||
+              (opts.draftElementId &&
+                updateMsg.element.id === opts.draftElementId)
+            ) {
+              break;
+            }
+
             const currentElements = useCanvasStore.getState().elements;
-            const reconciliationResult = reconcileElements(currentElements, [
-              updateMsg.element,
-            ]);
+            const reconciliationResult = reconcileElements(
+              currentElements,
+              [updateMsg.element],
+              opts,
+            );
 
             reconciliationResult.accepted.forEach((el) => {
               updateElement(el.id, el);
@@ -265,7 +314,6 @@ export function useCanvasWebSocket(
           }
 
           default:
-            // Silently ignore unknown/future message types
             break;
         }
       } catch (error) {
@@ -281,6 +329,7 @@ export function useCanvasWebSocket(
       addRemoteUser,
       removeRemoteUser,
       updateRemoteCursor,
+      getReconcileOptions,
     ],
   );
 

@@ -51,12 +51,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const [containerReady, setContainerReady] = useState(false);
 
   const setContainerRef = useCallback((el: HTMLDivElement | null) => {
-    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current =
+      el;
     setContainerReady(!!el);
   }, []);
 
   const [userName, setUserName] = useState<string | null>(() =>
-    getOrCreateCollaboratorName()
+    getOrCreateCollaboratorName(),
   );
 
   const [isDrawing, setIsDrawing] = useState(false);
@@ -66,8 +67,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const [isResizing, setIsResizing] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<ResizeHandle | null>(null);
-  const [currentElement, setCurrentElement] = useState<DriplElement | null>(null);
-  const [textInput, setTextInput] = useState<{ x: number; y: number; id: string } | null>(null);
+  const [textInput, setTextInput] = useState<{
+    x: number;
+    y: number;
+    id: string;
+  } | null>(null);
   const [eraserPath, setEraserPath] = useState<Point[]>([]);
   const [cursorPosition, setCursorPosition] = useState<Point | null>(null);
   const [marqueeSelection, setMarqueeSelection] = useState<{
@@ -103,7 +107,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   });
 
   const {
-    currentPreview: drawingPreview,
     startDrawing,
     updateDrawing,
     finishDrawing,
@@ -112,13 +115,23 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   } = useDrawingTools();
 
   const elements = useCanvasStore((state) => state.elements);
+  // draftElement lives in Zustand — the single source of truth for the in-progress shape.
+  const draftElement = useCanvasStore((state) => state.draftElement);
   const activeTool = useCanvasStore((state) => state.activeTool);
   const selectedIds = useCanvasStore((state) => state.selectedIds);
-  const currentStrokeColor = useCanvasStore((state) => state.currentStrokeColor);
-  const currentStrokeWidth = useCanvasStore((state) => state.currentStrokeWidth);
+  const currentStrokeColor = useCanvasStore(
+    (state) => state.currentStrokeColor,
+  );
+  const currentStrokeWidth = useCanvasStore(
+    (state) => state.currentStrokeWidth,
+  );
   const currentRoughness = useCanvasStore((state) => state.currentRoughness);
-  const currentBackgroundColor = useCanvasStore((state) => state.currentBackgroundColor);
-  const currentStrokeStyle = useCanvasStore((state) => state.currentStrokeStyle);
+  const currentBackgroundColor = useCanvasStore(
+    (state) => state.currentBackgroundColor,
+  );
+  const currentStrokeStyle = useCanvasStore(
+    (state) => state.currentStrokeStyle,
+  );
   const currentFillStyle = useCanvasStore((state) => state.currentFillStyle);
 
   const setElements = useCanvasStore((state) => state.setElements);
@@ -129,6 +142,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const selectElement = useCanvasStore((state) => state.selectElement);
   const clearSelection = useCanvasStore((state) => state.clearSelection);
   const pushHistory = useCanvasStore((state) => state.pushHistory);
+  const setEditingElementId = useCanvasStore(
+    (state) => state.setEditingElementId,
+  );
 
   const zoom = useCanvasStore((state) => state.zoom);
   const panX = useCanvasStore((state) => state.panX);
@@ -143,7 +159,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     throttle((data: any) => {
       if (isConnected) send(data);
     }, 50),
-    [isConnected, send]
+    [isConnected, send],
   );
 
   // ── Persist local canvas ─────────────────────────────────────────────────
@@ -168,9 +184,20 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return () => clearTimeout(timeoutId);
     }
   }, [
-    roomSlug, elements, selectedIds, theme, zoom, panX, panY,
-    currentStrokeColor, currentBackgroundColor, currentStrokeWidth,
-    currentRoughness, currentStrokeStyle, currentFillStyle, activeTool,
+    roomSlug,
+    elements,
+    selectedIds,
+    theme,
+    zoom,
+    panX,
+    panY,
+    currentStrokeColor,
+    currentBackgroundColor,
+    currentStrokeWidth,
+    currentRoughness,
+    currentStrokeStyle,
+    currentFillStyle,
+    activeTool,
   ]);
 
   useEffect(() => {
@@ -194,7 +221,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       saveLocalCanvasToStorage(state.elements, appState, state.selectedIds);
     };
 
-    const handleVisibilityOrBlur = () => { if (document.hidden) flushToStorage(); };
+    const handleVisibilityOrBlur = () => {
+      if (document.hidden) flushToStorage();
+    };
     const handleBeforeUnload = () => flushToStorage();
 
     const handleStorage = (event: StorageEvent) => {
@@ -203,19 +232,26 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         (event.key !== LOCAL_CANVAS_STORAGE_KEYS.CANVAS &&
           event.key !== LOCAL_CANVAS_STORAGE_KEYS.STATE &&
           event.key !== LOCAL_CANVAS_STORAGE_KEYS.STRUCTURED)
-      ) return;
+      )
+        return;
 
-      const { elements: savedElements, appState, selectedIds: savedSelectedIds } =
-        loadLocalCanvasFromStorage();
+      const {
+        elements: savedElements,
+        appState,
+        selectedIds: savedSelectedIds,
+      } = loadLocalCanvasFromStorage();
 
       if (savedElements && savedElements.length) {
         setElements(savedElements);
-        updateRuntimeStoreSnapshot(snapshotFromState(savedElements, savedSelectedIds ?? []));
+        updateRuntimeStoreSnapshot(
+          snapshotFromState(savedElements, savedSelectedIds ?? []),
+        );
       }
       if (savedSelectedIds?.length) setSelectedIds(new Set(savedSelectedIds));
       if (appState) {
         if (appState.zoom) setZoom(appState.zoom);
-        if (appState.panX !== undefined && appState.panY !== undefined) setPan(appState.panX, appState.panY);
+        if (appState.panX !== undefined && appState.panY !== undefined)
+          setPan(appState.panX, appState.panY);
       }
     };
 
@@ -265,7 +301,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return screenToCanvas(pixelX, pixelY, viewport);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [panX, panY, zoom]
+    [panX, panY, zoom],
   );
 
   const getElementAtPosition = useCallback(
@@ -277,43 +313,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       }
       return null;
     },
-    []
+    [],
   );
 
-  // ── Element creation ──────────────────────────────────────────────────────
-  const createElement = useCallback(
-    (x: number, y: number): DriplElement | null => {
-      const baseProps = {
-        id: uuidv4(),
-        x,
-        y,
-        strokeColor: currentStrokeColor,
-        backgroundColor: currentBackgroundColor,
-        strokeWidth: currentStrokeWidth,
-        opacity: 1,
-        roughness: currentRoughness,
-        strokeStyle: currentStrokeStyle,
-        fillStyle: currentFillStyle,
-        seed: Math.floor(Math.random() * 1000000),
-      };
-
-      switch (activeTool) {
-        case "rectangle":
-          return { ...baseProps, type: "rectangle", width: 0, height: 0 };
-        case "ellipse":
-          return { ...baseProps, type: "ellipse", width: 0, height: 0 };
-        case "arrow":
-          return { ...baseProps, type: "arrow", width: 0, height: 0, points: [{ x, y }] };
-        case "line":
-          return { ...baseProps, type: "line", width: 0, height: 0, points: [{ x, y }] };
-        case "freedraw":
-          return { ...baseProps, type: "freedraw", width: 0, height: 0, points: [{ x, y }] };
-        default:
-          return null;
-      }
-    },
-    [activeTool, currentStrokeColor, currentBackgroundColor, currentStrokeWidth, currentRoughness, currentStrokeStyle, currentFillStyle]
-  );
+  // Legacy createElement is removed — all element creation goes through
+  // useDrawingTools (startDrawing → updateDrawing → finishDrawing → commitDraft).
 
   // ── Resize start ──────────────────────────────────────────────────────────
   const handleResizeStart = useCallback(
@@ -323,7 +327,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       const selectedIdsArray = Array.from(state.selectedIds);
       if (selectedIdsArray.length !== 1) return;
 
-      const element = state.elements.find((el) => el.id === selectedIdsArray[0]);
+      const element = state.elements.find(
+        (el) => el.id === selectedIdsArray[0],
+      );
       if (!element) return;
 
       const startPos = getCanvasCoordinates(e);
@@ -338,12 +344,16 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       setIsResizing(true);
       setResizeHandle(handle);
+      // Lock: prevent remote reconciliation from overwriting this element.
+      setEditingElementId(element.id);
 
       // Capture pointer on the canvas so we still get events outside
-      const canvas = containerRef.current?.querySelector("canvas:last-child") as HTMLCanvasElement | null;
+      const canvas = containerRef.current?.querySelector(
+        "canvas:last-child",
+      ) as HTMLCanvasElement | null;
       if (canvas) canvas.setPointerCapture(e.pointerId);
     },
-    [getCanvasCoordinates]
+    [getCanvasCoordinates, setEditingElementId],
   );
 
   // ── Rotate start ──────────────────────────────────────────────────────────
@@ -354,7 +364,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       const selectedIdsArray = Array.from(state.selectedIds);
       if (selectedIdsArray.length !== 1) return;
 
-      const element = state.elements.find((el) => el.id === selectedIdsArray[0]);
+      const element = state.elements.find(
+        (el) => el.id === selectedIdsArray[0],
+      );
       if (!element) return;
 
       const frozenEl: DriplElement = JSON.parse(JSON.stringify(element));
@@ -367,11 +379,15 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       interactionRef.current.rotateCenterY = cy;
 
       setIsRotating(true);
+      // Lock: prevent remote reconciliation from overwriting this element.
+      setEditingElementId(element.id);
 
-      const canvas = containerRef.current?.querySelector("canvas:last-child") as HTMLCanvasElement | null;
+      const canvas = containerRef.current?.querySelector(
+        "canvas:last-child",
+      ) as HTMLCanvasElement | null;
       if (canvas) canvas.setPointerCapture(e.pointerId);
     },
-    []
+    [setEditingElementId],
   );
 
   // ── Drag / drop images ────────────────────────────────────────────────────
@@ -429,7 +445,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
     const { x, y } = getCanvasCoordinates(e);
 
-    throttledSend({ type: "cursor_move", x, y, userName: userName ?? undefined, timestamp: Date.now() });
+    throttledSend({
+      type: "cursor_move",
+      x,
+      y,
+      userName: userName ?? undefined,
+      timestamp: Date.now(),
+    });
 
     if (activeTool === "hand") {
       interactionRef.current.panning = true;
@@ -457,12 +479,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         const idsToTrack = e.shiftKey
           ? new Set([...state.selectedIds, element.id])
           : state.selectedIds.has(element.id)
-          ? state.selectedIds
-          : new Set([element.id]);
+            ? state.selectedIds
+            : new Set([element.id]);
 
         const snapshot = new Map<string, DriplElement>();
         state.elements.forEach((el) => {
-          if (idsToTrack.has(el.id)) snapshot.set(el.id, JSON.parse(JSON.stringify(el)));
+          if (idsToTrack.has(el.id))
+            snapshot.set(el.id, JSON.parse(JSON.stringify(el)));
         });
 
         interactionRef.current.dragging = true;
@@ -470,6 +493,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         interactionRef.current.dragInitialElements = snapshot;
 
         setIsDragging(true);
+        // Lock single-element drags so remote reconciliation can't overwrite
+        // the element mid-gesture. For multi-element drags the version bump
+        // on updateElement() is sufficient protection.
+        if (idsToTrack.size === 1) {
+          const [singleId] = Array.from(idsToTrack);
+          if (singleId) setEditingElementId(singleId);
+        }
       } else {
         if (!e.shiftKey) clearSelection();
         setMarqueeSelection({ start: { x, y }, end: { x, y }, active: true });
@@ -556,16 +586,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           strokeStyle: currentStrokeStyle,
           fillStyle: currentFillStyle,
         },
-        elements
+        elements,
       );
       setIsDrawing(true);
       return;
-    }
-
-    const element = createElement(x, y);
-    if (element) {
-      setCurrentElement(element);
-      setIsDrawing(true);
     }
   };
 
@@ -573,10 +597,19 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const { x, y } = getCanvasCoordinates(e);
     setCursorPosition({ x, y });
-    throttledSend({ type: "cursor_move", x, y, userName: userName ?? undefined, timestamp: Date.now() });
+    throttledSend({
+      type: "cursor_move",
+      x,
+      y,
+      userName: userName ?? undefined,
+      timestamp: Date.now(),
+    });
 
     // ── Panning ────────────────────────────────────────────────────────────
-    if (interactionRef.current.panning && interactionRef.current.panStartClient) {
+    if (
+      interactionRef.current.panning &&
+      interactionRef.current.panStartClient
+    ) {
       const dx = e.clientX - interactionRef.current.panStartClient.x;
       const dy = e.clientY - interactionRef.current.panStartClient.y;
       setPan(panX + dx, panY + dy);
@@ -643,7 +676,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           break;
       }
 
-      const updatedElement: DriplElement = { ...el, x: newX, y: newY, width: newWidth, height: newHeight };
+      const updatedElement: DriplElement = {
+        ...el,
+        x: newX,
+        y: newY,
+        width: newWidth,
+        height: newHeight,
+      };
 
       // Scale points for line/arrow/freedraw
       if (
@@ -663,13 +702,20 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       if (el.id) {
         updateElement(el.id, updatedElement);
-        throttledSend({ type: "update_element", element: updatedElement, timestamp: Date.now() });
+        throttledSend({
+          type: "update_element",
+          element: updatedElement,
+          timestamp: Date.now(),
+        });
       }
       return;
     }
 
     // ── Rotate ─────────────────────────────────────────────────────────────
-    if (interactionRef.current.rotating && interactionRef.current.rotateInitialEl) {
+    if (
+      interactionRef.current.rotating &&
+      interactionRef.current.rotateInitialEl
+    ) {
       const cx = interactionRef.current.rotateCenterX;
       const cy = interactionRef.current.rotateCenterY;
       // angle from center to cursor; offset by -PI/2 so 0 = pointing up
@@ -679,7 +725,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       const updatedElement = { ...el, angle };
       if (el.id) {
         updateElement(el.id, updatedElement);
-        throttledSend({ type: "update_element", element: updatedElement, timestamp: Date.now() });
+        throttledSend({
+          type: "update_element",
+          element: updatedElement,
+          timestamp: Date.now(),
+        });
       }
       return;
     }
@@ -703,7 +753,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
         // Also move points for line/arrow/freedraw
         if (
-          (initialEl.type === "arrow" || initialEl.type === "line" || initialEl.type === "freedraw") &&
+          (initialEl.type === "arrow" ||
+            initialEl.type === "line" ||
+            initialEl.type === "freedraw") &&
           initialEl.points
         ) {
           (updatedEl as any).points = initialEl.points.map((p: Point) => ({
@@ -713,7 +765,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         }
 
         updateElement(id, updatedEl);
-        throttledSend({ type: "update_element", element: updatedEl, timestamp: Date.now() });
+        throttledSend({
+          type: "update_element",
+          element: updatedEl,
+          timestamp: Date.now(),
+        });
       });
 
       return;
@@ -738,21 +794,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       updateDrawing({ x, y }, e.shiftKey || false, elements);
       return;
     }
-
-    if (currentElement) {
-      if (activeTool === "rectangle" || activeTool === "ellipse") {
-        setCurrentElement({ ...currentElement, width: x - currentElement.x, height: y - currentElement.y });
-      } else if (activeTool === "arrow" || activeTool === "line" || activeTool === "freedraw") {
-        if ("points" in currentElement) {
-          const points = [...currentElement.points, { x, y }];
-          const minX = Math.min(...points.map((p) => p.x));
-          const minY = Math.min(...points.map((p) => p.y));
-          const maxX = Math.max(...points.map((p) => p.x));
-          const maxY = Math.max(...points.map((p) => p.y));
-          setCurrentElement({ ...currentElement, points, width: maxX - minX, height: maxY - minY });
-        }
-      }
-    }
   };
 
   // ── Pointer up ────────────────────────────────────────────────────────────
@@ -775,13 +816,15 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         elements,
         (value) => {
           if (typeof value === "function") {
-            const nextSet = (value as (prev: Set<string>) => Set<string>)(selectedIds);
+            const nextSet = (value as (prev: Set<string>) => Set<string>)(
+              selectedIds,
+            );
             setSelectedIds(nextSet);
           } else {
             setSelectedIds(value);
           }
         },
-        e?.shiftKey || false
+        e?.shiftKey || false,
       );
       setMarqueeSelection(null);
       return;
@@ -795,6 +838,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       interactionRef.current.resizeInitialEl = null;
       setIsResizing(false);
       setResizeHandle(null);
+      setEditingElementId(null); // release edit lock
       pushHistory();
       return;
     }
@@ -804,6 +848,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       interactionRef.current.rotating = false;
       interactionRef.current.rotateInitialEl = null;
       setIsRotating(false);
+      setEditingElementId(null); // release edit lock
       pushHistory();
       return;
     }
@@ -814,6 +859,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       interactionRef.current.dragStartCanvasPos = null;
       interactionRef.current.dragInitialElements = null;
       setIsDragging(false);
+      setEditingElementId(null); // release edit lock
       pushHistory();
       return;
     }
@@ -835,7 +881,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           deleteElements(elementsToErase);
           pushHistory();
           elementsToErase.forEach((elementId) =>
-            send({ type: "delete_element", elementId, timestamp: Date.now() })
+            send({ type: "delete_element", elementId, timestamp: Date.now() }),
           );
         }
 
@@ -849,23 +895,23 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         if (finishedElement) {
           const runtimeStore = getRuntimeStore();
           if (runtimeStore) {
-            runtimeStore.commit(ActionCreator.addElement(finishedElement), "IMMEDIATELY");
-          } else {
-            addElement(finishedElement);
-            pushHistory();
+            // Runtime store path: commitDraft already appended element, just
+            // tell the runtime so it can sync its own snapshot.
+            runtimeStore.commit(
+              ActionCreator.addElement(finishedElement),
+              "IMMEDIATELY",
+            );
           }
-          send({ type: "add_element", element: finishedElement, timestamp: Date.now() });
+          send({
+            type: "add_element",
+            element: finishedElement,
+            timestamp: Date.now(),
+          });
         }
         setIsDrawing(false);
         return;
       }
-
-      if (currentElement) {
-        addElement(currentElement);
-        pushHistory();
-        send({ type: "add_element", element: currentElement, timestamp: Date.now() });
-        setCurrentElement(null);
-      }
+      // All drawing tools go through useDrawingTools — no legacy fallback.
       setIsDrawing(false);
     }
   };
@@ -902,7 +948,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      )
+        return;
 
       if (e.key === "Delete" || e.key === "Backspace") {
         const { selectedIds: ids } = useCanvasStore.getState();
@@ -913,7 +964,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           clearSelection();
           pushHistory();
           idsArr.forEach((id) =>
-            throttledSend({ type: "delete_element", elementId: id, timestamp: Date.now() })
+            throttledSend({
+              type: "delete_element",
+              elementId: id,
+              timestamp: Date.now(),
+            }),
           );
         }
       }
@@ -927,7 +982,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [deleteElements, clearSelection, pushHistory, throttledSend, cancelDrawing]);
+  }, [
+    deleteElements,
+    clearSelection,
+    pushHistory,
+    throttledSend,
+    cancelDrawing,
+  ]);
 
   // ── Mouse wheel zoom ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -937,7 +998,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.08 : 0.08;
-        setZoom(Math.max(0.1, Math.min(5, useCanvasStore.getState().zoom + delta)));
+        setZoom(
+          Math.max(0.1, Math.min(5, useCanvasStore.getState().zoom + delta)),
+        );
       }
     };
     container.addEventListener("wheel", handleWheel, { passive: false });
@@ -957,7 +1020,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           containerRef={containerRef as React.RefObject<HTMLDivElement>}
           elements={elements}
           selectedIds={selectedIds}
-          currentPreview={currentElement || drawingPreview}
+          draftElement={draftElement}
           eraserPath={eraserPath}
           viewport={viewport}
           theme={theme}
@@ -994,13 +1057,18 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         <PropertiesPanel
           selectedElement={
             selectedIds.size === 1
-              ? elements.find((el) => el.id === Array.from(selectedIds)[0]) || null
+              ? elements.find((el) => el.id === Array.from(selectedIds)[0]) ||
+                null
               : null
           }
           onUpdateElement={(updatedElement) => {
             if (updatedElement.id) {
               updateElement(updatedElement.id, updatedElement);
-              send({ type: "update_element", element: updatedElement, timestamp: Date.now() });
+              send({
+                type: "update_element",
+                element: updatedElement,
+                timestamp: Date.now(),
+              });
             }
           }}
         />

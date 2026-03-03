@@ -2,11 +2,14 @@
 
 import { useRef, useEffect, useCallback, useMemo } from "react";
 import type { DriplElement } from "@dripl/common";
-import { renderStaticScene, createRoughCanvas, renderRoughElements, RoughCanvas } from "@dripl/element";
-import { getElementBounds } from "@dripl/math";
+import {
+  renderStaticScene,
+  createRoughCanvas,
+  renderRoughElements,
+  RoughCanvas,
+} from "@dripl/element";
 import { getVisibleElements } from "@/utils/viewport-culling";
 import { Viewport } from "@/utils/canvas-coordinates";
-import { AnimationController } from "@/utils/animationController";
 
 let sceneNonceCounter = 0;
 const generateSceneNonce = () => sceneNonceCounter++;
@@ -14,9 +17,17 @@ const generateSceneNonce = () => sceneNonceCounter++;
 interface CanvasRendererProps {
   canvasRef: React.RefObject<HTMLCanvasElement>;
   containerRef: React.RefObject<HTMLDivElement>;
+  /**
+   * Committed elements only — draftElement is passed separately so the
+   * renderer can compose them without mutating committed state.
+   */
   elements: DriplElement[];
+  /**
+   * The element currently being drawn. It is rendered on top of committed
+   * elements but is NOT part of the `elements` array until finishDrawing().
+   */
+  draftElement: DriplElement | null;
   selectedIds: Set<string>;
-  currentPreview: DriplElement | null;
   eraserPath: Array<{ x: number; y: number }>;
   viewport: Viewport;
   onFrameRequest?: () => void;
@@ -28,8 +39,8 @@ export function useCanvasRenderer({
   canvasRef,
   containerRef,
   elements,
+  draftElement,
   selectedIds,
-  currentPreview,
   eraserPath,
   viewport,
   onFrameRequest,
@@ -39,13 +50,26 @@ export function useCanvasRenderer({
   const roughCanvasRef = useRef<RoughCanvas | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
   const lastRenderedElementsRef = useRef<DriplElement[]>([]);
+  const lastDraftRef = useRef<DriplElement | null>(null);
   const lastSelectedIdsRef = useRef<Set<string>>(new Set());
   const needsRenderRef = useRef(true);
 
+  /**
+   * The render list is `[...elements, draftElement]` when a draft exists so
+   * the draft is always composited on top without ever touching elements[].
+   *
+   * We memoise on the committed elements array identity, draftElement identity,
+   * viewport, and sceneNonce so viewport-culling only re-runs when something
+   * actually changed.
+   */
   const visibleElements = useMemo(() => {
-    return getVisibleElements(elements, viewport, sceneNonce);
-  }, [elements, viewport, sceneNonce]);
+    const renderList: DriplElement[] =
+      draftElement !== null ? [...elements, draftElement] : elements;
+    return getVisibleElements(renderList, viewport, sceneNonce);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elements, draftElement, viewport, sceneNonce]);
 
+  // ── Initialise RoughCanvas once ──────────────────────────────────────────
   useEffect(() => {
     if (canvasRef.current && !roughCanvasRef.current) {
       roughCanvasRef.current = createRoughCanvas(canvasRef.current);
@@ -53,6 +77,7 @@ export function useCanvasRenderer({
     }
   }, [canvasRef]);
 
+  // ── Resize handler ───────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -69,9 +94,7 @@ export function useCanvasRenderer({
       canvas.height = rect.height * dpr;
 
       const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.scale(dpr, dpr);
-      }
+      if (ctx) ctx.scale(dpr, dpr);
 
       needsRenderRef.current = true;
     };
@@ -81,7 +104,7 @@ export function useCanvasRenderer({
     return () => window.removeEventListener("resize", resizeCanvas);
   }, [canvasRef, containerRef]);
 
-  // Check if we need to re-render
+  // ── Dirty-checking — mark needsRender when inputs change ─────────────────
   useEffect(() => {
     const elementsChanged =
       elements.length !== lastRenderedElementsRef.current.length ||
@@ -91,34 +114,35 @@ export function useCanvasRenderer({
           el !== lastRenderedElementsRef.current[i],
       );
 
+    const draftChanged = draftElement !== lastDraftRef.current;
+
     const selectionChanged =
       selectedIds.size !== lastSelectedIdsRef.current.size ||
       Array.from(selectedIds).some((id) => !lastSelectedIdsRef.current.has(id));
 
     if (
       elementsChanged ||
+      draftChanged ||
       selectionChanged ||
-      currentPreview ||
       eraserPath.length > 0
     ) {
       needsRenderRef.current = true;
       lastRenderedElementsRef.current = elements;
+      lastDraftRef.current = draftElement;
       lastSelectedIdsRef.current = new Set(selectedIds);
     }
-  }, [elements, selectedIds, currentPreview, eraserPath]);
+  }, [elements, draftElement, selectedIds, eraserPath]);
 
-  // Main render loop using AnimationController
+  // ── Main render loop ─────────────────────────────────────────────────────
   const renderFrame = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
 
     if (!canvas || !ctx) {
-      console.log("Canvas or context not available");
       requestAnimationFrame(renderFrame);
       return;
     }
 
-    // Only render if something changed or forced
     if (!needsRenderRef.current) {
       requestAnimationFrame(renderFrame);
       return;
@@ -126,8 +150,9 @@ export function useCanvasRenderer({
 
     needsRenderRef.current = false;
 
-    // Render static scene
     const dpr = window.devicePixelRatio || 1;
+
+    // Render all committed elements (+ draft if present via visibleElements).
     renderStaticScene(canvas, visibleElements, viewport, {
       gridEnabled: false,
       gridSize: 20,
@@ -135,23 +160,6 @@ export function useCanvasRenderer({
       theme,
       dpr,
     });
-
-    // Render current preview element (being drawn)
-    if (currentPreview) {
-      const previewCanvas = document.createElement("canvas");
-      previewCanvas.width = canvas.width;
-      previewCanvas.height = canvas.height;
-      const previewCtx = previewCanvas.getContext("2d");
-      if (previewCtx) {
-        // Render preview element on temporary canvas
-        const rc = createRoughCanvas(previewCanvas);
-        if (rc) {
-          renderRoughElements(rc, previewCtx, [currentPreview], theme);
-        }
-        // Draw temporary canvas to main canvas
-        ctx.drawImage(previewCanvas, 0, 0);
-      }
-    }
 
     // Render eraser trail
     if (eraserPath.length > 0) {
@@ -171,20 +179,19 @@ export function useCanvasRenderer({
       ctx.restore();
     }
 
-    // Request next frame
     requestAnimationFrame(renderFrame);
     onFrameRequest?.();
   }, [
     canvasRef,
-    visibleElements, // Use memoized visible elements instead of raw elements
+    visibleElements,
     selectedIds,
-    currentPreview,
     eraserPath,
     viewport,
+    theme,
     onFrameRequest,
   ]);
 
-  // Start render loop
+  // ── Start render loop ────────────────────────────────────────────────────
   useEffect(() => {
     needsRenderRef.current = true;
     renderFrame();
@@ -196,7 +203,7 @@ export function useCanvasRenderer({
     };
   }, [renderFrame]);
 
-  // Force re-render when viewport changes
+  // ── Force re-render on viewport change ──────────────────────────────────
   useEffect(() => {
     needsRenderRef.current = true;
   }, [viewport.x, viewport.y, viewport.zoom]);
