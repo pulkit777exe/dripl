@@ -1,5 +1,6 @@
 import type { DriplElement } from "@dripl/common";
 import { renderRoughElements, createRoughCanvas } from "@dripl/element";
+import { normalizeElement } from "./canvasUtils";
 
 export interface CanvasMetadata {
   version: string;
@@ -138,6 +139,9 @@ export function exportToJSON(
   elements: DriplElement[],
   metadata?: Partial<CanvasMetadata>,
 ): string {
+  // Normalize elements before exporting to ensure complete state
+  const normalizedElements = elements.map(normalizeElement);
+  
   const exportData = {
     version: CANVAS_VERSION,
     metadata: {
@@ -148,7 +152,7 @@ export function exportToJSON(
       title: metadata?.title,
       description: metadata?.description,
     },
-    elements,
+    elements: normalizedElements,
   };
 
   return JSON.stringify(exportData, null, 2);
@@ -167,8 +171,22 @@ export function importFromJSON(json: string): {
     // Future: Add migration logic here
   }
 
+  const rawElements = data.elements || [];
+  
+  // Normalize all elements
+  const normalizedElements = rawElements.map(normalizeElement);
+  
+  // Re-sort elements by z-index or index
+  const sortedElements = [...normalizedElements].sort((a, b) => {
+    // Use zIndex if available, otherwise use index or position
+    if (a.zIndex !== undefined && b.zIndex !== undefined) {
+      return a.zIndex - b.zIndex;
+    }
+    return (a.y || 0) - (b.y || 0);
+  });
+
   return {
-    elements: data.elements || [],
+    elements: sortedElements,
     metadata: data.metadata || {
       version: data.version || CANVAS_VERSION,
       created: Date.now(),

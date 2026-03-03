@@ -1,5 +1,6 @@
 import type { DriplElement } from "@dripl/common";
 import type { AppState } from "@/types/canvas";
+import { normalizeElement } from "@/utils/canvasUtils";
 
 export interface ReconciliationResult {
   accepted: DriplElement[];
@@ -121,18 +122,20 @@ export function reconcileElements(
   let needsRender = false;
 
   for (const incoming of incomingElements) {
-    const local = localMap.get(incoming.id);
+    // Normalize incoming element before processing
+    const normalizedIncoming = normalizeElement(incoming);
+    const local = localMap.get(normalizedIncoming.id);
 
     const discard = shouldDiscardRemoteElement(
       local,
-      incoming,
+      normalizedIncoming,
       resolvedOptions,
     );
 
     if (discard) {
-      rejected.push(incoming);
+      rejected.push(normalizedIncoming);
     } else {
-      accepted.push(incoming);
+      accepted.push(normalizedIncoming);
       needsRender = true;
     }
   }

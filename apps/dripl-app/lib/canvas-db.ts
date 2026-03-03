@@ -1,5 +1,6 @@
 import { openDB, type IDBPDatabase } from "idb";
 import type { DriplElement } from "@dripl/common";
+import { normalizeElement } from "@/utils/canvasUtils";
 
 const DB_NAME = "dripl-canvas";
 const DB_VERSION = 1;
@@ -34,7 +35,7 @@ export async function saveCanvasToIndexedDB(
     const db = await getDB();
     const data: CanvasRoomData = {
       roomId,
-      elements,
+      elements: elements.map(normalizeElement),
       lastModified: Date.now(),
     };
     await db.put(STORE_NAME, data);
@@ -50,7 +51,7 @@ export async function loadCanvasFromIndexedDB(
   try {
     const db = await getDB();
     const data = await db.get(STORE_NAME, roomId);
-    return data?.elements || [];
+    return (data?.elements || []).map(normalizeElement);
   } catch (error) {
     console.error("Failed to load canvas from IndexedDB:", error);
     return [];

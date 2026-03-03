@@ -1,6 +1,7 @@
 import type { Point, DriplElement } from "@dripl/common";
 import { getElementBounds } from "@dripl/math";
 import type { Bounds } from "@dripl/math";
+import { normalizeElement } from "@/utils/canvasUtils";
 
 /**
  * Advanced Arrow Routing System

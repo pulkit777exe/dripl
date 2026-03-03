@@ -4,6 +4,7 @@ import {
   type LocalCanvasState,
 } from "@/utils/localCanvasStorage";
 import { loadCanvasFromIndexedDB } from "@/lib/canvas-db";
+import { normalizeElement } from "@/utils/canvasUtils";
 
 export type SceneSource = "local" | "room" | "file";
 
@@ -43,10 +44,12 @@ export async function loadInitialScene(
   switch (options.source) {
     case "local": {
       const { elements, appState } = loadLocalCanvasFromStorage();
+      
+      const normalizedElements = (elements as DriplElement[] || []).map(normalizeElement);
 
       return {
         source: "local",
-        elements: (elements as DriplElement[]) || [],
+        elements: normalizedElements,
         appState: (appState as Partial<LocalCanvasState>) || null,
         isFromCache: true,
       };
@@ -54,14 +57,16 @@ export async function loadInitialScene(
 
     case "room": {
       const elements = await loadCanvasFromIndexedDB(options.roomId);
+      
+      const normalizedElements = elements.map(normalizeElement);
 
-      if (!elements.length) {
+      if (!normalizedElements.length) {
         return null;
       }
 
       return {
         source: "room",
-        elements,
+        elements: normalizedElements,
         appState: null,
         isFromCache: true,
       };
@@ -94,9 +99,11 @@ export async function loadInitialScene(
         }
       }
 
+      const normalizedElements = elements.map(normalizeElement);
+
       return {
         source: "file",
-        elements,
+        elements: normalizedElements,
         appState,
         isFromCache: true,
       };
