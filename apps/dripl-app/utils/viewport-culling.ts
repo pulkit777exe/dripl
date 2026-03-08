@@ -24,6 +24,26 @@ let lastViewportKey = "";
 let lastVisibleElements: DriplElement[] = [];
 
 /**
+ * Check if an element is visible in the viewport with padding for strokes and effects.
+ */
+export function isElementInViewport(element: DriplElement, viewport: Viewport): boolean {
+  const PADDING = 20; // Padding for strokes, shadows, and rough edges
+  
+  const viewportBounds = getViewportBounds(viewport);
+  const elementBounds = getElementBounds(element);
+  
+  // Expand viewport bounds by padding to avoid clipping
+  const expandedViewport: Bounds = {
+    x: viewportBounds.x - PADDING,
+    y: viewportBounds.y - PADDING,
+    width: viewportBounds.width + PADDING * 2,
+    height: viewportBounds.height + PADDING * 2,
+  };
+  
+  return boundsIntersect(elementBounds, expandedViewport);
+}
+
+/**
  * Optimized viewport culling with caching.
  * Use optional sceneVersion when the app tracks a monotonic scene version for cheap invalidation.
  */
@@ -39,23 +59,12 @@ export function getVisibleElements(
     return lastVisibleElements;
   }
 
-  const viewportBounds = getViewportBounds(viewport);
-  const viewportRect: Bounds = {
-    x: viewportBounds.x,
-    y: viewportBounds.y,
-    width: viewportBounds.width,
-    height: viewportBounds.height,
-  };
-
-  // When viewport has no size (e.g. before container is laid out), show all elements
-  // so shapes are not hidden until the next layout.
-  const hasValidViewport = viewportRect.width > 0 && viewportRect.height > 0;
+  const hasValidViewport = viewport.width > 0 && viewport.height > 0;
 
   const visibleElements = hasValidViewport
     ? elements.filter((element) => {
         if (element.isDeleted) return false;
-        const elementBounds = getElementBounds(element);
-        return boundsIntersect(elementBounds, viewportRect);
+        return isElementInViewport(element, viewport);
       })
     : elements.filter((element) => !element.isDeleted);
 

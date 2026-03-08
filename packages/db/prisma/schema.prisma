@@ -72,6 +72,9 @@ model File {
   name      String
   content   String   @default("[]")
   preview   String?
+  shareToken String?  @unique
+  sharePermission String? @default("view")
+  shareExpiresAt DateTime?
   folderId  String?
   teamId    String?
   userId    String?

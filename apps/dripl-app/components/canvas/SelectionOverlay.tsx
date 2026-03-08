@@ -2,7 +2,6 @@
 
 import { DriplElement, Point } from "@dripl/common";
 import { getElementBounds } from "@dripl/math";
-import { Bounds } from "@dripl/math";
 
 interface SelectionOverlayProps {
   zoom: number;
@@ -17,7 +16,7 @@ interface SelectionOverlayProps {
 
 export type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 
-const H = 8;
+const H = 12;
 
 
 const CORNER_HANDLES: { id: ResizeHandle; css: React.CSSProperties }[] = [
@@ -70,9 +69,8 @@ const EDGE_HANDLES: { id: ResizeHandle; css: React.CSSProperties }[] = [
 const baseHandle: React.CSSProperties = {
   width: H,
   height: H,
-  backgroundColor: "#ffffff",
-  border: "1.5px solid #6965db",
-  borderRadius: 2,
+  backgroundColor: "transparent",
+  border: "none",
   position: "absolute",
   pointerEvents: "auto",
   zIndex: 20,
@@ -89,30 +87,7 @@ export function SelectionOverlay({
   onRotateStart,
   marqueeSelection,
 }: SelectionOverlayProps) {
-  if (marqueeSelection?.active) {
-    const mx =
-      Math.min(marqueeSelection.start.x, marqueeSelection.end.x) * zoom + panX;
-    const my =
-      Math.min(marqueeSelection.start.y, marqueeSelection.end.y) * zoom + panY;
-    const mw =
-      Math.abs(marqueeSelection.end.x - marqueeSelection.start.x) * zoom;
-    const mh =
-      Math.abs(marqueeSelection.end.y - marqueeSelection.start.y) * zoom;
-
-    return (
-      <div
-        className="absolute top-0 left-0 pointer-events-none"
-        style={{
-          transform: `translate(${mx}px, ${my}px)`,
-          width: mw,
-          height: mh,
-          border: "1.5px dashed #6965db",
-          backgroundColor: "rgba(105,101,219,0.08)",
-          zIndex: 10,
-        }}
-      />
-    );
-  }
+  if (marqueeSelection?.active) return null;
 
   if (selectedIds.size === 0) return null;
 
@@ -138,20 +113,16 @@ export function SelectionOverlay({
   const sw = (maxX - minX) * zoom + PAD * 2;
   const sh = (maxY - minY) * zoom + PAD * 2;
 
-  const angle = selected.length === 1 ? (selected[0]?.angle ?? 0) : 0;
   const showHandles = selected.length === 1;
 
   return (
     <div
       className="absolute top-0 left-0 pointer-events-none"
       style={{
-        transform: `translate(${sx}px, ${sy}px) rotate(${angle}rad)`,
-        transformOrigin: "center center",
+        transform: `translate(${sx}px, ${sy}px)`,
         width: sw,
         height: sh,
-        border: "1.5px solid #6965db",
         zIndex: 10,
-        borderRadius: 2,
       }}
     >
       {showHandles && (
@@ -180,13 +151,13 @@ export function SelectionOverlay({
           <div
             className="rotate-handle"
             style={{
-              width: H,
-              height: H,
-              backgroundColor: "#ffffff",
-              border: "1.5px solid #6965db",
-              borderRadius: "50%",
+              width: 18,
+              height: 18,
+              backgroundColor: "transparent",
+              border: "none",
+              borderRadius: 9,
               position: "absolute",
-              top: -24,
+              top: -30,
               left: "50%",
               transform: "translateX(-50%)",
               cursor: "grab",
@@ -194,19 +165,6 @@ export function SelectionOverlay({
               zIndex: 20,
             }}
             onPointerDown={onRotateStart}
-          />
-
-          <div
-            className="pointer-events-none absolute"
-            style={{
-              width: 1,
-              height: 14,
-              backgroundColor: "#6965db",
-              top: -14,
-              left: "50%",
-              transform: "translateX(-50%)",
-              opacity: 0.6,
-            }}
           />
         </>
       )}

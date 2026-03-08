@@ -64,7 +64,8 @@ export function createArrowElement(
       height: 24,
       text: state.label,
       fontSize: 14,
-      fontFamily: "Caveat",
+      fontFamily:
+        '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
       strokeColor: "transparent",
       backgroundColor: "transparent",
       strokeWidth: 0,

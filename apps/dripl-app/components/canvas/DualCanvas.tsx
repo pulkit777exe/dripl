@@ -5,6 +5,7 @@ import StaticCanvas from "./StaticCanvas";
 import InteractiveCanvas from "./InteractiveCanvas";
 import type { DriplElement, Point } from "@dripl/common";
 import { Viewport } from "@/utils/canvas-coordinates";
+import type { CollaboratorCursor } from "@/renderer/interactiveScene";
 
 interface DualCanvasProps {
   containerRef: React.RefObject<HTMLDivElement>;
@@ -27,6 +28,11 @@ interface DualCanvasProps {
     end: Point;
     active: boolean;
   } | null;
+  gridEnabled?: boolean;
+  gridSize?: number;
+  collaborators?: CollaboratorCursor[];
+  lockOwners?: ReadonlyMap<string, string>;
+  localUserId?: string | null;
 }
 
 export function DualCanvas({
@@ -45,6 +51,11 @@ export function DualCanvas({
   isResizing,
   isDrawing,
   marqueeSelection,
+  gridEnabled = false,
+  gridSize = 20,
+  collaborators = [],
+  lockOwners = new Map<string, string>(),
+  localUserId = null,
 }: DualCanvasProps) {
   return (
     <div
@@ -59,6 +70,8 @@ export function DualCanvas({
         elements={elements}
         selectedIds={selectedIds}
         viewport={viewport}
+        gridEnabled={gridEnabled}
+        gridSize={gridSize}
         theme={theme}
       />
 
@@ -78,6 +91,9 @@ export function DualCanvas({
         isResizing={isResizing}
         isDrawing={isDrawing}
         marqueeSelection={marqueeSelection}
+        collaborators={collaborators}
+        lockOwners={lockOwners}
+        localUserId={localUserId}
       />
     </div>
   );

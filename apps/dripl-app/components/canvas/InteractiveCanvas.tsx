@@ -1,23 +1,17 @@
 "use client";
 
-import React, { useRef, useEffect, useCallback, useMemo } from "react";
-import { useCanvasStore } from "@/lib/canvas-store";
+import React, { useEffect, useMemo, useRef } from "react";
 import type { DriplElement, Point } from "@dripl/common";
+import type { Viewport } from "@/utils/canvas-coordinates";
 import {
-  createRoughCanvas,
-  renderRoughElements,
-  type RoughCanvas,
-} from "@dripl/element";
-import { getElementBounds } from "@dripl/math";
-import { Viewport } from "@/utils/canvas-coordinates";
-import { getVisibleElements } from "@/utils/viewport-culling";
-import { AnimationController } from "./AnimationController";
+  renderInteractiveScene,
+  type CollaboratorCursor,
+} from "@/renderer/interactiveScene";
 
 interface InteractiveCanvasProps {
   containerRef: React.RefObject<HTMLDivElement>;
   elements: DriplElement[];
   selectedIds: Set<string>;
-  /** The in-progress draft element. Never part of committed elements[]. */
   draftElement: DriplElement | null;
   eraserPath: Point[];
   viewport: Viewport;
@@ -34,87 +28,36 @@ interface InteractiveCanvasProps {
     end: Point;
     active: boolean;
   } | null;
+  collaborators?: CollaboratorCursor[];
+  lockOwners?: ReadonlyMap<string, string>;
+  localUserId?: string | null;
 }
-
-interface InteractiveCanvasAppState {
-  zoom: number;
-  x: number;
-  y: number;
-  selectedIds: Set<string>;
-  draftElement: DriplElement | null;
-  eraserPath: Point[];
-  cursorPosition: Point | null;
-  isDragging: boolean;
-  isResizing: boolean;
-  isDrawing: boolean;
-  marqueeSelection: {
-    start: Point;
-    end: Point;
-    active: boolean;
-  } | null;
-}
-
-const getRelevantAppStateProps = (
-  props: InteractiveCanvasProps,
-): InteractiveCanvasAppState => {
-  return {
-    zoom: props.viewport.zoom,
-    x: props.viewport.x,
-    y: props.viewport.y,
-    selectedIds: props.selectedIds,
-    draftElement: props.draftElement || null,
-    eraserPath: props.eraserPath,
-    cursorPosition: props.cursorPosition || null,
-    isDragging: !!props.isDragging,
-    isResizing: !!props.isResizing,
-    isDrawing: !!props.isDrawing,
-    marqueeSelection: props.marqueeSelection || null,
-  };
-};
 
 const areEqual = (
-  prevProps: InteractiveCanvasProps,
-  nextProps: InteractiveCanvasProps,
+  prev: InteractiveCanvasProps,
+  next: InteractiveCanvasProps,
 ): boolean => {
   const selectionChanged =
-    prevProps.selectedIds.size !== nextProps.selectedIds.size ||
-    Array.from(prevProps.selectedIds).some(
-      (id) => !nextProps.selectedIds.has(id),
-    );
-
-  const previewChanged = prevProps.draftElement !== nextProps.draftElement;
-  const eraserPathChanged =
-    JSON.stringify(prevProps.eraserPath) !==
-    JSON.stringify(nextProps.eraserPath);
-
-  const interactiveChanged =
-    prevProps.isDragging !== nextProps.isDragging ||
-    prevProps.isResizing !== nextProps.isResizing ||
-    prevProps.isDrawing !== nextProps.isDrawing ||
-    JSON.stringify(prevProps.marqueeSelection) !==
-      JSON.stringify(nextProps.marqueeSelection) ||
-    JSON.stringify(prevProps.cursorPosition) !==
-      JSON.stringify(nextProps.cursorPosition);
-
+    prev.selectedIds.size !== next.selectedIds.size ||
+    Array.from(prev.selectedIds).some((id) => !next.selectedIds.has(id));
   const viewportChanged =
-    prevProps.viewport.x !== nextProps.viewport.x ||
-    prevProps.viewport.y !== nextProps.viewport.y ||
-    prevProps.viewport.zoom !== nextProps.viewport.zoom;
+    prev.viewport.x !== next.viewport.x ||
+    prev.viewport.y !== next.viewport.y ||
+    prev.viewport.zoom !== next.viewport.zoom;
 
-  if (
+  return !(
     selectionChanged ||
-    previewChanged ||
-    eraserPathChanged ||
-    interactiveChanged ||
-    viewportChanged
-  ) {
-    return false;
-  }
-
-  return true;
+    viewportChanged ||
+    prev.elements !== next.elements ||
+    prev.draftElement !== next.draftElement ||
+    prev.eraserPath !== next.eraserPath ||
+    prev.theme !== next.theme ||
+    prev.marqueeSelection !== next.marqueeSelection ||
+    prev.collaborators !== next.collaborators ||
+    prev.lockOwners !== next.lockOwners ||
+    prev.localUserId !== next.localUserId
+  );
 };
-
-const INTERACTIVE_SCENE_ANIMATION_KEY = "animateInteractiveScene";
 
 const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   containerRef,
@@ -127,278 +70,146 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   onPointerDown,
   onPointerMove,
   onPointerUp,
-  cursorPosition,
-  isDragging,
-  isResizing,
-  isDrawing,
   marqueeSelection,
+  collaborators = [],
+  lockOwners = new Map<string, string>(),
+  localUserId = null,
 }) => {
-  const interactiveCanvasRef = useRef<HTMLCanvasElement>(null);
-  const interactiveRoughCanvasRef = useRef<RoughCanvas | null>(null);
-  const isComponentMounted = useRef(false);
-
-  const visibleElements = useMemo(
-    () => getVisibleElements(elements, viewport),
-    [elements, viewport],
-  );
-
-  const rendererParams = useRef<{
-    canvas: HTMLCanvasElement;
-    rc: RoughCanvas;
-    elements: DriplElement[];
-    selectedIds: Set<string>;
-    draftElement: DriplElement | null;
-    eraserPath: Point[];
-    cursorPosition: Point | null;
-    isDragging: boolean;
-    isResizing: boolean;
-    isDrawing: boolean;
-    marqueeSelection: {
-      start: Point;
-      end: Point;
-      active: boolean;
-    } | null;
-    viewport: Viewport;
-    theme: "light" | "dark";
-  } | null>(null);
-
-  useEffect(() => {
-    if (interactiveCanvasRef.current && !interactiveRoughCanvasRef.current) {
-      interactiveRoughCanvasRef.current = createRoughCanvas(
-        interactiveCanvasRef.current,
-      );
-    }
-  }, []);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || !interactiveCanvasRef.current) return;
-
-    const canvas = interactiveCanvasRef.current;
-    const dpr = window.devicePixelRatio || 1;
-    const rect = container.getBoundingClientRect();
-
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.scale(dpr, dpr);
-    }
-  }, [containerRef]);
-
-  const renderInteractiveScene = useCallback(
-    ({ deltaTime, state }: { deltaTime: number; state: any }) => {
-      if (!rendererParams.current || !interactiveRoughCanvasRef.current) {
-        return undefined;
-      }
-
-      const {
-        canvas,
-        rc,
-        elements,
-        selectedIds,
-        draftElement,
-        eraserPath,
-        cursorPosition,
-        isDragging,
-        isResizing,
-        isDrawing,
-        marqueeSelection,
-        viewport,
-        theme,
-      } = rendererParams.current;
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return undefined;
-
-      const dpr = window.devicePixelRatio || 1;
-      ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-
-      ctx.save();
-      ctx.translate(viewport.x, viewport.y);
-      ctx.scale(viewport.zoom, viewport.zoom);
-
-      if (draftElement) {
-        renderRoughElements(rc, ctx, [draftElement], theme);
-      }
-
-      if (eraserPath.length > 0) {
-        ctx.save();
-        ctx.strokeStyle = "#ff0000";
-        ctx.lineWidth = 10 / viewport.zoom;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.globalAlpha = 0.3;
-
-        ctx.beginPath();
-        ctx.moveTo(eraserPath[0]!.x, eraserPath[0]!.y);
-        for (let i = 1; i < eraserPath.length; i++) {
-          ctx.lineTo(eraserPath[i]!.x, eraserPath[i]!.y);
-        }
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      if (marqueeSelection?.active) {
-        const minX = Math.min(marqueeSelection.start.x, marqueeSelection.end.x);
-        const minY = Math.min(marqueeSelection.start.y, marqueeSelection.end.y);
-        const maxX = Math.max(marqueeSelection.start.x, marqueeSelection.end.x);
-        const maxY = Math.max(marqueeSelection.start.y, marqueeSelection.end.y);
-
-        ctx.save();
-        ctx.strokeStyle = theme === "dark" ? "#6c47ff" : "#6b46c1";
-        ctx.fillStyle =
-          theme === "dark"
-            ? "rgba(168, 165, 255, 0.1)"
-            : "rgba(99, 102, 241, 0.1)";
-        ctx.lineWidth = 1 / viewport.zoom;
-        ctx.setLineDash([4 / viewport.zoom, 4 / viewport.zoom]);
-
-        ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
-        ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
-        ctx.restore();
-      }
-
-      if (selectedIds.size > 0 && (isDragging || isResizing)) {
-        ctx.save();
-        ctx.strokeStyle = theme === "dark" ? "#ffffff" : "#000000";
-        ctx.fillStyle = theme === "dark" ? "#6c47ff" : "#6b46c1";
-        ctx.lineWidth = 1 / viewport.zoom;
-
-        elements.forEach((element) => {
-          if (selectedIds.has(element.id)) {
-            const bounds = getElementBounds(element);
-            const handleSize = 8 / viewport.zoom;
-
-            const handles = [
-              { x: bounds.x, y: bounds.y },
-              { x: bounds.x + bounds.width, y: bounds.y },
-              { x: bounds.x, y: bounds.y + bounds.height },
-              { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
-              { x: bounds.x + bounds.width / 2, y: bounds.y },
-              { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height },
-              { x: bounds.x, y: bounds.y + bounds.height / 2 },
-              { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 },
-            ];
-
-            handles.forEach((handle) => {
-              ctx.fillRect(
-                handle.x - handleSize / 2,
-                handle.y - handleSize / 2,
-                handleSize,
-                handleSize,
-              );
-            });
-          }
-        });
-
-        ctx.restore();
-      }
-
-      if (cursorPosition && isDrawing) {
-        ctx.save();
-        ctx.strokeStyle = theme === "dark" ? "#6c47ff" : "#6b46c1";
-        ctx.lineWidth = 2 / viewport.zoom;
-        ctx.setLineDash([4 / viewport.zoom, 4 / viewport.zoom]);
-
-        const { x, y } = cursorPosition;
-        const size = 20 / viewport.zoom;
-
-        ctx.beginPath();
-        ctx.moveTo(x - size, y);
-        ctx.lineTo(x + size, y);
-        ctx.moveTo(x, y - size);
-        ctx.lineTo(x, y + size);
-        ctx.stroke();
-
-        ctx.restore();
-      }
-
-      ctx.restore();
-
-      return state;
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (!interactiveCanvasRef.current || !interactiveRoughCanvasRef.current) {
-      return;
-    }
-
-    rendererParams.current = {
-      canvas: interactiveCanvasRef.current,
-      rc: interactiveRoughCanvasRef.current,
-      elements: visibleElements,
-      selectedIds,
-      draftElement: draftElement || null,
-      eraserPath,
-      cursorPosition: cursorPosition || null,
-      isDragging: !!isDragging,
-      isResizing: !!isResizing,
-      isDrawing: !!isDrawing,
-      marqueeSelection: marqueeSelection || null,
-      viewport,
-      theme,
-    };
-
-    if (!AnimationController.running(INTERACTIVE_SCENE_ANIMATION_KEY)) {
-      AnimationController.start(
-        INTERACTIVE_SCENE_ANIMATION_KEY,
-        renderInteractiveScene,
-        {},
-      );
-    }
-
-    return () => {
-      if (!isComponentMounted.current) {
-        AnimationController.stop(INTERACTIVE_SCENE_ANIMATION_KEY);
-      }
-    };
-  }, [
-    visibleElements,
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const isDirtyRef = useRef(true);
+  const dprRef = useRef(1);
+  const sizeRef = useRef({ width: 0, height: 0 });
+  const propsRef = useRef({
+    elements,
     selectedIds,
     draftElement,
     eraserPath,
-    cursorPosition,
-    isDragging,
-    isResizing,
-    isDrawing,
-    marqueeSelection,
     viewport,
     theme,
-    renderInteractiveScene,
+    marqueeSelection,
+    collaborators,
+    lockOwners,
+    localUserId,
+  });
+
+  useEffect(() => {
+    propsRef.current = {
+      elements,
+      selectedIds,
+      draftElement,
+      eraserPath,
+      viewport,
+      theme,
+      marqueeSelection,
+      collaborators,
+      lockOwners,
+      localUserId,
+    };
+    isDirtyRef.current = true;
+  }, [
+    elements,
+    selectedIds,
+    draftElement,
+    eraserPath,
+    viewport,
+    theme,
+    marqueeSelection,
+    collaborators,
+    lockOwners,
+    localUserId,
   ]);
 
   useEffect(() => {
-    isComponentMounted.current = true;
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const resize = () => {
+      const width = Math.max(1, container.offsetWidth);
+      const height = Math.max(1, container.offsetHeight);
+      const dpr = window.devicePixelRatio || 1;
+      dprRef.current = dpr;
+      sizeRef.current = { width, height };
+
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      isDirtyRef.current = true;
+    };
+
+    resize();
+    window.addEventListener("resize", resize);
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
 
     return () => {
-      isComponentMounted.current = false;
-      AnimationController.stop(INTERACTIVE_SCENE_ANIMATION_KEY);
+      window.removeEventListener("resize", resize);
+      observer.disconnect();
+    };
+  }, [containerRef]);
+
+  useEffect(() => {
+    const loop = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext("2d");
+      if (canvas && ctx && isDirtyRef.current) {
+        isDirtyRef.current = false;
+        const props = propsRef.current;
+        renderInteractiveScene({
+          ctx,
+          viewport: {
+            ...props.viewport,
+            width: sizeRef.current.width,
+            height: sizeRef.current.height,
+          },
+          canvasWidth: sizeRef.current.width,
+          canvasHeight: sizeRef.current.height,
+          elements: props.elements,
+          draftElement: props.draftElement,
+          eraserPath: props.eraserPath,
+          selectedIds: props.selectedIds,
+          marqueeSelection: props.marqueeSelection,
+          collaborators: props.collaborators,
+          lockOwners: props.lockOwners,
+          localUserId: props.localUserId,
+          gridEnabled: false,
+          theme: props.theme,
+          renderCommittedElements: false,
+          dpr: dprRef.current,
+        });
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    };
+
+    rafRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+      }
     };
   }, []);
 
-  const cursorStyle = useMemo(() => {
-    if (isDragging) return "grabbing";
-    if (isDrawing) return "crosshair";
-    return "default";
-  }, [isDragging, isDrawing]);
+  const style = useMemo<React.CSSProperties>(
+    () => ({
+      zIndex: 2,
+      cursor: "default",
+      pointerEvents: "auto",
+      touchAction: "none",
+    }),
+    [],
+  );
 
   return (
     <canvas
-      ref={interactiveCanvasRef}
+      ref={canvasRef}
       className="absolute inset-0"
-      style={{
-        zIndex: 2,
-        cursor: cursorStyle,
-      }}
+      style={style}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
       onPointerLeave={onPointerUp}
     />
   );

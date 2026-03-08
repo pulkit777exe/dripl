@@ -11,10 +11,18 @@ interface SharePageProps {
   params: Promise<{
     id: string;
   }>;
+  searchParams?: Promise<{
+    permission?: string;
+  }>;
 }
 
-export default async function SharePage({ params }: SharePageProps) {
+export default async function SharePage({
+  params,
+  searchParams,
+}: SharePageProps) {
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const readOnly = resolvedSearchParams?.permission === "view";
 
   // Fetch the file from the database
   const file = await db.file.findUnique({
@@ -54,11 +62,14 @@ export default async function SharePage({ params }: SharePageProps) {
         mode="file"
         initialData={{ elements: initialData.elements || initialData }}
         theme={theme}
+        readOnly={readOnly}
       />
 
-      <div className="absolute top-0.5 left-1/2 -translate-x-1/2 z-20">
-        <CanvasToolbar />
-      </div>
+      {!readOnly && (
+        <div className="absolute top-0.5 left-1/2 -translate-x-1/2 z-20">
+          <CanvasToolbar />
+        </div>
+      )}
 
       <div className="absolute bottom-6 left-6 z-20">
         <CanvasControls />
@@ -73,7 +84,7 @@ export default async function SharePage({ params }: SharePageProps) {
       <CommandPalette />
 
       <div className="absolute bottom-6 right-6 z-20 bg-blue-600 px-4 py-2 rounded-lg text-white font-medium shadow-lg">
-        Viewing Shared Canvas
+        {readOnly ? "View only" : "Viewing Shared Canvas"}
       </div>
     </div>
   );

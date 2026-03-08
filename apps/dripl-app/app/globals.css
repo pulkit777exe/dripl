@@ -9,10 +9,28 @@ body,
 
 .canvas-text-input,
 .canvas-text-node {
-  font-family: var(--font-caveat), "Caveat", cursive !important;
+  font-family: var(--font-caveat), "Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive !important;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-headline), "Times New Roman", Times, Georgia, serif;
+}
+
+.sidebar-panel,
+.properties-panel {
+  font-family: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
+  --font-inter: "Inter";
+  --font-caveat: "Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive;
+  --font-headline: "Times New Roman", Times, Georgia, serif;
+
   --color-background:            #f5f5f5;
   --color-foreground:            #1e1e1e;
   --color-card:                  #ffffff;

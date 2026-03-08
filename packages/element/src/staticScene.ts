@@ -34,10 +34,14 @@ const elementCanvasCache = new Map<string, CacheEntry>();
  * When any of these change the element must be re-rendered into a fresh offscreen canvas.
  */
 function makeVersionKey(el: DriplElement): string {
-  return [
+  // Include all properties that affect visual rendering
+  const keyParts = [
     el.type,
     el.width,
     el.height,
+    el.x,
+    el.y,
+    el.angle,
     el.strokeColor,
     el.backgroundColor,
     el.strokeWidth,
@@ -50,12 +54,20 @@ function makeVersionKey(el: DriplElement): string {
     (el as any).text,
     (el as any).fontSize,
     (el as any).fontFamily,
+    (el as any).textAlign,
     // image-specific – include only the first 32 chars of src to avoid a
     // very long key while still detecting changes
     (el as any).src?.slice(0, 32) ?? "",
     // points – serialise compactly
     (el as any).points ? JSON.stringify((el as any).points) : "",
-  ].join("|");
+    // arrow-specific
+    (el as any).startArrowhead,
+    (el as any).endArrowhead,
+    // frame-specific
+    (el as any).padding,
+  ];
+
+  return keyParts.filter(part => part !== undefined && part !== null).join("|");
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────

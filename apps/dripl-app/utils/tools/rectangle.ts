@@ -4,6 +4,7 @@ export interface RectangleToolState {
   startPoint: Point;
   currentPoint: Point;
   shiftKey: boolean;
+  altKey?: boolean;
 }
 
 export function createRectangleElement(
@@ -12,8 +13,13 @@ export function createRectangleElement(
     id: string;
   },
 ): DriplElement {
-  let width = state.currentPoint.x - state.startPoint.x;
-  let height = state.currentPoint.y - state.startPoint.y;
+  const fromCenter = state.altKey === true;
+  const startPoint = fromCenter
+    ? { x: state.startPoint.x * 2 - state.currentPoint.x, y: state.startPoint.y * 2 - state.currentPoint.y }
+    : state.startPoint;
+
+  let width = state.currentPoint.x - startPoint.x;
+  let height = state.currentPoint.y - startPoint.y;
 
   if (state.shiftKey) {
     const size = Math.max(Math.abs(width), Math.abs(height));
@@ -21,8 +27,8 @@ export function createRectangleElement(
     height = height < 0 ? -size : size;
   }
 
-  const x = width < 0 ? state.startPoint.x + width : state.startPoint.x;
-  const y = height < 0 ? state.startPoint.y + height : state.startPoint.y;
+  const x = width < 0 ? startPoint.x + width : startPoint.x;
+  const y = height < 0 ? startPoint.y + height : startPoint.y;
 
   return {
     ...baseProps,

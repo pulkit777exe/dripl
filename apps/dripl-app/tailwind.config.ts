@@ -31,7 +31,14 @@ const config = {
           "system-ui",
           "sans-serif",
         ],
-        caveat: ["var(--font-caveat)", "Caveat", "cursive"],
+        caveat: [
+          "var(--font-caveat)",
+          "Comic Sans MS",
+          "Chalkboard SE",
+          "Marker Felt",
+          "Comic Neue",
+          "cursive",
+        ],
       },
       colors: {
         border: "var(--color-border)",

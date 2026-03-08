@@ -6,3 +6,4 @@ export * from "./scene";
 export * from "./delta";
 export * from "./actions";
 export * from "./pointer";
+export type { DriplElementSchemaType } from "./schemas";

@@ -50,41 +50,59 @@ export interface ReconcileOptions {
  *
  * 5. **No local copy** – Always accept (new element from remote).
  */
+const getDiscardReason = (
+  local: DriplElement | undefined,
+  remote: DriplElement,
+  options: ReconcileOptions = {},
+): string => {
+  const { editingElementId, draftElementId } = options;
+
+  if (editingElementId && remote.id === editingElementId) {
+    return 'active_edit_lock';
+  }
+
+  if (draftElementId && remote.id === draftElementId) {
+    return 'draft_protection';
+  }
+
+  if (local) {
+    const localV = local.version ?? 0;
+    const remoteV = remote.version ?? 0;
+
+    if (localV > remoteV) {
+      return 'higher_version';
+    }
+
+    if (localV === remoteV) {
+      const localN = local.versionNonce ?? 0;
+      const remoteN = remote.versionNonce ?? 0;
+      if (localN <= remoteN) {
+        return 'lower_nonce';
+      }
+    }
+  }
+
+  return 'accept';
+};
+
 export const shouldDiscardRemoteElement = (
   local: DriplElement | undefined,
   remote: DriplElement,
   options: ReconcileOptions = {},
 ): boolean => {
-  const { editingElementId, draftElementId } = options;
+  const discard = getDiscardReason(local, remote, options) !== 'accept';
+  
+  console.log('[RECONCILE] shouldDiscardRemoteElement', {
+    id: remote.id,
+    localVersion: local?.version,
+    remoteVersion: remote.version,
+    localNonce: local?.versionNonce,
+    remoteNonce: remote.versionNonce,
+    discard,
+    reason: getDiscardReason(local, remote, options)
+  });
 
-  // Rule 1 — Active edit lock.
-  if (editingElementId && remote.id === editingElementId) {
-    return true;
-  }
-
-  // Rule 2 — Draft protection.
-  if (draftElementId && remote.id === draftElementId) {
-    return true;
-  }
-
-  // Rules 3 & 4 only apply when we have a local copy.
-  if (!local) return false;
-
-  const localV = local.version ?? 0;
-  const remoteV = remote.version ?? 0;
-
-  // Rule 3 — Higher version wins.
-  if (localV > remoteV) return true;
-
-  // Rule 4 — Equal version tie-break: lower nonce wins.
-  if (localV === remoteV) {
-    const localN = local.versionNonce ?? 0;
-    const remoteN = remote.versionNonce ?? 0;
-    // Discard remote when local nonce is lower (local wins tie).
-    if (localN <= remoteN) return true;
-  }
-
-  return false;
+  return discard;
 };
 
 // ---------------------------------------------------------------------------
@@ -136,9 +154,20 @@ export function reconcileElements(
       rejected.push(normalizedIncoming);
     } else {
       accepted.push(normalizedIncoming);
-      needsRender = true;
+      // Only mark as needsRender if element is new or different
+      if (!local || JSON.stringify(local) !== JSON.stringify(normalizedIncoming)) {
+        needsRender = true;
+      }
     }
   }
+
+  console.log('[RECONCILE] reconcileElements', {
+    localCount: localElements.length,
+    incomingCount: incomingElements.length,
+    acceptedCount: accepted.length,
+    rejectedCount: rejected.length,
+    needsRender: needsRender
+  });
 
   return { accepted, rejected, needsRender };
 }
@@ -192,12 +221,25 @@ export function mergeElement(
   const localVersion = local.version ?? 0;
   const incomingVersion = incoming.version ?? 0;
 
-  if (incomingVersion >= localVersion) {
+  if (incomingVersion > localVersion) {
     return {
       ...incoming,
       version: incomingVersion,
       updated: Date.now(),
     };
+  }
+
+  if (incomingVersion === localVersion) {
+    const localNonce = local.versionNonce ?? 0;
+    const incomingNonce = incoming.versionNonce ?? 0;
+    
+    if (incomingNonce < localNonce) {
+      return {
+        ...incoming,
+        version: incomingVersion,
+        updated: Date.now(),
+      };
+    }
   }
 
   return local;

@@ -19,6 +19,7 @@ export const TopBar: React.FC = () => {
   const { user, loading } = useAuth();
   const router = useRouter();
   const elements = useCanvasStore((state) => state.elements);
+  const fileId = useCanvasStore((state) => state.fileId);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -71,33 +72,60 @@ export const TopBar: React.FC = () => {
     }
   };
 
-  const handleExportToLink = async () => {
+  const handleExportToLink = async (
+    permission: "view" | "edit",
+    expiresIn?: number,
+  ): Promise<string | null> => {
     try {
+      const payload: {
+        fileId?: string;
+        elements: typeof elements;
+        name: string;
+        permission: "view" | "edit";
+        expiresIn?: number;
+      } = {
+        elements,
+        name: "Shared Canvas",
+        permission,
+      };
+
+      if (fileId) {
+        payload.fileId = fileId;
+      }
+      if (typeof expiresIn === "number") {
+        payload.expiresIn = expiresIn;
+      }
+
       const response = await fetch("/api/share", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          elements,
-          name: "Shared Canvas",
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to share canvas");
+        let details = "";
+        try {
+          const body = (await response.json()) as {
+            error?: string;
+            details?: unknown;
+          };
+          details = body.error ?? "";
+        } catch {
+          // ignore body parse failures
+        }
+        throw new Error(details || `Failed to share canvas (${response.status})`);
       }
 
       const data = await response.json();
-      const link = `${window.location.origin}/share/${data.id}`;
-
+      const link = data.url ?? `${window.location.origin}/board/${data.token}`;
       await navigator.clipboard.writeText(link);
-      alert("Link copied to clipboard!");
+      return link;
     } catch (error) {
       console.error("Error sharing canvas:", error);
       alert("Failed to create share link. Please try again.");
-    } finally {
-      setIsShareModalOpen(false);
+      return null;
     }
   };
 

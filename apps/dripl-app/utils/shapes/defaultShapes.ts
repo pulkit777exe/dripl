@@ -401,7 +401,8 @@ export const textShape: ShapeDefinition = {
       fillStyle: "hachure",
       text: "Text",
       fontSize: 20,
-      fontFamily: "Caveat",
+      fontFamily:
+        '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
       ...props,
     }) as DriplElement,
   validate: (element: any) => {
@@ -545,7 +546,7 @@ export const frameShape: ShapeDefinition = {
 
     if (frameElement.title) {
       ctx.fillStyle = element.strokeColor || "#000000";
-      ctx.font = "14px Caveat, cursive";
+      ctx.font = '14px "Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
       ctx.fillText(frameElement.title, element.x + 10, element.y - 10);
     }
   },

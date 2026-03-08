@@ -422,7 +422,8 @@ export default function App() {
           : undefined,
         text: toolToUse === "text" ? "Text" : undefined,
         fontSize: 20,
-        fontFamily: "Caveat",
+        fontFamily:
+          '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
       };
 
       setCurrentElement(newElement);

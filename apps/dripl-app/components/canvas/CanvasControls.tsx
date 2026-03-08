@@ -8,8 +8,8 @@ export function CanvasControls() {
   const setZoom = useCanvasStore((state) => state.setZoom);
   const undo = useCanvasStore((state) => state.undo);
   const redo = useCanvasStore((state) => state.redo);
-  const history = useCanvasStore((state) => state.history);
-  const historyIndex = useCanvasStore((state) => state.historyIndex);
+  const canUndo = useCanvasStore((state) => state.past.length > 0);
+  const canRedo = useCanvasStore((state) => state.future.length > 0);
 
   const handleZoomIn = () => setZoom(Math.min(zoom + 0.1, 5));
   const handleZoomOut = () => setZoom(Math.max(zoom - 0.1, 0.1));
@@ -41,7 +41,7 @@ export function CanvasControls() {
       <div className="flex items-center bg-toolbar-bg border border-toolbar-border rounded-lg shadow-lg overflow-hidden">
         <button
           onClick={undo}
-          disabled={historyIndex <= 0}
+          disabled={!canUndo}
           className="p-2.5 hover:bg-tool-hover-bg transition-colors disabled:opacity-50 text-tool-inactive-text hover:text-tool-hover-text"
           title="Undo (Ctrl+Z)"
           aria-label="Undo"
@@ -51,7 +51,7 @@ export function CanvasControls() {
         <div className="w-px h-5 bg-toolbar-divider" />
         <button
           onClick={redo}
-          disabled={historyIndex >= history.length - 1}
+          disabled={!canRedo}
           className="p-2.5 hover:bg-tool-hover-bg transition-colors disabled:opacity-50 text-tool-inactive-text hover:text-tool-hover-text"
           title="Redo (Ctrl+Shift+Z)"
           aria-label="Redo"

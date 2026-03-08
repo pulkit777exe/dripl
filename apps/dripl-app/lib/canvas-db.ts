@@ -30,7 +30,7 @@ function getDB(): Promise<IDBPDatabase> {
 export async function saveCanvasToIndexedDB(
   roomId: string,
   elements: DriplElement[],
-): Promise<void> {
+): Promise<boolean> {
   try {
     const db = await getDB();
     const data: CanvasRoomData = {
@@ -39,9 +39,10 @@ export async function saveCanvasToIndexedDB(
       lastModified: Date.now(),
     };
     await db.put(STORE_NAME, data);
+    return true;
   } catch (error) {
     console.error("Failed to save canvas to IndexedDB:", error);
-    throw error;
+    return false;
   }
 }
 

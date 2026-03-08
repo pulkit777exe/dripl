@@ -14,7 +14,8 @@ export const VERTICAL_ALIGN = {
 } as const;
 
 const DEFAULT_FONT_SIZE = 20;
-const DEFAULT_FONT_FAMILY = "Caveat";
+const DEFAULT_FONT_FAMILY =
+  '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
 
 function measureText(
   text: string,
@@ -237,7 +238,7 @@ export function createTextElement(
     type: "text",
     text,
     fontSize: baseProps.fontSize ?? 16,
-    fontFamily: baseProps.fontFamily ?? "Caveat",
+    fontFamily: baseProps.fontFamily ?? DEFAULT_FONT_FAMILY,
     textAlign: baseProps.textAlign ?? "left",
     verticalAlign: baseProps.verticalAlign ?? "top",
     strokeColor: baseProps.strokeColor ?? "#000000",

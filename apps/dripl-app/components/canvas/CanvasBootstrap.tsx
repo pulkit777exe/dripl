@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 import type { DriplElement } from "@dripl/common";
 
 import RoughCanvas from "@/components/canvas/RoughCanvas";
+import { CanvasErrorBoundary } from "@/components/canvas/CanvasErrorBoundary";
 import { useCanvasStore } from "@/lib/canvas-store";
 import {
   initRuntimeStore,
@@ -17,10 +18,43 @@ import {
   loadLocalCanvasFromStorage,
 } from "@/utils/localCanvasStorage";
 import { loadInitialScene } from "@/lib/scene-loader";
+import type { ActiveTool, Theme } from "@/lib/canvas-store";
 
 type BaseProps = {
   theme: "light" | "dark";
+  readOnly?: boolean;
 };
+
+const VALID_THEMES = new Set<Theme>(["light", "dark", "system"]);
+const VALID_STROKE_STYLES = new Set(["solid", "dashed", "dotted"] as const);
+const VALID_FILL_STYLES = new Set(
+  [
+    "hachure",
+    "solid",
+    "zigzag",
+    "cross-hatch",
+    "dots",
+    "dashed",
+    "zigzag-line",
+  ] as const,
+);
+const VALID_TOOLS = new Set<ActiveTool>([
+  "select",
+  "hand",
+  "rectangle",
+  "ellipse",
+  "diamond",
+  "arrow",
+  "line",
+  "freedraw",
+  "text",
+  "image",
+  "eraser",
+]);
+
+function isActiveTool(value: string): value is ActiveTool {
+  return VALID_TOOLS.has(value as ActiveTool);
+}
 
 type LocalModeProps = BaseProps & {
   mode: "local";
@@ -48,8 +82,8 @@ function applyAppStateToStore(appState: Partial<LocalCanvasState> | null) {
 
   const store = useCanvasStore.getState();
 
-  if (appState.theme) {
-    store.setTheme(appState.theme as any);
+  if (appState.theme && VALID_THEMES.has(appState.theme)) {
+    store.setTheme(appState.theme);
   }
   if (typeof appState.zoom === "number") {
     store.setZoom(appState.zoom);
@@ -70,19 +104,22 @@ function applyAppStateToStore(appState: Partial<LocalCanvasState> | null) {
   if (typeof appState.currentRoughness === "number") {
     store.setCurrentRoughness(appState.currentRoughness);
   }
-  if (appState.currentStrokeStyle) {
-    store.setCurrentStrokeStyle(appState.currentStrokeStyle as any);
+  if (
+    appState.currentStrokeStyle &&
+    VALID_STROKE_STYLES.has(appState.currentStrokeStyle)
+  ) {
+    store.setCurrentStrokeStyle(appState.currentStrokeStyle);
   }
-  if (appState.currentFillStyle) {
-    store.setCurrentFillStyle(appState.currentFillStyle as any);
+  if (appState.currentFillStyle && VALID_FILL_STYLES.has(appState.currentFillStyle)) {
+    store.setCurrentFillStyle(appState.currentFillStyle);
   }
-  if (appState.activeTool) {
-    store.setActiveTool(appState.activeTool as any);
+  if (appState.activeTool && isActiveTool(appState.activeTool)) {
+    store.setActiveTool(appState.activeTool);
   }
 }
 
 export function CanvasBootstrap(props: CanvasBootstrapProps) {
-  const { theme } = props;
+  const { theme, readOnly = false } = props;
   const { resolvedTheme } = useTheme();
 
   // Keep the default stroke colour in sync with the active theme so new
@@ -107,6 +144,14 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
   const setElements = useCanvasStore((state) => state.setElements);
   const setSelectedIds = useCanvasStore((state) => state.setSelectedIds);
   const existingElements = useCanvasStore((state) => state.elements);
+  const setReadOnly = useCanvasStore((state) => state.setReadOnly);
+
+  useEffect(() => {
+    setReadOnly(readOnly);
+    return () => {
+      setReadOnly(false);
+    };
+  }, [readOnly, setReadOnly]);
 
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -129,7 +174,9 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
     );
     initRuntimeStore(snapshot);
     setRuntimeStoreSync((next) => {
-      useCanvasStore.getState().setElements([...next.elements]);
+      useCanvasStore.getState().setElements([...next.elements], {
+        skipHistory: true,
+      });
       useCanvasStore.getState().setSelectedIds(new Set(next.selectedIds));
     });
   }, [isInitialized]);
@@ -153,7 +200,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
         const initialElements = elements as DriplElement[] | null;
 
         if (initialElements && initialElements.length > 0) {
-          setElements(initialElements);
+          setElements(initialElements, { skipHistory: true });
           if (loadedSelectedIds?.length) {
             setSelectedIds(new Set(loadedSelectedIds));
           }
@@ -204,12 +251,13 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
               opacity: 1,
               text: "Local Canvas Test",
               fontSize: 24,
-              fontFamily: "Caveat",
+              fontFamily:
+                '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
               seed: Math.floor(Math.random() * 1000000),
             },
           ];
 
-          setElements(testElements);
+          setElements(testElements, { skipHistory: true });
         }
 
         applyAppStateToStore(appState as Partial<LocalCanvasState> | null);
@@ -248,7 +296,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
           }
         }
 
-        setElements(scene.elements);
+        setElements(scene.elements, { skipHistory: true });
         updateRuntimeStoreSnapshot(snapshotFromState(scene.elements, []));
 
         if (!cancelled) {
@@ -404,7 +452,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
         }
 
         if (scene.elements.length > 0) {
-          setElements(scene.elements);
+          setElements(scene.elements, { skipHistory: true });
           updateRuntimeStoreSnapshot(snapshotFromState(scene.elements, []));
         }
         applyAppStateToStore(
@@ -425,20 +473,19 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, roomSlug]);
 
-  // For local mode we prefer to wait for initialization so we can show either
-  // restored data or test elements. For room/file modes we render immediately
-  // because live data (WebSocket or server props) may still be incoming.
-  if (mode === "local" && !isInitialized) {
+  if (!isInitialized) {
     return (
       <div className="relative w-full h-full flex items-center justify-center">
         <div className="rounded-lg border border-border bg-card px-4 py-2 text-sm text-muted-foreground shadow-sm">
-          Loading canvas…
+          Loading canvas...
         </div>
       </div>
     );
   }
 
   return (
-    <RoughCanvas roomSlug={mode === "room" ? roomSlug : null} theme={theme} />
+    <CanvasErrorBoundary>
+      <RoughCanvas roomSlug={mode === "room" ? roomSlug : null} theme={theme} />
+    </CanvasErrorBoundary>
   );
 }

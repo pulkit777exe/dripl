@@ -5,6 +5,7 @@ export interface FreedrawToolState {
   isComplete: boolean;
   pressure?: number; // 0-1, for variable width based on pressure
   brushSize?: number; // base brush size
+  pressureValues?: number[];
 }
 
 function smoothPath(points: Point[], tension: number = 0.5): Point[] {
@@ -122,9 +123,12 @@ export function createFreedrawElement(
   }));
 
   // Calculate pressure values for variable width
-  const pressureValues = state.points.map((point, index) =>
-    calculatePressure(point, state.points.slice(0, index + 1)),
-  );
+  const pressureValues =
+    state.pressureValues && state.pressureValues.length === state.points.length
+      ? state.pressureValues
+      : state.points.map((point, index) =>
+          calculatePressure(point, state.points.slice(0, index + 1)),
+        );
 
   const brushSize = state.brushSize ?? 2;
   const widths = calculateVariableWidth(
@@ -156,6 +160,7 @@ export function addPointToFreedraw(
     ...state,
     points: [...state.points, point],
     pressure: pressure,
+    pressureValues: [...(state.pressureValues ?? []), pressure],
   };
 }
 
