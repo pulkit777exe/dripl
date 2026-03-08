@@ -56,7 +56,9 @@ export function normalizeElement(element: DriplElement): DriplElement {
   if (normalized.type === "text" && !normalized.text) {
     normalized.text = "";
     normalized.fontSize = normalized.fontSize || 20;
-    normalized.fontFamily = normalized.fontFamily || "Arial";
+    normalized.fontFamily =
+      normalized.fontFamily ||
+      '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
   }
 
   // For image elements, ensure src property exists
@@ -319,7 +321,9 @@ function drawText(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   if (!element.text) return;
 
   const fontSize = element.fontSize || 20;
-  const fontFamily = element.fontFamily || "Caveat";
+  const fontFamily =
+    element.fontFamily ||
+    '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
 
   ctx.font = `${fontSize}px ${fontFamily}, cursive`;
   ctx.fillStyle = element.strokeColor ?? "#000000";
@@ -368,7 +372,7 @@ function drawFrame(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   // Draw title
   if (frameElement.title) {
     ctx.fillStyle = element.strokeColor ?? "#000000";
-    ctx.font = "14px Caveat, cursive";
+    ctx.font = '14px "Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
     ctx.fillText(frameElement.title, element.x + 10, element.y - 10);
   }
 }
