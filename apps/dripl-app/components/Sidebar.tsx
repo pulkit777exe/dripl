@@ -4,7 +4,10 @@ import React from "react";
 import {
   MousePointer2,
   Square,
+  Diamond,
   Circle,
+  ArrowRight,
+  Minus,
   Type,
   Image as ImageIcon,
   Pencil,
@@ -22,10 +25,13 @@ export function Sidebar({ activeTool = "select", onToolSelect }: SidebarProps) {
     { id: "select", icon: MousePointer2, label: "Select" },
     { id: "hand", icon: Hand, label: "Pan" },
     { id: "rectangle", icon: Square, label: "Rectangle" },
+    { id: "diamond", icon: Diamond, label: "Diamond" },
     { id: "ellipse", icon: Circle, label: "Ellipse" },
+    { id: "arrow", icon: ArrowRight, label: "Arrow" },
+    { id: "line", icon: Minus, label: "Line" },
     { id: "text", icon: Type, label: "Text" },
     { id: "image", icon: ImageIcon, label: "Image" },
-    { id: "draw", icon: Pencil, label: "Draw" },
+    { id: "freedraw", icon: Pencil, label: "Draw" },
   ];
 
   return (
@@ -37,6 +43,10 @@ export function Sidebar({ activeTool = "select", onToolSelect }: SidebarProps) {
         {tools.map((tool) => (
           <button
             key={tool.id}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              onToolSelect?.(tool.id);
+            }}
             onClick={() => onToolSelect?.(tool.id)}
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground",

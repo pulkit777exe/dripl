@@ -107,7 +107,9 @@ const tools: Tool[] = [
 
 export function CanvasToolbar() {
   const activeTool = useCanvasStore((state) => state.activeTool);
+  const toolLocked = useCanvasStore((state) => state.toolLocked);
   const setActiveTool = useCanvasStore((state) => state.setActiveTool);
+  const setToolLocked = useCanvasStore((state) => state.setToolLocked);
   const undo = useCanvasStore((state) => state.undo);
   const redo = useCanvasStore((state) => state.redo);
 
@@ -159,13 +161,22 @@ export function CanvasToolbar() {
           "0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.5)",
       }}
     >
-      {/* Lock button (decorative, non-interactive) */}
+      {/* Lock button */}
       <button
-        className="p-2 rounded-md cursor-default"
-        style={{ color: "var(--color-tool-inactive-text)", opacity: 0.45 }}
-        disabled
-        aria-label="Lock"
-        tabIndex={-1}
+        className="p-2 rounded-md transition-all duration-150"
+        style={
+          toolLocked
+            ? {
+                backgroundColor: "var(--color-tool-active-bg)",
+                color: "var(--color-tool-active-text)",
+                boxShadow:
+                  "0 0 0 2px var(--color-tool-active-shadow), inset 0 1px 0 rgba(255,255,255,0.1)",
+              }
+            : { color: "var(--color-tool-inactive-text)" }
+        }
+        onClick={() => setToolLocked(!toolLocked)}
+        aria-label={toolLocked ? "Unlock current tool" : "Lock current tool"}
+        aria-pressed={toolLocked}
       >
         <Lock size={17} />
       </button>
@@ -185,6 +196,10 @@ export function CanvasToolbar() {
           <button
             key={tool.id}
             id={`tool-btn-${tool.id}`}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              setActiveTool(tool.id as any);
+            }}
             onClick={() => setActiveTool(tool.id as any)}
             className="relative p-2 rounded-md transition-all duration-150"
             style={

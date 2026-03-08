@@ -28,6 +28,12 @@ interface MenuProps {
   onResetCanvas?: () => void;
   onExportImage?: () => void;
   onLiveCollaboration?: () => void;
+  onOpenFile?: () => void;
+  onSaveToFile?: () => void;
+  onFindOnCanvas?: () => void;
+  onOpenHelp?: () => void;
+  activeLanguage?: string;
+  onLanguageChange?: (languageCode: string) => void;
 }
 
 const CANVAS_BACKGROUNDS_LIGHT = [
@@ -69,6 +75,12 @@ export function Menu({
   onResetCanvas,
   onExportImage,
   onLiveCollaboration,
+  onOpenFile,
+  onSaveToFile,
+  onFindOnCanvas,
+  onOpenHelp,
+  activeLanguage = "en",
+  onLanguageChange,
 }: MenuProps) {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -86,8 +98,13 @@ export function Menu({
   }, [isOpen, onClose]);
 
   const menuItems: MenuItem[] = [
-    { icon: FolderOpen, label: "Open", shortcut: "Ctrl+O" },
-    { icon: Save, label: "Save to…" },
+    {
+      icon: FolderOpen,
+      label: "Open",
+      shortcut: "Ctrl+O",
+      onClick: onOpenFile,
+    },
+    { icon: Save, label: "Save to…", onClick: onSaveToFile },
     {
       icon: Image,
       label: "Export image…",
@@ -106,9 +123,14 @@ export function Menu({
       shortcut: "Ctrl+/",
       onClick: onOpenCommandPalette,
     },
-    { icon: Search, label: "Find on canvas", shortcut: "Ctrl+F" },
+    {
+      icon: Search,
+      label: "Find on canvas",
+      shortcut: "Ctrl+F",
+      onClick: onFindOnCanvas,
+    },
     { divider: true },
-    { icon: HelpCircle, label: "Help", shortcut: "?" },
+    { icon: HelpCircle, label: "Help", shortcut: "?", onClick: onOpenHelp },
     {
       icon: Trash2,
       label: "Reset the canvas",
@@ -127,6 +149,20 @@ export function Menu({
 
   const isDark = mounted && resolvedTheme === "dark";
   const bgSwatches = isDark ? CANVAS_BACKGROUNDS_DARK : CANVAS_BACKGROUNDS_LIGHT;
+  const languageOptions = [
+    { code: "en", label: "English" },
+    { code: "es", label: "Spanish" },
+    { code: "fr", label: "French" },
+    { code: "de", label: "German" },
+    { code: "pt", label: "Portuguese" },
+    { code: "it", label: "Italian" },
+    { code: "hi", label: "Hindi" },
+    { code: "ja", label: "Japanese" },
+    { code: "ko", label: "Korean" },
+    { code: "zh", label: "Chinese" },
+    { code: "ar", label: "Arabic" },
+    { code: "ru", label: "Russian" },
+  ];
 
   return (
     <div
@@ -289,8 +325,14 @@ export function Menu({
               color: "var(--color-foreground)",
               outline: "none",
             }}
+            value={activeLanguage}
+            onChange={(event) => onLanguageChange?.(event.target.value)}
           >
-            <option value="en">English</option>
+            {languageOptions.map((language) => (
+              <option key={language.code} value={language.code}>
+                {language.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>

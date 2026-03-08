@@ -37,8 +37,16 @@ export function CommandPalette() {
       }
     };
 
+    const onOpenPalette = () => {
+      setIsOpen(true);
+    };
+
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("dripl:open-command-palette", onOpenPalette);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("dripl:open-command-palette", onOpenPalette);
+    };
   }, []);
 
   const commands: Command[] = useMemo(

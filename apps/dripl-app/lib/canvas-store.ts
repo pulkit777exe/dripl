@@ -125,6 +125,7 @@ export interface CanvasState {
   elements: DriplElement[];
   selectedIds: Set<string>;
   activeTool: ActiveTool;
+  toolLocked: boolean;
 
   remoteUsers: Map<string, RemoteUser>;
   remoteCursors: Map<string, RemoteCursor>;
@@ -181,6 +182,7 @@ export interface CanvasState {
   selectElement: (id: string, addToSelection?: boolean) => void;
   clearSelection: () => void;
   setActiveTool: (tool: ActiveTool) => void;
+  setToolLocked: (locked: boolean) => void;
 
   setRemoteUsers: (users: Map<string, RemoteUser>) => void;
   addRemoteUser: (user: RemoteUser) => void;
@@ -230,6 +232,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   elements: [],
   selectedIds: new Set<string>(),
   activeTool: "select",
+  toolLocked: false,
 
   remoteUsers: new Map<string, RemoteUser>(),
   remoteCursors: new Map<string, RemoteCursor>(),
@@ -576,6 +579,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
   clearSelection: () => set({ selectedIds: new Set<string>() }),
   setActiveTool: (activeTool) => set({ activeTool }),
+  setToolLocked: (toolLocked) => set({ toolLocked }),
 
   setRemoteUsers: (remoteUsers) => set({ remoteUsers }),
   addRemoteUser: (user) =>

@@ -138,6 +138,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   // draftElement lives in Zustand — the single source of truth for the in-progress shape.
   const draftElement = useCanvasStore((state) => state.draftElement);
   const activeTool = useCanvasStore((state) => state.activeTool);
+  const toolLocked = useCanvasStore((state) => state.toolLocked);
   const selectedIds = useCanvasStore((state) => state.selectedIds);
   const currentStrokeColor = useCanvasStore(
     (state) => state.currentStrokeColor,
@@ -436,11 +437,68 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           continue;
         }
 
-        if (isPointNearElement({ x, y }, element, 8)) return element;
+        if (!isPointNearElement({ x, y }, element, 8)) continue;
+        if (
+          element.type === "text" &&
+          ("boundElementId" in element || "containerId" in element)
+        ) {
+          const containerId =
+            ("boundElementId" in element ? element.boundElementId : undefined) ??
+            ("containerId" in element ? element.containerId : undefined);
+          if (containerId) {
+            const container = state.elements.find((candidate) => candidate.id === containerId);
+            if (
+              container &&
+              (!state.elementLocks.has(container.id) ||
+                state.elementLocks.get(container.id) === state.userId)
+            ) {
+              return container;
+            }
+          }
+        }
+        return element;
       }
       return null;
     },
     [isPointNearElement, spatialIndex.tree],
+  );
+
+  const collectCascadeDeleteIds = useCallback(
+    (seedIds: Iterable<string>): string[] => {
+      const toDelete = new Set<string>(seedIds);
+      if (toDelete.size === 0) return [];
+
+      let changed = true;
+      while (changed) {
+        changed = false;
+        elements.forEach((element) => {
+          if (toDelete.has(element.id)) {
+            if (
+              (element.type === "arrow" || element.type === "line") &&
+              "labelId" in element &&
+              element.labelId &&
+              !toDelete.has(element.labelId)
+            ) {
+              toDelete.add(element.labelId);
+              changed = true;
+            }
+            return;
+          }
+
+          if (element.type !== "text") return;
+          const boundTargetId =
+            ("boundElementId" in element ? element.boundElementId : undefined) ??
+            ("containerId" in element ? element.containerId : undefined);
+          if (boundTargetId && toDelete.has(boundTargetId)) {
+            toDelete.add(element.id);
+            changed = true;
+          }
+        });
+      }
+
+      return Array.from(toDelete);
+    },
+    [elements],
   );
 
   const getSelectionBounds = useCallback(
@@ -1172,7 +1230,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     // ── End drawing ────────────────────────────────────────────────────────
     if (isDrawing) {
       if (activeTool === "eraser") {
-        const elementsToErase = Array.from(eraserHitIdsRef.current);
+        const elementsToErase = collectCascadeDeleteIds(eraserHitIdsRef.current);
 
         if (elementsToErase.length > 0) {
           deleteElements(elementsToErase);
@@ -1195,6 +1253,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
               ActionCreator.addElement(finishedElement),
               "IMMEDIATELY",
             );
+          }
+          if (!toolLocked) {
+            setActiveTool("hand");
           }
         }
         setIsDrawing(false);
@@ -1383,6 +1444,72 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
   }, [addElement, setSelectedIds]);
 
+  const findOnCanvas = useCallback(
+    (rawQuery: string): number => {
+      const query = rawQuery.trim().toLowerCase();
+      if (!query) return 0;
+
+      const matches = elements.filter((element) => {
+        const textContent =
+          element.type === "text" && "text" in element ? element.text : "";
+        const searchable = [
+          element.type,
+          element.id,
+          textContent,
+          element.strokeColor ?? "",
+          element.backgroundColor ?? "",
+          String(Math.round(element.x)),
+          String(Math.round(element.y)),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return searchable.includes(query);
+      });
+
+      if (matches.length === 0) {
+        return 0;
+      }
+
+      setSelectedIds(new Set(matches.map((element) => element.id)));
+      const first = matches[0];
+      if (first && containerRef.current) {
+        const bounds = getElementBounds(first);
+        const centerX = bounds.x + bounds.width / 2;
+        const centerY = bounds.y + bounds.height / 2;
+        const viewportWidth = containerRef.current.clientWidth;
+        const viewportHeight = containerRef.current.clientHeight;
+        setPan(
+          viewportWidth / 2 - centerX * zoom,
+          viewportHeight / 2 - centerY * zoom,
+        );
+      }
+
+      return matches.length;
+    },
+    [elements, setPan, setSelectedIds, zoom],
+  );
+
+  useEffect(() => {
+    const handleFindOnCanvasEvent = (event: Event) => {
+      const custom = event as CustomEvent<{ query?: string }>;
+      const query = custom.detail?.query;
+      if (!query) return;
+      const count = findOnCanvas(query);
+      if (count === 0) {
+        alert("No matching elements found on canvas.");
+      } else if (count === 1) {
+        alert("Found 1 matching element.");
+      } else {
+        alert(`Found ${count} matching elements.`);
+      }
+    };
+
+    window.addEventListener("dripl:find-on-canvas", handleFindOnCanvasEvent);
+    return () => {
+      window.removeEventListener("dripl:find-on-canvas", handleFindOnCanvasEvent);
+    };
+  }, [findOnCanvas]);
+
   const openContextMenu = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (readOnly) return;
@@ -1459,6 +1586,18 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         return;
       }
 
+      if (cmdOrCtrl && key === "f") {
+        e.preventDefault();
+        const query = window.prompt("Find on canvas", "");
+        if (query && query.trim()) {
+          const count = findOnCanvas(query);
+          if (count === 0) {
+            alert("No matching elements found on canvas.");
+          }
+        }
+        return;
+      }
+
       if (cmdOrCtrl && key === "c") {
         e.preventDefault();
         void copySelectedToClipboard();
@@ -1527,7 +1666,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         const { selectedIds: ids } = useCanvasStore.getState();
         if (ids.size > 0) {
           e.preventDefault();
-          const idsArr = Array.from(ids);
+          const idsArr = collectCascadeDeleteIds(ids);
           deleteElements(idsArr);
           clearSelection();
         }
@@ -1568,6 +1707,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     copySelectedToClipboard,
     duplicateSelection,
     fitAllToScreen,
+    collectCascadeDeleteIds,
+    findOnCanvas,
     pasteFromClipboard,
     redo,
     readOnly,
@@ -1744,7 +1885,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           onDuplicate={duplicateSelection}
           onDelete={() => {
             const ids = Array.from(useCanvasStore.getState().selectedIds);
-            deleteElements(ids);
+            deleteElements(collectCascadeDeleteIds(ids));
             clearSelection();
           }}
           onBringToFront={() => {
