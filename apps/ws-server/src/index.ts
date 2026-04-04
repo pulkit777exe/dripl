@@ -278,8 +278,8 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
   const roomIdFromUrl = extractRoomId(req);
   const authenticatedUserId = authResult?.userId || null;
 
-  let currentUserId: string | null = null;
-  let currentRoomId: string | null = null;
+  let currentUserId: string = "";
+  let currentRoomId: string = "";
 
   console.log(
     `New WebSocket connection from ${ip}${authenticatedUserId ? ` (authenticated: ${authenticatedUserId})` : " (anonymous)"}`,
@@ -396,6 +396,30 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
           console.log(
             `User ${user.userName} (${userId}) joined room ${roomId}`,
           );
+
+          // Clean up stale users (closed WebSockets) before sending state
+          const staleUsers: string[] = [];
+          room.users.forEach((u, uid) => {
+            if (u.ws.readyState !== WebSocket.OPEN) {
+              staleUsers.push(uid);
+            }
+          });
+          staleUsers.forEach((uid) => {
+            room.users.delete(uid);
+            room.cursors.delete(uid);
+          });
+
+          // Clean up stale users (closed WebSockets) before sending state
+          const staleUsers: string[] = [];
+          room.users.forEach((u, uid) => {
+            if (u.ws.readyState !== WebSocket.OPEN) {
+              staleUsers.push(uid);
+            }
+          });
+          staleUsers.forEach((uid) => {
+            room.users.delete(uid);
+            room.cursors.delete(uid);
+          });
 
           // Send full state to the joining user
           const syncMessage = {
@@ -562,8 +586,9 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
       ipConnectionCounts.set(ip, count - 1);
     }
 
-    if (currentRoomId && currentUserId) {
-      const room = rooms.get(currentRoomId);
+    // Clean up user from room regardless of whether join_room was sent
+    if (currentUserId) {
+      const room = currentRoomId ? rooms.get(currentRoomId) : undefined;
       if (room) {
         room.users.delete(currentUserId);
         room.cursors.delete(currentUserId);
