@@ -2,7 +2,7 @@ import { Response } from "express";
 import { db as prisma } from "@dripl/db";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
-import { AuthRequest, generateToken } from "../middlewares/authMiddleware.js";
+import { AuthRequest, generateToken } from "../middlewares/authMiddleware";
 
 export class UserController {
   static async signup(req: AuthRequest, res: Response): Promise<void> {

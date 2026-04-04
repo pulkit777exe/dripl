@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { db as prisma } from "@dripl/db";
 import { randomUUID } from "crypto";
-import { AuthRequest } from "../middlewares/authMiddleware.js";
+import { AuthRequest } from "../middlewares/authMiddleware";
 
 export class FileController {
   static async getFiles(req: AuthRequest, res: Response): Promise<void> {

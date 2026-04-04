@@ -14,8 +14,8 @@ import {
   getCachedRoomState,
   closeRedis,
   SERVER_ID,
-} from "./redis.js";
-import { messageSchema } from "./validation.js";
+} from "./redis";
+import { messageSchema } from "./validation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret-key";
 const HEARTBEAT_INTERVAL = 30000;

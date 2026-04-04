@@ -1,13 +1,17 @@
-import "dotenv/config";
-import "dotenv/config";
+import { config } from "dotenv";
+import { resolve } from "path";
+
+config({ path: resolve(__dirname, "../../../.env") });
+config({ path: resolve(__dirname, "../../../.env.local"), override: true });
+
 import express, { Express, Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import { userRouter } from "./routes/UserRoute.js";
-import { fileRouter } from "./routes/FileRoute.js";
-import roomRoutes from "./routes/roomRoutes.js";
+import { userRouter } from "./routes/UserRoute";
+import { fileRouter } from "./routes/FileRoute";
+import roomRoutes from "./routes/roomRoutes";
 
 const app: Express = express();
 const PORT = process.env.PORT || 3002;
