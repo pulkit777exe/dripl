@@ -4,7 +4,7 @@ import { createServer, IncomingMessage } from "http";
 import type { DriplElement } from "@dripl/common";
 import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
-import prisma from "@dripl/db";
+import { db as prisma } from "@dripl/db";
 import {
   initRedis,
   publishToRoom,

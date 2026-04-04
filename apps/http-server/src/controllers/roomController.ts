@@ -1,6 +1,6 @@
 import { Response } from "express";
-import prisma from "@dripl/db";
-import { AuthRequest } from "../middlewares/authMiddleware";
+import { db as prisma } from "@dripl/db";
+import { AuthRequest } from "../middlewares/authMiddleware.js";
 import crypto from "crypto";
 
 function generateSlug(): string {
