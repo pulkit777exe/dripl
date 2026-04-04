@@ -1,4 +1,4 @@
-import {
+import type {
   DriplElement,
   FreeDrawElement,
   LinearElement,

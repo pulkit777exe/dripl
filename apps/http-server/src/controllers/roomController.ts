@@ -1,6 +1,7 @@
 import { Response } from "express";
 import prisma from "@dripl/db";
 import { AuthRequest } from "../middlewares/authMiddleware";
+import crypto from "crypto";
 
 function generateSlug(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -294,6 +295,131 @@ export class RoomController {
       res.json({ status: "member removed" });
     } catch (error) {
       console.error("Error removing member:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  static async shareRoom(req: AuthRequest, res: Response): Promise<void> {
+    const { slug } = req.params as { slug: string };
+    const { permission = "view", expiresIn = 24 } = req.body;
+
+    if (!["view", "edit"].includes(permission)) {
+      res
+        .status(400)
+        .json({ error: "Invalid permission. Must be 'view' or 'edit'" });
+      return;
+    }
+
+    try {
+      const room = await prisma.canvasRoom.findUnique({ where: { slug } });
+
+      if (!room) {
+        res.status(404).json({ error: "Room not found" });
+        return;
+      }
+
+      if (room.ownerId !== req.userId) {
+        res.status(403).json({ error: "Only the owner can share this room" });
+        return;
+      }
+
+      const token = `${slug}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      const expiresAt = new Date(Date.now() + expiresIn * 60 * 60 * 1000);
+
+      const shareLink = await prisma.shareLink.create({
+        data: {
+          token,
+          roomId: room.id,
+          permission: permission.toUpperCase() as "VIEW" | "EDIT",
+          expiresAt,
+          createdById: req.userId!,
+        },
+      });
+
+      res.status(201).json({
+        status: "share link created",
+        token: shareLink.token,
+        url: `${process.env.FRONTEND_URL || "http://localhost:3000"}/board/${shareLink.token}`,
+        permission: shareLink.permission,
+        expiresAt: shareLink.expiresAt,
+      });
+    } catch (error) {
+      console.error("Error creating share link:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  static async getShareLink(req: AuthRequest, res: Response): Promise<void> {
+    const { token } = req.params as { token: string };
+
+    try {
+      const shareLink = await prisma.shareLink.findUnique({
+        where: { token },
+        include: {
+          room: {
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              content: true,
+              isPublic: true,
+            },
+          },
+        },
+      });
+
+      if (!shareLink) {
+        res.status(404).json({ error: "Share link not found" });
+        return;
+      }
+
+      if (shareLink.expiresAt < new Date()) {
+        res.status(410).json({ error: "Share link has expired" });
+        return;
+      }
+
+      res.json({
+        room: shareLink.room,
+        permission: shareLink.permission,
+        expiresAt: shareLink.expiresAt,
+      });
+    } catch (error) {
+      console.error("Error fetching share link:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  static async getSharedRooms(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const sharedRooms = await prisma.canvasRoomMember.findMany({
+        where: { userId: req.userId },
+        include: {
+          room: {
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              isPublic: true,
+              createdAt: true,
+              updatedAt: true,
+              owner: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      res.json({ rooms: sharedRooms });
+    } catch (error) {
+      console.error("Error fetching shared rooms:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   }

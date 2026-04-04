@@ -1,4 +1,4 @@
-import { DriplElement } from "@dripl/common";
+import type { DriplElement } from "@dripl/common";
 
 export class StorageError extends Error {
   constructor(message: string, cause: Error) {

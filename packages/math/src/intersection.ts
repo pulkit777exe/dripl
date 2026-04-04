@@ -1,13 +1,12 @@
-import {
+import type {
   DriplElement,
   Point,
   FreeDrawElement,
   LinearElement,
   DiamondElement,
 } from "@dripl/common";
+import type { Bounds, LineSegment } from "./geometry";
 import {
-  Bounds,
-  LineSegment,
   getBounds,
   boundsIntersect,
   distanceToSegment,

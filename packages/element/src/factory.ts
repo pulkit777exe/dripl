@@ -1,7 +1,6 @@
-import { DriplElement, ShapeType, SHAPES } from "@dripl/common";
+import type { DriplElement, ShapeType, ElementBase } from "@dripl/common";
+import { SHAPES } from "@dripl/common";
 import { generateId } from "@dripl/utils";
-
-import { ElementBase } from "@dripl/common";
 
 function makeBase(
   x: number,

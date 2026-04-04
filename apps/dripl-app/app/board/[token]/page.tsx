@@ -3,7 +3,6 @@ import { db } from "@dripl/db";
 import { CanvasBootstrap } from "@/components/canvas/CanvasBootstrap";
 import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
 import { CanvasControls } from "@/components/canvas/CanvasControls";
-import { TopBar } from "@/components/canvas/TopBar";
 import { CommandPalette } from "@/components/canvas/CommandPalette";
 import { getInMemoryShare } from "@/lib/share-memory-store";
 
@@ -14,47 +13,59 @@ interface BoardPageProps {
 export default async function BoardTokenPage({ params }: BoardPageProps) {
   const { token } = await params;
   const fallback = getInMemoryShare(token);
-  let file:
-    | {
-        id: string;
-        content: string;
-        sharePermission: string | null;
-        shareExpiresAt: Date | null;
-      }
-    | null = null;
+
+  let shareData: {
+    elements: unknown[];
+    permission: string;
+    roomName: string;
+  } | null = null;
 
   try {
-    file = await db.file.findFirst({
-      where: { shareToken: token },
-      select: {
-        id: true,
-        content: true,
-        sharePermission: true,
-        shareExpiresAt: true,
+    const shareLink = await db.shareLink.findFirst({
+      where: { token },
+      include: {
+        room: {
+          select: {
+            name: true,
+            content: true,
+          },
+        },
       },
     });
+
+    if (shareLink) {
+      if (shareLink.expiresAt && shareLink.expiresAt.getTime() < Date.now()) {
+        notFound();
+      }
+
+      let elements: unknown[] = [];
+      try {
+        elements = shareLink.room.content
+          ? JSON.parse(shareLink.room.content)
+          : [];
+      } catch {
+        elements = [];
+      }
+
+      shareData = {
+        elements,
+        permission: shareLink.permission,
+        roomName: shareLink.room.name,
+      };
+    }
   } catch {
-    file = null;
+    // Fall back to in-memory share
   }
 
-  if (!file && !fallback) {
+  if (!shareData && !fallback) {
     notFound();
   }
 
-  if (file?.shareExpiresAt && file.shareExpiresAt.getTime() < Date.now()) {
-    notFound();
-  }
-
-  const permission = file
-    ? (file.sharePermission ?? "view")
+  const permission = shareData
+    ? (shareData.permission ?? "view")
     : (fallback?.permission ?? "view");
-  const readOnly = permission === "view";
-  let initialData: unknown = [];
-  try {
-    initialData = file ? JSON.parse(file.content) : (fallback?.elements ?? []);
-  } catch {
-    initialData = [];
-  }
+  const readOnly = permission === "VIEW" || permission === "view";
+  const initialData = shareData?.elements ?? fallback?.elements ?? [];
 
   return (
     <div className="w-screen h-dvh relative overflow-hidden bg-[#121112]">
@@ -66,17 +77,10 @@ export default async function BoardTokenPage({ params }: BoardPageProps) {
         }}
       />
 
-      <TopBar />
       <CanvasBootstrap
         mode="file"
         initialData={{
-          elements:
-            typeof initialData === "object" &&
-            initialData !== null &&
-            "elements" in initialData &&
-            Array.isArray((initialData as { elements?: unknown }).elements)
-              ? (initialData as { elements: unknown[] }).elements
-              : initialData,
+          elements: Array.isArray(initialData) ? initialData : [],
         }}
         theme="dark"
         readOnly={readOnly}
@@ -95,8 +99,8 @@ export default async function BoardTokenPage({ params }: BoardPageProps) {
       <CommandPalette />
 
       {readOnly && (
-        <div className="absolute top-16 right-4 z-40 px-3 py-1 rounded-lg bg-blue-600 text-white text-sm font-medium shadow-lg">
-          View only
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium shadow-lg">
+          Viewing shared canvas — {shareData?.roomName || "Shared Board"}
         </div>
       )}
     </div>

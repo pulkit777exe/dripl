@@ -133,6 +133,7 @@ export const cursorMoveSchema = z.object({
   x: z.number(),
   y: z.number(),
   userName: z.string().optional(),
+  color: z.string().optional(),
 });
 
 export const messageSchema = z.discriminatedUnion("type", [

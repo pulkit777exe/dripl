@@ -136,6 +136,18 @@ class ApiClient {
       method: "GET",
     });
   }
+
+  async getRooms(): Promise<{ rooms: any[] }> {
+    return this.request("/rooms", {
+      method: "GET",
+    });
+  }
+
+  async deleteRoom(slug: string) {
+    return this.request(`/rooms/${slug}`, {
+      method: "DELETE",
+    });
+  }
 }
 
 export const apiClient = new ApiClient(API_URL);

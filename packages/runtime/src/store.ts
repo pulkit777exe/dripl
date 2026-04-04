@@ -10,8 +10,8 @@ import {
   cloneSnapshot,
   freezeSnapshotDev,
   type StoreSnapshot,
-} from "./snapshot.js";
-import { shouldCaptureToHistory, type CaptureMode } from "./capture.js";
+} from "./snapshot";
+import { shouldCaptureToHistory, type CaptureMode } from "./capture";
 
 /**
  * State evolution engine. Single path for scene mutations.

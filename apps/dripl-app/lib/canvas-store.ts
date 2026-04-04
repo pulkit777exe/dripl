@@ -171,6 +171,7 @@ export interface CanvasState {
   addElement: (element: DriplElement) => void;
   addElements: (elements: DriplElement[]) => void;
   updateElement: (id: string, updates: Partial<DriplElement>) => void;
+  updateElementTransient: (id: string, updates: Partial<DriplElement>) => void;
   deleteElements: (ids: string[]) => void;
 
   bringForward: (ids: string[]) => void;
@@ -432,6 +433,29 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
+  updateElementTransient: (id, updates) =>
+    set((state) => {
+      const index = state.elements.findIndex((element) => element.id === id);
+      if (index === -1) return state;
+
+      invalidateElementCache(id);
+      const previous = state.elements[index];
+      if (!previous) return state;
+
+      const nextElements = [...state.elements];
+      nextElements[index] = {
+        ...previous,
+        ...updates,
+        version: (previous.version ?? 0) + 1,
+        versionNonce: Math.floor(Math.random() * 2_147_483_647),
+        updated: Date.now(),
+      } as DriplElement;
+
+      return {
+        elements: nextElements,
+      };
+    }),
+
   deleteElements: (ids) =>
     set((state) => {
       if (ids.length === 0) return state;
@@ -686,9 +710,25 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
-  // Compatibility hook for old callsites; history is now captured automatically
-  // before store mutations.
-  pushHistory: () => {},
+  // Capture the current scene snapshot once (for gesture-start semantics).
+  pushHistory: () =>
+    set((state) => {
+      const history = withHistoryBeforeMutation(
+        { past: state.past, future: state.future },
+        state.elements,
+      );
+      const historyPayload = commitPresentFromHistory(
+        history.past,
+        history.future,
+        state.elements,
+      );
+      return {
+        past: historyPayload.past,
+        future: historyPayload.future,
+        history: historyPayload.history,
+        historyIndex: historyPayload.historyIndex,
+      };
+    }),
   clearHistory: () =>
     set((state) => {
       const history = [cloneElements(state.elements)];

@@ -1,11 +1,7 @@
 import type { DriplElement, Point } from "@dripl/common";
+import type { Bounds, LineSegment } from "./geometry";
 import { isPointInElement, getElementBounds } from "./intersection";
-import {
-  Bounds,
-  boundsIntersect,
-  LineSegment,
-  distanceToSegment,
-} from "./geometry";
+import { boundsIntersect, distanceToSegment } from "./geometry";
 
 export { isPointInElement, getElementBounds } from "./intersection";
 

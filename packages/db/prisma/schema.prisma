@@ -21,6 +21,7 @@ model User {
   sharedFiles       SharedFile[]
   canvasRooms       CanvasRoom[]
   canvasRoomMembers CanvasRoomMember[]
+  shareLinks        ShareLink[]
 }
 
 model Team {
@@ -113,6 +114,7 @@ model CanvasRoom {
 
   owner   User               @relation(fields: [ownerId], references: [id])
   members CanvasRoomMember[]
+  shareLinks ShareLink[]
 }
 
 model CanvasRoomMember {
@@ -127,4 +129,18 @@ model CanvasRoomMember {
   user User       @relation(fields: [userId], references: [id])
 
   @@unique([roomId, userId])
+}
+
+model ShareLink {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  roomId      String
+  permission  String   @default("VIEW") // VIEW, EDIT
+  expiresAt   DateTime
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  room    CanvasRoom @relation(fields: [roomId], references: [id])
+  createdBy User     @relation(fields: [createdById], references: [id])
 }

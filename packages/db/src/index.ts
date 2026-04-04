@@ -3,7 +3,7 @@ export * from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
-const globalForPrisma = global as unknown as {
+const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient;
   pool: Pool;
 };
@@ -13,6 +13,9 @@ function createPrismaClient() {
     globalForPrisma.pool ||
     new Pool({
       connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false,
+      },
     });
 
   if (process.env.NODE_ENV !== "production") {

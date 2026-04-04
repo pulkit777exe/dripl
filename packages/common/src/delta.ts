@@ -1,5 +1,5 @@
 import type { DriplElement } from "./types/element";
-import { Scene } from "./scene";
+import type { Scene } from "./scene";
 
 export type DeltaOperation = "add" | "update" | "delete" | "restore";
 

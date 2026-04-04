@@ -6,11 +6,12 @@
   "scripts": {
     "build": "tsc -b",
     "start": "node dist/index.js",
-    "dev": "tsc -b --watch & node --watch dist/index.js"
+    "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
     "@dripl/common": "workspace:*",
     "@dripl/db": "workspace:*",
+    "dotenv": "^17.2.4",
     "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
     "uuid": "^13.0.0",

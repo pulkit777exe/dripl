@@ -1,5 +1,5 @@
 import { Store } from "@tanstack/store";
-import { DriplElement } from "@dripl/common";
+import type { DriplElement } from "@dripl/common";
 
 export interface User {
   userId: string;

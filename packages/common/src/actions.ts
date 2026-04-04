@@ -1,5 +1,5 @@
 import type { DriplElement, Point } from "./types/element";
-import { Scene } from "./scene";
+import type { Scene } from "./scene";
 import type { Delta, DeltaManager } from "./delta";
 
 export type ActionType =

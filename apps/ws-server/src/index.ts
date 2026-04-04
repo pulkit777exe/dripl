@@ -1,6 +1,7 @@
+import "dotenv/config";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer, IncomingMessage } from "http";
-import { DriplElement } from "@dripl/common";
+import type { DriplElement } from "@dripl/common";
 import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
 import prisma from "@dripl/db";
@@ -74,11 +75,43 @@ function scheduleDatabaseSave(roomSlug: string, elements: DriplElement[]) {
     roomSlug,
     setTimeout(async () => {
       try {
-        await prisma.canvasRoom.update({
+        await prisma.canvasRoom.upsert({
           where: { slug: roomSlug },
-          data: {
+          update: {
             content: JSON.stringify(elements),
             updatedAt: new Date(),
+          },
+          create: {
+            slug: roomSlug,
+            name: `Room ${roomSlug.slice(0, 8)}`,
+            ownerId: "system",
+            content: JSON.stringify(elements),
+          },
+        });
+        console.log(`✓ Saved room ${roomSlug} to database`);
+      } catch (error) {
+        console.error("Database save error:", error);
+      }
+      saveTimeouts.delete(roomSlug);
+    }, SAVE_DEBOUNCE_MS),
+  );
+}
+
+  saveTimeouts.set(
+    roomSlug,
+    setTimeout(async () => {
+      try {
+        await prisma.canvasRoom.upsert({
+          where: { slug: roomSlug },
+          update: {
+            content: JSON.stringify(elements),
+            updatedAt: new Date(),
+          },
+          create: {
+            slug: roomSlug,
+            name: `Room ${roomSlug.slice(0, 8)}`,
+            ownerId: "system",
+            content: JSON.stringify(elements),
           },
         });
         console.log(`✓ Saved room ${roomSlug} to database`);
@@ -402,17 +435,15 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
               userName: u.userName,
               color: u.color,
             })),
-            cursors: Array.from(room.cursors.entries()).map(
-              ([uid, cursor]) => {
-                const user = room.users.get(uid);
-                return {
-                  userId: uid,
-                  ...cursor,
-                  userName: user?.userName ?? "Unknown",
-                  color: user?.color ?? "#000000",
-                };
-              },
-            ),
+            cursors: Array.from(room.cursors.entries()).map(([uid, cursor]) => {
+              const user = room.users.get(uid);
+              return {
+                userId: uid,
+                ...cursor,
+                userName: user?.userName ?? "Unknown",
+                color: user?.color ?? "#000000",
+              };
+            }),
             yourUserId: userId,
           };
           ws.send(JSON.stringify(syncMessage));
@@ -605,7 +636,7 @@ async function start() {
     console.log("⚠ Single-instance mode: Redis not available");
   }
 
-  const PORT = process.env.WS_PORT || 3001;
+  const PORT = process.env.WS_PORT || 3003;
   server.listen(PORT, () => {
     console.log(`WebSocket server running on port ${PORT}`);
   });

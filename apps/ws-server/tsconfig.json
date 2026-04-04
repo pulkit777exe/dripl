@@ -9,5 +9,9 @@
     "module": "ESNext",
     "moduleResolution": "bundler"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/common" },
+    { "path": "../../packages/db" }
+  ]
 }

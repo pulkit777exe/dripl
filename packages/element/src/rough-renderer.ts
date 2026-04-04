@@ -55,25 +55,27 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
     roundness = 0,
   } = element as any;
 
-  const options = {
+  const options: Record<string, unknown> = {
     stroke: strokeColor,
     strokeWidth,
     roughness,
-    fill: backgroundColor !== "transparent" ? backgroundColor : undefined,
     fillStyle,
     seed,
-    strokeLineDash:
-      strokeStyle === "dashed"
-        ? [10, 5]
-        : strokeStyle === "dotted"
-          ? [2, 3]
-          : undefined,
     hachureAngle: 45,
     hachureGap: strokeWidth * 2,
     curveStepCount: 9,
     simplification: 0.5,
     roundness,
   };
+
+  if (backgroundColor !== "transparent") {
+    options.fill = backgroundColor;
+  }
+  if (strokeStyle === "dashed") {
+    options.strokeLineDash = [10, 5];
+  } else if (strokeStyle === "dotted") {
+    options.strokeLineDash = [2, 3];
+  }
 
   switch (element.type) {
     case "rectangle":
@@ -243,19 +245,22 @@ export function renderRoughElement(
     const y2 = endPoint.y - headLength * Math.sin(angle + headAngle);
 
     // Draw using Rough.js for consistent style
+    const arrowHeadOptions: Record<string, unknown> = {
+      stroke: element.strokeColor,
+      strokeWidth: element.strokeWidth,
+      fill: element.strokeColor,
+      fillStyle: "solid",
+    };
+    if (element.roughness !== undefined) {
+      arrowHeadOptions.roughness = element.roughness;
+    }
     const arrowHead = generator.polygon(
       [
         [endPoint.x, endPoint.y],
         [x1, y1],
         [x2, y2],
       ],
-      {
-        stroke: element.strokeColor,
-        strokeWidth: element.strokeWidth,
-        fill: element.strokeColor,
-        fillStyle: "solid",
-        roughness: element.roughness,
-      },
+      arrowHeadOptions,
     );
 
     rc.draw(arrowHead);

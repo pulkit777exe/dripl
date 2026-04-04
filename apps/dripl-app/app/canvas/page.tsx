@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, HelpCircle } from "lucide-react";
 import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
 import { CanvasControls } from "@/components/canvas/CanvasControls";
@@ -10,6 +10,7 @@ import { CanvasBootstrap } from "@/components/canvas/CanvasBootstrap";
 import { CommandPalette } from "@/components/canvas/CommandPalette";
 import HelpModal from "@/components/canvas/HelpModal";
 import { useCanvasStore } from "@/lib/canvas-store";
+import { useAuth } from "@/app/context/AuthContext";
 
 export default function CanvasPage() {
   const { effectiveTheme } = useTheme();
@@ -17,7 +18,22 @@ export default function CanvasPage() {
   const panX = useCanvasStore((s) => s.panX);
   const panY = useCanvasStore((s) => s.panY);
   const setPan = useCanvasStore((s) => s.setPan);
+  const setUserId = useCanvasStore((s) => s.setUserId);
+  const { user, token } = useAuth();
   const showScrollBack = panX !== 0 || panY !== 0;
+
+  useEffect(() => {
+    if (user?.id) {
+      setUserId(user.id);
+    } else if (token) {
+      setUserId(token);
+    } else {
+      const anonId =
+        localStorage.getItem("dripl_anon_id") || crypto.randomUUID();
+      localStorage.setItem("dripl_anon_id", anonId);
+      setUserId(anonId);
+    }
+  }, [user, token, setUserId]);
 
   const scrollBackToContent = useCallback(() => {
     setPan(0, 0);
@@ -61,7 +77,7 @@ export default function CanvasPage() {
       <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2 pointer-events-auto">
         <button
           type="button"
-          className="size-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md"
+          className="size-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:opacity-90 transition-opacity"
           aria-label="Status"
         >
           <Check className="size-5" />

@@ -6,42 +6,35 @@ import { useAuth } from "../context/AuthContext";
 import { apiClient } from "../../lib/api/client";
 import { FileBrowser } from "../../components/dashboard/FileBrowser";
 
-type File = {
+type CanvasRoom = {
   id: string;
+  slug: string;
   name: string;
   updatedAt: string;
   createdAt: string;
-  preview?: string | null;
+  isPublic: boolean;
 };
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [files, setFiles] = useState<File[]>([]);
+  const [rooms, setRooms] = useState<CanvasRoom[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login");
     } else if (!authLoading && user) {
-      // Check if there's an active canvas session
-      const lastCanvas = localStorage.getItem("dripl_last_canvas");
-      if (lastCanvas) {
-        // Navigate to the last active canvas
-        router.push(`/canvas/${lastCanvas}`);
-      } else {
-        // Load files for dashboard
-        loadFiles();
-      }
+      loadRooms();
     }
   }, [user, authLoading, router]);
 
-  const loadFiles = async () => {
+  const loadRooms = async () => {
     try {
-      const response = await apiClient.getFiles();
-      setFiles(response.files);
+      const response = await apiClient.getRooms();
+      setRooms(response.rooms ?? []);
     } catch (error) {
-      console.error("Failed to load files:", error);
+      console.error("Failed to load rooms:", error);
     } finally {
       setLoading(false);
     }
@@ -49,10 +42,15 @@ export default function DashboardPage() {
 
   const handleCreateFile = async () => {
     try {
-      const response = await apiClient.createFile({ name: "Untitled" });
-      router.push(`/file/${response.file.id}`);
+      const response = await apiClient.createRoom({
+        name: "Untitled Canvas",
+        isPublic: false,
+      });
+      if (response.room) {
+        router.push(`/canvas/${response.room.slug}`);
+      }
     } catch (error) {
-      console.error("Failed to create file:", error);
+      console.error("Failed to create room:", error);
     }
   };
 
@@ -62,10 +60,30 @@ export default function DashboardPage() {
     router.push(`/canvas/${newRoomSlug}`);
   };
 
+  const handleDeleteFile = async (id: string) => {
+    try {
+      await apiClient.deleteRoom(id);
+      setRooms((prev) => prev.filter((room) => room.slug !== id));
+    } catch (error) {
+      console.error("Failed to delete room:", error);
+    }
+  };
+
+  const handleRenameFile = async (id: string, name: string) => {
+    try {
+      await apiClient.updateRoom(id, { name });
+      setRooms((prev) =>
+        prev.map((room) => (room.slug === id ? { ...room, name } : room)),
+      );
+    } catch (error) {
+      console.error("Failed to rename room:", error);
+    }
+  };
+
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center h-dvh bg-background">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="flex items-center justify-center h-dvh bg-[#F5F0E8] dark:bg-[#141210]">
+        <div className="text-[#7A7267] dark:text-[#8A7F72] font-[var(--font-source-sans)]">Loading...</div>
       </div>
     );
   }
@@ -74,14 +92,20 @@ export default function DashboardPage() {
     return null;
   }
 
-  // If we reach here, there's no active canvas session
   return (
-    <div className="flex h-dvh w-full bg-background text-foreground">
+    <div className="flex h-dvh w-full bg-[#F5F0E8] dark:bg-[#141210] text-[#1A1A1A] dark:text-[#E8E0D4]">
       <FileBrowser
-        files={files}
+        files={rooms.map((room) => ({
+          id: room.slug,
+          name: room.name,
+          updatedAt: room.updatedAt,
+          createdAt: room.createdAt,
+        }))}
         onCreateFile={handleCreateFile}
         onStartNewCanvas={handleStartNewCanvas}
+        onDeleteFile={handleDeleteFile}
+        onRenameFile={handleRenameFile}
       />
     </div>
   );
-}
+  }

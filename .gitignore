@@ -27,6 +27,8 @@ out/
 build
 dist
 
+# TypeScript build info
+*.tsbuildinfo
 
 # Debug
 npm-debug.log*
@@ -41,3 +43,4 @@ plans
 skills
 
 dev-docs
+.kilo

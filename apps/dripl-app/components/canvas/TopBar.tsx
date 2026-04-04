@@ -1,11 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   Menu as MenuIcon,
   Library,
   Share2,
   MoreHorizontal,
+  ArrowLeft,
+  Check,
+  X,
+  Users,
 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import { useRouter } from "next/navigation";
@@ -22,6 +26,11 @@ export const TopBar: React.FC = () => {
   const router = useRouter();
   const elements = useCanvasStore((state) => state.elements);
   const fileId = useCanvasStore((state) => state.fileId);
+  const roomSlug = useCanvasStore((state) => state.roomSlug);
+  const isConnected = useCanvasStore((state) => state.isConnected);
+  const isSaving = useCanvasStore((state) => state.isSaving);
+  const lastSaved = useCanvasStore((state) => state.lastSaved);
+  const remoteUsers = useCanvasStore((state) => state.remoteUsers);
   const zoom = useCanvasStore((state) => state.zoom);
   const panX = useCanvasStore((state) => state.panX);
   const panY = useCanvasStore((state) => state.panY);
@@ -42,6 +51,9 @@ export const TopBar: React.FC = () => {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [activeLanguage, setActiveLanguage] = useState("en");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [roomName, setRoomName] = useState(fileName || "Untitled Canvas");
+  const [showCollaborators, setShowCollaborators] = useState(false);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -49,6 +61,26 @@ export const TopBar: React.FC = () => {
     setActiveLanguage(stored);
     document.documentElement.lang = stored;
   }, []);
+
+  React.useEffect(() => {
+    if (fileName) setRoomName(fileName);
+  }, [fileName]);
+
+  const handleSaveRoomName = useCallback(async () => {
+    if (!roomSlug || !roomName.trim()) return;
+    try {
+      await apiClient.updateRoom(roomSlug, { name: roomName.trim() });
+      setFileMetadata(fileId, roomName.trim());
+    } catch (error) {
+      console.error("Failed to update room name:", error);
+    }
+    setIsEditingName(false);
+  }, [roomSlug, roomName, fileId, setFileMetadata]);
+
+  const handleCancelEditName = useCallback(() => {
+    setRoomName(fileName || "Untitled Canvas");
+    setIsEditingName(false);
+  }, [fileName]);
 
   const handleDriplPlusClick = async () => {
     if (!user) {
@@ -102,33 +134,26 @@ export const TopBar: React.FC = () => {
     permission: "view" | "edit",
     expiresIn?: number,
   ): Promise<string | null> => {
+    if (!roomSlug) {
+      alert("Save canvas to cloud before sharing.");
+      return null;
+    }
+
     try {
-      const payload: {
-        fileId?: string;
-        elements: typeof elements;
-        name: string;
-        permission: "view" | "edit";
-        expiresIn?: number;
-      } = {
-        elements,
-        name: "Shared Canvas",
-        permission,
-      };
-
-      if (fileId) {
-        payload.fileId = fileId;
-      }
-      if (typeof expiresIn === "number") {
-        payload.expiresIn = expiresIn;
-      }
-
-      const response = await fetch("/api/share", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_HTTP_URL || "http://localhost:3002"}/api/rooms/${roomSlug}/share`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            permission,
+            expiresIn: expiresIn ?? 24,
+          }),
         },
-        body: JSON.stringify(payload),
-      });
+      );
 
       if (!response.ok) {
         let details = "";
@@ -141,7 +166,9 @@ export const TopBar: React.FC = () => {
         } catch {
           // ignore body parse failures
         }
-        throw new Error(details || `Failed to share canvas (${response.status})`);
+        throw new Error(
+          details || `Failed to share canvas (${response.status})`,
+        );
       }
 
       const data = await response.json();
@@ -216,8 +243,14 @@ export const TopBar: React.FC = () => {
           | undefined;
 
         if (Array.isArray(parsed)) {
-          importedElements = CanvasContentSchema.parse(parsed) as DriplElement[];
-        } else if (parsed && typeof parsed === "object" && "elements" in parsed) {
+          importedElements = CanvasContentSchema.parse(
+            parsed,
+          ) as DriplElement[];
+        } else if (
+          parsed &&
+          typeof parsed === "object" &&
+          "elements" in parsed
+        ) {
           const scene = parsed as {
             elements?: unknown;
             appState?: {
@@ -229,7 +262,9 @@ export const TopBar: React.FC = () => {
               theme?: "light" | "dark" | "system";
             };
           };
-          importedElements = CanvasContentSchema.parse(scene.elements ?? []) as DriplElement[];
+          importedElements = CanvasContentSchema.parse(
+            scene.elements ?? [],
+          ) as DriplElement[];
           importedAppState = scene.appState;
         } else {
           throw new Error("Invalid .dripl file format");
@@ -238,7 +273,8 @@ export const TopBar: React.FC = () => {
         setElements(importedElements);
         setSelectedIds(new Set<string>());
         if (importedAppState) {
-          if (typeof importedAppState.zoom === "number") setZoom(importedAppState.zoom);
+          if (typeof importedAppState.zoom === "number")
+            setZoom(importedAppState.zoom);
           if (
             typeof importedAppState.panX === "number" &&
             typeof importedAppState.panY === "number"
@@ -358,9 +394,27 @@ export const TopBar: React.FC = () => {
     handleSaveToFile,
   ]);
 
+  const saveStatusText = isSaving
+    ? "Saving..."
+    : lastSaved
+      ? `Saved ${new Date(lastSaved).toLocaleTimeString()}`
+      : roomSlug
+        ? "Saved"
+        : "Unsaved changes";
+
+  const collaboratorList = Array.from(remoteUsers.values());
+
   return (
     <>
       <div className="absolute top-4 left-4 z-100 flex gap-2 pointer-events-auto">
+        <button
+          className="p-2 rounded-md border border-toolbar-border bg-toolbar-bg hover:bg-tool-hover-bg text-foreground transition-colors duration-150"
+          onClick={() => router.push("/dashboard")}
+          onMouseDown={(e) => e.stopPropagation()}
+          aria-label="Back to dashboard"
+        >
+          <ArrowLeft size={20} />
+        </button>
         <button
           className="p-2 rounded-md border border-toolbar-border bg-toolbar-bg hover:bg-tool-hover-bg text-foreground transition-colors duration-150"
           onClick={(e) => {
@@ -383,10 +437,84 @@ export const TopBar: React.FC = () => {
         </button>
       </div>
 
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-100 flex items-center gap-2 pointer-events-auto">
+        {isEditingName ? (
+          <div className="flex items-center gap-1 bg-toolbar-bg border border-toolbar-border rounded-lg px-2 py-1">
+            <input
+              value={roomName}
+              onChange={(e) => setRoomName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveRoomName();
+                if (e.key === "Escape") handleCancelEditName();
+              }}
+              className="text-sm bg-transparent border-none outline-none text-foreground w-40"
+              autoFocus
+            />
+            <button
+              onClick={handleSaveRoomName}
+              className="p-0.5 hover:bg-tool-hover-bg rounded"
+            >
+              <Check className="h-3.5 w-3.5 text-green-500" />
+            </button>
+            <button
+              onClick={handleCancelEditName}
+              className="p-0.5 hover:bg-tool-hover-bg rounded"
+            >
+              <X className="h-3.5 w-3.5 text-red-500" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsEditingName(true)}
+            className="text-sm font-medium text-foreground px-3 py-1.5 rounded-lg hover:bg-toolbar-bg/80 transition-colors"
+          >
+            {roomName}
+          </button>
+        )}
+        <span className="text-xs text-muted-foreground">{saveStatusText}</span>
+      </div>
+
       <div className="absolute top-4 right-4 z-100 flex items-center gap-2 pointer-events-auto">
-        <span className="text-sm font-medium text-foreground px-2">
-          Excalidraw+
-        </span>
+        {collaboratorList.length > 0 && (
+          <div className="relative">
+            <button
+              onClick={() => setShowCollaborators(!showCollaborators)}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-toolbar-bg border border-toolbar-border text-sm text-foreground hover:bg-tool-hover-bg transition-colors"
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>{collaboratorList.length + 1}</span>
+            </button>
+            {showCollaborators && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-popover border border-border rounded-lg shadow-lg py-1 z-10">
+                <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border-b border-border">
+                  Collaborators
+                </div>
+                <div className="px-3 py-1.5 text-sm text-foreground flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  You
+                </div>
+                {collaboratorList.map((u) => (
+                  <div
+                    key={u.userId}
+                    className="px-3 py-1.5 text-sm text-foreground flex items-center gap-2"
+                  >
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: u.color }}
+                    />
+                    {u.userName}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {isConnected && (
+          <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-500/10 text-green-500 text-xs">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            Live
+          </div>
+        )}
         <button
           className="px-4 py-1.5 bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 rounded-lg flex items-center gap-1.5 transition-opacity duration-150"
           onClick={(e) => {

@@ -21,34 +21,76 @@ interface BasicUser {
 }
 
 type ServerMessage =
-  | { type: "room-state"; elements: DriplElement[]; users: BasicUser[] }
-  | { type: "element-update"; elements: DriplElement[]; from: string }
-  | { type: "cursor-move"; userId: string; x: number; y: number; color: string }
-  | { type: "user-join"; user: BasicUser }
-  | { type: "user-leave"; userId: string }
-  | { type: "element-lock"; elementId: string; by: string }
-  | { type: "element-unlock"; elementId: string }
-  | { type: "pong" };
+  | {
+      type: "sync_room_state";
+      elements: DriplElement[];
+      users: { userId: string; userName: string; color: string }[];
+      cursors: {
+        userId: string;
+        x: number;
+        y: number;
+        userName: string;
+        color: string;
+      }[];
+      yourUserId: string;
+    }
+  | {
+      type: "user_join";
+      userId: string;
+      userName: string;
+      color: string;
+    }
+  | { type: "user_leave"; userId: string }
+  | { type: "add_element"; element: DriplElement }
+  | { type: "update_element"; element: DriplElement }
+  | { type: "delete_element"; elementId: string }
+  | {
+      type: "cursor_move";
+      userId: string;
+      x: number;
+      y: number;
+      userName: string;
+      color: string;
+    }
+  | { type: "error"; message: string }
+  | {
+      type: "broadcast";
+      message: Record<string, unknown>;
+    };
 
 type ClientMessage =
-  | { type: "join"; roomId: string; userId: string; displayName: string; color: string }
-  | { type: "element-update"; roomId: string; elements: DriplElement[] }
-  | { type: "cursor-move"; roomId: string; userId: string; x: number; y: number }
-  | { type: "element-lock"; roomId: string; elementId: string; userId: string }
-  | { type: "element-unlock"; roomId: string; elementId: string }
-  | { type: "ping" };
+  | { type: "join_room"; roomId: string; userName?: string }
+  | { type: "leave_room" }
+  | { type: "add_element"; element: DriplElement }
+  | { type: "update_element"; element: DriplElement }
+  | { type: "delete_element"; elementId: string }
+  | {
+      type: "cursor_move";
+      x: number;
+      y: number;
+      userName?: string;
+      color?: string;
+    };
 
 export interface UseCollaborationReturn {
   isConnected: boolean;
   collaborators: CollabUser[];
-  broadcastElements: (elements: DriplElement[]) => void;
+  broadcastElements: (
+    prevElements: DriplElement[],
+    nextElements: DriplElement[],
+  ) => void;
   broadcastCursor: (x: number, y: number) => void;
   lockElement: (elementId: string) => void;
   unlockElement: (elementId: string) => void;
 }
 
 interface UseCollaborationOptions {
-  onRemoteUpdate?: (elements: DriplElement[]) => void;
+  onRemoteElements?: (
+    added: DriplElement[],
+    updated: DriplElement[],
+    deleted: string[],
+  ) => void;
+  onFullSync?: (elements: DriplElement[]) => void;
   displayName?: string | null;
 }
 
@@ -62,19 +104,24 @@ export function useCollaboration(
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptRef = useRef(0);
-  const pingTimerRef = useRef<number | null>(null);
   const elementRafRef = useRef<number | null>(null);
-  const pendingElementsRef = useRef<DriplElement[] | null>(null);
+  const pendingElementsRef = useRef<{
+    prev: DriplElement[];
+    next: DriplElement[];
+  } | null>(null);
   const lastCursorSentAtRef = useRef(0);
   const shouldReconnectRef = useRef(true);
   const [isConnected, setIsConnected] = useState(false);
-  const [collaborators, setCollaborators] = useState<Map<string, CollabUser>>(new Map());
+  const [collaborators, setCollaborators] = useState<Map<string, CollabUser>>(
+    new Map(),
+  );
   const permanentlyOfflineRef = useRef(false);
-  const heldLocksRef = useRef<Set<string>>(new Set());
 
   const userId = useCanvasStore((state) => state.userId) ?? "anonymous";
   const setElementLock = useCanvasStore((state) => state.setElementLock);
-  const releaseElementLock = useCanvasStore((state) => state.releaseElementLock);
+  const releaseElementLock = useCanvasStore(
+    (state) => state.releaseElementLock,
+  );
   const clearElementLocks = useCanvasStore((state) => state.clearElementLocks);
   const setIsStoreConnected = useCanvasStore((state) => state.setIsConnected);
   const setRemoteUsers = useCanvasStore((state) => state.setRemoteUsers);
@@ -82,13 +129,17 @@ export function useCollaboration(
   const removeRemoteUser = useCanvasStore((state) => state.removeRemoteUser);
   const displayNameRef = useRef("Guest");
   const colorRef = useRef("#6965db");
-  const onRemoteUpdateRef = useRef<UseCollaborationOptions["onRemoteUpdate"]>(
-    options.onRemoteUpdate,
+  const onRemoteElementsRef = useRef<
+    UseCollaborationOptions["onRemoteElements"]
+  >(options.onRemoteElements);
+  const onFullSyncRef = useRef<UseCollaborationOptions["onFullSync"]>(
+    options.onFullSync,
   );
 
   useEffect(() => {
-    onRemoteUpdateRef.current = options.onRemoteUpdate;
-  }, [options.onRemoteUpdate]);
+    onRemoteElementsRef.current = options.onRemoteElements;
+    onFullSyncRef.current = options.onFullSync;
+  }, [options.onRemoteElements, options.onFullSync]);
 
   useEffect(() => {
     if (options.displayName && options.displayName.trim()) {
@@ -107,14 +158,32 @@ export function useCollaboration(
       elementRafRef.current = null;
       const payload = pendingElementsRef.current;
       if (!payload || !roomId) return;
-      sendMessage({ type: "element-update", roomId, elements: payload });
+
+      const { prev: prevElements, next: nextElements } = payload;
+      const prevMap = new Map(prevElements.map((el) => [el.id, el]));
+      const nextMap = new Map(nextElements.map((el) => [el.id, el]));
+
+      for (const [id, el] of nextMap) {
+        if (!prevMap.has(id)) {
+          sendMessage({ type: "add_element", element: el });
+        } else if (prevMap.get(id) !== el) {
+          sendMessage({ type: "update_element", element: el });
+        }
+      }
+
+      for (const id of prevMap.keys()) {
+        if (!nextMap.has(id)) {
+          sendMessage({ type: "delete_element", elementId: id });
+        }
+      }
+
       pendingElementsRef.current = null;
     }, 33);
   }, [roomId, sendMessage]);
 
   const broadcastElements = useCallback(
-    (elements: DriplElement[]) => {
-      pendingElementsRef.current = elements;
+    (prevElements: DriplElement[], nextElements: DriplElement[]) => {
+      pendingElementsRef.current = { prev: prevElements, next: nextElements };
       scheduleElementBroadcast();
     },
     [scheduleElementBroadcast],
@@ -125,44 +194,25 @@ export function useCollaboration(
       const now = Date.now();
       if (now - lastCursorSentAtRef.current < 50) return;
       lastCursorSentAtRef.current = now;
-      if (!roomId) return;
       sendMessage({
-        type: "cursor-move",
-        roomId,
-        userId,
+        type: "cursor_move",
         x,
         y,
+        userName: displayNameRef.current,
+        color: colorRef.current,
       });
     },
-    [roomId, sendMessage, userId],
+    [sendMessage],
   );
 
-  const lockElement = useCallback(
-    (elementId: string) => {
-      if (!roomId) return;
-      heldLocksRef.current.add(elementId);
-      sendMessage({
-        type: "element-lock",
-        roomId,
-        elementId,
-        userId,
-      });
-    },
-    [roomId, sendMessage, userId],
-  );
+  const lockElement = useCallback((_elementId: string) => {
+    // Element locking is not supported by ws-server yet.
+    // The local canvas-store still tracks locks for UI purposes.
+  }, []);
 
-  const unlockElement = useCallback(
-    (elementId: string) => {
-      if (!roomId) return;
-      heldLocksRef.current.delete(elementId);
-      sendMessage({
-        type: "element-unlock",
-        roomId,
-        elementId,
-      });
-    },
-    [roomId, sendMessage],
-  );
+  const unlockElement = useCallback((_elementId: string) => {
+    // Element unlocking is not supported by ws-server yet.
+  }, []);
 
   useEffect(() => {
     if (roomId !== null) return;
@@ -193,10 +243,6 @@ export function useCollaboration(
     if (!roomId) return;
 
     const cleanupConnection = () => {
-      if (pingTimerRef.current) {
-        window.clearInterval(pingTimerRef.current);
-        pingTimerRef.current = null;
-      }
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -217,16 +263,10 @@ export function useCollaboration(
         }
 
         sendMessage({
-          type: "join",
+          type: "join_room",
           roomId,
-          userId,
-          displayName: displayNameRef.current,
-          color: colorRef.current,
+          userName: displayNameRef.current,
         });
-
-        pingTimerRef.current = window.setInterval(() => {
-          sendMessage({ type: "ping" });
-        }, 10_000);
       };
 
       ws.onmessage = (event) => {
@@ -240,8 +280,8 @@ export function useCollaboration(
           return;
         }
         switch (message.type) {
-          case "room-state": {
-            onRemoteUpdateRef.current?.(message.elements);
+          case "sync_room_state": {
+            onFullSyncRef.current?.(message.elements);
             const next = new Map<string, CollabUser>();
             const remoteUsersMap = new Map<
               string,
@@ -252,7 +292,7 @@ export function useCollaboration(
               .forEach((user) => {
                 next.set(user.userId, {
                   userId: user.userId,
-                  displayName: user.displayName,
+                  displayName: user.userName,
                   color: user.color,
                   x: 0,
                   y: 0,
@@ -260,7 +300,7 @@ export function useCollaboration(
                 });
                 remoteUsersMap.set(user.userId, {
                   userId: user.userId,
-                  userName: user.displayName,
+                  userName: user.userName,
                   color: user.color,
                 });
               });
@@ -268,19 +308,23 @@ export function useCollaboration(
             setRemoteUsers(remoteUsersMap);
             break;
           }
-          case "element-update":
-            if (message.from !== userId) {
-              onRemoteUpdateRef.current?.(message.elements);
-            }
+          case "add_element":
+            onRemoteElementsRef.current?.([message.element], [], []);
             break;
-          case "cursor-move":
+          case "update_element":
+            onRemoteElementsRef.current?.([], [message.element], []);
+            break;
+          case "delete_element":
+            onRemoteElementsRef.current?.([], [], [message.elementId]);
+            break;
+          case "cursor_move":
             if (message.userId === userId) return;
             setCollaborators((prev) => {
               const next = new Map(prev);
               const existing = next.get(message.userId);
               next.set(message.userId, {
                 userId: message.userId,
-                displayName: existing?.displayName ?? "Collaborator",
+                displayName: message.userName ?? "Collaborator",
                 color: message.color,
                 x: message.x,
                 y: message.y,
@@ -289,19 +333,19 @@ export function useCollaboration(
               return next;
             });
             break;
-          case "user-join":
-            if (message.user.userId === userId) return;
+          case "user_join":
+            if (message.userId === userId) return;
             addRemoteUser({
-              userId: message.user.userId,
-              userName: message.user.displayName,
-              color: message.user.color,
+              userId: message.userId,
+              userName: message.userName,
+              color: message.color,
             });
             setCollaborators((prev) => {
               const next = new Map(prev);
-              next.set(message.user.userId, {
-                userId: message.user.userId,
-                displayName: message.user.displayName,
-                color: message.user.color,
+              next.set(message.userId, {
+                userId: message.userId,
+                displayName: message.userName,
+                color: message.color,
                 x: 0,
                 y: 0,
                 updatedAt: Date.now(),
@@ -309,7 +353,7 @@ export function useCollaboration(
               return next;
             });
             break;
-          case "user-leave":
+          case "user_leave":
             removeRemoteUser(message.userId);
             setCollaborators((prev) => {
               const next = new Map(prev);
@@ -317,13 +361,8 @@ export function useCollaboration(
               return next;
             });
             break;
-          case "element-lock":
-            setElementLock(message.elementId, message.by);
-            break;
-          case "element-unlock":
-            releaseElementLock(message.elementId);
-            break;
-          case "pong":
+          case "error":
+            console.error("WebSocket error:", message.message);
             break;
           default:
             break;
@@ -336,10 +375,6 @@ export function useCollaboration(
         clearElementLocks();
         setRemoteUsers(new Map());
         setCollaborators(new Map());
-        if (pingTimerRef.current) {
-          window.clearInterval(pingTimerRef.current);
-          pingTimerRef.current = null;
-        }
         if (!shouldReconnectRef.current) {
           return;
         }
@@ -365,16 +400,10 @@ export function useCollaboration(
 
     return () => {
       shouldReconnectRef.current = false;
-      heldLocksRef.current.forEach((elementId) => {
-        if (roomId) {
-          sendMessage({
-            type: "element-unlock",
-            roomId,
-            elementId,
-          });
-        }
-      });
-      heldLocksRef.current.clear();
+
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        sendMessage({ type: "leave_room" });
+      }
 
       if (reconnectTimerRef.current) {
         window.clearTimeout(reconnectTimerRef.current);
