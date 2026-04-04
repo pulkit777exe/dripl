@@ -97,32 +97,6 @@ function scheduleDatabaseSave(roomSlug: string, elements: DriplElement[]) {
   );
 }
 
-  saveTimeouts.set(
-    roomSlug,
-    setTimeout(async () => {
-      try {
-        await prisma.canvasRoom.upsert({
-          where: { slug: roomSlug },
-          update: {
-            content: JSON.stringify(elements),
-            updatedAt: new Date(),
-          },
-          create: {
-            slug: roomSlug,
-            name: `Room ${roomSlug.slice(0, 8)}`,
-            ownerId: "system",
-            content: JSON.stringify(elements),
-          },
-        });
-        console.log(`✓ Saved room ${roomSlug} to database`);
-      } catch (error) {
-        console.error("Database save error:", error);
-      }
-      saveTimeouts.delete(roomSlug);
-    }, SAVE_DEBOUNCE_MS),
-  );
-}
-
 function scheduleRedisCache(roomSlug: string, elements: DriplElement[]) {
   if (!redisAvailable) return;
 
