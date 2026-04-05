@@ -278,8 +278,8 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
   const roomIdFromUrl = extractRoomId(req);
   const authenticatedUserId = authResult?.userId || null;
 
-  let currentUserId: string = "";
-  let currentRoomId: string = "";
+  let currentUserId: string | null = null;
+  let currentRoomId: string | null = null;
 
   console.log(
     `New WebSocket connection from ${ip}${authenticatedUserId ? ` (authenticated: ${authenticatedUserId})` : " (anonymous)"}`,
@@ -407,14 +407,6 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
           staleUsers.forEach((uid) => {
             room.users.delete(uid);
             room.cursors.delete(uid);
-          });
-
-          // Clean up stale users (closed WebSockets) before sending state
-          const staleUsers: string[] = [];
-          room.users.forEach((u, uid) => {
-            if (u.ws.readyState !== WebSocket.OPEN) {
-              staleUsers.push(uid);
-            }
           });
           staleUsers.forEach((uid) => {
             room.users.delete(uid);
@@ -587,8 +579,8 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
     }
 
     // Clean up user from room regardless of whether join_room was sent
-    if (currentUserId) {
-      const room = currentRoomId ? rooms.get(currentRoomId) : undefined;
+    if (currentUserId && currentRoomId) {
+      const room = rooms.get(currentRoomId);
       if (room) {
         room.users.delete(currentUserId);
         room.cursors.delete(currentUserId);
@@ -610,6 +602,20 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
           }
           rooms.delete(currentRoomId);
           console.log(`Room ${currentRoomId} removed from memory (empty)`);
+        }
+      }
+    } else {
+      // Fallback: user closed before join_room — search all rooms by ws ref
+      for (const [roomId, room] of rooms) {
+        for (const [userId, user] of room.users) {
+          if (user.ws === ws) {
+            room.users.delete(userId);
+            room.cursors.delete(userId);
+            console.log(
+              `Cleaned up stale user ${userId} from room ${roomId} on close`,
+            );
+            break;
+          }
         }
       }
     }

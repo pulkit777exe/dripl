@@ -9,9 +9,9 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import { userRouter } from "./routes/UserRoute";
-import { fileRouter } from "./routes/FileRoute";
-import roomRoutes from "./routes/roomRoutes";
+import { userRouter } from "./routes/UserRoute.js";
+import { fileRouter } from "./routes/FileRoute.js";
+import roomRoutes from "./routes/roomRoutes.js";
 
 const app: Express = express();
 const PORT = process.env.PORT || 3002;
