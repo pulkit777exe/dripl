@@ -113,6 +113,14 @@ export const joinRoomSchema = z.object({
   userName: z.string().min(1).max(50).optional(),
 });
 
+export const joinSchema = z.object({
+  type: z.literal("join"),
+  roomId: z.string().min(1).max(100),
+  userId: z.string().optional(),
+  displayName: z.string().min(1).max(50).optional(),
+  color: z.string().optional(),
+});
+
 export const addElementSchema = z.object({
   type: z.literal("add_element"),
   element: driplElementSchema,
@@ -136,13 +144,33 @@ export const cursorMoveSchema = z.object({
   color: z.string().optional(),
 });
 
+export const cursorMoveKebabSchema = z.object({
+  type: z.literal("cursor-move"),
+  x: z.number(),
+  y: z.number(),
+  userName: z.string().optional(),
+  displayName: z.string().optional(),
+  color: z.string().optional(),
+});
+
+export const elementUpdateSchema = z.object({
+  type: z.literal("element-update"),
+  elements: z.array(driplElementSchema).optional(),
+  element: driplElementSchema.optional(),
+});
+
 export const messageSchema = z.discriminatedUnion("type", [
   joinRoomSchema,
+  joinSchema,
   addElementSchema,
   updateElementSchema,
   deleteElementSchema,
   cursorMoveSchema,
+  cursorMoveKebabSchema,
+  elementUpdateSchema,
   z.object({ type: z.literal("leave_room") }),
+  z.object({ type: z.literal("leave") }),
+  z.object({ type: z.literal("ping") }),
 ]);
 
 export type WsMessage = z.infer<typeof messageSchema>;
