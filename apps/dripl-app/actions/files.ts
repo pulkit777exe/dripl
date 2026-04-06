@@ -1,57 +1,45 @@
 "use server";
 
-import { db } from "@dripl/db";
-import { currentUser } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { db } from "@dripl/db";
+
+async function getSessionUserId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("dripl-session")?.value;
+  if (!token) return null;
+  try {
+    const payloadPart = token.split(".")[1];
+    if (!payloadPart) return null;
+    const payload = JSON.parse(
+      Buffer.from(payloadPart, "base64url").toString("utf8"),
+    ) as { userId?: string };
+    return payload.userId ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export async function getFiles() {
-  const user = await currentUser();
-  if (!user) return [];
-  if (!user.emailAddresses[0]) {
-    revalidatePath("/");
-    throw new Error("User has no email address");
-  }
-  const dbUser = await db.user.upsert({
-    where: { id: user.id },
-    update: {
-      email: user.emailAddresses[0].emailAddress,
-      name: `${user.firstName} ${user.lastName}`,
-      image: user.imageUrl,
-    },
-    create: {
-      id: user.id,
-      password: "",
-      email: user.emailAddresses[0].emailAddress,
-      name: `${user.firstName} ${user.lastName}`,
-      image: user.imageUrl,
-    },
-  });
-
-  const files = await db.file.findMany({
-    where: { userId: dbUser.id },
+  const userId = await getSessionUserId();
+  if (!userId) return [];
+  return db.file.findMany({
+    where: { userId },
     orderBy: { updatedAt: "desc" },
   });
-
-  return files;
 }
 
 export async function createFile() {
-  const user = await currentUser();
-  if (!user) throw new Error("Unauthorized");
-
-  const count = await db.file.count({
-    where: { userId: user.id },
-  });
-
-  if (count >= 3) {
-    throw new Error("Free plan limit reached (3 files max).");
+  const userId = await getSessionUserId();
+  if (!userId) {
+    throw new Error("Unauthorized");
   }
 
   const file = await db.file.create({
     data: {
-      name: "Untitled File",
-      userId: user.id,
-      content: "[]",
+      name: "Untitled file",
+      userId,
+      content: JSON.stringify({ elements: [] }),
     },
   });
 
@@ -60,36 +48,27 @@ export async function createFile() {
 }
 
 export async function getFile(id: string) {
-  const user = await currentUser();
-  if (!user) return null;
-
-  const file = await db.file.findUnique({
-    where: { id },
+  const userId = await getSessionUserId();
+  if (!userId) return null;
+  return db.file.findFirst({
+    where: { id, userId },
   });
-
-  if (!file || file.userId !== user.id) {
-    return null;
-  }
-
-  return file;
 }
 
-export async function updateFile(
-  id: string,
-  content: string,
-  preview?: string,
-) {
-  const user = await currentUser();
-  if (!user) throw new Error("Unauthorized");
+export async function updateFile(id: string, content: string, preview?: string) {
+  const userId = await getSessionUserId();
+  if (!userId) {
+    throw new Error("Unauthorized");
+  }
 
-  await db.file.update({
-    where: { id },
+  await db.file.updateMany({
+    where: { id, userId },
     data: {
       content,
       preview,
     },
   });
 
-  revalidatePath(`/file/${id}`);
+  revalidatePath(`/canvas/${id}`);
   revalidatePath("/dashboard");
 }
