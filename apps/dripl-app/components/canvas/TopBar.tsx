@@ -26,7 +26,6 @@ export const TopBar: React.FC = () => {
   const router = useRouter();
   const elements = useCanvasStore((state) => state.elements);
   const fileId = useCanvasStore((state) => state.fileId);
-  const roomSlug = useCanvasStore((state) => state.roomSlug);
   const isConnected = useCanvasStore((state) => state.isConnected);
   const isSaving = useCanvasStore((state) => state.isSaving);
   const lastSaved = useCanvasStore((state) => state.lastSaved);
@@ -67,15 +66,15 @@ export const TopBar: React.FC = () => {
   }, [fileName]);
 
   const handleSaveRoomName = useCallback(async () => {
-    if (!roomSlug || !roomName.trim()) return;
+    if (!fileId || !roomName.trim()) return;
     try {
-      await apiClient.updateRoom(roomSlug, { name: roomName.trim() });
+      await apiClient.updateFile(fileId, { name: roomName.trim() });
       setFileMetadata(fileId, roomName.trim());
     } catch (error) {
-      console.error("Failed to update room name:", error);
+      console.error("Failed to update file name:", error);
     }
     setIsEditingName(false);
-  }, [roomSlug, roomName, fileId, setFileMetadata]);
+  }, [fileId, roomName, setFileMetadata]);
 
   const handleCancelEditName = useCallback(() => {
     setRoomName(fileName || "Untitled Canvas");
@@ -84,46 +83,35 @@ export const TopBar: React.FC = () => {
 
   const handleDriplPlusClick = async () => {
     if (!user) {
-      router.push("/login");
+      router.push("/auth/login");
       return;
     }
 
     try {
-      const response = await apiClient.createRoom({
-        name: "Local Canvas",
-        isPublic: false,
+      const response = await apiClient.createFile({
+        name: "Untitled file",
+        content: elements,
       });
-
-      if (response.room) {
-        await apiClient.updateRoom(response.room.slug, {
-          content: JSON.stringify(elements),
-        });
-        router.push(`/canvas/${response.room.slug}`);
-      }
+      router.push(`/canvas/${response.id}`);
     } catch (error) {
-      console.error("Failed to create room:", error);
-      alert("Failed to create room. Please try again.");
+      console.error("Failed to create file:", error);
+      alert("Failed to create file. Please try again.");
     }
   };
 
   const handleStartSession = async () => {
-    if (!user) {
-      router.push("/login");
+    if (!fileId) {
+      alert("File must be saved before starting collaboration.");
       return;
     }
 
     try {
-      const response = await apiClient.createRoom({
-        name: "Collaboration Session",
-        isPublic: true,
+      const response = await apiClient.shareFile(fileId, {
+        permission: "edit",
+        expiresInHours: 24,
       });
-
-      if (response.room) {
-        await apiClient.updateRoom(response.room.slug, {
-          content: JSON.stringify(elements),
-        });
-        router.push(`/canvas/${response.room.slug}`);
-      }
+      await navigator.clipboard.writeText(response.shareUrl);
+      alert("Live collaboration link copied to clipboard.");
     } catch (error) {
       console.error("Failed to start session:", error);
       alert("Failed to start session. Please try again.");
@@ -134,45 +122,17 @@ export const TopBar: React.FC = () => {
     permission: "view" | "edit",
     expiresIn?: number,
   ): Promise<string | null> => {
-    if (!roomSlug) {
+    if (!fileId) {
       alert("Save canvas to cloud before sharing.");
       return null;
     }
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_HTTP_URL || "http://localhost:3002"}/api/rooms/${roomSlug}/share`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            permission,
-            expiresIn: expiresIn ?? 24,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        let details = "";
-        try {
-          const body = (await response.json()) as {
-            error?: string;
-            details?: unknown;
-          };
-          details = body.error ?? "";
-        } catch {
-          // ignore body parse failures
-        }
-        throw new Error(
-          details || `Failed to share canvas (${response.status})`,
-        );
-      }
-
-      const data = await response.json();
-      const link = data.url ?? `${window.location.origin}/board/${data.token}`;
+      const data = await apiClient.shareFile(fileId, {
+        permission,
+        expiresInHours: expiresIn ?? 24,
+      });
+      const link = data.shareUrl;
       await navigator.clipboard.writeText(link);
       return link;
     } catch (error) {
@@ -398,7 +358,7 @@ export const TopBar: React.FC = () => {
     ? "Saving..."
     : lastSaved
       ? `Saved ${new Date(lastSaved).toLocaleTimeString()}`
-      : roomSlug
+      : fileId
         ? "Saved"
         : "Unsaved changes";
 
