@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import type { DriplElement } from "@dripl/common";
 import type { Viewport } from "@/utils/canvas-coordinates";
-import { renderInteractiveScene } from "@/renderer/interactiveScene";
+import { renderStaticScene } from "@dripl/element";
 
 interface StaticCanvasProps {
   containerRef?: React.RefObject<HTMLDivElement>;
@@ -115,28 +115,27 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
   useEffect(() => {
     const loop = () => {
       const canvas = canvasRef.current;
-      const ctx = canvas?.getContext("2d");
-      if (canvas && ctx && isDirtyRef.current) {
+      if (canvas && isDirtyRef.current) {
         isDirtyRef.current = false;
         const props = propsRef.current;
-        renderInteractiveScene({
-          ctx,
-          viewport: {
-            ...props.viewport,
+        renderStaticScene(
+          canvas,
+          props.elements.filter((element) => !props.selectedIds.has(element.id)),
+          {
+            x: props.viewport.x,
+            y: props.viewport.y,
             width: sizeRef.current.width,
             height: sizeRef.current.height,
+            zoom: props.viewport.zoom,
           },
-          canvasWidth: sizeRef.current.width,
-          canvasHeight: sizeRef.current.height,
-          elements: props.elements,
-          selectedIds: new Set<string>(),
-          collaborators: [],
-          gridEnabled: props.gridEnabled,
-          gridSize: props.gridSize,
-          theme: props.theme,
-          renderCommittedElements: true,
-          dpr: dprRef.current,
-        });
+          {
+            gridEnabled: props.gridEnabled,
+            gridSize: props.gridSize,
+            zoom: props.viewport.zoom,
+            theme: props.theme,
+            dpr: dprRef.current,
+          },
+        );
       }
       rafRef.current = requestAnimationFrame(loop);
     };
