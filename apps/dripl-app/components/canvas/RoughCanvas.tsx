@@ -26,6 +26,7 @@ import RBush from "rbush";
 import { SelectionOverlay, ResizeHandle } from "./SelectionOverlay";
 import { NameInputModal } from "./NameInputModal";
 import { CollaboratorsList } from "./CollaboratorsList";
+import { RemoteCursors } from "./RemoteCursors";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { ContextMenu } from "./ContextMenu";
 import { DualCanvas } from "./DualCanvas";
@@ -1678,12 +1679,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       if (!cmdOrCtrl && !e.altKey && !e.shiftKey) {
         if (key === "v") setActiveTool("select");
         if (key === "r") setActiveTool("rectangle");
-        if (key === "o") setActiveTool("ellipse");
-        if (key === "p") setActiveTool("freedraw");
+        if (key === "e" || key === "o") setActiveTool("ellipse");
+        if (key === "d" || key === "p") setActiveTool("freedraw");
         if (key === "l") setActiveTool("line");
         if (key === "a") setActiveTool("arrow");
         if (key === "t") setActiveTool("text");
-        if (key === "e") setActiveTool("eraser");
+        if (key === "f") setActiveTool("frame");
+        if (key === "x") setActiveTool("eraser");
         if (key === "h") setActiveTool("hand");
       }
 
@@ -1919,6 +1921,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       )}
 
       <CollaboratorsList roomSlug={roomSlug} />
+      <RemoteCursors />
 
       {!userName && roomSlug !== null && (
         <NameInputModal onSubmit={handleNameSubmit} />

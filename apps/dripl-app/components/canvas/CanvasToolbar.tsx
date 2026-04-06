@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Minus,
   Pencil,
+  Frame,
   Type,
   Image,
   Eraser,
@@ -79,8 +80,14 @@ const tools: Tool[] = [
     id: "freedraw",
     icon: Pencil,
     label: "Freedraw",
-    shortcuts: ["p", "7"],
+    shortcuts: ["d", "p", "7"],
     numericShortcut: "7",
+  },
+  {
+    id: "frame",
+    icon: Frame,
+    label: "Frame",
+    shortcuts: ["f"],
   },
   {
     id: "text",
@@ -100,7 +107,7 @@ const tools: Tool[] = [
     id: "eraser",
     icon: Eraser,
     label: "Eraser",
-    shortcuts: ["e", "0"],
+    shortcuts: ["x", "0"],
     numericShortcut: "0",
   },
 ];

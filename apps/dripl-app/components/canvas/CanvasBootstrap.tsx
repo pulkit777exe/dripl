@@ -47,6 +47,7 @@ const VALID_TOOLS = new Set<ActiveTool>([
   "freedraw",
   "text",
   "image",
+  "frame",
   "eraser",
 ]);
 
