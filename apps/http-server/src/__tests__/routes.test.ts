@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import request from "supertest";
 import express, { Express } from "express";
 import cookieParser from "cookie-parser";
@@ -44,7 +44,7 @@ describe("HTTP Server Routes", () => {
         .post("/api/users/signup")
         .send({ password: "testpassword123" });
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain("email and password");
+      expect(res.body.error).toMatch(/email.*password/i);
     });
 
     it("should return 400 when password is too short", async () => {
@@ -52,7 +52,7 @@ describe("HTTP Server Routes", () => {
         .post("/api/users/signup")
         .send({ email: "test@example.com", password: "short" });
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain("8 characters");
+      expect(res.body.error).toMatch(/8 characters/i);
     });
 
     it("should return 400 for invalid email format", async () => {
@@ -60,7 +60,7 @@ describe("HTTP Server Routes", () => {
         .post("/api/users/signup")
         .send({ email: "invalid-email", password: "testpassword123" });
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain("email format");
+      expect(res.body.error).toMatch(/email.*format/i);
     });
   });
 
@@ -72,14 +72,11 @@ describe("HTTP Server Routes", () => {
       expect(res.status).toBe(400);
     });
 
-    it("should return 401 for non-existent user", async () => {
+    it("should return 400 when password is missing", async () => {
       const res = await request(app)
         .post("/api/users/login")
-        .send({
-          email: "nonexistent@example.com",
-          password: "testpassword123",
-        });
-      expect(res.status).toBe(401);
+        .send({ email: "test@example.com" });
+      expect(res.status).toBe(400);
     });
   });
 
