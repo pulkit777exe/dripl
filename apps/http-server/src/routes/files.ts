@@ -2,12 +2,12 @@ import { randomBytes } from "crypto";
 import { Router } from "express";
 import { z } from "zod";
 import { db } from "@dripl/db";
-import type { AuthenticatedRequest } from "../middleware/auth.js";
+import type { AuthenticatedRequest } from "../middleware/auth";
 import {
   buildEncryptedShare,
   parseStoredFileContent,
   serializeStoredFileContent,
-} from "../lib/encrypt.js";
+} from "../lib/encrypt";
 
 const listFilesQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
@@ -31,7 +31,12 @@ const patchFileSchema = z.object({
 const createShareSchema = z.object({
   permission: z.enum(["view", "edit"]).default("view"),
   expiresAt: z.coerce.date().optional(),
-  expiresInHours: z.number().int().positive().max(24 * 365).optional(),
+  expiresInHours: z
+    .number()
+    .int()
+    .positive()
+    .max(24 * 365)
+    .optional(),
 });
 
 const filesRouter: Router = Router();
@@ -143,9 +148,7 @@ filesRouter.post("/", async (req: AuthenticatedRequest, res) => {
     }
 
     const contentRecord = parseStoredFileContent(
-      JSON.stringify(
-        payload.content !== undefined ? payload.content : [],
-      ),
+      JSON.stringify(payload.content !== undefined ? payload.content : []),
     );
 
     const file = await db.file.create({

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { messageSchema } from "../validation.js";
+import { messageSchema } from "../validation";
 
 describe("WebSocket Message Validation", () => {
   describe("join_room", () => {

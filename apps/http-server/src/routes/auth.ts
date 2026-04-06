@@ -9,7 +9,7 @@ import {
   setSessionCookie,
   signSessionToken,
   type AuthenticatedRequest,
-} from "../middleware/auth.js";
+} from "../middleware/auth";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -120,33 +120,37 @@ authRouter.post("/logout", (_req, res) => {
   res.json({ ok: true });
 });
 
-authRouter.get("/me", authMiddleware, async (req: AuthenticatedRequest, res) => {
-  if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-
-  try {
-    const user = await db.user.findUnique({
-      where: { id: req.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        image: true,
-      },
-    });
-
-    if (!user) {
-      res.status(404).json({ error: "User not found" });
+authRouter.get(
+  "/me",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res) => {
+    if (!req.userId) {
+      res.status(401).json({ error: "Authentication required" });
       return;
     }
 
-    res.json({ user });
-  } catch (error) {
-    console.error("me error", error);
-    res.status(500).json({ error: "Failed to load user profile" });
-  }
-});
+    try {
+      const user = await db.user.findUnique({
+        where: { id: req.userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          image: true,
+        },
+      });
+
+      if (!user) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+
+      res.json({ user });
+    } catch (error) {
+      console.error("me error", error);
+      res.status(500).json({ error: "Failed to load user profile" });
+    }
+  },
+);
 
 export { authRouter };

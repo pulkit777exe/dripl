@@ -6,14 +6,18 @@ config({ path: resolve(process.cwd(), "../../.env.local"), override: true });
 
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import express, { type NextFunction, type Request, type Response } from "express";
+import express, {
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import { authMiddleware } from "./middleware/auth.js";
-import { authRouter } from "./routes/auth.js";
-import { filesRouter } from "./routes/files.js";
-import { foldersRouter } from "./routes/folders.js";
-import { shareRouter } from "./routes/share.js";
+import { authMiddleware } from "./middleware/auth";
+import { authRouter } from "./routes/auth";
+import { filesRouter } from "./routes/files";
+import { foldersRouter } from "./routes/folders";
+import { shareRouter } from "./routes/share";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3002);

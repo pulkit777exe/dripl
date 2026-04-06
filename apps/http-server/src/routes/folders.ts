@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { db } from "@dripl/db";
-import type { AuthenticatedRequest } from "../middleware/auth.js";
+import type { AuthenticatedRequest } from "../middleware/auth";
 
 const createFolderSchema = z.object({
   name: z.string().trim().min(1).max(200),

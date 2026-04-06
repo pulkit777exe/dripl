@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@dripl/db";
-import { parseStoredFileContent } from "../lib/encrypt.js";
+import { parseStoredFileContent } from "../lib/encrypt";
 
 const shareRouter: Router = Router();
 

@@ -85,14 +85,13 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               <ShortcutItem toolName="Hand (panning tool)" shortcut="H" />
               <ShortcutItem toolName="Selection" shortcut="V or 1" />
               <ShortcutItem toolName="Rectangle" shortcut="R or 2" />
-              <ShortcutItem toolName="Diamond" shortcut="D or 3" />
+              <ShortcutItem toolName="Diamond" shortcut="3" />
+              <ShortcutItem toolName="Draw (freehand)" shortcut="D or P or 7" />
               <ShortcutItem toolName="Ellipse" shortcut="O or 4" />
-              <ShortcutItem toolName="Arrow" shortcut="A or 5" />
-              <ShortcutItem toolName="Line" shortcut="L or 6" />
-              <ShortcutItem toolName="Draw" shortcut="P or 7" />
               <ShortcutItem toolName="Text" shortcut="T or 8" />
               <ShortcutItem toolName="Insert image" shortcut="9" />
-              <ShortcutItem toolName="Eraser" shortcut="E or 0" />
+              <ShortcutItem toolName="Eraser" shortcut="X or 0" />
+              <ShortcutItem toolName="Frame" shortcut="F" />
             </div>
 
             <div>
@@ -110,6 +109,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               <ShortcutItem toolName="Zoom in" shortcut="Ctrl + +" />
               <ShortcutItem toolName="Zoom out" shortcut="Ctrl + -" />
               <ShortcutItem toolName="Reset zoom" shortcut="Ctrl+0" />
+              <ShortcutItem toolName="Toggle grid" shortcut="Ctrl+G" />
             </div>
           </div>
         </div>

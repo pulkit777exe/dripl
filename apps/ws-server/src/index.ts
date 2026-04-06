@@ -7,6 +7,21 @@ import type { DriplElement } from "@dripl/common";
 import { db } from "@dripl/db";
 import { messageSchema } from "./validation";
 
+function toDriplElement(el: unknown): DriplElement {
+  const e = el as DriplElement;
+  if (
+    !e.id ||
+    !e.type ||
+    typeof e.x !== "number" ||
+    typeof e.y !== "number" ||
+    typeof e.width !== "number" ||
+    typeof e.height !== "number"
+  ) {
+    throw new Error("Invalid element structure");
+  }
+  return e;
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || "secret-key";
 const WS_PORT = Number(process.env.WS_PORT || 3001);
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -59,7 +74,10 @@ function serializeElements(elements: DriplElement[]): string {
   return JSON.stringify({ elements });
 }
 
-function resolveTokenFromUrl(reqUrl: string | undefined, host: string | undefined): string | null {
+function resolveTokenFromUrl(
+  reqUrl: string | undefined,
+  host: string | undefined,
+): string | null {
   if (!reqUrl || !host) return null;
   try {
     const url = new URL(reqUrl, `http://${host}`);
@@ -114,7 +132,10 @@ async function loadRoomElements(roomId: string): Promise<DriplElement[]> {
   return [];
 }
 
-async function saveRoomElements(roomId: string, elements: DriplElement[]): Promise<void> {
+async function saveRoomElements(
+  roomId: string,
+  elements: DriplElement[],
+): Promise<void> {
   try {
     const fileUpdate = await db.file.updateMany({
       where: { id: roomId },
@@ -180,7 +201,11 @@ function send(ws: WebSocket, payload: unknown): void {
   ws.send(JSON.stringify(payload));
 }
 
-function broadcast(room: RoomState, payload: unknown, exceptUserId?: string): void {
+function broadcast(
+  room: RoomState,
+  payload: unknown,
+  exceptUserId?: string,
+): void {
   const data = JSON.stringify(payload);
   room.users.forEach((user) => {
     if (exceptUserId && user.userId === exceptUserId) return;
@@ -340,8 +365,9 @@ wss.on("connection", (ws, req) => {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
-        room.elements = room.elements.filter((el) => el.id !== message.element.id);
-        room.elements.push(message.element);
+        const element = toDriplElement(message.element);
+        room.elements = room.elements.filter((el) => el.id !== element.id);
+        room.elements.push(element);
         broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId, room.elements);
         break;
@@ -351,8 +377,9 @@ wss.on("connection", (ws, req) => {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
-        room.elements = room.elements.map((element) =>
-          element.id === message.element.id ? message.element : element,
+        const element = toDriplElement(message.element);
+        room.elements = room.elements.map((e) =>
+          e.id === element.id ? element : e,
         );
         broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId, room.elements);
@@ -363,7 +390,9 @@ wss.on("connection", (ws, req) => {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
-        room.elements = room.elements.filter((element) => element.id !== message.elementId);
+        room.elements = room.elements.filter(
+          (element) => element.id !== message.elementId,
+        );
         broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId, room.elements);
         break;
@@ -375,15 +404,21 @@ wss.on("connection", (ws, req) => {
         if (!room) break;
 
         if (Array.isArray(message.elements)) {
-          const merged = new Map(room.elements.map((element) => [element.id, element]));
-          for (const element of message.elements) {
+          const merged = new Map(
+            room.elements.map((element) => [element.id, element]),
+          );
+          for (const rawEl of message.elements) {
+            const element = toDriplElement(rawEl);
             merged.set(element.id, element);
           }
           room.elements = Array.from(merged.values());
         } else {
-          const element = message.element;
-          if (!element) break;
-          room.elements = room.elements.filter((candidate) => candidate.id !== element.id);
+          const rawElement = message.element;
+          if (!rawElement) break;
+          const element = toDriplElement(rawElement);
+          room.elements = room.elements.filter(
+            (candidate) => candidate.id !== element.id,
+          );
           room.elements.push(element);
         }
 
@@ -401,7 +436,9 @@ wss.on("connection", (ws, req) => {
         room.cursors.set(currentUserId, { x: message.x, y: message.y });
         const user = room.users.get(currentUserId);
         const displayName =
-          message.type === "cursor-move" ? message.displayName : message.userName;
+          message.type === "cursor-move"
+            ? message.displayName
+            : message.userName;
         const cursorPayload = {
           type: "cursor_move",
           roomId: currentRoomId,
@@ -415,7 +452,11 @@ wss.on("connection", (ws, req) => {
         };
 
         broadcast(room, cursorPayload, currentUserId);
-        broadcast(room, { ...cursorPayload, type: "cursor-move" }, currentUserId);
+        broadcast(
+          room,
+          { ...cursorPayload, type: "cursor-move" },
+          currentUserId,
+        );
         break;
       }
 

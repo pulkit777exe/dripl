@@ -1,10 +1,14 @@
 {
-  "extends": "@dripl/typescript-config/base.json",
+  "extends": "@dripl/typescript-config/tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
     "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json",
-    "composite": true
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": false,
+    "exactOptionalPropertyTypes": false
   },
   "references": [
     { "path": "../../packages/common" },
