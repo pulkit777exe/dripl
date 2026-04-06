@@ -21,11 +21,9 @@ interface ShortcutItemProps {
 
 function ShortcutItem({ toolName, shortcut }: ShortcutItemProps) {
   return (
-    <div className="flex justify-between items-center py-2 border-b border-[var(--color-panel-slider)]/50 last:border-b-0">
-      <div className="text-[var(--color-tool-inactive-text)] flex-1">
-        {toolName}
-      </div>
-      <div className="text-xs font-mono px-3 py-0.5 rounded-md bg-[var(--color-tool-hover-bg)] text-[var(--color-tool-inactive-text)] border border-[var(--color-panel-slider)]/50 min-w-[50px] text-center">
+    <div className="flex justify-between items-center py-2 border-b border-(--color-panel-slider)/50 last:border-b-0">
+      <div className="text-(--color-tool-inactive-text) flex-1">{toolName}</div>
+      <div className="text-xs font-mono px-3 py-0.5 rounded-md bg-(--color-tool-hover-bg) text-(--color-tool-inactive-text) border border-(--color-panel-slider)/50 min-w-[50px] text-center">
         {shortcut}
       </div>
     </div>
@@ -39,7 +37,7 @@ interface HeaderButtonProps {
 
 function HeaderButton({ icon, label }: HeaderButtonProps) {
   return (
-    <button className="flex items-center gap-2 px-3 py-2 bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-tool-hover-bg)] rounded-lg text-sm text-[var(--color-tool-inactive-text)] border border-[var(--color-panel-slider)]/50 transition-colors">
+    <button className="flex items-center gap-2 px-3 py-2 bg-(--color-panel-btn-bg) hover:bg-(--color-tool-hover-bg) rounded-lg text-sm text-(--color-tool-inactive-text) border border-(--color-panel-slider)/50 transition-colors">
       {icon}
       {label}
     </button>
@@ -53,20 +51,17 @@ export default function HelpModal({ onClose }: HelpModalProps) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-5xl bg-[var(--color-panel-bg)] rounded-xl border border-[var(--color-panel-slider)] shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="w-full max-w-5xl bg-(--color-panel-bg) rounded-xl border border-(--color-panel-slider) shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center p-5 border-b border-[var(--color-panel-slider)]/50">
-          <h2 className="text-xl font-semibold text-[var(--color-panel-text)] flex items-center gap-3">
-            <HelpCircle
-              size={24}
-              className="text-[var(--color-tool-active-text)]"
-            />
+        <div className="flex justify-between items-center p-5 border-b border-(--color-panel-slider)/50">
+          <h2 className="text-xl font-semibold text-(--color-panel-text) flex items-center gap-3">
+            <HelpCircle size={24} className="text-(--color-tool-active-text)" />
             Help
           </h2>
           <button
             onClick={onClose}
-            className="p-2 text-[var(--color-tool-inactive-text)] hover:bg-[var(--color-tool-hover-bg)] rounded-full transition-colors"
+            className="p-2 text-(--color-tool-inactive-text) hover:bg-(--color-tool-hover-bg) rounded-full transition-colors"
           >
             <X size={24} />
           </button>
