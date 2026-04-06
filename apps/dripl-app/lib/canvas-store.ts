@@ -36,6 +36,7 @@ export type ActiveTool =
   | "freedraw"
   | "text"
   | "image"
+  | "frame"
   | "eraser";
 
 type FillStyle =

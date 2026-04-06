@@ -1,89 +1,92 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../context/AuthContext";
-import { apiClient } from "../../lib/api/client";
-import { FileBrowser } from "../../components/dashboard/FileBrowser";
-
-type CanvasRoom = {
-  id: string;
-  slug: string;
-  name: string;
-  updatedAt: string;
-  createdAt: string;
-  isPublic: boolean;
-};
+import { FileBrowser } from "@/components/dashboard/FileBrowser";
+import { useAuth } from "@/app/context/AuthContext";
+import { apiClient, type FileSummary, type FolderSummary } from "@/lib/api";
 
 export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [rooms, setRooms] = useState<CanvasRoom[]>([]);
+  const { user, loading: authLoading } = useAuth();
+  const [files, setFiles] = useState<FileSummary[]>([]);
+  const [folders, setFolders] = useState<FolderSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login");
-    } else if (!authLoading && user) {
-      loadRooms();
-    }
-  }, [user, authLoading, router]);
-
-  const loadRooms = async () => {
+  const loadData = useCallback(async (searchValue: string) => {
+    setLoading(true);
     try {
-      const response = await apiClient.getRooms();
-      setRooms(response.rooms ?? []);
-    } catch (error) {
-      console.error("Failed to load rooms:", error);
+      const [filesResponse, foldersResponse] = await Promise.all([
+        apiClient.listFiles({
+          search: searchValue || undefined,
+        }),
+        apiClient.listFolders(),
+      ]);
+      setFiles(filesResponse.files);
+      setFolders(foldersResponse.folders);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleCreateFile = async () => {
-    try {
-      const response = await apiClient.createRoom({
-        name: "Untitled Canvas",
-        isPublic: false,
-      });
-      if (response.room) {
-        router.push(`/canvas/${response.room.slug}`);
-      }
-    } catch (error) {
-      console.error("Failed to create room:", error);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.replace("/auth/login");
+      return;
     }
-  };
+    void loadData("");
+  }, [authLoading, loadData, router, user]);
 
-  const handleStartNewCanvas = () => {
-    const newRoomSlug = crypto.randomUUID();
-    localStorage.setItem("dripl_last_canvas", newRoomSlug);
-    router.push(`/canvas/${newRoomSlug}`);
-  };
+  useEffect(() => {
+    if (!user) return;
+    const timeout = window.setTimeout(() => {
+      void loadData(search.trim());
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [loadData, search, user]);
 
-  const handleDeleteFile = async (id: string) => {
-    try {
-      await apiClient.deleteRoom(id);
-      setRooms((prev) => prev.filter((room) => room.slug !== id));
-    } catch (error) {
-      console.error("Failed to delete room:", error);
-    }
-  };
+  const handleCreateFile = useCallback(async () => {
+    const file = await apiClient.createFile({ name: "Untitled file" });
+    router.push(`/canvas/${file.id}`);
+  }, [router]);
 
-  const handleRenameFile = async (id: string, name: string) => {
-    try {
-      await apiClient.updateRoom(id, { name });
-      setRooms((prev) =>
-        prev.map((room) => (room.slug === id ? { ...room, name } : room)),
-      );
-    } catch (error) {
-      console.error("Failed to rename room:", error);
-    }
-  };
+  const handleDeleteFile = useCallback(async (id: string) => {
+    await apiClient.deleteFile(id);
+    setFiles((prev) => prev.filter((file) => file.id !== id));
+  }, []);
+
+  const handleRenameFile = useCallback(async (id: string, name: string) => {
+    await apiClient.updateFile(id, { name });
+    setFiles((prev) =>
+      prev.map((file) => (file.id === id ? { ...file, name } : file)),
+    );
+  }, []);
+
+  const handleCreateFolder = useCallback(async () => {
+    const name = window.prompt("Folder name");
+    if (!name || !name.trim()) return;
+    const response = await apiClient.createFolder({ name: name.trim() });
+    setFolders((prev) => [response.folder, ...prev]);
+  }, []);
+
+  const fileItems = useMemo(
+    () =>
+      files.map((file) => ({
+        id: file.id,
+        name: file.name,
+        updatedAt: file.updatedAt,
+        createdAt: file.createdAt,
+        preview: file.preview,
+      })),
+    [files],
+  );
 
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center h-dvh bg-[#F5F0E8] dark:bg-[#141210]">
-        <div className="text-[#7A7267] dark:text-[#8A7F72] font-[var(--font-source-sans)]">Loading...</div>
+      <div className="flex h-dvh items-center justify-center bg-[#f5f0e8]">
+        <p className="text-[#7a7267]">Loading dashboard...</p>
       </div>
     );
   }
@@ -93,19 +96,33 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex h-dvh w-full bg-[#F5F0E8] dark:bg-[#141210] text-[#1A1A1A] dark:text-[#E8E0D4]">
+    <div className="flex h-dvh w-full flex-col bg-[#f5f0e8] text-[#1a1a1a]">
+      <div className="border-b border-[#d4c9b8] px-8 py-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search files by name"
+            className="h-10 min-w-[260px] rounded-sm border border-[#d4c9b8] bg-white px-3 text-sm outline-none focus:border-[#1a1a1a]"
+          />
+          <button
+            onClick={handleCreateFolder}
+            className="h-10 rounded-sm border border-[#1a1a1a] px-4 text-sm font-semibold"
+          >
+            New folder
+          </button>
+          <p className="text-xs text-[#7a7267]">
+            {folders.length} folder{folders.length === 1 ? "" : "s"}
+          </p>
+        </div>
+      </div>
       <FileBrowser
-        files={rooms.map((room) => ({
-          id: room.slug,
-          name: room.name,
-          updatedAt: room.updatedAt,
-          createdAt: room.createdAt,
-        }))}
+        files={fileItems}
         onCreateFile={handleCreateFile}
-        onStartNewCanvas={handleStartNewCanvas}
+        onStartNewCanvas={handleCreateFile}
         onDeleteFile={handleDeleteFile}
         onRenameFile={handleRenameFile}
       />
     </div>
   );
-  }
+}

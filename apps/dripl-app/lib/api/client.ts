@@ -1,153 +1,93 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002/api";
+import { apiClient as coreApiClient } from "@/lib/api";
 
-interface User {
-  id: string;
-  email: string;
-  name: string | null;
-  image: string | null;
-}
-
-interface AuthResponse {
-  user: User;
-  token?: string;
-}
-
-class ApiClient {
-  private baseUrl: string;
-
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {},
-  ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-
-    const config: RequestInit = {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-      credentials: "include",
-    };
-
-    const response = await fetch(url, config);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({
-        error: "An error occurred",
-      }));
-      throw new Error(error.error || "Request failed");
-    }
-
-    return response.json();
-  }
-
-  async signup(data: {
-    email: string;
-    password: string;
-    name?: string;
-  }): Promise<AuthResponse> {
-    return this.request<AuthResponse>("/users/signup", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async login(data: {
-    email: string;
-    password: string;
-  }): Promise<AuthResponse> {
-    return this.request<AuthResponse>("/users/login", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async logout() {
-    return this.request("/users/logout", {
-      method: "POST",
-    });
-  }
-
-  async getProfile(): Promise<{ user: User }> {
-    return this.request<{ user: User }>("/users/profile", {
-      method: "GET",
-    });
-  }
-
-  async getFiles(): Promise<{ files: any[] }> {
-    return this.request("/files", {
-      method: "GET",
-    });
-  }
-
-  async createFile(data: { name?: string }): Promise<{ file: any }> {
-    return this.request("/files", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async getFile(id: string) {
-    return this.request(`/files/${id}`, {
-      method: "GET",
-    });
-  }
-
-  async updateFile(id: string, data: { name?: string; content?: string }) {
-    return this.request(`/files/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async deleteFile(id: string) {
-    return this.request(`/files/${id}`, {
-      method: "DELETE",
-    });
-  }
-
-  async createRoom(data: {
-    name?: string;
-    isPublic?: boolean;
-  }): Promise<{ room: any }> {
-    return this.request("/rooms", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async updateRoom(
+type CompatApiClient = typeof coreApiClient & {
+  signup: typeof coreApiClient.register;
+  getProfile: typeof coreApiClient.me;
+  getFiles: typeof coreApiClient.listFiles;
+  createRoom: (data?: { name?: string }) => Promise<{
+    room: { id: string; slug: string; name: string };
+  }>;
+  updateRoom: (
     slug: string,
-    data: { name?: string; isPublic?: boolean; content?: string },
-  ) {
-    return this.request(`/rooms/${slug}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    });
-  }
+    data: { name?: string; content?: string | unknown[] },
+  ) => ReturnType<typeof coreApiClient.updateFile>;
+  getRoom: (slug: string) => Promise<{
+    room: { id: string; slug: string; name: string; content: unknown[] };
+  }>;
+  getRooms: () => Promise<{
+    rooms: {
+      id: string;
+      slug: string;
+      name: string;
+      createdAt: string;
+      updatedAt: string;
+      isPublic: boolean;
+    }[];
+  }>;
+  deleteRoom: typeof coreApiClient.deleteFile;
+};
 
-  async getRoom(slug: string): Promise<{ room: any }> {
-    return this.request(`/rooms/${slug}`, {
-      method: "GET",
-    });
-  }
+const compat = coreApiClient as CompatApiClient;
 
-  async getRooms(): Promise<{ rooms: any[] }> {
-    return this.request("/rooms", {
-      method: "GET",
+compat.signup = coreApiClient.register.bind(coreApiClient);
+compat.getProfile = coreApiClient.me.bind(coreApiClient);
+compat.getFiles = coreApiClient.listFiles.bind(coreApiClient);
+compat.createRoom = async (data?: { name?: string }) => {
+    const created = await coreApiClient.createFile({
+      name: data?.name,
     });
-  }
+    return {
+      room: {
+        id: created.id,
+        slug: created.id,
+        name: created.name,
+      },
+    };}
+compat.updateRoom = async (
+  slug: string,
+  data: { name?: string; content?: string | unknown[] },
+) => {
+    const content =
+      typeof data.content === "string"
+        ? safeParseArray(data.content)
+        : (data.content ?? undefined);
+    return coreApiClient.updateFile(slug, {
+      name: data.name,
+      content: Array.isArray(content) ? content : undefined,
+    });
+  };
+compat.getRoom = async (slug: string) => {
+    const result = await coreApiClient.getFile(slug);
+    return {
+      room: {
+        id: result.file.id,
+        slug: result.file.id,
+        name: result.file.name,
+        content: result.file.content,
+      },
+    };}
+compat.getRooms = async () => {
+    const response = await coreApiClient.listFiles();
+    return {
+      rooms: response.files.map((file) => ({
+        id: file.id,
+        slug: file.id,
+        name: file.name,
+        createdAt: file.createdAt,
+        updatedAt: file.updatedAt,
+        isPublic: false,
+      })),
+    };
+  };
+compat.deleteRoom = coreApiClient.deleteFile.bind(coreApiClient);
 
-  async deleteRoom(slug: string) {
-    return this.request(`/rooms/${slug}`, {
-      method: "DELETE",
-    });
+export const apiClient = compat;
+
+function safeParseArray(value: string): unknown[] | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
   }
 }
-
-export const apiClient = new ApiClient(API_URL);
