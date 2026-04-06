@@ -1,79 +1,48 @@
 "use client";
 
-import { MarketingLayout } from "@/components/marketing/MarketingLayout";
-import { HeroSection } from "@/components/marketing/sections/HeroSection";
-import { BentoGrid } from "@/components/marketing/sections/BentoGrid";
-import { IntegrationCarousel } from "@/components/marketing/sections/IntegrationCarousel";
-import { WorkflowSection } from "@/components/marketing/sections/WorkflowSection";
-import { TestimonialCarousel } from "@/components/marketing/sections/TestimonialCarousel";
-import { PricingTable } from "@/components/marketing/sections/PricingTable";
-import { useAuth } from "./context/AuthContext";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
 
-export default function Page() {
-  const { user, loading, token, generateToken } = useAuth();
+export default function LandingPage() {
   const router = useRouter();
+  const { user, loading } = useAuth();
 
-  // Handle authentication flow
   useEffect(() => {
-    if (!loading) {
-      if (token && !user) {
-        // Anonymous user with token - redirect to remote canvas
-        const lastCanvas = localStorage.getItem("dripl_last_canvas");
-        if (lastCanvas) {
-          router.push(`/canvas/${lastCanvas}`);
-        } else {
-          // Create a new canvas room
-          const newRoomSlug = crypto.randomUUID();
-          localStorage.setItem("dripl_last_canvas", newRoomSlug);
-          router.push(`/canvas/${newRoomSlug}`);
-        }
-      } else if (user) {
-        // Authenticated user - redirect to dashboard
-        router.push("/dashboard");
-      }
-      // If neither user nor token, stay on landing page
+    if (!loading && user) {
+      router.replace("/dashboard");
     }
-  }, [user, token, loading, router]);
-
-  const handleStartDrawing = async () => {
-    try {
-      if (!token) {
-        // Generate token for anonymous user
-        await generateToken();
-      }
-
-      // Create new canvas or navigate to existing one
-      const lastCanvas = localStorage.getItem("dripl_last_canvas");
-      if (lastCanvas) {
-        router.push(`/canvas/${lastCanvas}`);
-      } else {
-        const newRoomSlug = crypto.randomUUID();
-        localStorage.setItem("dripl_last_canvas", newRoomSlug);
-        router.push(`/canvas/${newRoomSlug}`);
-      }
-    } catch (error) {
-      console.error("Failed to start drawing:", error);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
+  }, [loading, router, user]);
 
   return (
-    <MarketingLayout>
-      <HeroSection onStartDrawing={handleStartDrawing} />
-      <BentoGrid />
-      <IntegrationCarousel />
-      <WorkflowSection />
-      <TestimonialCarousel />
-      <PricingTable />
-    </MarketingLayout>
+    <main className="min-h-dvh bg-[#f5f0e8] text-[#1a1a1a]">
+      <div className="mx-auto max-w-5xl px-6 py-20">
+        <p className="text-sm uppercase tracking-[0.2em] text-[#7a7267]">
+          Dripl
+        </p>
+        <h1 className="mt-4 text-5xl font-[var(--font-dm-serif)] leading-tight">
+          Whiteboard ideas with real-time collaboration.
+        </h1>
+        <p className="mt-6 max-w-2xl text-lg text-[#5f584f]">
+          Draw, share, and collaborate on an infinite canvas. Create a file, invite
+          teammates, and keep everything synced live.
+        </p>
+        <div className="mt-10 flex flex-wrap gap-3">
+          <Link
+            href="/auth/login"
+            className="rounded-sm bg-[#1a1a1a] px-5 py-3 text-sm font-semibold text-[#f5f0e8]"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/auth/register"
+            className="rounded-sm border border-[#1a1a1a] px-5 py-3 text-sm font-semibold"
+          >
+            Get started
+          </Link>
+        </div>
+      </div>
+    </main>
   );
 }
