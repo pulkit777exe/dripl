@@ -1,25 +1,8 @@
 import type { Metadata } from "next";
-import { DM_Serif_Display, Source_Sans_3, Caveat } from "next/font/google";
+import type { CSSProperties } from "react";
 import "./globals.css";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
-
-const dmSerif = DM_Serif_Display({
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-dm-serif",
-});
-
-const sourceSans = Source_Sans_3({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-source-sans",
-});
-
-const caveat = Caveat({
-  subsets: ["latin"],
-  variable: "--font-caveat",
-});
 
 export const metadata: Metadata = {
   title: "Dripl — Think in public",
@@ -35,7 +18,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${dmSerif.variable} ${sourceSans.variable} ${caveat.variable}`}
+        style={
+          {
+            "--font-dm-serif": '"Georgia", "Times New Roman", serif',
+            "--font-source-sans":
+              '"Segoe UI", "Helvetica Neue", "Arial", sans-serif',
+            "--font-caveat": '"Comic Sans MS", "Marker Felt", cursive',
+          } as CSSProperties
+        }
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>{children}</AuthProvider>
