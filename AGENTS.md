@@ -14,7 +14,7 @@
 
 **Problem**: TypeScript with `moduleResolution: 'node16'` requires explicit `.js` extensions on relative imports. All 13 imports were missing extensions, causing build failures.
 
-**Fix**: Added `.js` extensions to all relative import paths in controllers, routes, and server files.
+**Fix**: Switched to ESNext module resolution. Removed `.js` extensions from all relative imports.
 
 ---
 
@@ -24,11 +24,7 @@
 
 **Problem**: The package-level tests cover only the infrastructure packages (common, math, element, runtime, utils). The three apps have zero test coverage.
 
-**Fix**: Add tests for:
-
-- **http-server**: API route handlers (signup, login, room CRUD, sharing)
-- **ws-server**: Message handlers (join_room, add_element, cursor_move), room management
-- **dripl-app**: React component tests (CanvasBootstrap, RoughCanvas), hook tests (useCollaboration)
+**Status**: Not yet implemented
 
 ---
 
@@ -73,11 +69,39 @@ cd apps/http-server && npx tsx watch src/index.ts
 
 ---
 
+## Implemented Features (Excalidraw-like)
+
+### Canvas Features
+
+| Feature                      | Status         | Files                                                                   |
+| ---------------------------- | -------------- | ----------------------------------------------------------------------- |
+| Undo/Redo (100 steps)        | ✅ Implemented | `lib/canvas-store.ts`                                                   |
+| Zoom controls (+/-)          | ✅ Implemented | `components/canvas/CanvasControls.tsx`                                  |
+| Grid toggle (Ctrl+G)         | ✅ Implemented | `RoughCanvas.tsx:1745`, `canvas-store.ts`                               |
+| Keyboard shortcuts           | ✅ Implemented | `CanvasToolbar.tsx`, `HelpModal.tsx`                                    |
+| Shape tools                  | ✅ Implemented | Rectangle, ellipse, diamond, arrow, line, text, frame, freedraw, eraser |
+| Selection with resize/rotate | ✅ Implemented | `SelectionOverlay.tsx`, `RoughCanvas.tsx`                               |
+| Marquee selection            | ✅ Implemented | `RoughCanvas.tsx`                                                       |
+| Remote cursors               | ✅ Implemented | `RemoteCursors.tsx`                                                     |
+| Collaborator presence        | ✅ Implemented | `CollaboratorsList.tsx`                                                 |
+| Export (PNG, SVG, JSON)      | ✅ Implemented | `ExportModal.tsx`, `utils/export.ts`                                    |
+| Share links                  | ✅ Implemented | `app/share/[token]/page.tsx`                                            |
+| Dark/light theme             | ✅ Implemented | `TopBar.tsx`, `Menu.tsx`, `CommandPalette.tsx`                          |
+| Element locking              | ✅ Implemented | `canvas-store.ts`, `RoughCanvas.tsx`                                    |
+
+### Auth & Routing
+
+| Feature            | Status         | Notes                                    |
+| ------------------ | -------------- | ---------------------------------------- |
+| Session-based auth | ✅ Implemented | Replaced Clerk with cookie-based auth    |
+| File-based routing | ✅ Implemented | `/canvas/[fileId]` instead of room-based |
+| Dashboard          | ✅ Implemented | Files and folders API                    |
+
+---
+
 ## Proposed Improvements
 
 ### Priority 1: Core Canvas Experience
-
-These features would significantly improve the user experience and make Dripl more like Excalidraw:
 
 #### 1.1 Better Touch/Trackpad Support
 
@@ -90,12 +114,6 @@ These features would significantly improve the user experience and make Dripl mo
 - **Files**: `apps/dripl-app/components/canvas/SelectionOverlay.tsx`, `RoughCanvas.tsx`
 - **Problem**: Marquee selection doesn't work well with existing elements
 - **Fix**: Add "select contained" vs "select intersecting" toggle (Excalidraw feature)
-
-#### 1.3 Canvas Grid Toggle
-
-- **Files**: `apps/dripl-app/lib/canvas-store.ts`
-- **Problem**: Grid is disabled by default; users can't easily toggle it
-- **Fix**: Add toolbar button to toggle grid, persist preference in localStorage
 
 ### Priority 2: Editor Features
 
@@ -131,19 +149,13 @@ These features would significantly improve the user experience and make Dripl mo
 - **Problem**: Simple list, no avatars
 - **Fix**: Show user avatar circles like Excalidraw
 
-#### 3.3 View-only Mode for Shared Links
-
-- **Files**: `apps/dripl-app/app/share/[token]/page.tsx`
-- **Problem**: Read-only mode doesn't fully disable editing
-- **Fix**: Ensure all editing is disabled in view-only mode
-
 ### Priority 4: Export & Sharing
 
 #### 4.1 Native Export Options
 
 - **Files**: `apps/dripl-app/components/canvas/ExportModal.tsx`
 - **Problem**: Export is limited
-- **Fix**: Add PNG, SVG, JSON export with custom resolution
+- **Fix**: Add custom resolution, PNG/SVG/JSON export options
 
 #### 4.2 Share Dialog Improvements
 
@@ -153,19 +165,13 @@ These features would significantly improve the user experience and make Dripl mo
 
 ### Priority 5: Polish
 
-#### 5.1 Dark/Light Theme Toggle
-
-- **Files**: `apps/dripl-app/components/canvas/TopBar.tsx`
-- **Problem**: Theme follows system; no manual toggle in canvas
-- **Fix**: Add theme toggle button in TopBar
-
-#### 5.2 Welcome Screen / Quick Start
+#### 5.1 Welcome Screen / Quick Start
 
 - **Files**: `apps/dripl-app/app/canvas/page.tsx`
 - **Problem**: No landing page for empty canvas
 - **Fix**: Show welcome overlay with tooltips and sample shapes
 
-#### 5.3 Command Palette Improvements
+#### 5.2 Command Palette Improvements
 
 - **Files**: `apps/dripl-app/components/canvas/CommandPalette.tsx`
 - **Problem**: Basic command palette
@@ -224,17 +230,17 @@ pnpm db:studio
 
 | Key                    | Action                   |
 | ---------------------- | ------------------------ |
-| `1`                    | Select tool              |
-| `2`                    | Rectangle tool           |
-| `3`                    | Ellipse tool             |
-| `4`                    | Diamond tool             |
-| `5`                    | Freehand draw tool       |
-| `6`                    | Line tool                |
-| `7`                    | Arrow tool               |
-| `8`                    | Text tool                |
-| `9`                    | Frame tool               |
-| `0`                    | Eraser tool              |
-| `No key`               | Hand (pan) tool          |
+| `V`                    | Select tool              |
+| `R`                    | Rectangle tool           |
+| `E` / `O`              | Ellipse tool             |
+| `D`                    | Diamond tool             |
+| `P`                    | Freehand draw tool       |
+| `L`                    | Line tool                |
+| `A`                    | Arrow tool               |
+| `T`                    | Text tool                |
+| `F`                    | Frame tool               |
+| `X`                    | Eraser tool              |
+| `H`                    | Hand (pan) tool          |
 | `Space` (hold)         | Temporary hand tool      |
 | `Delete` / `Backspace` | Delete selected elements |
 | `Ctrl/Cmd + Z`         | Undo                     |
@@ -247,3 +253,4 @@ pnpm db:studio
 | `Ctrl/Cmd + +`         | Zoom in                  |
 | `Ctrl/Cmd + -`         | Zoom out                 |
 | `Ctrl/Cmd + 0`         | Reset zoom               |
+| `Ctrl/Cmd + G`         | Toggle grid              |
