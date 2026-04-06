@@ -14,11 +14,13 @@ interface HelpModalProps {
   onClose: () => void;
 }
 
-const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
-  const ShortcutItem: React.FC<{ toolName: string; shortcut: string }> = ({
-    toolName,
-    shortcut,
-  }) => (
+interface ShortcutItemProps {
+  toolName: string;
+  shortcut: string;
+}
+
+function ShortcutItem({ toolName, shortcut }: ShortcutItemProps) {
+  return (
     <div className="flex justify-between items-center py-2 border-b border-[var(--color-panel-slider)]/50 last:border-b-0">
       <div className="text-[var(--color-tool-inactive-text)] flex-1">
         {toolName}
@@ -28,17 +30,23 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       </div>
     </div>
   );
+}
 
-  const HeaderButton: React.FC<{ icon: React.ReactNode; label: string }> = ({
-    icon,
-    label,
-  }) => (
+interface HeaderButtonProps {
+  icon: React.ReactNode;
+  label: string;
+}
+
+function HeaderButton({ icon, label }: HeaderButtonProps) {
+  return (
     <button className="flex items-center gap-2 px-3 py-2 bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-tool-hover-bg)] rounded-lg text-sm text-[var(--color-tool-inactive-text)] border border-[var(--color-panel-slider)]/50 transition-colors">
       {icon}
       {label}
     </button>
   );
+}
 
+export default function HelpModal({ onClose }: HelpModalProps) {
   return (
     <div
       className="fixed inset-0 bg-black/60 z-100 flex items-center justify-center p-4"
@@ -64,7 +72,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           </button>
         </div>
 
-        <div className="p-5 flex gap-3 border-b border-panel-slider  flex-wrap">
+        <div className="p-5 flex gap-3 border-b border-panel-slider flex-wrap">
           <HeaderButton icon={<BookOpen size={18} />} label="Documentation" />
           <HeaderButton icon={<ExternalLink size={18} />} label="Blog" />
           <HeaderButton icon={<Github size={18} />} label="GitHub" />
@@ -72,14 +80,14 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
-          <h3 className="text-lg font-semibold text-panel-text  mb-4 flex items-center gap-2">
-            <Keyboard size={20} className="text-tool-inactive-text " />
+          <h3 className="text-lg font-semibold text-panel-text mb-4 flex items-center gap-2">
+            <Keyboard size={20} className="text-tool-inactive-text" />
             Keyboard shortcuts
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-0 text-sm">
             <div>
-              <h4 className="text-xs font-bold text-panel-label  uppercase mb-2 mt-4">
+              <h4 className="text-xs font-bold text-panel-label uppercase mb-2 mt-4">
                 Tools
               </h4>
               <ShortcutItem toolName="Hand (panning tool)" shortcut="H" />
@@ -88,6 +96,8 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               <ShortcutItem toolName="Diamond" shortcut="3" />
               <ShortcutItem toolName="Draw (freehand)" shortcut="D or P or 7" />
               <ShortcutItem toolName="Ellipse" shortcut="O or 4" />
+              <ShortcutItem toolName="Arrow" shortcut="A or 5" />
+              <ShortcutItem toolName="Line" shortcut="L or 6" />
               <ShortcutItem toolName="Text" shortcut="T or 8" />
               <ShortcutItem toolName="Insert image" shortcut="9" />
               <ShortcutItem toolName="Eraser" shortcut="X or 0" />
@@ -95,7 +105,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             </div>
 
             <div>
-              <h4 className="text-xs font-bold text-panel-label  uppercase mb-2 mt-4">
+              <h4 className="text-xs font-bold text-panel-label uppercase mb-2 mt-4">
                 Editor
               </h4>
               <ShortcutItem toolName="Move canvas" shortcut="Space + Drag" />
@@ -116,6 +126,4 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       </div>
     </div>
   );
-};
-
-export default HelpModal;
+}
