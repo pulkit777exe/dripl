@@ -1,6 +1,8 @@
 {
   "name": "@dripl/runtime",
   "version": "0.0.0",
+  "description": "Runtime state management for Dripl canvas",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {

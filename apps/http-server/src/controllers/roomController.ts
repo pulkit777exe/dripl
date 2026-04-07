@@ -1,11 +1,11 @@
-import { Response } from "express";
-import { db as prisma } from "@dripl/db";
-import { AuthRequest } from "../middlewares/authMiddleware.js";
-import crypto from "crypto";
+import { Response } from 'express';
+import { db as prisma } from '@dripl/db';
+import { AuthRequest } from '../middlewares/authMiddleware';
+import crypto from 'crypto';
 
 function generateSlug(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let slug = "";
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let slug = '';
   for (let i = 0; i < 8; i++) {
     slug += chars[Math.floor(Math.random() * chars.length)];
   }
@@ -29,7 +29,7 @@ export class RoomController {
           ],
         },
         orderBy: {
-          updatedAt: "desc",
+          updatedAt: 'desc',
         },
         select: {
           id: true,
@@ -44,8 +44,8 @@ export class RoomController {
 
       res.json({ rooms });
     } catch (error) {
-      console.error("Error fetching rooms:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error fetching rooms:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 
@@ -67,20 +67,20 @@ export class RoomController {
       const room = await prisma.canvasRoom.create({
         data: {
           slug,
-          name: name || "Untitled Room",
+          name: name || 'Untitled Room',
           ownerId: req.userId!,
           isPublic,
-          content: "[]",
+          content: '[]',
         },
       });
 
       res.status(201).json({
-        status: "room created",
+        status: 'room created',
         room,
       });
     } catch (error) {
-      console.error("Error creating room:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error creating room:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 
@@ -115,22 +115,22 @@ export class RoomController {
       });
 
       if (!room) {
-        res.status(404).json({ error: "Room not found" });
+        res.status(404).json({ error: 'Room not found' });
         return;
       }
 
       const isOwner = room.ownerId === req.userId;
-      const isMember = room.members.some((m) => m.userId === req.userId);
+      const isMember = room.members.some(m => m.userId === req.userId);
 
       if (!room.isPublic && !isOwner && !isMember) {
-        res.status(403).json({ error: "Access denied" });
+        res.status(403).json({ error: 'Access denied' });
         return;
       }
 
       res.json({ room });
     } catch (error) {
-      console.error("Error fetching room:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error fetching room:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 
@@ -142,12 +142,12 @@ export class RoomController {
       const room = await prisma.canvasRoom.findUnique({ where: { slug } });
 
       if (!room) {
-        res.status(404).json({ error: "Room not found" });
+        res.status(404).json({ error: 'Room not found' });
         return;
       }
 
       if (room.ownerId !== req.userId) {
-        res.status(403).json({ error: "Only the owner can update this room" });
+        res.status(403).json({ error: 'Only the owner can update this room' });
         return;
       }
 
@@ -161,12 +161,12 @@ export class RoomController {
       });
 
       res.json({
-        status: "room updated",
+        status: 'room updated',
         room: updatedRoom,
       });
     } catch (error) {
-      console.error("Error updating room:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error updating room:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 
@@ -177,12 +177,12 @@ export class RoomController {
       const room = await prisma.canvasRoom.findUnique({ where: { slug } });
 
       if (!room) {
-        res.status(404).json({ error: "Room not found" });
+        res.status(404).json({ error: 'Room not found' });
         return;
       }
 
       if (room.ownerId !== req.userId) {
-        res.status(403).json({ error: "Only the owner can delete this room" });
+        res.status(403).json({ error: 'Only the owner can delete this room' });
         return;
       }
 
@@ -192,26 +192,24 @@ export class RoomController {
 
       await prisma.canvasRoom.delete({ where: { slug } });
 
-      res.json({ status: "room deleted" });
+      res.json({ status: 'room deleted' });
     } catch (error) {
-      console.error("Error deleting room:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error deleting room:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   static async addMember(req: AuthRequest, res: Response): Promise<void> {
     const { slug } = req.params as { slug: string };
-    const { userId, role = "EDITOR" } = req.body;
+    const { userId, role = 'EDITOR' } = req.body;
 
     if (!userId) {
-      res.status(400).json({ error: "User ID is required" });
+      res.status(400).json({ error: 'User ID is required' });
       return;
     }
 
-    if (!["EDITOR", "VIEWER"].includes(role)) {
-      res
-        .status(400)
-        .json({ error: "Invalid role. Must be 'EDITOR' or 'VIEWER'" });
+    if (!['EDITOR', 'VIEWER'].includes(role)) {
+      res.status(400).json({ error: "Invalid role. Must be 'EDITOR' or 'VIEWER'" });
       return;
     }
 
@@ -219,12 +217,12 @@ export class RoomController {
       const room = await prisma.canvasRoom.findUnique({ where: { slug } });
 
       if (!room) {
-        res.status(404).json({ error: "Room not found" });
+        res.status(404).json({ error: 'Room not found' });
         return;
       }
 
       if (room.ownerId !== req.userId) {
-        res.status(403).json({ error: "Only the owner can add members" });
+        res.status(403).json({ error: 'Only the owner can add members' });
         return;
       }
 
@@ -238,9 +236,7 @@ export class RoomController {
       });
 
       if (existingMember) {
-        res
-          .status(409)
-          .json({ error: "User is already a member of this room" });
+        res.status(409).json({ error: 'User is already a member of this room' });
         return;
       }
 
@@ -253,12 +249,12 @@ export class RoomController {
       });
 
       res.status(201).json({
-        status: "member added",
+        status: 'member added',
         member,
       });
     } catch (error) {
-      console.error("Error adding member:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error adding member:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 
@@ -269,19 +265,17 @@ export class RoomController {
       const room = await prisma.canvasRoom.findUnique({ where: { slug } });
 
       if (!room) {
-        res.status(404).json({ error: "Room not found" });
+        res.status(404).json({ error: 'Room not found' });
         return;
       }
 
       if (room.ownerId !== req.userId) {
-        res.status(403).json({ error: "Only the owner can remove members" });
+        res.status(403).json({ error: 'Only the owner can remove members' });
         return;
       }
 
       if (room.ownerId === userId) {
-        res
-          .status(400)
-          .json({ error: "Owner cannot remove themselves from the room" });
+        res.status(400).json({ error: 'Owner cannot remove themselves from the room' });
         return;
       }
 
@@ -292,21 +286,19 @@ export class RoomController {
         },
       });
 
-      res.json({ status: "member removed" });
+      res.json({ status: 'member removed' });
     } catch (error) {
-      console.error("Error removing member:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error removing member:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   static async shareRoom(req: AuthRequest, res: Response): Promise<void> {
     const { slug } = req.params as { slug: string };
-    const { permission = "view", expiresIn = 24 } = req.body;
+    const { permission = 'view', expiresIn = 24 } = req.body;
 
-    if (!["view", "edit"].includes(permission)) {
-      res
-        .status(400)
-        .json({ error: "Invalid permission. Must be 'view' or 'edit'" });
+    if (!['view', 'edit'].includes(permission)) {
+      res.status(400).json({ error: "Invalid permission. Must be 'view' or 'edit'" });
       return;
     }
 
@@ -314,12 +306,12 @@ export class RoomController {
       const room = await prisma.canvasRoom.findUnique({ where: { slug } });
 
       if (!room) {
-        res.status(404).json({ error: "Room not found" });
+        res.status(404).json({ error: 'Room not found' });
         return;
       }
 
       if (room.ownerId !== req.userId) {
-        res.status(403).json({ error: "Only the owner can share this room" });
+        res.status(403).json({ error: 'Only the owner can share this room' });
         return;
       }
 
@@ -330,22 +322,22 @@ export class RoomController {
         data: {
           token,
           roomId: room.id,
-          permission: permission.toUpperCase() as "VIEW" | "EDIT",
+          permission: permission.toUpperCase() as 'VIEW' | 'EDIT',
           expiresAt,
           createdById: req.userId!,
         },
       });
 
       res.status(201).json({
-        status: "share link created",
+        status: 'share link created',
         token: shareLink.token,
-        url: `${process.env.FRONTEND_URL || "http://localhost:3000"}/board/${shareLink.token}`,
+        url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/board/${shareLink.token}`,
         permission: shareLink.permission,
         expiresAt: shareLink.expiresAt,
       });
     } catch (error) {
-      console.error("Error creating share link:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error creating share link:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 
@@ -369,12 +361,12 @@ export class RoomController {
       });
 
       if (!shareLink) {
-        res.status(404).json({ error: "Share link not found" });
+        res.status(404).json({ error: 'Share link not found' });
         return;
       }
 
       if (shareLink.expiresAt < new Date()) {
-        res.status(410).json({ error: "Share link has expired" });
+        res.status(410).json({ error: 'Share link has expired' });
         return;
       }
 
@@ -384,8 +376,8 @@ export class RoomController {
         expiresAt: shareLink.expiresAt,
       });
     } catch (error) {
-      console.error("Error fetching share link:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error fetching share link:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 
@@ -413,14 +405,14 @@ export class RoomController {
           },
         },
         orderBy: {
-          createdAt: "desc",
+          createdAt: 'desc',
         },
       });
 
       res.json({ rooms: sharedRooms });
     } catch (error) {
-      console.error("Error fetching shared rooms:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error fetching shared rooms:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 }

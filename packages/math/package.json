@@ -1,6 +1,8 @@
 {
   "name": "@dripl/math",
   "version": "0.0.0",
+  "description": "Math utilities for geometry and intersection calculations",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {

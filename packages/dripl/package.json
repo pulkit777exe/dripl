@@ -1,6 +1,8 @@
 {
   "name": "@dripl/dripl",
   "version": "0.0.0",
+  "description": "Core Dripl library with canvas, hooks, and state management",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",

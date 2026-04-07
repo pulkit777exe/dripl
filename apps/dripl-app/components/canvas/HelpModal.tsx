@@ -23,7 +23,7 @@ function ShortcutItem({ toolName, shortcut }: ShortcutItemProps) {
   return (
     <div className="flex justify-between items-center py-2 border-b border-(--color-panel-slider)/50 last:border-b-0">
       <div className="text-(--color-tool-inactive-text) flex-1">{toolName}</div>
-      <div className="text-xs font-mono px-3 py-0.5 rounded-md bg-(--color-tool-hover-bg) text-(--color-tool-inactive-text) border border-(--color-panel-slider)/50 min-w-[50px] text-center">
+      <div className="text-xs font-mono px-3 py-0.5 rounded-md bg-(--color-tool-hover-bg) text-(--color-tool-inactive-text) border border-(--color-panel-slider)/50 min-w-12.5 text-center">
         {shortcut}
       </div>
     </div>

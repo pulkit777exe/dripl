@@ -1,28 +1,36 @@
-import "dotenv/config";
-import { createServer } from "http";
-import { WebSocketServer, WebSocket } from "ws";
-import { v4 as uuidv4 } from "uuid";
-import jwt from "jsonwebtoken";
-import type { DriplElement } from "@dripl/common";
-import { db } from "@dripl/db";
-import { messageSchema } from "./validation";
+import 'dotenv/config';
+import { createServer } from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
+import { v4 as uuidv4 } from 'uuid';
+import jwt from 'jsonwebtoken';
+import type { DriplElement } from '@dripl/common';
+import { db } from '@dripl/db';
+import { messageSchema } from './validation';
 
 function toDriplElement(el: unknown): DriplElement {
   const e = el as DriplElement;
   if (
     !e.id ||
     !e.type ||
-    typeof e.x !== "number" ||
-    typeof e.y !== "number" ||
-    typeof e.width !== "number" ||
-    typeof e.height !== "number"
+    typeof e.x !== 'number' ||
+    typeof e.y !== 'number' ||
+    typeof e.width !== 'number' ||
+    typeof e.height !== 'number'
   ) {
-    throw new Error("Invalid element structure");
+    throw new Error('Invalid element structure');
   }
   return e;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || "secret-key";
+const requiredEnv = (key: string): string => {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+  return value;
+};
+
+const JWT_SECRET = requiredEnv('JWT_SECRET');
 const WS_PORT = Number(process.env.WS_PORT || 3001);
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const SAVE_DEBOUNCE_MS = 2_000;
@@ -58,7 +66,7 @@ function parseStoredElements(raw: string | null | undefined): DriplElement[] {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(parsed)) return parsed as DriplElement[];
-    if (parsed && typeof parsed === "object") {
+    if (parsed && typeof parsed === 'object') {
       const record = parsed as Record<string, unknown>;
       if (Array.isArray(record.elements)) {
         return record.elements as DriplElement[];
@@ -74,14 +82,11 @@ function serializeElements(elements: DriplElement[]): string {
   return JSON.stringify({ elements });
 }
 
-function resolveTokenFromUrl(
-  reqUrl: string | undefined,
-  host: string | undefined,
-): string | null {
+function resolveTokenFromUrl(reqUrl: string | undefined, host: string | undefined): string | null {
   if (!reqUrl || !host) return null;
   try {
     const url = new URL(reqUrl, `http://${host}`);
-    return url.searchParams.get("token");
+    return url.searchParams.get('token');
   } catch {
     return null;
   }
@@ -132,10 +137,7 @@ async function loadRoomElements(roomId: string): Promise<DriplElement[]> {
   return [];
 }
 
-async function saveRoomElements(
-  roomId: string,
-  elements: DriplElement[],
-): Promise<void> {
+async function saveRoomElements(roomId: string, elements: DriplElement[]): Promise<void> {
   try {
     const fileUpdate = await db.file.updateMany({
       where: { id: roomId },
@@ -157,7 +159,7 @@ async function saveRoomElements(
       },
     });
   } catch (error) {
-    console.error("Failed to save room", roomId, error);
+    console.error('Failed to save room', roomId, error);
   }
 }
 
@@ -169,12 +171,12 @@ function scheduleSave(roomId: string, elements: DriplElement[]): void {
     setTimeout(async () => {
       await saveRoomElements(roomId, elements);
       saveTimeouts.delete(roomId);
-    }, SAVE_DEBOUNCE_MS),
+    }, SAVE_DEBOUNCE_MS)
   );
 }
 
 function roomUsersPayload(room: RoomState) {
-  return Array.from(room.users.values()).map((user) => ({
+  return Array.from(room.users.values()).map(user => ({
     userId: user.userId,
     userName: user.displayName,
     displayName: user.displayName,
@@ -189,9 +191,9 @@ function roomCursorsPayload(room: RoomState) {
       userId,
       x: cursor.x,
       y: cursor.y,
-      userName: user?.displayName ?? "Unknown",
-      displayName: user?.displayName ?? "Unknown",
-      color: user?.color ?? "#000000",
+      userName: user?.displayName ?? 'Unknown',
+      displayName: user?.displayName ?? 'Unknown',
+      color: user?.color ?? '#000000',
     };
   });
 }
@@ -201,13 +203,9 @@ function send(ws: WebSocket, payload: unknown): void {
   ws.send(JSON.stringify(payload));
 }
 
-function broadcast(
-  room: RoomState,
-  payload: unknown,
-  exceptUserId?: string,
-): void {
+function broadcast(room: RoomState, payload: unknown, exceptUserId?: string): void {
   const data = JSON.stringify(payload);
-  room.users.forEach((user) => {
+  room.users.forEach(user => {
     if (exceptUserId && user.userId === exceptUserId) return;
     if (user.ws.readyState !== WebSocket.OPEN) return;
     user.ws.send(data);
@@ -216,35 +214,41 @@ function broadcast(
 
 function pickUserColor(): string {
   const colors = [
-    "#ff6b6b",
-    "#4ecdc4",
-    "#45b7d1",
-    "#ffa07a",
-    "#98d8c8",
-    "#f7dc6f",
-    "#bb8fce",
-    "#85c1e2",
+    '#ff6b6b',
+    '#4ecdc4',
+    '#45b7d1',
+    '#ffa07a',
+    '#98d8c8',
+    '#f7dc6f',
+    '#bb8fce',
+    '#85c1e2',
   ];
-  return colors[Math.floor(Math.random() * colors.length)] ?? "#45b7d1";
+  return colors[Math.floor(Math.random() * colors.length)] ?? '#45b7d1';
 }
 
-wss.on("connection", (ws, req) => {
-  const authUserId = resolveUserFromToken(
-    resolveTokenFromUrl(req.url, req.headers.host),
-  );
+wss.on('connection', (ws, req) => {
+  const authUserId = resolveUserFromToken(resolveTokenFromUrl(req.url, req.headers.host));
 
   let currentRoomId: string | null = null;
   let currentUserId: string | null = null;
 
-  ws.on("pong", () => {
+  ws.on('pong', () => {
     const user = (ws as WebSocket & { __user?: UserConnection }).__user;
     if (user) user.isAlive = true;
   });
 
-  ws.on("message", async (raw) => {
+  ws.on('message', async (raw: any) => {
+    const MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
+    const messageStr = raw.toString();
+    if (messageStr.length > MAX_MESSAGE_SIZE) {
+      console.warn(`[WS] Message too large: ${messageStr.length} bytes`);
+      ws.close(1009, 'Message too large');
+      return;
+    }
+
     let parsed: unknown;
     try {
-      parsed = JSON.parse(raw.toString());
+      parsed = JSON.parse(messageStr);
     } catch {
       return;
     }
@@ -257,8 +261,8 @@ wss.on("connection", (ws, req) => {
     const message = validation.data;
 
     switch (message.type) {
-      case "join_room":
-      case "join": {
+      case 'join_room':
+      case 'join': {
         const roomId = message.roomId;
         const room = getOrCreateRoom(roomId);
 
@@ -267,12 +271,9 @@ wss.on("connection", (ws, req) => {
           room.loadedFromDb = true;
         }
 
-        const requestedUserId =
-          message.type === "join" ? message.userId : undefined;
-        const requestedName =
-          message.type === "join" ? message.displayName : message.userName;
-        const requestedColor =
-          message.type === "join" ? message.color : undefined;
+        const requestedUserId = message.type === 'join' ? message.userId : undefined;
+        const requestedName = message.type === 'join' ? message.displayName : message.userName;
+        const requestedColor = message.type === 'join' ? message.color : undefined;
 
         const userId = requestedUserId || authUserId || `anon_${uuidv4()}`;
         const displayName = requestedName || `User-${userId.slice(0, 4)}`;
@@ -292,7 +293,7 @@ wss.on("connection", (ws, req) => {
         (ws as WebSocket & { __user?: UserConnection }).__user = connection;
 
         const syncPayload = {
-          type: "sync_room_state",
+          type: 'sync_room_state',
           roomId,
           elements: room.elements,
           users: roomUsersPayload(room),
@@ -303,7 +304,7 @@ wss.on("connection", (ws, req) => {
         send(ws, syncPayload);
 
         const roomStatePayload = {
-          type: "room-state",
+          type: 'room-state',
           roomId,
           elements: room.elements,
           users: roomUsersPayload(room),
@@ -314,7 +315,7 @@ wss.on("connection", (ws, req) => {
         send(ws, roomStatePayload);
 
         const joinPayload = {
-          type: "user_join",
+          type: 'user_join',
           roomId,
           userId,
           userName: displayName,
@@ -327,15 +328,15 @@ wss.on("connection", (ws, req) => {
           room,
           {
             ...joinPayload,
-            type: "user-join",
+            type: 'user-join',
           },
-          userId,
+          userId
         );
         break;
       }
 
-      case "leave_room":
-      case "leave": {
+      case 'leave_room':
+      case 'leave': {
         if (!currentRoomId || !currentUserId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
@@ -344,13 +345,13 @@ wss.on("connection", (ws, req) => {
         room.cursors.delete(currentUserId);
 
         const leavePayload = {
-          type: "user_leave",
+          type: 'user_leave',
           roomId: currentRoomId,
           userId: currentUserId,
           timestamp: Date.now(),
         };
         broadcast(room, leavePayload);
-        broadcast(room, { ...leavePayload, type: "user-leave" });
+        broadcast(room, { ...leavePayload, type: 'user-leave' });
 
         if (room.users.size === 0) {
           rooms.delete(currentRoomId);
@@ -361,52 +362,46 @@ wss.on("connection", (ws, req) => {
         break;
       }
 
-      case "add_element": {
+      case 'add_element': {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
         const element = toDriplElement(message.element);
-        room.elements = room.elements.filter((el) => el.id !== element.id);
+        room.elements = room.elements.filter(el => el.id !== element.id);
         room.elements.push(element);
         broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId, room.elements);
         break;
       }
 
-      case "update_element": {
+      case 'update_element': {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
         const element = toDriplElement(message.element);
-        room.elements = room.elements.map((e) =>
-          e.id === element.id ? element : e,
-        );
+        room.elements = room.elements.map(e => (e.id === element.id ? element : e));
         broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId, room.elements);
         break;
       }
 
-      case "delete_element": {
+      case 'delete_element': {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
-        room.elements = room.elements.filter(
-          (element) => element.id !== message.elementId,
-        );
+        room.elements = room.elements.filter(element => element.id !== message.elementId);
         broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId, room.elements);
         break;
       }
 
-      case "element-update": {
+      case 'element-update': {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
 
         if (Array.isArray(message.elements)) {
-          const merged = new Map(
-            room.elements.map((element) => [element.id, element]),
-          );
+          const merged = new Map(room.elements.map(element => [element.id, element]));
           for (const rawEl of message.elements) {
             const element = toDriplElement(rawEl);
             merged.set(element.id, element);
@@ -416,9 +411,7 @@ wss.on("connection", (ws, req) => {
           const rawElement = message.element;
           if (!rawElement) break;
           const element = toDriplElement(rawElement);
-          room.elements = room.elements.filter(
-            (candidate) => candidate.id !== element.id,
-          );
+          room.elements = room.elements.filter(candidate => candidate.id !== element.id);
           room.elements.push(element);
         }
 
@@ -427,47 +420,40 @@ wss.on("connection", (ws, req) => {
         break;
       }
 
-      case "cursor_move":
-      case "cursor-move": {
+      case 'cursor_move':
+      case 'cursor-move': {
         if (!currentRoomId || !currentUserId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
 
         room.cursors.set(currentUserId, { x: message.x, y: message.y });
         const user = room.users.get(currentUserId);
-        const displayName =
-          message.type === "cursor-move"
-            ? message.displayName
-            : message.userName;
+        const displayName = message.type === 'cursor-move' ? message.displayName : message.userName;
         const cursorPayload = {
-          type: "cursor_move",
+          type: 'cursor_move',
           roomId: currentRoomId,
           userId: currentUserId,
           x: message.x,
           y: message.y,
-          userName: displayName ?? user?.displayName ?? "Unknown",
-          displayName: displayName ?? user?.displayName ?? "Unknown",
-          color: message.color ?? user?.color ?? "#000000",
+          userName: displayName ?? user?.displayName ?? 'Unknown',
+          displayName: displayName ?? user?.displayName ?? 'Unknown',
+          color: message.color ?? user?.color ?? '#000000',
           timestamp: Date.now(),
         };
 
         broadcast(room, cursorPayload, currentUserId);
-        broadcast(
-          room,
-          { ...cursorPayload, type: "cursor-move" },
-          currentUserId,
-        );
+        broadcast(room, { ...cursorPayload, type: 'cursor-move' }, currentUserId);
         break;
       }
 
-      case "ping": {
-        send(ws, { type: "pong", timestamp: Date.now() });
+      case 'ping': {
+        send(ws, { type: 'pong', timestamp: Date.now() });
         break;
       }
     }
   });
 
-  ws.on("close", () => {
+  ws.on('close', () => {
     if (!currentRoomId || !currentUserId) return;
     const room = rooms.get(currentRoomId);
     if (!room) return;
@@ -476,13 +462,13 @@ wss.on("connection", (ws, req) => {
     room.cursors.delete(currentUserId);
 
     const leavePayload = {
-      type: "user_leave",
+      type: 'user_leave',
       roomId: currentRoomId,
       userId: currentUserId,
       timestamp: Date.now(),
     };
     broadcast(room, leavePayload);
-    broadcast(room, { ...leavePayload, type: "user-leave" });
+    broadcast(room, { ...leavePayload, type: 'user-leave' });
 
     if (room.users.size === 0) {
       rooms.delete(currentRoomId);
@@ -491,7 +477,7 @@ wss.on("connection", (ws, req) => {
 });
 
 const heartbeat = setInterval(() => {
-  wss.clients.forEach((ws) => {
+  wss.clients.forEach(ws => {
     const user = (ws as WebSocket & { __user?: UserConnection }).__user;
     if (!user) return;
     if (!user.isAlive) {
@@ -520,9 +506,9 @@ async function shutdown() {
   process.exit(0);
 }
 
-process.on("SIGINT", () => {
+process.on('SIGINT', () => {
   void shutdown();
 });
-process.on("SIGTERM", () => {
+process.on('SIGTERM', () => {
   void shutdown();
 });

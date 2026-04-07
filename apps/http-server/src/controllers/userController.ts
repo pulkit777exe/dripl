@@ -1,8 +1,10 @@
-import { Response } from "express";
-import { db as prisma } from "@dripl/db";
-import { randomUUID } from "crypto";
-import bcrypt from "bcryptjs";
-import { AuthRequest, generateToken } from "../middlewares/authMiddleware.js";
+import { Response } from 'express';
+import { db as prisma } from '@dripl/db';
+import { randomUUID } from 'crypto';
+import bcrypt from 'bcryptjs';
+import { AuthRequest, generateToken } from '../middlewares/authMiddleware.js';
+
+const isProduction = process.env.NODE_ENV === 'production';
 
 export class UserController {
   static async signup(req: AuthRequest, res: Response): Promise<void> {
@@ -10,14 +12,14 @@ export class UserController {
 
     if (!email || !password) {
       res.status(400).json({
-        error: "Email and password are required",
+        error: 'Email and password are required',
       });
       return;
     }
 
     if (password.length < 8) {
       res.status(400).json({
-        error: "Password must be at least 8 characters long",
+        error: 'Password must be at least 8 characters long',
       });
       return;
     }
@@ -25,7 +27,7 @@ export class UserController {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       res.status(400).json({
-        error: "Invalid email format",
+        error: 'Invalid email format',
       });
       return;
     }
@@ -37,7 +39,7 @@ export class UserController {
 
       if (userExists) {
         res.status(409).json({
-          error: "User with this email already exists",
+          error: 'User with this email already exists',
         });
         return;
       }
@@ -56,15 +58,15 @@ export class UserController {
 
       const token = generateToken(newUser.id);
 
-      res.cookie("token", token, {
+      res.cookie('token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        secure: isProduction,
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
       res.status(201).json({
-        status: "user created",
+        status: 'user created',
         user: {
           id: newUser.id,
           email: newUser.email,
@@ -74,9 +76,9 @@ export class UserController {
         token,
       });
     } catch (error) {
-      console.error("Error creating user:", error);
+      console.error('Error creating user:', error);
       res.status(500).json({
-        error: "Internal server error",
+        error: 'Internal server error',
       });
     }
   }
@@ -86,7 +88,7 @@ export class UserController {
 
     if (!email || !password) {
       res.status(400).json({
-        error: "Email and password are required",
+        error: 'Email and password are required',
       });
       return;
     }
@@ -98,7 +100,7 @@ export class UserController {
 
       if (!user) {
         res.status(401).json({
-          error: "Invalid email or password",
+          error: 'Invalid email or password',
         });
         return;
       }
@@ -107,22 +109,22 @@ export class UserController {
 
       if (!validPassword) {
         res.status(401).json({
-          error: "Invalid email or password",
+          error: 'Invalid email or password',
         });
         return;
       }
 
       const token = generateToken(user.id);
 
-      res.cookie("token", token, {
+      res.cookie('token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        secure: isProduction,
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
       res.json({
-        status: "login successful",
+        status: 'login successful',
         user: {
           id: user.id,
           email: user.email,
@@ -132,17 +134,17 @@ export class UserController {
         token,
       });
     } catch (error) {
-      console.error("Error during login:", error);
+      console.error('Error during login:', error);
       res.status(500).json({
-        error: "Internal server error",
+        error: 'Internal server error',
       });
     }
   }
 
   static async logout(req: AuthRequest, res: Response): Promise<void> {
-    res.clearCookie("token");
+    res.clearCookie('token');
     res.json({
-      status: "logout successful",
+      status: 'logout successful',
     });
   }
 
@@ -162,7 +164,7 @@ export class UserController {
 
       if (!user) {
         res.status(404).json({
-          error: "User not found",
+          error: 'User not found',
         });
         return;
       }
@@ -171,9 +173,9 @@ export class UserController {
         user,
       });
     } catch (error) {
-      console.error("Error fetching user profile:", error);
+      console.error('Error fetching user profile:', error);
       res.status(500).json({
-        error: "Internal server error",
+        error: 'Internal server error',
       });
     }
   }
@@ -197,13 +199,13 @@ export class UserController {
       });
 
       res.json({
-        status: "profile updated",
+        status: 'profile updated',
         user: updatedUser,
       });
     } catch (error) {
-      console.error("Error updating user profile:", error);
+      console.error('Error updating user profile:', error);
       res.status(500).json({
-        error: "Internal server error",
+        error: 'Internal server error',
       });
     }
   }

@@ -1,7 +1,7 @@
-import { Response } from "express";
-import { db as prisma } from "@dripl/db";
-import { randomUUID } from "crypto";
-import { AuthRequest } from "../middlewares/authMiddleware.js";
+import { Response } from 'express';
+import { db as prisma } from '@dripl/db';
+import { randomUUID } from 'crypto';
+import { AuthRequest } from '../middlewares/authMiddleware';
 
 export class FileController {
   static async getFiles(req: AuthRequest, res: Response): Promise<void> {
@@ -11,7 +11,7 @@ export class FileController {
           userId: req.userId,
         },
         orderBy: {
-          updatedAt: "desc",
+          updatedAt: 'desc',
         },
         select: {
           id: true,
@@ -26,9 +26,9 @@ export class FileController {
         files,
       });
     } catch (error) {
-      console.error("Error fetching files:", error);
+      console.error('Error fetching files:', error);
       res.status(500).json({
-        error: "Internal server error",
+        error: 'Internal server error',
       });
     }
   }
@@ -40,20 +40,20 @@ export class FileController {
       const file = await prisma.file.create({
         data: {
           id: randomUUID(),
-          name: name || "Untitled",
+          name: name || 'Untitled',
           userId: req.userId!,
-          content: "[]",
+          content: '[]',
         },
       });
 
       res.status(201).json({
-        status: "file created",
+        status: 'file created',
         file,
       });
     } catch (error) {
-      console.error("Error creating file:", error);
+      console.error('Error creating file:', error);
       res.status(500).json({
-        error: "Internal server error",
+        error: 'Internal server error',
       });
     }
   }
@@ -71,7 +71,7 @@ export class FileController {
 
       if (!file) {
         res.status(404).json({
-          error: "File not found",
+          error: 'File not found',
         });
         return;
       }
@@ -80,9 +80,9 @@ export class FileController {
         file,
       });
     } catch (error) {
-      console.error("Error fetching file:", error);
+      console.error('Error fetching file:', error);
       res.status(500).json({
-        error: "Internal server error",
+        error: 'Internal server error',
       });
     }
   }
@@ -101,7 +101,7 @@ export class FileController {
 
       if (!file) {
         res.status(404).json({
-          error: "File not found",
+          error: 'File not found',
         });
         return;
       }
@@ -115,13 +115,13 @@ export class FileController {
       });
 
       res.json({
-        status: "file updated",
+        status: 'file updated',
         file: updatedFile,
       });
     } catch (error) {
-      console.error("Error updating file:", error);
+      console.error('Error updating file:', error);
       res.status(500).json({
-        error: "Internal server error",
+        error: 'Internal server error',
       });
     }
   }
@@ -139,7 +139,7 @@ export class FileController {
 
       if (!file) {
         res.status(404).json({
-          error: "File not found",
+          error: 'File not found',
         });
         return;
       }
@@ -149,12 +149,12 @@ export class FileController {
       });
 
       res.json({
-        status: "file deleted",
+        status: 'file deleted',
       });
     } catch (error) {
-      console.error("Error deleting file:", error);
+      console.error('Error deleting file:', error);
       res.status(500).json({
-        error: "Internal server error",
+        error: 'Internal server error',
       });
     }
   }
