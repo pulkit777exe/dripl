@@ -56,7 +56,24 @@ interface RoomState {
   loadedFromDb: boolean;
 }
 
-const server = createServer();
+const server = createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        service: 'ws-server',
+        version: process.env.npm_package_version || '0.0.0',
+      })
+    );
+  } else {
+    res.writeHead(404);
+    res.end();
+  }
+});
+
 const wss = new WebSocketServer({ server, maxPayload: 1024 * 1024 });
 const rooms = new Map<string, RoomState>();
 const saveTimeouts = new Map<string, NodeJS.Timeout>();

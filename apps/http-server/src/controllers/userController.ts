@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { db as prisma } from '@dripl/db';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
-import { AuthRequest, generateToken } from '../middlewares/authMiddleware.js';
+import { AuthRequest, generateToken } from '../middlewares/authMiddleware';
 
 const isProduction = process.env.NODE_ENV === 'production';
 

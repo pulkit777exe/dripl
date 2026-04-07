@@ -75,7 +75,13 @@ app.use('/api/files', fileRouter);
 app.use('/api/rooms', roomRoutes);
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    service: 'http-server',
+    version: process.env.npm_package_version || '1.0.0',
+  });
 });
 
 app.get('/csrf-token', (req, res) => {
