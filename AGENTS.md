@@ -18,27 +18,27 @@
 
 ---
 
-### 5. No Tests for Server Apps or Frontend
+### 5. No Tests for Server Apps or Frontend ⚠️ Partial
 
 **Files**: `apps/dripl-app/`, `apps/http-server/`, `apps/ws-server/`
 
 **Problem**: The package-level tests cover only the infrastructure packages (common, math, element, runtime, utils). The three apps have zero test coverage.
 
-**Status**: Not yet implemented
+**Status**: Partial - http-server and ws-server now have basic test files in `src/__tests__/`
 
 ---
 
-### 6. AI Generation Feature Non-Functional
+### 6. AI Generation Feature Non-Functional ⚠️ Works with Key
 
 **File**: `apps/dripl-app/app/api/ai/generate/route.ts`
 
 **Problem**: `GEMINI_API_KEY` is empty in `.env`. The AI diagram generation feature returns an error.
 
-**Fix**: Either obtain a valid Gemini API key or remove the feature if not needed.
+**Fix**: Feature works when valid API key is provided. Empty key returns proper error message.
 
 ---
 
-### 7. Next.js Build Lock Race Condition
+### 7. Next.js Build Lock Race Condition ⚠️ Known Limitation
 
 **File**: `apps/dripl-app/.next/dev/lock`
 
@@ -69,6 +69,41 @@ cd apps/http-server && npx tsx watch src/index.ts
 
 ---
 
+## Infrastructure Improvements (April 2026)
+
+### CI/CD & DevOps
+
+| Feature                   | Status         | Notes                        |
+| ------------------------- | -------------- | ---------------------------- |
+| GitHub Actions CI         | ✅ Implemented | Lint, typecheck, test jobs   |
+| Commitlint                | ✅ Implemented | Conventional commits         |
+| GitHub Issue/PR Templates | ✅ Implemented | Bug report, feature request  |
+| Dockerfiles               | ✅ Implemented | For all 3 apps               |
+| Docker Compose            | ✅ Implemented | Local development            |
+| Health Check Endpoints    | ✅ Enhanced    | Now includes uptime, version |
+
+### Code Quality
+
+| Feature              | Status         | Notes                                  |
+| -------------------- | -------------- | -------------------------------------- |
+| Prettier config      | ✅ Implemented | `.prettierrc` at root                  |
+| Shared ESLint config | ✅ Implemented | `tooling/eslint-config/`               |
+| Package metadata     | ✅ Implemented | All packages have description, license |
+| React Error Boundary | ✅ Implemented | `app/error.tsx`                        |
+
+### Security Improvements
+
+| Feature                   | Status         | Notes                         |
+| ------------------------- | -------------- | ----------------------------- |
+| JWT Secret Validation     | ✅ Fixed       | Now throws if env var missing |
+| CSRF Protection           | ✅ Implemented | Token endpoint + headers      |
+| Enhanced Security Headers | ✅ Implemented | CSP, HSTS, referrer-policy    |
+| Per-user Rate Limiting    | ✅ Implemented | Key includes userId           |
+| WebSocket Message Limits  | ✅ Implemented | 10MB max payload              |
+| Cookie Security           | ✅ Fixed       | Uses isProduction constant    |
+
+---
+
 ## Implemented Features (Excalidraw-like)
 
 ### Canvas Features
@@ -93,7 +128,7 @@ cd apps/http-server && npx tsx watch src/index.ts
 
 | Feature            | Status         | Notes                                    |
 | ------------------ | -------------- | ---------------------------------------- |
-| Session-based auth | ✅ Implemented | Replaced Clerk with cookie-based auth    |
+| Session-based auth | ✅ Implemented | Cookie-based auth (replaced Clerk)       |
 | File-based routing | ✅ Implemented | `/canvas/[fileId]` instead of room-based |
 | Dashboard          | ✅ Implemented | Files and folders API                    |
 
@@ -226,7 +261,43 @@ pnpm db:studio
 3. If it's server-only, only http-server and ws-server can access it
 4. Add to `turbo.json` `env` array for build cache invalidation
 
-### Keyboard Shortcuts Reference
+### Running Services
+
+```bash
+# Start all services
+pnpm dev
+
+# Start individual services
+cd apps/dripl-app && pnpm dev    # Port 3000
+cd apps/http-server && pnpm dev  # Port 3002
+cd apps/ws-server && pnpm dev    # Port 3001
+```
+
+### Docker Development
+
+```bash
+# Start all services with Docker Compose
+docker-compose up --build
+
+# Run specific service
+docker-compose up dripl-app
+```
+
+### CI/CD
+
+GitHub Actions runs on every push to `main` and PRs:
+
+- **Lint**: `pnpm lint`
+- **Type Check**: `pnpm build`
+- **Test**: `pnpm test`
+
+### Commit Messages
+
+Uses Conventional Commits. Run `pnpm commitlint` locally before committing.
+
+---
+
+## Keyboard Shortcuts Reference
 
 | Key                    | Action                   |
 | ---------------------- | ------------------------ |

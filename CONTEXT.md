@@ -131,6 +131,8 @@ dripl/
 | `turbo.json`                          | Turborepo task config — build ordering, dev persistence, test caching  |
 | `tooling/typescript-config/base.json` | Base TS config — NodeNext module, strict mode                          |
 | `.env`                                | Root environment variables (single source of truth)                    |
+| `.prettierrc`                         | Prettier code formatting config                                        |
+| `commitlint.config.js`                | Conventional commit message rules                                      |
 
 ## Database Schema
 
@@ -173,6 +175,7 @@ pnpm dev
 ### Required Services
 
 - **PostgreSQL** — configured via `DATABASE_URL` (uses Neon cloud by default)
+- **Redis** — configured via `REDIS_URL` (optional, for caching in ws-server)
 
 ### Available Scripts
 
@@ -182,6 +185,7 @@ pnpm dev
 | `pnpm build`       | Build all packages and apps                          |
 | `pnpm test`        | Run all tests (vitest)                               |
 | `pnpm lint`        | Lint all packages                                    |
+| `pnpm format`      | Format code with Prettier                            |
 | `pnpm db:generate` | Generate Prisma client                               |
 | `pnpm db:migrate`  | Run database migrations                              |
 | `pnpm db:studio`   | Open Prisma Studio (database GUI)                    |
