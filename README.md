@@ -33,8 +33,6 @@ The app will be available at `http://localhost:3000`
 - **Framework**: Next.js 16 with App Router
 - **Styling**: Tailwind CSS 4
 - **State**: TanStack Store
-- **Auth**: Clerk
-- **UI**: Lucide icons, Sonner toasts
 
 ### Canvas System
 
