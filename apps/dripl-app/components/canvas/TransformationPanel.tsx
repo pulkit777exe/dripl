@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import type { DriplElement } from "@dripl/common";
-import { RotateCw, ArrowUpDown, ArrowLeftRight } from "lucide-react";
+import type { DriplElement } from '@dripl/common';
+import { RotateCw, ArrowUpDown, ArrowLeftRight } from 'lucide-react';
 
 interface TransformationPanelProps {
   selectedElement: DriplElement | null;
@@ -18,7 +18,7 @@ export function TransformationPanel({
 }: TransformationPanelProps) {
   if (!selectedElement) return null;
 
-  const updateProperty = (key: string, value: any) => {
+  const updateProperty = <K extends keyof DriplElement>(key: K, value: DriplElement[K]) => {
     onUpdateElement({
       ...selectedElement,
       [key]: value,
@@ -27,21 +27,21 @@ export function TransformationPanel({
 
   const handleRotate = () => {
     const currentRotation = (selectedElement.rotation ?? 0) + 45;
-    updateProperty("rotation", currentRotation);
+    updateProperty('rotation', currentRotation);
   };
 
   const handleFlipHorizontal = () => {
     const currentFlip = selectedElement.flipHorizontal ?? 1;
-    updateProperty("flipHorizontal", currentFlip === 1 ? -1 : 1);
+    updateProperty('flipHorizontal', currentFlip === 1 ? -1 : 1);
   };
 
   const handleFlipVertical = () => {
     const currentFlip = selectedElement.flipVertical ?? 1;
-    updateProperty("flipVertical", currentFlip === 1 ? -1 : 1);
+    updateProperty('flipVertical', currentFlip === 1 ? -1 : 1);
   };
 
   const handleLock = () => {
-    updateProperty("locked", !selectedElement.locked);
+    updateProperty('locked', !selectedElement.locked);
   };
 
   const handleDelete = () => {
@@ -65,7 +65,7 @@ export function TransformationPanel({
               <input
                 type="number"
                 value={Math.round(selectedElement.x)}
-                onChange={(e) => updateProperty("x", Number(e.target.value))}
+                onChange={e => updateProperty('x', Number(e.target.value))}
                 className="w-full text-xs p-1 border rounded bg-background"
                 step="1"
               />
@@ -75,7 +75,7 @@ export function TransformationPanel({
               <input
                 type="number"
                 value={Math.round(selectedElement.y)}
-                onChange={(e) => updateProperty("y", Number(e.target.value))}
+                onChange={e => updateProperty('y', Number(e.target.value))}
                 className="w-full text-xs p-1 border rounded bg-background"
                 step="1"
               />
@@ -91,9 +91,7 @@ export function TransformationPanel({
               <input
                 type="number"
                 value={Math.round(selectedElement.width)}
-                onChange={(e) =>
-                  updateProperty("width", Number(e.target.value))
-                }
+                onChange={e => updateProperty('width', Number(e.target.value))}
                 className="w-full text-xs p-1 border rounded bg-background"
                 min="1"
                 step="1"
@@ -104,9 +102,7 @@ export function TransformationPanel({
               <input
                 type="number"
                 value={Math.round(selectedElement.height)}
-                onChange={(e) =>
-                  updateProperty("height", Number(e.target.value))
-                }
+                onChange={e => updateProperty('height', Number(e.target.value))}
                 className="w-full text-xs p-1 border rounded bg-background"
                 min="1"
                 step="1"
@@ -128,9 +124,7 @@ export function TransformationPanel({
             <input
               type="number"
               value={selectedElement.rotation ?? 0}
-              onChange={(e) =>
-                updateProperty("rotation", Number(e.target.value))
-              }
+              onChange={e => updateProperty('rotation', Number(e.target.value))}
               className="flex-1 text-xs p-1 border rounded bg-background"
               min="0"
               max="360"
@@ -147,8 +141,8 @@ export function TransformationPanel({
               onClick={handleFlipHorizontal}
               className={`flex-1 p-1 text-xs border rounded transition-colors ${
                 selectedElement.flipHorizontal === -1
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-accent"
+                  ? 'bg-accent text-accent-foreground'
+                  : 'hover:bg-accent'
               }`}
             >
               <ArrowLeftRight className="w-4 h-4" />
@@ -157,8 +151,8 @@ export function TransformationPanel({
               onClick={handleFlipVertical}
               className={`flex-1 p-1 text-xs border rounded transition-colors ${
                 selectedElement.flipVertical === -1
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-accent"
+                  ? 'bg-accent text-accent-foreground'
+                  : 'hover:bg-accent'
               }`}
             >
               <ArrowUpDown className="w-4 h-4" />
@@ -172,9 +166,7 @@ export function TransformationPanel({
             <button
               onClick={handleLock}
               className={`p-1 text-xs border rounded transition-colors ${
-                selectedElement.locked
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-accent"
+                selectedElement.locked ? 'bg-accent text-accent-foreground' : 'hover:bg-accent'
               }`}
             >
               Lock

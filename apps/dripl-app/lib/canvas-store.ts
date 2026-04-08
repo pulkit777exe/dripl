@@ -1,13 +1,13 @@
-import { create } from "zustand";
-import type { DriplElement } from "@dripl/common";
-import { initializeShapeRegistry } from "@/utils/shapes/shapeInitializer";
-import { invalidateElementCache } from "@dripl/element";
+import { create } from 'zustand';
+import type { DriplElement } from '@dripl/common';
+import { initializeShapeRegistry } from '@/utils/shapes/shapeInitializer';
+import { invalidateElementCache } from '@dripl/element';
 
 initializeShapeRegistry();
 
 const MAX_HISTORY = 100;
 
-export type DrawingLifecycle = "idle" | "drawing" | "committing";
+export type DrawingLifecycle = 'idle' | 'drawing' | 'committing';
 
 export interface RemoteUser {
   userId: string;
@@ -23,32 +23,25 @@ export interface RemoteCursor {
   updatedAt: number;
 }
 
-export type Theme = "light" | "dark" | "system";
+export type Theme = 'light' | 'dark' | 'system';
 
 export type ActiveTool =
-  | "select"
-  | "hand"
-  | "rectangle"
-  | "ellipse"
-  | "diamond"
-  | "arrow"
-  | "line"
-  | "freedraw"
-  | "text"
-  | "image"
-  | "frame"
-  | "eraser";
+  | 'select'
+  | 'hand'
+  | 'rectangle'
+  | 'ellipse'
+  | 'diamond'
+  | 'arrow'
+  | 'line'
+  | 'freedraw'
+  | 'text'
+  | 'image'
+  | 'frame'
+  | 'eraser';
 
-type FillStyle =
-  | "hachure"
-  | "solid"
-  | "zigzag"
-  | "cross-hatch"
-  | "dots"
-  | "dashed"
-  | "zigzag-line";
+type FillStyle = 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
 
-type StrokeStyle = "solid" | "dashed" | "dotted";
+type StrokeStyle = 'solid' | 'dashed' | 'dotted';
 
 interface HistoryState {
   past: DriplElement[][];
@@ -56,12 +49,12 @@ interface HistoryState {
 }
 
 function cloneElements(elements: readonly DriplElement[]): DriplElement[] {
-  return elements.map((element) => ({ ...element }));
+  return elements.map(element => ({ ...element }));
 }
 
 function pushPast(
   past: readonly DriplElement[][],
-  snapshot: readonly DriplElement[],
+  snapshot: readonly DriplElement[]
 ): DriplElement[][] {
   const next = [...past, cloneElements(snapshot)];
   if (next.length <= MAX_HISTORY) return next;
@@ -75,18 +68,18 @@ function deriveHistoryIndex(past: readonly DriplElement[][]): number {
 function deriveHistory(
   past: readonly DriplElement[][],
   present: readonly DriplElement[],
-  future: readonly DriplElement[][],
+  future: readonly DriplElement[][]
 ): DriplElement[][] {
   return [
-    ...past.map((snapshot) => cloneElements(snapshot)),
+    ...past.map(snapshot => cloneElements(snapshot)),
     cloneElements(present),
-    ...future.map((snapshot) => cloneElements(snapshot)),
+    ...future.map(snapshot => cloneElements(snapshot)),
   ];
 }
 
 function withHistoryBeforeMutation(
   history: HistoryState,
-  currentElements: readonly DriplElement[],
+  currentElements: readonly DriplElement[]
 ): HistoryState {
   return {
     past: pushPast(history.past, currentElements),
@@ -97,7 +90,7 @@ function withHistoryBeforeMutation(
 function commitPresentFromHistory(
   past: readonly DriplElement[][],
   future: readonly DriplElement[][],
-  present: readonly DriplElement[],
+  present: readonly DriplElement[]
 ) {
   return {
     past: [...past],
@@ -138,6 +131,10 @@ export interface CanvasState {
   gridEnabled: boolean;
   gridSize: number;
 
+  // Marquee selection mode: 'intersecting' (default) or 'contained'
+  marqueeSelectionMode: 'intersecting' | 'contained';
+  setMarqueeSelectionMode: (mode: 'intersecting' | 'contained') => void;
+
   currentStrokeColor: string;
   currentBackgroundColor: string;
   currentStrokeWidth: number;
@@ -149,6 +146,11 @@ export interface CanvasState {
   future: DriplElement[][];
   history: DriplElement[][];
   historyIndex: number;
+
+  // Internal clipboard for multi-element copy/paste
+  clipboard: DriplElement[];
+  setClipboard: (elements: DriplElement[]) => void;
+  clearClipboard: () => void;
 
   setRoomId: (roomId: string | null) => void;
   setRoomSlug: (roomSlug: string | null) => void;
@@ -165,10 +167,7 @@ export interface CanvasState {
   setDrawingLifecycle: (lifecycle: DrawingLifecycle) => void;
   setEditingElementId: (id: string | null) => void;
 
-  setElements: (
-    elements: DriplElement[],
-    options?: { skipHistory?: boolean },
-  ) => void;
+  setElements: (elements: DriplElement[], options?: { skipHistory?: boolean }) => void;
   addElement: (element: DriplElement) => void;
   addElements: (elements: DriplElement[]) => void;
   updateElement: (id: string, updates: Partial<DriplElement>) => void;
@@ -189,7 +188,7 @@ export interface CanvasState {
   setRemoteUsers: (users: Map<string, RemoteUser>) => void;
   addRemoteUser: (user: RemoteUser) => void;
   removeRemoteUser: (userId: string) => void;
-  updateRemoteCursor: (userId: string, cursor: Omit<RemoteCursor, "updatedAt">) => void;
+  updateRemoteCursor: (userId: string, cursor: Omit<RemoteCursor, 'updatedAt'>) => void;
   removeRemoteCursor: (userId: string) => void;
 
   setElementLock: (elementId: string, userId: string) => void;
@@ -209,6 +208,10 @@ export interface CanvasState {
   setCurrentStrokeStyle: (style: StrokeStyle) => void;
   setCurrentFillStyle: (style: FillStyle) => void;
 
+  // Group operations
+  groupElements: (ids: string[]) => void;
+  ungroupElements: (ids: string[]) => void;
+
   undo: () => void;
   redo: () => void;
   pushHistory: () => void;
@@ -216,24 +219,24 @@ export interface CanvasState {
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
-  theme: "system",
+  theme: 'system',
   roomId: null,
   roomSlug: null,
   isConnected: false,
   readOnly: false,
   userId: null,
   fileId: null,
-  fileName: "Untitled",
+  fileName: 'Untitled',
   isSaving: false,
   lastSaved: null,
 
-  drawingLifecycle: "idle",
+  drawingLifecycle: 'idle',
   draftElement: null,
   isEditingElementId: null,
 
   elements: [],
   selectedIds: new Set<string>(),
-  activeTool: "select",
+  activeTool: 'select',
   toolLocked: false,
 
   remoteUsers: new Map<string, RemoteUser>(),
@@ -245,36 +248,41 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   panY: 0,
   gridEnabled: false,
   gridSize: 20,
+  marqueeSelectionMode: 'intersecting',
 
-  currentStrokeColor: "#1e1e1e",
-  currentBackgroundColor: "transparent",
+  currentStrokeColor: '#1e1e1e',
+  currentBackgroundColor: 'transparent',
   currentStrokeWidth: 2,
   currentRoughness: 1,
-  currentStrokeStyle: "solid",
-  currentFillStyle: "hachure",
+  currentStrokeStyle: 'solid',
+  currentFillStyle: 'hachure',
 
   past: [],
   future: [],
   history: [cloneElements([])],
   historyIndex: 0,
+  clipboard: [],
 
-  setRoomId: (roomId) => set({ roomId }),
-  setRoomSlug: (roomSlug) => set({ roomSlug }),
-  setIsConnected: (isConnected) => set({ isConnected }),
-  setReadOnly: (readOnly) => set({ readOnly }),
-  setUserId: (userId) => set({ userId }),
+  setClipboard: elements => set({ clipboard: elements }),
+  clearClipboard: () => set({ clipboard: [] }),
+
+  setRoomId: roomId => set({ roomId }),
+  setRoomSlug: roomSlug => set({ roomSlug }),
+  setIsConnected: isConnected => set({ isConnected }),
+  setReadOnly: readOnly => set({ readOnly }),
+  setUserId: userId => set({ userId }),
   setFileMetadata: (fileId, fileName) => set({ fileId, fileName }),
-  markSaving: (isSaving) => set({ isSaving }),
+  markSaving: isSaving => set({ isSaving }),
   markSaved: () => set({ isSaving: false, lastSaved: Date.now() }),
 
-  setDraftElement: (element) =>
+  setDraftElement: element =>
     set({
       draftElement: element,
-      drawingLifecycle: element ? "drawing" : "idle",
+      drawingLifecycle: element ? 'drawing' : 'idle',
     }),
 
-  updateDraftElement: (updates) =>
-    set((state) => ({
+  updateDraftElement: updates =>
+    set(state => ({
       draftElement:
         state.draftElement !== null
           ? ({ ...state.draftElement, ...updates } as DriplElement)
@@ -285,14 +293,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const state = get();
     const draft = state.draftElement;
     if (!draft) return null;
-    if (state.elements.some((element) => element.id === draft.id)) {
-      set({ draftElement: null, drawingLifecycle: "idle" });
+    if (state.elements.some(element => element.id === draft.id)) {
+      set({ draftElement: null, drawingLifecycle: 'idle' });
       return null;
     }
 
     const history = withHistoryBeforeMutation(
       { past: state.past, future: state.future },
-      state.elements,
+      state.elements
     );
 
     const committed: DriplElement = {
@@ -302,16 +310,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       updated: Date.now(),
     };
     const elements = [...state.elements, committed];
-    const historyPayload = commitPresentFromHistory(
-      history.past,
-      history.future,
-      elements,
-    );
+    const historyPayload = commitPresentFromHistory(history.past, history.future, elements);
 
     set({
       elements,
       draftElement: null,
-      drawingLifecycle: "idle",
+      drawingLifecycle: 'idle',
       past: historyPayload.past,
       future: historyPayload.future,
       history: historyPayload.history,
@@ -320,24 +324,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     return committed;
   },
 
-  setDrawingLifecycle: (drawingLifecycle) => set({ drawingLifecycle }),
-  setEditingElementId: (isEditingElementId) => set({ isEditingElementId }),
+  setDrawingLifecycle: drawingLifecycle => set({ drawingLifecycle }),
+  setEditingElementId: isEditingElementId => set({ isEditingElementId }),
 
   setElements: (elements, options) =>
-    set((state) => {
+    set(state => {
       if (options?.skipHistory) {
         return { elements: cloneElements(elements) };
       }
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
-        state.elements,
+        state.elements
       );
       const nextElements = cloneElements(elements);
-      const historyPayload = commitPresentFromHistory(
-        history.past,
-        history.future,
-        nextElements,
-      );
+      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
       return {
         elements: nextElements,
         past: historyPayload.past,
@@ -347,21 +347,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
-  addElement: (element) =>
-    set((state) => {
-      if (state.elements.some((candidate) => candidate.id === element.id)) {
+  addElement: element =>
+    set(state => {
+      if (state.elements.some(candidate => candidate.id === element.id)) {
         return state;
       }
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
-        state.elements,
+        state.elements
       );
       const nextElements = [...state.elements, element];
-      const historyPayload = commitPresentFromHistory(
-        history.past,
-        history.future,
-        nextElements,
-      );
+      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
       return {
         elements: nextElements,
         past: historyPayload.past,
@@ -371,23 +367,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
-  addElements: (elements) =>
-    set((state) => {
+  addElements: elements =>
+    set(state => {
       if (elements.length === 0) return state;
-      const existingIds = new Set(state.elements.map((element) => element.id));
-      const deduped = elements.filter((element) => !existingIds.has(element.id));
+      const existingIds = new Set(state.elements.map(element => element.id));
+      const deduped = elements.filter(element => !existingIds.has(element.id));
       if (deduped.length === 0) return state;
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
-        state.elements,
+        state.elements
       );
       const nextElements = [...state.elements, ...deduped];
-      const historyPayload = commitPresentFromHistory(
-        history.past,
-        history.future,
-        nextElements,
-      );
+      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
 
       return {
         elements: nextElements,
@@ -399,8 +391,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   updateElement: (id, updates) =>
-    set((state) => {
-      const index = state.elements.findIndex((element) => element.id === id);
+    set(state => {
+      const index = state.elements.findIndex(element => element.id === id);
       if (index === -1) return state;
 
       invalidateElementCache(id);
@@ -409,7 +401,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
-        state.elements,
+        state.elements
       );
       const nextElements = [...state.elements];
       nextElements[index] = {
@@ -420,11 +412,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         updated: Date.now(),
       } as DriplElement;
 
-      const historyPayload = commitPresentFromHistory(
-        history.past,
-        history.future,
-        nextElements,
-      );
+      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
       return {
         elements: nextElements,
         past: historyPayload.past,
@@ -435,8 +423,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   updateElementTransient: (id, updates) =>
-    set((state) => {
-      const index = state.elements.findIndex((element) => element.id === id);
+    set(state => {
+      const index = state.elements.findIndex(element => element.id === id);
       if (index === -1) return state;
 
       invalidateElementCache(id);
@@ -457,28 +445,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
-  deleteElements: (ids) =>
-    set((state) => {
+  deleteElements: ids =>
+    set(state => {
       if (ids.length === 0) return state;
       const idSet = new Set(ids);
-      const nextElements = state.elements.filter((element) => !idSet.has(element.id));
+      const nextElements = state.elements.filter(element => !idSet.has(element.id));
       if (nextElements.length === state.elements.length) return state;
 
-      ids.forEach((id) => invalidateElementCache(id));
+      ids.forEach(id => invalidateElementCache(id));
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
-        state.elements,
+        state.elements
       );
-      const historyPayload = commitPresentFromHistory(
-        history.past,
-        history.future,
-        nextElements,
-      );
+      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
       return {
         elements: nextElements,
         selectedIds: new Set(
-          Array.from(state.selectedIds).filter((selectedId) => !idSet.has(selectedId)),
+          Array.from(state.selectedIds).filter(selectedId => !idSet.has(selectedId))
         ),
         past: historyPayload.past,
         future: historyPayload.future,
@@ -487,15 +471,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
-  bringForward: (ids) =>
-    set((state) => {
+  bringForward: ids =>
+    set(state => {
       if (ids.length === 0) return state;
       const selected = new Set(ids);
       const next = [...state.elements];
       let changed = false;
 
       for (let i = next.length - 2; i >= 0; i -= 1) {
-        if (selected.has(next[i]?.id ?? "") && !selected.has(next[i + 1]?.id ?? "")) {
+        if (selected.has(next[i]?.id ?? '') && !selected.has(next[i + 1]?.id ?? '')) {
           const current = next[i];
           next[i] = next[i + 1] as DriplElement;
           next[i + 1] = current as DriplElement;
@@ -506,7 +490,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
-        state.elements,
+        state.elements
       );
       const historyPayload = commitPresentFromHistory(history.past, history.future, next);
       return {
@@ -518,15 +502,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
-  sendBackward: (ids) =>
-    set((state) => {
+  sendBackward: ids =>
+    set(state => {
       if (ids.length === 0) return state;
       const selected = new Set(ids);
       const next = [...state.elements];
       let changed = false;
 
       for (let i = 1; i < next.length; i += 1) {
-        if (selected.has(next[i]?.id ?? "") && !selected.has(next[i - 1]?.id ?? "")) {
+        if (selected.has(next[i]?.id ?? '') && !selected.has(next[i - 1]?.id ?? '')) {
           const current = next[i];
           next[i] = next[i - 1] as DriplElement;
           next[i - 1] = current as DriplElement;
@@ -537,7 +521,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
-        state.elements,
+        state.elements
       );
       const historyPayload = commitPresentFromHistory(history.past, history.future, next);
       return {
@@ -549,18 +533,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
-  bringToFront: (ids) =>
-    set((state) => {
+  bringToFront: ids =>
+    set(state => {
       if (ids.length === 0) return state;
       const selected = new Set(ids);
-      const moving = state.elements.filter((element) => selected.has(element.id));
+      const moving = state.elements.filter(element => selected.has(element.id));
       if (moving.length === 0) return state;
-      const stay = state.elements.filter((element) => !selected.has(element.id));
+      const stay = state.elements.filter(element => !selected.has(element.id));
       const next = [...stay, ...moving];
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
-        state.elements,
+        state.elements
       );
       const historyPayload = commitPresentFromHistory(history.past, history.future, next);
       return {
@@ -572,18 +556,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
-  sendToBack: (ids) =>
-    set((state) => {
+  sendToBack: ids =>
+    set(state => {
       if (ids.length === 0) return state;
       const selected = new Set(ids);
-      const moving = state.elements.filter((element) => selected.has(element.id));
+      const moving = state.elements.filter(element => selected.has(element.id));
       if (moving.length === 0) return state;
-      const stay = state.elements.filter((element) => !selected.has(element.id));
+      const stay = state.elements.filter(element => !selected.has(element.id));
       const next = [...moving, ...stay];
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
-        state.elements,
+        state.elements
       );
       const historyPayload = commitPresentFromHistory(history.past, history.future, next);
       return {
@@ -595,26 +579,26 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
-  setSelectedIds: (selectedIds) => set({ selectedIds }),
+  setSelectedIds: selectedIds => set({ selectedIds }),
   selectElement: (id, addToSelection = false) =>
-    set((state) => {
+    set(state => {
       const selectedIds = new Set(addToSelection ? state.selectedIds : []);
       selectedIds.add(id);
       return { selectedIds };
     }),
   clearSelection: () => set({ selectedIds: new Set<string>() }),
-  setActiveTool: (activeTool) => set({ activeTool }),
-  setToolLocked: (toolLocked) => set({ toolLocked }),
+  setActiveTool: activeTool => set({ activeTool }),
+  setToolLocked: toolLocked => set({ toolLocked }),
 
-  setRemoteUsers: (remoteUsers) => set({ remoteUsers }),
-  addRemoteUser: (user) =>
-    set((state) => {
+  setRemoteUsers: remoteUsers => set({ remoteUsers }),
+  addRemoteUser: user =>
+    set(state => {
       const remoteUsers = new Map(state.remoteUsers);
       remoteUsers.set(user.userId, user);
       return { remoteUsers };
     }),
-  removeRemoteUser: (userId) =>
-    set((state) => {
+  removeRemoteUser: userId =>
+    set(state => {
       const remoteUsers = new Map(state.remoteUsers);
       remoteUsers.delete(userId);
       const remoteCursors = new Map(state.remoteCursors);
@@ -622,62 +606,59 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return { remoteUsers, remoteCursors };
     }),
   updateRemoteCursor: (userId, cursor) =>
-    set((state) => {
+    set(state => {
       const remoteCursors = new Map(state.remoteCursors);
       remoteCursors.set(userId, { ...cursor, updatedAt: Date.now() });
       return { remoteCursors };
     }),
-  removeRemoteCursor: (userId) =>
-    set((state) => {
+  removeRemoteCursor: userId =>
+    set(state => {
       const remoteCursors = new Map(state.remoteCursors);
       remoteCursors.delete(userId);
       return { remoteCursors };
     }),
 
   setElementLock: (elementId, userId) =>
-    set((state) => {
+    set(state => {
       const elementLocks = new Map(state.elementLocks);
       elementLocks.set(elementId, userId);
       return { elementLocks };
     }),
-  releaseElementLock: (elementId) =>
-    set((state) => {
+  releaseElementLock: elementId =>
+    set(state => {
       const elementLocks = new Map(state.elementLocks);
       elementLocks.delete(elementId);
       return { elementLocks };
     }),
   clearElementLocks: () => set({ elementLocks: new Map<string, string>() }),
 
-  setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(20, zoom)) }),
+  setZoom: zoom => set({ zoom: Math.max(0.1, Math.min(20, zoom)) }),
   setPan: (panX, panY) => set({ panX, panY }),
-  setTheme: (theme) => set({ theme }),
-  setGridEnabled: (gridEnabled) => set({ gridEnabled }),
-  setGridSize: (gridSize) => set({ gridSize: Math.max(4, gridSize) }),
+  setTheme: theme => set({ theme }),
+  setGridEnabled: gridEnabled => set({ gridEnabled }),
+  setGridSize: gridSize => set({ gridSize: Math.max(4, gridSize) }),
+  setMarqueeSelectionMode: mode => set({ marqueeSelectionMode: mode }),
 
-  setCurrentStrokeColor: (currentStrokeColor) => set({ currentStrokeColor }),
-  setCurrentBackgroundColor: (currentBackgroundColor) =>
-    set({ currentBackgroundColor }),
-  setCurrentStrokeWidth: (currentStrokeWidth) => set({ currentStrokeWidth }),
-  setCurrentRoughness: (currentRoughness) => set({ currentRoughness }),
-  setCurrentStrokeStyle: (currentStrokeStyle) => set({ currentStrokeStyle }),
-  setCurrentFillStyle: (currentFillStyle) => set({ currentFillStyle }),
+  setCurrentStrokeColor: currentStrokeColor => set({ currentStrokeColor }),
+  setCurrentBackgroundColor: currentBackgroundColor => set({ currentBackgroundColor }),
+  setCurrentStrokeWidth: currentStrokeWidth => set({ currentStrokeWidth }),
+  setCurrentRoughness: currentRoughness => set({ currentRoughness }),
+  setCurrentStrokeStyle: currentStrokeStyle => set({ currentStrokeStyle }),
+  setCurrentFillStyle: currentFillStyle => set({ currentFillStyle }),
 
   undo: () =>
-    set((state) => {
+    set(state => {
       if (state.past.length === 0) return state;
 
       const previous = state.past[state.past.length - 1];
       if (!previous) return state;
 
       const past = state.past.slice(0, -1);
-      const future = [cloneElements(state.elements), ...state.future].slice(
-        0,
-        MAX_HISTORY,
-      );
+      const future = [cloneElements(state.elements), ...state.future].slice(0, MAX_HISTORY);
       const elements = cloneElements(previous);
       const historyPayload = commitPresentFromHistory(past, future, elements);
 
-      elements.forEach((element) => invalidateElementCache(element.id));
+      elements.forEach(element => invalidateElementCache(element.id));
 
       return {
         elements,
@@ -689,7 +670,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   redo: () =>
-    set((state) => {
+    set(state => {
       if (state.future.length === 0) return state;
 
       const next = state.future[0];
@@ -700,7 +681,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const elements = cloneElements(next);
       const historyPayload = commitPresentFromHistory(past, future, elements);
 
-      elements.forEach((element) => invalidateElementCache(element.id));
+      elements.forEach(element => invalidateElementCache(element.id));
 
       return {
         elements,
@@ -713,16 +694,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   // Capture the current scene snapshot once (for gesture-start semantics).
   pushHistory: () =>
-    set((state) => {
+    set(state => {
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
-        state.elements,
+        state.elements
       );
-      const historyPayload = commitPresentFromHistory(
-        history.past,
-        history.future,
-        state.elements,
-      );
+      const historyPayload = commitPresentFromHistory(history.past, history.future, state.elements);
       return {
         past: historyPayload.past,
         future: historyPayload.future,
@@ -731,13 +708,70 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
   clearHistory: () =>
-    set((state) => {
+    set(state => {
       const history = [cloneElements(state.elements)];
       return {
         past: [],
         future: [],
         history,
         historyIndex: 0,
+      };
+    }),
+
+  groupElements: ids =>
+    set(state => {
+      if (ids.length < 2) return state;
+      const idSet = new Set(ids);
+      const groupId = crypto.randomUUID();
+
+      const history = withHistoryBeforeMutation(
+        { past: state.past, future: state.future },
+        state.elements
+      );
+
+      const nextElements = state.elements.map(element => {
+        if (idSet.has(element.id)) {
+          return { ...element, groupId } as DriplElement;
+        }
+        return element;
+      });
+
+      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
+
+      return {
+        elements: nextElements,
+        past: historyPayload.past,
+        future: historyPayload.future,
+        history: historyPayload.history,
+        historyIndex: historyPayload.historyIndex,
+      };
+    }),
+
+  ungroupElements: ids =>
+    set(state => {
+      if (ids.length === 0) return state;
+
+      const history = withHistoryBeforeMutation(
+        { past: state.past, future: state.future },
+        state.elements
+      );
+
+      const nextElements = state.elements.map(element => {
+        if (ids.includes(element.id) && element.groupId) {
+          const { groupId, ...rest } = element;
+          return rest as DriplElement;
+        }
+        return element;
+      });
+
+      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
+
+      return {
+        elements: nextElements,
+        past: historyPayload.past,
+        future: historyPayload.future,
+        history: historyPayload.history,
+        historyIndex: historyPayload.historyIndex,
       };
     }),
 }));

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useCanvasStore } from "@/lib/canvas-store";
+import { useEffect } from 'react';
+import { ActiveTool, useCanvasStore } from '@/lib/canvas-store';
 import {
   Lock,
   Hand,
@@ -16,8 +16,10 @@ import {
   Type,
   Image,
   Eraser,
-} from "lucide-react";
-import { ExtraToolsDropdown } from "./ExtraToolsDropdown";
+  Group,
+  Ungroup,
+} from 'lucide-react';
+import { ExtraToolsDropdown } from './ExtraToolsDropdown';
 
 interface Tool {
   id: string;
@@ -29,110 +31,113 @@ interface Tool {
 
 const tools: Tool[] = [
   {
-    id: "hand",
+    id: 'hand',
     icon: Hand,
-    label: "Hand",
-    shortcuts: ["h"],
+    label: 'Hand',
+    shortcuts: ['h'],
   },
   {
-    id: "select",
+    id: 'select',
     icon: MousePointer2,
-    label: "Selection",
-    shortcuts: ["v", "1"],
-    numericShortcut: "1",
+    label: 'Selection',
+    shortcuts: ['v', '1'],
+    numericShortcut: '1',
   },
   {
-    id: "rectangle",
+    id: 'rectangle',
     icon: Square,
-    label: "Rectangle",
-    shortcuts: ["r", "2"],
-    numericShortcut: "2",
+    label: 'Rectangle',
+    shortcuts: ['r', '2'],
+    numericShortcut: '2',
   },
   {
-    id: "diamond",
+    id: 'diamond',
     icon: Diamond,
-    label: "Diamond",
-    shortcuts: ["d", "3"],
-    numericShortcut: "3",
+    label: 'Diamond',
+    shortcuts: ['d', '3'],
+    numericShortcut: '3',
   },
   {
-    id: "ellipse",
+    id: 'ellipse',
     icon: Circle,
-    label: "Ellipse",
-    shortcuts: ["o", "4"],
-    numericShortcut: "4",
+    label: 'Ellipse',
+    shortcuts: ['o', '4'],
+    numericShortcut: '4',
   },
   {
-    id: "arrow",
+    id: 'arrow',
     icon: ArrowRight,
-    label: "Arrow",
-    shortcuts: ["a", "5"],
-    numericShortcut: "5",
+    label: 'Arrow',
+    shortcuts: ['a', '5'],
+    numericShortcut: '5',
   },
   {
-    id: "line",
+    id: 'line',
     icon: Minus,
-    label: "Line",
-    shortcuts: ["l", "6"],
-    numericShortcut: "6",
+    label: 'Line',
+    shortcuts: ['l', '6'],
+    numericShortcut: '6',
   },
   {
-    id: "freedraw",
+    id: 'freedraw',
     icon: Pencil,
-    label: "Freedraw",
-    shortcuts: ["d", "p", "7"],
-    numericShortcut: "7",
+    label: 'Freedraw',
+    shortcuts: ['p', '7'],
+    numericShortcut: '7',
   },
   {
-    id: "frame",
+    id: 'frame',
     icon: Frame,
-    label: "Frame",
-    shortcuts: ["f"],
+    label: 'Frame',
+    shortcuts: ['f'],
   },
   {
-    id: "text",
+    id: 'text',
     icon: Type,
-    label: "Text",
-    shortcuts: ["t", "8"],
-    numericShortcut: "8",
+    label: 'Text',
+    shortcuts: ['t', '8'],
+    numericShortcut: '8',
   },
   {
-    id: "image",
+    id: 'image',
     icon: Image,
-    label: "Image",
-    shortcuts: ["9"],
-    numericShortcut: "9",
+    label: 'Image',
+    shortcuts: ['9'],
+    numericShortcut: '9',
   },
   {
-    id: "eraser",
+    id: 'eraser',
     icon: Eraser,
-    label: "Eraser",
-    shortcuts: ["x", "0"],
-    numericShortcut: "0",
+    label: 'Eraser',
+    shortcuts: ['x', '0'],
+    numericShortcut: '0',
   },
 ];
 
 export function CanvasToolbar() {
-  const activeTool = useCanvasStore((state) => state.activeTool);
-  const toolLocked = useCanvasStore((state) => state.toolLocked);
-  const setActiveTool = useCanvasStore((state) => state.setActiveTool);
-  const setToolLocked = useCanvasStore((state) => state.setToolLocked);
-  const undo = useCanvasStore((state) => state.undo);
-  const redo = useCanvasStore((state) => state.redo);
+  const activeTool = useCanvasStore(state => state.activeTool);
+  const toolLocked = useCanvasStore(state => state.toolLocked);
+  const setActiveTool = useCanvasStore(state => state.setActiveTool);
+  const setToolLocked = useCanvasStore(state => state.setToolLocked);
+  const undo = useCanvasStore(state => state.undo);
+  const redo = useCanvasStore(state => state.redo);
+  const selectedIds = useCanvasStore(state => state.selectedIds);
+  const groupElements = useCanvasStore(state => state.groupElements);
+  const ungroupElements = useCanvasStore(state => state.ungroupElements);
+  const elements = useCanvasStore(state => state.elements);
+
+  const hasSelection = selectedIds.size >= 2;
+  const hasGroupedElements = elements.some(el => selectedIds.has(el.id) && el.groupId);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      ) {
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return;
       }
 
       if (e.ctrlKey || e.metaKey || e.altKey) {
-        if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
           e.preventDefault();
           if (e.shiftKey) {
             redo();
@@ -148,24 +153,24 @@ export function CanvasToolbar() {
       for (const tool of tools) {
         if (tool.shortcuts.includes(key)) {
           e.preventDefault();
-          setActiveTool(tool.id as any);
+          setActiveTool(tool.id as ActiveTool);
           return;
         }
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setActiveTool, undo, redo]);
 
   return (
     <div
       className="absolute top-6 left-1/2 -translate-x-1/2 px-1.5 py-1.5 rounded-xl border shadow-lg flex items-center gap-0.5 z-50 pointer-events-auto"
       style={{
-        backgroundColor: "var(--color-toolbar-bg)",
-        borderColor: "var(--color-toolbar-border)",
+        backgroundColor: 'var(--color-toolbar-bg)',
+        borderColor: 'var(--color-toolbar-border)',
         boxShadow:
-          "0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.5)",
+          '0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
       }}
     >
       {/* Lock button */}
@@ -174,28 +179,25 @@ export function CanvasToolbar() {
         style={
           toolLocked
             ? {
-                backgroundColor: "var(--color-tool-active-bg)",
-                color: "var(--color-tool-active-text)",
+                backgroundColor: 'var(--color-tool-active-bg)',
+                color: 'var(--color-tool-active-text)',
                 boxShadow:
-                  "0 0 0 2px var(--color-tool-active-shadow), inset 0 1px 0 rgba(255,255,255,0.1)",
+                  '0 0 0 2px var(--color-tool-active-shadow), inset 0 1px 0 rgba(255,255,255,0.1)',
               }
-            : { color: "var(--color-tool-inactive-text)" }
+            : { color: 'var(--color-tool-inactive-text)' }
         }
         onClick={() => setToolLocked(!toolLocked)}
-        aria-label={toolLocked ? "Unlock current tool" : "Lock current tool"}
+        aria-label={toolLocked ? 'Unlock current tool' : 'Lock current tool'}
         aria-pressed={toolLocked}
       >
         <Lock size={17} />
       </button>
 
       {/* Separator */}
-      <div
-        className="w-px h-5 mx-1"
-        style={{ backgroundColor: "var(--color-toolbar-divider)" }}
-      />
+      <div className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--color-toolbar-divider)' }} />
 
       {/* Tool buttons */}
-      {tools.map((tool) => {
+      {tools.map(tool => {
         const Icon = tool.icon;
         const isActive = activeTool === tool.id;
 
@@ -203,37 +205,36 @@ export function CanvasToolbar() {
           <button
             key={tool.id}
             id={`tool-btn-${tool.id}`}
-            onPointerDown={(event) => {
+            onPointerDown={event => {
               event.preventDefault();
-              setActiveTool(tool.id as any);
+              setActiveTool(tool.id as ActiveTool);
             }}
-            onClick={() => setActiveTool(tool.id as any)}
+            onClick={() => setActiveTool(tool.id as ActiveTool)}
             className="relative p-2 rounded-md transition-all duration-150"
             style={
               isActive
                 ? {
-                    backgroundColor: "var(--color-tool-active-bg)",
-                    color: "var(--color-tool-active-text)",
+                    backgroundColor: 'var(--color-tool-active-bg)',
+                    color: 'var(--color-tool-active-text)',
                     boxShadow:
-                      "0 0 0 2px var(--color-tool-active-shadow), inset 0 1px 0 rgba(255,255,255,0.1)",
+                      '0 0 0 2px var(--color-tool-active-shadow), inset 0 1px 0 rgba(255,255,255,0.1)',
                   }
                 : {
-                    color: "var(--color-tool-inactive-text)",
+                    color: 'var(--color-tool-inactive-text)',
                   }
             }
-            onMouseEnter={(e) => {
+            onMouseEnter={e => {
               if (!isActive) {
                 (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  "var(--color-tool-hover-bg)";
+                  'var(--color-tool-hover-bg)';
               }
             }}
-            onMouseLeave={(e) => {
+            onMouseLeave={e => {
               if (!isActive) {
-                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  "transparent";
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
               }
             }}
-            title={`${tool.label} [${tool.shortcuts.join(" / ")}]`}
+            title={`${tool.label} [${tool.shortcuts.join(' / ')}]`}
             aria-label={`${tool.label} tool`}
             aria-pressed={isActive}
           >
@@ -241,7 +242,7 @@ export function CanvasToolbar() {
             {tool.numericShortcut && (
               <span
                 className="absolute -bottom-0.5 -right-0.5 text-[9px] font-mono leading-none opacity-60 select-none"
-                style={{ color: "var(--color-tool-inactive-text)" }}
+                style={{ color: 'var(--color-tool-inactive-text)' }}
               >
                 {tool.numericShortcut}
               </span>
@@ -251,6 +252,31 @@ export function CanvasToolbar() {
       })}
 
       <ExtraToolsDropdown />
+
+      {/* Separator */}
+      <div className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--color-toolbar-divider)' }} />
+
+      {/* Group buttons */}
+      <button
+        className="p-2 rounded-md transition-all duration-150 disabled:opacity-30"
+        style={{ color: 'var(--color-tool-inactive-text)' }}
+        onClick={() => groupElements(Array.from(selectedIds))}
+        disabled={!hasSelection}
+        title="Group selected (Ctrl+G)"
+        aria-label="Group selected elements"
+      >
+        <Group size={17} />
+      </button>
+      <button
+        className="p-2 rounded-md transition-all duration-150 disabled:opacity-30"
+        style={{ color: 'var(--color-tool-inactive-text)' }}
+        onClick={() => ungroupElements(Array.from(selectedIds))}
+        disabled={!hasGroupedElements}
+        title="Ungroup selected (Ctrl+Shift+G)"
+        aria-label="Ungroup selected elements"
+      >
+        <Ungroup size={17} />
+      </button>
     </div>
   );
 }

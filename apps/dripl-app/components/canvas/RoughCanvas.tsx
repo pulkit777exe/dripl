@@ -1,37 +1,34 @@
-"use client";
+'use client';
 
-import { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { useCanvasStore, type ActiveTool } from "@/lib/canvas-store";
-import { useCollaboration } from "@/hooks/useCollaboration";
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
+import { useCollaboration } from '@/hooks/useCollaboration';
 import {
   saveLocalCanvasToStorage,
   LocalCanvasState,
   LOCAL_CANVAS_STORAGE_KEYS,
   loadLocalCanvasFromStorage,
-} from "@/utils/localCanvasStorage";
-import { getElementBounds, isPointInElement } from "@dripl/math";
-import {
-  ActionCreator,
-  CanvasContentSchema,
-  type DriplElement,
-} from "@dripl/common";
+} from '@/utils/localCanvasStorage';
+import { getElementBounds, isPointInElement } from '@dripl/math';
+import { ActionCreator, CanvasContentSchema, type DriplElement } from '@dripl/common';
 import {
   getRuntimeStore,
   updateRuntimeStoreSnapshot,
   snapshotFromState,
-} from "@/lib/runtime-store-bridge";
-import { getOrCreateCollaboratorName } from "@/utils/username";
-import { v4 as uuidv4 } from "uuid";
-import RBush from "rbush";
-import { SelectionOverlay, ResizeHandle } from "./SelectionOverlay";
-import { NameInputModal } from "./NameInputModal";
-import { CollaboratorsList } from "./CollaboratorsList";
-import { RemoteCursors } from "./RemoteCursors";
-import { PropertiesPanel } from "./PropertiesPanel";
-import { ContextMenu } from "./ContextMenu";
-import { DualCanvas } from "./DualCanvas";
-import { screenToCanvas, Viewport } from "@/utils/canvas-coordinates";
-import { useDrawingTools } from "@/hooks/useDrawingTools";
+} from '@/lib/runtime-store-bridge';
+import { getOrCreateCollaboratorName } from '@/utils/username';
+import { v4 as uuidv4 } from 'uuid';
+import RBush from 'rbush';
+import { SelectionOverlay, ResizeHandle } from './SelectionOverlay';
+import { NameInputModal } from './NameInputModal';
+import { CollaboratorsList } from './CollaboratorsList';
+import { RemoteCursors } from './RemoteCursors';
+import { PropertiesPanel } from './PropertiesPanel';
+import { ContextMenu } from './ContextMenu';
+import { DualCanvas } from './DualCanvas';
+import { screenToCanvas, Viewport } from '@/utils/canvas-coordinates';
+import { useDrawingTools } from '@/hooks/useDrawingTools';
+import { WelcomeScreen } from './WelcomeScreen';
 
 interface Point {
   x: number;
@@ -40,7 +37,7 @@ interface Point {
 
 interface CanvasProps {
   roomSlug: string | null;
-  theme: "light" | "dark";
+  theme: 'light' | 'dark';
 }
 
 interface SpatialItem {
@@ -56,14 +53,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const [containerReady, setContainerReady] = useState(false);
 
   const setContainerRef = useCallback((el: HTMLDivElement | null) => {
-    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current =
-      el;
+    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
     setContainerReady(!!el);
   }, []);
 
-  const [userName, setUserName] = useState<string | null>(() =>
-    getOrCreateCollaboratorName(),
-  );
+  const [userName, setUserName] = useState<string | null>(() => getOrCreateCollaboratorName());
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -79,6 +73,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   } | null>(null);
   const [eraserPath, setEraserPath] = useState<Point[]>([]);
   const [cursorPosition, setCursorPosition] = useState<Point | null>(null);
+  const [welcomeScreenDismissed, setWelcomeScreenDismissed] = useState(false);
   const [marqueeSelection, setMarqueeSelection] = useState<{
     start: Point;
     end: Point;
@@ -92,6 +87,17 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const eraserHitIdsRef = useRef<Set<string>>(new Set());
   const lastToolBeforeSpaceRef = useRef<ActiveTool | null>(null);
   const activeGestureLocksRef = useRef<Set<string>>(new Set());
+
+  // ── Momentum scrolling state ───────────────────────────────────────────
+  const momentumRef = useRef({
+    isInertial: false,
+    velocityX: 0,
+    velocityY: 0,
+    lastX: 0,
+    lastY: 0,
+    lastTime: 0,
+    animationFrame: 0,
+  });
 
   // ── Interaction refs ─────────────────────────────────────────────────────
   // All mutable interaction state lives here to avoid stale closures.
@@ -126,65 +132,60 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     pinchStartMid: null as Point | null,
     pinchStartZoom: 1,
     pinchStartPan: { x: 0, y: 0 },
+
+    // Trackpad two-finger pan
+    isTrackpadPanning: false,
+    trackpadLastX: 0,
+    trackpadLastY: 0,
   });
 
-  const { startDrawing, updateDrawing, finishDrawing, cancelDrawing } =
-    useDrawingTools();
+  const { startDrawing, updateDrawing, finishDrawing, cancelDrawing } = useDrawingTools();
 
-  const elements = useCanvasStore((state) => state.elements);
+  const elements = useCanvasStore(state => state.elements);
   // draftElement lives in Zustand — the single source of truth for the in-progress shape.
-  const draftElement = useCanvasStore((state) => state.draftElement);
-  const activeTool = useCanvasStore((state) => state.activeTool);
-  const toolLocked = useCanvasStore((state) => state.toolLocked);
-  const selectedIds = useCanvasStore((state) => state.selectedIds);
-  const currentStrokeColor = useCanvasStore(
-    (state) => state.currentStrokeColor,
-  );
-  const currentStrokeWidth = useCanvasStore(
-    (state) => state.currentStrokeWidth,
-  );
-  const currentRoughness = useCanvasStore((state) => state.currentRoughness);
-  const currentBackgroundColor = useCanvasStore(
-    (state) => state.currentBackgroundColor,
-  );
-  const currentStrokeStyle = useCanvasStore(
-    (state) => state.currentStrokeStyle,
-  );
-  const currentFillStyle = useCanvasStore((state) => state.currentFillStyle);
-  const readOnly = useCanvasStore((state) => state.readOnly);
-  const gridEnabled = useCanvasStore((state) => state.gridEnabled);
-  const gridSize = useCanvasStore((state) => state.gridSize);
-  const elementLocks = useCanvasStore((state) => state.elementLocks);
-  const userId = useCanvasStore((state) => state.userId);
+  const draftElement = useCanvasStore(state => state.draftElement);
+  const activeTool = useCanvasStore(state => state.activeTool);
+  const toolLocked = useCanvasStore(state => state.toolLocked);
+  const selectedIds = useCanvasStore(state => state.selectedIds);
+  const currentStrokeColor = useCanvasStore(state => state.currentStrokeColor);
+  const currentStrokeWidth = useCanvasStore(state => state.currentStrokeWidth);
+  const currentRoughness = useCanvasStore(state => state.currentRoughness);
+  const currentBackgroundColor = useCanvasStore(state => state.currentBackgroundColor);
+  const currentStrokeStyle = useCanvasStore(state => state.currentStrokeStyle);
+  const currentFillStyle = useCanvasStore(state => state.currentFillStyle);
+  const readOnly = useCanvasStore(state => state.readOnly);
+  const gridEnabled = useCanvasStore(state => state.gridEnabled);
+  const gridSize = useCanvasStore(state => state.gridSize);
+  const marqueeSelectionMode = useCanvasStore(state => state.marqueeSelectionMode);
+  const elementLocks = useCanvasStore(state => state.elementLocks);
+  const userId = useCanvasStore(state => state.userId);
 
-  const setElements = useCanvasStore((state) => state.setElements);
-  const addElement = useCanvasStore((state) => state.addElement);
-  const updateElement = useCanvasStore((state) => state.updateElement);
-  const updateElementTransient = useCanvasStore(
-    (state) => state.updateElementTransient,
-  );
-  const deleteElements = useCanvasStore((state) => state.deleteElements);
-  const setSelectedIds = useCanvasStore((state) => state.setSelectedIds);
-  const selectElement = useCanvasStore((state) => state.selectElement);
-  const clearSelection = useCanvasStore((state) => state.clearSelection);
-  const setEditingElementId = useCanvasStore(
-    (state) => state.setEditingElementId,
-  );
-  const setActiveTool = useCanvasStore((state) => state.setActiveTool);
-  const setGridEnabled = useCanvasStore((state) => state.setGridEnabled);
-  const bringForward = useCanvasStore((state) => state.bringForward);
-  const sendBackward = useCanvasStore((state) => state.sendBackward);
-  const bringToFront = useCanvasStore((state) => state.bringToFront);
-  const sendToBack = useCanvasStore((state) => state.sendToBack);
-  const undo = useCanvasStore((state) => state.undo);
-  const redo = useCanvasStore((state) => state.redo);
-  const pushHistory = useCanvasStore((state) => state.pushHistory);
+  const setElements = useCanvasStore(state => state.setElements);
+  const addElement = useCanvasStore(state => state.addElement);
+  const updateElement = useCanvasStore(state => state.updateElement);
+  const updateElementTransient = useCanvasStore(state => state.updateElementTransient);
+  const deleteElements = useCanvasStore(state => state.deleteElements);
+  const setSelectedIds = useCanvasStore(state => state.setSelectedIds);
+  const selectElement = useCanvasStore(state => state.selectElement);
+  const clearSelection = useCanvasStore(state => state.clearSelection);
+  const setEditingElementId = useCanvasStore(state => state.setEditingElementId);
+  const setActiveTool = useCanvasStore(state => state.setActiveTool);
+  const setGridEnabled = useCanvasStore(state => state.setGridEnabled);
+  const bringForward = useCanvasStore(state => state.bringForward);
+  const sendBackward = useCanvasStore(state => state.sendBackward);
+  const bringToFront = useCanvasStore(state => state.bringToFront);
+  const sendToBack = useCanvasStore(state => state.sendToBack);
+  const undo = useCanvasStore(state => state.undo);
+  const redo = useCanvasStore(state => state.redo);
+  const pushHistory = useCanvasStore(state => state.pushHistory);
+  const groupElements = useCanvasStore(state => state.groupElements);
+  const ungroupElements = useCanvasStore(state => state.ungroupElements);
 
-  const zoom = useCanvasStore((state) => state.zoom);
-  const panX = useCanvasStore((state) => state.panX);
-  const panY = useCanvasStore((state) => state.panY);
-  const setPan = useCanvasStore((state) => state.setPan);
-  const setZoom = useCanvasStore((state) => state.setZoom);
+  const zoom = useCanvasStore(state => state.zoom);
+  const panX = useCanvasStore(state => state.panX);
+  const panY = useCanvasStore(state => state.panY);
+  const setPan = useCanvasStore(state => state.setPan);
+  const setZoom = useCanvasStore(state => state.setZoom);
 
   const suppressRemoteBroadcastRef = useRef(false);
   const prevElementsRef = useRef<DriplElement[]>([]);
@@ -197,7 +198,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     unlockElement,
   } = useCollaboration(roomSlug, {
     displayName: userName,
-    onFullSync: (elements) => {
+    onFullSync: elements => {
       suppressRemoteBroadcastRef.current = true;
       setElements(elements, { skipHistory: true });
     },
@@ -206,19 +207,19 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       const state = useCanvasStore.getState();
       let nextElements = [...state.elements];
       for (const el of added) {
-        if (!nextElements.some((e) => e.id === el.id)) {
+        if (!nextElements.some(e => e.id === el.id)) {
           nextElements.push(el);
         }
       }
       for (const el of updated) {
-        const idx = nextElements.findIndex((e) => e.id === el.id);
+        const idx = nextElements.findIndex(e => e.id === el.id);
         if (idx !== -1) {
           nextElements[idx] = el;
         }
       }
       if (deleted.length > 0) {
         const deletedSet = new Set(deleted);
-        nextElements = nextElements.filter((e) => !deletedSet.has(e.id));
+        nextElements = nextElements.filter(e => !deletedSet.has(e.id));
       }
       state.setElements(nextElements, { skipHistory: true });
     },
@@ -231,11 +232,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         lockElement(id);
       }
     },
-    [lockElement],
+    [lockElement]
   );
 
   const unlockGestureElements = useCallback(() => {
-    activeGestureLocksRef.current.forEach((id) => {
+    activeGestureLocksRef.current.forEach(id => {
       unlockElement(id);
     });
     activeGestureLocksRef.current.clear();
@@ -334,9 +335,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       if (savedElements && savedElements.length) {
         setElements(savedElements, { skipHistory: true });
-        updateRuntimeStoreSnapshot(
-          snapshotFromState(savedElements, savedSelectedIds ?? []),
-        );
+        updateRuntimeStoreSnapshot(snapshotFromState(savedElements, savedSelectedIds ?? []));
       }
       if (savedSelectedIds?.length) setSelectedIds(new Set(savedSelectedIds));
       if (appState) {
@@ -346,15 +345,15 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       }
     };
 
-    window.addEventListener("blur", handleVisibilityOrBlur);
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    document.addEventListener("visibilitychange", handleVisibilityOrBlur);
-    window.addEventListener("storage", handleStorage);
+    window.addEventListener('blur', handleVisibilityOrBlur);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityOrBlur);
+    window.addEventListener('storage', handleStorage);
     return () => {
-      window.removeEventListener("blur", handleVisibilityOrBlur);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      document.removeEventListener("visibilitychange", handleVisibilityOrBlur);
-      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener('blur', handleVisibilityOrBlur);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityOrBlur);
+      window.removeEventListener('storage', handleStorage);
     };
   }, [roomSlug, theme, setElements, setPan, setZoom]);
 
@@ -365,7 +364,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   const handleNameSubmit = (name: string) => {
     setUserName(name);
-    localStorage.setItem("dripl_username", name);
+    localStorage.setItem('dripl_username', name);
   };
 
   // ── Viewport ─────────────────────────────────────────────────────────────
@@ -381,7 +380,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     const tree = new RBush<SpatialItem>();
     const byId = new Map<string, DriplElement>();
     const items: SpatialItem[] = [];
-    elements.forEach((element) => {
+    elements.forEach(element => {
       const bounds = getElementBounds(element);
       items.push({
         minX: bounds.x,
@@ -403,7 +402,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       const canvas =
         target && target instanceof HTMLCanvasElement
           ? target
-          : containerRef.current?.querySelector("canvas");
+          : containerRef.current?.querySelector('canvas');
       if (!canvas) return { x: 0, y: 0 };
       const rect = canvas.getBoundingClientRect();
       const pixelX = e.clientX - rect.left;
@@ -411,7 +410,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return screenToCanvas(pixelX, pixelY, viewport);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [panX, panY, zoom],
+    [panX, panY, zoom]
   );
 
   const snapPointToGrid = useCallback(
@@ -422,33 +421,24 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         y: Math.round(point.y / gridSize) * gridSize,
       };
     },
-    [gridEnabled, gridSize],
+    [gridEnabled, gridSize]
   );
 
-  const getDistanceToBounds = useCallback(
-    (point: Point, element: DriplElement): number => {
-      const bounds = getElementBounds(element);
-      const nearestX = Math.max(
-        bounds.x,
-        Math.min(point.x, bounds.x + bounds.width),
-      );
-      const nearestY = Math.max(
-        bounds.y,
-        Math.min(point.y, bounds.y + bounds.height),
-      );
-      const dx = point.x - nearestX;
-      const dy = point.y - nearestY;
-      return Math.sqrt(dx * dx + dy * dy);
-    },
-    [],
-  );
+  const getDistanceToBounds = useCallback((point: Point, element: DriplElement): number => {
+    const bounds = getElementBounds(element);
+    const nearestX = Math.max(bounds.x, Math.min(point.x, bounds.x + bounds.width));
+    const nearestY = Math.max(bounds.y, Math.min(point.y, bounds.y + bounds.height));
+    const dx = point.x - nearestX;
+    const dy = point.y - nearestY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }, []);
 
   const isPointNearElement = useCallback(
     (point: Point, element: DriplElement, tolerance: number): boolean => {
       if (isPointInElement(point, element)) return true;
       return getDistanceToBounds(point, element) <= tolerance;
     },
-    [getDistanceToBounds],
+    [getDistanceToBounds]
   );
 
   const getElementAtPosition = useCallback(
@@ -460,7 +450,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         maxX: x + 8,
         maxY: y + 8,
       });
-      const candidateIds = new Set(candidates.map((candidate) => candidate.id));
+      const candidateIds = new Set(candidates.map(candidate => candidate.id));
       for (let i = state.elements.length - 1; i >= 0; i -= 1) {
         const element = state.elements[i];
         if (!element) continue;
@@ -473,19 +463,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         }
 
         if (!isPointNearElement({ x, y }, element, 8)) continue;
-        if (
-          element.type === "text" &&
-          ("boundElementId" in element || "containerId" in element)
-        ) {
+        if (element.type === 'text' && ('boundElementId' in element || 'containerId' in element)) {
           const containerId =
-            ("boundElementId" in element
-              ? element.boundElementId
-              : undefined) ??
-            ("containerId" in element ? element.containerId : undefined);
+            ('boundElementId' in element ? element.boundElementId : undefined) ??
+            ('containerId' in element ? element.containerId : undefined);
           if (containerId) {
-            const container = state.elements.find(
-              (candidate) => candidate.id === containerId,
-            );
+            const container = state.elements.find(candidate => candidate.id === containerId);
             if (
               container &&
               (!state.elementLocks.has(container.id) ||
@@ -499,7 +482,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       }
       return null;
     },
-    [isPointNearElement, spatialIndex.tree],
+    [isPointNearElement, spatialIndex.tree]
   );
 
   const collectCascadeDeleteIds = useCallback(
@@ -510,11 +493,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       let changed = true;
       while (changed) {
         changed = false;
-        elements.forEach((element) => {
+        elements.forEach(element => {
           if (toDelete.has(element.id)) {
             if (
-              (element.type === "arrow" || element.type === "line") &&
-              "labelId" in element &&
+              (element.type === 'arrow' || element.type === 'line') &&
+              'labelId' in element &&
               element.labelId &&
               !toDelete.has(element.labelId)
             ) {
@@ -524,12 +507,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
             return;
           }
 
-          if (element.type !== "text") return;
+          if (element.type !== 'text') return;
           const boundTargetId =
-            ("boundElementId" in element
-              ? element.boundElementId
-              : undefined) ??
-            ("containerId" in element ? element.containerId : undefined);
+            ('boundElementId' in element ? element.boundElementId : undefined) ??
+            ('containerId' in element ? element.containerId : undefined);
           if (boundTargetId && toDelete.has(boundTargetId)) {
             toDelete.add(element.id);
             changed = true;
@@ -539,33 +520,28 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       return Array.from(toDelete);
     },
-    [elements],
+    [elements]
   );
 
-  const getSelectionBounds = useCallback(
-    (selected: Set<string>, sceneElements: DriplElement[]) => {
-      const selectedElements = sceneElements.filter((element) =>
-        selected.has(element.id),
-      );
-      if (selectedElements.length === 0) return null;
+  const getSelectionBounds = useCallback((selected: Set<string>, sceneElements: DriplElement[]) => {
+    const selectedElements = sceneElements.filter(element => selected.has(element.id));
+    if (selectedElements.length === 0) return null;
 
-      let minX = Infinity;
-      let minY = Infinity;
-      let maxX = -Infinity;
-      let maxY = -Infinity;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
 
-      selectedElements.forEach((element) => {
-        const bounds = getElementBounds(element);
-        minX = Math.min(minX, bounds.x);
-        minY = Math.min(minY, bounds.y);
-        maxX = Math.max(maxX, bounds.x + bounds.width);
-        maxY = Math.max(maxY, bounds.y + bounds.height);
-      });
+    selectedElements.forEach(element => {
+      const bounds = getElementBounds(element);
+      minX = Math.min(minX, bounds.x);
+      minY = Math.min(minY, bounds.y);
+      maxX = Math.max(maxX, bounds.x + bounds.width);
+      maxY = Math.max(maxY, bounds.y + bounds.height);
+    });
 
-      return { minX, minY, maxX, maxY };
-    },
-    [],
-  );
+    return { minX, minY, maxX, maxY };
+  }, []);
 
   // Legacy createElement is removed — all element creation goes through
   // useDrawingTools (startDrawing → updateDrawing → finishDrawing → commitDraft).
@@ -578,9 +554,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       const selectedIdsArray = Array.from(state.selectedIds);
       if (selectedIdsArray.length !== 1) return;
 
-      const element = state.elements.find(
-        (el) => el.id === selectedIdsArray[0],
-      );
+      const element = state.elements.find(el => el.id === selectedIdsArray[0]);
       if (!element) return;
       const lockOwner = state.elementLocks.get(element.id);
       if (lockOwner && lockOwner !== state.userId) return;
@@ -603,11 +577,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       // Capture pointer on the canvas so we still get events outside
       const canvas = containerRef.current?.querySelector(
-        "canvas:last-child",
+        'canvas:last-child'
       ) as HTMLCanvasElement | null;
       if (canvas) canvas.setPointerCapture(e.pointerId);
     },
-    [getCanvasCoordinates, lockElementsForGesture, setEditingElementId],
+    [getCanvasCoordinates, lockElementsForGesture, setEditingElementId]
   );
 
   // ── Rotate start ──────────────────────────────────────────────────────────
@@ -618,9 +592,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       const selectedIdsArray = Array.from(state.selectedIds);
       if (selectedIdsArray.length !== 1) return;
 
-      const element = state.elements.find(
-        (el) => el.id === selectedIdsArray[0],
-      );
+      const element = state.elements.find(el => el.id === selectedIdsArray[0]);
       if (!element) return;
       const lockOwner = state.elementLocks.get(element.id);
       if (lockOwner && lockOwner !== state.userId) return;
@@ -641,11 +613,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       lockElementsForGesture([element.id]);
 
       const canvas = containerRef.current?.querySelector(
-        "canvas:last-child",
+        'canvas:last-child'
       ) as HTMLCanvasElement | null;
       if (canvas) canvas.setPointerCapture(e.pointerId);
     },
-    [lockElementsForGesture, setEditingElementId],
+    [lockElementsForGesture, setEditingElementId]
   );
 
   // ── Drag / drop images ────────────────────────────────────────────────────
@@ -657,9 +629,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     const files = Array.from(e.dataTransfer.files);
 
     for (const file of files) {
-      if (file.type.startsWith("image/")) {
+      if (file.type.startsWith('image/')) {
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = event => {
           if (event.target?.result) {
             const img = new Image();
             img.onload = () => {
@@ -673,13 +645,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
               }
               const element: DriplElement = {
                 id: uuidv4(),
-                type: "image",
+                type: 'image',
                 x: x - width / 2,
                 y: y - height / 2,
                 width,
                 height,
-                strokeColor: "transparent",
-                backgroundColor: "transparent",
+                strokeColor: 'transparent',
+                backgroundColor: 'transparent',
                 strokeWidth: 0,
                 opacity: 1,
                 src: event.target!.result as string,
@@ -697,27 +669,22 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   // ── Pointer down ──────────────────────────────────────────────────────────
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const target = e.target as HTMLElement;
-    if (target.classList.contains("pointer-events-auto")) return;
+    if (target.classList.contains('pointer-events-auto')) return;
     e.currentTarget.setPointerCapture(e.pointerId);
 
-    if (e.pointerType === "touch") {
+    if (e.pointerType === 'touch') {
       interactionRef.current.touchPointers.set(e.pointerId, {
         x: e.clientX,
         y: e.clientY,
       });
       if (interactionRef.current.touchPointers.size === 2) {
-        const points = Array.from(
-          interactionRef.current.touchPointers.values(),
-        );
+        const points = Array.from(interactionRef.current.touchPointers.values());
         const first = points[0];
         const second = points[1];
         if (first && second) {
           const dx = second.x - first.x;
           const dy = second.y - first.y;
-          interactionRef.current.pinchStartDistance = Math.max(
-            1,
-            Math.sqrt(dx * dx + dy * dy),
-          );
+          interactionRef.current.pinchStartDistance = Math.max(1, Math.sqrt(dx * dx + dy * dy));
           interactionRef.current.pinchStartMid = {
             x: (first.x + second.x) / 2,
             y: (first.y + second.y) / 2,
@@ -740,11 +707,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
     broadcastCursor(x, y);
 
-    const isTemporaryPan =
-      interactionRef.current.isSpacePressed || e.button === 1;
-    if (activeTool === "hand" || isTemporaryPan) {
+    const isTemporaryPan = interactionRef.current.isSpacePressed || e.button === 1;
+    if (activeTool === 'hand' || isTemporaryPan) {
       e.preventDefault();
-      if (isTemporaryPan && activeTool !== "hand") {
+      if (isTemporaryPan && activeTool !== 'hand') {
         lastToolBeforeSpaceRef.current = activeTool;
       }
       interactionRef.current.panning = true;
@@ -757,12 +723,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (activeTool === "select") {
+    if (activeTool === 'select') {
       if (e.detail === 2) {
         const doubleClicked = getElementAtPosition(x, y);
-        if (doubleClicked?.type === "text") {
-          const existingText =
-            "text" in doubleClicked ? doubleClicked.text : "";
+        if (doubleClicked?.type === 'text') {
+          const existingText = 'text' in doubleClicked ? doubleClicked.text : '';
           setTextInput({
             x: doubleClicked.x,
             y: doubleClicked.y,
@@ -795,9 +760,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
             : new Set([element.id]);
 
         const snapshot = new Map<string, DriplElement>();
-        state.elements.forEach((el) => {
-          if (idsToTrack.has(el.id))
-            snapshot.set(el.id, JSON.parse(JSON.stringify(el)));
+        state.elements.forEach(el => {
+          if (idsToTrack.has(el.id)) snapshot.set(el.id, JSON.parse(JSON.stringify(el)));
         });
 
         interactionRef.current.dragging = true;
@@ -807,17 +771,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
         setIsDragging(true);
         if (idsToTrack.size > 0) {
-          setEditingElementId(
-            idsToTrack.size === 1 ? (Array.from(idsToTrack)[0] ?? null) : null,
-          );
+          setEditingElementId(idsToTrack.size === 1 ? (Array.from(idsToTrack)[0] ?? null) : null);
           lockElementsForGesture(idsToTrack);
         }
       } else {
         const state = useCanvasStore.getState();
-        const selectionBounds = getSelectionBounds(
-          state.selectedIds,
-          state.elements,
-        );
+        const selectionBounds = getSelectionBounds(state.selectedIds, state.elements);
         if (
           selectionBounds &&
           x >= selectionBounds.minX &&
@@ -826,7 +785,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           y <= selectionBounds.maxY
         ) {
           const snapshot = new Map<string, DriplElement>();
-          state.elements.forEach((candidate) => {
+          state.elements.forEach(candidate => {
             if (!state.selectedIds.has(candidate.id)) return;
             const lockOwner = state.elementLocks.get(candidate.id);
             if (lockOwner && lockOwner !== state.userId) return;
@@ -840,9 +799,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
             interactionRef.current.dragInitialElements = snapshot;
             setIsDragging(true);
             setEditingElementId(
-              snapshot.size === 1
-                ? (Array.from(snapshot.keys())[0] ?? null)
-                : null,
+              snapshot.size === 1 ? (Array.from(snapshot.keys())[0] ?? null) : null
             );
             lockElementsForGesture(snapshot.keys());
             return;
@@ -855,20 +812,20 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (activeTool === "text") {
-      setTextInput({ x, y, id: uuidv4(), value: "" });
+    if (activeTool === 'text') {
+      setTextInput({ x, y, id: uuidv4(), value: '' });
       return;
     }
 
-    if (activeTool === "image") {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.onchange = (event) => {
+    if (activeTool === 'image') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = event => {
         const file = (event.target as HTMLInputElement).files?.[0];
         if (file) {
           const reader = new FileReader();
-          reader.onload = (e) => {
+          reader.onload = e => {
             if (e.target?.result) {
               const img = new Image();
               img.onload = () => {
@@ -882,13 +839,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
                 }
                 const element: DriplElement = {
                   id: uuidv4(),
-                  type: "image",
+                  type: 'image',
                   x: x - width / 2,
                   y: y - height / 2,
                   width,
                   height,
-                  strokeColor: "transparent",
-                  backgroundColor: "transparent",
+                  strokeColor: 'transparent',
+                  backgroundColor: 'transparent',
                   strokeWidth: 0,
                   opacity: 1,
                   src: e.target!.result as string,
@@ -905,7 +862,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (activeTool === "eraser") {
+    if (activeTool === 'eraser') {
       setIsDrawing(true);
       eraserHitIdsRef.current.clear();
       setEraserPath([{ x, y }]);
@@ -913,12 +870,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     if (
-      activeTool === "rectangle" ||
-      activeTool === "ellipse" ||
-      activeTool === "diamond" ||
-      activeTool === "arrow" ||
-      activeTool === "line" ||
-      activeTool === "freedraw"
+      activeTool === 'rectangle' ||
+      activeTool === 'ellipse' ||
+      activeTool === 'diamond' ||
+      activeTool === 'arrow' ||
+      activeTool === 'line' ||
+      activeTool === 'freedraw'
     ) {
       startDrawing(
         { x, y },
@@ -933,7 +890,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           strokeStyle: currentStrokeStyle,
           fillStyle: currentFillStyle,
         },
-        elements,
+        elements
       );
       setIsDrawing(true);
       return;
@@ -944,22 +901,14 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const { x, y } = getCanvasCoordinates(e);
 
-    if (
-      e.pointerType === "touch" &&
-      interactionRef.current.touchPointers.has(e.pointerId)
-    ) {
+    if (e.pointerType === 'touch' && interactionRef.current.touchPointers.has(e.pointerId)) {
       interactionRef.current.touchPointers.set(e.pointerId, {
         x: e.clientX,
         y: e.clientY,
       });
 
-      if (
-        interactionRef.current.touchPointers.size === 2 &&
-        interactionRef.current.pinchStartMid
-      ) {
-        const points = Array.from(
-          interactionRef.current.touchPointers.values(),
-        );
+      if (interactionRef.current.touchPointers.size === 2 && interactionRef.current.pinchStartMid) {
+        const points = Array.from(interactionRef.current.touchPointers.values());
         const first = points[0];
         const second = points[1];
         if (first && second) {
@@ -978,11 +927,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           const worldY = (startMid.y - startPan.y) / startZoom;
           const scaledZoom = Math.max(
             0.1,
-            Math.min(
-              20,
-              startZoom *
-                (distance / interactionRef.current.pinchStartDistance),
-            ),
+            Math.min(20, startZoom * (distance / interactionRef.current.pinchStartDistance))
           );
 
           setZoom(scaledZoom);
@@ -996,10 +941,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     broadcastCursor(x, y);
 
     // ── Panning ────────────────────────────────────────────────────────────
-    if (
-      interactionRef.current.panning &&
-      interactionRef.current.panStartClient
-    ) {
+    if (interactionRef.current.panning && interactionRef.current.panStartClient) {
       const dx = e.clientX - interactionRef.current.panStartClient.x;
       const dy = e.clientY - interactionRef.current.panStartClient.y;
       const state = useCanvasStore.getState();
@@ -1026,10 +968,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       const handle = interactionRef.current.resizeHandle!;
       const dx = x - interactionRef.current.resizeStartCanvasPos.x;
       const dy = y - interactionRef.current.resizeStartCanvasPos.y;
-      if (
-        !interactionRef.current.historyPushed &&
-        (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5)
-      ) {
+      if (!interactionRef.current.historyPushed && (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5)) {
         pushHistory();
         interactionRef.current.historyPushed = true;
       }
@@ -1041,37 +980,37 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       const aspect = el.height !== 0 ? el.width / el.height : 1;
 
       switch (handle) {
-        case "se":
+        case 'se':
           newWidth = Math.max(4, el.width + dx);
           newHeight = Math.max(4, el.height + dy);
           break;
-        case "sw":
+        case 'sw':
           newWidth = Math.max(4, el.width - dx);
           newX = el.x + el.width - newWidth;
           newHeight = Math.max(4, el.height + dy);
           break;
-        case "ne":
+        case 'ne':
           newWidth = Math.max(4, el.width + dx);
           newHeight = Math.max(4, el.height - dy);
           newY = el.y + el.height - newHeight;
           break;
-        case "nw":
+        case 'nw':
           newWidth = Math.max(4, el.width - dx);
           newX = el.x + el.width - newWidth;
           newHeight = Math.max(4, el.height - dy);
           newY = el.y + el.height - newHeight;
           break;
-        case "e":
+        case 'e':
           newWidth = Math.max(4, el.width + dx);
           break;
-        case "w":
+        case 'w':
           newWidth = Math.max(4, el.width - dx);
           newX = el.x + el.width - newWidth;
           break;
-        case "s":
+        case 's':
           newHeight = Math.max(4, el.height + dy);
           break;
-        case "n":
+        case 'n':
           newHeight = Math.max(4, el.height - dy);
           newY = el.y + el.height - newHeight;
           break;
@@ -1081,10 +1020,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         const base = Math.max(newWidth, newHeight);
         newWidth = base;
         newHeight = aspect !== 0 ? base / aspect : base;
-        if (handle.includes("w")) {
+        if (handle.includes('w')) {
           newX = el.x + el.width - newWidth;
         }
-        if (handle.includes("n")) {
+        if (handle.includes('n')) {
           newY = el.y + el.height - newHeight;
         }
       }
@@ -1107,7 +1046,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       // Scale points for line/arrow/freedraw
       if (
-        (el.type === "arrow" || el.type === "line" || el.type === "freedraw") &&
+        (el.type === 'arrow' || el.type === 'line' || el.type === 'freedraw') &&
         el.points &&
         el.points.length > 0 &&
         el.width !== 0 &&
@@ -1129,18 +1068,14 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     // ── Rotate ─────────────────────────────────────────────────────────────
-    if (
-      interactionRef.current.rotating &&
-      interactionRef.current.rotateInitialEl
-    ) {
+    if (interactionRef.current.rotating && interactionRef.current.rotateInitialEl) {
       const cx = interactionRef.current.rotateCenterX;
       const cy = interactionRef.current.rotateCenterY;
       // angle from center to cursor; offset by -PI/2 so 0 = pointing up
       const angle = Math.atan2(y - cy, x - cx) + Math.PI / 2;
       if (
         !interactionRef.current.historyPushed &&
-        Math.abs(angle - (interactionRef.current.rotateInitialEl.angle ?? 0)) >
-          0.001
+        Math.abs(angle - (interactionRef.current.rotateInitialEl.angle ?? 0)) > 0.001
       ) {
         pushHistory();
         interactionRef.current.historyPushed = true;
@@ -1157,15 +1092,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     // ── Drag selected elements ─────────────────────────────────────────────
     if (
       interactionRef.current.dragging &&
-      activeTool === "select" &&
+      activeTool === 'select' &&
       interactionRef.current.dragStartCanvasPos &&
       interactionRef.current.dragInitialElements
     ) {
       const currentPoint = gridEnabled ? snapPointToGrid({ x, y }) : { x, y };
-      const totalDeltaX =
-        currentPoint.x - interactionRef.current.dragStartCanvasPos.x;
-      const totalDeltaY =
-        currentPoint.y - interactionRef.current.dragStartCanvasPos.y;
+      const totalDeltaX = currentPoint.x - interactionRef.current.dragStartCanvasPos.x;
+      const totalDeltaY = currentPoint.y - interactionRef.current.dragStartCanvasPos.y;
       if (
         !interactionRef.current.historyPushed &&
         (Math.abs(totalDeltaX) > 0.5 || Math.abs(totalDeltaY) > 0.5)
@@ -1189,8 +1122,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
     if (!isDrawing) return;
 
-    if (activeTool === "eraser") {
-      setEraserPath((prev) => [...prev, { x, y }]);
+    if (activeTool === 'eraser') {
+      setEraserPath(prev => [...prev, { x, y }]);
       const state = useCanvasStore.getState();
       const candidates = spatialIndex.tree.search({
         minX: x - 20,
@@ -1198,7 +1131,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         maxX: x + 20,
         maxY: y + 20,
       });
-      candidates.forEach((candidate) => {
+      candidates.forEach(candidate => {
         const element = spatialIndex.byId.get(candidate.id);
         if (!element) return;
         const lockOwner = state.elementLocks.get(element.id);
@@ -1211,12 +1144,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     if (
-      activeTool === "rectangle" ||
-      activeTool === "ellipse" ||
-      activeTool === "diamond" ||
-      activeTool === "arrow" ||
-      activeTool === "line" ||
-      activeTool === "freedraw"
+      activeTool === 'rectangle' ||
+      activeTool === 'ellipse' ||
+      activeTool === 'diamond' ||
+      activeTool === 'arrow' ||
+      activeTool === 'line' ||
+      activeTool === 'freedraw'
     ) {
       const snapped = snapPointToGrid({ x, y });
       updateDrawing(
@@ -1226,7 +1159,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           altKey: e.altKey,
           pressure: e.pressure,
         },
-        elements,
+        elements
       );
       return;
     }
@@ -1234,7 +1167,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   // ── Pointer up ────────────────────────────────────────────────────────────
   const handlePointerUp = (e?: React.PointerEvent) => {
-    if (e?.pointerType === "touch") {
+    if (e?.pointerType === 'touch') {
       interactionRef.current.touchPointers.delete(e.pointerId);
       if (interactionRef.current.touchPointers.size < 2) {
         interactionRef.current.pinchStartDistance = 0;
@@ -1250,9 +1183,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       setIsPanning(false);
       if (
         !interactionRef.current.isSpacePressed &&
-        activeTool === "hand" &&
+        activeTool === 'hand' &&
         lastToolBeforeSpaceRef.current &&
-        lastToolBeforeSpaceRef.current !== "hand"
+        lastToolBeforeSpaceRef.current !== 'hand'
       ) {
         setActiveTool(lastToolBeforeSpaceRef.current);
       }
@@ -1268,7 +1201,29 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         maxY: Math.max(marqueeSelection.start.y, marqueeSelection.end.y),
       };
       const candidates = spatialIndex.tree.search(rect);
-      const hitIds = new Set(candidates.map((candidate) => candidate.id));
+
+      let hitIds: Set<string>;
+      if (marqueeSelectionMode === 'contained') {
+        // Contained: element must be fully inside the marquee
+        hitIds = new Set();
+        for (const candidate of candidates) {
+          const element = spatialIndex.byId.get(candidate.id);
+          if (!element) continue;
+          const bounds = getElementBounds(element);
+          if (
+            bounds.x >= rect.minX &&
+            bounds.y >= rect.minY &&
+            bounds.x + bounds.width <= rect.maxX &&
+            bounds.y + bounds.height <= rect.maxY
+          ) {
+            hitIds.add(candidate.id);
+          }
+        }
+      } else {
+        // Intersecting: element overlaps with marquee (default)
+        hitIds = new Set(candidates.map(candidate => candidate.id));
+      }
+
       if (e?.shiftKey) {
         setSelectedIds(new Set([...selectedIds, ...hitIds]));
       } else {
@@ -1322,10 +1277,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
     // ── End drawing ────────────────────────────────────────────────────────
     if (isDrawing) {
-      if (activeTool === "eraser") {
-        const elementsToErase = collectCascadeDeleteIds(
-          eraserHitIdsRef.current,
-        );
+      if (activeTool === 'eraser') {
+        const elementsToErase = collectCascadeDeleteIds(eraserHitIdsRef.current);
 
         if (elementsToErase.length > 0) {
           deleteElements(elementsToErase);
@@ -1338,12 +1291,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       }
 
       if (
-        activeTool === "rectangle" ||
-        activeTool === "ellipse" ||
-        activeTool === "diamond" ||
-        activeTool === "arrow" ||
-        activeTool === "line" ||
-        activeTool === "freedraw"
+        activeTool === 'rectangle' ||
+        activeTool === 'ellipse' ||
+        activeTool === 'diamond' ||
+        activeTool === 'arrow' ||
+        activeTool === 'line' ||
+        activeTool === 'freedraw'
       ) {
         const finishedElement = finishDrawing();
         if (finishedElement) {
@@ -1351,13 +1304,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           if (runtimeStore) {
             // Runtime store path: commitDraft already appended element, just
             // tell the runtime so it can sync its own snapshot.
-            runtimeStore.commit(
-              ActionCreator.addElement(finishedElement),
-              "IMMEDIATELY",
-            );
+            runtimeStore.commit(ActionCreator.addElement(finishedElement), 'IMMEDIATELY');
           }
           if (!toolLocked) {
-            setActiveTool("select");
+            setActiveTool('select');
           }
         }
         setIsDrawing(false);
@@ -1380,13 +1330,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    const lines = text.split("\n");
+    const lines = text.split('\n');
     const fontSize = 20;
     const lineHeight = fontSize * 1.25;
-    const measuredWidth = Math.max(
-      40,
-      ...lines.map((line) => line.length * (fontSize * 0.55)),
-    );
+    const measuredWidth = Math.max(40, ...lines.map(line => line.length * (fontSize * 0.55)));
     const measuredHeight = Math.max(lineHeight, lines.length * lineHeight);
 
     if (textInput.existingElementId) {
@@ -1401,19 +1348,18 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
     const textElement: DriplElement = {
       id: textInput.id,
-      type: "text",
+      type: 'text',
       x: textInput.x,
       y: textInput.y,
       width: measuredWidth,
       height: measuredHeight,
       strokeColor: currentStrokeColor,
-      backgroundColor: "transparent",
+      backgroundColor: 'transparent',
       strokeWidth: 1,
       opacity: 1,
       text,
       fontSize,
-      fontFamily:
-        '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
+      fontFamily: '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
     };
 
     addElement(textElement);
@@ -1428,7 +1374,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     let maxX = -Infinity;
     let maxY = -Infinity;
 
-    elements.forEach((element) => {
+    elements.forEach(element => {
       const bounds = getElementBounds(element);
       minX = Math.min(minX, bounds.x);
       minY = Math.min(minY, bounds.y);
@@ -1443,48 +1389,59 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     const viewportHeight = containerRef.current.clientHeight - padding * 2;
     const nextZoom = Math.max(
       0.1,
-      Math.min(
-        20,
-        Math.min(viewportWidth / contentWidth, viewportHeight / contentHeight),
-      ),
+      Math.min(20, Math.min(viewportWidth / contentWidth, viewportHeight / contentHeight))
     );
-    const nextPanX =
-      containerRef.current.clientWidth / 2 -
-      (minX + contentWidth / 2) * nextZoom;
-    const nextPanY =
-      containerRef.current.clientHeight / 2 -
-      (minY + contentHeight / 2) * nextZoom;
+    const nextPanX = containerRef.current.clientWidth / 2 - (minX + contentWidth / 2) * nextZoom;
+    const nextPanY = containerRef.current.clientHeight / 2 - (minY + contentHeight / 2) * nextZoom;
 
     setZoom(nextZoom);
     setPan(nextPanX, nextPanY);
   }, [elements, setPan, setZoom]);
 
   const duplicateSelection = useCallback(() => {
-    const selected = elements.filter((element) => selectedIds.has(element.id));
+    const selected = elements.filter(element => selectedIds.has(element.id));
     if (selected.length === 0) return;
-    const copies = selected.map((element) => ({
+    const copies = selected.map(element => ({
       ...element,
       id: uuidv4(),
       x: element.x + 10,
       y: element.y + 10,
     }));
     useCanvasStore.getState().addElements(copies);
-    setSelectedIds(new Set(copies.map((element) => element.id)));
+    setSelectedIds(new Set(copies.map(element => element.id)));
   }, [elements, selectedIds, setSelectedIds]);
 
   const copySelectedToClipboard = useCallback(async () => {
-    const selected = elements.filter((element) => selectedIds.has(element.id));
+    const selected = elements.filter(element => selectedIds.has(element.id));
     if (selected.length === 0) return;
+    // Store in internal clipboard
+    useCanvasStore.getState().setClipboard(selected);
+    // Also copy to system clipboard for external use
     await navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
   }, [elements, selectedIds]);
 
   const pasteFromClipboard = useCallback(async () => {
-    if (typeof navigator.clipboard.read === "function") {
+    // First, check internal clipboard (Ctrl+C within app)
+    const internalClipboard = useCanvasStore.getState().clipboard;
+    if (internalClipboard.length > 0) {
+      const copies = internalClipboard.map(element => ({
+        ...element,
+        id: uuidv4(),
+        x: element.x + 10,
+        y: element.y + 10,
+      }));
+      useCanvasStore.getState().addElements(copies);
+      setSelectedIds(new Set(copies.map(element => element.id)));
+      return;
+    }
+
+    // Fall back to system clipboard
+    if (typeof navigator.clipboard.read === 'function') {
       try {
         const items = await navigator.clipboard.read();
         for (const item of items) {
-          if (item.types.includes("image/png")) {
-            const blob = await item.getType("image/png");
+          if (item.types.includes('image/png')) {
+            const blob = await item.getType('image/png');
             const dataUrl = await new Promise<string>((resolve, reject) => {
               const reader = new FileReader();
               reader.onload = () => resolve(reader.result as string);
@@ -1493,20 +1450,20 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
             });
             const img = new Image();
             img.src = dataUrl;
-            await new Promise((resolve) => {
+            await new Promise(resolve => {
               img.onload = resolve;
               img.onerror = resolve;
             });
             if (img.width > 0 && img.height > 0) {
               addElement({
                 id: uuidv4(),
-                type: "image",
+                type: 'image',
                 x: 40,
                 y: 40,
                 width: img.width,
                 height: img.height,
-                strokeColor: "transparent",
-                backgroundColor: "transparent",
+                strokeColor: 'transparent',
+                backgroundColor: 'transparent',
                 strokeWidth: 0,
                 opacity: 1,
                 src: dataUrl,
@@ -1530,25 +1487,25 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         incoming = CanvasContentSchema.parse(parsed) as DriplElement[];
       } else if (
         parsed &&
-        typeof parsed === "object" &&
-        "elements" in parsed &&
+        typeof parsed === 'object' &&
+        'elements' in parsed &&
         Array.isArray((parsed as { elements?: unknown }).elements)
       ) {
         incoming = CanvasContentSchema.parse(
-          (parsed as { elements: unknown[] }).elements,
+          (parsed as { elements: unknown[] }).elements
         ) as DriplElement[];
       } else {
         return;
       }
 
-      const copies = incoming.map((element) => ({
+      const copies = incoming.map(element => ({
         ...element,
         id: uuidv4(),
         x: element.x + 10,
         y: element.y + 10,
       }));
       useCanvasStore.getState().addElements(copies);
-      setSelectedIds(new Set(copies.map((element) => element.id)));
+      setSelectedIds(new Set(copies.map(element => element.id)));
     } catch {
       // ignore non-dripl clipboard content
     }
@@ -1559,19 +1516,18 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       const query = rawQuery.trim().toLowerCase();
       if (!query) return 0;
 
-      const matches = elements.filter((element) => {
-        const textContent =
-          element.type === "text" && "text" in element ? element.text : "";
+      const matches = elements.filter(element => {
+        const textContent = element.type === 'text' && 'text' in element ? element.text : '';
         const searchable = [
           element.type,
           element.id,
           textContent,
-          element.strokeColor ?? "",
-          element.backgroundColor ?? "",
+          element.strokeColor ?? '',
+          element.backgroundColor ?? '',
           String(Math.round(element.x)),
           String(Math.round(element.y)),
         ]
-          .join(" ")
+          .join(' ')
           .toLowerCase();
         return searchable.includes(query);
       });
@@ -1580,7 +1536,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         return 0;
       }
 
-      setSelectedIds(new Set(matches.map((element) => element.id)));
+      setSelectedIds(new Set(matches.map(element => element.id)));
       const first = matches[0];
       if (first && containerRef.current) {
         const bounds = getElementBounds(first);
@@ -1588,15 +1544,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         const centerY = bounds.y + bounds.height / 2;
         const viewportWidth = containerRef.current.clientWidth;
         const viewportHeight = containerRef.current.clientHeight;
-        setPan(
-          viewportWidth / 2 - centerX * zoom,
-          viewportHeight / 2 - centerY * zoom,
-        );
+        setPan(viewportWidth / 2 - centerX * zoom, viewportHeight / 2 - centerY * zoom);
       }
 
       return matches.length;
     },
-    [elements, setPan, setSelectedIds, zoom],
+    [elements, setPan, setSelectedIds, zoom]
   );
 
   useEffect(() => {
@@ -1606,20 +1559,17 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       if (!query) return;
       const count = findOnCanvas(query);
       if (count === 0) {
-        alert("No matching elements found on canvas.");
+        alert('No matching elements found on canvas.');
       } else if (count === 1) {
-        alert("Found 1 matching element.");
+        alert('Found 1 matching element.');
       } else {
         alert(`Found ${count} matching elements.`);
       }
     };
 
-    window.addEventListener("dripl:find-on-canvas", handleFindOnCanvasEvent);
+    window.addEventListener('dripl:find-on-canvas', handleFindOnCanvasEvent);
     return () => {
-      window.removeEventListener(
-        "dripl:find-on-canvas",
-        handleFindOnCanvasEvent,
-      );
+      window.removeEventListener('dripl:find-on-canvas', handleFindOnCanvasEvent);
     };
   }, [findOnCanvas]);
 
@@ -1628,11 +1578,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       if (readOnly) return;
       e.preventDefault();
       const rect = e.currentTarget.getBoundingClientRect();
-      const point = screenToCanvas(
-        e.clientX - rect.left,
-        e.clientY - rect.top,
-        viewport,
-      );
+      const point = screenToCanvas(e.clientX - rect.left, e.clientY - rect.top, viewport);
       const element = getElementAtPosition(point.x, point.y);
       if (!element) {
         setContextMenuState(null);
@@ -1647,125 +1593,137 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         elementId: element.id,
       });
     },
-    [getElementAtPosition, readOnly, selectedIds, setSelectedIds, viewport],
+    [getElementAtPosition, readOnly, selectedIds, setSelectedIds, viewport]
   );
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      )
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
         return;
 
-      const isMac = navigator.platform.toUpperCase().includes("MAC");
+      const isMac = navigator.platform.toUpperCase().includes('MAC');
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
       const key = e.key.toLowerCase();
 
-      if (e.code === "Space") {
+      if (e.code === 'Space') {
         if (!interactionRef.current.isSpacePressed) {
           interactionRef.current.isSpacePressed = true;
-          if (activeTool !== "hand") {
+          if (activeTool !== 'hand') {
             lastToolBeforeSpaceRef.current = activeTool;
-            setActiveTool("hand");
+            setActiveTool('hand');
           }
         }
         e.preventDefault();
       }
 
       if (!cmdOrCtrl && !e.altKey && !e.shiftKey) {
-        if (key === "v") setActiveTool("select");
-        if (key === "r") setActiveTool("rectangle");
-        if (key === "e" || key === "o") setActiveTool("ellipse");
-        if (key === "d" || key === "p") setActiveTool("freedraw");
-        if (key === "l") setActiveTool("line");
-        if (key === "a") setActiveTool("arrow");
-        if (key === "t") setActiveTool("text");
-        if (key === "f") setActiveTool("frame");
-        if (key === "x") setActiveTool("eraser");
-        if (key === "h") setActiveTool("hand");
+        if (key === 'v') setActiveTool('select');
+        if (key === 'r') setActiveTool('rectangle');
+        if (key === 'd') setActiveTool('diamond');
+        if (key === 'e' || key === 'o') setActiveTool('ellipse');
+        if (key === 'p') setActiveTool('freedraw');
+        if (key === 'l') setActiveTool('line');
+        if (key === 'a') setActiveTool('arrow');
+        if (key === 't') setActiveTool('text');
+        if (key === 'f') setActiveTool('frame');
+        if (key === 'x') setActiveTool('eraser');
+        if (key === 'h') setActiveTool('hand');
       }
 
-      if (cmdOrCtrl && key === "z") {
+      if (cmdOrCtrl && key === 'z') {
         e.preventDefault();
         if (e.shiftKey) redo();
         else undo();
         return;
       }
 
-      if (cmdOrCtrl && key === "y") {
+      if (cmdOrCtrl && key === 'y') {
         e.preventDefault();
         redo();
         return;
       }
 
-      if (cmdOrCtrl && key === "a") {
+      if (cmdOrCtrl && key === 'a') {
         e.preventDefault();
-        setSelectedIds(new Set(elements.map((element) => element.id)));
+        setSelectedIds(new Set(elements.map(element => element.id)));
         return;
       }
 
-      if (cmdOrCtrl && key === "f") {
+      if (cmdOrCtrl && key === 'f') {
         e.preventDefault();
-        const query = window.prompt("Find on canvas", "");
+        const query = window.prompt('Find on canvas', '');
         if (query && query.trim()) {
           const count = findOnCanvas(query);
           if (count === 0) {
-            alert("No matching elements found on canvas.");
+            alert('No matching elements found on canvas.');
           }
         }
         return;
       }
 
-      if (cmdOrCtrl && key === "c") {
+      if (cmdOrCtrl && key === 'c') {
         e.preventDefault();
         void copySelectedToClipboard();
         return;
       }
 
-      if (cmdOrCtrl && key === "v") {
+      if (cmdOrCtrl && key === 'v') {
         if (readOnly) return;
         e.preventDefault();
         void pasteFromClipboard();
         return;
       }
 
-      if (cmdOrCtrl && key === "d") {
+      if (cmdOrCtrl && key === 'd') {
         if (readOnly) return;
         e.preventDefault();
         duplicateSelection();
         return;
       }
 
-      if (cmdOrCtrl && key === "g") {
+      if (cmdOrCtrl && key === 'g') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          // Ctrl+Shift+G = ungroup
+          const ids = Array.from(useCanvasStore.getState().selectedIds);
+          ungroupElements(ids);
+        } else {
+          // Ctrl+G = group
+          const ids = Array.from(useCanvasStore.getState().selectedIds);
+          groupElements(ids);
+        }
+        return;
+      }
+
+      // Ctrl+Alt+G = toggle grid (moved from Ctrl+G)
+      if (cmdOrCtrl && e.altKey && key === 'g') {
         e.preventDefault();
         setGridEnabled(!useCanvasStore.getState().gridEnabled);
         return;
       }
 
-      if (cmdOrCtrl && e.shiftKey && key === "f") {
+      if (cmdOrCtrl && e.shiftKey && key === 'f') {
         e.preventDefault();
         fitAllToScreen();
         return;
       }
 
-      if (cmdOrCtrl && key === "0") {
+      if (cmdOrCtrl && key === '0') {
         e.preventDefault();
         fitAllToScreen();
         return;
       }
 
-      if (cmdOrCtrl && e.shiftKey && key === "h") {
+      if (cmdOrCtrl && e.shiftKey && key === 'h') {
         e.preventDefault();
         setZoom(1);
         setPan(0, 0);
         return;
       }
 
-      if (key === "[") {
+      if (key === '[') {
         if (readOnly) return;
         e.preventDefault();
         const ids = Array.from(useCanvasStore.getState().selectedIds);
@@ -1774,7 +1732,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         return;
       }
 
-      if (key === "]") {
+      if (key === ']') {
         if (readOnly) return;
         e.preventDefault();
         const ids = Array.from(useCanvasStore.getState().selectedIds);
@@ -1783,7 +1741,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         return;
       }
 
-      if (e.key === "Delete" || e.key === "Backspace") {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
         if (readOnly) return;
         const { selectedIds: ids } = useCanvasStore.getState();
         if (ids.size > 0) {
@@ -1794,7 +1752,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         }
       }
 
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         clearSelection();
         setTextInput(null);
         cancelDrawing();
@@ -1802,23 +1760,23 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
+      if (e.code === 'Space') {
         interactionRef.current.isSpacePressed = false;
         if (
-          activeTool === "hand" &&
+          activeTool === 'hand' &&
           lastToolBeforeSpaceRef.current &&
-          lastToolBeforeSpaceRef.current !== "hand"
+          lastToolBeforeSpaceRef.current !== 'hand'
         ) {
           setActiveTool(lastToolBeforeSpaceRef.current as ActiveTool);
         }
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, [
     activeTool,
@@ -1844,14 +1802,106 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     cancelDrawing,
     elements,
     undo,
+    marqueeSelectionMode,
+    groupElements,
+    ungroupElements,
   ]);
 
-  // ── Mouse wheel zoom ──────────────────────────────────────────────────────
+  // ── Mouse wheel zoom & momentum ───────────────────────────────────────
+  const stopMomentum = useCallback(() => {
+    const m = momentumRef.current;
+    if (m.animationFrame) {
+      cancelAnimationFrame(m.animationFrame);
+      m.animationFrame = 0;
+    }
+    m.isInertial = false;
+    m.velocityX = 0;
+    m.velocityY = 0;
+  }, []);
+
+  const applyMomentum = useCallback(() => {
+    const m = momentumRef.current;
+    if (!m.isInertial) return;
+
+    const decay = 0.95;
+    const minVelocity = 0.5;
+
+    m.velocityX *= decay;
+    m.velocityY *= decay;
+
+    if (Math.abs(m.velocityX) < minVelocity && Math.abs(m.velocityY) < minVelocity) {
+      stopMomentum();
+      return;
+    }
+
+    const state = useCanvasStore.getState();
+    setPan(state.panX + m.velocityX, state.panY + m.velocityY);
+
+    m.animationFrame = requestAnimationFrame(applyMomentum);
+  }, [setPan, stopMomentum]);
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    let isTrackpad = false;
+    let lastWheelDeltaX = 0;
+    let lastWheelDeltaY = 0;
+    let wheelTimer: ReturnType<typeof setTimeout> | null = null;
+
     const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
+      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+      const isShift = e.shiftKey;
+      const absDx = Math.abs(e.deltaX);
+      const absDy = Math.abs(e.deltaY);
+
+      // Detect trackpad vs mouse wheel
+      if (!isCtrlOrMeta) {
+        if (wheelTimer) clearTimeout(wheelTimer);
+        isTrackpad = absDx > 0 || absDy > 0;
+        wheelTimer = setTimeout(() => {
+          isTrackpad = false;
+        }, 150);
+      }
+
+      // Two-finger trackpad pan (like Excalidraw)
+      if (!isCtrlOrMeta && (absDx > 2 || absDy > 2)) {
+        e.preventDefault();
+        const state = useCanvasStore.getState();
+
+        // Apply pan with momentum
+        const deltaX = -e.deltaX * 1.5;
+        const deltaY = -e.deltaY * 1.5;
+
+        // For trackpad, accumulate momentum
+        if (isTrackpad || absDx > 5 || absDy > 5) {
+          const now = performance.now();
+          const m = momentumRef.current;
+
+          if (m.isInertial) {
+            // Blend with existing velocity for smoother continuation
+            m.velocityX = m.velocityX * 0.7 + deltaX * 0.3;
+            m.velocityY = m.velocityY * 0.7 + deltaY * 0.3;
+          } else {
+            m.velocityX = deltaX;
+            m.velocityY = deltaY;
+          }
+
+          m.isInertial = true;
+          m.lastTime = now;
+
+          if (!m.animationFrame) {
+            m.animationFrame = requestAnimationFrame(applyMomentum);
+          }
+        } else {
+          stopMomentum();
+          setPan(state.panX + deltaX, state.panY + deltaY);
+        }
+        return;
+      }
+
+      // Ctrl/Cmd + scroll = zoom (like Excalidraw)
+      if (isCtrlOrMeta) {
         e.preventDefault();
         const rect = container.getBoundingClientRect();
         const state = useCanvasStore.getState();
@@ -1865,11 +1915,25 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         const nextPanY = screenY - worldY * nextZoom;
         setZoom(nextZoom);
         setPan(nextPanX, nextPanY);
+        return;
+      }
+
+      // Shift + scroll = horizontal pan
+      if (isShift && (e.deltaX !== 0 || e.deltaY !== 0)) {
+        e.preventDefault();
+        const state = useCanvasStore.getState();
+        setPan(state.panX - e.deltaX * 1.5, state.panY - e.deltaY * 1.5);
+        return;
       }
     };
-    container.addEventListener("wheel", handleWheel, { passive: false });
-    return () => container.removeEventListener("wheel", handleWheel);
-  }, [containerReady, setPan, setZoom]);
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      stopMomentum();
+      if (wheelTimer) clearTimeout(wheelTimer);
+    };
+  }, [containerReady, setPan, setZoom, applyMomentum, stopMomentum]);
 
   const collaboratorCursors = collaborators;
 
@@ -1880,7 +1944,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onContextMenu={openContextMenu}
-      style={{ backgroundColor: "var(--color-canvas-bg)" }}
+      style={{ backgroundColor: 'var(--color-canvas-bg)' }}
     >
       {containerReady && (
         <DualCanvas
@@ -1923,19 +1987,20 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       <CollaboratorsList roomSlug={roomSlug} />
       <RemoteCursors />
 
-      {!userName && roomSlug !== null && (
-        <NameInputModal onSubmit={handleNameSubmit} />
+      {roomSlug === null && elements.length === 0 && !welcomeScreenDismissed && (
+        <WelcomeScreen onClose={() => setWelcomeScreenDismissed(true)} />
       )}
+
+      {!userName && roomSlug !== null && <NameInputModal onSubmit={handleNameSubmit} />}
 
       <div className="absolute top-6 left-6 z-20">
         <PropertiesPanel
           selectedElement={
             selectedIds.size === 1
-              ? elements.find((el) => el.id === Array.from(selectedIds)[0]) ||
-                null
+              ? elements.find(el => el.id === Array.from(selectedIds)[0]) || null
               : null
           }
-          onUpdateElement={(updatedElement) => {
+          onUpdateElement={updatedElement => {
             if (updatedElement.id) {
               updateElement(updatedElement.id, updatedElement);
             }
@@ -1945,38 +2010,38 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       {textInput && (
         <textarea
-          ref={(el) => el?.focus()}
-          defaultValue={textInput.value ?? ""}
+          ref={el => el?.focus()}
+          defaultValue={textInput.value ?? ''}
           className="canvas-text-input absolute outline-none resize-none"
           style={{
             left: `${textInput.x * zoom + panX}px`,
             top: `${textInput.y * zoom + panY}px`,
             fontSize: `${20 * zoom}px`,
             lineHeight: 1.4,
-            color: "var(--color-default-stroke)",
-            background: "transparent",
-            border: "1.5px dashed #6965db",
+            color: 'var(--color-default-stroke)',
+            background: 'transparent',
+            border: '1.5px dashed #6965db',
             borderRadius: 2,
-            minWidth: "160px",
-            minHeight: "28px",
-            padding: "2px 4px",
+            minWidth: '160px',
+            minHeight: '28px',
+            padding: '2px 4px',
             zIndex: 1000,
           }}
-          onBlur={(e) => {
+          onBlur={e => {
             if (e.target.value.trim()) handleTextSubmit(e.target.value);
           }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               handleTextSubmit(e.currentTarget.value);
             }
-            if (e.key === "Escape") setTextInput(null);
+            if (e.key === 'Escape') setTextInput(null);
           }}
           placeholder="Type text…"
         />
       )}
 
-      {activeTool === "eraser" && cursorPosition && (
+      {activeTool === 'eraser' && cursorPosition && (
         <div
           className="absolute pointer-events-none rounded-full border"
           style={{
@@ -1984,8 +2049,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
             top: `${cursorPosition.y * zoom + panY - 20}px`,
             width: 40,
             height: 40,
-            borderColor: "rgba(255,255,255,0.75)",
-            backgroundColor: "rgba(255,255,255,0.08)",
+            borderColor: 'rgba(255,255,255,0.75)',
+            backgroundColor: 'rgba(255,255,255,0.08)',
             zIndex: 40,
           }}
         />
@@ -2003,11 +2068,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         <ContextMenu
           x={contextMenuState.x}
           y={contextMenuState.y}
-          element={
-            elements.find(
-              (element) => element.id === contextMenuState.elementId,
-            ) ?? null
-          }
+          element={elements.find(element => element.id === contextMenuState.elementId) ?? null}
           onClose={() => setContextMenuState(null)}
           onDuplicate={duplicateSelection}
           onDelete={() => {
