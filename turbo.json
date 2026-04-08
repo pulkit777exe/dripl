@@ -1,6 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
+  "globalEnv": [
+    "JWT_SECRET",
+    "PORT",
+    "WS_PORT",
+    "FRONTEND_URL",
+    "REDIS_URL",
+    "DATABASE_URL",
+    "NODE_ENV"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -10,7 +19,16 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": [
+        "JWT_SECRET",
+        "PORT",
+        "WS_PORT",
+        "FRONTEND_URL",
+        "REDIS_URL",
+        "DATABASE_URL",
+        "NODE_ENV"
+      ]
     },
     "test": {
       "dependsOn": ["build"],

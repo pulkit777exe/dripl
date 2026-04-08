@@ -17,6 +17,7 @@
     "eslint": "latest",
     "prettier": "latest",
     "prisma": "^7.0.1",
+    "tsx": "^4.21.0",
     "turbo": "latest",
     "typescript": "latest"
   },
