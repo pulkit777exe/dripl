@@ -5,7 +5,7 @@ WORKDIR /app
 RUN corepack enable pnpm
 
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod=false
 
 COPY apps/http-server ./apps/http-server
 COPY packages/common ./packages/common
