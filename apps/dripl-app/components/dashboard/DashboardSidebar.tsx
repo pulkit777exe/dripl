@@ -1,83 +1,127 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
   Clock,
   User,
   Folder,
   HelpCircle,
-  Plus,
   Search,
+  Moon,
+  Sun,
+  Plus,
   Settings,
-} from "lucide-react";
-import { cn } from "../../lib/utils";
+  LogOut,
+} from 'lucide-react';
+import { ThemeToggle } from '../ThemeToggle';
+import { useAuth } from '@/app/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 const items = [
-  { label: "All Files", icon: LayoutGrid, href: "/dashboard" },
-  { label: "Recents", icon: Clock, href: "/dashboard/recents" },
-  { label: "Created by Me", icon: User, href: "/dashboard/created" },
-  { label: "Folders", icon: Folder, href: "/dashboard/folders" },
-  { label: "Unsorted", icon: HelpCircle, href: "/dashboard/unsorted" },
+  { label: 'All Files', icon: LayoutGrid, href: '/dashboard' },
+  { label: 'Recents', icon: Clock, href: '/dashboard/recents' },
+  { label: 'Created by Me', icon: User, href: '/dashboard/created' },
+  { label: 'Folders', icon: Folder, href: '/dashboard/folders' },
+  { label: 'Unsorted', icon: HelpCircle, href: '/dashboard/unsorted' },
 ];
 
 export function DashboardSidebar() {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/auth/login');
+  };
 
   return (
-    <aside className="w-64 border-r border-border bg-background flex flex-col h-full">
+    <aside className="w-64 border-r border-border/50 bg-card/50 backdrop-blur-sm flex flex-col h-full">
       <div className="p-4">
-        <div className="flex items-center gap-2 px-2 py-2 mb-6">
-          <div className="h-6 w-6 rounded bg-indigo-500" />
-          <span className="font-semibold text-foreground">
-            User&apos;s Team
-          </span>
+        <div className="flex items-center gap-2.5 px-2 py-1.5 mb-6">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
+            <span className="text-primary-foreground font-bold text-sm">D</span>
+          </div>
+          <span className="font-semibold text-foreground text-lg tracking-tight">Dripl</span>
         </div>
 
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <button className="w-full flex items-center gap-2.5 px-3 py-2.5 mb-4 rounded-lg bg-secondary/60 text-sm font-medium text-foreground hover:bg-secondary transition-colors">
+          <Plus className="h-4 w-4" />
+          New Canvas
+        </button>
+
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
           <input
             type="text"
             placeholder="Search"
-            className="w-full bg-card border border-border rounded-md py-2 pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-accent"
+            className="w-full bg-secondary/40 border-0 rounded-lg py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:bg-secondary/60 transition-colors"
           />
         </div>
 
-        <nav className="space-y-1">
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                pathname === item.href
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary",
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          ))}
+        <nav className="space-y-0.5">
+          {items.map(item => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
       </div>
 
-      <div className="mt-auto p-4 border-t border-border">
-        <div className="rounded-xl bg-card p-4 mb-4 border border-border">
-          <h3 className="font-medium text-foreground text-sm mb-1">
-            Free Plan
-          </h3>
-          <div className="h-1.5 w-full bg-secondary rounded-full mb-2 overflow-hidden">
-            <div className="h-full bg-indigo-500 w-3/4" />
-          </div>
-          <p className="text-xs text-muted-foreground mb-3">
-            3 of 3 files used
-          </p>
-          <button className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-md transition-colors">
-            Upgrade
+      <div className="mt-auto p-4 border-t border-border/50">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-medium text-muted-foreground">Appearance</span>
+          <ThemeToggle />
+        </div>
+
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-medium text-muted-foreground">Settings</span>
+          <button className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors">
+            <Settings className="h-4 w-4" />
           </button>
         </div>
+
+        {user && (
+          <div className="flex items-center justify-between pt-3 border-t border-border/50">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                <span className="text-primary text-xs font-medium">
+                  {user.name?.[0] || user.email[0].toUpperCase()}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-foreground truncate max-w-[100px]">
+                  {user.name || user.email}
+                </span>
+                <span className="text-xs text-muted-foreground truncate max-w-[100px]">
+                  {user.email}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              title="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

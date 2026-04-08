@@ -1,12 +1,11 @@
-"use client";
+'use client';
 
-import { Moon, Sun, Monitor } from "lucide-react";
-import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import { Moon, Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { useEffect, useState } from 'react';
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -14,54 +13,26 @@ export function ThemeToggle() {
   }, []);
 
   if (!mounted) {
-    return (
-      <button className="p-2 rounded-lg bg-card border border-border">
-        <div className="w-4 h-4" />
-      </button>
-    );
+    return <div className="w-9 h-9 rounded-md bg-secondary/40" />;
   }
 
+  const isDark = resolvedTheme === 'dark';
+
   const toggleTheme = () => {
-    if (theme === "light") {
-      setTheme("dark");
-    } else if (theme === "dark") {
-      setTheme("system");
+    if (isDark) {
+      setTheme('light');
     } else {
-      setTheme("light");
-    }
-  };
-
-  const getThemeIcon = () => {
-    if (theme === "dark") {
-      return <Sun className="w-4 h-4" />;
-    } else if (theme === "light") {
-      return <Moon className="w-4 h-4" />;
-    } else {
-      return <Monitor className="w-4 h-4" />;
-    }
-  };
-
-  const getThemeLabel = () => {
-    if (theme === "dark") {
-      return "Switch to light mode";
-    } else if (theme === "light") {
-      return "Switch to dark mode";
-    } else {
-      return "Switch to system mode";
+      setTheme('dark');
     }
   };
 
   return (
     <button
       onClick={toggleTheme}
-      className={cn(
-        "p-2 rounded-lg transition-all duration-200",
-        "bg-card hover:bg-accent border border-border",
-        "text-foreground hover:text-accent-foreground",
-      )}
-      title={getThemeLabel()}
+      className="p-2 rounded-md bg-secondary/40 hover:bg-secondary transition-colors text-foreground"
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      {getThemeIcon()}
+      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </button>
   );
 }
