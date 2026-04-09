@@ -2,20 +2,17 @@
  * Constraint helpers for Phase 4: binding endpoints and frame ordering.
  * Spec §5.3 Binding Constraint System, §5.4 Frame Constraint System.
  */
-import type { DriplElement, NormalizedBinding, Point } from "@dripl/common";
-import { getElementBounds } from "./intersection";
-import type { Bounds } from "./geometry";
+import type { DriplElement, NormalizedBinding, Point } from '@dripl/common';
+import { getElementBounds } from './intersection';
+import type { Bounds } from './geometry';
 
 /**
  * Derive world-space endpoint from a normalized binding.
  * fixedPoint (0–1) maps to element bounds; for linear elements, fixedPoint.x is t along the path.
  */
-export function deriveBindingEndpoint(
-  element: DriplElement,
-  fixedPoint: Point,
-): Point {
+export function deriveBindingEndpoint(element: DriplElement, fixedPoint: Point): Point {
   const b = getElementBounds(element);
-  if (element.type === "arrow" || element.type === "line") {
+  if (element.type === 'arrow' || element.type === 'line') {
     const points = (element as { points?: Point[] }).points;
     if (points && points.length >= 2) {
       const t = Math.max(0, Math.min(1, fixedPoint.x));
@@ -43,9 +40,9 @@ export function deriveBindingEndpoint(
  */
 export function getBindingEndpoint(
   binding: NormalizedBinding,
-  elements: ReadonlyArray<DriplElement>,
+  elements: ReadonlyArray<DriplElement>
 ): Point | null {
-  const el = elements.find((e) => e.id === binding.elementId);
+  const el = elements.find(e => e.id === binding.elementId);
   if (!el) return null;
   return deriveBindingEndpoint(el, binding.fixedPoint);
 }
@@ -69,9 +66,10 @@ export function boundsContain(outer: Bounds, inner: Bounds): boolean {
 export function isElementInFrame(
   element: DriplElement,
   frame: DriplElement,
-  elements: ReadonlyArray<DriplElement>,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  elements: ReadonlyArray<DriplElement>
 ): boolean {
-  if (frame.type !== "frame") return false;
+  if (frame.type !== 'frame') return false;
   const frameBounds = getElementBounds(frame);
   const elementBounds = getElementBounds(element);
   return boundsContain(frameBounds, elementBounds);
@@ -83,15 +81,11 @@ export function isElementInFrame(
  * For now preserves input order; extend when frameId is added to the model.
  */
 export function getOrderedElementsWithFrames(
-  elements: ReadonlyArray<DriplElement>,
+  elements: ReadonlyArray<DriplElement>
 ): DriplElement[] {
-  const list = [...elements].filter((el) => !el.isDeleted);
-  const frameIds = new Set(
-    list.filter((el) => el.type === "frame").map((el) => el.id),
-  );
-  const withFrame = list.filter(
-    (el) => (el as DriplElement & { frameId?: string }).frameId != null,
-  );
+  const list = [...elements].filter(el => !el.isDeleted);
+  const frameIds = new Set(list.filter(el => el.type === 'frame').map(el => el.id));
+  const withFrame = list.filter(el => (el as DriplElement & { frameId?: string }).frameId != null);
   if (withFrame.length === 0) return list;
   const byFrame = new Map<string, DriplElement[]>();
   const withoutFrame: DriplElement[] = [];
@@ -101,11 +95,11 @@ export function getOrderedElementsWithFrames(
       const arr = byFrame.get(fid) ?? [];
       arr.push(el);
       byFrame.set(fid, arr);
-    } else if (el.type !== "frame") {
+    } else if (el.type !== 'frame') {
       withoutFrame.push(el);
     }
   }
-  const frames = list.filter((el) => el.type === "frame");
+  const frames = list.filter(el => el.type === 'frame');
   const out: DriplElement[] = [];
   const added = new Set<string>();
   function add(id: string) {
@@ -115,7 +109,7 @@ export function getOrderedElementsWithFrames(
     if (children) {
       for (const c of children) add(c.id);
     }
-    const el = list.find((e) => e.id === id);
+    const el = list.find(e => e.id === id);
     if (el) out.push(el);
   }
   for (const el of withoutFrame) {

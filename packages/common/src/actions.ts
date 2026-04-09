@@ -1,6 +1,6 @@
-import type { DriplElement, Point } from "./types/element";
+import type { DriplElement } from "./types/element";
 import type { Scene } from "./scene";
-import type { Delta, DeltaManager } from "./delta";
+import type { DeltaManager } from "./delta";
 
 export type ActionType =
   | "ADD_ELEMENT"
@@ -15,81 +15,37 @@ export type ActionType =
   | "START_EDITING_TEXT"
   | "STOP_EDITING_TEXT";
 
-export interface Action {
-  type: ActionType;
-  payload: any;
+export interface BaseAction<TType extends ActionType, TPayload = Record<string, never>> {
+  type: TType;
+  payload: TPayload;
   timestamp: number;
   id: string;
 }
 
-export interface AddElementAction extends Action {
-  type: "ADD_ELEMENT";
-  payload: {
-    element: DriplElement;
-  };
-}
+export type AddElementAction = BaseAction<"ADD_ELEMENT", { element: DriplElement }>;
+export type UpdateElementAction = BaseAction<"UPDATE_ELEMENT", { elementId: string; updates: Partial<DriplElement> }>;
+export type DeleteElementAction = BaseAction<"DELETE_ELEMENT", { elementId: string }>;
+export type RestoreElementAction = BaseAction<"RESTORE_ELEMENT", { elementId: string }>;
+export type SelectElementAction = BaseAction<"SELECT_ELEMENT", { elementId: string }>;
+export type DeselectElementAction = BaseAction<"DESELECT_ELEMENT", { elementId: string }>;
+export type SelectAllAction = BaseAction<"SELECT_ALL">;
+export type ClearSelectionAction = BaseAction<"CLEAR_SELECTION">;
+export type ToggleSelectionAction = BaseAction<"TOGGLE_SELECTION", { elementId: string }>;
+export type StartEditingTextAction = BaseAction<"START_EDITING_TEXT", { elementId: string }>;
+export type StopEditingTextAction = BaseAction<"STOP_EDITING_TEXT">;
 
-export interface UpdateElementAction extends Action {
-  type: "UPDATE_ELEMENT";
-  payload: {
-    elementId: string;
-    updates: Partial<DriplElement>;
-  };
-}
-
-export interface DeleteElementAction extends Action {
-  type: "DELETE_ELEMENT";
-  payload: {
-    elementId: string;
-  };
-}
-
-export interface RestoreElementAction extends Action {
-  type: "RESTORE_ELEMENT";
-  payload: {
-    elementId: string;
-  };
-}
-
-export interface SelectElementAction extends Action {
-  type: "SELECT_ELEMENT";
-  payload: {
-    elementId: string;
-  };
-}
-
-export interface DeselectElementAction extends Action {
-  type: "DESELECT_ELEMENT";
-  payload: {
-    elementId: string;
-  };
-}
-
-export interface SelectAllAction extends Action {
-  type: "SELECT_ALL";
-}
-
-export interface ClearSelectionAction extends Action {
-  type: "CLEAR_SELECTION";
-}
-
-export interface ToggleSelectionAction extends Action {
-  type: "TOGGLE_SELECTION";
-  payload: {
-    elementId: string;
-  };
-}
-
-export interface StartEditingTextAction extends Action {
-  type: "START_EDITING_TEXT";
-  payload: {
-    elementId: string;
-  };
-}
-
-export interface StopEditingTextAction extends Action {
-  type: "STOP_EDITING_TEXT";
-}
+export type Action =
+  | AddElementAction
+  | UpdateElementAction
+  | DeleteElementAction
+  | RestoreElementAction
+  | SelectElementAction
+  | DeselectElementAction
+  | SelectAllAction
+  | ClearSelectionAction
+  | ToggleSelectionAction
+  | StartEditingTextAction
+  | StopEditingTextAction;
 
 export class ActionCreator {
   static addElement(element: DriplElement): AddElementAction {

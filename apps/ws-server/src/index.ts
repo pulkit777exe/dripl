@@ -264,7 +264,7 @@ wss.on('connection', (ws, req) => {
     if (user) user.isAlive = true;
   });
 
-  ws.on('message', async (raw: any) => {
+  ws.on('message', async (raw: Buffer) => {
     const MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
     const messageStr = raw.toString();
     if (messageStr.length > MAX_MESSAGE_SIZE) {

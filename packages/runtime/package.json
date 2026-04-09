@@ -19,6 +19,7 @@
     "@dripl/math": "workspace:*"
   },
   "devDependencies": {
+    "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
     "eslint": "latest",
     "typescript": "latest",

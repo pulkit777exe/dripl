@@ -23,21 +23,21 @@ export interface Action {
   perform: (
     elements: DriplElement[],
     appState: AppState,
-    value?: any,
-    app?: any,
+    value?: unknown,
+    app?: unknown,
   ) => ActionResult;
   keyPriority?: number;
   keyTest?: (
     event: React.KeyboardEvent | KeyboardEvent,
     appState: AppState,
     elements: DriplElement[],
-    app?: any,
+    app?: unknown,
   ) => boolean;
   predicate?: (
     elements: DriplElement[],
     appState: AppState,
-    appProps: any,
-    app?: any,
+    appProps: unknown,
+    app?: unknown,
   ) => boolean;
   checked?: (appState: AppState) => boolean;
   trackEvent?: boolean | { category: string; action?: string };
@@ -54,7 +54,7 @@ export class ActionManager {
     ) => void,
     private getAppState: () => AppState,
     private getElements: () => DriplElement[],
-    private app?: any,
+    private app?: unknown,
   ) {}
 
   registerAction(action: Action) {
@@ -76,7 +76,7 @@ export class ActionManager {
   executeAction(
     action: Action | string,
     source: ActionSource = "api",
-    value: any = null,
+    value: unknown = null,
   ): void {
     const actionInstance =
       typeof action === "string" ? this.getAction(action) : action;
@@ -89,12 +89,16 @@ export class ActionManager {
     }
 
     // Check if action is enabled
+    const elements = this.getElements();
+    const appState = this.getAppState();
+    const appProps = (this.app as { props?: Record<string, unknown> } | undefined)?.props;
+
     if (
       actionInstance.predicate &&
       !actionInstance.predicate(
-        this.getElements(),
-        this.getAppState(),
-        null,
+        elements,
+        appState,
+        appProps as { props?: Record<string, unknown> },
         this.app,
       )
     ) {
@@ -132,7 +136,7 @@ export class ActionManager {
   }
 
   handleKeyDown(event: React.KeyboardEvent | KeyboardEvent): boolean {
-    const canvasActions = this.app?.props?.canvasActions || {};
+    const canvasActions = (this.app as { props?: { canvasActions?: Record<string, boolean> } } | undefined)?.props?.canvasActions || {};
 
     const matchingActions = Array.from(this.actions.values())
       .sort((a, b) => (b.keyPriority || 0) - (a.keyPriority || 0))
@@ -174,8 +178,8 @@ export function trackAction(
   source: ActionSource,
   appState: AppState,
   elements: DriplElement[],
-  app: any,
-  value: any,
+  app: unknown,
+  value: unknown,
 ): void {
   if (action.trackEvent) {
     const category =

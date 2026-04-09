@@ -18,6 +18,7 @@
     "@dripl/typescript-config": "workspace:*"
   },
   "devDependencies": {
+    "@dripl/eslint-config": "workspace:*",
     "typescript": "latest",
     "eslint": "latest",
     "vitest": "latest"

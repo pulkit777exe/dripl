@@ -20,6 +20,7 @@
     "roughjs": "^4.6.6"
   },
   "devDependencies": {
+    "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
     "eslint": "latest",
     "typescript": "latest",

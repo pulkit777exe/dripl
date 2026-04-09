@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
-  "main": "./base.json",
+  "type": "module",
+  "main": "./index.js",
   "peerDependencies": {
     "eslint": "^9.0.0",
     "@typescript-eslint/parser": "^8.0.0",

@@ -1,11 +1,5 @@
-import type {
-  DriplElement,
-  Point,
-  FreeDrawElement,
-  LinearElement,
-  DiamondElement,
-} from "@dripl/common";
-import type { Bounds, LineSegment } from "./geometry";
+import type { DriplElement, Point, FreeDrawElement, LinearElement } from '@dripl/common';
+import type { Bounds, LineSegment } from './geometry';
 import {
   getBounds,
   boundsIntersect,
@@ -13,14 +7,9 @@ import {
   segmentIntersectsPolygon,
   pointInPolygon,
   distance,
-} from "./geometry";
+} from './geometry';
 
-function rotatePoint(
-  p: Point,
-  cx: number,
-  cy: number,
-  angleRad: number,
-): Point {
+function rotatePoint(p: Point, cx: number, cy: number, angleRad: number): Point {
   const dx = p.x - cx;
   const dy = p.y - cy;
   const cos = Math.cos(angleRad);
@@ -31,12 +20,7 @@ function rotatePoint(
   };
 }
 
-function inverseRotatePoint(
-  p: Point,
-  cx: number,
-  cy: number,
-  angleRad: number,
-): Point {
+function inverseRotatePoint(p: Point, cx: number, cy: number, angleRad: number): Point {
   return rotatePoint(p, cx, cy, -angleRad);
 }
 
@@ -52,14 +36,10 @@ function elementLocalPointToWorld(el: DriplElement, pt: Point): Point {
 export const getElementBounds = (element: DriplElement): Bounds => {
   const padding = (element.strokeWidth || 0) / 2;
 
-  if (
-    element.type === "freedraw" ||
-    element.type === "arrow" ||
-    element.type === "line"
-  ) {
-    const points = (
-      (element as FreeDrawElement | LinearElement).points || []
-    ).map((p) => elementLocalPointToWorld(element, p));
+  if (element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line') {
+    const points = ((element as FreeDrawElement | LinearElement).points || []).map(p =>
+      elementLocalPointToWorld(element, p)
+    );
 
     if (points.length === 0) {
       return {
@@ -90,9 +70,7 @@ export const getElementBounds = (element: DriplElement): Bounds => {
   const cx = element.x + element.width / 2;
   const cy = element.y + element.height / 2;
 
-  const worldCorners = angle
-    ? corners.map((c) => rotatePoint(c, cx, cy, angle))
-    : corners;
+  const worldCorners = angle ? corners.map(c => rotatePoint(c, cx, cy, angle)) : corners;
 
   const b = getBounds(worldCorners);
   return {
@@ -103,10 +81,7 @@ export const getElementBounds = (element: DriplElement): Bounds => {
   };
 };
 
-export const isPointInElement = (
-  point: Point,
-  element: DriplElement,
-): boolean => {
+export const isPointInElement = (point: Point, element: DriplElement): boolean => {
   const bounds = getElementBounds(element);
   if (
     point.x < bounds.x ||
@@ -117,11 +92,7 @@ export const isPointInElement = (
     return false;
   }
 
-  if (
-    element.type === "rectangle" ||
-    element.type === "text" ||
-    element.type === "image"
-  ) {
+  if (element.type === 'rectangle' || element.type === 'text' || element.type === 'image') {
     const angle = (element.angle || 0) as number;
     let local = point;
     if (angle) {
@@ -138,7 +109,7 @@ export const isPointInElement = (
     );
   }
 
-  if (element.type === "ellipse") {
+  if (element.type === 'ellipse') {
     const angle = (element.angle || 0) as number;
     let local = point;
     if (angle) {
@@ -156,7 +127,7 @@ export const isPointInElement = (
     return nx * nx + ny * ny <= 1;
   }
 
-  if (element.type === "diamond") {
+  if (element.type === 'diamond') {
     const angle = (element.angle || 0) as number;
     let local = point;
     if (angle) {
@@ -175,13 +146,9 @@ export const isPointInElement = (
     return pointInPolygon(local, vertices);
   }
 
-  if (
-    element.type === "freedraw" ||
-    element.type === "arrow" ||
-    element.type === "line"
-  ) {
+  if (element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line') {
     const pts = (element as FreeDrawElement | LinearElement).points || [];
-    const worldPts = pts.map((p) => elementLocalPointToWorld(element, p));
+    const worldPts = pts.map(p => elementLocalPointToWorld(element, p));
     const tolerance = (element.strokeWidth || 0) / 2 + 2;
 
     if (worldPts.length === 1) {
@@ -194,7 +161,7 @@ export const isPointInElement = (
       if (distanceToSegment(point, seg) <= tolerance) return true;
     }
 
-    if (element.type === "freedraw" && worldPts.length > 2) {
+    if (element.type === 'freedraw' && worldPts.length > 2) {
       const first = worldPts[0]!;
       const last = worldPts[worldPts.length - 1]!;
       if (distance(first, last) <= (element.strokeWidth || 0) / 2 + 1) {
@@ -211,7 +178,7 @@ export const isPointInElement = (
 export const elementIntersectsSegment = (
   element: DriplElement,
   segment: LineSegment,
-  threshold: number = 0,
+  threshold: number = 0
 ): boolean => {
   const elBounds = getElementBounds(element);
   const segBounds: Bounds = {
@@ -223,17 +190,10 @@ export const elementIntersectsSegment = (
 
   if (!boundsIntersect(elBounds, segBounds)) return false;
 
-  if (
-    isPointInElement(segment.start, element) ||
-    isPointInElement(segment.end, element)
-  )
+  if (isPointInElement(segment.start, element) || isPointInElement(segment.end, element))
     return true;
 
-  if (
-    element.type === "rectangle" ||
-    element.type === "text" ||
-    element.type === "image"
-  ) {
+  if (element.type === 'rectangle' || element.type === 'text' || element.type === 'image') {
     const corners: Point[] = [
       { x: element.x, y: element.y },
       { x: element.x + element.width, y: element.y },
@@ -244,14 +204,12 @@ export const elementIntersectsSegment = (
     const angle = (element.angle || 0) as number;
     const cx = element.x + element.width / 2;
     const cy = element.y + element.height / 2;
-    const worldCorners = angle
-      ? corners.map((c) => rotatePoint(c, cx, cy, angle))
-      : corners;
+    const worldCorners = angle ? corners.map(c => rotatePoint(c, cx, cy, angle)) : corners;
 
     return segmentIntersectsPolygon(segment, worldCorners);
   }
 
-  if (element.type === "diamond") {
+  if (element.type === 'diamond') {
     const vertices: Point[] = [
       { x: element.x + element.width / 2, y: element.y },
       { x: element.x + element.width, y: element.y + element.height / 2 },
@@ -262,14 +220,12 @@ export const elementIntersectsSegment = (
     const angle = (element.angle || 0) as number;
     const cx = element.x + element.width / 2;
     const cy = element.y + element.height / 2;
-    const worldVertices = angle
-      ? vertices.map((v) => rotatePoint(v, cx, cy, angle))
-      : vertices;
+    const worldVertices = angle ? vertices.map(v => rotatePoint(v, cx, cy, angle)) : vertices;
 
     return segmentIntersectsPolygon(segment, worldVertices);
   }
 
-  if (element.type === "ellipse") {
+  if (element.type === 'ellipse') {
     const cx = element.x + element.width / 2;
     const cy = element.y + element.height / 2;
     const rx = element.width / 2;
@@ -283,19 +239,13 @@ export const elementIntersectsSegment = (
     const angle = (element.angle || 0) as number;
     const centerX = cx;
     const centerY = cy;
-    const worldPts = angle
-      ? pts.map((p) => rotatePoint(p, centerX, centerY, angle))
-      : pts;
+    const worldPts = angle ? pts.map(p => rotatePoint(p, centerX, centerY, angle)) : pts;
     return segmentIntersectsPolygon(segment, worldPts);
   }
 
-  if (
-    element.type === "freedraw" ||
-    element.type === "arrow" ||
-    element.type === "line"
-  ) {
+  if (element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line') {
     const pts = (element as FreeDrawElement | LinearElement).points || [];
-    const worldPts = pts.map((p) => elementLocalPointToWorld(element, p));
+    const worldPts = pts.map(p => elementLocalPointToWorld(element, p));
     const tolerance = (element.strokeWidth || 0) / 2 + threshold;
 
     for (let i = 0; i < worldPts.length - 1; i++) {
@@ -310,7 +260,7 @@ export const elementIntersectsSegment = (
       if (Math.min(d1, d2, d3, d4) <= tolerance) return true;
     }
 
-    if (element.type === "freedraw" && worldPts.length > 2) {
+    if (element.type === 'freedraw' && worldPts.length > 2) {
       const first = worldPts[0]!;
       const last = worldPts[worldPts.length - 1]!;
       if (distance(first, last) <= (element.strokeWidth || 0) / 2 + 1) {
@@ -328,7 +278,7 @@ export const getFreedrawOutline = (element: FreeDrawElement): Point[] => {
   const points = element.points || [];
   if (points.length === 0) return [];
 
-  const world = points.map((p) => ({ x: element.x + p.x, y: element.y + p.y }));
+  const world = points.map(p => ({ x: element.x + p.x, y: element.y + p.y }));
   const angle = (element.angle || 0) as number;
 
   if (!angle) return world;
@@ -336,5 +286,5 @@ export const getFreedrawOutline = (element: FreeDrawElement): Point[] => {
   const cx = element.x + element.width / 2;
   const cy = element.y + element.height / 2;
 
-  return world.map((p) => rotatePoint(p, cx, cy, angle));
+  return world.map(p => rotatePoint(p, cx, cy, angle));
 };

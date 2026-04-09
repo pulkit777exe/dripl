@@ -9,8 +9,6 @@ import {
   Folder,
   HelpCircle,
   Search,
-  Moon,
-  Sun,
   Plus,
   Settings,
   LogOut,
@@ -38,16 +36,16 @@ export function DashboardSidebar() {
   };
 
   return (
-    <aside className="w-64 border-r border-border/50 bg-card/50 backdrop-blur-sm flex flex-col h-full">
+    <aside className="w-64 bg-card border-r border-border flex flex-col h-full shadow-sm z-10 relative">
       <div className="p-4">
         <div className="flex items-center gap-2.5 px-2 py-1.5 mb-6">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
+          <div className="h-8 w-8 rounded-lg bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
             <span className="text-primary-foreground font-bold text-sm">D</span>
           </div>
           <span className="font-semibold text-foreground text-lg tracking-tight">Dripl</span>
         </div>
 
-        <button className="w-full flex items-center gap-2.5 px-3 py-2.5 mb-4 rounded-lg bg-secondary/60 text-sm font-medium text-foreground hover:bg-secondary transition-colors">
+        <button className="w-full flex items-center gap-2.5 px-3 py-2.5 mb-4 rounded-xl bg-primary/10 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground shadow-sm transition-all border border-primary/20">
           <Plus className="h-4 w-4" />
           New Canvas
         </button>
@@ -100,8 +98,8 @@ export function DashboardSidebar() {
           <div className="flex items-center justify-between pt-3 border-t border-border/50">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-primary text-xs font-medium">
-                  {user.name?.[0] || user.email[0].toUpperCase()}
+                <span className="text-primary text-xs font-medium uppercase">
+                  {user.name?.[0] || user.email?.[0] || 'U'}
                 </span>
               </div>
               <div className="flex flex-col">

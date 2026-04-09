@@ -95,11 +95,11 @@ export function ShareModal({ isOpen, onClose, onStartSession, onExportToLink }: 
 
   return (
     <div
-      className="fixed inset-0 z-300 flex items-center justify-center bg-black/50 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-300 flex items-center justify-center bg-background/80 backdrop-blur-md pointer-events-auto animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-card border border-border rounded-2xl shadow-xl w-120 p-6 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+        className="bg-card border border-border rounded-2xl shadow-2xl ring-1 ring-primary/10 w-120 p-6 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         onClick={e => e.stopPropagation()}
       >
         <button
@@ -133,7 +133,7 @@ export function ShareModal({ isOpen, onClose, onStartSession, onExportToLink }: 
         {/* Session Tab */}
         {activeTab === 'session' && (
           <div className="text-center py-6">
-            <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-secondary rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-inner">
+            <div className="w-20 h-20 bg-linear-to-br from-primary/20 to-secondary rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-inner">
               <Play size={36} className="text-primary ml-1" />
             </div>
             <h2 className="text-xl font-semibold text-foreground mb-2">Start live session</h2>
@@ -144,7 +144,7 @@ export function ShareModal({ isOpen, onClose, onStartSession, onExportToLink }: 
             <button
               onClick={handleStartSession}
               disabled={isStartingSession}
-              className="inline-flex items-center gap-2 px-8 py-3 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-all shadow-button hover:shadow-button-hover disabled:opacity-50 disabled:shadow-none"
+              className="inline-flex items-center gap-2 px-8 py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
             >
               <Play size={16} fill="currentColor" />
               {isStartingSession ? 'Starting...' : 'Start Session'}

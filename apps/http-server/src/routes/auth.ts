@@ -10,6 +10,10 @@ import {
   signSessionToken,
   type AuthenticatedRequest,
 } from "../middleware/auth";
+import { OAuth2Client } from "google-auth-library";
+import { sendResetPasswordEmail } from "../lib/mailer";
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -92,7 +96,7 @@ authRouter.post("/login", async (req, res) => {
       return;
     }
 
-    const isValid = await bcrypt.compare(parsed.data.password, user.password);
+    const isValid = user.password && await bcrypt.compare(parsed.data.password, user.password);
     if (!isValid) {
       res.status(401).json({ error: "Invalid email or password" });
       return;
@@ -152,5 +156,129 @@ authRouter.get(
     }
   },
 );
+
+authRouter.post("/google", async (req, res) => {
+  const { token } = req.body;
+  if (!token) {
+    res.status(400).json({ error: "No token provided" });
+    return;
+  }
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      res.status(400).json({ error: "Invalid Google token" });
+      return;
+    }
+
+    const email = payload.email;
+    const name = payload.name;
+    const image = payload.picture;
+
+    let user = await db.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      user = await db.user.create({
+        data: {
+          id: randomUUID(),
+          email,
+          name: name ?? null,
+          image: image ?? null,
+        },
+      });
+    }
+
+    const sessionToken = signSessionToken(user.id);
+    setSessionCookie(res, sessionToken);
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+      },
+    });
+  } catch (error) {
+    console.error("google auth error", error);
+    res.status(401).json({ error: "Invalid Google token" });
+  }
+});
+
+authRouter.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    res.status(400).json({ error: "Email is required" });
+    return;
+  }
+
+  try {
+    const user = await db.user.findUnique({ where: { email } });
+    if (!user) {
+      // Return ok to not leak emails
+      res.json({ ok: true });
+      return;
+    }
+
+    const resetToken = randomUUID();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
+
+    await db.passwordResetToken.create({
+      data: {
+        token: resetToken,
+        email,
+        expiresAt,
+      },
+    });
+
+    await sendResetPasswordEmail(email, resetToken);
+    
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("forgot password error", error);
+    res.status(500).json({ error: "Failed to process request" });
+  }
+});
+
+authRouter.post("/reset-password", async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) {
+    res.status(400).json({ error: "Token and password are required" });
+    return;
+  }
+
+  try {
+    const resetEntry = await db.passwordResetToken.findUnique({
+      where: { token },
+    });
+
+    if (!resetEntry || resetEntry.expiresAt < new Date()) {
+      res.status(400).json({ error: "Invalid or expired reset token" });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await db.user.update({
+      where: { email: resetEntry.email },
+      data: { password: hashedPassword },
+    });
+
+    await db.passwordResetToken.delete({
+      where: { id: resetEntry.id },
+    });
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("reset password error", error);
+    res.status(500).json({ error: "Failed to reset password" });
+  }
+});
 
 export { authRouter };

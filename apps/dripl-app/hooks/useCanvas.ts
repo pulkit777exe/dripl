@@ -86,7 +86,7 @@ export const useCanvas = ({
             x: p.x + moveOffset.x,
             y: p.y + moveOffset.y,
           })),
-        };
+        } as DriplElement;
       } else if (
         isRotating &&
         rotateStart &&
@@ -95,7 +95,7 @@ export const useCanvas = ({
         renderElement = {
           ...element,
           rotation: (element.rotation || 0) + rotateOffset,
-        };
+        } as unknown as DriplElement;
       }
 
       drawShape(ctx, renderElement, isSelected);

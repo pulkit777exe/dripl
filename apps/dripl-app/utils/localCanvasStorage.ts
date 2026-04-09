@@ -45,7 +45,7 @@ export interface ElementStates {
   selectedIds?: string[];
 }
 
-export interface LocalCanvasState extends UserPreferences {}
+export type LocalCanvasState = UserPreferences;
 
 // Interface to match Excalidraw's state format for compatibility
 export interface ExcalidrawState {
@@ -68,8 +68,8 @@ export interface ExcalidrawState {
   currentItemTextAlign: string;
   cursorButton: string;
   editingGroupId: string | null;
-  activeTool: any;
-  preferredSelectionTool: any;
+  activeTool: string;
+  preferredSelectionTool: string;
   penMode: boolean;
   penDetected: boolean;
   exportBackground: boolean;
@@ -84,12 +84,12 @@ export interface ExcalidrawState {
   name: string;
   openMenu: string | null;
   openSidebar: string | null;
-  previousSelectedElementIds: any;
+  previousSelectedElementIds: Record<string, boolean>;
   scrolledOutside: boolean;
   scrollX: number;
   scrollY: number;
-  selectedElementIds: any;
-  selectedGroupIds: any;
+  selectedElementIds: Record<string, boolean>;
+  selectedGroupIds: Record<string, boolean>;
   shouldCacheIgnoreZoom: boolean;
   stats: {
     open: boolean;
@@ -100,9 +100,9 @@ export interface ExcalidrawState {
   zoom: {
     value: number;
   };
-  selectedLinearElement: any;
+  selectedLinearElement: string | null;
   objectsSnapModeEnabled: boolean;
-  lockedMultiSelections: any;
+  lockedMultiSelections: string[];
   bindMode: string;
 }
 

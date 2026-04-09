@@ -10,6 +10,7 @@
   },
   "type": "module",
   "scripts": {
+    "build": "node -e \"const { execSync } = require('child_process'); let s = false; for (let i = 0; i < 5; i++) { try { execSync('npx prisma generate', { stdio: 'inherit' }); s = true; break; } catch(e) { console.log('Retrying prisma generate...'); } } if (!s) process.exit(1);\" && tsc -b",
     "lint": "eslint .",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -22,6 +23,7 @@
     "pg": "^8.16.3"
   },
   "devDependencies": {
+    "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
     "@types/node": "^25.5.2",
     "@types/pg": "^8.11.0",

@@ -150,9 +150,9 @@ function drawRectangle(
   element: DriplElement,
 ): void {
   const roundnessValue =
-    typeof element.roundness === "object"
+    typeof element.roundness === "object" && element.roundness !== null
       ? element.roundness.type
-      : element.roundness;
+      : element.roundness || 0;
   const radius = roundnessValue * 12;
 
   if (radius > 0) {
@@ -353,7 +353,7 @@ function drawText(ctx: CanvasRenderingContext2D, element: DriplElement): void {
 }
 
 function drawFrame(ctx: CanvasRenderingContext2D, element: DriplElement): void {
-  const frameElement = element as any;
+  const frameElement = element as DriplElement & { padding?: number; title?: string };
 
   // Draw frame border
   ctx.strokeRect(element.x, element.y, element.width, element.height);

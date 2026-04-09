@@ -1,0 +1,10 @@
+node_modules
+apps/*/node_modules
+packages/*/node_modules
+.next
+apps/dripl-app/.next
+dist
+apps/*/dist
+packages/*/dist
+.env
+.git

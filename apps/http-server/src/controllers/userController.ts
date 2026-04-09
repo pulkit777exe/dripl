@@ -105,6 +105,13 @@ export class UserController {
         return;
       }
 
+      if (!user.password) {
+        res.status(401).json({
+          error: 'Invalid email or password',
+        });
+        return;
+      }
+
       const validPassword = await bcrypt.compare(password, user.password);
 
       if (!validPassword) {

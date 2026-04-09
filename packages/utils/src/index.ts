@@ -6,7 +6,7 @@ export function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
 
-export function throttle(func: Function, limit: number) {
+export function throttle(func: (...args: any[]) => void, limit: number) {
   let inThrottle: boolean;
   return function (this: any, ...args: any[]) {
     if (!inThrottle) {
@@ -17,5 +17,5 @@ export function throttle(func: Function, limit: number) {
   };
 }
 
-export * from "./encryption/index";
-export * from "./storage/index";
+export * from './encryption/index';
+export * from './storage/index';

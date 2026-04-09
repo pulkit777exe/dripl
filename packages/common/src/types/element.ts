@@ -43,8 +43,25 @@ export interface ElementBase {
   flipHorizontal?: number; // -1 or 1
   flipVertical?: number; // -1 or 1
 
+  // Common sparse properties across elements
+  points?: Point[];
+  labelId?: string;
+  containerId?: string;
+  text?: string;
+  src?: string;
+  arrowHeads?: { start?: boolean; end?: boolean };
+  startArrowhead?: string;
+  endArrowhead?: string;
+  roundness?: null | number | { type: number; value?: number };
+  fontSize?: number;
+  fontFamily?: string;
+  lineHeight?: number;
+  autoResize?: boolean;
+  padding?: number;
+  title?: string;
+
   // Custom properties for extensions
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface RectangleElement extends ElementBase {
@@ -132,21 +149,22 @@ export interface ShapeDefinition<T extends DriplElement = DriplElement> {
   icon?: string; // Use string for icon name instead of React node
   category: string;
   create: (props: Partial<T>) => T;
-  validate: (element: any) => boolean;
+  validate: (element: unknown) => boolean;
   render: (ctx: CanvasRenderingContext2D, element: T) => void;
-  getProperties: (element: T) => any;
-  setProperties: (element: T, properties: any) => T;
+  getProperties: (element: T) => Record<string, unknown>;
+  setProperties: (element: T, properties: Record<string, unknown>) => T;
 }
 
 // Type guard for shape validation
-export function isDriplElement(element: any): element is DriplElement {
+export function isDriplElement(element: unknown): element is DriplElement {
+  if (typeof element !== "object" || element === null) return false;
+  const el = element as Record<string, unknown>;
   return (
-    element &&
-    typeof element.id === "string" &&
-    typeof element.type === "string" &&
-    typeof element.x === "number" &&
-    typeof element.y === "number" &&
-    typeof element.width === "number" &&
-    typeof element.height === "number"
+    typeof el.id === "string" &&
+    typeof el.type === "string" &&
+    typeof el.x === "number" &&
+    typeof el.y === "number" &&
+    typeof el.width === "number" &&
+    typeof el.height === "number"
   );
 }

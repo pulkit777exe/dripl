@@ -164,11 +164,10 @@ export function exportToSvg(
         return `<polygon points="${points}" stroke="${stroke}" fill="${fill}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
       }
       if (type === "text" && "text" in element) {
-        const fontSize = "fontSize" in element ? element.fontSize : 20;
+        const fontSize = element.fontSize || 20;
         const fontFamily =
-          "fontFamily" in element
-            ? element.fontFamily
-            : '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
+          element.fontFamily ||
+          '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
         const textAlign =
           "textAlign" in element && element.textAlign ? element.textAlign : "left";
         const anchor =
@@ -184,7 +183,7 @@ export function exportToSvg(
               ? element.x + element.width / 2
               : element.x + element.width;
         const lineHeight = fontSize * 1.25;
-        const lines = element.text.split("\n");
+        const lines = (element.text || "").split("\n");
         const tspans = lines
           .map(
             (line: string, index: number) =>

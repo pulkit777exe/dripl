@@ -158,7 +158,7 @@ const getResizeAnchor = (
 };
 
 const measureFontSizeFromWidth = (
-  element: any,
+  element: DriplElement,
   metricsWidth: number,
 ): { size: number; height: number } => {
   const maxFontSize = 200;
@@ -175,18 +175,19 @@ const measureFontSizeFromWidth = (
     if (metrics.width <= metricsWidth) {
       return {
         size: fontSize,
-        height: fontSize * (element.lineHeight || 1.2),
+        height: fontSize * ((element.lineHeight as number) || 1.2),
       };
     }
   }
 
   return {
     size: minFontSize,
-    height: minFontSize * (element.lineHeight || 1.2),
+    height: minFontSize * ((element.lineHeight as number) || 1.2),
   };
 };
 
-const getMinTextElementWidth = (fontString: string, lineHeight: number): number => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const getMinTextElementWidth = (fontString: string, _lineHeight: number): number => {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (!ctx) return 20;
@@ -294,7 +295,7 @@ export const resizeSingleTextElement = (
   if (handleDirection === "e" || handleDirection === "w") {
     const minWidth = getMinTextElementWidth(
       `${element.fontSize || 16}px ${element.fontFamily || "Arial"}`,
-      element.lineHeight || 1.2,
+      (element.lineHeight as number) || 1.2,
     );
 
     const newWidth = Math.max(minWidth, nextWidth);
@@ -306,7 +307,7 @@ export const resizeSingleTextElement = (
     const metrics = measureText(
       text,
       `${element.fontSize || 16}px ${element.fontFamily || "Arial"}`,
-      element.lineHeight || 1.2,
+      (element.lineHeight as number) || 1.2,
     );
 
     const newHeight = metrics.height;

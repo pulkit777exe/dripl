@@ -1,14 +1,11 @@
-import type { DriplElement, Point } from "@dripl/common";
-import type { Bounds, LineSegment } from "./geometry";
-import { isPointInElement, getElementBounds } from "./intersection";
-import { boundsIntersect, distanceToSegment } from "./geometry";
+import type { DriplElement, Point } from '@dripl/common';
+import type { Bounds, LineSegment } from './geometry';
+import { isPointInElement, getElementBounds } from './intersection';
+import { boundsIntersect } from './geometry';
 
-export { isPointInElement, getElementBounds } from "./intersection";
+export { isPointInElement, getElementBounds } from './intersection';
 
-export function isPointInSelectionRect(
-  point: Point,
-  selectionRect: Bounds,
-): boolean {
+export function isPointInSelectionRect(point: Point, selectionRect: Bounds): boolean {
   return (
     point.x >= selectionRect.x &&
     point.x <= selectionRect.x + selectionRect.width &&
@@ -19,7 +16,7 @@ export function isPointInSelectionRect(
 
 export function elementIntersectsSelectionRect(
   element: DriplElement,
-  selectionRect: Bounds,
+  selectionRect: Bounds
 ): boolean {
   const elementBounds = getElementBounds(element);
   if (!boundsIntersect(elementBounds, selectionRect)) {
@@ -73,11 +70,8 @@ export function elementIntersectsSelectionRect(
     }
   }
 
-  if (
-    element.type === "arrow" ||
-    element.type === "line" ||
-    element.type === "freedraw"
-  ) {
+  if (element.type === 'arrow' || element.type === 'line' || element.type === 'freedraw') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const points = (element as any).points || [];
     if (points.length > 1) {
       for (let i = 0; i < points.length - 1; i++) {
@@ -124,15 +118,11 @@ export function elementIntersectsSelectionRect(
               (edge.end.x - edge.start.x) * (segment.end.y - edge.start.y) -
               (edge.end.y - edge.start.y) * (segment.end.x - edge.start.x);
             const d3 =
-              (segment.end.x - segment.start.x) *
-                (edge.start.y - segment.start.y) -
-              (segment.end.y - segment.start.y) *
-                (edge.start.x - segment.start.x);
+              (segment.end.x - segment.start.x) * (edge.start.y - segment.start.y) -
+              (segment.end.y - segment.start.y) * (edge.start.x - segment.start.x);
             const d4 =
-              (segment.end.x - segment.start.x) *
-                (edge.end.y - segment.start.y) -
-              (segment.end.y - segment.start.y) *
-                (edge.end.x - segment.start.x);
+              (segment.end.x - segment.start.x) * (edge.end.y - segment.start.y) -
+              (segment.end.y - segment.start.y) * (edge.end.x - segment.start.x);
 
             if ((d1 < 0 && d2 > 0) || (d1 > 0 && d2 < 0)) {
               if ((d3 < 0 && d4 > 0) || (d3 > 0 && d4 < 0)) {
@@ -148,10 +138,7 @@ export function elementIntersectsSelectionRect(
   return false;
 }
 
-export function getElementAtPoint(
-  point: Point,
-  elements: DriplElement[],
-): DriplElement | null {
+export function getElementAtPoint(point: Point, elements: DriplElement[]): DriplElement | null {
   for (let i = elements.length - 1; i >= 0; i--) {
     const element = elements[i];
     if (element && !element.isDeleted && isPointInElement(point, element)) {
@@ -163,11 +150,9 @@ export function getElementAtPoint(
 
 export function getElementsInSelectionRect(
   selectionRect: Bounds,
-  elements: DriplElement[],
+  elements: DriplElement[]
 ): DriplElement[] {
   return elements.filter(
-    (element) =>
-      !element.isDeleted &&
-      elementIntersectsSelectionRect(element, selectionRect),
+    element => !element.isDeleted && elementIntersectsSelectionRect(element, selectionRect)
   );
 }

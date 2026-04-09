@@ -10,7 +10,7 @@ model User {
   id        String   @id
   email     String   @unique
   name      String?
-  password  String
+  password  String?
   image     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -143,4 +143,12 @@ model ShareLink {
 
   room    CanvasRoom @relation(fields: [roomId], references: [id])
   createdBy User     @relation(fields: [createdById], references: [id])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  email     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }

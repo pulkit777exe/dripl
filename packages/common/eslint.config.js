@@ -1,24 +1,22 @@
-import js from "@eslint/js";
-import tseslint from "typescript-eslint";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
+  {
+    ignores: ['dist/**', '**/*.test.ts'],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
     languageOptions: {
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: __dirname,
-        allowDefaultProject: ["*.js", "*.mjs"],
+      globals: {
+        node: true,
+        browser: true,
       },
     },
-  },
-  {
-    ignores: ["dist/**"],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
   }
 );

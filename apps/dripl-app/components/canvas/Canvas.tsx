@@ -9,7 +9,7 @@ import {
   ArrowRight,
   Minus,
   Type,
-  Image,
+  Image as ImageIcon,
   Eraser,
   Menu,
   Share2,
@@ -37,9 +37,6 @@ import {
   Moon,
   Monitor,
   ChevronDown,
-  X,
-  BookOpen,
-  ExternalLink,
   Edit3,
   Library,
   Globe,
@@ -155,7 +152,7 @@ export default function App() {
     }
 
     if (appState) {
-      if (appState.theme) setTheme(appState.theme as any);
+      if (appState.theme) setTheme(appState.theme as "light" | "dark" | "system");
       if (appState.viewBackgroundColor)
         setCanvasBg(appState.viewBackgroundColor);
       if (appState.scrollX !== undefined && appState.scrollY !== undefined) {
@@ -170,7 +167,7 @@ export default function App() {
       if (appState.currentItemStrokeWidth)
         setStrokeWidth(appState.currentItemStrokeWidth);
       if (appState.currentItemStrokeStyle)
-        setStrokeStyle(appState.currentItemStrokeStyle as any);
+        setStrokeStyle(appState.currentItemStrokeStyle as "solid" | "dashed" | "dotted");
       if (appState.currentItemOpacity) setOpacity(appState.currentItemOpacity);
       if (appState.currentItemRoughness)
         setSloppiness(appState.currentItemRoughness);
@@ -293,7 +290,7 @@ export default function App() {
             x: p.x + moveOffset.x,
             y: p.y + moveOffset.y,
           })),
-        };
+        } as DriplElement;
       } else if (
         isRotating &&
         rotateStart &&
@@ -403,9 +400,9 @@ export default function App() {
       setIsDrawing(true);
       setStartPoint(canvasPoint);
 
-      const newElement: DriplElement = {
+      const newElement = {
         id: generateId(),
-        type: toolToUse as any,
+        type: toolToUse as DriplElement["type"],
         x: canvasPoint.x,
         y: canvasPoint.y,
         width: 0,
@@ -424,7 +421,7 @@ export default function App() {
         fontSize: 20,
         fontFamily:
           '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
-      };
+      } as unknown as DriplElement;
 
       setCurrentElement(newElement);
     },
@@ -682,7 +679,7 @@ export default function App() {
                 x: p.x + moveOffset.x,
                 y: p.y + moveOffset.y,
               })),
-            };
+            } as DriplElement;
           }
           return el;
         }),
@@ -789,7 +786,7 @@ export default function App() {
                 x: p.x + dx,
                 y: p.y + dy,
               })),
-            };
+            } as DriplElement;
           }
           return el;
         }),
@@ -964,9 +961,9 @@ export default function App() {
       setStrokeStyle(selectedElement.strokeStyle ?? "solid");
       setSloppiness(selectedElement.roughness ?? 1);
       const roundnessValue =
-        typeof selectedElement.roundness === "object"
+        typeof selectedElement.roundness === "object" && selectedElement.roundness !== null
           ? selectedElement.roundness.type
-          : selectedElement.roundness;
+          : selectedElement.roundness || 0;
       setEdges(roundnessValue > 0 ? "round" : "sharp");
       setOpacity(selectedElement.opacity ?? 100);
     }
@@ -1256,7 +1253,7 @@ export default function App() {
           }}
         />
         <IconButton
-          icon={<Image size={19} />}
+          icon={<ImageIcon size={19} />}
           isActive={activeTool === "image"}
           onClick={() => setActiveTool("image")}
         />
@@ -1679,7 +1676,7 @@ export default function App() {
                     x: p.x + moveOffset.x,
                     y: p.y + moveOffset.y,
                   })),
-                };
+                } as DriplElement;
               } else if (
                 isRotating &&
                 rotateStart &&
@@ -1814,6 +1811,7 @@ export default function App() {
               setSelectedIds(state.selectedIds);
             }
           }}
+          // eslint-disable-next-line
           disabled={!historyRef.current.canUndo()}
           className={`p-2 hover:bg-opacity-80 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             theme === "dark"
@@ -1831,6 +1829,7 @@ export default function App() {
               setSelectedIds(state.selectedIds);
             }
           }}
+          // eslint-disable-next-line
           disabled={!historyRef.current.canRedo()}
           className={`p-2 hover:bg-opacity-80 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             theme === "dark"

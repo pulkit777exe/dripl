@@ -1,30 +1,48 @@
-FROM node:20-alpine AS base
-
-FROM base AS builder
+FROM node:20-alpine AS deps
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN corepack enable pnpm
 
-COPY apps/dripl-app/package.json ./apps/dripl-app/
-COPY packages/common/package.json ./packages/common/
-COPY packages/db/package.json ./packages/db/
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY packages/common/package.json      ./packages/common/
+COPY packages/db/package.json          ./packages/db/
+COPY packages/math/package.json        ./packages/math/
+COPY packages/element/package.json     ./packages/element/
+COPY packages/runtime/package.json     ./packages/runtime/
+COPY packages/utils/package.json       ./packages/utils/
+COPY packages/dripl/package.json       ./packages/dripl/
+COPY apps/dripl-app/package.json       ./apps/dripl-app/
 COPY tooling/typescript-config/package.json ./tooling/typescript-config/
 
-RUN corepack enable pnpm && pnpm install --frozen-lockfile --prod=false
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
+RUN pnpm install --frozen-lockfile --network-concurrency 8 --fetch-retries 5
 
-COPY . .
-RUN pnpm build
+COPY packages/ ./packages/
+COPY tooling/  ./tooling/
+RUN cd packages/db && npx prisma generate --no-engine --schema=./prisma/schema.prisma
+RUN pnpm --filter "@dripl/common" build && \
+    pnpm --filter "@dripl/db" build && \
+    pnpm --filter "@dripl/math" build && \
+    pnpm --filter "@dripl/utils" build && \
+    pnpm --filter "@dripl/element" build && \
+    pnpm --filter "@dripl/runtime" build && \
+    pnpm --filter "@dripl/dripl" build
 
-FROM base AS runner
+COPY apps/dripl-app/ ./apps/dripl-app/
+
+FROM node:20-alpine AS runner
+ENV NODE_ENV=development
 WORKDIR /app
 
-ENV NODE_ENV=production
+RUN npm install -g pnpm@10.33.0
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/dripl-app/.next ./apps/dripl-app/.next
-COPY --from=builder /app/packages ./packages
+COPY --from=deps /app/node_modules        ./node_modules
+COPY --from=deps /app/packages            ./packages
+COPY --from=deps /app/tooling             ./tooling
+COPY --from=deps /app/apps/dripl-app      ./apps/dripl-app
+COPY --from=deps /app/package.json        ./package.json
+COPY --from=deps /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 
 WORKDIR /app/apps/dripl-app
 EXPOSE 3000
-
-CMD ["node", "node_modules/next/dist/bin/next", "start"]
+CMD pnpm run dev

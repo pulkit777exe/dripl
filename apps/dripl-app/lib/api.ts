@@ -114,6 +114,27 @@ class ApiClient {
     });
   }
 
+  async googleLogin(payload: { token: string }): Promise<{ user: AuthUser }> {
+    return this.request("/auth/google", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async forgotPassword(payload: { email: string }): Promise<{ ok: boolean }> {
+    return this.request("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async resetPassword(payload: { token: string; password: string }): Promise<{ ok: boolean }> {
+    return this.request("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
   async me(): Promise<{ user: AuthUser }> {
     return this.request("/auth/me");
   }
