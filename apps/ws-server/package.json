@@ -13,7 +13,6 @@
     "@dripl/common": "workspace:*",
     "@dripl/db": "workspace:*",
     "dotenv": "^17.2.4",
-    "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
     "uuid": "^13.0.0",
     "ws": "^8.18.3",
