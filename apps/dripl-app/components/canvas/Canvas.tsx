@@ -1811,7 +1811,7 @@ export default function App() {
               setSelectedIds(state.selectedIds);
             }
           }}
-          // eslint-disable-next-line
+           
           disabled={!historyRef.current.canUndo()}
           className={`p-2 hover:bg-opacity-80 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             theme === "dark"
@@ -1829,7 +1829,7 @@ export default function App() {
               setSelectedIds(state.selectedIds);
             }
           }}
-          // eslint-disable-next-line
+           
           disabled={!historyRef.current.canRedo()}
           className={`p-2 hover:bg-opacity-80 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             theme === "dark"

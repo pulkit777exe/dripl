@@ -1,15 +1,15 @@
-import type { Point, DriplElement } from "@dripl/common";
-import { getElementBounds } from "@dripl/math";
-import type { Bounds } from "@dripl/math";
-import { normalizeElement } from "@/utils/canvasUtils";
+import type { Point, DriplElement } from '@dripl/common';
+import { getElementBounds } from '@dripl/math';
+import type { Bounds } from '@dripl/math';
+import { normalizeElement } from '@/utils/canvasUtils';
 
 /**
  * Advanced Arrow Routing System
  * Per TDD Section 7: Advanced Arrow System
  */
 
-export type ArrowStyle = "straight" | "curved" | "elbow";
-export type ArrowheadType = "triangle" | "dot" | "bar" | "diamond" | "none";
+export type ArrowStyle = 'straight' | 'curved' | 'elbow';
+export type ArrowheadType = 'triangle' | 'dot' | 'bar' | 'diamond' | 'none';
 
 export interface ArrowRoutingOptions {
   style: ArrowStyle;
@@ -31,11 +31,7 @@ export function calculateStraightPath(start: Point, end: Point): Point[] {
 /**
  * Calculate points for a curved (bezier) arrow
  */
-export function calculateCurvedPath(
-  start: Point,
-  end: Point,
-  curvature: number = 0.5,
-): Point[] {
+export function calculateCurvedPath(start: Point, end: Point, curvature: number = 0.5): Point[] {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
 
@@ -91,14 +87,14 @@ export function calculateElbowPath(start: Point, end: Point): Point[] {
 export function calculateArrowPath(
   start: Point,
   end: Point,
-  options: ArrowRoutingOptions,
+  options: ArrowRoutingOptions
 ): Point[] {
   switch (options.style) {
-    case "straight":
+    case 'straight':
       return calculateStraightPath(start, end);
-    case "curved":
+    case 'curved':
       return calculateCurvedPath(start, end, options.curvature ?? 0.5);
-    case "elbow":
+    case 'elbow':
       return calculateElbowPath(start, end);
     default:
       return calculateStraightPath(start, end);
@@ -112,10 +108,10 @@ export function getArrowheadPoints(
   tip: Point,
   direction: Point, // Unit vector pointing toward tip
   type: ArrowheadType,
-  size: number = 10,
+  size: number = 10
 ): Point[] {
   switch (type) {
-    case "triangle": {
+    case 'triangle': {
       // Standard triangle arrowhead
       const base = {
         x: tip.x - direction.x * size,
@@ -136,12 +132,12 @@ export function getArrowheadPoints(
       ];
     }
 
-    case "dot": {
+    case 'dot': {
       // Dot - return center point (render as circle)
       return [tip];
     }
 
-    case "bar": {
+    case 'bar': {
       // Bar - perpendicular line at tip
       const perpX = -direction.y;
       const perpY = direction.x;
@@ -157,7 +153,7 @@ export function getArrowheadPoints(
       ];
     }
 
-    case "diamond": {
+    case 'diamond': {
       // Diamond shape
       const base = {
         x: tip.x - direction.x * size * 0.5,
@@ -182,7 +178,7 @@ export function getArrowheadPoints(
       ];
     }
 
-    case "none":
+    case 'none':
     default:
       return [];
   }
@@ -213,7 +209,7 @@ export function getDirectionVector(start: Point, end: Point): Point {
 export function snapToShapeBinding(
   point: Point,
   element: DriplElement,
-  threshold: number = 20,
+  threshold: number = 20
 ): Point {
   const bounds = getElementBounds(element);
 
@@ -229,9 +225,7 @@ export function snapToShapeBinding(
   let closestDistance = threshold;
 
   for (const anchor of anchorPoints) {
-    const distance = Math.sqrt(
-      Math.pow(point.x - anchor.x, 2) + Math.pow(point.y - anchor.y, 2),
-    );
+    const distance = Math.sqrt(Math.pow(point.x - anchor.x, 2) + Math.pow(point.y - anchor.y, 2));
 
     if (distance < closestDistance) {
       closestDistance = distance;
@@ -253,7 +247,7 @@ export interface ArrowBinding {
 
 export function calculateArrowBinding(
   arrowEnd: Point,
-  targetElement: DriplElement,
+  targetElement: DriplElement
 ): ArrowBinding | null {
   const bounds = getElementBounds(targetElement);
 
@@ -300,10 +294,7 @@ export function calculateArrowBinding(
  * Recalculate arrow anchor based on binding when shape moves
  * Per TDD Section 7.3
  */
-export function recalculateBinding(
-  binding: ArrowBinding,
-  element: DriplElement,
-): Point {
+export function recalculateBinding(binding: ArrowBinding, element: DriplElement): Point {
   const bounds = getElementBounds(element);
 
   // Calculate point on edge based on focus value
@@ -334,7 +325,7 @@ export function recalculateBinding(
   }
 }
 
-export default {
+const arrowRouting = {
   calculateArrowPath,
   getArrowheadPoints,
   getDirectionVector,
@@ -342,3 +333,5 @@ export default {
   calculateArrowBinding,
   recalculateBinding,
 };
+
+export default arrowRouting;

@@ -409,7 +409,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       const pixelY = e.clientY - rect.top;
       return screenToCanvas(pixelX, pixelY, viewport);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     [panX, panY, zoom]
   );
 
@@ -1819,6 +1819,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     m.velocityY = 0;
   }, []);
 
+  // Placeholder ref - will be set after applyMomentum is defined
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const applyMomentumRef = useRef<any>(null);
+
   const applyMomentum = useCallback(() => {
     const m = momentumRef.current;
     if (!m.isInertial) return;
@@ -1837,8 +1841,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     const state = useCanvasStore.getState();
     setPan(state.panX + m.velocityX, state.panY + m.velocityY);
 
-    m.animationFrame = requestAnimationFrame(applyMomentum);
+    m.animationFrame = requestAnimationFrame(applyMomentumRef.current);
   }, [setPan, stopMomentum]);
+
+  // Store the callback in a ref to avoid circular dependency issues in requestAnimationFrame
+  applyMomentumRef.current = applyMomentum;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -1891,7 +1898,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           m.lastTime = now;
 
           if (!m.animationFrame) {
-            m.animationFrame = requestAnimationFrame(applyMomentum);
+            m.animationFrame = requestAnimationFrame(applyMomentumRef.current);
           }
         } else {
           stopMomentum();
