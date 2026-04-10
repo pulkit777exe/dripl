@@ -19,11 +19,44 @@ All critical issues have been resolved. The following are either fixed or known 
 | 9   | ESLint Configuration Issues                                           | Fixed  |
 | 10  | Turbopack Experimental Config Warning                                 | Fixed  |
 
+### 🔴 Issues To Fix
+
+#### 1. Security — JWT_SECRET Logging
+
+**File**: `apps/ws-server/src/index.ts:10`
+**Issue**: Logs JWT_SECRET presence at startup (security risk)
+**Fix**: Remove console.log with JWT_SECRET
+
+#### 2. Peer Dependencies (@dripl/dripl)
+
+**File**: `packages/dripl/package.json`
+**Issue**: React/React-DOM as `dependencies` instead of `peerDependencies`
+**Fix**: Move react, react-dom to peerDependencies
+
+#### 3. Dead Code — Redis
+
+**File**: `apps/ws-server/src/redis.ts`
+**Issue**: File exists but never imported - dead code
+**Fix**: Remove or clean up unused redis module
+
+#### 4. Console Logging in Production
+
+**File**: `apps/http-server/*`, `apps/ws-server/src/index.ts`
+**Issue**: 58+ console.error/console.log statements scattered
+**Fix**: Consider proper logger (pino)
+
+#### 5. Empty Catch Blocks
+
+**File**: `apps/dripl-app/app/api/share/[token]/route.ts`
+**Issue**: Empty catch block swallows errors silently
+**Fix**: Add proper error handling
+
 ### ⚠️ Known Limitations
 
 1. **AI Generation Feature** — Requires valid `GEMINI_API_KEY` in `.env`
-2. **Test Coverage** — Partial coverage for http-server and ws-server
+2. **Test Coverage** — Partial coverage (math, element, ws-server have 0 tests)
 3. **Next.js Dev Lock** — Rare race condition with multiple processes (workaround: `rm -rf .next`)
+4. **Duplicate Canvas Store** — Two stores (Zustand in dripl-app + TanStack in runtime)
 
 ---
 

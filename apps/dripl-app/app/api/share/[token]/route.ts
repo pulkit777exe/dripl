@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
-import { db } from "@dripl/db";
-import { getInMemoryShare } from "@/lib/share-memory-store";
+import { NextResponse } from 'next/server';
+import { db } from '@dripl/db';
+import { getInMemoryShare } from '@/lib/share-memory-store';
 
 interface RouteContext {
   params: Promise<{ token: string }>;
@@ -11,16 +11,14 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const fallback = getInMemoryShare(token);
 
-  let file:
-    | {
-        id: string;
-        name: string;
-        content: string;
-        sharePermission: string | null;
-        shareExpiresAt: Date | null;
-        updatedAt: Date;
-      }
-    | null = null;
+  let file: {
+    id: string;
+    name: string;
+    content: string;
+    sharePermission: string | null;
+    shareExpiresAt: Date | null;
+    updatedAt: Date;
+  } | null = null;
   try {
     file = await db.file.findFirst({
       where: { shareToken: token },
@@ -33,7 +31,8 @@ export async function GET(_request: Request, context: RouteContext) {
         updatedAt: true,
       },
     });
-  } catch {
+  } catch (error) {
+    console.error('Error fetching share:', error);
     file = null;
   }
 
@@ -50,11 +49,11 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   if (!file) {
-    return NextResponse.json({ error: "Share token not found" }, { status: 404 });
+    return NextResponse.json({ error: 'Share token not found' }, { status: 404 });
   }
 
   if (file.shareExpiresAt && file.shareExpiresAt.getTime() < Date.now()) {
-    return NextResponse.json({ error: "Share token expired" }, { status: 404 });
+    return NextResponse.json({ error: 'Share token expired' }, { status: 404 });
   }
 
   let content: unknown = [];
@@ -71,6 +70,6 @@ export async function GET(_request: Request, context: RouteContext) {
       content,
       updatedAt: file.updatedAt,
     },
-    permission: file.sharePermission ?? "view",
+    permission: file.sharePermission ?? 'view',
   });
 }

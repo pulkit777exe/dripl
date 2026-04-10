@@ -3,11 +3,8 @@ import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-console.log('__dirname:', __dirname);
 const envPath = path.resolve(__dirname, '../../../.env');
-console.log('Loading env from:', envPath);
 config({ path: envPath });
-console.log('JWT_SECRET after dotenv:', process.env.JWT_SECRET ? 'present' : 'missing');
 
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
