@@ -1820,7 +1820,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   }, []);
 
   // Placeholder ref - will be set after applyMomentum is defined
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const applyMomentumRef = useRef<any>(null);
 
   const applyMomentum = useCallback(() => {

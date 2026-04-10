@@ -1,4 +1,11 @@
-import { config as baseConfig } from '@dripl/eslint-config';
-
 /** @type {import("eslint").Linter.Config} */
-export default baseConfig;
+export default [
+  {
+    ignores: ['dist/**', 'node_modules/**'],
+  },
+  {
+    rules: {
+      'no-console': 'off',
+    },
+  },
+];
