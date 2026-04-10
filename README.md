@@ -1,6 +1,6 @@
 # Dripl
 
-A modern, real-time collaborative whiteboard application built with Next.js and WebSockets.
+Real-time collaborative whiteboard with hand-drawn rendering, live cursors, and shareable links.
 
 ---
 
@@ -8,7 +8,7 @@ A modern, real-time collaborative whiteboard application built with Next.js and 
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - pnpm 10+
 
 ### Installation
@@ -20,114 +20,101 @@ pnpm install
 # Generate Prisma client
 pnpm db:generate
 
-# Run development server
+# Run development
 pnpm dev
 ```
 
-The app will be available at `http://localhost:3000`
+Open `http://localhost:3000`
+
+---
 
 ## Architecture
 
-### Frontend (Next.js)
+### Three-Server Setup
 
-- **Framework**: Next.js 16 with App Router
-- **Styling**: Tailwind CSS 4
-- **State**: TanStack Store
-
-### Canvas System
-
-- **Rendering**: HTML5 Canvas with custom renderer
-- **Elements**: Rectangle, Circle, Path, Text, Image
-- **Tools**: Selection, Draw, Eraser, Pan
-- **Features**: Undo/redo, zoom, grid, snap-to-grid
-
-### Database
-
-- **ORM**: Prisma
-- **Schema**: User, Team, File, Folder models
-- **Storage**: File content stored as JSON
-
----
-
-## Development
-
-### Available Scripts
-
-```bash
-pnpm dev          # Start dev server
-pnpm build        # Build for production
-pnpm lint         # Run ESLint
-pnpm format       # Format code with Prettier
-pnpm db:migrate   # Run database migrations
-pnpm db:push      # Push schema changes
+```
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│  dripl-app   │  │http-server  │  │ ws-server   │
+│  Next.js 16  │  │  Express 5 │  │    ws      │
+│  Port 3000   │  │  Port 3002  │  │ Port 3001  │
+└──────────────┘  └──────────────┘  └──────────────┘
+       │                 │                 │
+       └────────────────┼────────────────┘
+                        ▼
+                 ┌──────────────┐
+                 │ PostgreSQL   │
+                 │  (Neon)     │
+                 └──────────────┘
 ```
 
-### Key Directories
+### Tech Stack
 
-- `apps/dripl-app/app/` - Next.js pages and routes
-- `apps/dripl-app/components/` - React components
-- `apps/dripl-app/renderer/` - Canvas rendering logic
-- `packages/common/src/` - Shared type definitions
-
-### Adding a New Package
-
-1. Create directory in `packages/`
-2. Add `package.json` with name `@dripl/package-name`
-3. Add to workspace in root `pnpm-workspace.yaml`
-4. Install in app: `pnpm add @dripl/package-name --filter dripl-app`
+- **Frontend**: Next.js 16, React 19, Tailwind CSS 4, Zustand
+- **Rendering**: roughjs, HTML5 Canvas
+- **Backend**: Express 5, WebSocket (ws), Prisma 7
+- **Database**: PostgreSQL (Neon)
 
 ---
 
-## Code Style
+## Features
 
-- **TypeScript**: Strict mode enabled
-- **Formatting**: Prettier with 2-space indentation
-- **Linting**: ESLint with Next.js config
-- **Naming**: camelCase for variables, PascalCase for components
+- **Canvas Tools**: Rectangle, ellipse, diamond, arrow, line, text, frame, freedraw, eraser
+- **Editing**: Selection, resize, rotate, undo/redo (100 steps)
+- **Collaboration**: Remote cursors, element sync, presence
+- **Sharing**: Public links, view/edit permissions
+- **Export**: PNG, SVG, JSON
+- **Theme**: Dark/light mode
+- **Keyboard Shortcuts**: V, R, E, D, P, L, A, T, F, X, H + Ctrl combos
 
 ---
 
-## Common Tasks
+## Scripts
 
-### Adding a New Canvas Tool
+```bash
+pnpm dev          # Start all services
+pnpm build        # Build for production
+pnpm test         # Run tests
+pnpm lint         # Lint code
+pnpm format      # Format with Prettier
+pnpm db:migrate  # Database migrations
+pnpm db:studio  # Prisma Studio GUI
+```
 
-1. Add tool type to `packages/common/src/constants.ts`
-2. Create tool handler in `apps/dripl-app/components/canvas/InteractiveCanvas.tsx`
-3. Add icon to `apps/dripl-app/components/layer-ui/Toolbar.tsx`
+---
 
-### Adding a New Element Type
+## Database
 
-1. Define schema in `packages/common/src/schemas.ts`
-2. Add rendering logic in `apps/dripl-app/renderer/interactiveScene.ts`
-3. Update factory in `packages/element/src/factory.ts`
-
-### Modifying Database Schema
-
-1. Edit `packages/db/prisma/schema.prisma`
-2. Run `pnpm db:migrate` to create migration
-3. Regenerate client with `pnpm db:generate`
+8 models: User, Team, TeamMember, Folder, File, SharedFile, CanvasRoom, ShareLink.
 
 ---
 
 ## Troubleshooting
 
-### Build Errors
+### Build fails
 
-- Run `pnpm db:generate` if Prisma types are missing
-- Clear `.turbo` cache: `rm -rf .turbo`
-- Reinstall: `rm -rf node_modules && pnpm install`
+```bash
+pnpm db:generate
+rm -rf .turbo && pnpm build
+```
 
-### Type Errors
+### Dev server won't start
 
-- Ensure all workspace packages are built
-- Check `tsconfig.json` path mappings
-- Verify package exports in `package.json`
+```bash
+rm -rf .next
+pnpm dev
+```
+
+### Type errors
+
+```bash
+pnpm build    # Regenerates all packages
+```
 
 ---
 
 ## Resources
 
-- [Next.js Docs](https://nextjs.org/docs)
-- [Tailwind CSS](https://tailwindcss.com)
-- [Prisma](https://www.prisma.io/docs)
-- [TanStack Store](https://tanstack.com/store)
+- [Next.js](https://nextjs.org)
+- [roughjs](https://roughjs.com)
+- [Prisma](https://prisma.io)
+- [Zustand](https://zustand-demo.pmnd.rs)
