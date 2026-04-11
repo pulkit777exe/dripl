@@ -9,7 +9,7 @@ import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { authMiddleware } from './middleware/auth';
+import { authMiddleware } from './middlewares/authMiddleware';
 import { authRouter } from './routes/auth';
 import { filesRouter } from './routes/files';
 import { foldersRouter } from './routes/folders';

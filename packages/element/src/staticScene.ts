@@ -1,7 +1,8 @@
-import type { DriplElement } from "@dripl/common";
-import { createRoughCanvas, renderRoughElement, type RoughCanvas } from "./rough-renderer";
+import type { DriplElement } from '@dripl/common';
+import { createRoughCanvas, renderRoughElement, type RoughCanvas } from './rough-renderer';
+import { imageCache } from './image-cache';
 
-export interface Viewport {
+export interface StaticSceneViewport {
   x: number;
   y: number;
   width: number;
@@ -13,7 +14,7 @@ export interface StaticSceneConfig {
   gridEnabled: boolean;
   gridSize: number;
   zoom: number;
-  theme: "light" | "dark";
+  theme: 'light' | 'dark';
   dpr: number;
 }
 
@@ -57,9 +58,9 @@ function makeVersionKey(el: DriplElement): string {
     (el as any).textAlign,
     // image-specific – include only the first 32 chars of src to avoid a
     // very long key while still detecting changes
-    (el as any).src?.slice(0, 32) ?? "",
+    (el as any).src?.slice(0, 32) ?? '',
     // points – serialise compactly
-    (el as any).points ? JSON.stringify((el as any).points) : "",
+    (el as any).points ? JSON.stringify((el as any).points) : '',
     // arrow-specific
     (el as any).startArrowhead,
     (el as any).endArrowhead,
@@ -67,7 +68,7 @@ function makeVersionKey(el: DriplElement): string {
     (el as any).padding,
   ];
 
-  return keyParts.filter(part => part !== undefined && part !== null).join("|");
+  return keyParts.filter(part => part !== undefined && part !== null).join('|');
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -75,10 +76,10 @@ function makeVersionKey(el: DriplElement): string {
 export function renderStaticScene(
   canvas: HTMLCanvasElement,
   elements: DriplElement[],
-  viewport: Viewport,
-  config: StaticSceneConfig,
+  viewport: StaticSceneViewport,
+  config: StaticSceneConfig
 ): void {
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
   // 1. Size + clear the canvas, establish the camera transform.
@@ -93,7 +94,7 @@ export function renderStaticScene(
   for (const element of elements) {
     if ((element as any).isDeleted) continue;
 
-    // Viewport culling — skip elements fully outside the visible area.
+    // StaticSceneViewport culling — skip elements fully outside the visible area.
     if (!isElementVisible(element, viewport, config.zoom)) continue;
 
     drawElement(ctx, element, viewport, config);
@@ -113,8 +114,8 @@ export function clearStaticSceneCache(): void {
 function bootstrapCanvas(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
-  viewport: Viewport,
-  config: StaticSceneConfig,
+  viewport: StaticSceneViewport,
+  config: StaticSceneConfig
 ): void {
   const { dpr } = config;
   const bufferW = Math.round(viewport.width * dpr);
@@ -147,8 +148,8 @@ function bootstrapCanvas(
 
 function drawGrid(
   ctx: CanvasRenderingContext2D,
-  viewport: Viewport,
-  config: StaticSceneConfig,
+  viewport: StaticSceneViewport,
+  config: StaticSceneConfig
 ): void {
   const { gridSize } = config;
   const zoom = config.zoom;
@@ -160,8 +161,7 @@ function drawGrid(
   const worldBottom = worldTop + viewport.height / zoom;
 
   ctx.save();
-  ctx.strokeStyle =
-    config.theme === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)";
+  ctx.strokeStyle = config.theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
   // Keep lines 1 CSS pixel wide regardless of zoom
   ctx.lineWidth = 1 / zoom;
 
@@ -182,9 +182,9 @@ function drawGrid(
   ctx.restore();
 }
 
-// ─── Viewport culling ─────────────────────────────────────────────────────────
+// ─── StaticSceneViewport culling ─────────────────────────────────────────────────────────
 
-function isElementVisible(el: DriplElement, viewport: Viewport, zoom: number): boolean {
+function isElementVisible(el: DriplElement, viewport: StaticSceneViewport, zoom: number): boolean {
   const padding = 20; // a little slack for stroke width / shadows
   const worldLeft = viewport.x / zoom - padding;
   const worldTop = viewport.y / zoom - padding;
@@ -197,7 +197,12 @@ function isElementVisible(el: DriplElement, viewport: Viewport, zoom: number): b
   const elRight = el.x + el.width;
   const elBottom = el.y + el.height;
 
-  return !(elRight < worldLeft || elLeft > worldRight || elBottom < worldTop || elTop > worldBottom);
+  return !(
+    elRight < worldLeft ||
+    elLeft > worldRight ||
+    elBottom < worldTop ||
+    elTop > worldBottom
+  );
 }
 
 // ─── Per-element rendering ────────────────────────────────────────────────────
@@ -205,11 +210,11 @@ function isElementVisible(el: DriplElement, viewport: Viewport, zoom: number): b
 function drawElement(
   ctx: CanvasRenderingContext2D,
   element: DriplElement,
-  viewport: Viewport,
-  config: StaticSceneConfig,
+  viewport: StaticSceneViewport,
+  config: StaticSceneConfig
 ): void {
   // Image elements are drawn directly — no offscreen canvas needed.
-  if (element.type === "image") {
+  if (element.type === 'image') {
     drawImageElement(ctx, element, config);
     return;
   }
@@ -219,7 +224,7 @@ function drawElement(
   if (!offscreen) return;
 
   // Opacity — apply before drawing so it composites correctly.
-  const opacity = typeof element.opacity === "number" ? element.opacity : 1;
+  const opacity = typeof element.opacity === 'number' ? element.opacity : 1;
 
   ctx.save();
   ctx.globalAlpha = opacity;
@@ -241,7 +246,7 @@ function drawElement(
     element.x - PADDING,
     element.y - PADDING,
     offscreen.width / dpr,
-    offscreen.height / dpr,
+    offscreen.height / dpr
   );
 
   ctx.restore();
@@ -253,7 +258,7 @@ const PADDING = 10;
 
 function getOrCreateElementCanvas(
   element: DriplElement,
-  config: StaticSceneConfig,
+  config: StaticSceneConfig
 ): HTMLCanvasElement | null {
   const key = makeVersionKey(element);
   const cached = elementCanvasCache.get(element.id);
@@ -272,7 +277,7 @@ function getOrCreateElementCanvas(
 
 function generateElementCanvas(
   element: DriplElement,
-  config: StaticSceneConfig,
+  config: StaticSceneConfig
 ): HTMLCanvasElement | null {
   const dpr = window.devicePixelRatio || 1;
 
@@ -280,12 +285,12 @@ function generateElementCanvas(
   const rawW = Math.max(element.width, 1);
   const rawH = Math.max(element.height, 1);
 
-  const canvas = document.createElement("canvas");
+  const canvas = document.createElement('canvas');
   // Add padding on each side so strokes / rough jitter don't get clipped.
   canvas.width = Math.ceil((rawW + PADDING * 2) * dpr);
   canvas.height = Math.ceil((rawH + PADDING * 2) * dpr);
 
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext('2d');
   if (!ctx) return null;
 
   // Scale for hi-DPI, then translate so (0,0) in drawing coords == top-left
@@ -306,18 +311,15 @@ function generateElementCanvas(
 
 // ─── Image elements ───────────────────────────────────────────────────────────
 
-// Cache decoded HTMLImageElement objects so we don't re-decode on every frame.
-const imageCache = new Map<string, HTMLImageElement>();
-
 function drawImageElement(
   ctx: CanvasRenderingContext2D,
   element: DriplElement,
-  config: StaticSceneConfig,
+  config: StaticSceneConfig
 ): void {
   const src: string | undefined = (element as any).src;
   if (!src) return;
 
-  const opacity = typeof element.opacity === "number" ? element.opacity : 1;
+  const opacity = typeof element.opacity === 'number' ? element.opacity : 1;
 
   ctx.save();
   ctx.globalAlpha = opacity;
@@ -330,26 +332,19 @@ function drawImageElement(
     ctx.translate(-cx, -cy);
   }
 
-  let img = imageCache.get(src.slice(0, 64));
-  if (img && img.complete && img.naturalWidth > 0) {
-    ctx.drawImage(img, element.x, element.y, element.width, element.height);
-  } else if (!img) {
-    // Start loading; render a placeholder rect until it arrives.
-    img = new Image();
-    img.onload = () => {
-      // The next render call will find the fully decoded image in the cache.
-      imageCache.set(src.slice(0, 64), img!);
-    };
-    img.src = src;
-    imageCache.set(src.slice(0, 64), img);
-
-    // Placeholder
-    ctx.fillStyle =
-      config.theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+  const cached = imageCache.get(src);
+  if (cached?.loaded) {
+    ctx.drawImage(cached.image, element.x, element.y, element.width, element.height);
+  } else if (cached?.error) {
+    ctx.fillStyle = config.theme === 'dark' ? 'rgba(255,100,100,0.15)' : 'rgba(255,0,0,0.1)';
+    ctx.fillRect(element.x, element.y, element.width, element.height);
+  } else {
+    if (!cached) {
+      imageCache.load(src);
+    }
+    ctx.fillStyle = config.theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
     ctx.fillRect(element.x, element.y, element.width, element.height);
   }
-  // If img exists but isn't complete yet, the placeholder was already drawn
-  // on the previous frame — just skip this frame silently.
 
   ctx.restore();
 }

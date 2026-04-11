@@ -1,10 +1,5 @@
-import type {
-  DriplElement,
-  FreeDrawElement,
-  LinearElement,
-  Point,
-} from "@dripl/common";
-// import { getElementBounds } from "./intersection";
+import type { DriplElement, FreeDrawElement, LinearElement, Point } from '@dripl/common';
+import { imageCache } from './image-cache';
 
 export interface ViewportTransform {
   zoom: number;
@@ -14,21 +9,18 @@ export interface ViewportTransform {
 
 function applyViewportTransform(
   ctx: CanvasRenderingContext2D,
-  { zoom, scrollX, scrollY }: ViewportTransform,
+  { zoom, scrollX, scrollY }: ViewportTransform
 ) {
   ctx.setTransform(zoom, 0, 0, zoom, -scrollX * zoom, -scrollY * zoom);
 }
 
-export function renderElement2D(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-): void {
+export function renderElement2D(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   ctx.save();
 
   ctx.globalAlpha = element.opacity ?? 1;
   ctx.lineWidth = element.strokeWidth ?? 2;
-  ctx.strokeStyle = element.strokeColor ?? "#000000";
-  ctx.fillStyle = element.backgroundColor ?? "transparent";
+  ctx.strokeStyle = element.strokeColor ?? '#000000';
+  ctx.fillStyle = element.backgroundColor ?? 'transparent';
 
   const { x, y, width, height, angle = 0 } = element;
 
@@ -41,53 +33,47 @@ export function renderElement2D(
   }
 
   switch (element.type) {
-    case "rectangle":
+    case 'rectangle':
       ctx.fillRect(x, y, width, height);
       ctx.strokeRect(x, y, width, height);
       break;
 
-    case "ellipse":
+    case 'ellipse':
       ctx.beginPath();
-      ctx.ellipse(
-        x + width / 2,
-        y + height / 2,
-        width / 2,
-        height / 2,
-        0,
-        0,
-        Math.PI * 2,
-      );
+      ctx.ellipse(x + width / 2, y + height / 2, width / 2, height / 2, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       break;
 
-    case "text":
-      if (
-        "text" in element &&
-        "fontSize" in element &&
-        "fontFamily" in element
-      ) {
+    case 'text':
+      if ('text' in element && 'fontSize' in element && 'fontFamily' in element) {
         ctx.font = `${element.fontSize}px ${element.fontFamily}`;
-        ctx.fillStyle = element.strokeColor ?? "#000000";
+        ctx.fillStyle = element.strokeColor ?? '#000000';
         ctx.fillText(element.text, x, y + element.fontSize);
       }
       break;
 
-    case "image":
-      if ("src" in element) {
-        const img = new Image();
-        img.src = element.src;
-        if (img.complete) {
-          ctx.drawImage(img, x, y, width, height);
+    case 'image':
+      if ('src' in element) {
+        const cached = imageCache.get(element.src);
+        if (cached?.loaded) {
+          ctx.drawImage(cached.image, x, y, width, height);
+        } else if (cached?.error) {
+          ctx.fillStyle = '#cccccc';
+          ctx.fillRect(x, y, width, height);
+          ctx.strokeStyle = '#999999';
+          ctx.strokeRect(x, y, width, height);
         } else {
-          img.onload = () => ctx.drawImage(img, x, y, width, height);
+          ctx.fillStyle = '#f0f0f0';
+          ctx.fillRect(x, y, width, height);
+          imageCache.load(element.src);
         }
       }
       break;
 
-    case "line":
-    case "arrow":
-    case "freedraw": {
+    case 'line':
+    case 'arrow':
+    case 'freedraw': {
       const pts = (element as FreeDrawElement | LinearElement).points || [];
       if (pts.length < 2) break;
       ctx.beginPath();
@@ -106,7 +92,7 @@ export function renderElement2D(
 export function renderElements2D(
   ctx: CanvasRenderingContext2D,
   elements: DriplElement[],
-  transform: ViewportTransform,
+  transform: ViewportTransform
 ): void {
   ctx.save();
   applyViewportTransform(ctx, transform);
