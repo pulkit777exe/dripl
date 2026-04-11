@@ -13,8 +13,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@prisma/client": "^7.0.1",
-    "@types/node": "latest",
     "eslint": "latest",
     "prettier": "latest",
     "prisma": "^7.0.1",

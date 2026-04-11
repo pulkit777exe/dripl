@@ -6,7 +6,10 @@
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
     "build": "tsc -b",
@@ -14,10 +17,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dripl/common": "workspace:*",
-    "@dripl/typescript-config": "workspace:*"
+    "@dripl/common": "workspace:*"
   },
   "devDependencies": {
+    "@dripl/typescript-config": "workspace:*",
     "@dripl/eslint-config": "workspace:*",
     "typescript": "latest",
     "eslint": "latest",
