@@ -22,6 +22,7 @@
   "devDependencies": {
     "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
+    "@types/node": "^22.0.0",
     "typescript": "latest",
     "eslint": "latest",
     "vitest": "latest"

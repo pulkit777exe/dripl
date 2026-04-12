@@ -12,6 +12,7 @@
   "dependencies": {
     "@dripl/common": "workspace:*",
     "@dripl/db": "workspace:*",
+    "@dripl/utils": "workspace:*",
     "dotenv": "^17.2.4",
     "jsonwebtoken": "^9.0.2",
     "uuid": "^13.0.0",

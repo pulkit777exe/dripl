@@ -32,3 +32,4 @@ export function throttle(func: (...args: any[]) => void, limit: number) {
 
 export * from './encryption/index';
 export * from './storage/index';
+export * from './env';

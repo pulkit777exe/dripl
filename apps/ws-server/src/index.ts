@@ -11,6 +11,8 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 import type { DriplElement } from '@dripl/common';
+import { pickUserColor } from '@dripl/common';
+import { requiredEnv } from '@dripl/utils';
 import { db } from '@dripl/db';
 import { messageSchema } from './validation';
 
@@ -29,18 +31,11 @@ function toDriplElement(el: unknown): DriplElement {
   return e;
 }
 
-const requiredEnv = (key: string): string => {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
-  return value;
-};
-
 const JWT_SECRET = requiredEnv('JWT_SECRET');
 const WS_PORT = Number(process.env.WS_PORT || 3001);
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const SAVE_DEBOUNCE_MS = 2_000;
+const PERIODIC_SAVE_INTERVAL_MS = 60_000;
 
 interface UserConnection {
   userId: string;
@@ -161,7 +156,8 @@ async function loadRoomElements(roomId: string): Promise<DriplElement[]> {
   return [];
 }
 
-async function saveRoomElements(roomId: string, elements: DriplElement[]): Promise<void> {
+async function saveRoomElements(roomId: string, elements: DriplElement[]): Promise<boolean> {
+  const startTime = Date.now();
   try {
     const fileUpdate = await db.file.updateMany({
       where: { id: roomId },
@@ -172,18 +168,49 @@ async function saveRoomElements(roomId: string, elements: DriplElement[]): Promi
     });
 
     if (fileUpdate.count > 0) {
-      return;
+      console.log(
+        JSON.stringify({
+          level: 'info',
+          event: 'save_room_success',
+          roomId,
+          durationMs: Date.now() - startTime,
+          recordType: 'file',
+        })
+      );
+      return true;
     }
 
-    await db.canvasRoom.updateMany({
+    const canvasUpdate = await db.canvasRoom.updateMany({
       where: { slug: roomId },
       data: {
         content: serializeElements(elements),
         updatedAt: new Date(),
       },
     });
+
+    console.log(
+      JSON.stringify({
+        level: 'info',
+        event: 'save_room_success',
+        roomId,
+        durationMs: Date.now() - startTime,
+        recordType: 'canvasRoom',
+        updated: canvasUpdate.count,
+      })
+    );
+    return true;
   } catch (error) {
-    console.error('Failed to save room', roomId, error);
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'save_room_failure',
+        roomId,
+        durationMs: Date.now() - startTime,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      })
+    );
+    return false;
   }
 }
 
@@ -193,7 +220,17 @@ function scheduleSave(roomId: string, elements: DriplElement[]): void {
   saveTimeouts.set(
     roomId,
     setTimeout(async () => {
-      await saveRoomElements(roomId, elements);
+      const success = await saveRoomElements(roomId, elements);
+      if (!success) {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            event: 'save_debounced_failure',
+            roomId,
+            timestamp: Date.now(),
+          })
+        );
+      }
       saveTimeouts.delete(roomId);
     }, SAVE_DEBOUNCE_MS)
   );
@@ -234,20 +271,6 @@ function broadcast(room: RoomState, payload: unknown, exceptUserId?: string): vo
     if (user.ws.readyState !== WebSocket.OPEN) return;
     user.ws.send(data);
   });
-}
-
-function pickUserColor(): string {
-  const colors = [
-    '#ff6b6b',
-    '#4ecdc4',
-    '#45b7d1',
-    '#ffa07a',
-    '#98d8c8',
-    '#f7dc6f',
-    '#bb8fce',
-    '#85c1e2',
-  ];
-  return colors[Math.floor(Math.random() * colors.length)] ?? '#45b7d1';
 }
 
 wss.on('connection', (ws, req) => {
@@ -513,17 +536,52 @@ const heartbeat = setInterval(() => {
   });
 }, HEARTBEAT_INTERVAL_MS);
 
+const periodicSave = setInterval(async () => {
+  const activeRooms = Array.from(rooms.entries());
+  for (const [roomId, room] of activeRooms) {
+    if (room.users.size > 0) {
+      const success = await saveRoomElements(roomId, room.elements);
+      if (!success) {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            event: 'periodic_save_failure',
+            roomId,
+            timestamp: Date.now(),
+          })
+        );
+      }
+    } else if (room.elements.length > 0) {
+      const success = await saveRoomElements(roomId, room.elements);
+      if (success) {
+        rooms.delete(roomId);
+      }
+    }
+  }
+}, PERIODIC_SAVE_INTERVAL_MS);
+
 server.listen(WS_PORT, () => {
   console.log(`WebSocket server listening on ${WS_PORT}`);
 });
 
 async function shutdown() {
   clearInterval(heartbeat);
+  clearInterval(periodicSave);
   for (const [roomId, timeout] of saveTimeouts.entries()) {
     clearTimeout(timeout);
     const room = rooms.get(roomId);
     if (room) {
-      await saveRoomElements(roomId, room.elements);
+      const success = await saveRoomElements(roomId, room.elements);
+      if (!success) {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            event: 'shutdown_save_failure',
+            roomId,
+            timestamp: Date.now(),
+          })
+        );
+      }
     }
   }
   await db.$disconnect();
