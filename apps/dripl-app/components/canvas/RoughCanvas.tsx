@@ -11,11 +11,6 @@ import {
 } from '@/utils/localCanvasStorage';
 import { getElementBounds, isPointInElement } from '@dripl/math';
 import { ActionCreator, CanvasContentSchema, type DriplElement } from '@dripl/common';
-import {
-  getRuntimeStore,
-  updateRuntimeStoreSnapshot,
-  snapshotFromState,
-} from '@/lib/runtime-store-bridge';
 import { getOrCreateCollaboratorName } from '@/utils/username';
 import { v4 as uuidv4 } from 'uuid';
 import RBush from 'rbush';
@@ -335,7 +330,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       if (savedElements && savedElements.length) {
         setElements(savedElements, { skipHistory: true });
-        updateRuntimeStoreSnapshot(snapshotFromState(savedElements, savedSelectedIds ?? []));
       }
       if (savedSelectedIds?.length) setSelectedIds(new Set(savedSelectedIds));
       if (appState) {
@@ -1300,12 +1294,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       ) {
         const finishedElement = finishDrawing();
         if (finishedElement) {
-          const runtimeStore = getRuntimeStore();
-          if (runtimeStore) {
-            // Runtime store path: commitDraft already appended element, just
-            // tell the runtime so it can sync its own snapshot.
-            runtimeStore.commit(ActionCreator.addElement(finishedElement), 'IMMEDIATELY');
-          }
           if (!toolLocked) {
             setActiveTool('select');
           }
