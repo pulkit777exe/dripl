@@ -6,6 +6,8 @@ import { FileBrowser } from '@/components/dashboard/FileBrowser';
 import { useAuth } from '@/app/context/AuthContext';
 import { apiClient, type FileSummary, type FolderSummary } from '@/lib/api';
 
+const PAGE_SIZE = 20;
+
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -13,17 +15,23 @@ export default function DashboardPage() {
   const [folders, setFolders] = useState<FolderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
 
-  const loadData = useCallback(async (searchValue: string) => {
+  const loadData = useCallback(async (searchValue: string, pageNum: number) => {
     setLoading(true);
     try {
       const [filesResponse, foldersResponse] = await Promise.all([
         apiClient.listFiles({
           search: searchValue || undefined,
+          page: pageNum,
+          limit: PAGE_SIZE,
         }),
         apiClient.listFolders(),
       ]);
       setFiles(filesResponse.files);
+      setTotal(filesResponse.total);
+      setPage(filesResponse.page);
       setFolders(foldersResponse.folders);
     } finally {
       setLoading(false);
@@ -36,16 +44,26 @@ export default function DashboardPage() {
       router.replace('/auth/login');
       return;
     }
-    void loadData('');
+    void loadData('', 1);
   }, [authLoading, loadData, router, user]);
 
   useEffect(() => {
     if (!user) return;
     const timeout = window.setTimeout(() => {
-      void loadData(search.trim());
+      void loadData(search.trim(), 1);
     }, 250);
     return () => window.clearTimeout(timeout);
   }, [loadData, search, user]);
+
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      setPage(newPage);
+      void loadData(search.trim(), newPage);
+    },
+    [loadData, search]
+  );
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const handleCreateFile = useCallback(async () => {
     const file = await apiClient.createFile({ name: 'Untitled file' });
@@ -123,6 +141,10 @@ export default function DashboardPage() {
       </header>
       <FileBrowser
         files={fileItems}
+        total={total}
+        page={page}
+        pageSize={PAGE_SIZE}
+        onPageChange={handlePageChange}
         onCreateFile={handleCreateFile}
         onStartNewCanvas={handleCreateFile}
         onDeleteFile={handleDeleteFile}

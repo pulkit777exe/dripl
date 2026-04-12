@@ -12,6 +12,8 @@ import {
   Search,
   Filter,
   SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
@@ -26,6 +28,10 @@ type FileItem = {
 
 interface FileBrowserProps {
   files: FileItem[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
   onCreateFile?: () => void;
   onStartNewCanvas?: () => void;
   onDeleteFile?: (id: string) => void;
@@ -34,6 +40,10 @@ interface FileBrowserProps {
 
 export function FileBrowser({
   files,
+  total = 0,
+  page = 1,
+  pageSize = 20,
+  onPageChange,
   onCreateFile,
   onStartNewCanvas,
   onDeleteFile,
@@ -288,6 +298,28 @@ export function FileBrowser({
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {total > pageSize && (
+        <div className="flex items-center justify-center gap-2 py-6 border-t border-border/40">
+          <button
+            onClick={() => onPageChange?.(page - 1)}
+            disabled={page <= 1}
+            className="p-2 rounded-lg border border-border/60 hover:bg-secondary/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {Math.ceil(total / pageSize)}
+          </span>
+          <button
+            onClick={() => onPageChange?.(page + 1)}
+            disabled={page >= Math.ceil(total / pageSize)}
+            className="p-2 rounded-lg border border-border/60 hover:bg-secondary/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ??
   process.env.NEXT_PUBLIC_HTTP_URL ??
-  "http://localhost:3002/api";
+  'http://localhost:3002/api';
 
 export interface AuthUser {
   id: string;
@@ -30,7 +30,7 @@ export interface FolderSummary {
 
 export interface FileDetails extends FileSummary {
   shareToken: string | null;
-  sharePermission: "view" | "edit" | null;
+  sharePermission: 'view' | 'edit' | null;
   shareExpiresAt: string | null;
   content: unknown[];
   encryptedPayload: { iv: string; data: string } | null;
@@ -38,7 +38,7 @@ export interface FileDetails extends FileSummary {
 
 export interface ShareCreateResponse {
   token: string;
-  permission: "view" | "edit";
+  permission: 'view' | 'edit';
   expiresAt: string | null;
   shareUrl: string;
 }
@@ -49,7 +49,7 @@ export interface SharedFileResponse {
     name: string;
     updatedAt: string;
   };
-  permission: "view" | "edit";
+  permission: 'view' | 'edit';
   encryptedPayload: { iv: string; data: string } | null;
   elements: unknown[] | null;
 }
@@ -57,9 +57,9 @@ export interface SharedFileResponse {
 async function parseError(response: Response): Promise<string> {
   try {
     const parsed = (await response.json()) as { error?: string };
-    return parsed.error ?? "Request failed";
+    return parsed.error ?? 'Request failed';
   } catch {
-    return "Request failed";
+    return 'Request failed';
   }
 }
 
@@ -69,9 +69,9 @@ class ApiClient {
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
-      credentials: "include",
+      credentials: 'include',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         ...(init?.headers ?? {}),
       },
     });
@@ -92,62 +92,63 @@ class ApiClient {
     password: string;
     name?: string;
   }): Promise<{ user: AuthUser }> {
-    return this.request("/auth/register", {
-      method: "POST",
+    return this.request('/auth/register', {
+      method: 'POST',
       body: JSON.stringify(payload),
     });
   }
 
-  async login(payload: {
-    email: string;
-    password: string;
-  }): Promise<{ user: AuthUser }> {
-    return this.request("/auth/login", {
-      method: "POST",
+  async login(payload: { email: string; password: string }): Promise<{ user: AuthUser }> {
+    return this.request('/auth/login', {
+      method: 'POST',
       body: JSON.stringify(payload),
     });
   }
 
   async logout(): Promise<void> {
-    await this.request("/auth/logout", {
-      method: "POST",
+    await this.request('/auth/logout', {
+      method: 'POST',
     });
   }
 
   async googleLogin(payload: { token: string }): Promise<{ user: AuthUser }> {
-    return this.request("/auth/google", {
-      method: "POST",
+    return this.request('/auth/google', {
+      method: 'POST',
       body: JSON.stringify(payload),
     });
   }
 
   async forgotPassword(payload: { email: string }): Promise<{ ok: boolean }> {
-    return this.request("/auth/forgot-password", {
-      method: "POST",
+    return this.request('/auth/forgot-password', {
+      method: 'POST',
       body: JSON.stringify(payload),
     });
   }
 
   async resetPassword(payload: { token: string; password: string }): Promise<{ ok: boolean }> {
-    return this.request("/auth/reset-password", {
-      method: "POST",
+    return this.request('/auth/reset-password', {
+      method: 'POST',
       body: JSON.stringify(payload),
     });
   }
 
   async me(): Promise<{ user: AuthUser }> {
-    return this.request("/auth/me");
+    return this.request('/auth/me');
   }
 
   async listFiles(params?: {
     search?: string;
     folderId?: string;
-  }): Promise<{ files: FileSummary[] }> {
+    page?: number;
+    limit?: number;
+  }): Promise<{ files: FileSummary[]; total: number; page: number; limit: number }> {
     const searchParams = new URLSearchParams();
-    if (params?.search) searchParams.set("search", params.search);
-    if (params?.folderId) searchParams.set("folderId", params.folderId);
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.folderId) searchParams.set('folderId', params.folderId);
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
     const query = searchParams.toString();
-    return this.request(`/files${query ? `?${query}` : ""}`);
+    return this.request(`/files${query ? `?${query}` : ''}`);
   }
 
   async createFile(payload?: {
@@ -156,8 +157,8 @@ class ApiClient {
     content?: unknown[];
     preview?: string | null;
   }): Promise<{ id: string; name: string }> {
-    return this.request("/files", {
-      method: "POST",
+    return this.request('/files', {
+      method: 'POST',
       body: JSON.stringify(payload ?? {}),
     });
   }
@@ -173,37 +174,37 @@ class ApiClient {
       folderId?: string | null;
       content?: unknown[];
       preview?: string | null;
-    },
+    }
   ): Promise<{ file: FileSummary }> {
     return this.request(`/files/${fileId}`, {
-      method: "PATCH",
+      method: 'PATCH',
       body: JSON.stringify(payload),
     });
   }
 
   async deleteFile(fileId: string): Promise<void> {
     await this.request(`/files/${fileId}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
   async shareFile(
     fileId: string,
     payload: {
-      permission: "view" | "edit";
+      permission: 'view' | 'edit';
       expiresInHours?: number;
       expiresAt?: string;
-    },
+    }
   ): Promise<ShareCreateResponse> {
     return this.request(`/files/${fileId}/share`, {
-      method: "POST",
+      method: 'POST',
       body: JSON.stringify(payload),
     });
   }
 
   async revokeShare(fileId: string): Promise<void> {
     await this.request(`/files/${fileId}/share`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -212,36 +213,33 @@ class ApiClient {
   }
 
   async listFolders(): Promise<{ folders: FolderSummary[] }> {
-    return this.request("/folders");
+    return this.request('/folders');
   }
 
-  async createFolder(payload: {
-    name: string;
-    parentId?: string | null;
-  }): Promise<{
+  async createFolder(payload: { name: string; parentId?: string | null }): Promise<{
     folder: FolderSummary;
   }> {
-    return this.request("/folders", {
-      method: "POST",
+    return this.request('/folders', {
+      method: 'POST',
       body: JSON.stringify(payload),
     });
   }
 
   async updateFolder(
     folderId: string,
-    payload: { name?: string; parentId?: string | null },
+    payload: { name?: string; parentId?: string | null }
   ): Promise<{
     folder: FolderSummary;
   }> {
     return this.request(`/folders/${folderId}`, {
-      method: "PATCH",
+      method: 'PATCH',
       body: JSON.stringify(payload),
     });
   }
 
   async deleteFolder(folderId: string): Promise<void> {
     await this.request(`/folders/${folderId}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 }

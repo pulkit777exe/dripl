@@ -1,17 +1,19 @@
-import { randomBytes } from "crypto";
-import { Router } from "express";
-import { z } from "zod";
-import { db } from "@dripl/db";
-import type { AuthenticatedRequest } from "../middleware/auth";
+import { randomBytes } from 'crypto';
+import { Router } from 'express';
+import { z } from 'zod';
+import { db } from '@dripl/db';
+import type { AuthenticatedRequest } from '../middleware/auth';
 import {
   buildEncryptedShare,
   parseStoredFileContent,
   serializeStoredFileContent,
-} from "../lib/encrypt";
+} from '../lib/encrypt';
 
 const listFilesQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
   folderId: z.string().trim().min(1).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
 });
 
 const createFileSchema = z.object({
@@ -29,7 +31,7 @@ const patchFileSchema = z.object({
 });
 
 const createShareSchema = z.object({
-  permission: z.enum(["view", "edit"]).default("view"),
+  permission: z.enum(['view', 'edit']).default('view'),
   expiresAt: z.coerce.date().optional(),
   expiresInHours: z
     .number()
@@ -45,14 +47,13 @@ function getSingleParam(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) {
     return value[0] ?? null;
   }
-  return typeof value === "string" ? value : null;
+  return typeof value === 'string' ? value : null;
 }
 
 function nanoidLike(size = 21): string {
-  const alphabet =
-    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz-";
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz-';
   const bytes = randomBytes(size);
-  let token = "";
+  let token = '';
   for (let i = 0; i < size; i += 1) {
     token += alphabet[bytes[i]! & 63]!;
   }
@@ -61,7 +62,7 @@ function nanoidLike(size = 21): string {
 
 async function ensureFolderOwnership(
   userId: string,
-  folderId: string | null | undefined,
+  folderId: string | null | undefined
 ): Promise<boolean> {
   if (!folderId) return true;
   const folder = await db.folder.findFirst({
@@ -71,67 +72,86 @@ async function ensureFolderOwnership(
   return Boolean(folder);
 }
 
-filesRouter.get("/", async (req: AuthenticatedRequest, res) => {
+filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
   const parsedQuery = listFilesQuerySchema.safeParse(req.query);
   if (!parsedQuery.success) {
     res.status(400).json({
-      error: "Invalid file query parameters",
+      error: 'Invalid file query parameters',
       details: parsedQuery.error.flatten(),
     });
     return;
   }
 
-  const { search, folderId } = parsedQuery.data;
+  const { search, folderId, page, limit } = parsedQuery.data;
+  const skip = (page - 1) * limit;
 
   try {
-    const files = await db.file.findMany({
-      where: {
-        userId: req.userId,
-        ...(typeof folderId === "string" ? { folderId } : {}),
-        ...(typeof search === "string"
-          ? {
-              name: {
-                contains: search,
-                mode: "insensitive",
-              },
-            }
-          : {}),
-      },
-      orderBy: {
-        updatedAt: "desc",
-      },
-      select: {
-        id: true,
-        name: true,
-        preview: true,
-        folderId: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    const [files, total] = await Promise.all([
+      db.file.findMany({
+        where: {
+          userId: req.userId,
+          ...(typeof folderId === 'string' ? { folderId } : {}),
+          ...(typeof search === 'string'
+            ? {
+                name: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              }
+            : {}),
+        },
+        orderBy: {
+          updatedAt: 'desc',
+        },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          preview: true,
+          folderId: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      db.file.count({
+        where: {
+          userId: req.userId,
+          ...(typeof folderId === 'string' ? { folderId } : {}),
+          ...(typeof search === 'string'
+            ? {
+                name: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              }
+            : {}),
+        },
+      }),
+    ]);
 
-    res.json({ files });
+    res.json({ files, total, page, limit });
   } catch (error) {
-    console.error("list files error", error);
-    res.status(500).json({ error: "Failed to list files" });
+    console.error('list files error', error);
+    res.status(500).json({ error: 'Failed to list files' });
   }
 });
 
-filesRouter.post("/", async (req: AuthenticatedRequest, res) => {
+filesRouter.post('/', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
   const parsedBody = createFileSchema.safeParse(req.body);
   if (!parsedBody.success) {
     res.status(400).json({
-      error: "Invalid create file payload",
+      error: 'Invalid create file payload',
       details: parsedBody.error.flatten(),
     });
     return;
@@ -143,17 +163,17 @@ filesRouter.post("/", async (req: AuthenticatedRequest, res) => {
     const folderId = payload.folderId ?? null;
     const hasFolderAccess = await ensureFolderOwnership(req.userId, folderId);
     if (!hasFolderAccess) {
-      res.status(404).json({ error: "Folder not found" });
+      res.status(404).json({ error: 'Folder not found' });
       return;
     }
 
     const contentRecord = parseStoredFileContent(
-      JSON.stringify(payload.content !== undefined ? payload.content : []),
+      JSON.stringify(payload.content !== undefined ? payload.content : [])
     );
 
     const file = await db.file.create({
       data: {
-        name: payload.name ?? "Untitled file",
+        name: payload.name ?? 'Untitled file',
         userId: req.userId,
         folderId,
         preview: payload.preview ?? null,
@@ -167,20 +187,20 @@ filesRouter.post("/", async (req: AuthenticatedRequest, res) => {
 
     res.status(201).json(file);
   } catch (error) {
-    console.error("create file error", error);
-    res.status(500).json({ error: "Failed to create file" });
+    console.error('create file error', error);
+    res.status(500).json({ error: 'Failed to create file' });
   }
 });
 
-filesRouter.get("/:id", async (req: AuthenticatedRequest, res) => {
+filesRouter.get('/:id', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
   const id = getSingleParam(req.params.id);
   if (!id) {
-    res.status(400).json({ error: "File id is required" });
+    res.status(400).json({ error: 'File id is required' });
     return;
   }
 
@@ -190,7 +210,7 @@ filesRouter.get("/:id", async (req: AuthenticatedRequest, res) => {
     });
 
     if (!file) {
-      res.status(404).json({ error: "File not found" });
+      res.status(404).json({ error: 'File not found' });
       return;
     }
 
@@ -212,27 +232,27 @@ filesRouter.get("/:id", async (req: AuthenticatedRequest, res) => {
       },
     });
   } catch (error) {
-    console.error("get file error", error);
-    res.status(500).json({ error: "Failed to load file" });
+    console.error('get file error', error);
+    res.status(500).json({ error: 'Failed to load file' });
   }
 });
 
-filesRouter.patch("/:id", async (req: AuthenticatedRequest, res) => {
+filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
   const id = getSingleParam(req.params.id);
   if (!id) {
-    res.status(400).json({ error: "File id is required" });
+    res.status(400).json({ error: 'File id is required' });
     return;
   }
 
   const parsedBody = patchFileSchema.safeParse(req.body);
   if (!parsedBody.success) {
     res.status(400).json({
-      error: "Invalid update file payload",
+      error: 'Invalid update file payload',
       details: parsedBody.error.flatten(),
     });
     return;
@@ -246,14 +266,14 @@ filesRouter.patch("/:id", async (req: AuthenticatedRequest, res) => {
     });
 
     if (!existing) {
-      res.status(404).json({ error: "File not found" });
+      res.status(404).json({ error: 'File not found' });
       return;
     }
 
     const folderId = payload.folderId ?? existing.folderId;
     const hasFolderAccess = await ensureFolderOwnership(req.userId, folderId);
     if (!hasFolderAccess) {
-      res.status(404).json({ error: "Folder not found" });
+      res.status(404).json({ error: 'Folder not found' });
       return;
     }
 
@@ -289,20 +309,20 @@ filesRouter.patch("/:id", async (req: AuthenticatedRequest, res) => {
 
     res.json({ file: updated });
   } catch (error) {
-    console.error("update file error", error);
-    res.status(500).json({ error: "Failed to update file" });
+    console.error('update file error', error);
+    res.status(500).json({ error: 'Failed to update file' });
   }
 });
 
-filesRouter.delete("/:id", async (req: AuthenticatedRequest, res) => {
+filesRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
   const id = getSingleParam(req.params.id);
   if (!id) {
-    res.status(400).json({ error: "File id is required" });
+    res.status(400).json({ error: 'File id is required' });
     return;
   }
 
@@ -313,7 +333,7 @@ filesRouter.delete("/:id", async (req: AuthenticatedRequest, res) => {
     });
 
     if (!file) {
-      res.status(404).json({ error: "File not found" });
+      res.status(404).json({ error: 'File not found' });
       return;
     }
 
@@ -323,27 +343,27 @@ filesRouter.delete("/:id", async (req: AuthenticatedRequest, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error("delete file error", error);
-    res.status(500).json({ error: "Failed to delete file" });
+    console.error('delete file error', error);
+    res.status(500).json({ error: 'Failed to delete file' });
   }
 });
 
-filesRouter.post("/:id/share", async (req: AuthenticatedRequest, res) => {
+filesRouter.post('/:id/share', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
   const id = getSingleParam(req.params.id);
   if (!id) {
-    res.status(400).json({ error: "File id is required" });
+    res.status(400).json({ error: 'File id is required' });
     return;
   }
 
   const parsedBody = createShareSchema.safeParse(req.body ?? {});
   if (!parsedBody.success) {
     res.status(400).json({
-      error: "Invalid share payload",
+      error: 'Invalid share payload',
       details: parsedBody.error.flatten(),
     });
     return;
@@ -355,17 +375,17 @@ filesRouter.post("/:id/share", async (req: AuthenticatedRequest, res) => {
     });
 
     if (!file) {
-      res.status(404).json({ error: "File not found" });
+      res.status(404).json({ error: 'File not found' });
       return;
     }
 
     const token = nanoidLike(24);
-    const baseUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
+    const baseUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
     const baseShareUrl = `${baseUrl}/share/${token}`;
     const parsedContent = parseStoredFileContent(file.content);
     const { shareUrl, encryptedPayload } = await buildEncryptedShare(
       baseShareUrl,
-      parsedContent.elements,
+      parsedContent.elements
     );
     const expiresAt =
       parsedBody.data.expiresAt ??
@@ -394,20 +414,20 @@ filesRouter.post("/:id/share", async (req: AuthenticatedRequest, res) => {
       shareUrl,
     });
   } catch (error) {
-    console.error("share file error", error);
-    res.status(500).json({ error: "Failed to create share link" });
+    console.error('share file error', error);
+    res.status(500).json({ error: 'Failed to create share link' });
   }
 });
 
-filesRouter.delete("/:id/share", async (req: AuthenticatedRequest, res) => {
+filesRouter.delete('/:id/share', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
   const id = getSingleParam(req.params.id);
   if (!id) {
-    res.status(400).json({ error: "File id is required" });
+    res.status(400).json({ error: 'File id is required' });
     return;
   }
 
@@ -417,7 +437,7 @@ filesRouter.delete("/:id/share", async (req: AuthenticatedRequest, res) => {
     });
 
     if (!file) {
-      res.status(404).json({ error: "File not found" });
+      res.status(404).json({ error: 'File not found' });
       return;
     }
 
@@ -432,8 +452,8 @@ filesRouter.delete("/:id/share", async (req: AuthenticatedRequest, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error("revoke share error", error);
-    res.status(500).json({ error: "Failed to revoke share link" });
+    console.error('revoke share error', error);
+    res.status(500).json({ error: 'Failed to revoke share link' });
   }
 });
 
