@@ -2,7 +2,6 @@
   "name": "dripl",
   "private": true,
   "scripts": {
-    "preinstall": "npx only-allow pnpm@10.33.0",
     "build": "pnpm run db:generate && turbo run build",
     "postinstall": "pnpm approve-builds || true",
     "db:generate": "prisma generate --schema=./packages/db/prisma/schema.prisma",
