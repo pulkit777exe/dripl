@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useCallback } from "react";
-import type { DriplElement } from "@dripl/common";
+import { useCallback } from 'react';
+import type { DriplElement } from '@dripl/common';
 import {
   sortElementsByZIndex,
   bringToFront,
@@ -10,7 +10,7 @@ import {
   sendBackward,
   getZIndexRange,
   normalizeZIndices,
-} from "@/utils/zIndexUtils";
+} from '@/utils/zIndexUtils';
 
 export interface UseZIndexManagementReturn {
   sortedElements: DriplElement[];
@@ -24,7 +24,7 @@ export interface UseZIndexManagementReturn {
 
 export function useZIndexManagement(
   elements: DriplElement[],
-  onElementsChange: (newElements: DriplElement[]) => void,
+  onElementsChange: (newElements: DriplElement[]) => void
 ): UseZIndexManagementReturn {
   const sortedElements = sortElementsByZIndex(elements);
 
@@ -32,73 +32,63 @@ export function useZIndexManagement(
     (newElements: DriplElement[]) => {
       onElementsChange(newElements);
     },
-    [onElementsChange],
+    [onElementsChange]
   );
 
   const bringToFrontCallback = useCallback(
     (elementId: string) => {
-      const element = elements.find((el) => el.id === elementId);
+      const element = elements.find(el => el.id === elementId);
       if (!element) return;
 
       const updatedElement = bringToFront(element, elements);
-      const newElements = elements.map((el) =>
-        el.id === elementId ? updatedElement : el,
-      );
+      const newElements = elements.map(el => (el.id === elementId ? updatedElement : el));
       handleUpdate(newElements);
     },
-    [elements, handleUpdate],
+    [elements, handleUpdate]
   );
 
   const sendToBackCallback = useCallback(
     (elementId: string) => {
-      const element = elements.find((el) => el.id === elementId);
+      const element = elements.find(el => el.id === elementId);
       if (!element) return;
 
       const updatedElement = sendToBack(element, elements);
-      const newElements = elements.map((el) =>
-        el.id === elementId ? updatedElement : el,
-      );
+      const newElements = elements.map(el => (el.id === elementId ? updatedElement : el));
       handleUpdate(newElements);
     },
-    [elements, handleUpdate],
+    [elements, handleUpdate]
   );
 
   const bringForwardCallback = useCallback(
     (elementId: string) => {
-      const element = elements.find((el) => el.id === elementId);
+      const element = elements.find(el => el.id === elementId);
       if (!element) return;
 
       const updatedElement = bringForward(element, elements);
-      const newElements = elements.map((el) =>
-        el.id === elementId ? updatedElement : el,
-      );
+      const newElements = elements.map(el => (el.id === elementId ? updatedElement : el));
       handleUpdate(newElements);
     },
-    [elements, handleUpdate],
+    [elements, handleUpdate]
   );
 
   const sendBackwardCallback = useCallback(
     (elementId: string) => {
-      const element = elements.find((el) => el.id === elementId);
+      const element = elements.find(el => el.id === elementId);
       if (!element) return;
 
       const updatedElement = sendBackward(element, elements);
-      const newElements = elements.map((el) =>
-        el.id === elementId ? updatedElement : el,
-      );
+      const newElements = elements.map(el => (el.id === elementId ? updatedElement : el));
       handleUpdate(newElements);
     },
-    [elements, handleUpdate],
+    [elements, handleUpdate]
   );
 
   const getZIndexRangeCallback = useCallback(
     (elementIds: string[]) => {
-      const selectedElements = elements.filter((el) =>
-        elementIds.includes(el.id),
-      );
+      const selectedElements = elements.filter(el => elementIds.includes(el.id));
       return getZIndexRange(selectedElements);
     },
-    [elements],
+    [elements]
   );
 
   const normalizeZIndicesCallback = useCallback(() => {

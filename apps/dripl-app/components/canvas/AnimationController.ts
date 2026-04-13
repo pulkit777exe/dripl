@@ -1,7 +1,4 @@
-type AnimationCallback<T = any> = (params: {
-  deltaTime: number;
-  state: T;
-}) => T | undefined;
+type AnimationCallback<T = any> = (params: { deltaTime: number; state: T }) => T | undefined;
 
 interface AnimationEntry<T = any> {
   callback: AnimationCallback<T>;
@@ -16,7 +13,7 @@ class AnimationController {
   static start<T = any>(
     key: string,
     callback: AnimationCallback<T>,
-    initialState: T = {} as T,
+    initialState: T = {} as T
   ): void {
     if (this.animations.has(key)) {
       return;

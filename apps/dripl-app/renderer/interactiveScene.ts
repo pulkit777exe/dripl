@@ -1,5 +1,5 @@
-import type { DriplElement, Point } from "@dripl/common";
-import { getElementBounds } from "@dripl/math";
+import type { DriplElement, Point } from '@dripl/common';
+import { getElementBounds } from '@dripl/math';
 
 export interface SceneViewport {
   x: number;
@@ -37,7 +37,7 @@ export interface RenderSceneOptions {
   collaborators?: readonly CollaboratorCursor[];
   gridEnabled?: boolean;
   gridSize?: number;
-  theme?: "light" | "dark";
+  theme?: 'light' | 'dark';
   lockOwners?: ReadonlyMap<string, string>;
   localUserId?: string | null;
   renderCommittedElements?: boolean;
@@ -61,14 +61,14 @@ const MIN_GRID_ZOOM = 0.3;
 const HIT_CULL_PADDING = 20;
 
 function getStrokeColor(element: DriplElement): string {
-  return element.strokeColor ?? "#000000";
+  return element.strokeColor ?? '#000000';
 }
 
 function getFillColor(element: DriplElement): string {
-  if ("fillColor" in element && typeof element.fillColor === "string") {
+  if ('fillColor' in element && typeof element.fillColor === 'string') {
     return element.fillColor;
   }
-  return element.backgroundColor ?? "transparent";
+  return element.backgroundColor ?? 'transparent';
 }
 
 function getStrokeWidth(element: DriplElement): number {
@@ -81,25 +81,21 @@ function getOpacity(element: DriplElement): number {
 
 function getRoughness(element: DriplElement): number {
   const roughness =
-    "roughness" in element && typeof element.roughness === "number"
-      ? element.roughness
-      : 1;
+    'roughness' in element && typeof element.roughness === 'number' ? element.roughness : 1;
   return Math.max(0, Math.min(2, roughness));
 }
 
 function getPathPoints(element: DriplElement): Point[] {
-  if (!("points" in element) || !Array.isArray(element.points)) {
+  if (!('points' in element) || !Array.isArray(element.points)) {
     return [];
   }
 
   return element.points
     .filter(
       (point): point is Point =>
-        Boolean(point) &&
-        typeof point.x === "number" &&
-        typeof point.y === "number",
+        Boolean(point) && typeof point.x === 'number' && typeof point.y === 'number'
     )
-    .map((point) => ({
+    .map(point => ({
       x: point.x + element.x,
       y: point.y + element.y,
     }));
@@ -109,7 +105,7 @@ function isElementVisible(
   element: DriplElement,
   viewport: SceneViewport,
   canvasWidth: number,
-  canvasHeight: number,
+  canvasHeight: number
 ): boolean {
   const worldLeft = -viewport.x / viewport.zoom - HIT_CULL_PADDING;
   const worldTop = -viewport.y / viewport.zoom - HIT_CULL_PADDING;
@@ -132,8 +128,8 @@ function applyStrokeAndFill(ctx: CanvasRenderingContext2D, element: DriplElement
   ctx.strokeStyle = getStrokeColor(element);
   ctx.fillStyle = getFillColor(element);
   ctx.lineWidth = getStrokeWidth(element);
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
 }
 
 function getRoughPasses(element: DriplElement): number {
@@ -152,7 +148,7 @@ function strokeCurrentPath(
   ctx: CanvasRenderingContext2D,
   element: DriplElement,
   drawPath: (offsetX: number, offsetY: number) => void,
-  zoom: number,
+  zoom: number
 ): void {
   const passes = getRoughPasses(element);
   for (let pass = 0; pass < passes; pass += 1) {
@@ -173,22 +169,13 @@ function rotateAroundElementCenter(ctx: CanvasRenderingContext2D, element: Dripl
   ctx.translate(-centerX, -centerY);
 }
 
-function renderRectangle(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-  zoom: number,
-) {
+function renderRectangle(ctx: CanvasRenderingContext2D, element: DriplElement, zoom: number) {
   const fillColor = getFillColor(element);
   const drawPath = (offsetX: number, offsetY: number) => {
-    ctx.rect(
-      element.x + offsetX,
-      element.y + offsetY,
-      element.width,
-      element.height,
-    );
+    ctx.rect(element.x + offsetX, element.y + offsetY, element.width, element.height);
   };
 
-  if (fillColor !== "transparent") {
+  if (fillColor !== 'transparent') {
     ctx.beginPath();
     drawPath(0, 0);
     ctx.fill();
@@ -196,11 +183,7 @@ function renderRectangle(
   strokeCurrentPath(ctx, element, drawPath, zoom);
 }
 
-function renderEllipse(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-  zoom: number,
-) {
+function renderEllipse(ctx: CanvasRenderingContext2D, element: DriplElement, zoom: number) {
   const centerX = element.x + element.width / 2;
   const centerY = element.y + element.height / 2;
   const radiusX = Math.abs(element.width / 2);
@@ -208,18 +191,10 @@ function renderEllipse(
   const fillColor = getFillColor(element);
 
   const drawPath = (offsetX: number, offsetY: number) => {
-    ctx.ellipse(
-      centerX + offsetX,
-      centerY + offsetY,
-      radiusX,
-      radiusY,
-      0,
-      0,
-      Math.PI * 2,
-    );
+    ctx.ellipse(centerX + offsetX, centerY + offsetY, radiusX, radiusY, 0, 0, Math.PI * 2);
   };
 
-  if (fillColor !== "transparent") {
+  if (fillColor !== 'transparent') {
     ctx.beginPath();
     drawPath(0, 0);
     ctx.fill();
@@ -227,11 +202,7 @@ function renderEllipse(
   strokeCurrentPath(ctx, element, drawPath, zoom);
 }
 
-function renderDiamond(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-  zoom: number,
-) {
+function renderDiamond(ctx: CanvasRenderingContext2D, element: DriplElement, zoom: number) {
   const midX = element.x + element.width / 2;
   const midY = element.y + element.height / 2;
   const fillColor = getFillColor(element);
@@ -244,7 +215,7 @@ function renderDiamond(
     ctx.closePath();
   };
 
-  if (fillColor !== "transparent") {
+  if (fillColor !== 'transparent') {
     ctx.beginPath();
     drawPath(0, 0);
     ctx.fill();
@@ -252,11 +223,7 @@ function renderDiamond(
   strokeCurrentPath(ctx, element, drawPath, zoom);
 }
 
-function renderPathLike(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-  zoom: number,
-) {
+function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zoom: number) {
   const points = getPathPoints(element);
   if (points.length === 0) return;
   const fillColor = getFillColor(element);
@@ -272,7 +239,7 @@ function renderPathLike(
     }
   };
 
-  if (fillColor !== "transparent" && points.length > 2 && element.type !== "line") {
+  if (fillColor !== 'transparent' && points.length > 2 && element.type !== 'line') {
     ctx.beginPath();
     drawPath(0, 0);
     ctx.closePath();
@@ -281,7 +248,7 @@ function renderPathLike(
 
   strokeCurrentPath(ctx, element, drawPath, zoom);
 
-  if (element.type === "arrow" && points.length > 1) {
+  if (element.type === 'arrow' && points.length > 1) {
     const end = points[points.length - 1];
     const prev = points[points.length - 2];
     if (!end || !prev) return;
@@ -294,48 +261,45 @@ function renderPathLike(
     ctx.moveTo(end.x, end.y);
     ctx.lineTo(
       end.x - headLength * Math.cos(angle - spread),
-      end.y - headLength * Math.sin(angle - spread),
+      end.y - headLength * Math.sin(angle - spread)
     );
     ctx.moveTo(end.x, end.y);
     ctx.lineTo(
       end.x - headLength * Math.cos(angle + spread),
-      end.y - headLength * Math.sin(angle + spread),
+      end.y - headLength * Math.sin(angle + spread)
     );
     ctx.stroke();
   }
 }
 
 function renderText(ctx: CanvasRenderingContext2D, element: DriplElement) {
-  const text =
-    "text" in element && typeof element.text === "string" ? element.text : "";
+  const text = 'text' in element && typeof element.text === 'string' ? element.text : '';
   if (!text) return;
   const fontSize =
-    "fontSize" in element && typeof element.fontSize === "number"
-      ? element.fontSize
-      : 20;
+    'fontSize' in element && typeof element.fontSize === 'number' ? element.fontSize : 20;
   const fontFamily =
-    "fontFamily" in element && typeof element.fontFamily === "string"
+    'fontFamily' in element && typeof element.fontFamily === 'string'
       ? element.fontFamily
       : '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
   const textAlign =
-    "textAlign" in element &&
-    (element.textAlign === "left" ||
-      element.textAlign === "center" ||
-      element.textAlign === "right")
+    'textAlign' in element &&
+    (element.textAlign === 'left' ||
+      element.textAlign === 'center' ||
+      element.textAlign === 'right')
       ? element.textAlign
-      : "left";
+      : 'left';
   const lineHeight = fontSize * 1.25;
-  const lines = text.split("\n");
+  const lines = text.split('\n');
   const cacheKey = `${text}|${fontFamily}|${fontSize}|${textAlign}`;
   let metrics = textMetricsCache.get(cacheKey);
 
   ctx.font = `${fontSize}px ${fontFamily}`;
   ctx.textAlign = textAlign;
-  ctx.textBaseline = "top";
+  ctx.textBaseline = 'top';
   ctx.fillStyle = getStrokeColor(element);
 
   if (!metrics) {
-    const lineWidths = lines.map((line) => ctx.measureText(line).width);
+    const lineWidths = lines.map(line => ctx.measureText(line).width);
     metrics = {
       width: Math.max(0, ...lineWidths),
       lineWidths,
@@ -345,20 +309,20 @@ function renderText(ctx: CanvasRenderingContext2D, element: DriplElement) {
   }
 
   const anchorX =
-    textAlign === "left"
+    textAlign === 'left'
       ? element.x
-      : textAlign === "center"
+      : textAlign === 'center'
         ? element.x + element.width / 2
         : element.x + element.width;
 
   for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i] ?? "";
+    const line = lines[i] ?? '';
     ctx.fillText(line, anchorX, element.y + i * metrics.lineHeight);
   }
 }
 
 function renderImage(ctx: CanvasRenderingContext2D, element: DriplElement) {
-  if (!("src" in element) || typeof element.src !== "string" || !element.src) {
+  if (!('src' in element) || typeof element.src !== 'string' || !element.src) {
     return;
   }
   let image = imageCache.get(element.src);
@@ -372,15 +336,11 @@ function renderImage(ctx: CanvasRenderingContext2D, element: DriplElement) {
     return;
   }
 
-  ctx.fillStyle = "rgba(127,127,127,0.2)";
+  ctx.fillStyle = 'rgba(127,127,127,0.2)';
   ctx.fillRect(element.x, element.y, element.width, element.height);
 }
 
-function renderElement(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-  zoom: number,
-) {
+function renderElement(ctx: CanvasRenderingContext2D, element: DriplElement, zoom: number) {
   if (element.isDeleted) return;
   const type = element.type as string;
   ctx.save();
@@ -388,17 +348,17 @@ function renderElement(
   applyStrokeAndFill(ctx, element);
   rotateAroundElementCenter(ctx, element);
 
-  if (type === "line" || type === "arrow" || type === "freedraw" || type === "path") {
+  if (type === 'line' || type === 'arrow' || type === 'freedraw' || type === 'path') {
     renderPathLike(ctx, element, zoom);
-  } else if (type === "rectangle") {
+  } else if (type === 'rectangle') {
     renderRectangle(ctx, element, zoom);
-  } else if (type === "diamond") {
+  } else if (type === 'diamond') {
     renderDiamond(ctx, element, zoom);
-  } else if (type === "ellipse") {
+  } else if (type === 'ellipse') {
     renderEllipse(ctx, element, zoom);
-  } else if (type === "text") {
+  } else if (type === 'text') {
     renderText(ctx, element);
-  } else if (type === "image") {
+  } else if (type === 'image') {
     renderImage(ctx, element);
   } else {
     renderRectangle(ctx, element, zoom);
@@ -412,8 +372,8 @@ function drawGridDots(
   viewport: SceneViewport,
   canvasWidth: number,
   canvasHeight: number,
-  theme: "light" | "dark",
-  gridSize: number,
+  theme: 'light' | 'dark',
+  gridSize: number
 ) {
   if (viewport.zoom < MIN_GRID_ZOOM) return;
 
@@ -426,8 +386,7 @@ function drawGridDots(
   const radius = Math.max(0.8 / viewport.zoom, 0.35);
 
   ctx.save();
-  ctx.fillStyle =
-    theme === "dark" ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.16)";
+  ctx.fillStyle = theme === 'dark' ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.16)';
 
   for (let x = startX; x <= worldRight; x += gridSize) {
     for (let y = startY; y <= worldBottom; y += gridSize) {
@@ -450,11 +409,11 @@ function drawSelection(
   ctx: CanvasRenderingContext2D,
   elements: readonly DriplElement[],
   selectedIds: ReadonlySet<string>,
-  viewport: SceneViewport,
+  viewport: SceneViewport
 ) {
   if (selectedIds.size === 0) return;
 
-  const selected = elements.filter((element) => selectedIds.has(element.id));
+  const selected = elements.filter(element => selectedIds.has(element.id));
   if (selected.length === 0) return;
 
   let minX = Infinity;
@@ -462,7 +421,7 @@ function drawSelection(
   let maxX = -Infinity;
   let maxY = -Infinity;
 
-  selected.forEach((element) => {
+  selected.forEach(element => {
     const bounds = getElementBounds(element);
     minX = Math.min(minX, bounds.x);
     minY = Math.min(minY, bounds.y);
@@ -476,13 +435,13 @@ function drawSelection(
   const height = bottomRight.y - topLeft.y;
 
   ctx.save();
-  ctx.strokeStyle = "#6965db";
+  ctx.strokeStyle = '#6965db';
   ctx.lineWidth = 1.5;
   ctx.setLineDash(MARQUEE_DASH);
   ctx.strokeRect(topLeft.x, topLeft.y, width, height);
   ctx.setLineDash([]);
-  ctx.fillStyle = "#ffffff";
-  ctx.strokeStyle = "#6965db";
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#6965db';
   ctx.lineWidth = 1.2;
 
   const handleCoords: Point[] = [
@@ -502,7 +461,7 @@ function drawSelection(
       handle.x - HANDLE_SIZE_PX / 2,
       handle.y - HANDLE_SIZE_PX / 2,
       HANDLE_SIZE_PX,
-      HANDLE_SIZE_PX,
+      HANDLE_SIZE_PX
     );
     ctx.fill();
     ctx.stroke();
@@ -514,7 +473,7 @@ function drawSelection(
 function drawMarquee(
   ctx: CanvasRenderingContext2D,
   marqueeSelection: MarqueeSelection,
-  viewport: SceneViewport,
+  viewport: SceneViewport
 ) {
   if (!marqueeSelection.active) return;
   const start = worldToScreen(marqueeSelection.start, viewport);
@@ -525,8 +484,8 @@ function drawMarquee(
   const height = Math.abs(end.y - start.y);
 
   ctx.save();
-  ctx.fillStyle = "rgba(105,101,219,0.12)";
-  ctx.strokeStyle = "#6965db";
+  ctx.fillStyle = 'rgba(105,101,219,0.12)';
+  ctx.strokeStyle = '#6965db';
   ctx.lineWidth = 1.2;
   ctx.setLineDash(MARQUEE_DASH);
   ctx.fillRect(x, y, width, height);
@@ -537,21 +496,20 @@ function drawMarquee(
 function drawCollaborators(
   ctx: CanvasRenderingContext2D,
   collaborators: readonly CollaboratorCursor[],
-  viewport: SceneViewport,
+  viewport: SceneViewport
 ) {
   const now = Date.now();
-  collaborators.forEach((collaborator) => {
+  collaborators.forEach(collaborator => {
     const screen = worldToScreen({ x: collaborator.x, y: collaborator.y }, viewport);
     const age = now - collaborator.updatedAt;
-    const alpha =
-      age <= 5000 ? 1 : Math.max(0, 1 - (age - 5000) / 5000);
+    const alpha = age <= 5000 ? 1 : Math.max(0, 1 - (age - 5000) / 5000);
     if (alpha <= 0) return;
 
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(screen.x, screen.y);
     ctx.fillStyle = collaborator.color;
-    ctx.strokeStyle = "#ffffff";
+    ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, 0);
@@ -570,12 +528,12 @@ function drawCollaborators(
     const labelY = screen.y + 12;
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.font = "12px sans-serif";
+    ctx.font = '12px sans-serif';
     const text = collaborator.displayName;
     const textWidth = ctx.measureText(text).width;
     const chipWidth = textWidth + 22;
     const chipHeight = 20;
-    ctx.fillStyle = "rgba(15,15,15,0.86)";
+    ctx.fillStyle = 'rgba(15,15,15,0.86)';
     ctx.beginPath();
     ctx.roundRect(labelX, labelY, chipWidth, chipHeight, 10);
     ctx.fill();
@@ -583,8 +541,8 @@ function drawCollaborators(
     ctx.beginPath();
     ctx.arc(labelX + 9, labelY + chipHeight / 2, 3, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.textBaseline = "middle";
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'middle';
     ctx.fillText(text, labelX + 15, labelY + chipHeight / 2);
     ctx.restore();
   });
@@ -594,17 +552,17 @@ function drawLockOverlays(
   ctx: CanvasRenderingContext2D,
   elements: readonly DriplElement[],
   lockOwners: ReadonlyMap<string, string>,
-  localUserId: string | null,
+  localUserId: string | null
 ) {
-  elements.forEach((element) => {
+  elements.forEach(element => {
     const owner = lockOwners.get(element.id);
     if (!owner || owner === localUserId) return;
 
     const bounds = getElementBounds(element);
     ctx.save();
-    ctx.fillStyle = "rgba(60, 60, 60, 0.13)";
+    ctx.fillStyle = 'rgba(60, 60, 60, 0.13)';
     ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-    ctx.fillStyle = "rgba(40, 40, 40, 0.65)";
+    ctx.fillStyle = 'rgba(40, 40, 40, 0.65)';
     const iconX = bounds.x + bounds.width - 16;
     const iconY = bounds.y + 4;
     ctx.beginPath();
@@ -612,7 +570,7 @@ function drawLockOverlays(
     ctx.fill();
     ctx.beginPath();
     ctx.lineWidth = 1.4;
-    ctx.strokeStyle = "rgba(40, 40, 40, 0.65)";
+    ctx.strokeStyle = 'rgba(40, 40, 40, 0.65)';
     ctx.arc(iconX + 5, iconY + 5, 3, Math.PI, 0);
     ctx.stroke();
     ctx.restore();
@@ -637,7 +595,7 @@ export function renderInteractiveScene({
   collaborators = [],
   gridEnabled = false,
   gridSize = DEFAULT_GRID_SIZE,
-  theme = "dark",
+  theme = 'dark',
   lockOwners = new Map<string, string>(),
   localUserId = null,
   renderCommittedElements = true,
@@ -658,7 +616,7 @@ export function renderInteractiveScene({
     0,
     viewport.zoom * dpr,
     viewport.x * dpr,
-    viewport.y * dpr,
+    viewport.y * dpr
   );
 
   if (gridEnabled) {
@@ -682,10 +640,10 @@ export function renderInteractiveScene({
     const first = eraserPath[0];
     if (first) {
       ctx.save();
-      ctx.strokeStyle = "rgba(255, 76, 76, 0.35)";
+      ctx.strokeStyle = 'rgba(255, 76, 76, 0.35)';
       ctx.lineWidth = 20 / Math.max(viewport.zoom, 0.1);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
       ctx.beginPath();
       ctx.moveTo(first.x, first.y);
       for (let i = 1; i < eraserPath.length; i += 1) {

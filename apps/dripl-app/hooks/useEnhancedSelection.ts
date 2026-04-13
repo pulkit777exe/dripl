@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useCallback, useState } from "react";
-import type { DriplElement, Point } from "@dripl/common";
-import { getElementAtPoint, getElementsInSelectionRect } from "@dripl/math";
-import { Bounds } from "@dripl/math";
+import { useCallback, useState } from 'react';
+import type { DriplElement, Point } from '@dripl/common';
+import { getElementAtPoint, getElementsInSelectionRect } from '@dripl/math';
+import { Bounds } from '@dripl/math';
 
 export interface MarqueeSelection {
   start: Point;
@@ -16,10 +16,7 @@ export interface UseEnhancedSelectionReturn {
   marqueeSelection: MarqueeSelection | null;
   selectElement: (id: string, addToSelection?: boolean) => void;
   deselectAll: () => void;
-  handleClickSelection: (
-    point: Point,
-    shiftKey: boolean,
-  ) => DriplElement | null;
+  handleClickSelection: (point: Point, shiftKey: boolean) => DriplElement | null;
   startMarqueeSelection: (point: Point) => void;
   updateMarqueeSelection: (point: Point) => void;
   endMarqueeSelection: () => void;
@@ -30,11 +27,10 @@ export interface UseEnhancedSelectionReturn {
 
 export function useEnhancedSelection(): UseEnhancedSelectionReturn {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [marqueeSelection, setMarqueeSelection] =
-    useState<MarqueeSelection | null>(null);
+  const [marqueeSelection, setMarqueeSelection] = useState<MarqueeSelection | null>(null);
 
   const selectElement = useCallback((id: string, addToSelection = false) => {
-    setSelectedIds((prev) => {
+    setSelectedIds(prev => {
       if (addToSelection) {
         const newSet = new Set(prev);
         if (newSet.has(id)) {
@@ -57,7 +53,7 @@ export function useEnhancedSelection(): UseEnhancedSelectionReturn {
     (point: Point, shiftKey: boolean): DriplElement | null => {
       return null;
     },
-    [],
+    []
   );
 
   const startMarqueeSelection = useCallback((point: Point) => {
@@ -69,7 +65,7 @@ export function useEnhancedSelection(): UseEnhancedSelectionReturn {
   }, []);
 
   const updateMarqueeSelection = useCallback((point: Point) => {
-    setMarqueeSelection((prev) => {
+    setMarqueeSelection(prev => {
       if (!prev) return null;
       return {
         ...prev,
@@ -79,7 +75,7 @@ export function useEnhancedSelection(): UseEnhancedSelectionReturn {
   }, []);
 
   const endMarqueeSelection = useCallback(() => {
-    setMarqueeSelection((prev) => {
+    setMarqueeSelection(prev => {
       if (!prev) return null;
       return {
         ...prev,
@@ -89,7 +85,7 @@ export function useEnhancedSelection(): UseEnhancedSelectionReturn {
   }, []);
 
   const selectAll = useCallback((elements: DriplElement[]) => {
-    setSelectedIds(new Set(elements.map((el) => el.id)));
+    setSelectedIds(new Set(elements.map(el => el.id)));
   }, []);
 
   const deleteSelected = useCallback(() => {
@@ -100,9 +96,9 @@ export function useEnhancedSelection(): UseEnhancedSelectionReturn {
 
   const getSelectedElements = useCallback(
     (elements: DriplElement[]) => {
-      return elements.filter((el) => selectedIds.has(el.id));
+      return elements.filter(el => selectedIds.has(el.id));
     },
-    [selectedIds],
+    [selectedIds]
   );
 
   return {
@@ -125,15 +121,13 @@ export function handleClickSelectionWithElements(
   elements: DriplElement[],
   shiftKey: boolean,
   selectedIds: Set<string>,
-  setSelectedIds: (
-    ids: Set<string> | ((prev: Set<string>) => Set<string>),
-  ) => void,
+  setSelectedIds: (ids: Set<string> | ((prev: Set<string>) => Set<string>)) => void
 ): DriplElement | null {
   const clickedElement = getElementAtPoint(point, elements);
 
   if (clickedElement) {
     if (shiftKey) {
-      setSelectedIds((prev) => {
+      setSelectedIds(prev => {
         const newSet = new Set(prev);
         if (newSet.has(clickedElement.id)) {
           newSet.delete(clickedElement.id);
@@ -159,10 +153,8 @@ export function handleClickSelectionWithElements(
 export function handleMarqueeSelectionEnd(
   marqueeSelection: MarqueeSelection | null,
   elements: DriplElement[],
-  setSelectedIds: (
-    ids: Set<string> | ((prev: Set<string>) => Set<string>),
-  ) => void,
-  shiftKey: boolean,
+  setSelectedIds: (ids: Set<string> | ((prev: Set<string>) => Set<string>)) => void,
+  shiftKey: boolean
 ): void {
   if (!marqueeSelection || !marqueeSelection.active) return;
 
@@ -176,12 +168,12 @@ export function handleMarqueeSelectionEnd(
   const elementsInRect = getElementsInSelectionRect(selectionRect, elements);
 
   if (shiftKey) {
-    setSelectedIds((prev) => {
+    setSelectedIds(prev => {
       const newSet = new Set(prev);
-      elementsInRect.forEach((el) => newSet.add(el.id));
+      elementsInRect.forEach(el => newSet.add(el.id));
       return newSet;
     });
   } else {
-    setSelectedIds(new Set(elementsInRect.map((el) => el.id)));
+    setSelectedIds(new Set(elementsInRect.map(el => el.id)));
   }
 }

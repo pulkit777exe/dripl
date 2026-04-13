@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { useCanvasColors } from "../../theme";
+import React, { useMemo } from 'react';
+import { useCanvasColors } from '../../theme';
 
 export interface SelectionBoxProps {
   x: number;
@@ -8,7 +8,7 @@ export interface SelectionBoxProps {
   height: number;
   rotation?: number;
   strokeWidth?: number;
-  strokeStyle?: "solid" | "dashed";
+  strokeStyle?: 'solid' | 'dashed';
   dashOffset?: number;
   dashArray?: string;
   opacity?: number;
@@ -25,9 +25,9 @@ export function SelectionBox({
   height,
   rotation = 0,
   strokeWidth = 1,
-  strokeStyle = "dashed",
+  strokeStyle = 'dashed',
   dashOffset = 0,
-  dashArray = "5,5",
+  dashArray = '5,5',
   opacity = 1,
   fill,
   stroke,
@@ -40,9 +40,7 @@ export function SelectionBox({
   const strokeColor = stroke ?? colors.selectionStroke;
 
   const transform =
-    rotation !== 0
-      ? `rotate(${rotation} ${x + width / 2} ${y + height / 2})`
-      : undefined;
+    rotation !== 0 ? `rotate(${rotation} ${x + width / 2} ${y + height / 2})` : undefined;
 
   return (
     <rect
@@ -53,13 +51,13 @@ export function SelectionBox({
       fill={fillColor}
       stroke={strokeColor}
       strokeWidth={strokeWidth}
-      strokeDasharray={strokeStyle === "dashed" ? dashArray : undefined}
+      strokeDasharray={strokeStyle === 'dashed' ? dashArray : undefined}
       strokeDashoffset={dashOffset}
       opacity={opacity}
       transform={transform}
       className={className}
       style={{
-        pointerEvents: "none",
+        pointerEvents: 'none',
         ...style,
       }}
     />
@@ -74,16 +72,7 @@ export interface SelectionBoxWithHandlesProps extends SelectionBoxProps {
   onHandleMouseDown?: (handle: HandlePosition, e: React.MouseEvent) => void;
 }
 
-export type HandlePosition =
-  | "nw"
-  | "n"
-  | "ne"
-  | "e"
-  | "se"
-  | "s"
-  | "sw"
-  | "w"
-  | "rotation";
+export type HandlePosition = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rotation';
 
 export function SelectionBoxWithHandles({
   x,
@@ -109,40 +98,40 @@ export function SelectionBoxWithHandles({
     const halfHandle = handleSize / 2;
     const handles: { position: HandlePosition; x: number; y: number }[] = [];
 
-    handles.push({ position: "nw", x: x - halfHandle, y: y - halfHandle });
+    handles.push({ position: 'nw', x: x - halfHandle, y: y - halfHandle });
     handles.push({
-      position: "ne",
+      position: 'ne',
       x: x + width - halfHandle,
       y: y - halfHandle,
     });
     handles.push({
-      position: "se",
+      position: 'se',
       x: x + width - halfHandle,
       y: y + height - halfHandle,
     });
     handles.push({
-      position: "sw",
+      position: 'sw',
       x: x - halfHandle,
       y: y + height - halfHandle,
     });
 
     handles.push({
-      position: "n",
+      position: 'n',
       x: x + width / 2 - halfHandle,
       y: y - halfHandle,
     });
     handles.push({
-      position: "e",
+      position: 'e',
       x: x + width - halfHandle,
       y: y + height / 2 - halfHandle,
     });
     handles.push({
-      position: "s",
+      position: 's',
       x: x + width / 2 - halfHandle,
       y: y + height - halfHandle,
     });
     handles.push({
-      position: "w",
+      position: 'w',
       x: x - halfHandle,
       y: y + height / 2 - halfHandle,
     });
@@ -152,15 +141,8 @@ export function SelectionBoxWithHandles({
 
   return (
     <g>
-      <SelectionBox
-        x={x}
-        y={y}
-        width={width}
-        height={width}
-        rotation={rotation}
-        {...props}
-      />
-      {handles.map((handle) => (
+      <SelectionBox x={x} y={y} width={width} height={width} rotation={rotation} {...props} />
+      {handles.map(handle => (
         <rect
           key={handle.position}
           x={handle.x}
@@ -171,7 +153,7 @@ export function SelectionBoxWithHandles({
           stroke={handleStrokeColor}
           strokeWidth={1}
           style={{ cursor: getCursorForHandle(handle.position, rotation) }}
-          onMouseDown={(e) => {
+          onMouseDown={e => {
             e.stopPropagation();
             onHandleMouseDown?.(handle.position, e);
           }}
@@ -181,22 +163,19 @@ export function SelectionBoxWithHandles({
   );
 }
 
-function getCursorForHandle(
-  position: HandlePosition,
-  rotation: number,
-): string {
+function getCursorForHandle(position: HandlePosition, rotation: number): string {
   const normalizedRotation = ((rotation % 360) + 360) % 360;
 
   const cursors: Record<HandlePosition, string> = {
-    nw: "nwse-resize",
-    se: "nwse-resize",
-    ne: "nesw-resize",
-    sw: "nesw-resize",
-    n: "ns-resize",
-    s: "ns-resize",
-    e: "ew-resize",
-    w: "ew-resize",
-    rotation: "grab",
+    nw: 'nwse-resize',
+    se: 'nwse-resize',
+    ne: 'nesw-resize',
+    sw: 'nesw-resize',
+    n: 'ns-resize',
+    s: 'ns-resize',
+    e: 'ew-resize',
+    w: 'ew-resize',
+    rotation: 'grab',
   };
 
   return cursors[position];

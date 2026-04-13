@@ -1,12 +1,9 @@
-import type { DriplElement } from "@dripl/common";
-import {
-  loadLocalCanvasFromStorage,
-  type LocalCanvasState,
-} from "@/utils/localCanvasStorage";
-import { loadCanvasFromIndexedDB } from "@/lib/canvas-db";
-import { normalizeElement } from "@/utils/canvasUtils";
+import type { DriplElement } from '@dripl/common';
+import { loadLocalCanvasFromStorage, type LocalCanvasState } from '@/utils/localCanvasStorage';
+import { loadCanvasFromIndexedDB } from '@/lib/canvas-db';
+import { normalizeElement } from '@/utils/canvasUtils';
 
-export type SceneSource = "local" | "room" | "file";
+export type SceneSource = 'local' | 'room' | 'file';
 
 export interface LoadedScene {
   source: SceneSource;
@@ -20,44 +17,39 @@ export interface LoadedScene {
 }
 
 interface LoadLocalSceneOptions {
-  source: "local";
+  source: 'local';
 }
 
 interface LoadRoomSceneOptions {
-  source: "room";
+  source: 'room';
   roomId: string;
 }
 
 interface LoadFileSceneOptions {
-  source: "file";
+  source: 'file';
   initialData: unknown;
 }
 
-export type LoadSceneOptions =
-  | LoadLocalSceneOptions
-  | LoadRoomSceneOptions
-  | LoadFileSceneOptions;
+export type LoadSceneOptions = LoadLocalSceneOptions | LoadRoomSceneOptions | LoadFileSceneOptions;
 
-export async function loadInitialScene(
-  options: LoadSceneOptions,
-): Promise<LoadedScene | null> {
+export async function loadInitialScene(options: LoadSceneOptions): Promise<LoadedScene | null> {
   switch (options.source) {
-    case "local": {
+    case 'local': {
       const { elements, appState } = loadLocalCanvasFromStorage();
-      
-      const normalizedElements = (elements as DriplElement[] || []).map(normalizeElement);
+
+      const normalizedElements = ((elements as DriplElement[]) || []).map(normalizeElement);
 
       return {
-        source: "local",
+        source: 'local',
         elements: normalizedElements,
         appState: (appState as Partial<LocalCanvasState>) || null,
         isFromCache: true,
       };
     }
 
-    case "room": {
+    case 'room': {
       const elements = await loadCanvasFromIndexedDB(options.roomId);
-      
+
       const normalizedElements = elements.map(normalizeElement);
 
       if (!normalizedElements.length) {
@@ -65,14 +57,14 @@ export async function loadInitialScene(
       }
 
       return {
-        source: "room",
+        source: 'room',
         elements: normalizedElements,
         appState: null,
         isFromCache: true,
       };
     }
 
-    case "file": {
+    case 'file': {
       const { initialData } = options;
 
       if (!initialData) {
@@ -84,7 +76,7 @@ export async function loadInitialScene(
 
       if (Array.isArray(initialData)) {
         elements = initialData as DriplElement[];
-      } else if (typeof initialData === "object" && initialData !== null) {
+      } else if (typeof initialData === 'object' && initialData !== null) {
         const data = initialData as {
           elements?: unknown;
           appState?: unknown;
@@ -94,7 +86,7 @@ export async function loadInitialScene(
           elements = data.elements as DriplElement[];
         }
 
-        if (data.appState && typeof data.appState === "object") {
+        if (data.appState && typeof data.appState === 'object') {
           appState = data.appState as Partial<LocalCanvasState>;
         }
       }
@@ -102,7 +94,7 @@ export async function loadInitialScene(
       const normalizedElements = elements.map(normalizeElement);
 
       return {
-        source: "file",
+        source: 'file',
         elements: normalizedElements,
         appState,
         isFromCache: true,

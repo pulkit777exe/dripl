@@ -1,4 +1,4 @@
-declare module "rbush" {
+declare module 'rbush' {
   export interface BBox {
     minX: number;
     minY: number;
@@ -20,9 +20,9 @@ declare module "rbush" {
   }
 }
 
-declare module "qrcode" {
+declare module 'qrcode' {
   export interface QRCodeRenderOptions {
-    errorCorrectionLevel?: "low" | "medium" | "quartile" | "high" | "L" | "M" | "Q" | "H";
+    errorCorrectionLevel?: 'low' | 'medium' | 'quartile' | 'high' | 'L' | 'M' | 'Q' | 'H';
     margin?: number;
     scale?: number;
     width?: number;
@@ -35,7 +35,6 @@ declare module "qrcode" {
   export function toCanvas(
     canvasElement: HTMLCanvasElement,
     text: string,
-    options?: QRCodeRenderOptions,
+    options?: QRCodeRenderOptions
   ): Promise<void>;
 }
-

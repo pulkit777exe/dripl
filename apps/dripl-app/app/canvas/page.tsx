@@ -1,24 +1,24 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import { Check, HelpCircle } from "lucide-react";
-import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
-import { CanvasControls } from "@/components/canvas/CanvasControls";
-import { useTheme } from "@/hooks/useTheme";
-import { TopBar } from "@/components/canvas/TopBar";
-import { CanvasBootstrap } from "@/components/canvas/CanvasBootstrap";
-import { CommandPalette } from "@/components/canvas/CommandPalette";
-import HelpModal from "@/components/canvas/HelpModal";
-import { useCanvasStore } from "@/lib/canvas-store";
-import { useAuth } from "@/app/context/AuthContext";
+import { useCallback, useEffect, useState } from 'react';
+import { Check, HelpCircle } from 'lucide-react';
+import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
+import { CanvasControls } from '@/components/canvas/CanvasControls';
+import { useTheme } from '@/hooks/useTheme';
+import { TopBar } from '@/components/canvas/TopBar';
+import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
+import { CommandPalette } from '@/components/canvas/CommandPalette';
+import HelpModal from '@/components/canvas/HelpModal';
+import { useCanvasStore } from '@/lib/canvas-store';
+import { useAuth } from '@/app/context/AuthContext';
 
 export default function CanvasPage() {
   const { effectiveTheme } = useTheme();
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const panX = useCanvasStore((s) => s.panX);
-  const panY = useCanvasStore((s) => s.panY);
-  const setPan = useCanvasStore((s) => s.setPan);
-  const setUserId = useCanvasStore((s) => s.setUserId);
+  const panX = useCanvasStore(s => s.panX);
+  const panY = useCanvasStore(s => s.panY);
+  const setPan = useCanvasStore(s => s.setPan);
+  const setUserId = useCanvasStore(s => s.setUserId);
   const { user, token } = useAuth();
   const showScrollBack = panX !== 0 || panY !== 0;
 
@@ -28,9 +28,8 @@ export default function CanvasPage() {
     } else if (token) {
       setUserId(token);
     } else {
-      const anonId =
-        localStorage.getItem("dripl_anon_id") || crypto.randomUUID();
-      localStorage.setItem("dripl_anon_id", anonId);
+      const anonId = localStorage.getItem('dripl_anon_id') || crypto.randomUUID();
+      localStorage.setItem('dripl_anon_id', anonId);
       setUserId(anonId);
     }
   }, [user, token, setUserId]);
@@ -47,14 +46,14 @@ export default function CanvasPage() {
       <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1">
         <CanvasToolbar />
         <p className="text-xs text-hint-text text-pretty text-center max-w-md px-2">
-          To move canvas, hold{" "}
+          To move canvas, hold{' '}
           <kbd className="px-1.5 py-0.5 rounded bg-hint-bg border border-toolbar-border text-hint-text font-mono text-[10px]">
             Scroll wheel
-          </kbd>{" "}
-          or{" "}
+          </kbd>{' '}
+          or{' '}
           <kbd className="px-1.5 py-0.5 rounded bg-hint-bg border border-toolbar-border text-hint-text font-mono text-[10px]">
             Space
-          </kbd>{" "}
+          </kbd>{' '}
           while dragging, or use the hand tool.
         </p>
       </div>

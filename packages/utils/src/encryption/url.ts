@@ -3,9 +3,9 @@
  * The key is stored in the URL fragment (#key=...) which is never sent to the server
  */
 
-import { generateKey, keyToBase64, base64ToKey } from "./crypto";
+import { generateKey, keyToBase64, base64ToKey } from './crypto';
 
-const KEY_PARAM = "key";
+const KEY_PARAM = 'key';
 
 /**
  * Append encryption key to URL as fragment
@@ -42,7 +42,7 @@ export function extractKeyFromUrl(url: string): string | null {
  * Returns both the URL and the CryptoKey for immediate use
  */
 export async function createEncryptedRoomUrl(
-  baseUrl: string,
+  baseUrl: string
 ): Promise<{ url: string; key: CryptoKey; keyBase64: string }> {
   const key = await generateKey();
   const keyBase64 = await keyToBase64(key);
@@ -55,7 +55,7 @@ export async function createEncryptedRoomUrl(
  * Useful for client-side decryption on page load
  */
 export async function getKeyFromCurrentUrl(): Promise<CryptoKey | null> {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
   const keyBase64 = extractKeyFromUrl(window.location.href);
   if (!keyBase64) return null;
   try {

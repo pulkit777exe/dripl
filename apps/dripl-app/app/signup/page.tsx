@@ -1,30 +1,30 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { useAuth } from "../context/AuthContext";
-import { GoogleOAuthProvider, GoogleLogin, CredentialResponse } from "@react-oauth/google";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '../context/AuthContext';
+import { GoogleOAuthProvider, GoogleLogin, CredentialResponse } from '@react-oauth/google';
 
 export default function SignupPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [error, setError] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signup, googleLogin } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setLoading(true);
 
     try {
       await signup(email, password, name);
-      router.push("/dashboard");
+      router.push('/dashboard');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to sign up");
+      setError(err instanceof Error ? err.message : 'Failed to sign up');
     } finally {
       setLoading(false);
     }
@@ -34,20 +34,23 @@ export default function SignupPage() {
     if (credentialResponse.credential) {
       try {
         await googleLogin(credentialResponse.credential);
-        router.push("/dashboard");
+        router.push('/dashboard');
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Google signup failed");
+        setError(err instanceof Error ? err.message : 'Google signup failed');
       }
     }
   };
 
   return (
-    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}>
+    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}>
       <div className="min-h-dvh flex items-center justify-center bg-background relative overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.02] pointer-events-none"
-             style={{
-               backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E\")"
-             }} />
+        <div
+          className="absolute inset-0 opacity-[0.02] pointer-events-none"
+          style={{
+            backgroundImage:
+              "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E\")",
+          }}
+        />
 
         <div className="absolute top-8 left-8 flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
@@ -73,32 +76,38 @@ export default function SignupPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block">Name</label>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block">
+                  Name
+                </label>
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={e => setName(e.target.value)}
                   className="w-full px-4 py-2.5 bg-secondary/40 border border-border/60 rounded-xl text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50 shadow-inner"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block">Email</label>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block">
+                  Email
+                </label>
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={e => setEmail(e.target.value)}
                   className="w-full px-4 py-2.5 bg-secondary/40 border border-border/60 rounded-xl text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50 shadow-inner"
                   required
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block">Password</label>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block">
+                  Password
+                </label>
                 <input
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={e => setPassword(e.target.value)}
                   className="w-full px-4 py-2.5 bg-secondary/40 border border-border/60 rounded-xl text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all shadow-inner"
                   required
                 />
@@ -109,14 +118,16 @@ export default function SignupPage() {
                 disabled={loading}
                 className="w-full py-2.5 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-all shadow-button hover:shadow-button-hover disabled:opacity-50 mt-2"
               >
-                {loading ? "Creating account..." : "Create account"}
+                {loading ? 'Creating account...' : 'Create account'}
               </button>
             </form>
 
             <div className="mt-6">
               <div className="relative flex py-4 items-center">
                 <div className="grow border-t border-border"></div>
-                <span className="shrink-0 mx-4 text-muted-foreground text-xs uppercase tracking-wider">or sign up with</span>
+                <span className="shrink-0 mx-4 text-muted-foreground text-xs uppercase tracking-wider">
+                  or sign up with
+                </span>
                 <div className="grow border-t border-border"></div>
               </div>
               <div className="flex justify-center mt-2">
@@ -132,8 +143,10 @@ export default function SignupPage() {
 
             <div className="mt-8 pt-6 border-t border-border/50">
               <p className="text-center text-sm text-muted-foreground">
-                Already have an account?{" "}
-                <Link href="/login" className="text-primary font-medium hover:underline">Sign in</Link>
+                Already have an account?{' '}
+                <Link href="/login" className="text-primary font-medium hover:underline">
+                  Sign in
+                </Link>
               </p>
             </div>
           </div>

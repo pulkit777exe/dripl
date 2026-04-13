@@ -1,1 +1,1 @@
-export { CanvasControls as ZoomControls } from "@/components/canvas/CanvasControls";
+export { CanvasControls as ZoomControls } from '@/components/canvas/CanvasControls';

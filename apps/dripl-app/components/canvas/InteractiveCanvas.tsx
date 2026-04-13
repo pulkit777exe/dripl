@@ -1,12 +1,9 @@
-"use client";
+'use client';
 
-import React, { useEffect, useMemo, useRef } from "react";
-import type { DriplElement, Point } from "@dripl/common";
-import type { Viewport } from "@/utils/canvas-coordinates";
-import {
-  renderInteractiveScene,
-  type CollaboratorCursor,
-} from "@/renderer/interactiveScene";
+import React, { useEffect, useMemo, useRef } from 'react';
+import type { DriplElement, Point } from '@dripl/common';
+import type { Viewport } from '@/utils/canvas-coordinates';
+import { renderInteractiveScene, type CollaboratorCursor } from '@/renderer/interactiveScene';
 
 interface InteractiveCanvasProps {
   containerRef: React.RefObject<HTMLDivElement>;
@@ -15,7 +12,7 @@ interface InteractiveCanvasProps {
   draftElement: DriplElement | null;
   eraserPath: Point[];
   viewport: Viewport;
-  theme?: "light" | "dark";
+  theme?: 'light' | 'dark';
   onPointerDown?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerMove?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerUp?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
@@ -33,13 +30,10 @@ interface InteractiveCanvasProps {
   localUserId?: string | null;
 }
 
-const areEqual = (
-  prev: InteractiveCanvasProps,
-  next: InteractiveCanvasProps,
-): boolean => {
+const areEqual = (prev: InteractiveCanvasProps, next: InteractiveCanvasProps): boolean => {
   const selectionChanged =
     prev.selectedIds.size !== next.selectedIds.size ||
-    Array.from(prev.selectedIds).some((id) => !next.selectedIds.has(id));
+    Array.from(prev.selectedIds).some(id => !next.selectedIds.has(id));
   const viewportChanged =
     prev.viewport.x !== next.viewport.x ||
     prev.viewport.y !== next.viewport.y ||
@@ -66,7 +60,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   draftElement,
   eraserPath,
   viewport,
-  theme = "dark",
+  theme = 'dark',
   onPointerDown,
   onPointerMove,
   onPointerUp,
@@ -140,12 +134,12 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     };
 
     resize();
-    window.addEventListener("resize", resize);
+    window.addEventListener('resize', resize);
     const observer = new ResizeObserver(resize);
     observer.observe(container);
 
     return () => {
-      window.removeEventListener("resize", resize);
+      window.removeEventListener('resize', resize);
       observer.disconnect();
     };
   }, [containerRef]);
@@ -153,7 +147,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   useEffect(() => {
     const loop = () => {
       const canvas = canvasRef.current;
-      const ctx = canvas?.getContext("2d");
+      const ctx = canvas?.getContext('2d');
       if (canvas && ctx && isDirtyRef.current) {
         isDirtyRef.current = false;
         const props = propsRef.current;
@@ -194,11 +188,11 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   const style = useMemo<React.CSSProperties>(
     () => ({
       zIndex: 2,
-      cursor: "default",
-      pointerEvents: "auto",
-      touchAction: "none",
+      cursor: 'default',
+      pointerEvents: 'auto',
+      touchAction: 'none',
     }),
-    [],
+    []
   );
 
   return (

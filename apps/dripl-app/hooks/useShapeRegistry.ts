@@ -1,19 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   initializeShapeRegistry,
   getRegisteredShapes,
   getShapeByType,
   createElementFromType,
-} from "@/utils/shapes/shapeInitializer";
-import { shapeRegistry } from "@/utils/shapes/ShapeRegistry";
-import type { ShapeDefinition, DriplElement } from "@dripl/common";
+} from '@/utils/shapes/shapeInitializer';
+import { shapeRegistry } from '@/utils/shapes/ShapeRegistry';
+import type { ShapeDefinition, DriplElement } from '@dripl/common';
 
 export function useShapeRegistry() {
   const [initialized, setInitialized] = useState(false);
   const [shapes, setShapes] = useState<ShapeDefinition[]>([]);
-  const [groupedShapes, setGroupedShapes] = useState<
-    Record<string, ShapeDefinition[]>
-  >({});
+  const [groupedShapes, setGroupedShapes] = useState<Record<string, ShapeDefinition[]>>({});
 
   useEffect(() => {
     if (!initialized) {
@@ -25,14 +23,14 @@ export function useShapeRegistry() {
 
       const grouped = allShapes.reduce(
         (groups, shape) => {
-          const category = shape.category || "uncategorized";
+          const category = shape.category || 'uncategorized';
           if (!groups[category]) {
             groups[category] = [];
           }
           groups[category].push(shape);
           return groups;
         },
-        {} as Record<string, ShapeDefinition[]>,
+        {} as Record<string, ShapeDefinition[]>
       );
 
       setGroupedShapes(grouped);
@@ -53,14 +51,14 @@ export function useShapeRegistry() {
 
     const grouped = shapeRegistry.getAll().reduce(
       (groups, s) => {
-        const category = s.category || "uncategorized";
+        const category = s.category || 'uncategorized';
         if (!groups[category]) {
           groups[category] = [];
         }
         groups[category].push(s);
         return groups;
       },
-      {} as Record<string, ShapeDefinition[]>,
+      {} as Record<string, ShapeDefinition[]>
     );
 
     setGroupedShapes(grouped);
@@ -72,23 +70,20 @@ export function useShapeRegistry() {
 
     const grouped = shapeRegistry.getAll().reduce(
       (groups, s) => {
-        const category = s.category || "uncategorized";
+        const category = s.category || 'uncategorized';
         if (!groups[category]) {
           groups[category] = [];
         }
         groups[category].push(s);
         return groups;
       },
-      {} as Record<string, ShapeDefinition[]>,
+      {} as Record<string, ShapeDefinition[]>
     );
 
     setGroupedShapes(grouped);
   };
 
-  const renderElement = (
-    ctx: CanvasRenderingContext2D,
-    element: DriplElement,
-  ) => {
+  const renderElement = (ctx: CanvasRenderingContext2D, element: DriplElement) => {
     shapeRegistry.renderElement(ctx, element);
   };
 

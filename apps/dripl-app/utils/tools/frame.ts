@@ -1,4 +1,4 @@
-import type { DriplElement, Point } from "@dripl/common";
+import type { DriplElement, Point } from '@dripl/common';
 
 export interface FrameToolState {
   startPoint: Point;
@@ -8,9 +8,9 @@ export interface FrameToolState {
 
 export function createFrameElement(
   state: FrameToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height"> & {
+  baseProps: Omit<DriplElement, 'type' | 'x' | 'y' | 'width' | 'height'> & {
     id: string;
-  },
+  }
 ) {
   const { startPoint, currentPoint, shiftKey } = state;
 
@@ -19,7 +19,7 @@ export function createFrameElement(
   if (shiftKey) {
     const size = Math.max(
       Math.abs(currentPoint.x - startPoint.x),
-      Math.abs(currentPoint.y - startPoint.y),
+      Math.abs(currentPoint.y - startPoint.y)
     );
     x = currentPoint.x > startPoint.x ? startPoint.x : startPoint.x - size;
     y = currentPoint.y > startPoint.y ? startPoint.y : startPoint.y - size;
@@ -34,12 +34,12 @@ export function createFrameElement(
 
   return {
     ...baseProps,
-    type: "frame" as const,
+    type: 'frame' as const,
     x,
     y,
     width,
     height,
-    title: "Frame",
+    title: 'Frame',
     padding: 20,
   };
 }

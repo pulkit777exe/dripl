@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useState, useCallback } from "react";
-import type { DriplElement, Point } from "@dripl/common";
-import type { Binding } from "@/utils/bindingUtils";
+import { useState, useCallback } from 'react';
+import type { DriplElement, Point } from '@dripl/common';
+import type { Binding } from '@/utils/bindingUtils';
 import {
   getSnapPoint,
   hasBindings,
   getElementBindings,
   updateBindingsForElement,
-} from "@/utils/bindingUtils";
-import { v4 as uuidv4 } from "uuid";
+} from '@/utils/bindingUtils';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface UseBindingSystemReturn {
   bindings: Binding[];
@@ -18,7 +18,7 @@ export interface UseBindingSystemReturn {
     targetElementId: string,
     sourcePoint: Point,
     targetPoint: Point,
-    type: "arrow" | "line" | "curve",
+    type: 'arrow' | 'line' | 'curve'
   ) => void;
   deleteBinding: (bindingId: string) => void;
   deleteBindingsForElement: (elementId: string) => void;
@@ -37,7 +37,7 @@ export function useBindingSystem(): UseBindingSystemReturn {
       targetElementId: string,
       sourcePoint: Point,
       targetPoint: Point,
-      type: "arrow" | "line" | "curve",
+      type: 'arrow' | 'line' | 'curve'
     ) => {
       const newBinding: Binding = {
         id: uuidv4(),
@@ -47,58 +47,50 @@ export function useBindingSystem(): UseBindingSystemReturn {
         targetPoint,
         type,
         properties: {
-          strokeColor: "#000000",
+          strokeColor: '#000000',
           strokeWidth: 2,
-          strokeStyle: "solid",
+          strokeStyle: 'solid',
           opacity: 1,
         },
       };
 
-      setBindings((prev) => [...prev, newBinding]);
+      setBindings(prev => [...prev, newBinding]);
     },
-    [],
+    []
   );
 
   const deleteBinding = useCallback((bindingId: string) => {
-    setBindings((prev) => prev.filter((binding) => binding.id !== bindingId));
+    setBindings(prev => prev.filter(binding => binding.id !== bindingId));
   }, []);
 
   const deleteBindingsForElement = useCallback((elementId: string) => {
-    setBindings((prev) =>
+    setBindings(prev =>
       prev.filter(
-        (binding) =>
-          binding.sourceElementId !== elementId &&
-          binding.targetElementId !== elementId,
-      ),
+        binding => binding.sourceElementId !== elementId && binding.targetElementId !== elementId
+      )
     );
   }, []);
 
-  const updateBindingsOnMove = useCallback(
-    (elementId: string, dx: number, dy: number) => {
-      setBindings((prev) => updateBindingsForElement(elementId, dx, dy, prev));
-    },
-    [],
-  );
+  const updateBindingsOnMove = useCallback((elementId: string, dx: number, dy: number) => {
+    setBindings(prev => updateBindingsForElement(elementId, dx, dy, prev));
+  }, []);
 
-  const getSnapPointCallback = useCallback(
-    (point: Point, elements: DriplElement[]) => {
-      return getSnapPoint(point, elements);
-    },
-    [],
-  );
+  const getSnapPointCallback = useCallback((point: Point, elements: DriplElement[]) => {
+    return getSnapPoint(point, elements);
+  }, []);
 
   const hasBindingsCallback = useCallback(
     (elementId: string) => {
       return hasBindings(elementId, bindings);
     },
-    [bindings],
+    [bindings]
   );
 
   const getElementBindingsCallback = useCallback(
     (elementId: string) => {
       return getElementBindings(elementId, bindings);
     },
-    [bindings],
+    [bindings]
   );
 
   return {

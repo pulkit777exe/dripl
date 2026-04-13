@@ -1,1 +1,1 @@
-export { useCollaboration as useCanvasWebSocket } from "@/hooks/useCollaboration";
+export { useCollaboration as useCanvasWebSocket } from '@/hooks/useCollaboration';

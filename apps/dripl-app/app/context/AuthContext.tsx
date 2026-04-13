@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   createContext,
@@ -8,9 +8,9 @@ import {
   useMemo,
   useState,
   type ReactNode,
-} from "react";
-import { apiClient } from "@/lib/api";
-import { useRouter } from "next/navigation";
+} from 'react';
+import { apiClient } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 
 type User = {
   id: string;
@@ -57,28 +57,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refreshUser();
   }, [refreshUser]);
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      const response = await apiClient.login({ email, password });
-      setUser(response.user);
-    },
-    [],
-  );
+  const login = useCallback(async (email: string, password: string) => {
+    const response = await apiClient.login({ email, password });
+    setUser(response.user);
+  }, []);
 
-  const signup = useCallback(
-    async (email: string, password: string, name?: string) => {
-      const response = await apiClient.register({ email, password, name });
-      setUser(response.user);
-    },
-    [],
-  );
+  const signup = useCallback(async (email: string, password: string, name?: string) => {
+    const response = await apiClient.register({ email, password, name });
+    setUser(response.user);
+  }, []);
 
   const logout = useCallback(async () => {
     try {
       await apiClient.logout();
     } finally {
       setUser(null);
-      router.push("/");
+      router.push('/');
     }
   }, [router]);
 
@@ -107,10 +101,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       forgotPassword,
       resetPassword,
       refreshUser,
-      generateToken: async () => "",
+      generateToken: async () => '',
       validateToken: async () => false,
     }),
-    [loading, login, logout, googleLogin, forgotPassword, resetPassword, refreshUser, signup, user],
+    [loading, login, logout, googleLogin, forgotPassword, resetPassword, refreshUser, signup, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -119,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }

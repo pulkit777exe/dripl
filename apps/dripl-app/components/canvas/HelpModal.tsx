@@ -1,14 +1,6 @@
-"use client";
+'use client';
 
-import {
-  HelpCircle,
-  X,
-  BookOpen,
-  ExternalLink,
-  Github,
-  Youtube,
-  Keyboard,
-} from "lucide-react";
+import { HelpCircle, X, BookOpen, ExternalLink, Github, Youtube, Keyboard } from 'lucide-react';
 
 interface HelpModalProps {
   onClose: () => void;
@@ -52,7 +44,7 @@ export default function HelpModal({ onClose }: HelpModalProps) {
     >
       <div
         className="w-full max-w-5xl bg-(--color-panel-bg) rounded-xl border border-(--color-panel-slider) shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-between items-center p-5 border-b border-(--color-panel-slider)/50">
           <h2 className="text-xl font-semibold text-(--color-panel-text) flex items-center gap-3">
@@ -82,9 +74,7 @@ export default function HelpModal({ onClose }: HelpModalProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-0 text-sm">
             <div>
-              <h4 className="text-xs font-bold text-panel-label uppercase mb-2 mt-4">
-                Tools
-              </h4>
+              <h4 className="text-xs font-bold text-panel-label uppercase mb-2 mt-4">Tools</h4>
               <ShortcutItem toolName="Hand (panning tool)" shortcut="H" />
               <ShortcutItem toolName="Selection" shortcut="V or 1" />
               <ShortcutItem toolName="Rectangle" shortcut="R or 2" />
@@ -100,9 +90,7 @@ export default function HelpModal({ onClose }: HelpModalProps) {
             </div>
 
             <div>
-              <h4 className="text-xs font-bold text-panel-label uppercase mb-2 mt-4">
-                Editor
-              </h4>
+              <h4 className="text-xs font-bold text-panel-label uppercase mb-2 mt-4">Editor</h4>
               <ShortcutItem toolName="Move canvas" shortcut="Space + Drag" />
               <ShortcutItem toolName="Delete" shortcut="Delete" />
               <ShortcutItem toolName="Cut" shortcut="Ctrl+X" />

@@ -1,5 +1,5 @@
-import * as React from "react";
-import { cn } from "../lib/utils";
+import * as React from 'react';
+import { cn } from '../lib/utils';
 
 interface PropertyPanelProps {
   title?: string;
@@ -7,19 +7,15 @@ interface PropertyPanelProps {
   className?: string;
 }
 
-export const PropertyPanel = ({
-  title,
-  children,
-  className,
-}: PropertyPanelProps) => {
+export const PropertyPanel = ({ title, children, className }: PropertyPanelProps) => {
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-xl p-3",
-        "bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm",
-        "border border-neutral-200/50 dark:border-neutral-800/50",
-        "shadow-sm",
-        className,
+        'flex flex-col gap-3 rounded-xl p-3',
+        'bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm',
+        'border border-neutral-200/50 dark:border-neutral-800/50',
+        'shadow-sm',
+        className
       )}
     >
       {title && (

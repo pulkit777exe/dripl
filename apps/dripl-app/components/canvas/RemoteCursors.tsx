@@ -1,23 +1,21 @@
-"use client";
+'use client';
 
-import { useInterpolatedCursors } from "@/hooks/useInterpolatedCursors";
-import { useCanvasStore } from "@/lib/canvas-store";
+import { useInterpolatedCursors } from '@/hooks/useInterpolatedCursors';
+import { useCanvasStore } from '@/lib/canvas-store';
 
 export function RemoteCursors() {
-  const remoteCursors = useCanvasStore((state) => state.remoteCursors);
-  const userId = useCanvasStore((state) => state.userId);
-  const zoom = useCanvasStore((state) => state.zoom);
-  const panX = useCanvasStore((state) => state.panX);
-  const panY = useCanvasStore((state) => state.panY);
+  const remoteCursors = useCanvasStore(state => state.remoteCursors);
+  const userId = useCanvasStore(state => state.userId);
+  const zoom = useCanvasStore(state => state.zoom);
+  const panX = useCanvasStore(state => state.panX);
+  const panY = useCanvasStore(state => state.panY);
 
   // Use interpolated cursors for smooth movement
   const interpolatedCursors = useInterpolatedCursors(remoteCursors);
 
   // Filter out our own cursor to avoid duplicate display
   const cursorsToRender = userId
-    ? Array.from(interpolatedCursors.entries()).filter(
-        ([uid]) => uid !== userId,
-      )
+    ? Array.from(interpolatedCursors.entries()).filter(([uid]) => uid !== userId)
     : Array.from(interpolatedCursors.entries());
 
   return (
@@ -29,7 +27,7 @@ export function RemoteCursors() {
           style={{
             left: `${cursor.x * zoom + panX}px`,
             top: `${cursor.y * zoom + panY}px`,
-            transform: "translate(-50%, -50%)",
+            transform: 'translate(-50%, -50%)',
             // No CSS transition - using requestAnimationFrame interpolation
           }}
         >

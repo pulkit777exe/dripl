@@ -25,15 +25,8 @@ export interface ElementBase {
 
   // Rough.js properties for sketchy aesthetic
   roughness?: number; // 0-3, default 1
-  strokeStyle?: "solid" | "dashed" | "dotted";
-  fillStyle?:
-    | "hachure"
-    | "solid"
-    | "zigzag"
-    | "cross-hatch"
-    | "dots"
-    | "dashed"
-    | "zigzag-line";
+  strokeStyle?: 'solid' | 'dashed' | 'dotted';
+  fillStyle?: 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
   seed?: number; // For consistent randomness across renders
   angle?: number; // Rotation in radians
   locked?: boolean; // Prevent editing
@@ -65,19 +58,19 @@ export interface ElementBase {
 }
 
 export interface RectangleElement extends ElementBase {
-  type: "rectangle";
+  type: 'rectangle';
 }
 
 export interface EllipseElement extends ElementBase {
-  type: "ellipse";
+  type: 'ellipse';
 }
 
 export interface DiamondElement extends ElementBase {
-  type: "diamond";
+  type: 'diamond';
 }
 
 export interface LinearElement extends ElementBase {
-  type: "arrow" | "line";
+  type: 'arrow' | 'line';
   points: Point[];
   labelId?: string; // ID of text element used as label
   arrowHeads?: {
@@ -87,7 +80,7 @@ export interface LinearElement extends ElementBase {
 }
 
 export interface FreeDrawElement extends ElementBase {
-  type: "freedraw";
+  type: 'freedraw';
   points: Point[];
   brushSize?: number; // Base brush size
   pressureValues?: number[]; // Pressure values for variable width
@@ -95,29 +88,29 @@ export interface FreeDrawElement extends ElementBase {
 }
 
 export interface TextElement extends ElementBase {
-  type: "text";
+  type: 'text';
   text: string;
   fontSize: number;
   fontFamily: string;
-  textAlign?: "left" | "center" | "right";
-  verticalAlign?: "top" | "middle" | "bottom";
+  textAlign?: 'left' | 'center' | 'right';
+  verticalAlign?: 'top' | 'middle' | 'bottom';
   boundElementId?: string; // ID of element this text is bound to
   containerId?: string; // ID of container element (for labeled arrows)
 }
 
 export interface ImageElement extends ElementBase {
-  type: "image";
+  type: 'image';
   src: string;
 }
 
 export interface FrameElement extends ElementBase {
-  type: "frame";
+  type: 'frame';
   title?: string;
   padding?: number;
 }
 
 // Normalized binding model for constraints (Spec §5.3 Binding Constraint System)
-export type BindingMode = "inside" | "orbit";
+export type BindingMode = 'inside' | 'orbit';
 
 export interface NormalizedBinding {
   /** Target element id this binding attaches to. */
@@ -157,14 +150,14 @@ export interface ShapeDefinition<T extends DriplElement = DriplElement> {
 
 // Type guard for shape validation
 export function isDriplElement(element: unknown): element is DriplElement {
-  if (typeof element !== "object" || element === null) return false;
+  if (typeof element !== 'object' || element === null) return false;
   const el = element as Record<string, unknown>;
   return (
-    typeof el.id === "string" &&
-    typeof el.type === "string" &&
-    typeof el.x === "number" &&
-    typeof el.y === "number" &&
-    typeof el.width === "number" &&
-    typeof el.height === "number"
+    typeof el.id === 'string' &&
+    typeof el.type === 'string' &&
+    typeof el.x === 'number' &&
+    typeof el.y === 'number' &&
+    typeof el.width === 'number' &&
+    typeof el.height === 'number'
   );
 }

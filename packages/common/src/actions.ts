@@ -1,19 +1,19 @@
-import type { DriplElement } from "./types/element";
-import type { Scene } from "./scene";
-import type { DeltaManager } from "./delta";
+import type { DriplElement } from './types/element';
+import type { Scene } from './scene';
+import type { DeltaManager } from './delta';
 
 export type ActionType =
-  | "ADD_ELEMENT"
-  | "UPDATE_ELEMENT"
-  | "DELETE_ELEMENT"
-  | "RESTORE_ELEMENT"
-  | "SELECT_ELEMENT"
-  | "DESELECT_ELEMENT"
-  | "SELECT_ALL"
-  | "CLEAR_SELECTION"
-  | "TOGGLE_SELECTION"
-  | "START_EDITING_TEXT"
-  | "STOP_EDITING_TEXT";
+  | 'ADD_ELEMENT'
+  | 'UPDATE_ELEMENT'
+  | 'DELETE_ELEMENT'
+  | 'RESTORE_ELEMENT'
+  | 'SELECT_ELEMENT'
+  | 'DESELECT_ELEMENT'
+  | 'SELECT_ALL'
+  | 'CLEAR_SELECTION'
+  | 'TOGGLE_SELECTION'
+  | 'START_EDITING_TEXT'
+  | 'STOP_EDITING_TEXT';
 
 export interface BaseAction<TType extends ActionType, TPayload = Record<string, never>> {
   type: TType;
@@ -22,17 +22,20 @@ export interface BaseAction<TType extends ActionType, TPayload = Record<string, 
   id: string;
 }
 
-export type AddElementAction = BaseAction<"ADD_ELEMENT", { element: DriplElement }>;
-export type UpdateElementAction = BaseAction<"UPDATE_ELEMENT", { elementId: string; updates: Partial<DriplElement> }>;
-export type DeleteElementAction = BaseAction<"DELETE_ELEMENT", { elementId: string }>;
-export type RestoreElementAction = BaseAction<"RESTORE_ELEMENT", { elementId: string }>;
-export type SelectElementAction = BaseAction<"SELECT_ELEMENT", { elementId: string }>;
-export type DeselectElementAction = BaseAction<"DESELECT_ELEMENT", { elementId: string }>;
-export type SelectAllAction = BaseAction<"SELECT_ALL">;
-export type ClearSelectionAction = BaseAction<"CLEAR_SELECTION">;
-export type ToggleSelectionAction = BaseAction<"TOGGLE_SELECTION", { elementId: string }>;
-export type StartEditingTextAction = BaseAction<"START_EDITING_TEXT", { elementId: string }>;
-export type StopEditingTextAction = BaseAction<"STOP_EDITING_TEXT">;
+export type AddElementAction = BaseAction<'ADD_ELEMENT', { element: DriplElement }>;
+export type UpdateElementAction = BaseAction<
+  'UPDATE_ELEMENT',
+  { elementId: string; updates: Partial<DriplElement> }
+>;
+export type DeleteElementAction = BaseAction<'DELETE_ELEMENT', { elementId: string }>;
+export type RestoreElementAction = BaseAction<'RESTORE_ELEMENT', { elementId: string }>;
+export type SelectElementAction = BaseAction<'SELECT_ELEMENT', { elementId: string }>;
+export type DeselectElementAction = BaseAction<'DESELECT_ELEMENT', { elementId: string }>;
+export type SelectAllAction = BaseAction<'SELECT_ALL'>;
+export type ClearSelectionAction = BaseAction<'CLEAR_SELECTION'>;
+export type ToggleSelectionAction = BaseAction<'TOGGLE_SELECTION', { elementId: string }>;
+export type StartEditingTextAction = BaseAction<'START_EDITING_TEXT', { elementId: string }>;
+export type StopEditingTextAction = BaseAction<'STOP_EDITING_TEXT'>;
 
 export type Action =
   | AddElementAction
@@ -50,19 +53,16 @@ export type Action =
 export class ActionCreator {
   static addElement(element: DriplElement): AddElementAction {
     return {
-      type: "ADD_ELEMENT",
+      type: 'ADD_ELEMENT',
       payload: { element },
       timestamp: Date.now(),
       id: ActionCreator.generateId(),
     };
   }
 
-  static updateElement(
-    elementId: string,
-    updates: Partial<DriplElement>,
-  ): UpdateElementAction {
+  static updateElement(elementId: string, updates: Partial<DriplElement>): UpdateElementAction {
     return {
-      type: "UPDATE_ELEMENT",
+      type: 'UPDATE_ELEMENT',
       payload: { elementId, updates },
       timestamp: Date.now(),
       id: ActionCreator.generateId(),
@@ -71,7 +71,7 @@ export class ActionCreator {
 
   static deleteElement(elementId: string): DeleteElementAction {
     return {
-      type: "DELETE_ELEMENT",
+      type: 'DELETE_ELEMENT',
       payload: { elementId },
       timestamp: Date.now(),
       id: ActionCreator.generateId(),
@@ -80,7 +80,7 @@ export class ActionCreator {
 
   static restoreElement(elementId: string): RestoreElementAction {
     return {
-      type: "RESTORE_ELEMENT",
+      type: 'RESTORE_ELEMENT',
       payload: { elementId },
       timestamp: Date.now(),
       id: ActionCreator.generateId(),
@@ -89,7 +89,7 @@ export class ActionCreator {
 
   static selectElement(elementId: string): SelectElementAction {
     return {
-      type: "SELECT_ELEMENT",
+      type: 'SELECT_ELEMENT',
       payload: { elementId },
       timestamp: Date.now(),
       id: ActionCreator.generateId(),
@@ -98,7 +98,7 @@ export class ActionCreator {
 
   static deselectElement(elementId: string): DeselectElementAction {
     return {
-      type: "DESELECT_ELEMENT",
+      type: 'DESELECT_ELEMENT',
       payload: { elementId },
       timestamp: Date.now(),
       id: ActionCreator.generateId(),
@@ -107,7 +107,7 @@ export class ActionCreator {
 
   static selectAll(): SelectAllAction {
     return {
-      type: "SELECT_ALL",
+      type: 'SELECT_ALL',
       payload: {},
       timestamp: Date.now(),
       id: ActionCreator.generateId(),
@@ -116,7 +116,7 @@ export class ActionCreator {
 
   static clearSelection(): ClearSelectionAction {
     return {
-      type: "CLEAR_SELECTION",
+      type: 'CLEAR_SELECTION',
       payload: {},
       timestamp: Date.now(),
       id: ActionCreator.generateId(),
@@ -125,7 +125,7 @@ export class ActionCreator {
 
   static toggleSelection(elementId: string): ToggleSelectionAction {
     return {
-      type: "TOGGLE_SELECTION",
+      type: 'TOGGLE_SELECTION',
       payload: { elementId },
       timestamp: Date.now(),
       id: ActionCreator.generateId(),
@@ -134,7 +134,7 @@ export class ActionCreator {
 
   static startEditingText(elementId: string): StartEditingTextAction {
     return {
-      type: "START_EDITING_TEXT",
+      type: 'START_EDITING_TEXT',
       payload: { elementId },
       timestamp: Date.now(),
       id: ActionCreator.generateId(),
@@ -143,7 +143,7 @@ export class ActionCreator {
 
   static stopEditingText(): StopEditingTextAction {
     return {
-      type: "STOP_EDITING_TEXT",
+      type: 'STOP_EDITING_TEXT',
       payload: {},
       timestamp: Date.now(),
       id: ActionCreator.generateId(),
@@ -156,15 +156,11 @@ export class ActionCreator {
 }
 
 export class ActionReducer {
-  static reduce(
-    scene: Scene,
-    action: Action,
-    deltaManager?: DeltaManager,
-  ): Scene {
+  static reduce(scene: Scene, action: Action, deltaManager?: DeltaManager): Scene {
     const clonedScene = scene.clone();
 
     switch (action.type) {
-      case "ADD_ELEMENT": {
+      case 'ADD_ELEMENT': {
         const { element } = (action as AddElementAction).payload;
         clonedScene.addElement(element);
         if (deltaManager) {
@@ -173,7 +169,7 @@ export class ActionReducer {
         break;
       }
 
-      case "UPDATE_ELEMENT": {
+      case 'UPDATE_ELEMENT': {
         const { elementId, updates } = (action as UpdateElementAction).payload;
         const existingElement = scene.getElement(elementId);
         if (existingElement) {
@@ -185,7 +181,7 @@ export class ActionReducer {
         break;
       }
 
-      case "DELETE_ELEMENT": {
+      case 'DELETE_ELEMENT': {
         const { elementId } = (action as DeleteElementAction).payload;
         const existingElement = scene.getElement(elementId);
         if (existingElement) {
@@ -197,7 +193,7 @@ export class ActionReducer {
         break;
       }
 
-      case "RESTORE_ELEMENT": {
+      case 'RESTORE_ELEMENT': {
         const { elementId } = (action as RestoreElementAction).payload;
         const existingElement = scene.getElement(elementId);
         if (existingElement) {
@@ -209,7 +205,7 @@ export class ActionReducer {
         break;
       }
 
-      case "SELECT_ELEMENT": {
+      case 'SELECT_ELEMENT': {
         const { elementId } = (action as SelectElementAction).payload;
         if (scene.getElement(elementId)) {
           clonedScene.setSelectedElements([elementId]);
@@ -217,24 +213,24 @@ export class ActionReducer {
         break;
       }
 
-      case "DESELECT_ELEMENT": {
+      case 'DESELECT_ELEMENT': {
         const { elementId } = (action as DeselectElementAction).payload;
         clonedScene.toggleElementSelection(elementId);
         break;
       }
 
-      case "SELECT_ALL": {
-        const allIds = scene.getElements().map((el) => el.id);
+      case 'SELECT_ALL': {
+        const allIds = scene.getElements().map(el => el.id);
         clonedScene.setSelectedElements(allIds);
         break;
       }
 
-      case "CLEAR_SELECTION": {
+      case 'CLEAR_SELECTION': {
         clonedScene.clearSelection();
         break;
       }
 
-      case "TOGGLE_SELECTION": {
+      case 'TOGGLE_SELECTION': {
         const { elementId } = (action as ToggleSelectionAction).payload;
         if (scene.getElement(elementId)) {
           clonedScene.toggleElementSelection(elementId);
@@ -242,7 +238,7 @@ export class ActionReducer {
         break;
       }
 
-      case "START_EDITING_TEXT": {
+      case 'START_EDITING_TEXT': {
         const { elementId } = (action as StartEditingTextAction).payload;
         if (scene.getElement(elementId)) {
           clonedScene.setEditingTextId(elementId);
@@ -250,7 +246,7 @@ export class ActionReducer {
         break;
       }
 
-      case "STOP_EDITING_TEXT": {
+      case 'STOP_EDITING_TEXT': {
         clonedScene.setEditingTextId(null);
         break;
       }
@@ -264,7 +260,7 @@ export class ActionDispatcher {
   private subscribers: Set<(action: Action) => void> = new Set();
 
   dispatch(action: Action): void {
-    this.subscribers.forEach((subscriber) => subscriber(action));
+    this.subscribers.forEach(subscriber => subscriber(action));
   }
 
   subscribe(callback: (action: Action) => void): () => void {

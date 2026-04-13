@@ -1,4 +1,4 @@
-import type { DriplElement } from "@dripl/common";
+import type { DriplElement } from '@dripl/common';
 
 export type Drawable = any;
 
@@ -25,19 +25,14 @@ export function getShapeCacheKey(element: DriplElement): string {
 /**
  * Get cached Rough.js shape for an element
  */
-export function getShapeFromCache(
-  element: DriplElement,
-): Drawable | Drawable[] | undefined {
+export function getShapeFromCache(element: DriplElement): Drawable | Drawable[] | undefined {
   return shapeCache.get(getShapeCacheKey(element));
 }
 
 /**
  * Store Rough.js shape in cache
  */
-export function setShapeInCache(
-  element: DriplElement,
-  shape: Drawable | Drawable[],
-): void {
+export function setShapeInCache(element: DriplElement, shape: Drawable | Drawable[]): void {
   shapeCache.set(getShapeCacheKey(element), shape);
 }
 

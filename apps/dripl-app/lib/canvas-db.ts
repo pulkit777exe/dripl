@@ -1,10 +1,10 @@
-import { openDB, type IDBPDatabase } from "idb";
-import type { DriplElement } from "@dripl/common";
-import { normalizeElement } from "@/utils/canvasUtils";
+import { openDB, type IDBPDatabase } from 'idb';
+import type { DriplElement } from '@dripl/common';
+import { normalizeElement } from '@/utils/canvasUtils';
 
-const DB_NAME = "dripl-canvas";
+const DB_NAME = 'dripl-canvas';
 const DB_VERSION = 1;
-const STORE_NAME = "canvas-rooms";
+const STORE_NAME = 'canvas-rooms';
 
 export interface CanvasRoomData {
   roomId: string;
@@ -19,7 +19,7 @@ function getDB(): Promise<IDBPDatabase> {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
       upgrade(db) {
         if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME, { keyPath: "roomId" });
+          db.createObjectStore(STORE_NAME, { keyPath: 'roomId' });
         }
       },
     });
@@ -29,7 +29,7 @@ function getDB(): Promise<IDBPDatabase> {
 
 export async function saveCanvasToIndexedDB(
   roomId: string,
-  elements: DriplElement[],
+  elements: DriplElement[]
 ): Promise<boolean> {
   try {
     const db = await getDB();
@@ -41,20 +41,18 @@ export async function saveCanvasToIndexedDB(
     await db.put(STORE_NAME, data);
     return true;
   } catch (error) {
-    console.error("Failed to save canvas to IndexedDB:", error);
+    console.error('Failed to save canvas to IndexedDB:', error);
     return false;
   }
 }
 
-export async function loadCanvasFromIndexedDB(
-  roomId: string,
-): Promise<DriplElement[]> {
+export async function loadCanvasFromIndexedDB(roomId: string): Promise<DriplElement[]> {
   try {
     const db = await getDB();
     const data = await db.get(STORE_NAME, roomId);
     return (data?.elements || []).map(normalizeElement);
   } catch (error) {
-    console.error("Failed to load canvas from IndexedDB:", error);
+    console.error('Failed to load canvas from IndexedDB:', error);
     return [];
   }
 }
@@ -64,7 +62,7 @@ export async function clearCanvasFromIndexedDB(roomId: string): Promise<void> {
     const db = await getDB();
     await db.delete(STORE_NAME, roomId);
   } catch (error) {
-    console.error("Failed to clear canvas from IndexedDB:", error);
+    console.error('Failed to clear canvas from IndexedDB:', error);
     throw error;
   }
 }
@@ -74,7 +72,7 @@ export async function getAllCanvasRooms(): Promise<CanvasRoomData[]> {
     const db = await getDB();
     return await db.getAll(STORE_NAME);
   } catch (error) {
-    console.error("Failed to get all canvas rooms from IndexedDB:", error);
+    console.error('Failed to get all canvas rooms from IndexedDB:', error);
     return [];
   }
 }

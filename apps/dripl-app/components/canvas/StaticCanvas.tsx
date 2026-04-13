@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import React, { useEffect, useMemo, useRef } from "react";
-import type { DriplElement } from "@dripl/common";
-import type { Viewport } from "@/utils/canvas-coordinates";
-import { renderStaticScene } from "@dripl/element";
+import React, { useEffect, useMemo, useRef } from 'react';
+import type { DriplElement } from '@dripl/common';
+import type { Viewport } from '@/utils/canvas-coordinates';
+import { renderStaticScene } from '@dripl/element';
 
 interface StaticCanvasProps {
   containerRef?: React.RefObject<HTMLDivElement>;
@@ -12,7 +12,7 @@ interface StaticCanvasProps {
   viewport: Viewport;
   gridEnabled?: boolean;
   gridSize?: number;
-  theme: "light" | "dark";
+  theme: 'light' | 'dark';
 }
 
 const areEqual = (prev: StaticCanvasProps, next: StaticCanvasProps): boolean => {
@@ -80,10 +80,8 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
     if (!canvas) return;
 
     const resize = () => {
-      const sourceWidth =
-        container?.offsetWidth || viewport.width || window.innerWidth;
-      const sourceHeight =
-        container?.offsetHeight || viewport.height || window.innerHeight;
+      const sourceWidth = container?.offsetWidth || viewport.width || window.innerWidth;
+      const sourceHeight = container?.offsetHeight || viewport.height || window.innerHeight;
       const width = Math.max(1, sourceWidth);
       const height = Math.max(1, sourceHeight);
       const dpr = window.devicePixelRatio || 1;
@@ -98,16 +96,16 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
     };
 
     resize();
-    window.addEventListener("resize", resize);
+    window.addEventListener('resize', resize);
 
     let observer: ResizeObserver | null = null;
-    if (container && typeof ResizeObserver !== "undefined") {
+    if (container && typeof ResizeObserver !== 'undefined') {
       observer = new ResizeObserver(resize);
       observer.observe(container);
     }
 
     return () => {
-      window.removeEventListener("resize", resize);
+      window.removeEventListener('resize', resize);
       observer?.disconnect();
     };
   }, [containerRef, viewport.width, viewport.height]);
@@ -120,7 +118,7 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
         const props = propsRef.current;
         renderStaticScene(
           canvas,
-          props.elements.filter((element) => !props.selectedIds.has(element.id)),
+          props.elements.filter(element => !props.selectedIds.has(element.id)),
           {
             x: props.viewport.x,
             y: props.viewport.y,
@@ -134,7 +132,7 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
             zoom: props.viewport.zoom,
             theme: props.theme,
             dpr: dprRef.current,
-          },
+          }
         );
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -150,17 +148,17 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
 
   const canvasStyle = useMemo<React.CSSProperties>(
     () => ({
-      position: "absolute",
+      position: 'absolute',
       top: 0,
       left: 0,
-      width: "100%",
-      height: "100%",
+      width: '100%',
+      height: '100%',
       zIndex: 1,
-      touchAction: "none",
-      imageRendering: "crisp-edges",
-      pointerEvents: "none",
+      touchAction: 'none',
+      imageRendering: 'crisp-edges',
+      pointerEvents: 'none',
     }),
-    [],
+    []
   );
 
   return <canvas ref={canvasRef} style={canvasStyle} />;

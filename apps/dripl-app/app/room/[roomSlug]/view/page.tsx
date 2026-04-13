@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect } from 'next/navigation';
 
 interface PageProps {
   params: Promise<{ roomSlug: string }>;
@@ -12,13 +12,9 @@ export default async function RoomViewPage({ params }: PageProps) {
   redirect(`/canvas/${roomSlug}?mode=view`);
 }
 
-export function generateMetadata({
-  params,
-}: {
-  params: Promise<{ roomSlug: string }>;
-}) {
+export function generateMetadata({ params }: { params: Promise<{ roomSlug: string }> }) {
   return {
-    title: "View Room - Dripl",
-    description: "Read-only view of a collaborative canvas",
+    title: 'View Room - Dripl',
+    description: 'Read-only view of a collaborative canvas',
   };
 }

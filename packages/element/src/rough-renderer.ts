@@ -1,10 +1,10 @@
-import rough from "roughjs";
-import type { DriplElement } from "@dripl/common";
-import { getShapeFromCache, setShapeInCache } from "./shape-cache";
-import type { RoughCanvas as _RoughCanvas } from "roughjs/bin/canvas";
-import type { Drawable as _Drawable } from "roughjs/bin/core";
-export type { RoughCanvas } from "roughjs/bin/canvas";
-export type { Drawable } from "roughjs/bin/core";
+import rough from 'roughjs';
+import type { DriplElement } from '@dripl/common';
+import { getShapeFromCache, setShapeInCache } from './shape-cache';
+import type { RoughCanvas as _RoughCanvas } from 'roughjs/bin/canvas';
+import type { Drawable as _Drawable } from 'roughjs/bin/core';
+export type { RoughCanvas } from 'roughjs/bin/canvas';
+export type { Drawable } from 'roughjs/bin/core';
 
 const generator = rough.generator();
 
@@ -12,13 +12,11 @@ let offscreenCanvas: HTMLCanvasElement | null = null;
 let offscreenContext: CanvasRenderingContext2D | null = null;
 let offscreenRoughCanvas: _RoughCanvas | null = null;
 
-export function createRoughCanvas(
-  canvas: HTMLCanvasElement,
-): _RoughCanvas | null {
+export function createRoughCanvas(canvas: HTMLCanvasElement): _RoughCanvas | null {
   try {
     if (!offscreenCanvas) {
-      offscreenCanvas = document.createElement("canvas");
-      offscreenContext = offscreenCanvas.getContext("2d");
+      offscreenCanvas = document.createElement('canvas');
+      offscreenContext = offscreenCanvas.getContext('2d');
       offscreenRoughCanvas = rough.canvas(offscreenCanvas);
     }
 
@@ -32,7 +30,7 @@ export function createRoughCanvas(
 
     return rough.canvas(canvas);
   } catch (e) {
-    console.error("Failed to create Rough canvas", e);
+    console.error('Failed to create Rough canvas', e);
     return null;
   }
 }
@@ -49,8 +47,8 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
     backgroundColor,
     strokeWidth,
     roughness = 1,
-    strokeStyle = "solid",
-    fillStyle = "hachure",
+    strokeStyle = 'solid',
+    fillStyle = 'hachure',
     seed,
     roundness = 0,
   } = element as any;
@@ -68,23 +66,23 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
     roundness,
   };
 
-  if (backgroundColor !== "transparent") {
+  if (backgroundColor !== 'transparent') {
     options.fill = backgroundColor;
   }
-  if (strokeStyle === "dashed") {
+  if (strokeStyle === 'dashed') {
     options.strokeLineDash = [10, 5];
-  } else if (strokeStyle === "dotted") {
+  } else if (strokeStyle === 'dotted') {
     options.strokeLineDash = [2, 3];
   }
 
   switch (element.type) {
-    case "rectangle":
+    case 'rectangle':
       return generator.rectangle(0, 0, width, height, options);
 
-    case "ellipse":
+    case 'ellipse':
       return generator.ellipse(width / 2, height / 2, width, height, options);
 
-    case "diamond": {
+    case 'diamond': {
       const topX = width / 2;
       const topY = 0;
       const rightX = width;
@@ -100,17 +98,15 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
           [bottomX, bottomY],
           [leftX, leftY],
         ],
-        options,
+        options
       );
     }
 
-    case "line":
-    case "arrow":
-    case "freedraw": {
-      if ("points" in element && element.points.length > 1) {
-        const pts = element.points.map(
-          (p: any) => [p.x, p.y] as [number, number],
-        );
+    case 'line':
+    case 'arrow':
+    case 'freedraw': {
+      if ('points' in element && element.points.length > 1) {
+        const pts = element.points.map((p: any) => [p.x, p.y] as [number, number]);
         return generator.linearPath(pts, options);
       }
       return [];
@@ -126,7 +122,7 @@ export function renderRoughElement(
   ctx: CanvasRenderingContext2D,
   element: DriplElement,
   elements?: DriplElement[],
-  theme: "light" | "dark" = "dark",
+  theme: 'light' | 'dark' = 'dark'
 ): void {
   if (element.isDeleted) return;
 
@@ -144,16 +140,15 @@ export function renderRoughElement(
   }
 
   // Handle text elements specially (they don't use Rough.js)
-  if (element.type === "text") {
+  if (element.type === 'text') {
     const textEl = element as any;
     ctx.translate(x, y);
-    ctx.fillStyle =
-      element.strokeColor || (theme === "dark" ? "#ffffff" : "#000000");
-    ctx.font = `${textEl.fontSize || 16}px ${textEl.fontFamily || "Inter"}`;
-    ctx.textBaseline = "top";
+    ctx.fillStyle = element.strokeColor || (theme === 'dark' ? '#ffffff' : '#000000');
+    ctx.font = `${textEl.fontSize || 16}px ${textEl.fontFamily || 'Inter'}`;
+    ctx.textBaseline = 'top';
 
-    const text = textEl.text || "";
-    const lines = text.split("\n");
+    const text = textEl.text || '';
+    const lines = text.split('\n');
     const lineHeight = (textEl.fontSize || 16) * 1.2;
 
     lines.forEach((line: string, index: number) => {
@@ -165,7 +160,7 @@ export function renderRoughElement(
   }
 
   // Handle image elements specially
-  if (element.type === "image") {
+  if (element.type === 'image') {
     const imgEl = element as any;
     if (imgEl.src && imgEl._imageLoaded) {
       ctx.translate(x, y);
@@ -182,16 +177,14 @@ export function renderRoughElement(
   }
 
   const isLinear =
-    element.type === "line" ||
-    element.type === "arrow" ||
-    element.type === "freedraw";
+    element.type === 'line' || element.type === 'arrow' || element.type === 'freedraw';
 
   ctx.translate(x, y);
 
-  if (element.type === "arrow" && (element as any).labelId && elements) {
-    const label = elements.find((el) => el.id === (element as any).labelId);
+  if (element.type === 'arrow' && (element as any).labelId && elements) {
+    const label = elements.find(el => el.id === (element as any).labelId);
 
-    if (label && label.type === "text") {
+    if (label && label.type === 'text') {
       const labelBounds = {
         x: label.x - x,
         y: label.y - y,
@@ -200,39 +193,27 @@ export function renderRoughElement(
       };
 
       ctx.save();
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.fillStyle = theme === "dark" ? "#0f0f13" : "#f8f9fa";
-      ctx.fillRect(
-        labelBounds.x,
-        labelBounds.y,
-        labelBounds.width,
-        labelBounds.height,
-      );
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = theme === 'dark' ? '#0f0f13' : '#f8f9fa';
+      ctx.fillRect(labelBounds.x, labelBounds.y, labelBounds.width, labelBounds.height);
       ctx.restore();
     }
   }
 
   if (Array.isArray(shape)) {
-    shape.forEach((s) => rc.draw(s));
+    shape.forEach(s => rc.draw(s));
   } else {
     rc.draw(shape);
   }
 
   // Render arrowheads for arrow elements
-  if (
-    element.type === "arrow" &&
-    (element as any).points &&
-    (element as any).points.length > 1
-  ) {
+  if (element.type === 'arrow' && (element as any).points && (element as any).points.length > 1) {
     const points = (element as any).points;
     const endPoint = points[points.length - 1];
     const prevPoint = points[points.length - 2];
 
     // Calculate angle
-    const angle = Math.atan2(
-      endPoint.y - prevPoint.y,
-      endPoint.x - prevPoint.x,
-    );
+    const angle = Math.atan2(endPoint.y - prevPoint.y, endPoint.x - prevPoint.x);
 
     // Arrow head parameters
     const headLength = 10 + (element.strokeWidth || 2) * 2;
@@ -249,7 +230,7 @@ export function renderRoughElement(
       stroke: element.strokeColor,
       strokeWidth: element.strokeWidth,
       fill: element.strokeColor,
-      fillStyle: "solid",
+      fillStyle: 'solid',
     };
     if (element.roughness !== undefined) {
       arrowHeadOptions.roughness = element.roughness;
@@ -260,7 +241,7 @@ export function renderRoughElement(
         [x1, y1],
         [x2, y2],
       ],
-      arrowHeadOptions,
+      arrowHeadOptions
     );
 
     rc.draw(arrowHead);
@@ -273,36 +254,22 @@ export function renderRoughElements(
   rc: _RoughCanvas,
   ctx: CanvasRenderingContext2D,
   elements: DriplElement[],
-  theme: "light" | "dark" = "dark",
+  theme: 'light' | 'dark' = 'dark'
 ): void {
   // Get the actual canvas dimensions from the context
   const canvas = ctx.canvas;
 
   if (offscreenCanvas && offscreenContext && offscreenRoughCanvas) {
     // Ensure offscreen canvas matches actual canvas size
-    if (
-      offscreenCanvas.width !== canvas.width ||
-      offscreenCanvas.height !== canvas.height
-    ) {
+    if (offscreenCanvas.width !== canvas.width || offscreenCanvas.height !== canvas.height) {
       offscreenCanvas.width = canvas.width;
       offscreenCanvas.height = canvas.height;
     }
 
-    offscreenContext.clearRect(
-      0,
-      0,
-      offscreenCanvas.width,
-      offscreenCanvas.height,
-    );
+    offscreenContext.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
 
     for (const el of elements) {
-      renderRoughElement(
-        offscreenRoughCanvas,
-        offscreenContext,
-        el,
-        elements,
-        theme,
-      );
+      renderRoughElement(offscreenRoughCanvas, offscreenContext, el, elements, theme);
     }
 
     ctx.drawImage(offscreenCanvas, 0, 0);

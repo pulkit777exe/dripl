@@ -1,15 +1,11 @@
-"use client";
+'use client';
 
-import { motion, useScroll, useTransform } from "motion/react";
-import { Button } from "../ui/Button";
-import { Play } from "lucide-react";
-import { useRef } from "react";
+import { motion, useScroll, useTransform } from 'motion/react';
+import { Button } from '../ui/Button';
+import { Play } from 'lucide-react';
+import { useRef } from 'react';
 
-export function HeroSection({
-  onStartDrawing,
-}: {
-  onStartDrawing?: () => void;
-}) {
+export function HeroSection({ onStartDrawing }: { onStartDrawing?: () => void }) {
   const { scrollY } = useScroll();
   const rotateX = useTransform(scrollY, [0, 400], [5, 0]);
   const scale = useTransform(scrollY, [0, 400], [0.95, 1]);
@@ -33,9 +29,8 @@ export function HeroSection({
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
           className="mt-6 max-w-[640px] text-lg font-light text-center leading-relaxed md:text-xl text-gray-400"
         >
-          Stop thinking in lists. Dripl gives you an infinite collaborative
-          workspace to plan, visualize, and schedule posts across every network
-          at once.
+          Stop thinking in lists. Dripl gives you an infinite collaborative workspace to plan,
+          visualize, and schedule posts across every network at once.
         </motion.p>
 
         <motion.div
@@ -44,11 +39,7 @@ export function HeroSection({
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
           className="mt-10 flex items-center gap-4"
         >
-          <Button
-            variant="secondary"
-            className="h-14 px-8 text-lg"
-            onClick={onStartDrawing}
-          >
+          <Button variant="secondary" className="h-14 px-8 text-lg" onClick={onStartDrawing}>
             Start Drawing
           </Button>
           <Button variant="secondary" className="h-14 px-8 text-lg">

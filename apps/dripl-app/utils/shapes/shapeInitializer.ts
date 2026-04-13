@@ -1,14 +1,12 @@
-import { shapeRegistry } from "./ShapeRegistry";
-import { defaultShapes } from "./defaultShapes";
+import { shapeRegistry } from './ShapeRegistry';
+import { defaultShapes } from './defaultShapes';
 
 export function initializeShapeRegistry() {
-  defaultShapes.forEach((shape) => {
+  defaultShapes.forEach(shape => {
     shapeRegistry.register(shape);
   });
 
-  console.log(
-    `Shape registry initialized with ${defaultShapes.length} default shapes`,
-  );
+  console.log(`Shape registry initialized with ${defaultShapes.length} default shapes`);
 }
 
 export function getRegisteredShapes() {
@@ -16,14 +14,14 @@ export function getRegisteredShapes() {
 
   const groupedShapes = shapes.reduce(
     (groups, shape) => {
-      const category = shape.category || "uncategorized";
+      const category = shape.category || 'uncategorized';
       if (!groups[category]) {
         groups[category] = [];
       }
       groups[category].push(shape);
       return groups;
     },
-    {} as Record<string, typeof defaultShapes>,
+    {} as Record<string, typeof defaultShapes>
   );
 
   return groupedShapes;

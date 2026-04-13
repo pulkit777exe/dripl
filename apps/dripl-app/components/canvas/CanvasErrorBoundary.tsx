@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React from "react";
+import React from 'react';
 
 interface CanvasErrorBoundaryProps {
   children: React.ReactNode;
@@ -23,7 +23,7 @@ export class CanvasErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: unknown) {
-    console.error("Canvas render error", error);
+    console.error('Canvas render error', error);
   }
 
   render() {

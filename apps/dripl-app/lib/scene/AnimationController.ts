@@ -29,11 +29,11 @@ export class AnimationController {
     const deltaTime = currentTime - this.lastFrameTime;
     this.lastFrameTime = currentTime;
 
-    this.animationRegistry.forEach((callback) => {
+    this.animationRegistry.forEach(callback => {
       try {
         callback(deltaTime);
       } catch (error) {
-        console.error("Animation callback error:", error);
+        console.error('Animation callback error:', error);
       }
     });
 

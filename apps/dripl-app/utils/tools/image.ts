@@ -1,4 +1,4 @@
-import type { DriplElement, ImageElement } from "@dripl/common";
+import type { DriplElement, ImageElement } from '@dripl/common';
 
 export interface ImageToolState {
   position: { x: number; y: number };
@@ -14,14 +14,11 @@ export interface ImageToolState {
  */
 export function createImageElement(
   state: ImageToolState,
-  baseProps: Omit<
-    DriplElement,
-    "type" | "x" | "y" | "width" | "height" | "src"
-  > & { id: string },
+  baseProps: Omit<DriplElement, 'type' | 'x' | 'y' | 'width' | 'height' | 'src'> & { id: string }
 ): ImageElement {
   return {
     ...baseProps,
-    type: "image",
+    type: 'image',
     x: state.position.x,
     y: state.position.y,
     width: state.displayWidth,
@@ -35,7 +32,7 @@ export function createImageElement(
  */
 export async function loadImage(
   file: File | string,
-  maxSize: number = 1000,
+  maxSize: number = 1000
 ): Promise<{
   src: string;
   naturalWidth: number;
@@ -58,7 +55,7 @@ export async function loadImage(
       }
 
       resolve({
-        src: typeof file === "string" ? file : URL.createObjectURL(file),
+        src: typeof file === 'string' ? file : URL.createObjectURL(file),
         naturalWidth: img.width,
         naturalHeight: img.height,
         displayWidth,
@@ -68,11 +65,11 @@ export async function loadImage(
 
     img.onerror = reject;
 
-    if (typeof file === "string") {
+    if (typeof file === 'string') {
       img.src = file;
     } else {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = e => {
         img.src = e.target?.result as string;
       };
       reader.onerror = reject;

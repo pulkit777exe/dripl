@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { useCanvasColors } from "../../theme";
+import React, { useMemo } from 'react';
+import { useCanvasColors } from '../../theme';
 
 export interface ElementBoundsProps {
   x: number;
@@ -12,20 +12,11 @@ export interface ElementBoundsProps {
   isEditing?: boolean;
   showHandles?: boolean;
   handleSize?: number;
-  strokeStyle?: "solid" | "dashed";
+  strokeStyle?: 'solid' | 'dashed';
   onHandleMouseDown?: (handle: HandlePosition, e: React.MouseEvent) => void;
 }
 
-export type HandlePosition =
-  | "nw"
-  | "n"
-  | "ne"
-  | "e"
-  | "se"
-  | "s"
-  | "sw"
-  | "w"
-  | "rotation";
+export type HandlePosition = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rotation';
 
 export function ElementBounds({
   x,
@@ -38,7 +29,7 @@ export function ElementBounds({
   isEditing = false,
   showHandles = true,
   handleSize = 8,
-  strokeStyle = "solid",
+  strokeStyle = 'solid',
   onHandleMouseDown,
 }: ElementBoundsProps) {
   const colors = useCanvasColors();
@@ -46,13 +37,13 @@ export function ElementBounds({
   const strokeColor = useMemo(() => {
     if (isSelected) return colors.selectionStroke;
     if (isHovered) return colors.hoverStroke;
-    return "transparent";
+    return 'transparent';
   }, [isSelected, isHovered, colors]);
 
   const fillColor = useMemo(() => {
     if (isSelected) return colors.selectionFill;
     if (isHovered) return colors.hoverFill;
-    return "transparent";
+    return 'transparent';
   }, [isSelected, isHovered, colors]);
 
   const handleFillColor = colors.canvasBackground;
@@ -64,41 +55,41 @@ export function ElementBounds({
     const halfHandle = handleSize / 2;
     const handles: { position: HandlePosition; x: number; y: number }[] = [];
 
-    handles.push({ position: "nw", x: x - halfHandle, y: y - halfHandle });
+    handles.push({ position: 'nw', x: x - halfHandle, y: y - halfHandle });
     handles.push({
-      position: "ne",
+      position: 'ne',
       x: x + width - halfHandle,
       y: y - halfHandle,
     });
     handles.push({
-      position: "se",
+      position: 'se',
       x: x + width - halfHandle,
       y: y + height - halfHandle,
     });
     handles.push({
-      position: "sw",
+      position: 'sw',
       x: x - halfHandle,
       y: y + height - halfHandle,
     });
 
     if (!isEditing) {
       handles.push({
-        position: "n",
+        position: 'n',
         x: x + width / 2 - halfHandle,
         y: y - halfHandle,
       });
       handles.push({
-        position: "e",
+        position: 'e',
         x: x + width - halfHandle,
         y: y + height / 2 - halfHandle,
       });
       handles.push({
-        position: "s",
+        position: 's',
         x: x + width / 2 - halfHandle,
         y: y + height - halfHandle,
       });
       handles.push({
-        position: "w",
+        position: 'w',
         x: x - halfHandle,
         y: y + height / 2 - halfHandle,
       });
@@ -108,9 +99,7 @@ export function ElementBounds({
   }, [showHandles, isSelected, isEditing, x, y, width, height, handleSize]);
 
   const transform =
-    rotation !== 0
-      ? `rotate(${rotation} ${x + width / 2} ${y + height / 2})`
-      : undefined;
+    rotation !== 0 ? `rotate(${rotation} ${x + width / 2} ${y + height / 2})` : undefined;
 
   return (
     <g transform={transform}>
@@ -122,11 +111,11 @@ export function ElementBounds({
         fill={fillColor}
         stroke={strokeColor}
         strokeWidth={1}
-        strokeDasharray={strokeStyle === "dashed" ? "5,5" : undefined}
-        style={{ pointerEvents: "none" }}
+        strokeDasharray={strokeStyle === 'dashed' ? '5,5' : undefined}
+        style={{ pointerEvents: 'none' }}
       />
 
-      {handles.map((handle) => (
+      {handles.map(handle => (
         <rect
           key={handle.position}
           x={handle.x}
@@ -138,9 +127,9 @@ export function ElementBounds({
           strokeWidth={1}
           style={{
             cursor: getCursorForHandle(handle.position, rotation),
-            pointerEvents: "auto",
+            pointerEvents: 'auto',
           }}
-          onMouseDown={(e) => {
+          onMouseDown={e => {
             e.stopPropagation();
             onHandleMouseDown?.(handle.position, e);
           }}
@@ -150,27 +139,24 @@ export function ElementBounds({
   );
 }
 
-function getCursorForHandle(
-  position: HandlePosition,
-  rotation: number,
-): string {
+function getCursorForHandle(position: HandlePosition, rotation: number): string {
   const cursors: Record<HandlePosition, string> = {
-    nw: "nwse-resize",
-    se: "nwse-resize",
-    ne: "nesw-resize",
-    sw: "nesw-resize",
-    n: "ns-resize",
-    s: "ns-resize",
-    e: "ew-resize",
-    w: "ew-resize",
-    rotation: "grab",
+    nw: 'nwse-resize',
+    se: 'nwse-resize',
+    ne: 'nesw-resize',
+    sw: 'nesw-resize',
+    n: 'ns-resize',
+    s: 'ns-resize',
+    e: 'ew-resize',
+    w: 'ew-resize',
+    rotation: 'grab',
   };
 
   return cursors[position];
 }
 
 export function useElementBounds(
-  elements: Array<{ x: number; y: number; width: number; height: number }>,
+  elements: Array<{ x: number; y: number; width: number; height: number }>
 ) {
   return useMemo(() => {
     if (elements.length === 0) {

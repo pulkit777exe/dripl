@@ -1,4 +1,4 @@
-import type { DriplElement, Point } from "@dripl/common";
+import type { DriplElement, Point } from '@dripl/common';
 
 export interface Viewport {
   x: number;
@@ -34,7 +34,7 @@ export class Renderer {
       return [...this.visibleElementsCache];
     }
 
-    const visibleElements = this.elements.filter((element) => {
+    const visibleElements = this.elements.filter(element => {
       if (element.isDeleted) return false;
 
       const elementBounds = {
@@ -63,7 +63,10 @@ export class Renderer {
     );
   }
 
-  private isElementVisible(elementBounds: { x: number; y: number; width: number; height: number }, viewport: Viewport): boolean {
+  private isElementVisible(
+    elementBounds: { x: number; y: number; width: number; height: number },
+    viewport: Viewport
+  ): boolean {
     const { x, y, width, height } = elementBounds;
     const { x: vx, y: vy, width: vw, height: vh, zoom } = viewport;
 
@@ -93,7 +96,7 @@ export class Renderer {
     let maxX = -Infinity;
     let maxY = -Infinity;
 
-    this.visibleElementsCache.forEach((element) => {
+    this.visibleElementsCache.forEach(element => {
       const { x, y, width, height } = element;
       minX = Math.min(minX, x);
       minY = Math.min(minY, y);

@@ -2,8 +2,8 @@
  * Pre-configured tunnel components for Dripl canvas
  */
 
-import React, { ReactNode } from "react";
-import { TunnelInlet, TunnelOutlet, TUNNEL_NAMES } from "./TunnelContext";
+import React, { ReactNode } from 'react';
+import { TunnelInlet, TunnelOutlet, TUNNEL_NAMES } from './TunnelContext';
 
 // Menu tunnels - content flows from Canvas to TopBar
 export function MenuInlet({ children }: { children: ReactNode }) {

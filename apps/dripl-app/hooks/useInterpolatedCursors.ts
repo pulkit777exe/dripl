@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState } from 'react';
 
 interface CursorPosition {
   x: number;
@@ -16,11 +16,11 @@ interface InterpolatedCursor extends CursorPosition {
 
 export function useInterpolatedCursors(
   remoteCursors: Map<string, CursorPosition>,
-  lerpFactor: number = 0.15,
+  lerpFactor: number = 0.15
 ) {
-  const [interpolatedCursors, setInterpolatedCursors] = useState<
-    Map<string, InterpolatedCursor>
-  >(new Map());
+  const [interpolatedCursors, setInterpolatedCursors] = useState<Map<string, InterpolatedCursor>>(
+    new Map()
+  );
   const cursorsRef = useRef<Map<string, InterpolatedCursor>>(new Map());
   const animationFrameRef = useRef<number | null>(null);
 

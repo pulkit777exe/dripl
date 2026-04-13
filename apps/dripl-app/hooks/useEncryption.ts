@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from 'react';
 import {
   generateKey,
   encrypt,
@@ -8,10 +8,10 @@ import {
   keyToBase64,
   base64ToKey,
   type EncryptedPayload,
-} from "@dripl/utils";
-import type { DriplElement } from "@dripl/common";
+} from '@dripl/utils';
+import type { DriplElement } from '@dripl/common';
 
-const ENCRYPTION_KEY_PARAM = "key";
+const ENCRYPTION_KEY_PARAM = 'key';
 
 interface UseEncryptionOptions {
   enabled?: boolean;
@@ -35,8 +35,8 @@ export function useEncryption(options: UseEncryptionOptions = {}) {
   });
 
   useEffect(() => {
-    if (!enabled || typeof window === "undefined") {
-      setState((s) => ({ ...s, isLoading: false }));
+    if (!enabled || typeof window === 'undefined') {
+      setState(s => ({ ...s, isLoading: false }));
       return;
     }
 
@@ -44,7 +44,7 @@ export function useEncryption(options: UseEncryptionOptions = {}) {
       try {
         const hash = window.location.hash.slice(1);
         if (!hash) {
-          setState((s) => ({ ...s, isLoading: false, hasKey: false }));
+          setState(s => ({ ...s, isLoading: false, hasKey: false }));
           return;
         }
 
@@ -52,24 +52,24 @@ export function useEncryption(options: UseEncryptionOptions = {}) {
         const keyBase64 = params.get(ENCRYPTION_KEY_PARAM);
 
         if (!keyBase64) {
-          setState((s) => ({ ...s, isLoading: false, hasKey: false }));
+          setState(s => ({ ...s, isLoading: false, hasKey: false }));
           return;
         }
 
         const cryptoKey = await base64ToKey(keyBase64);
         setKey(cryptoKey);
-        setState((s) => ({
+        setState(s => ({
           ...s,
           isLoading: false,
           hasKey: true,
           error: null,
         }));
       } catch (error) {
-        console.error("Failed to load encryption key:", error);
-        setState((s) => ({
+        console.error('Failed to load encryption key:', error);
+        setState(s => ({
           ...s,
           isLoading: false,
-          error: "Invalid encryption key",
+          error: 'Invalid encryption key',
           hasKey: false,
         }));
       }
@@ -90,15 +90,15 @@ export function useEncryption(options: UseEncryptionOptions = {}) {
       params.set(ENCRYPTION_KEY_PARAM, keyBase64);
       url.hash = params.toString();
 
-      window.history.replaceState(null, "", url.toString());
+      window.history.replaceState(null, '', url.toString());
 
       setKey(newKey);
-      setState((s) => ({ ...s, hasKey: true, error: null }));
+      setState(s => ({ ...s, hasKey: true, error: null }));
 
       return keyBase64;
     } catch (error) {
-      console.error("Failed to create encryption key:", error);
-      setState((s) => ({ ...s, error: "Failed to create encryption key" }));
+      console.error('Failed to create encryption key:', error);
+      setState(s => ({ ...s, error: 'Failed to create encryption key' }));
       return null;
     }
   }, [enabled]);
@@ -112,12 +112,12 @@ export function useEncryption(options: UseEncryptionOptions = {}) {
       try {
         return await encrypt(elements, key);
       } catch (error) {
-        console.error("Encryption failed:", error);
-        setState((s) => ({ ...s, error: "Encryption failed" }));
+        console.error('Encryption failed:', error);
+        setState(s => ({ ...s, error: 'Encryption failed' }));
         return null;
       }
     },
-    [enabled, key],
+    [enabled, key]
   );
 
   const decryptElements = useCallback(
@@ -129,12 +129,12 @@ export function useEncryption(options: UseEncryptionOptions = {}) {
       try {
         return await decrypt<DriplElement[]>(payload, key);
       } catch (error) {
-        console.error("Decryption failed:", error);
-        setState((s) => ({ ...s, error: "Decryption failed" }));
+        console.error('Decryption failed:', error);
+        setState(s => ({ ...s, error: 'Decryption failed' }));
         return null;
       }
     },
-    [enabled, key],
+    [enabled, key]
   );
 
   const getShareableUrl = useCallback(async (): Promise<string | null> => {

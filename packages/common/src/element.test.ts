@@ -1,17 +1,17 @@
-import { describe, it, expect } from "vitest";
-import type { DriplElement } from "./types/element";
+import { describe, it, expect } from 'vitest';
+import type { DriplElement } from './types/element';
 
-describe("common/element", () => {
-  describe("element types", () => {
-    it("should define basic element properties", () => {
+describe('common/element', () => {
+  describe('element types', () => {
+    it('should define basic element properties', () => {
       const baseElement: DriplElement = {
-        id: "1",
-        type: "rectangle",
+        id: '1',
+        type: 'rectangle',
         x: 0,
         y: 0,
         width: 100,
         height: 100,
-        strokeColor: "#000000",
+        strokeColor: '#000000',
         strokeWidth: 2,
       };
 

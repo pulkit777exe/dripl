@@ -1,4 +1,4 @@
-import type { DriplElement, Point, FreeDrawElement } from "@dripl/common";
+import type { DriplElement, Point, FreeDrawElement } from '@dripl/common';
 
 export interface FreedrawToolState {
   points: Point[];
@@ -46,8 +46,7 @@ function optimizePoints(points: Point[], threshold: number = 2): Point[] {
 
     if (length > 0) {
       const distance = Math.abs(
-        (dy * curr.x - dx * curr.y + next.x * prev.y - next.y * prev.x) /
-          length,
+        (dy * curr.x - dx * curr.y + next.x * prev.y - next.y * prev.x) / length
       );
 
       if (distance > threshold) {
@@ -83,7 +82,7 @@ function calculatePressure(point: Point, points: Point[]): number {
 function calculateVariableWidth(
   points: Point[],
   baseWidth: number,
-  pressureValues: number[],
+  pressureValues: number[]
 ): number[] {
   const widths = [];
 
@@ -97,13 +96,10 @@ function calculateVariableWidth(
 
 export function createFreedrawElement(
   state: FreedrawToolState,
-  baseProps: Omit<
-    DriplElement,
-    "type" | "x" | "y" | "width" | "height" | "points"
-  > & { id: string },
+  baseProps: Omit<DriplElement, 'type' | 'x' | 'y' | 'width' | 'height' | 'points'> & { id: string }
 ): FreeDrawElement {
   if (state.points.length === 0) {
-    throw new Error("Freedraw must have at least one point");
+    throw new Error('Freedraw must have at least one point');
   }
 
   let processedPoints = state.points;
@@ -112,12 +108,12 @@ export function createFreedrawElement(
     processedPoints = optimizePoints(processedPoints);
   }
 
-  const minX = Math.min(...processedPoints.map((p) => p.x));
-  const minY = Math.min(...processedPoints.map((p) => p.y));
-  const maxX = Math.max(...processedPoints.map((p) => p.x));
-  const maxY = Math.max(...processedPoints.map((p) => p.y));
+  const minX = Math.min(...processedPoints.map(p => p.x));
+  const minY = Math.min(...processedPoints.map(p => p.y));
+  const maxX = Math.max(...processedPoints.map(p => p.x));
+  const maxY = Math.max(...processedPoints.map(p => p.y));
 
-  const relativePoints = processedPoints.map((p) => ({
+  const relativePoints = processedPoints.map(p => ({
     x: p.x - minX,
     y: p.y - minY,
   }));
@@ -127,19 +123,15 @@ export function createFreedrawElement(
     state.pressureValues && state.pressureValues.length === state.points.length
       ? state.pressureValues
       : state.points.map((point, index) =>
-          calculatePressure(point, state.points.slice(0, index + 1)),
+          calculatePressure(point, state.points.slice(0, index + 1))
         );
 
   const brushSize = state.brushSize ?? 2;
-  const widths = calculateVariableWidth(
-    processedPoints,
-    brushSize,
-    pressureValues,
-  );
+  const widths = calculateVariableWidth(processedPoints, brushSize, pressureValues);
 
   return {
     ...baseProps,
-    type: "freedraw",
+    type: 'freedraw',
     x: minX,
     y: minY,
     width: maxX - minX,
@@ -151,10 +143,7 @@ export function createFreedrawElement(
   };
 }
 
-export function addPointToFreedraw(
-  point: Point,
-  state: FreedrawToolState,
-): FreedrawToolState {
+export function addPointToFreedraw(point: Point, state: FreedrawToolState): FreedrawToolState {
   const pressure = calculatePressure(point, [...state.points, point]);
   return {
     ...state,
@@ -166,7 +155,7 @@ export function addPointToFreedraw(
 
 export function removePointFromFreedraw(
   index: number,
-  state: FreedrawToolState,
+  state: FreedrawToolState
 ): FreedrawToolState {
   const newPoints = [...state.points];
   newPoints.splice(index, 1);
@@ -179,7 +168,7 @@ export function removePointFromFreedraw(
 export function updatePointInFreedraw(
   index: number,
   point: Point,
-  state: FreedrawToolState,
+  state: FreedrawToolState
 ): FreedrawToolState {
   const newPoints = [...state.points];
   newPoints[index] = point;

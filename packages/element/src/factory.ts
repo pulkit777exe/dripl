@@ -1,27 +1,22 @@
-import type { DriplElement, ShapeType, ElementBase } from "@dripl/common";
-import { SHAPES } from "@dripl/common";
-import { generateId } from "@dripl/utils";
+import type { DriplElement, ShapeType, ElementBase } from '@dripl/common';
+import { SHAPES } from '@dripl/common';
+import { generateId } from '@dripl/utils';
 
-function makeBase(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-): ElementBase {
+function makeBase(x: number, y: number, width: number, height: number): ElementBase {
   return {
     id: generateId(),
-    type: "rectangle",
+    type: 'rectangle',
     x,
     y,
     width,
     height,
-    strokeColor: "#000000",
-    backgroundColor: "transparent",
+    strokeColor: '#000000',
+    backgroundColor: 'transparent',
     strokeWidth: 1,
     opacity: 1,
     roughness: 1,
-    strokeStyle: "solid",
-    fillStyle: "hachure",
+    strokeStyle: 'solid',
+    fillStyle: 'hachure',
     seed: Math.floor(Math.random() * 2 ** 31),
     angle: 0,
     isDeleted: false,
@@ -33,7 +28,7 @@ export const createElement = (
   x: number,
   y: number,
   width = 100,
-  height = 100,
+  height = 100
 ): DriplElement => {
   const base = makeBase(x, y, width, height);
 
@@ -41,35 +36,35 @@ export const createElement = (
     case SHAPES.RECTANGLE:
       return {
         ...base,
-        type: "rectangle" as const,
+        type: 'rectangle' as const,
       };
 
     case SHAPES.ELLIPSE:
       return {
         ...base,
-        type: "ellipse" as const,
+        type: 'ellipse' as const,
       };
 
     case SHAPES.TEXT:
       return {
         ...base,
-        type: "text" as const,
-        text: "Text",
+        type: 'text' as const,
+        text: 'Text',
         fontSize: 20,
-        fontFamily: "Arial",
+        fontFamily: 'Arial',
       };
 
     case SHAPES.IMAGE:
       return {
         ...base,
-        type: "image" as const,
-        src: "",
+        type: 'image' as const,
+        src: '',
       };
 
     case SHAPES.ARROW:
       return {
         ...base,
-        type: "arrow" as const,
+        type: 'arrow' as const,
         points: [
           { x: 0, y: 0 },
           { x: width, y: height },
@@ -79,13 +74,13 @@ export const createElement = (
     case SHAPES.DIAMOND:
       return {
         ...base,
-        type: "diamond" as const,
+        type: 'diamond' as const,
       };
 
     case SHAPES.LINE:
       return {
         ...base,
-        type: "line" as const,
+        type: 'line' as const,
         points: [
           { x: 0, y: 0 },
           { x: width, y: height },
@@ -95,15 +90,15 @@ export const createElement = (
     case SHAPES.FREEDRAW:
       return {
         ...base,
-        type: "freedraw" as const,
+        type: 'freedraw' as const,
         points: [],
       };
 
     case SHAPES.FRAME:
       return {
         ...base,
-        type: "frame" as const,
-        title: "Frame",
+        type: 'frame' as const,
+        title: 'Frame',
         padding: 20,
       };
 

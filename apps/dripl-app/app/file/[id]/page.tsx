@@ -1,22 +1,22 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { CanvasBootstrap } from "@/components/canvas/CanvasBootstrap";
-import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
-import { CanvasControls } from "@/components/canvas/CanvasControls";
-import { TopBar } from "@/components/canvas/TopBar";
-import { CommandPalette } from "@/components/canvas/CommandPalette";
-import { useTheme } from "@/hooks/useTheme";
-import { useAuth } from "@/app/context/AuthContext";
-import { useCanvasStore } from "@/lib/canvas-store";
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
+import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
+import { CanvasControls } from '@/components/canvas/CanvasControls';
+import { TopBar } from '@/components/canvas/TopBar';
+import { CommandPalette } from '@/components/canvas/CommandPalette';
+import { useTheme } from '@/hooks/useTheme';
+import { useAuth } from '@/app/context/AuthContext';
+import { useCanvasStore } from '@/lib/canvas-store';
 
 export default function FilePage() {
   const params = useParams<{ id: string }>();
   const { effectiveTheme } = useTheme();
   const { user, token } = useAuth();
   const router = useRouter();
-  const setUserId = useCanvasStore((state) => state.setUserId);
+  const setUserId = useCanvasStore(state => state.setUserId);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,9 +25,8 @@ export default function FilePage() {
     } else if (token) {
       setUserId(token);
     } else {
-      const anonId =
-        localStorage.getItem("dripl_anon_id") || crypto.randomUUID();
-      localStorage.setItem("dripl_anon_id", anonId);
+      const anonId = localStorage.getItem('dripl_anon_id') || crypto.randomUUID();
+      localStorage.setItem('dripl_anon_id', anonId);
       setUserId(anonId);
     }
     setLoading(false);
@@ -43,7 +42,7 @@ export default function FilePage() {
 
   return (
     <div
-      className={`w-screen h-dvh relative overflow-hidden ${effectiveTheme === "dark" ? "bg-[#121112]" : "bg-[#f7f5f6]"}`}
+      className={`w-screen h-dvh relative overflow-hidden ${effectiveTheme === 'dark' ? 'bg-[#121112]' : 'bg-[#f7f5f6]'}`}
     >
       <TopBar />
       <CanvasBootstrap mode="local" theme={effectiveTheme} />

@@ -1,16 +1,8 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import {
-  Search,
-  ArrowLeft,
-  FileText,
-  Users,
-  Briefcase,
-  Lightbulb,
-  Layout,
-} from "lucide-react";
-import Link from "next/link";
+import { useState } from 'react';
+import { Search, ArrowLeft, FileText, Users, Briefcase, Lightbulb, Layout } from 'lucide-react';
+import Link from 'next/link';
 
 interface Template {
   id: string;
@@ -22,82 +14,82 @@ interface Template {
 
 const TEMPLATES: Template[] = [
   {
-    id: "blank",
-    name: "Blank Canvas",
-    description: "Start with a clean slate",
-    category: "Basic",
-    preview: "/placeholder.svg",
+    id: 'blank',
+    name: 'Blank Canvas',
+    description: 'Start with a clean slate',
+    category: 'Basic',
+    preview: '/placeholder.svg',
   },
   {
-    id: "flowchart",
-    name: "Flowchart",
-    description: "Process flows and decision trees",
-    category: "Diagrams",
-    preview: "/placeholder.svg",
+    id: 'flowchart',
+    name: 'Flowchart',
+    description: 'Process flows and decision trees',
+    category: 'Diagrams',
+    preview: '/placeholder.svg',
   },
   {
-    id: "wireframe",
-    name: "Wireframe",
-    description: "UI/UX wireframing with common components",
-    category: "Design",
-    preview: "/placeholder.svg",
+    id: 'wireframe',
+    name: 'Wireframe',
+    description: 'UI/UX wireframing with common components',
+    category: 'Design',
+    preview: '/placeholder.svg',
   },
   {
-    id: "mindmap",
-    name: "Mind Map",
-    description: "Brainstorming and idea organization",
-    category: "Planning",
-    preview: "/placeholder.svg",
+    id: 'mindmap',
+    name: 'Mind Map',
+    description: 'Brainstorming and idea organization',
+    category: 'Planning',
+    preview: '/placeholder.svg',
   },
   {
-    id: "kanban",
-    name: "Kanban Board",
-    description: "Task management and workflow",
-    category: "Planning",
-    preview: "/placeholder.svg",
+    id: 'kanban',
+    name: 'Kanban Board',
+    description: 'Task management and workflow',
+    category: 'Planning',
+    preview: '/placeholder.svg',
   },
   {
-    id: "retrospective",
-    name: "Retrospective",
-    description: "Team retrospective template",
-    category: "Meetings",
-    preview: "/placeholder.svg",
+    id: 'retrospective',
+    name: 'Retrospective',
+    description: 'Team retrospective template',
+    category: 'Meetings',
+    preview: '/placeholder.svg',
   },
   {
-    id: "user-story",
-    name: "User Story Map",
-    description: "Map out user journeys and stories",
-    category: "Planning",
-    preview: "/placeholder.svg",
+    id: 'user-story',
+    name: 'User Story Map',
+    description: 'Map out user journeys and stories',
+    category: 'Planning',
+    preview: '/placeholder.svg',
   },
   {
-    id: "architecture",
-    name: "System Architecture",
-    description: "Technical architecture diagrams",
-    category: "Diagrams",
-    preview: "/placeholder.svg",
+    id: 'architecture',
+    name: 'System Architecture',
+    description: 'Technical architecture diagrams',
+    category: 'Diagrams',
+    preview: '/placeholder.svg',
   },
 ];
 
 const CATEGORIES = [
-  { id: "all", label: "All", icon: Layout },
-  { id: "basic", label: "Basic", icon: FileText },
-  { id: "diagrams", label: "Diagrams", icon: Lightbulb },
-  { id: "design", label: "Design", icon: Layout },
-  { id: "planning", label: "Planning", icon: Briefcase },
-  { id: "meetings", label: "Meetings", icon: Users },
+  { id: 'all', label: 'All', icon: Layout },
+  { id: 'basic', label: 'Basic', icon: FileText },
+  { id: 'diagrams', label: 'Diagrams', icon: Lightbulb },
+  { id: 'design', label: 'Design', icon: Layout },
+  { id: 'planning', label: 'Planning', icon: Briefcase },
+  { id: 'meetings', label: 'Meetings', icon: Users },
 ];
 
 export default function TemplatesPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const filteredTemplates = TEMPLATES.filter((template) => {
+  const filteredTemplates = TEMPLATES.filter(template => {
     const matchesSearch =
       template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       template.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory =
-      selectedCategory === "all" ||
+      selectedCategory === 'all' ||
       template.category.toLowerCase() === selectedCategory.toLowerCase();
     return matchesSearch && matchesCategory;
   });
@@ -118,15 +110,12 @@ export default function TemplatesPage() {
           </div>
 
           <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-              size={18}
-            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
             <input
               type="text"
               placeholder="Search templates..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               className="bg-gray-900 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-purple-500 w-64"
             />
           </div>
@@ -142,8 +131,8 @@ export default function TemplatesPage() {
               onClick={() => setSelectedCategory(id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
                 selectedCategory === id
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
               }`}
             >
               <Icon size={16} />
@@ -154,7 +143,7 @@ export default function TemplatesPage() {
 
         {/* Templates Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredTemplates.map((template) => (
+          {filteredTemplates.map(template => (
             <Link
               key={template.id}
               href={`/canvas?template=${template.id}`}
@@ -178,9 +167,7 @@ export default function TemplatesPage() {
 
         {filteredTemplates.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-gray-400">
-              No templates found matching your search.
-            </p>
+            <p className="text-gray-400">No templates found matching your search.</p>
           </div>
         )}
       </div>

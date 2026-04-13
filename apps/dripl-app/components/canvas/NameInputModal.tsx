@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { useState } from 'react';
+import { ArrowRight } from 'lucide-react';
 
 interface NameInputModalProps {
   onSubmit: (name: string) => void;
 }
 
 export function NameInputModal({ onSubmit }: NameInputModalProps) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,18 +20,14 @@ export function NameInputModal({ onSubmit }: NameInputModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-background rounded-xl shadow-xl p-8 w-full max-w-md mx-4 animate-in zoom-in-95 duration-200">
-        <h2 className="text-2xl font-bold mb-2 text-center text-slate-900">
-          Join the Canvas
-        </h2>
-        <p className="text-slate-500 text-center mb-6">
-          Enter your name to start collaborating
-        </p>
+        <h2 className="text-2xl font-bold mb-2 text-center text-slate-900">Join the Canvas</h2>
+        <p className="text-slate-500 text-center mb-6">Enter your name to start collaborating</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={e => setName(e.target.value)}
             placeholder="Your Name (e.g. Alice)"
             className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all placeholder:text-slate-400"
             autoFocus

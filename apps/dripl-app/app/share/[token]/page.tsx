@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import React, { useEffect, useMemo, useState } from "react";
-import { base64ToKey, decrypt } from "@dripl/utils";
-import type { DriplElement } from "@dripl/common";
-import { useCanvasStore } from "@/lib/canvas-store";
-import { apiClient } from "@/lib/api";
-import { CanvasBootstrap } from "@/components/canvas/CanvasBootstrap";
-import { CanvasControls } from "@/components/canvas/CanvasControls";
-import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
-import { CommandPalette } from "@/components/canvas/CommandPalette";
-import { TopBar } from "@/components/canvas/TopBar";
+import React, { useEffect, useMemo, useState } from 'react';
+import { base64ToKey, decrypt } from '@dripl/utils';
+import type { DriplElement } from '@dripl/common';
+import { useCanvasStore } from '@/lib/canvas-store';
+import { apiClient } from '@/lib/api';
+import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
+import { CanvasControls } from '@/components/canvas/CanvasControls';
+import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
+import { CommandPalette } from '@/components/canvas/CommandPalette';
+import { TopBar } from '@/components/canvas/TopBar';
 
 interface SharePageProps {
   params: Promise<{
@@ -18,24 +18,24 @@ interface SharePageProps {
 }
 
 function readKeyFromHash(): string | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
   const hash = window.location.hash.slice(1);
   if (!hash) return null;
   const params = new URLSearchParams(hash);
-  return params.get("key");
+  return params.get('key');
 }
 
 export default function SharedCanvasPage({ params }: SharePageProps) {
   const { token } = React.use(params);
   const [loading, setLoading] = useState(true);
-  const [permission, setPermission] = useState<"view" | "edit">("view");
+  const [permission, setPermission] = useState<'view' | 'edit'>('view');
   const [shareFileId, setShareFileId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const setElements = useCanvasStore((state) => state.setElements);
-  const setSelectedIds = useCanvasStore((state) => state.setSelectedIds);
-  const setFileMetadata = useCanvasStore((state) => state.setFileMetadata);
-  const setUserId = useCanvasStore((state) => state.setUserId);
+  const setElements = useCanvasStore(state => state.setElements);
+  const setSelectedIds = useCanvasStore(state => state.setSelectedIds);
+  const setFileMetadata = useCanvasStore(state => state.setFileMetadata);
+  const setUserId = useCanvasStore(state => state.setUserId);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,7 +47,7 @@ export default function SharedCanvasPage({ params }: SharePageProps) {
         const response = await apiClient.getSharedFile(token);
         if (cancelled) return;
 
-        const nextPermission = response.permission === "edit" ? "edit" : "view";
+        const nextPermission = response.permission === 'edit' ? 'edit' : 'view';
         setPermission(nextPermission);
         setShareFileId(response.file.id);
 
@@ -55,7 +55,7 @@ export default function SharedCanvasPage({ params }: SharePageProps) {
         if (response.encryptedPayload) {
           const keyBase64 = readKeyFromHash();
           if (!keyBase64) {
-            throw new Error("Missing encryption key in share URL fragment.");
+            throw new Error('Missing encryption key in share URL fragment.');
           }
           const cryptoKey = await base64ToKey(keyBase64);
           const decrypted = await decrypt<unknown[]>(response.encryptedPayload, cryptoKey);
@@ -71,9 +71,7 @@ export default function SharedCanvasPage({ params }: SharePageProps) {
         setUserId(crypto.randomUUID());
       } catch (loadError) {
         if (!cancelled) {
-          setError(
-            loadError instanceof Error ? loadError.message : "Unable to open share link",
-          );
+          setError(loadError instanceof Error ? loadError.message : 'Unable to open share link');
         }
       } finally {
         if (!cancelled) {
@@ -89,7 +87,7 @@ export default function SharedCanvasPage({ params }: SharePageProps) {
     };
   }, [setElements, setFileMetadata, setSelectedIds, setUserId, token]);
 
-  const readOnly = permission === "view";
+  const readOnly = permission === 'view';
   const roomSlug = useMemo(() => shareFileId ?? token, [shareFileId, token]);
 
   if (loading) {
@@ -122,7 +120,7 @@ export default function SharedCanvasPage({ params }: SharePageProps) {
       </div>
       <CommandPalette />
       <div className="absolute bottom-6 right-6 z-20 rounded-lg bg-white/95 px-4 py-2 text-sm font-medium text-[#1a1a1a] shadow">
-        {readOnly ? "View only" : "Shared edit mode"}
+        {readOnly ? 'View only' : 'Shared edit mode'}
       </div>
     </div>
   );

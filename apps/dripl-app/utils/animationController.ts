@@ -1,4 +1,4 @@
-import type { DriplElement } from "@dripl/common";
+import type { DriplElement } from '@dripl/common';
 
 type AnimationKey = string;
 type AnimationState = Record<string, any>;
@@ -17,7 +17,7 @@ class AnimationController {
   static start(
     key: AnimationKey,
     update: AnimationUpdate,
-    initialState: AnimationState = {},
+    initialState: AnimationState = {}
   ): void {
     if (this.animations.has(key)) {
       return;

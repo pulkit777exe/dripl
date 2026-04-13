@@ -1,4 +1,4 @@
-import type { DriplElement, Point } from "@dripl/common";
+import type { DriplElement, Point } from '@dripl/common';
 
 export interface DiamondToolState {
   startPoint: Point;
@@ -7,9 +7,9 @@ export interface DiamondToolState {
 }
 export function createDiamondElement(
   state: DiamondToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height"> & {
+  baseProps: Omit<DriplElement, 'type' | 'x' | 'y' | 'width' | 'height'> & {
     id: string;
-  },
+  }
 ): DriplElement {
   let width = state.currentPoint.x - state.startPoint.x;
   let height = state.currentPoint.y - state.startPoint.y;
@@ -29,7 +29,7 @@ export function createDiamondElement(
 
   return {
     ...baseProps,
-    type: "diamond",
+    type: 'diamond',
     x: centerX - size / 2,
     y: centerY - size / 2,
     width: size,

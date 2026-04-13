@@ -1,4 +1,4 @@
-import { AnimationController } from "./animationController";
+import { AnimationController } from './animationController';
 
 // Throttling configuration
 const RENDER_THROTTLE_MS = 16; // ~60fps limit

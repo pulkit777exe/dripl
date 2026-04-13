@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import Image from "next/image";
+import Image from 'next/image';
 
 const INTEGRATIONS = [
-  { name: "Reddit", file: "reddit.png" },
-  { name: "YouTube", file: "youtube.png" },
-  { name: "X / Twitter", file: "x.png" },
-  { name: "Bluesky", file: "bluesky.png" },
-  { name: "Threads", file: "threads.png" },
+  { name: 'Reddit', file: 'reddit.png' },
+  { name: 'YouTube', file: 'youtube.png' },
+  { name: 'X / Twitter', file: 'x.png' },
+  { name: 'Bluesky', file: 'bluesky.png' },
+  { name: 'Threads', file: 'threads.png' },
 ];
 
 export function IntegrationCarousel() {
@@ -19,7 +19,7 @@ export function IntegrationCarousel() {
         </p>
 
         <div className="flex flex-wrap justify-center gap-12 md:gap-24 opacity-60 grayscale transition-all duration-500 hover:grayscale-0 hover:opacity-100">
-          {INTEGRATIONS.map((app) => (
+          {INTEGRATIONS.map(app => (
             <div
               key={app.name}
               className="group relative flex h-12 w-12 items-center justify-center transition-transform duration-300 hover:scale-110"

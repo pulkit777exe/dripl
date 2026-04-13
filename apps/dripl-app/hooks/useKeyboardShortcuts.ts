@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useCallback } from "react";
-import type { ToolType } from "./useDrawingTools";
+import { useEffect, useCallback } from 'react';
+import type { ToolType } from './useDrawingTools';
 
 export interface KeyboardShortcutsConfig {
   activeTool: ToolType;
@@ -41,53 +41,49 @@ export function useKeyboardShortcuts({
       if (!enabled) return;
 
       const target = e.target as HTMLElement;
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      ) {
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return;
       }
 
-      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
 
       if (!cmdOrCtrl && !e.shiftKey && !e.altKey) {
         switch (e.key.toLowerCase()) {
-          case "v":
+          case 'v':
             e.preventDefault();
-            setActiveTool("select");
+            setActiveTool('select');
             return;
-          case "r":
+          case 'r':
             e.preventDefault();
-            setActiveTool("rectangle");
+            setActiveTool('rectangle');
             return;
-          case "e":
+          case 'e':
             e.preventDefault();
-            setActiveTool("ellipse");
+            setActiveTool('ellipse');
             return;
-          case "a":
+          case 'a':
             e.preventDefault();
-            setActiveTool("arrow");
+            setActiveTool('arrow');
             return;
-          case "l":
+          case 'l':
             e.preventDefault();
-            setActiveTool("line");
+            setActiveTool('line');
             return;
-          case "p":
+          case 'p':
             e.preventDefault();
-            setActiveTool("freedraw");
+            setActiveTool('freedraw');
             return;
-          case "t":
+          case 't':
             e.preventDefault();
-            setActiveTool("text");
+            setActiveTool('text');
             return;
         }
       }
 
       if (cmdOrCtrl) {
         switch (e.key.toLowerCase()) {
-          case "z":
+          case 'z':
             e.preventDefault();
             if (e.shiftKey) {
               redo();
@@ -95,48 +91,48 @@ export function useKeyboardShortcuts({
               undo();
             }
             return;
-          case "d":
+          case 'd':
             e.preventDefault();
             duplicate();
             return;
-          case "a":
+          case 'a':
             e.preventDefault();
             selectAll();
             return;
-          case "c":
+          case 'c':
             e.preventDefault();
             copy?.();
             return;
-          case "v":
+          case 'v':
             e.preventDefault();
             paste?.();
             return;
-          case "g":
+          case 'g':
             e.preventDefault();
             return;
-          case "=":
-          case "+":
+          case '=':
+          case '+':
             e.preventDefault();
             onZoomIn?.();
             return;
-          case "-":
+          case '-':
             e.preventDefault();
             onZoomOut?.();
             return;
-          case "0":
+          case '0':
             e.preventDefault();
             onResetZoom?.();
             return;
         }
       }
 
-      if ((e.key === "Delete" || e.key === "Backspace") && !cmdOrCtrl) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !cmdOrCtrl) {
         e.preventDefault();
         deleteSelected();
         return;
       }
 
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         e.preventDefault();
         escape?.();
         return;
@@ -157,14 +153,14 @@ export function useKeyboardShortcuts({
       onZoomIn,
       onZoomOut,
       onResetZoom,
-    ],
+    ]
   );
 
   useEffect(() => {
     if (enabled) {
-      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener('keydown', handleKeyDown);
       return () => {
-        window.removeEventListener("keydown", handleKeyDown);
+        window.removeEventListener('keydown', handleKeyDown);
       };
     }
   }, [enabled, handleKeyDown]);

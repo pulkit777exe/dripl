@@ -1,5 +1,5 @@
-import { Store } from "@tanstack/store";
-import type { DriplElement } from "@dripl/common";
+import { Store } from '@tanstack/store';
+import type { DriplElement } from '@dripl/common';
 
 export interface User {
   userId: string;
@@ -19,19 +19,19 @@ export interface AppState {
   gridEnabled: boolean;
   snapToGrid: boolean;
 
-  theme: "light" | "dark";
+  theme: 'light' | 'dark';
   canvasBackgroundColor: string;
 
   activeTool:
-    | "selection"
-    | "rectangle"
-    | "ellipse"
-    | "diamond"
-    | "arrow"
-    | "line"
-    | "draw"
-    | "text"
-    | "image";
+    | 'selection'
+    | 'rectangle'
+    | 'ellipse'
+    | 'diamond'
+    | 'arrow'
+    | 'line'
+    | 'draw'
+    | 'text'
+    | 'image';
 
   selectedElementIds: Set<string>;
   editingTextId: string | null;
@@ -40,7 +40,7 @@ export interface AppState {
   currentItemBackgroundColor: string;
   currentItemStrokeWidth: number;
   currentItemRoughness: number;
-  currentItemStrokeSharpness: "round" | "sharp";
+  currentItemStrokeSharpness: 'round' | 'sharp';
 
   fileId: string | null;
   fileName: string;
@@ -75,18 +75,18 @@ export const defaultAppState: AppState = {
   gridSize: 20,
   gridEnabled: true,
   snapToGrid: false,
-  theme: "light",
-  canvasBackgroundColor: "#ffffff",
-  activeTool: "selection",
+  theme: 'light',
+  canvasBackgroundColor: '#ffffff',
+  activeTool: 'selection',
   selectedElementIds: new Set(),
   editingTextId: null,
-  currentItemStrokeColor: "#000000",
-  currentItemBackgroundColor: "transparent",
+  currentItemStrokeColor: '#000000',
+  currentItemBackgroundColor: 'transparent',
   currentItemStrokeWidth: 1,
   currentItemRoughness: 1,
-  currentItemStrokeSharpness: "round",
+  currentItemStrokeSharpness: 'round',
   fileId: null,
-  fileName: "Untitled",
+  fileName: 'Untitled',
   isSaving: false,
   lastSaved: null,
   isCollaborative: false,
@@ -109,19 +109,17 @@ const HISTORY_THROTTLE_MS = 300;
 let historyThrottleTimeout: NodeJS.Timeout | null = null;
 
 export const actions = {
-  setAppState: (
-    updater: Partial<AppState> | ((prev: AppState) => Partial<AppState>),
-  ) => {
-    store.setState((state) => ({
+  setAppState: (updater: Partial<AppState> | ((prev: AppState) => Partial<AppState>)) => {
+    store.setState(state => ({
       ...state,
       appState: {
         ...state.appState,
-        ...(typeof updater === "function" ? updater(state.appState) : updater),
+        ...(typeof updater === 'function' ? updater(state.appState) : updater),
       },
     }));
   },
 
-  setTool: (tool: AppState["activeTool"]) => {
+  setTool: (tool: AppState['activeTool']) => {
     actions.setAppState({ activeTool: tool });
   },
 
@@ -135,15 +133,14 @@ export const actions = {
 
   setElements: (
     updater: DriplElement[] | ((prev: DriplElement[]) => DriplElement[]),
-    options: { addToHistory?: boolean; source?: "local" | "remote" } = {},
+    options: { addToHistory?: boolean; source?: 'local' | 'remote' } = {}
   ) => {
-    const { addToHistory = true, source = "local" } = options;
+    const { addToHistory = true, source = 'local' } = options;
 
-    store.setState((state) => {
-      const newElements =
-        typeof updater === "function" ? updater(state.elements) : updater;
+    store.setState(state => {
+      const newElements = typeof updater === 'function' ? updater(state.elements) : updater;
 
-      if (addToHistory && source === "local") {
+      if (addToHistory && source === 'local') {
         if (historyThrottleTimeout) {
           clearTimeout(historyThrottleTimeout);
         }
@@ -161,35 +158,27 @@ export const actions = {
   },
 
   addElement: (element: DriplElement, options?: { addToHistory?: boolean }) => {
-    actions.setElements((prev) => [...prev, element], options);
+    actions.setElements(prev => [...prev, element], options);
   },
 
   updateElement: (
     elementId: string,
     updates: Partial<DriplElement>,
-    options?: { addToHistory?: boolean },
+    options?: { addToHistory?: boolean }
   ) => {
     actions.setElements(
       (prev): DriplElement[] =>
-        prev.map((el) =>
-          el.id === elementId ? ({ ...el, ...updates } as DriplElement) : el,
-        ),
-      options,
+        prev.map(el => (el.id === elementId ? ({ ...el, ...updates } as DriplElement) : el)),
+      options
     );
   },
 
-  deleteElements: (
-    elementIds: string[],
-    options?: { addToHistory?: boolean },
-  ) => {
-    actions.setElements(
-      (prev) => prev.filter((el) => !elementIds.includes(el.id)),
-      options,
-    );
+  deleteElements: (elementIds: string[], options?: { addToHistory?: boolean }) => {
+    actions.setElements(prev => prev.filter(el => !elementIds.includes(el.id)), options);
 
-    actions.setAppState((prev) => {
+    actions.setAppState(prev => {
       const newSelected = new Set(prev.selectedElementIds);
-      elementIds.forEach((id) => newSelected.delete(id));
+      elementIds.forEach(id => newSelected.delete(id));
       return { selectedElementIds: newSelected };
     });
   },
@@ -199,7 +188,7 @@ export const actions = {
   },
 
   toggleElementSelection: (elementId: string) => {
-    actions.setAppState((prev) => {
+    actions.setAppState(prev => {
       const newSelected = new Set(prev.selectedElementIds);
       if (newSelected.has(elementId)) {
         newSelected.delete(elementId);
@@ -215,7 +204,7 @@ export const actions = {
   },
 
   pushToHistory: () => {
-    store.setState((state) => {
+    store.setState(state => {
       const entry: HistoryEntry = {
         elements: JSON.parse(JSON.stringify(state.elements)),
         timestamp: Date.now(),
@@ -238,7 +227,7 @@ export const actions = {
   },
 
   undo: () => {
-    store.setState((state) => {
+    store.setState(state => {
       if (state.history.past.length === 0) return state;
 
       const previous = state.history.past[state.history.past.length - 1];
@@ -261,7 +250,7 @@ export const actions = {
   },
 
   redo: () => {
-    store.setState((state) => {
+    store.setState(state => {
       if (state.history.future.length === 0) return state;
 
       const next = state.history.future[0];
@@ -292,7 +281,7 @@ export const actions = {
   },
 
   clearHistory: () => {
-    store.setState((state) => ({
+    store.setState(state => ({
       ...state,
       history: {
         past: [],
@@ -301,11 +290,7 @@ export const actions = {
     }));
   },
 
-  setCollaborativeMode: (
-    isCollaborative: boolean,
-    roomId?: string,
-    userId?: string,
-  ) => {
+  setCollaborativeMode: (isCollaborative: boolean, roomId?: string, userId?: string) => {
     actions.setAppState({
       isCollaborative,
       roomId: roomId || null,
@@ -313,19 +298,19 @@ export const actions = {
     });
   },
 
-  setTheme: (theme: "light" | "dark") => {
-    const canvasBackgroundColor = theme === "light" ? "#ffffff" : "#1e1e1e";
+  setTheme: (theme: 'light' | 'dark') => {
+    const canvasBackgroundColor = theme === 'light' ? '#ffffff' : '#1e1e1e';
     actions.setAppState({ theme, canvasBackgroundColor });
   },
 
   toggleTheme: () => {
     const currentTheme = store.state.appState.theme;
-    const newTheme = currentTheme === "light" ? "dark" : "light";
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
     actions.setTheme(newTheme);
   },
 
   updateUser: (userId: string, updates: Partial<User>) => {
-    store.setState((state) => {
+    store.setState(state => {
       const newUsers = new Map(state.appState.connectedUsers);
       const existing = newUsers.get(userId);
       if (existing) {
@@ -333,8 +318,8 @@ export const actions = {
       } else {
         newUsers.set(userId, {
           userId,
-          userName: "Unknown",
-          color: "#000000",
+          userName: 'Unknown',
+          color: '#000000',
           ...updates,
         });
       }
@@ -350,7 +335,7 @@ export const actions = {
   },
 
   removeUser: (userId: string) => {
-    store.setState((state) => {
+    store.setState(state => {
       const newUsers = new Map(state.appState.connectedUsers);
       newUsers.delete(userId);
 
@@ -377,7 +362,7 @@ export const actions = {
   },
 
   loadState: (elements: DriplElement[], appState?: Partial<AppState>) => {
-    store.setState((state) => ({
+    store.setState(state => ({
       elements,
       appState: {
         ...state.appState,
@@ -406,13 +391,11 @@ export const selectors = {
   elements: (state: StoreState) => state.elements,
   appState: (state: StoreState) => state.appState,
   selectedElements: (state: StoreState) =>
-    state.elements.filter((el) => state.appState.selectedElementIds.has(el.id)),
-  getElementById: (id: string) => (state: StoreState) =>
-    state.elements.find((el) => el.id === id),
+    state.elements.filter(el => state.appState.selectedElementIds.has(el.id)),
+  getElementById: (id: string) => (state: StoreState) => state.elements.find(el => el.id === id),
   canUndo: (state: StoreState) => state.history.past.length > 0,
   canRedo: (state: StoreState) => state.history.future.length > 0,
-  connectedUsers: (state: StoreState) =>
-    Array.from(state.appState.connectedUsers.values()),
+  connectedUsers: (state: StoreState) => Array.from(state.appState.connectedUsers.values()),
 };
 
 export default store;

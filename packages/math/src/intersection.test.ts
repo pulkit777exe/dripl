@@ -1,17 +1,13 @@
-import { describe, it, expect } from "vitest";
-import type { DriplElement } from "@dripl/common";
-import {
-  getElementBounds,
-  isPointInElement,
-  elementIntersectsSegment,
-} from "./intersection";
+import { describe, it, expect } from 'vitest';
+import type { DriplElement } from '@dripl/common';
+import { getElementBounds, isPointInElement, elementIntersectsSegment } from './intersection';
 
-describe("math/intersection", () => {
-  describe("getElementBounds", () => {
-    it("should calculate bounds for a rectangle", () => {
+describe('math/intersection', () => {
+  describe('getElementBounds', () => {
+    it('should calculate bounds for a rectangle', () => {
       const rect: DriplElement = {
-        id: "1",
-        type: "rectangle",
+        id: '1',
+        type: 'rectangle',
         x: 10,
         y: 10,
         width: 20,
@@ -27,11 +23,11 @@ describe("math/intersection", () => {
     });
   });
 
-  describe("isPointInElement", () => {
-    it("should check if a point is inside a rectangle", () => {
+  describe('isPointInElement', () => {
+    it('should check if a point is inside a rectangle', () => {
       const rect: DriplElement = {
-        id: "1",
-        type: "rectangle",
+        id: '1',
+        type: 'rectangle',
         x: 10,
         y: 10,
         width: 20,
@@ -42,10 +38,10 @@ describe("math/intersection", () => {
       expect(isPointInElement({ x: 5, y: 15 }, rect)).toBe(false);
     });
 
-    it("should check if a point is inside an ellipse", () => {
+    it('should check if a point is inside an ellipse', () => {
       const ellipse: DriplElement = {
-        id: "1",
-        type: "ellipse",
+        id: '1',
+        type: 'ellipse',
         x: 10,
         y: 10,
         width: 20,
@@ -58,10 +54,10 @@ describe("math/intersection", () => {
       expect(isPointInElement({ x: 10, y: 10 }, ellipse)).toBe(false);
     });
 
-    it("should check if a point is inside a diamond", () => {
+    it('should check if a point is inside a diamond', () => {
       const diamond: DriplElement = {
-        id: "1",
-        type: "diamond",
+        id: '1',
+        type: 'diamond',
         x: 10,
         y: 10,
         width: 20,
@@ -73,11 +69,11 @@ describe("math/intersection", () => {
     });
   });
 
-  describe("elementIntersectsSegment", () => {
-    it("should check if a segment intersects an element", () => {
+  describe('elementIntersectsSegment', () => {
+    it('should check if a segment intersects an element', () => {
       const rect: DriplElement = {
-        id: "1",
-        type: "rectangle",
+        id: '1',
+        type: 'rectangle',
         x: 10,
         y: 10,
         width: 20,

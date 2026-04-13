@@ -1,6 +1,6 @@
-import { useCallback, useRef } from "react";
-import { CanvasHistory, type HistoryState } from "../utils/history";
-import type { DriplElement } from "@dripl/common";
+import { useCallback, useRef } from 'react';
+import { CanvasHistory, type HistoryState } from '../utils/history';
+import type { DriplElement } from '@dripl/common';
 
 export interface UseHistoryOptions {
   maxHistorySize?: number;
@@ -34,7 +34,7 @@ export function useHistory(options: UseHistoryOptions = {}): UseHistoryReturn {
     (elements: readonly DriplElement[]) => {
       getHistory().push(elements);
     },
-    [getHistory],
+    [getHistory]
   );
 
   const undo = useCallback(() => {

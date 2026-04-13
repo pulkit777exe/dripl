@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useCallback } from "react";
-import type { DriplElement, Point } from "@dripl/common";
-import { v4 as uuidv4 } from "uuid";
-import { resizeSingleElement } from "@dripl/element";
+import { useCallback } from 'react';
+import type { DriplElement, Point } from '@dripl/common';
+import { v4 as uuidv4 } from 'uuid';
+import { resizeSingleElement } from '@dripl/element';
 
 export interface UseElementManipulationProps {
   elements: DriplElement[];
@@ -17,12 +17,7 @@ export interface UseElementManipulationProps {
 
 export interface UseElementManipulationReturn {
   moveElements: (delta: Point, elementIds?: string[]) => void;
-  resizeElement: (
-    elementId: string,
-    handle: string,
-    newPoint: Point,
-    shiftKey: boolean,
-  ) => void;
+  resizeElement: (elementId: string, handle: string, newPoint: Point, shiftKey: boolean) => void;
   rotateElement: (elementId: string, angle: number, shiftKey: boolean) => void;
   duplicateElements: (elementIds?: string[]) => void;
   deleteSelectedElements: () => void;
@@ -44,25 +39,21 @@ export function useElementManipulation({
 
       const allIdsToMove = new Set<string>();
 
-      idsToMove.forEach((id) => {
+      idsToMove.forEach(id => {
         allIdsToMove.add(id);
 
-        const element = elements.find((el) => el.id === id);
-        if (element && element.type === "arrow" && (element as any).labelId) {
+        const element = elements.find(el => el.id === id);
+        if (element && element.type === 'arrow' && (element as any).labelId) {
           allIdsToMove.add((element as any).labelId);
         }
 
-        if (
-          element &&
-          element.type === "text" &&
-          (element as any).containerId
-        ) {
+        if (element && element.type === 'text' && (element as any).containerId) {
           allIdsToMove.add((element as any).containerId);
         }
       });
 
-      allIdsToMove.forEach((id) => {
-        const element = elements.find((el) => el.id === id);
+      allIdsToMove.forEach(id => {
+        const element = elements.find(el => el.id === id);
         if (!element) return;
 
         const updatedElement: DriplElement = {
@@ -71,18 +62,16 @@ export function useElementManipulation({
           y: element.y + delta.y,
         };
 
-        if ("points" in updatedElement && updatedElement.points) {
-          updatedElement.points = updatedElement.points.map(
-            (p: { x: number; y: number }) => ({
-              x: p.x + delta.x,
-              y: p.y + delta.y,
-            }),
-          );
+        if ('points' in updatedElement && updatedElement.points) {
+          updatedElement.points = updatedElement.points.map((p: { x: number; y: number }) => ({
+            x: p.x + delta.x,
+            y: p.y + delta.y,
+          }));
         }
 
         updateElement(id, updatedElement);
         send?.({
-          type: "update_element",
+          type: 'update_element',
           element: updatedElement,
           timestamp: Date.now(),
         });
@@ -93,12 +82,18 @@ export function useElementManipulation({
         pushHistory();
       }
     },
-    [elements, selectedIds, updateElement, pushHistory, send],
+    [elements, selectedIds, updateElement, pushHistory, send]
   );
 
   const resizeElement = useCallback(
-    (elementId: string, handle: string, newPoint: Point, shiftKey: boolean, altKey: boolean = false) => {
-      const element = elements.find((el) => el.id === elementId);
+    (
+      elementId: string,
+      handle: string,
+      newPoint: Point,
+      shiftKey: boolean,
+      altKey: boolean = false
+    ) => {
+      const element = elements.find(el => el.id === elementId);
       if (!element) return;
 
       let newX = element.x;
@@ -107,7 +102,7 @@ export function useElementManipulation({
       let newHeight = element.height;
 
       switch (handle) {
-        case "se": // South-east
+        case 'se': // South-east
           newWidth = Math.max(1, newPoint.x - element.x);
           newHeight = Math.max(1, newPoint.y - element.y);
           if (shiftKey) {
@@ -119,7 +114,7 @@ export function useElementManipulation({
             }
           }
           break;
-        case "sw":
+        case 'sw':
           newWidth = Math.max(1, element.x + element.width - newPoint.x);
           newX = element.x + element.width - newWidth;
           newHeight = Math.max(1, newPoint.y - element.y);
@@ -133,7 +128,7 @@ export function useElementManipulation({
             newX = element.x + element.width - newWidth;
           }
           break;
-        case "ne":
+        case 'ne':
           newWidth = Math.max(1, newPoint.x - element.x);
           newHeight = Math.max(1, element.y + element.height - newPoint.y);
           newY = element.y + element.height - newHeight;
@@ -147,7 +142,7 @@ export function useElementManipulation({
             newY = element.y + element.height - newHeight;
           }
           break;
-        case "nw":
+        case 'nw':
           newWidth = Math.max(1, element.x + element.width - newPoint.x);
           newX = element.x + element.width - newWidth;
           newHeight = Math.max(1, element.y + element.height - newPoint.y);
@@ -163,26 +158,26 @@ export function useElementManipulation({
             newY = element.y + element.height - newHeight;
           }
           break;
-        case "e":
+        case 'e':
           newWidth = Math.max(1, newPoint.x - element.x);
           if (shiftKey) {
             newHeight = (newWidth / element.width) * element.height;
           }
           break;
-        case "w":
+        case 'w':
           newWidth = Math.max(1, element.x + element.width - newPoint.x);
           newX = element.x + element.width - newWidth;
           if (shiftKey) {
             newHeight = (newWidth / element.width) * element.height;
           }
           break;
-        case "s":
+        case 's':
           newHeight = Math.max(1, newPoint.y - element.y);
           if (shiftKey) {
             newWidth = (newHeight / element.height) * element.width;
           }
           break;
-        case "n":
+        case 'n':
           newHeight = Math.max(1, element.y + element.height - newPoint.y);
           newY = element.y + element.height - newHeight;
           if (shiftKey) {
@@ -200,7 +195,7 @@ export function useElementManipulation({
         {
           shouldMaintainAspectRatio: shiftKey,
           shouldResizeFromCenter: altKey,
-        },
+        }
       );
 
       const updatedElement = {
@@ -210,17 +205,17 @@ export function useElementManipulation({
 
       updateElement(elementId, updatedElement);
       send?.({
-        type: "update_element",
+        type: 'update_element',
         element: updatedElement,
         timestamp: Date.now(),
       });
     },
-    [elements, updateElement, send],
+    [elements, updateElement, send]
   );
 
   const rotateElement = useCallback(
     (elementId: string, angle: number, shiftKey: boolean) => {
-      const element = elements.find((el) => el.id === elementId);
+      const element = elements.find(el => el.id === elementId);
       if (!element) return;
 
       if (shiftKey) {
@@ -236,12 +231,12 @@ export function useElementManipulation({
 
       updateElement(elementId, updatedElement);
       send?.({
-        type: "update_element",
+        type: 'update_element',
         element: updatedElement,
         timestamp: Date.now(),
       });
     },
-    [elements, updateElement, send],
+    [elements, updateElement, send]
   );
 
   const duplicateElements = useCallback(
@@ -251,15 +246,13 @@ export function useElementManipulation({
 
       const allElementsToDuplicate: DriplElement[] = [];
 
-      idsToDuplicate.forEach((id) => {
-        const element = elements.find((el) => el.id === id);
+      idsToDuplicate.forEach(id => {
+        const element = elements.find(el => el.id === id);
         if (element) {
           allElementsToDuplicate.push(element);
 
-          if (element && element.type === "arrow" && (element as any).labelId) {
-            const label = elements.find(
-              (el) => el.id === (element as any).labelId,
-            );
+          if (element && element.type === 'arrow' && (element as any).labelId) {
+            const label = elements.find(el => el.id === (element as any).labelId);
             if (label) {
               allElementsToDuplicate.push(label);
             }
@@ -269,7 +262,7 @@ export function useElementManipulation({
 
       const idMap = new Map<string, string>();
 
-      allElementsToDuplicate.forEach((element) => {
+      allElementsToDuplicate.forEach(element => {
         const duplicated: DriplElement = {
           ...element,
           id: uuidv4(),
@@ -279,29 +272,25 @@ export function useElementManipulation({
 
         idMap.set(element.id, duplicated.id);
 
-        if ("points" in duplicated && duplicated.points) {
-          duplicated.points = duplicated.points.map(
-            (p: { x: number; y: number }) => ({
-              x: p.x + offset,
-              y: p.y + offset,
-            }),
-          );
+        if ('points' in duplicated && duplicated.points) {
+          duplicated.points = duplicated.points.map((p: { x: number; y: number }) => ({
+            x: p.x + offset,
+            y: p.y + offset,
+          }));
         }
 
-        if (duplicated.type === "arrow" && (duplicated as any).labelId) {
+        if (duplicated.type === 'arrow' && (duplicated as any).labelId) {
           (duplicated as any).labelId =
-            idMap.get((duplicated as any).labelId) ||
-            (duplicated as any).labelId;
+            idMap.get((duplicated as any).labelId) || (duplicated as any).labelId;
         }
-        if (duplicated.type === "text" && (duplicated as any).containerId) {
+        if (duplicated.type === 'text' && (duplicated as any).containerId) {
           (duplicated as any).containerId =
-            idMap.get((duplicated as any).containerId) ||
-            (duplicated as any).containerId;
+            idMap.get((duplicated as any).containerId) || (duplicated as any).containerId;
         }
 
         addElement(duplicated);
         send?.({
-          type: "add_element",
+          type: 'add_element',
           element: duplicated,
           timestamp: Date.now(),
         });
@@ -311,7 +300,7 @@ export function useElementManipulation({
         pushHistory();
       }
     },
-    [elements, selectedIds, addElement, pushHistory, send],
+    [elements, selectedIds, addElement, pushHistory, send]
   );
 
   const deleteSelectedElements = useCallback(() => {
@@ -320,17 +309,17 @@ export function useElementManipulation({
 
     const allIdsToDelete = new Set<string>(idsToDelete);
 
-    idsToDelete.forEach((id) => {
-      const element = elements.find((el) => el.id === id);
-      if (element && element.type === "arrow" && (element as any).labelId) {
+    idsToDelete.forEach(id => {
+      const element = elements.find(el => el.id === id);
+      if (element && element.type === 'arrow' && (element as any).labelId) {
         allIdsToDelete.add((element as any).labelId);
       }
     });
 
     deleteElements(Array.from(allIdsToDelete));
-    allIdsToDelete.forEach((id) => {
+    allIdsToDelete.forEach(id => {
       send?.({
-        type: "delete_element",
+        type: 'delete_element',
         elementId: id,
         timestamp: Date.now(),
       });

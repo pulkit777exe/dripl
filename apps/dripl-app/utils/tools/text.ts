@@ -1,4 +1,4 @@
-import type { DriplElement, TextElement } from "@dripl/common";
+import type { DriplElement, TextElement } from '@dripl/common';
 
 export interface TextToolState {
   position: { x: number; y: number };
@@ -11,8 +11,8 @@ export function createTextElement(
   state: TextToolState,
   baseProps: Omit<
     DriplElement,
-    "type" | "x" | "y" | "width" | "height" | "text" | "fontSize" | "fontFamily"
-  > & { id: string },
+    'type' | 'x' | 'y' | 'width' | 'height' | 'text' | 'fontSize' | 'fontFamily'
+  > & { id: string }
 ): TextElement {
   // Estimate text dimensions (rough approximation)
   // In a real implementation, you'd measure the actual text
@@ -21,7 +21,7 @@ export function createTextElement(
 
   return {
     ...baseProps,
-    type: "text",
+    type: 'text',
     x: state.position.x,
     y: state.position.y,
     width: Math.max(estimatedWidth, 100),
@@ -35,13 +35,13 @@ export function createTextElement(
 export function updateTextDimensions(
   element: TextElement,
   text: string,
-  canvas?: HTMLCanvasElement,
+  canvas?: HTMLCanvasElement
 ): TextElement {
   let width = element.width;
   let height = element.height;
 
   if (canvas) {
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.font = `${element.fontSize}px ${element.fontFamily}`;
       const metrics = ctx.measureText(text);

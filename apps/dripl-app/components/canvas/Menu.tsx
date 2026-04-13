@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useRef, useEffect, useState } from "react";
-import { useTheme } from "next-themes";
+import { useRef, useEffect, useState } from 'react';
+import { useTheme } from 'next-themes';
 import {
   FolderOpen,
   Save,
@@ -19,7 +19,7 @@ import {
   MessageCircle,
   UserPlus,
   ExternalLink,
-} from "lucide-react";
+} from 'lucide-react';
 
 interface MenuProps {
   isOpen: boolean;
@@ -36,20 +36,8 @@ interface MenuProps {
   onLanguageChange?: (languageCode: string) => void;
 }
 
-const CANVAS_BACKGROUNDS_LIGHT = [
-  "#ffffff",
-  "#f5f5f5",
-  "#fffbe6",
-  "#e6f0ff",
-  "#f0ffe6",
-];
-const CANVAS_BACKGROUNDS_DARK = [
-  "#1e1e1e",
-  "#232329",
-  "#2a2a3a",
-  "#1a2535",
-  "#1a2e1a",
-];
+const CANVAS_BACKGROUNDS_LIGHT = ['#ffffff', '#f5f5f5', '#fffbe6', '#e6f0ff', '#f0ffe6'];
+const CANVAS_BACKGROUNDS_DARK = ['#1e1e1e', '#232329', '#2a2a3a', '#1a2535', '#1a2e1a'];
 
 type MenuItem =
   | {
@@ -79,7 +67,7 @@ export function Menu({
   onSaveToFile,
   onFindOnCanvas,
   onOpenHelp,
-  activeLanguage = "en",
+  activeLanguage = 'en',
   onLanguageChange,
 }: MenuProps) {
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -93,94 +81,94 @@ export function Menu({
         onClose();
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, onClose]);
 
   const menuItems: MenuItem[] = [
     {
       icon: FolderOpen,
-      label: "Open",
-      shortcut: "Ctrl+O",
+      label: 'Open',
+      shortcut: 'Ctrl+O',
       onClick: onOpenFile,
     },
-    { icon: Save, label: "Save to…", onClick: onSaveToFile },
+    { icon: Save, label: 'Save to…', onClick: onSaveToFile },
     {
       icon: Image,
-      label: "Export image…",
-      shortcut: "Ctrl+Shift+E",
+      label: 'Export image…',
+      shortcut: 'Ctrl+Shift+E',
       onClick: onExportImage,
     },
     {
       icon: Users,
-      label: "Live collaboration…",
+      label: 'Live collaboration…',
       onClick: onLiveCollaboration,
     },
     { divider: true },
     {
       icon: Command,
-      label: "Command palette",
-      shortcut: "Ctrl+/",
+      label: 'Command palette',
+      shortcut: 'Ctrl+/',
       onClick: onOpenCommandPalette,
     },
     {
       icon: Search,
-      label: "Find on canvas",
-      shortcut: "Ctrl+F",
+      label: 'Find on canvas',
+      shortcut: 'Ctrl+F',
       onClick: onFindOnCanvas,
     },
     { divider: true },
-    { icon: HelpCircle, label: "Help", shortcut: "?", onClick: onOpenHelp },
+    { icon: HelpCircle, label: 'Help', shortcut: '?', onClick: onOpenHelp },
     {
       icon: Trash2,
-      label: "Reset the canvas",
+      label: 'Reset the canvas',
       onClick: onResetCanvas,
       danger: true,
     },
   ];
 
   const externalLinks = [
-    { icon: ExternalLink, label: "Dripl+", href: "#" },
-    { icon: Github, label: "GitHub", href: "https://github.com" },
-    { icon: Twitter, label: "Follow us", href: "https://twitter.com" },
-    { icon: MessageCircle, label: "Discord chat", href: "#" },
-    { icon: UserPlus, label: "Sign up", href: "/signup" },
+    { icon: ExternalLink, label: 'Dripl+', href: '#' },
+    { icon: Github, label: 'GitHub', href: 'https://github.com' },
+    { icon: Twitter, label: 'Follow us', href: 'https://twitter.com' },
+    { icon: MessageCircle, label: 'Discord chat', href: '#' },
+    { icon: UserPlus, label: 'Sign up', href: '/signup' },
   ];
 
-  const isDark = mounted && resolvedTheme === "dark";
+  const isDark = mounted && resolvedTheme === 'dark';
   const bgSwatches = isDark ? CANVAS_BACKGROUNDS_DARK : CANVAS_BACKGROUNDS_LIGHT;
   const languageOptions = [
-    { code: "en", label: "English" },
-    { code: "es", label: "Spanish" },
-    { code: "fr", label: "French" },
-    { code: "de", label: "German" },
-    { code: "pt", label: "Portuguese" },
-    { code: "it", label: "Italian" },
-    { code: "hi", label: "Hindi" },
-    { code: "ja", label: "Japanese" },
-    { code: "ko", label: "Korean" },
-    { code: "zh", label: "Chinese" },
-    { code: "ar", label: "Arabic" },
-    { code: "ru", label: "Russian" },
+    { code: 'en', label: 'English' },
+    { code: 'es', label: 'Spanish' },
+    { code: 'fr', label: 'French' },
+    { code: 'de', label: 'German' },
+    { code: 'pt', label: 'Portuguese' },
+    { code: 'it', label: 'Italian' },
+    { code: 'hi', label: 'Hindi' },
+    { code: 'ja', label: 'Japanese' },
+    { code: 'ko', label: 'Korean' },
+    { code: 'zh', label: 'Chinese' },
+    { code: 'ar', label: 'Arabic' },
+    { code: 'ru', label: 'Russian' },
   ];
 
   return (
     <div
       ref={menuRef}
-      className={`sidebar-panel absolute top-14 left-4 z-200 rounded-xl shadow-2xl w-64 py-2 overflow-hidden pointer-events-auto${isOpen ? " is-open" : ""}`}
+      className={`sidebar-panel absolute top-14 left-4 z-200 rounded-xl shadow-2xl w-64 py-2 overflow-hidden pointer-events-auto${isOpen ? ' is-open' : ''}`}
       style={{
-        backgroundColor: "var(--color-panel-bg)",
-        border: "1px solid var(--color-panel-border)",
+        backgroundColor: 'var(--color-panel-bg)',
+        border: '1px solid var(--color-panel-border)',
       }}
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
+      onClick={e => e.stopPropagation()}
+      onMouseDown={e => e.stopPropagation()}
     >
       {menuItems.map((item, index) =>
         item.divider ? (
           <div
             key={`div-${index}`}
             className="h-px my-1.5 mx-2"
-            style={{ backgroundColor: "var(--color-panel-divider)" }}
+            style={{ backgroundColor: 'var(--color-panel-divider)' }}
           />
         ) : (
           <button
@@ -191,26 +179,21 @@ export function Menu({
             }}
             className="w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors duration-100"
             style={{
-              color: item.danger
-                ? "var(--color-destructive)"
-                : "var(--color-foreground)",
+              color: item.danger ? 'var(--color-destructive)' : 'var(--color-foreground)',
             }}
-            onMouseEnter={(e) => {
+            onMouseEnter={e => {
               (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                "var(--color-panel-menu-active)";
+                'var(--color-panel-menu-active)';
             }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                "transparent";
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
             }}
           >
             <span
               style={{
-                color: item.danger
-                  ? "var(--color-destructive)"
-                  : "var(--color-muted-foreground)",
+                color: item.danger ? 'var(--color-destructive)' : 'var(--color-muted-foreground)',
                 flexShrink: 0,
-                display: "flex",
+                display: 'flex',
               }}
             >
               <item.icon size={15} />
@@ -219,42 +202,38 @@ export function Menu({
             {item.shortcut && (
               <span
                 className="text-xs tabular-nums"
-                style={{ color: "var(--color-muted-foreground)" }}
+                style={{ color: 'var(--color-muted-foreground)' }}
               >
                 {item.shortcut}
               </span>
             )}
           </button>
-        ),
+        )
       )}
 
-      <div
-        className="h-px my-1.5 mx-2"
-        style={{ backgroundColor: "var(--color-panel-divider)" }}
-      />
+      <div className="h-px my-1.5 mx-2" style={{ backgroundColor: 'var(--color-panel-divider)' }} />
 
-      {externalLinks.map((link) => (
+      {externalLinks.map(link => (
         <a
           key={link.label}
           href={link.href}
-          target={link.href.startsWith("http") ? "_blank" : undefined}
+          target={link.href.startsWith('http') ? '_blank' : undefined}
           rel="noopener noreferrer"
           className="w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors duration-100 cursor-pointer"
-          style={{ color: "var(--color-foreground)" }}
-          onMouseEnter={(e) => {
+          style={{ color: 'var(--color-foreground)' }}
+          onMouseEnter={e => {
             (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-              "var(--color-panel-menu-active)";
+              'var(--color-panel-menu-active)';
           }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-              "transparent";
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'transparent';
           }}
         >
           <span
             style={{
-              color: "var(--color-muted-foreground)",
+              color: 'var(--color-muted-foreground)',
               flexShrink: 0,
-              display: "flex",
+              display: 'flex',
             }}
           >
             <link.icon size={15} />
@@ -263,26 +242,20 @@ export function Menu({
         </a>
       ))}
 
-      <div
-        className="h-px my-1.5 mx-2"
-        style={{ backgroundColor: "var(--color-panel-divider)" }}
-      />
+      <div className="h-px my-1.5 mx-2" style={{ backgroundColor: 'var(--color-panel-divider)' }} />
 
       <div className="px-4 py-2">
         <div className="flex items-center justify-between">
-          <span
-            className="text-sm"
-            style={{ color: "var(--color-foreground)" }}
-          >
+          <span className="text-sm" style={{ color: 'var(--color-foreground)' }}>
             Theme
           </span>
           <div
             className="flex gap-0.5 p-0.5 rounded-lg"
-            style={{ backgroundColor: "var(--color-panel-btn-bg)" }}
+            style={{ backgroundColor: 'var(--color-panel-btn-bg)' }}
           >
-            {(["light", "dark", "system"] as const).map((t) => {
+            {(['light', 'dark', 'system'] as const).map(t => {
               const isSelected = mounted && theme === t;
-              const Icon = t === "light" ? Sun : t === "dark" ? Moon : Monitor;
+              const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
               return (
                 <button
                   key={t}
@@ -291,11 +264,11 @@ export function Menu({
                   style={
                     isSelected
                       ? {
-                          backgroundColor: "var(--color-primary)",
-                          color: "var(--color-primary-foreground)",
+                          backgroundColor: 'var(--color-primary)',
+                          color: 'var(--color-primary-foreground)',
                         }
                       : {
-                          color: "var(--color-muted-foreground)",
+                          color: 'var(--color-muted-foreground)',
                         }
                   }
                   title={t.charAt(0).toUpperCase() + t.slice(1)}
@@ -311,24 +284,21 @@ export function Menu({
 
       <div className="px-4 py-1.5">
         <div className="flex items-center justify-between">
-          <span
-            className="text-sm"
-            style={{ color: "var(--color-foreground)" }}
-          >
+          <span className="text-sm" style={{ color: 'var(--color-foreground)' }}>
             Language
           </span>
           <select
             className="rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2"
             style={{
-              backgroundColor: "var(--color-panel-btn-bg)",
-              border: "1px solid var(--color-panel-border)",
-              color: "var(--color-foreground)",
-              outline: "none",
+              backgroundColor: 'var(--color-panel-btn-bg)',
+              border: '1px solid var(--color-panel-border)',
+              color: 'var(--color-foreground)',
+              outline: 'none',
             }}
             value={activeLanguage}
-            onChange={(event) => onLanguageChange?.(event.target.value)}
+            onChange={event => onLanguageChange?.(event.target.value)}
           >
-            {languageOptions.map((language) => (
+            {languageOptions.map(language => (
               <option key={language.code} value={language.code}>
                 {language.label}
               </option>
@@ -338,20 +308,17 @@ export function Menu({
       </div>
 
       <div className="px-4 py-2">
-        <span
-          className="text-xs block mb-2"
-          style={{ color: "var(--color-panel-label)" }}
-        >
+        <span className="text-xs block mb-2" style={{ color: 'var(--color-panel-label)' }}>
           Canvas background
         </span>
         <div className="flex gap-1.5">
-          {bgSwatches.map((color) => (
+          {bgSwatches.map(color => (
             <button
               key={color}
               className="w-6 h-6 rounded-md border-2 transition-all duration-150 hover:scale-110"
               style={{
                 backgroundColor: color,
-                borderColor: "var(--color-panel-border)",
+                borderColor: 'var(--color-panel-border)',
               }}
               title={color}
               aria-label={`Canvas background ${color}`}

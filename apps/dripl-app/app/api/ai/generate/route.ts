@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 const SYSTEM_PROMPT = `You are an AI that generates diagram layouts for a canvas drawing application called Dripl.
 
@@ -63,8 +63,8 @@ export async function POST(request: NextRequest) {
     // Check for API key
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: "AI service not configured", code: "CONFIG_ERROR" },
-        { status: 503 },
+        { error: 'AI service not configured', code: 'CONFIG_ERROR' },
+        { status: 503 }
       );
     }
 
@@ -72,17 +72,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     if (!body || !body.prompt) {
       return NextResponse.json(
-        { error: "Prompt is required", code: "VALIDATION_ERROR" },
-        { status: 400 },
+        { error: 'Prompt is required', code: 'VALIDATION_ERROR' },
+        { status: 400 }
       );
     }
 
     const { prompt } = body;
 
     // Identify user by IP slightly better than just "anonymous"
-    const ip = request.headers.get("x-forwarded-for") || "unknown";
-    const userIdentifier =
-      body.userId && body.userId !== "anonymous" ? body.userId : ip;
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    const userIdentifier = body.userId && body.userId !== 'anonymous' ? body.userId : ip;
 
     // Rate limiting
     const rateCheck = checkRateLimit(userIdentifier);
@@ -90,10 +89,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: `Rate limit exceeded. Retry in ${rateCheck.retryAfter} seconds.`,
-          code: "RATE_LIMIT",
+          code: 'RATE_LIMIT',
           retryAfter: rateCheck.retryAfter,
         },
-        { status: 429 },
+        { status: 429 }
       );
     }
 
@@ -101,15 +100,15 @@ export async function POST(request: NextRequest) {
     if (prompt.length > 2000) {
       return NextResponse.json(
         {
-          error: "Prompt too long. Maximum 2000 characters.",
-          code: "VALIDATION_ERROR",
+          error: 'Prompt too long. Maximum 2000 characters.',
+          code: 'VALIDATION_ERROR',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     // Call Gemini API
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const result = await model.generateContent([
       { text: SYSTEM_PROMPT },
@@ -125,39 +124,39 @@ export async function POST(request: NextRequest) {
       // Extract JSON from response (handle markdown code blocks)
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
-        throw new Error("No valid JSON array found");
+        throw new Error('No valid JSON array found');
       }
       elements = JSON.parse(jsonMatch[0]);
     } catch {
       return NextResponse.json(
-        { error: "Failed to parse AI response", code: "PARSE_ERROR" },
-        { status: 500 },
+        { error: 'Failed to parse AI response', code: 'PARSE_ERROR' },
+        { status: 500 }
       );
     }
 
     // Validate elements structure
     if (!Array.isArray(elements)) {
       return NextResponse.json(
-        { error: "Invalid response format", code: "PARSE_ERROR" },
-        { status: 500 },
+        { error: 'Invalid response format', code: 'PARSE_ERROR' },
+        { status: 500 }
       );
     }
 
     // Add default properties to elements
     const processedElements = elements.map((el: any, index: number) => ({
       id: el.id || `ai-${Date.now()}-${index}`,
-      type: el.type || "rectangle",
+      type: el.type || 'rectangle',
       x: el.x ?? 100 + index * 150,
       y: el.y ?? 100,
       width: el.width ?? 120,
       height: el.height ?? 80,
-      strokeColor: el.strokeColor || "#6965db",
-      backgroundColor: el.backgroundColor || "transparent",
+      strokeColor: el.strokeColor || '#6965db',
+      backgroundColor: el.backgroundColor || 'transparent',
       strokeWidth: el.strokeWidth || 2,
-      strokeStyle: el.strokeStyle || "solid",
+      strokeStyle: el.strokeStyle || 'solid',
       roughness: el.roughness ?? 1,
       opacity: el.opacity ?? 1,
-      text: el.text || "",
+      text: el.text || '',
       fontSize: el.fontSize || 16,
       points: el.points || [],
       angle: 0,
@@ -165,32 +164,29 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       elements: processedElements,
-      message: "Diagram generated successfully",
+      message: 'Diagram generated successfully',
     });
   } catch (error: any) {
-    console.error("AI generation error:", error);
+    console.error('AI generation error:', error);
 
     // Handle specific Gemini errors
-    if (error.message?.includes("API_KEY")) {
-      return NextResponse.json(
-        { error: "Invalid API key", code: "AUTH_ERROR" },
-        { status: 401 },
-      );
+    if (error.message?.includes('API_KEY')) {
+      return NextResponse.json({ error: 'Invalid API key', code: 'AUTH_ERROR' }, { status: 401 });
     }
 
-    if (error.message?.includes("quota")) {
+    if (error.message?.includes('quota')) {
       return NextResponse.json(
         {
-          error: "API quota exceeded. Please try again later.",
-          code: "QUOTA_ERROR",
+          error: 'API quota exceeded. Please try again later.',
+          code: 'QUOTA_ERROR',
         },
-        { status: 429 },
+        { status: 429 }
       );
     }
 
     return NextResponse.json(
-      { error: "Failed to generate diagram", code: "INTERNAL_ERROR" },
-      { status: 500 },
+      { error: 'Failed to generate diagram', code: 'INTERNAL_ERROR' },
+      { status: 500 }
     );
   }
 }

@@ -1,5 +1,5 @@
-import type { DriplElement, Point } from "@dripl/common";
-import { getBounds } from "@dripl/math";
+import type { DriplElement, Point } from '@dripl/common';
+import { getBounds } from '@dripl/math';
 
 export interface Binding {
   id: string;
@@ -7,11 +7,11 @@ export interface Binding {
   targetElementId: string;
   sourcePoint: Point;
   targetPoint: Point;
-  type: "arrow" | "line" | "curve";
+  type: 'arrow' | 'line' | 'curve';
   properties: {
     strokeColor: string;
     strokeWidth: number;
-    strokeStyle: "solid" | "dashed" | "dotted";
+    strokeStyle: 'solid' | 'dashed' | 'dotted';
     opacity: number;
   };
 }
@@ -19,22 +19,20 @@ export interface Binding {
 export function getSnapPoint(
   point: Point,
   elements: DriplElement[],
-  snapThreshold: number = 10,
+  snapThreshold: number = 10
 ): Point | null {
   for (const element of elements) {
     const bounds = getBounds(
       element.points || [
         { x: element.x, y: element.y },
         { x: element.x + element.width, y: element.y + element.height },
-      ],
+      ]
     );
 
     const nearLeft = Math.abs(point.x - bounds.x) < snapThreshold;
-    const nearRight =
-      Math.abs(point.x - (bounds.x + bounds.width)) < snapThreshold;
+    const nearRight = Math.abs(point.x - (bounds.x + bounds.width)) < snapThreshold;
     const nearTop = Math.abs(point.y - bounds.y) < snapThreshold;
-    const nearBottom =
-      Math.abs(point.y - (bounds.y + bounds.height)) < snapThreshold;
+    const nearBottom = Math.abs(point.y - (bounds.y + bounds.height)) < snapThreshold;
 
     if (nearLeft || nearRight || nearTop || nearBottom) {
       let snapX = point.x;
@@ -55,21 +53,14 @@ export function getSnapPoint(
 // Check if an element has any bindings
 export function hasBindings(elementId: string, bindings: Binding[]): boolean {
   return bindings.some(
-    (binding) =>
-      binding.sourceElementId === elementId ||
-      binding.targetElementId === elementId,
+    binding => binding.sourceElementId === elementId || binding.targetElementId === elementId
   );
 }
 
 // Get all bindings for an element
-export function getElementBindings(
-  elementId: string,
-  bindings: Binding[],
-): Binding[] {
+export function getElementBindings(elementId: string, bindings: Binding[]): Binding[] {
   return bindings.filter(
-    (binding) =>
-      binding.sourceElementId === elementId ||
-      binding.targetElementId === elementId,
+    binding => binding.sourceElementId === elementId || binding.targetElementId === elementId
   );
 }
 
@@ -78,9 +69,9 @@ export function updateBindingsForElement(
   elementId: string,
   dx: number,
   dy: number,
-  bindings: Binding[],
+  bindings: Binding[]
 ): Binding[] {
-  return bindings.map((binding) => {
+  return bindings.map(binding => {
     if (binding.sourceElementId === elementId) {
       return {
         ...binding,
@@ -107,18 +98,18 @@ export function updateBindingsForElement(
 export function drawBindings(
   ctx: CanvasRenderingContext2D,
   bindings: Binding[],
-  elements: DriplElement[],
+  elements: DriplElement[]
 ) {
-  bindings.forEach((binding) => {
+  bindings.forEach(binding => {
     ctx.save();
 
     ctx.strokeStyle = binding.properties.strokeColor;
     ctx.lineWidth = binding.properties.strokeWidth;
     ctx.globalAlpha = binding.properties.opacity;
 
-    if (binding.properties.strokeStyle === "dashed") {
+    if (binding.properties.strokeStyle === 'dashed') {
       ctx.setLineDash([10, 5]);
-    } else if (binding.properties.strokeStyle === "dotted") {
+    } else if (binding.properties.strokeStyle === 'dotted') {
       ctx.setLineDash([2, 3]);
     } else {
       ctx.setLineDash([]);
@@ -127,16 +118,11 @@ export function drawBindings(
     ctx.beginPath();
     ctx.moveTo(binding.sourcePoint.x, binding.sourcePoint.y);
 
-    if (binding.type === "curve") {
+    if (binding.type === 'curve') {
       // Draw curved binding
       const controlX = (binding.sourcePoint.x + binding.targetPoint.x) / 2;
       const controlY = (binding.sourcePoint.y + binding.targetPoint.y) / 2 - 50;
-      ctx.quadraticCurveTo(
-        controlX,
-        controlY,
-        binding.targetPoint.x,
-        binding.targetPoint.y,
-      );
+      ctx.quadraticCurveTo(controlX, controlY, binding.targetPoint.x, binding.targetPoint.y);
     } else {
       // Draw straight line
       ctx.lineTo(binding.targetPoint.x, binding.targetPoint.y);
@@ -144,7 +130,7 @@ export function drawBindings(
 
     ctx.stroke();
 
-    if (binding.type === "arrow") {
+    if (binding.type === 'arrow') {
       // Draw arrow head
       const dx = binding.targetPoint.x - binding.sourcePoint.x;
       const dy = binding.targetPoint.y - binding.sourcePoint.y;
@@ -155,12 +141,12 @@ export function drawBindings(
       ctx.moveTo(binding.targetPoint.x, binding.targetPoint.y);
       ctx.lineTo(
         binding.targetPoint.x - headLength * Math.cos(angle - Math.PI / 6),
-        binding.targetPoint.y - headLength * Math.sin(angle - Math.PI / 6),
+        binding.targetPoint.y - headLength * Math.sin(angle - Math.PI / 6)
       );
       ctx.moveTo(binding.targetPoint.x, binding.targetPoint.y);
       ctx.lineTo(
         binding.targetPoint.x - headLength * Math.cos(angle + Math.PI / 6),
-        binding.targetPoint.y - headLength * Math.sin(angle + Math.PI / 6),
+        binding.targetPoint.y - headLength * Math.sin(angle + Math.PI / 6)
       );
       ctx.stroke();
     }

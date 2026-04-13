@@ -1,35 +1,29 @@
-"use client";
+'use client';
 
-import { useCallback, useRef } from "react";
-import { v4 as uuidv4 } from "uuid";
-import type { DriplElement, Point } from "@dripl/common";
-import { useCanvasStore } from "@/lib/canvas-store";
-import {
-  createRectangleElement,
-  type RectangleToolState,
-} from "@/utils/tools/rectangle";
-import { createEllipseElement, type EllipseToolState } from "@/utils/tools/ellipse";
-import { createDiamondElement, type DiamondToolState } from "@/utils/tools/diamond";
-import { createArrowElement, type ArrowToolState } from "@/utils/tools/arrow";
-import { createLineElement, type LineToolState } from "@/utils/tools/line";
-import {
-  createFreedrawElement,
-  type FreedrawToolState,
-} from "@/utils/tools/freedraw";
-import { createFrameElement, type FrameToolState } from "@/utils/tools/frame";
+import { useCallback, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import type { DriplElement, Point } from '@dripl/common';
+import { useCanvasStore } from '@/lib/canvas-store';
+import { createRectangleElement, type RectangleToolState } from '@/utils/tools/rectangle';
+import { createEllipseElement, type EllipseToolState } from '@/utils/tools/ellipse';
+import { createDiamondElement, type DiamondToolState } from '@/utils/tools/diamond';
+import { createArrowElement, type ArrowToolState } from '@/utils/tools/arrow';
+import { createLineElement, type LineToolState } from '@/utils/tools/line';
+import { createFreedrawElement, type FreedrawToolState } from '@/utils/tools/freedraw';
+import { createFrameElement, type FrameToolState } from '@/utils/tools/frame';
 
 export type ToolType =
-  | "select"
-  | "rectangle"
-  | "ellipse"
-  | "diamond"
-  | "arrow"
-  | "line"
-  | "freedraw"
-  | "text"
-  | "image"
-  | "frame"
-  | "eraser";
+  | 'select'
+  | 'rectangle'
+  | 'ellipse'
+  | 'diamond'
+  | 'arrow'
+  | 'line'
+  | 'freedraw'
+  | 'text'
+  | 'image'
+  | 'frame'
+  | 'eraser';
 
 interface BaseToolProps {
   strokeColor: string;
@@ -37,25 +31,18 @@ interface BaseToolProps {
   strokeWidth: number;
   opacity: number;
   roughness: number;
-  strokeStyle: "solid" | "dashed" | "dotted";
-  fillStyle:
-    | "hachure"
-    | "solid"
-    | "zigzag"
-    | "cross-hatch"
-    | "dots"
-    | "dashed"
-    | "zigzag-line";
+  strokeStyle: 'solid' | 'dashed' | 'dotted';
+  fillStyle: 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
 }
 
 type ActiveToolState =
-  | { type: "rectangle"; state: RectangleToolState; id: string; seed: number }
-  | { type: "ellipse"; state: EllipseToolState; id: string; seed: number }
-  | { type: "diamond"; state: DiamondToolState; id: string; seed: number }
-  | { type: "arrow"; state: ArrowToolState; id: string; seed: number }
-  | { type: "line"; state: LineToolState; id: string; seed: number }
-  | { type: "freedraw"; state: FreedrawToolState; id: string; seed: number }
-  | { type: "frame"; state: FrameToolState; id: string; seed: number };
+  | { type: 'rectangle'; state: RectangleToolState; id: string; seed: number }
+  | { type: 'ellipse'; state: EllipseToolState; id: string; seed: number }
+  | { type: 'diamond'; state: DiamondToolState; id: string; seed: number }
+  | { type: 'arrow'; state: ArrowToolState; id: string; seed: number }
+  | { type: 'line'; state: LineToolState; id: string; seed: number }
+  | { type: 'freedraw'; state: FreedrawToolState; id: string; seed: number }
+  | { type: 'frame'; state: FrameToolState; id: string; seed: number };
 
 interface StartOptions {
   shiftKey: boolean;
@@ -74,13 +61,9 @@ export interface UseDrawingToolsReturn {
     tool: ToolType,
     options: StartOptions,
     baseProps: BaseToolProps,
-    elements?: DriplElement[],
+    elements?: DriplElement[]
   ) => void;
-  updateDrawing: (
-    point: Point,
-    options: UpdateOptions,
-    elements?: DriplElement[],
-  ) => void;
+  updateDrawing: (point: Point, options: UpdateOptions, elements?: DriplElement[]) => void;
   finishDrawing: () => DriplElement | null;
   cancelDrawing: () => void;
   isDrawing: boolean;
@@ -111,9 +94,7 @@ function perpendicularDistance(point: Point, start: Point, end: Point): number {
   if (dx === 0 && dy === 0) {
     return getDistance(point, start);
   }
-  const numerator = Math.abs(
-    dy * point.x - dx * point.y + end.x * start.y - end.y * start.x,
-  );
+  const numerator = Math.abs(dy * point.x - dx * point.y + end.x * start.y - end.y * start.x);
   const denominator = Math.sqrt(dx * dx + dy * dy);
   return numerator / denominator;
 }
@@ -153,9 +134,9 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     baseProps: BaseToolProps | null;
   }>({ toolState: null, baseProps: null });
 
-  const setDraftElement = useCanvasStore((state) => state.setDraftElement);
-  const updateDraftElement = useCanvasStore((state) => state.updateDraftElement);
-  const commitDraft = useCanvasStore((state) => state.commitDraft);
+  const setDraftElement = useCanvasStore(state => state.setDraftElement);
+  const updateDraftElement = useCanvasStore(state => state.updateDraftElement);
+  const commitDraft = useCanvasStore(state => state.commitDraft);
 
   const makeProps = useCallback(
     (id: string, seed: number, base: BaseToolProps) => ({
@@ -163,7 +144,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
       ...base,
       seed,
     }),
-    [],
+    []
   );
 
   const buildElement = useCallback(
@@ -171,25 +152,25 @@ export function useDrawingTools(): UseDrawingToolsReturn {
       const props = makeProps(toolState.id, toolState.seed, base);
 
       switch (toolState.type) {
-        case "rectangle":
+        case 'rectangle':
           return createRectangleElement(toolState.state, props);
-        case "ellipse":
+        case 'ellipse':
           return createEllipseElement(toolState.state, props);
-        case "diamond":
+        case 'diamond':
           return createDiamondElement(toolState.state, props);
-        case "arrow":
+        case 'arrow':
           return createArrowElement(toolState.state, props).arrow;
-        case "line":
+        case 'line':
           return createLineElement(toolState.state, props);
-        case "freedraw":
+        case 'freedraw':
           return createFreedrawElement(toolState.state, props);
-        case "frame":
+        case 'frame':
           return createFrameElement(toolState.state, props);
         default:
           return null;
       }
     },
-    [makeProps],
+    [makeProps]
   );
 
   const syncDraftToStore = useCallback(
@@ -199,7 +180,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
         updateDraftElement(element as Partial<DriplElement>);
       }
     },
-    [buildElement, updateDraftElement],
+    [buildElement, updateDraftElement]
   );
 
   const startDrawing = useCallback(
@@ -208,16 +189,16 @@ export function useDrawingTools(): UseDrawingToolsReturn {
       tool: ToolType,
       options: StartOptions,
       baseProps: BaseToolProps,
-      _elements?: DriplElement[],
+      _elements?: DriplElement[]
     ) => {
       const id = uuidv4();
       const seed = Math.floor(Math.random() * 1_000_000);
       let toolState: ActiveToolState | null = null;
 
       switch (tool) {
-        case "rectangle":
+        case 'rectangle':
           toolState = {
-            type: "rectangle",
+            type: 'rectangle',
             id,
             seed,
             state: {
@@ -228,9 +209,9 @@ export function useDrawingTools(): UseDrawingToolsReturn {
             },
           };
           break;
-        case "ellipse":
+        case 'ellipse':
           toolState = {
-            type: "ellipse",
+            type: 'ellipse',
             id,
             seed,
             state: {
@@ -241,17 +222,17 @@ export function useDrawingTools(): UseDrawingToolsReturn {
             },
           };
           break;
-        case "diamond":
+        case 'diamond':
           toolState = {
-            type: "diamond",
+            type: 'diamond',
             id,
             seed,
             state: { startPoint: point, currentPoint: point, shiftKey: options.shiftKey },
           };
           break;
-        case "arrow":
+        case 'arrow':
           toolState = {
-            type: "arrow",
+            type: 'arrow',
             id,
             seed,
             state: {
@@ -262,9 +243,9 @@ export function useDrawingTools(): UseDrawingToolsReturn {
             },
           };
           break;
-        case "line":
+        case 'line':
           toolState = {
-            type: "line",
+            type: 'line',
             id,
             seed,
             state: {
@@ -276,17 +257,17 @@ export function useDrawingTools(): UseDrawingToolsReturn {
             },
           };
           break;
-        case "freedraw":
+        case 'freedraw':
           toolState = {
-            type: "freedraw",
+            type: 'freedraw',
             id,
             seed,
             state: { points: [point], pressureValues: [0.5], isComplete: false },
           };
           break;
-        case "frame":
+        case 'frame':
           toolState = {
-            type: "frame",
+            type: 'frame',
             id,
             seed,
             state: { startPoint: point, currentPoint: point, shiftKey: options.shiftKey },
@@ -302,7 +283,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
         setDraftElement(initial);
       }
     },
-    [buildElement, setDraftElement],
+    [buildElement, setDraftElement]
   );
 
   const updateDrawing = useCallback(
@@ -311,7 +292,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
       if (!toolState || !baseProps) return;
 
       switch (toolState.type) {
-        case "rectangle":
+        case 'rectangle':
           toolState.state = {
             ...toolState.state,
             currentPoint: point,
@@ -319,7 +300,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
             altKey: options.altKey,
           };
           break;
-        case "ellipse":
+        case 'ellipse':
           toolState.state = {
             ...toolState.state,
             currentPoint: point,
@@ -327,13 +308,13 @@ export function useDrawingTools(): UseDrawingToolsReturn {
             altKey: options.altKey,
           };
           break;
-        case "diamond":
+        case 'diamond':
           toolState.state = { ...toolState.state, currentPoint: point, shiftKey: options.shiftKey };
           break;
-        case "frame":
+        case 'frame':
           toolState.state = { ...toolState.state, currentPoint: point, shiftKey: options.shiftKey };
           break;
-        case "arrow": {
+        case 'arrow': {
           const start = toolState.state.points[0] ?? point;
           const end = options.shiftKey ? snapAngle(start, point, 15) : point;
           toolState.state = {
@@ -343,7 +324,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
           };
           break;
         }
-        case "line": {
+        case 'line': {
           const start = toolState.state.points[0] ?? point;
           const end = options.shiftKey ? snapAngle(start, point, 15) : point;
           toolState.state = {
@@ -354,7 +335,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
           };
           break;
         }
-        case "freedraw": {
+        case 'freedraw': {
           const pressure = options.pressure ?? 0.5;
           toolState.state = {
             ...toolState.state,
@@ -367,12 +348,12 @@ export function useDrawingTools(): UseDrawingToolsReturn {
       }
 
       syncDraftToStore(toolState, baseProps);
-      if (toolState.type === "arrow" && elements) {
+      if (toolState.type === 'arrow' && elements) {
         // Placeholder for future arrow binding support without affecting behavior.
         void elements;
       }
     },
-    [syncDraftToStore],
+    [syncDraftToStore]
   );
 
   const finishDrawing = useCallback((): DriplElement | null => {
@@ -383,7 +364,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
       return null;
     }
 
-    if (toolState.type === "freedraw") {
+    if (toolState.type === 'freedraw') {
       toolState.state = {
         ...toolState.state,
         points: simplifyRdp(toolState.state.points, 2),
@@ -397,15 +378,15 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     }
 
     const isTinyShape =
-      (preview.type === "rectangle" ||
-        preview.type === "ellipse" ||
-        preview.type === "diamond" ||
-        preview.type === "frame") &&
+      (preview.type === 'rectangle' ||
+        preview.type === 'ellipse' ||
+        preview.type === 'diamond' ||
+        preview.type === 'frame') &&
       (Math.abs(preview.width) < 5 || Math.abs(preview.height) < 5);
 
     const isTinyLinear =
-      (preview.type === "line" || preview.type === "arrow") &&
-      "points" in preview &&
+      (preview.type === 'line' || preview.type === 'arrow') &&
+      'points' in preview &&
       Array.isArray(preview.points) &&
       preview.points.length >= 2 &&
       getDistance(preview.points[0] as Point, preview.points[1] as Point) < 5;
@@ -424,13 +405,13 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     setDraftElement(null);
   }, [setDraftElement]);
 
-  const lifecycle = useCanvasStore((state) => state.drawingLifecycle);
+  const lifecycle = useCanvasStore(state => state.drawingLifecycle);
 
   return {
     startDrawing,
     updateDrawing,
     finishDrawing,
     cancelDrawing,
-    isDrawing: lifecycle === "drawing" || lifecycle === "committing",
+    isDrawing: lifecycle === 'drawing' || lifecycle === 'committing',
   };
 }

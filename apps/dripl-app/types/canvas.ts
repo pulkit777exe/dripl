@@ -3,7 +3,7 @@ export interface Point {
   y: number;
 }
 
-import type { DriplElement } from "@dripl/common";
+import type { DriplElement } from '@dripl/common';
 export type { DriplElement };
 
 export interface Bounds {
@@ -56,18 +56,18 @@ export interface AppState {
 }
 
 export type ToolType =
-  | "select"
-  | "hand"
-  | "rectangle"
-  | "diamond"
-  | "ellipse"
-  | "arrow"
-  | "line"
-  | "draw"
-  | "text"
-  | "image"
-  | "frame"
-  | "eraser";
+  | 'select'
+  | 'hand'
+  | 'rectangle'
+  | 'diamond'
+  | 'ellipse'
+  | 'arrow'
+  | 'line'
+  | 'draw'
+  | 'text'
+  | 'image'
+  | 'frame'
+  | 'eraser';
 
 export interface SelectionState {
   selectedIds: string[];

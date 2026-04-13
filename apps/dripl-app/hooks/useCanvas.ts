@@ -1,7 +1,7 @@
-import { useRef, useEffect, useState, useCallback } from "react";
-import type { DriplElement, Point } from "@dripl/common";
-import { drawShape, getElementBounds } from "@/utils/canvasUtils";
-import { EraserTrail } from "@/eraser";
+import { useRef, useEffect, useState, useCallback } from 'react';
+import type { DriplElement, Point } from '@dripl/common';
+import { drawShape, getElementBounds } from '@/utils/canvasUtils';
+import { EraserTrail } from '@/eraser';
 
 interface UseCanvasProps {
   elements: DriplElement[];
@@ -38,11 +38,11 @@ export const useCanvas = ({
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    if (activeTool === "eraser" && isDrawing) {
+    if (activeTool === 'eraser' && isDrawing) {
       let animationFrameId: number;
 
       const loop = () => {
-        setTick((t) => t + 1);
+        setTick(t => t + 1);
         animationFrameId = requestAnimationFrame(loop);
       };
 
@@ -58,7 +58,7 @@ export const useCanvas = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const container = containerRef.current;
@@ -73,7 +73,7 @@ export const useCanvas = ({
     ctx.translate(pan.x, pan.y);
     ctx.scale(zoom / 100, zoom / 100);
 
-    elements.forEach((element) => {
+    elements.forEach(element => {
       const isSelected = selectedIds.includes(element.id);
 
       let renderElement = element;
@@ -87,11 +87,7 @@ export const useCanvas = ({
             y: p.y + moveOffset.y,
           })),
         } as DriplElement;
-      } else if (
-        isRotating &&
-        rotateStart &&
-        element.id === rotateStart.elementId
-      ) {
+      } else if (isRotating && rotateStart && element.id === rotateStart.elementId) {
         renderElement = {
           ...element,
           rotation: (element.rotation || 0) + rotateOffset,
@@ -137,7 +133,7 @@ export const useCanvas = ({
 
       return { x, y };
     },
-    [zoom, pan],
+    [zoom, pan]
   );
 
   return {

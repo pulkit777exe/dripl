@@ -1,8 +1,8 @@
-import type { DriplElement } from "@dripl/common";
-import { createRoughCanvas, renderRoughElement } from "./rough-renderer";
-import { getShapeCacheKey, getShapeFromCache, setShapeInCache } from "./shape-cache";
+import type { DriplElement } from '@dripl/common';
+import { createRoughCanvas, renderRoughElement } from './rough-renderer';
+import { getShapeCacheKey, getShapeFromCache, setShapeInCache } from './shape-cache';
 
-export type Theme = "light" | "dark";
+export type Theme = 'light' | 'dark';
 
 export interface RenderConfig {
   theme: Theme;
@@ -32,10 +32,10 @@ export const generateElementCanvas = (
   elementsMap: Map<string, DriplElement>,
   zoom: { value: number },
   renderConfig: StaticCanvasRenderConfig,
-  appState: any,
+  appState: any
 ): ExcalidrawElementWithCanvas | null => {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
   if (!ctx) return null;
 
   const rc = createRoughCanvas(canvas);
@@ -52,8 +52,8 @@ export const generateElementCanvas = (
 
   renderRoughElement(rc, ctx, element, Array.from(elementsMap.values()), renderConfig.theme);
 
-  const boundTextCanvas = document.createElement("canvas");
-  const boundTextCanvasContext = boundTextCanvas.getContext("2d")!;
+  const boundTextCanvas = document.createElement('canvas');
+  const boundTextCanvasContext = boundTextCanvas.getContext('2d')!;
 
   boundTextCanvas.width = canvas.width;
   boundTextCanvas.height = canvas.height;
@@ -76,7 +76,7 @@ export const generateElementWithCanvas = (
   element: DriplElement,
   elementsMap: Map<string, DriplElement>,
   renderConfig: StaticCanvasRenderConfig,
-  appState: any,
+  appState: any
 ): ExcalidrawElementWithCanvas | null => {
   const zoom: { value: number } = renderConfig
     ? appState.zoom
@@ -84,7 +84,7 @@ export const generateElementWithCanvas = (
         value: 1,
       };
   const prevElementWithCanvas = elementWithCanvasCache.get(element);
-  
+
   if (
     !prevElementWithCanvas ||
     prevElementWithCanvas.theme !== appState.theme ||
@@ -95,7 +95,7 @@ export const generateElementWithCanvas = (
       elementsMap,
       zoom,
       renderConfig,
-      appState,
+      appState
     );
 
     if (!elementWithCanvas) {
@@ -106,7 +106,7 @@ export const generateElementWithCanvas = (
 
     return elementWithCanvas;
   }
-  
+
   return prevElementWithCanvas;
 };
 
@@ -115,7 +115,7 @@ export const drawElementFromCanvas = (
   context: CanvasRenderingContext2D,
   renderConfig: StaticCanvasRenderConfig,
   appState: any,
-  allElementsMap: Map<string, DriplElement>,
+  allElementsMap: Map<string, DriplElement>
 ): void => {
   const element = elementWithCanvas.element;
   const padding = 10;
@@ -133,8 +133,8 @@ export const drawElementFromCanvas = (
     elementWithCanvas.canvas,
     x - padding,
     y - padding,
-    (element.width + padding * 2),
-    (element.height + padding * 2),
+    element.width + padding * 2,
+    element.height + padding * 2
   );
 
   context.restore();
@@ -144,10 +144,10 @@ export const renderSelectionElement = (
   element: DriplElement,
   context: CanvasRenderingContext2D,
   appState: any,
-  elementsMap: Map<string, DriplElement>,
+  elementsMap: Map<string, DriplElement>
 ): void => {
-  const selectionColor = appState.theme === "dark" ? "#000000" : "#ffffff";
-  
+  const selectionColor = appState.theme === 'dark' ? '#000000' : '#ffffff';
+
   context.save();
   context.strokeStyle = selectionColor;
   context.lineWidth = 2;

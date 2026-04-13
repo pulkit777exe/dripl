@@ -1,6 +1,6 @@
-import { Point } from "@dripl/common";
-import { EraserPoint, EraserConfig, EraserState, TrailSegment } from "./types";
-import { easeOut, streamlinePoints, distance, now } from "./utils";
+import { Point } from '@dripl/common';
+import { EraserPoint, EraserConfig, EraserState, TrailSegment } from './types';
+import { easeOut, streamlinePoints, distance, now } from './utils';
 
 export class EraserTrail {
   private ctx: CanvasRenderingContext2D;
@@ -8,14 +8,11 @@ export class EraserTrail {
   private state: EraserState;
   private animationFrameId: number | null = null;
 
-  constructor(
-    ctx: CanvasRenderingContext2D,
-    config: Partial<EraserConfig> = {},
-  ) {
+  constructor(ctx: CanvasRenderingContext2D, config: Partial<EraserConfig> = {}) {
     this.ctx = ctx;
     this.config = {
       size: config.size ?? 5,
-      color: config.color ?? "rgba(255, 100, 100, 0.3)",
+      color: config.color ?? 'rgba(255, 100, 100, 0.3)',
       fadeTime: config.fadeTime ?? 200,
       streamline: config.streamline ?? 0.2,
       keepHead: config.keepHead ?? true,
@@ -141,8 +138,8 @@ export class EraserTrail {
       this.ctx.beginPath();
       this.ctx.strokeStyle = color;
       this.ctx.lineWidth = this.config.size / zoom;
-      this.ctx.lineCap = "round";
-      this.ctx.lineJoin = "round";
+      this.ctx.lineCap = 'round';
+      this.ctx.lineJoin = 'round';
       this.ctx.moveTo(p1.x, p1.y);
       this.ctx.lineTo(p2.x, p2.y);
       this.ctx.stroke();

@@ -1,4 +1,4 @@
-import type { DriplElement } from "./types/element";
+import type { DriplElement } from './types/element';
 
 export interface SceneState {
   elements: DriplElement[];
@@ -21,7 +21,7 @@ export class Scene {
   private editingTextId: string | null = null;
 
   constructor(initialElements: DriplElement[] = []) {
-    initialElements.forEach((element) => {
+    initialElements.forEach(element => {
       this.elementsMap.set(element.id, element);
       if (!element.isDeleted) {
         this.nonDeletedElementsMap.set(element.id, element);
@@ -76,7 +76,7 @@ export class Scene {
   }
 
   deleteElements(ids: string[]): void {
-    ids.forEach((id) => this.deleteElement(id));
+    ids.forEach(id => this.deleteElement(id));
   }
 
   restoreElement(id: string): void {
@@ -90,11 +90,8 @@ export class Scene {
 
   getSelectedElements(): DriplElement[] {
     return Array.from(this.selectedElementIds)
-      .map((id) => this.elementsMap.get(id))
-      .filter(
-        (element): element is DriplElement =>
-          element !== undefined && !element.isDeleted,
-      );
+      .map(id => this.elementsMap.get(id))
+      .filter((element): element is DriplElement => element !== undefined && !element.isDeleted);
   }
 
   setSelectedElements(ids: string[]): void {
@@ -133,10 +130,10 @@ export class Scene {
     const activeElements = this.getElements();
     if (activeElements.length === 0) return null;
 
-    const minX = Math.min(...activeElements.map((el) => el.x));
-    const minY = Math.min(...activeElements.map((el) => el.y));
-    const maxX = Math.max(...activeElements.map((el) => el.x + el.width));
-    const maxY = Math.max(...activeElements.map((el) => el.y + el.height));
+    const minX = Math.min(...activeElements.map(el => el.x));
+    const minY = Math.min(...activeElements.map(el => el.y));
+    const maxX = Math.max(...activeElements.map(el => el.x + el.width));
+    const maxY = Math.max(...activeElements.map(el => el.y + el.height));
 
     return {
       x: minX,
@@ -155,10 +152,10 @@ export class Scene {
     const selectedElements = this.getSelectedElements();
     if (selectedElements.length === 0) return null;
 
-    const minX = Math.min(...selectedElements.map((el) => el.x));
-    const minY = Math.min(...selectedElements.map((el) => el.y));
-    const maxX = Math.max(...selectedElements.map((el) => el.x + el.width));
-    const maxY = Math.max(...selectedElements.map((el) => el.y + el.height));
+    const minX = Math.min(...selectedElements.map(el => el.x));
+    const minY = Math.min(...selectedElements.map(el => el.y));
+    const maxX = Math.max(...selectedElements.map(el => el.x + el.width));
+    const maxY = Math.max(...selectedElements.map(el => el.y + el.height));
 
     return {
       x: minX,
@@ -169,7 +166,7 @@ export class Scene {
   }
 
   clone(): Scene {
-    const cloned = new Scene(this.getElements().map((el) => ({ ...el })));
+    const cloned = new Scene(this.getElements().map(el => ({ ...el })));
     cloned.setSelectedElements(Array.from(this.selectedElementIds));
     cloned.setEditingTextId(this.editingTextId);
     return cloned;

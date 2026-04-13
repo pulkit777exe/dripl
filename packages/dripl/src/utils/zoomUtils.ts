@@ -1,5 +1,5 @@
-import type { DriplElement, Point } from "@dripl/common";
-import { getBounds } from "@dripl/math";
+import type { DriplElement, Point } from '@dripl/common';
+import { getBounds } from '@dripl/math';
 
 export interface ZoomSettings {
   minZoom: number;
@@ -33,14 +33,14 @@ export function zoomToFit(
   elements: DriplElement[],
   canvasWidth: number,
   canvasHeight: number,
-  padding: number = 20,
+  padding: number = 20
 ): { zoom: number; centerX: number; centerY: number } {
   if (elements.length === 0) {
     return { zoom: 1, centerX: canvasWidth / 2, centerY: canvasHeight / 2 };
   }
 
   const allPoints: Point[] = [];
-  elements.forEach((element) => {
+  elements.forEach(element => {
     allPoints.push(...getElementPoints(element));
   });
 
@@ -52,7 +52,7 @@ export function zoomToFit(
 
   const finalZoom = Math.min(
     Math.max(fitZoom, DEFAULT_ZOOM_SETTINGS.minZoom),
-    DEFAULT_ZOOM_SETTINGS.maxZoom,
+    DEFAULT_ZOOM_SETTINGS.maxZoom
   );
 
   const centerX = bounds.x + bounds.width / 2;
@@ -69,14 +69,14 @@ export function zoomToSelection(
   selectedElements: DriplElement[],
   canvasWidth: number,
   canvasHeight: number,
-  padding: number = 20,
+  padding: number = 20
 ): { zoom: number; centerX: number; centerY: number } | null {
   if (selectedElements.length === 0) {
     return null;
   }
 
   const allPoints: Point[] = [];
-  selectedElements.forEach((element) => {
+  selectedElements.forEach(element => {
     allPoints.push(...getElementPoints(element));
   });
 
@@ -88,7 +88,7 @@ export function zoomToSelection(
 
   const finalZoom = Math.min(
     Math.max(fitZoom, DEFAULT_ZOOM_SETTINGS.minZoom),
-    DEFAULT_ZOOM_SETTINGS.maxZoom,
+    DEFAULT_ZOOM_SETTINGS.maxZoom
   );
 
   const centerX = bounds.x + bounds.width / 2;
@@ -109,7 +109,7 @@ export function getVisibleElements(
     width: number;
     height: number;
     zoom: number;
-  },
+  }
 ): DriplElement[] {
   const visibleBounds = {
     x: -viewport.x / viewport.zoom,
@@ -118,13 +118,13 @@ export function getVisibleElements(
     height: viewport.height / viewport.zoom,
   };
 
-  return elements.filter((element) => {
+  return elements.filter(element => {
     const elementBounds = element.points
       ? getBounds(
           element.points.map((p: Point) => ({
             x: element.x + p.x,
             y: element.y + p.y,
-          })),
+          }))
         )
       : {
           x: element.x,
@@ -147,7 +147,7 @@ export function calculateZoom(
   delta: number,
   minZoom: number = DEFAULT_ZOOM_SETTINGS.minZoom,
   maxZoom: number = DEFAULT_ZOOM_SETTINGS.maxZoom,
-  step: number = DEFAULT_ZOOM_SETTINGS.zoomStep,
+  step: number = DEFAULT_ZOOM_SETTINGS.zoomStep
 ): number {
   const direction = delta > 0 ? 1 : -1;
   let newZoom = currentZoom + direction * step;
@@ -167,7 +167,7 @@ export function calculateZoom(
 export function getScaledDimensions(
   width: number,
   height: number,
-  zoom: number,
+  zoom: number
 ): { width: number; height: number } {
   return {
     width: width * zoom,
@@ -190,7 +190,7 @@ export function getMousePosition(
     width: number;
     height: number;
     zoom: number;
-  },
+  }
 ): Point {
   return {
     x: (event.clientX - viewport.x) / viewport.zoom,

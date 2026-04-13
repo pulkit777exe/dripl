@@ -1,16 +1,16 @@
-import type { DriplElement } from "@dripl/common";
+import type { DriplElement } from '@dripl/common';
 
 // Primary key for structured storage: { userPreferences, elementStates }
-const STORAGE_KEY_STRUCTURED = "dripl-local";
+const STORAGE_KEY_STRUCTURED = 'dripl-local';
 
 // Legacy keys (Excalidraw pattern) for backward compatibility
 const STORAGE_KEYS = {
-  CANVAS: "excalidraw",
-  COLLAB: "excalidraw-collab",
-  STATE: "excalidraw-state",
-  THEME: "excalidraw-theme",
-  VERSION_DATA: "version-dataState",
-  VERSION_FILES: "version-files",
+  CANVAS: 'excalidraw',
+  COLLAB: 'excalidraw-collab',
+  STATE: 'excalidraw-state',
+  THEME: 'excalidraw-theme',
+  VERSION_DATA: 'version-dataState',
+  VERSION_FILES: 'version-files',
   STRUCTURED: STORAGE_KEY_STRUCTURED,
 };
 
@@ -19,7 +19,7 @@ export const LOCAL_CANVAS_STORAGE_KEYS = STORAGE_KEYS;
 
 /** User preferences (theme, tool, stroke options, viewport). */
 export interface UserPreferences {
-  theme: "light" | "dark" | "system";
+  theme: 'light' | 'dark' | 'system';
   zoom: number;
   panX: number;
   panY: number;
@@ -27,15 +27,15 @@ export interface UserPreferences {
   currentBackgroundColor: string;
   currentStrokeWidth: number;
   currentRoughness: number;
-  currentStrokeStyle: "solid" | "dashed" | "dotted";
+  currentStrokeStyle: 'solid' | 'dashed' | 'dotted';
   currentFillStyle:
-    | "hachure"
-    | "solid"
-    | "zigzag"
-    | "cross-hatch"
-    | "dots"
-    | "dashed"
-    | "zigzag-line";
+    | 'hachure'
+    | 'solid'
+    | 'zigzag'
+    | 'cross-hatch'
+    | 'dots'
+    | 'dashed'
+    | 'zigzag-line';
   activeTool: string;
 }
 
@@ -50,7 +50,7 @@ export type LocalCanvasState = UserPreferences;
 // Interface to match Excalidraw's state format for compatibility
 export interface ExcalidrawState {
   showWelcomeScreen: boolean;
-  theme: "dark" | "light";
+  theme: 'dark' | 'light';
   currentChartType: string;
   currentItemBackgroundColor: string;
   currentItemEndArrowhead: string;
@@ -114,7 +114,7 @@ export interface LocalStoragePayload {
 export const saveLocalCanvasToStorage = (
   elements: DriplElement[],
   state: LocalCanvasState,
-  selectedIds?: Set<string> | string[],
+  selectedIds?: Set<string> | string[]
 ) => {
   try {
     const userPreferences: UserPreferences = {
@@ -145,8 +145,8 @@ export const saveLocalCanvasToStorage = (
     localStorage.setItem(
       STORAGE_KEYS.STATE,
       JSON.stringify({
-        theme: state.theme === "system" ? "dark" : state.theme,
-        viewBackgroundColor: "#ffffff",
+        theme: state.theme === 'system' ? 'dark' : state.theme,
+        viewBackgroundColor: '#ffffff',
         currentItemStrokeColor: state.currentStrokeColor,
         currentItemBackgroundColor: state.currentBackgroundColor,
         currentItemStrokeWidth: state.currentStrokeWidth,
@@ -157,26 +157,21 @@ export const saveLocalCanvasToStorage = (
         gridStep: 5,
         gridModeEnabled: false,
         showWelcomeScreen: true,
-        name: "Untitled",
+        name: 'Untitled',
         zoom: { value: state.zoom },
         scrollX: state.panX,
         scrollY: state.panY,
-      }),
+      })
     );
     localStorage.setItem(STORAGE_KEYS.THEME, state.theme);
     const timestamp = Date.now();
     localStorage.setItem(STORAGE_KEYS.VERSION_DATA, timestamp.toString());
     localStorage.setItem(STORAGE_KEYS.VERSION_FILES, timestamp.toString());
     const collabUsername =
-      typeof window !== "undefined"
-        ? localStorage.getItem("dripl_username") || ""
-        : "";
-    localStorage.setItem(
-      STORAGE_KEYS.COLLAB,
-      JSON.stringify({ username: collabUsername }),
-    );
+      typeof window !== 'undefined' ? localStorage.getItem('dripl_username') || '' : '';
+    localStorage.setItem(STORAGE_KEYS.COLLAB, JSON.stringify({ username: collabUsername }));
   } catch (error) {
-    console.error("Error saving local canvas to storage:", error);
+    console.error('Error saving local canvas to storage:', error);
   }
 };
 
@@ -209,28 +204,20 @@ export const loadLocalCanvasFromStorage = (): {
     if (state) {
       const excalidrawState: ExcalidrawState = JSON.parse(state);
       parsedState = {
-        theme:
-          (localStorage.getItem(STORAGE_KEYS.THEME) as
-            | "light"
-            | "dark"
-            | "system") || "dark",
+        theme: (localStorage.getItem(STORAGE_KEYS.THEME) as 'light' | 'dark' | 'system') || 'dark',
         zoom: excalidrawState.zoom?.value ?? 1,
         panX: excalidrawState.scrollX ?? 0,
         panY: excalidrawState.scrollY ?? 0,
-        currentStrokeColor: excalidrawState.currentItemStrokeColor || "#1e1e1e",
-        currentBackgroundColor:
-          excalidrawState.currentItemBackgroundColor || "transparent",
+        currentStrokeColor: excalidrawState.currentItemStrokeColor || '#1e1e1e',
+        currentBackgroundColor: excalidrawState.currentItemBackgroundColor || 'transparent',
         currentStrokeWidth: excalidrawState.currentItemStrokeWidth ?? 2,
         currentRoughness: excalidrawState.currentItemRoughness ?? 1,
         currentStrokeStyle:
-          (excalidrawState.currentItemStrokeStyle as
-            | "solid"
-            | "dashed"
-            | "dotted") || "solid",
+          (excalidrawState.currentItemStrokeStyle as 'solid' | 'dashed' | 'dotted') || 'solid',
         currentFillStyle:
-          (excalidrawState.currentItemFillStyle as LocalCanvasState["currentFillStyle"]) ||
-          "hachure",
-        activeTool: "select",
+          (excalidrawState.currentItemFillStyle as LocalCanvasState['currentFillStyle']) ||
+          'hachure',
+        activeTool: 'select',
       };
     }
     return {
@@ -238,7 +225,7 @@ export const loadLocalCanvasFromStorage = (): {
       appState: parsedState,
     };
   } catch (error) {
-    console.error("Error loading local canvas from storage:", error);
+    console.error('Error loading local canvas from storage:', error);
     return { elements: null, appState: null };
   }
 };
@@ -253,6 +240,6 @@ export const clearLocalCanvasStorage = () => {
     localStorage.removeItem(STORAGE_KEYS.VERSION_DATA);
     localStorage.removeItem(STORAGE_KEYS.VERSION_FILES);
   } catch (error) {
-    console.error("Error clearing local canvas storage:", error);
+    console.error('Error clearing local canvas storage:', error);
   }
 };

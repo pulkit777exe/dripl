@@ -1,5 +1,5 @@
-"use client";
-import React, { useState, useRef, useEffect, useCallback } from "react";
+'use client';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Lock,
   Hand,
@@ -40,11 +40,11 @@ import {
   Edit3,
   Library,
   Globe,
-} from "lucide-react";
-import { useTheme } from "@/hooks/useTheme";
-import { IconButton } from "../button/IconButton";
-import type { DriplElement, Point } from "@dripl/common";
-import type { AppState } from "@/types/canvas";
+} from 'lucide-react';
+import { useTheme } from '@/hooks/useTheme';
+import { IconButton } from '../button/IconButton';
+import type { DriplElement, Point } from '@dripl/common';
+import type { AppState } from '@/types/canvas';
 import {
   drawShape,
   isPointInElement,
@@ -55,17 +55,17 @@ import {
   generateId,
   saveToLocalStorage,
   loadFromLocalStorage,
-} from "@/utils/canvasUtils";
-import { CanvasHistory } from "@/utils/canvasHistory";
-import { EraserTrail } from "../../eraser/EraserTrail";
-import { ColorSwatch } from "./ColorSwatch";
-import { SectionLabel } from "./SectionLabel";
-import { MenuItem } from "./MenuItem";
-import { MenuSeparator } from "./MenuSeparator";
-import HelpModal from "./HelpModal";
+} from '@/utils/canvasUtils';
+import { CanvasHistory } from '@/utils/canvasHistory';
+import { EraserTrail } from '../../eraser/EraserTrail';
+import { ColorSwatch } from './ColorSwatch';
+import { SectionLabel } from './SectionLabel';
+import { MenuItem } from './MenuItem';
+import { MenuSeparator } from './MenuSeparator';
+import HelpModal from './HelpModal';
 
 export default function App() {
-  const [activeTool, setActiveTool] = useState("text");
+  const [activeTool, setActiveTool] = useState('text');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -76,32 +76,30 @@ export default function App() {
   const [zoom, setZoom] = useState(100);
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
   const [canvasBg, setCanvasBg] = useState<string>(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      const themeParam = params.get("theme");
-      if (themeParam === "dark") return "#121112";
-      else if (themeParam === "light") return "#f7f5f6";
+      const themeParam = params.get('theme');
+      if (themeParam === 'dark') return '#121112';
+      else if (themeParam === 'light') return '#f7f5f6';
     }
-    return effectiveTheme === "dark" ? "#121112" : "#f7f5f6";
+    return effectiveTheme === 'dark' ? '#121112' : '#f7f5f6';
   });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const themeParam = params.get("theme");
-    if (themeParam === "dark") {
-      setCanvasBg("#121112");
-    } else if (themeParam === "light") {
-      setCanvasBg("#f7f5f6");
+    const themeParam = params.get('theme');
+    if (themeParam === 'dark') {
+      setCanvasBg('#121112');
+    } else if (themeParam === 'light') {
+      setCanvasBg('#f7f5f6');
     } else {
-      setCanvasBg(effectiveTheme === "dark" ? "#121112" : "#f7f5f6");
+      setCanvasBg(effectiveTheme === 'dark' ? '#121112' : '#f7f5f6');
     }
   }, [effectiveTheme]);
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
-  const [currentElement, setCurrentElement] = useState<DriplElement | null>(
-    null,
-  );
+  const [currentElement, setCurrentElement] = useState<DriplElement | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState<Point | null>(null);
 
@@ -122,14 +120,12 @@ export default function App() {
     element: DriplElement;
   } | null>(null);
 
-  const [strokeColor, setStrokeColor] = useState("#ffffff");
-  const [backgroundColor, setBackgroundColor] = useState("transparent");
+  const [strokeColor, setStrokeColor] = useState('#ffffff');
+  const [backgroundColor, setBackgroundColor] = useState('transparent');
   const [strokeWidth, setStrokeWidth] = useState(2);
-  const [strokeStyle, setStrokeStyle] = useState<"solid" | "dashed" | "dotted">(
-    "solid",
-  );
+  const [strokeStyle, setStrokeStyle] = useState<'solid' | 'dashed' | 'dotted'>('solid');
   const [sloppiness, setSloppiness] = useState(1);
-  const [edges, setEdges] = useState<"sharp" | "round">("round");
+  const [edges, setEdges] = useState<'sharp' | 'round'>('round');
   const [opacity, setOpacity] = useState(100);
   const [tick, setTick] = useState(0);
 
@@ -152,27 +148,23 @@ export default function App() {
     }
 
     if (appState) {
-      if (appState.theme) setTheme(appState.theme as "light" | "dark" | "system");
-      if (appState.viewBackgroundColor)
-        setCanvasBg(appState.viewBackgroundColor);
+      if (appState.theme) setTheme(appState.theme as 'light' | 'dark' | 'system');
+      if (appState.viewBackgroundColor) setCanvasBg(appState.viewBackgroundColor);
       if (appState.scrollX !== undefined && appState.scrollY !== undefined) {
         setPan({ x: appState.scrollX, y: appState.scrollY });
       }
       if (appState.zoom) setZoom(appState.zoom.value);
 
-      if (appState.currentItemStrokeColor)
-        setStrokeColor(appState.currentItemStrokeColor);
+      if (appState.currentItemStrokeColor) setStrokeColor(appState.currentItemStrokeColor);
       if (appState.currentItemBackgroundColor)
         setBackgroundColor(appState.currentItemBackgroundColor);
-      if (appState.currentItemStrokeWidth)
-        setStrokeWidth(appState.currentItemStrokeWidth);
+      if (appState.currentItemStrokeWidth) setStrokeWidth(appState.currentItemStrokeWidth);
       if (appState.currentItemStrokeStyle)
-        setStrokeStyle(appState.currentItemStrokeStyle as "solid" | "dashed" | "dotted");
+        setStrokeStyle(appState.currentItemStrokeStyle as 'solid' | 'dashed' | 'dotted');
       if (appState.currentItemOpacity) setOpacity(appState.currentItemOpacity);
-      if (appState.currentItemRoughness)
-        setSloppiness(appState.currentItemRoughness);
+      if (appState.currentItemRoughness) setSloppiness(appState.currentItemRoughness);
       if (appState.currentItemRoundness)
-        setEdges(appState.currentItemRoundness === "round" ? "round" : "sharp");
+        setEdges(appState.currentItemRoundness === 'round' ? 'round' : 'sharp');
     }
   }, []);
 
@@ -220,39 +212,37 @@ export default function App() {
   ]);
 
   const strokeColors = [
-    "#ffc9c9",
-    "#b2f2bb",
-    "#a5d8ff",
-    "#ffec99",
-    "#ffffff",
-    "#ffa8a8",
-    "#69db7c",
-    "#4dabf7",
-    "#ffd43b",
+    '#ffc9c9',
+    '#b2f2bb',
+    '#a5d8ff',
+    '#ffec99',
+    '#ffffff',
+    '#ffa8a8',
+    '#69db7c',
+    '#4dabf7',
+    '#ffd43b',
   ];
   const bgColors = [
-    "transparent",
-    "#ffc9c9",
-    "#b2f2bb",
-    "#a5d8ff",
-    "#ffec99",
-    "#ffa8a8",
-    "#69db7c",
-    "#4dabf7",
+    'transparent',
+    '#ffc9c9',
+    '#b2f2bb',
+    '#a5d8ff',
+    '#ffec99',
+    '#ffa8a8',
+    '#69db7c',
+    '#4dabf7',
   ];
   const canvasBgColors = [
-    "#121112", // Dark canvas bg (matches --color-canvas-bg dark)
-    "#f7f5f6", // Light canvas bg (matches --color-canvas-bg light)
-    "#ffffff", // Pure white
-    "#2d3a2e", // Dark green tint
-    "#3a2e2d", // Dark warm tint
-    "#2e2e3a", // Dark cool tint
+    '#121112', // Dark canvas bg (matches --color-canvas-bg dark)
+    '#f7f5f6', // Light canvas bg (matches --color-canvas-bg light)
+    '#ffffff', // Pure white
+    '#2d3a2e', // Dark green tint
+    '#3a2e2d', // Dark warm tint
+    '#2e2e3a', // Dark cool tint
   ];
 
   const selectedElement =
-    selectedIds.length === 1
-      ? elements.find((el) => el.id === selectedIds[0])
-      : null;
+    selectedIds.length === 1 ? elements.find(el => el.id === selectedIds[0]) : null;
 
   const saveHistory = useCallback(() => {
     historyRef.current.pushState({ elements, selectedIds });
@@ -262,7 +252,7 @@ export default function App() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const container = containerRef.current;
@@ -277,7 +267,7 @@ export default function App() {
     ctx.translate(pan.x, pan.y);
     ctx.scale(zoom / 100, zoom / 100);
 
-    elements.forEach((element) => {
+    elements.forEach(element => {
       const isSelected = selectedIds.includes(element.id);
 
       let renderElement = element;
@@ -291,11 +281,7 @@ export default function App() {
             y: p.y + moveOffset.y,
           })),
         } as DriplElement;
-      } else if (
-        isRotating &&
-        rotateStart &&
-        element.id === rotateStart.elementId
-      ) {
+      } else if (isRotating && rotateStart && element.id === rotateStart.elementId) {
         renderElement = {
           ...element,
           rotation: (element.rotation || 0) + rotateOffset,
@@ -331,11 +317,11 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (activeTool === "eraser" && isDrawing) {
+    if (activeTool === 'eraser' && isDrawing) {
       let animationFrameId: number;
 
       const loop = () => {
-        setTick((t) => t + 1);
+        setTick(t => t + 1);
         animationFrameId = requestAnimationFrame(loop);
       };
 
@@ -358,7 +344,7 @@ export default function App() {
 
       return { x, y };
     },
-    [zoom, pan],
+    [zoom, pan]
   );
 
   const handleMouseDown = useCallback(
@@ -368,26 +354,26 @@ export default function App() {
       const canvasPoint = getCanvasPoint(e);
       const point = getCanvasPoint(e);
 
-      if (toolToUse === "hand") {
+      if (toolToUse === 'hand') {
         setIsPanning(true);
         setPanStart(canvasPoint);
         return;
       }
 
-      if (toolToUse === "eraser") {
+      if (toolToUse === 'eraser') {
         eraserTrailRef.current?.startPath(canvasPoint.x, canvasPoint.y);
         setIsDrawing(true);
         return;
       }
 
-      if (toolToUse === "select") {
+      if (toolToUse === 'select') {
         const clickedElement = [...elements]
           .reverse()
-          .find((el) => isPointInElement(canvasPoint, el));
+          .find(el => isPointInElement(canvasPoint, el));
 
         if (clickedElement) {
           if (e.shiftKey) {
-            setSelectedIds((prev) => [...prev, clickedElement.id]);
+            setSelectedIds(prev => [...prev, clickedElement.id]);
           } else if (!selectedIds.includes(clickedElement.id)) {
             setSelectedIds([clickedElement.id]);
           }
@@ -402,7 +388,7 @@ export default function App() {
 
       const newElement = {
         id: generateId(),
-        type: toolToUse as DriplElement["type"],
+        type: toolToUse as DriplElement['type'],
         x: canvasPoint.x,
         y: canvasPoint.y,
         width: 0,
@@ -413,14 +399,11 @@ export default function App() {
         strokeStyle,
         opacity,
         roughness: sloppiness,
-        roundness: edges === "round" ? 1 : 0,
-        points: ["arrow", "line", "freedraw"].includes(toolToUse)
-          ? [canvasPoint]
-          : undefined,
-        text: toolToUse === "text" ? "Text" : undefined,
+        roundness: edges === 'round' ? 1 : 0,
+        points: ['arrow', 'line', 'freedraw'].includes(toolToUse) ? [canvasPoint] : undefined,
+        text: toolToUse === 'text' ? 'Text' : undefined,
         fontSize: 20,
-        fontFamily:
-          '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
+        fontFamily: '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
       } as unknown as DriplElement;
 
       setCurrentElement(newElement);
@@ -437,13 +420,13 @@ export default function App() {
       sloppiness,
       edges,
       getCanvasPoint,
-    ],
+    ]
   );
 
   const handleResizeStart = useCallback(
     (e: React.MouseEvent, handle: string, elementId: string) => {
       e.stopPropagation();
-      const element = elements.find((el) => el.id === elementId);
+      const element = elements.find(el => el.id === elementId);
       if (!element) return;
 
       const canvas = canvasRef.current;
@@ -454,12 +437,12 @@ export default function App() {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
       };
-      console.log("handleResizeStart", handle, elementId);
+      console.log('handleResizeStart', handle, elementId);
       setIsResizing(true);
       setResizeHandle(handle);
       setResizeStart({ point, element: { ...element } });
     },
-    [elements],
+    [elements]
   );
 
   const handleResize = useCallback(
@@ -484,18 +467,18 @@ export default function App() {
       let newWidth = original.width;
       let newHeight = original.height;
 
-      if (resizeHandle.includes("left")) {
+      if (resizeHandle.includes('left')) {
         newX = original.x + dx;
         newWidth = original.width - dx;
       }
-      if (resizeHandle.includes("right")) {
+      if (resizeHandle.includes('right')) {
         newWidth = original.width + dx;
       }
-      if (resizeHandle.includes("top")) {
+      if (resizeHandle.includes('top')) {
         newY = original.y + dy;
         newHeight = original.height - dy;
       }
-      if (resizeHandle.includes("bottom")) {
+      if (resizeHandle.includes('bottom')) {
         newHeight = original.height + dy;
       }
 
@@ -508,8 +491,8 @@ export default function App() {
         newHeight = Math.abs(newHeight);
       }
 
-      setElements((prev) =>
-        prev.map((el) => {
+      setElements(prev =>
+        prev.map(el => {
           if (el.id === original.id) {
             return {
               ...el,
@@ -520,15 +503,15 @@ export default function App() {
             };
           }
           return el;
-        }),
+        })
       );
     },
-    [isResizing, resizeStart, resizeHandle, zoom],
+    [isResizing, resizeStart, resizeHandle, zoom]
   );
 
   const handleResizeEnd = useCallback(() => {
     if (isResizing) {
-      console.log("handleResizeEnd");
+      console.log('handleResizeEnd');
       setIsResizing(false);
       setResizeHandle(null);
       setResizeStart(null);
@@ -561,7 +544,7 @@ export default function App() {
       }
 
       if (isRotating && rotateStart) {
-        const element = elements.find((el) => el.id === rotateStart.elementId);
+        const element = elements.find(el => el.id === rotateStart.elementId);
         if (element) {
           const bounds = getElementBounds(element);
           const centerX = bounds.x + bounds.width / 2;
@@ -587,24 +570,22 @@ export default function App() {
       if (isPanning && panStart) {
         const dx = point.x - panStart.x;
         const dy = point.y - panStart.y;
-        setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+        setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
         return;
       }
 
-      if (activeTool === "eraser" && isDrawing) {
+      if (activeTool === 'eraser' && isDrawing) {
         eraserTrailRef.current?.addPoint(point.x, point.y);
 
         const elementsToRemove: string[] = [];
-        elements.forEach((element) => {
+        elements.forEach(element => {
           if (isPointInElement(point, element)) {
             elementsToRemove.push(element.id);
           }
         });
 
         if (elementsToRemove.length > 0) {
-          setElements((prev) =>
-            prev.filter((el) => !elementsToRemove.includes(el.id)),
-          );
+          setElements(prev => prev.filter(el => !elementsToRemove.includes(el.id)));
         }
         return;
       }
@@ -612,7 +593,7 @@ export default function App() {
       if (isDrawing && startPoint && currentElement) {
         const updatedElement = { ...currentElement };
 
-        if (["arrow", "line", "freedraw"].includes(activeTool)) {
+        if (['arrow', 'line', 'freedraw'].includes(activeTool)) {
           updatedElement.points = [...(updatedElement.points || []), point];
         } else {
           const width = point.x - startPoint.x;
@@ -645,7 +626,7 @@ export default function App() {
       zoom,
       pan,
       getCanvasPoint,
-    ],
+    ]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -655,7 +636,7 @@ export default function App() {
       return;
     }
 
-    if (activeTool === "eraser" && isDrawing) {
+    if (activeTool === 'eraser' && isDrawing) {
       eraserTrailRef.current?.endPath();
       setIsDrawing(false);
       saveHistory();
@@ -668,8 +649,8 @@ export default function App() {
     }
 
     if (isMoving) {
-      setElements((prev) =>
-        prev.map((el) => {
+      setElements(prev =>
+        prev.map(el => {
           if (selectedIds.includes(el.id)) {
             return {
               ...el,
@@ -682,7 +663,7 @@ export default function App() {
             } as DriplElement;
           }
           return el;
-        }),
+        })
       );
 
       setIsMoving(false);
@@ -693,8 +674,8 @@ export default function App() {
     }
 
     if (isRotating) {
-      setElements((prev) =>
-        prev.map((el) => {
+      setElements(prev =>
+        prev.map(el => {
           if (rotateStart && el.id === rotateStart.elementId) {
             return {
               ...el,
@@ -702,7 +683,7 @@ export default function App() {
             };
           }
           return el;
-        }),
+        })
       );
 
       setIsRotating(false);
@@ -714,7 +695,7 @@ export default function App() {
 
     if (isDrawing && currentElement) {
       const hasSize =
-        currentElement.type === "text" ||
+        currentElement.type === 'text' ||
         currentElement.width > 5 ||
         currentElement.height > 5 ||
         (currentElement.points && currentElement.points.length > 1);
@@ -722,8 +703,7 @@ export default function App() {
       if (hasSize) {
         // For text elements, set default dimensions if not provided
         const elementToAdd =
-          currentElement.type === "text" &&
-          (!currentElement.width || !currentElement.height)
+          currentElement.type === 'text' && (!currentElement.width || !currentElement.height)
             ? {
                 ...currentElement,
                 width: 200,
@@ -731,7 +711,7 @@ export default function App() {
               }
             : currentElement;
 
-        setElements((prev) => [...prev, elementToAdd]);
+        setElements(prev => [...prev, elementToAdd]);
         saveHistory();
       }
 
@@ -741,23 +721,20 @@ export default function App() {
     }
   }, [isDrawing, isPanning, isMoving, isRotating, currentElement, saveHistory]);
 
-  const handleMoveStart = useCallback(
-    (e: React.MouseEvent, elementId: string) => {
-      e.stopPropagation();
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+  const handleMoveStart = useCallback((e: React.MouseEvent, elementId: string) => {
+    e.stopPropagation();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-      const rect = canvas.getBoundingClientRect();
-      const point = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      };
+    const rect = canvas.getBoundingClientRect();
+    const point = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
 
-      setIsMoving(true);
-      setMoveStart(point);
-    },
-    [],
-  );
+    setIsMoving(true);
+    setMoveStart(point);
+  }, []);
 
   const handleMove = useCallback(
     (e: React.MouseEvent) => {
@@ -775,8 +752,8 @@ export default function App() {
       const dx = ((currentPoint.x - moveStart.x) * 100) / zoom;
       const dy = ((currentPoint.y - moveStart.y) * 100) / zoom;
 
-      setElements((prev) =>
-        prev.map((el) => {
+      setElements(prev =>
+        prev.map(el => {
           if (selectedIds.includes(el.id)) {
             return {
               ...el,
@@ -789,12 +766,12 @@ export default function App() {
             } as DriplElement;
           }
           return el;
-        }),
+        })
       );
 
       setMoveStart(currentPoint);
     },
-    [isMoving, moveStart, selectedIds, zoom],
+    [isMoving, moveStart, selectedIds, zoom]
   );
 
   const handleMoveEnd = useCallback(() => {
@@ -808,7 +785,7 @@ export default function App() {
   const handleRotateStart = useCallback(
     (e: React.MouseEvent, elementId: string) => {
       e.stopPropagation();
-      const element = elements.find((el) => el.id === elementId);
+      const element = elements.find(el => el.id === elementId);
       if (!element) return;
 
       const bounds = getElementBounds(element);
@@ -827,14 +804,14 @@ export default function App() {
       setIsRotating(true);
       setRotateStart({ angle, elementId });
     },
-    [elements, zoom, pan],
+    [elements, zoom, pan]
   );
 
   const handleRotate = useCallback(
     (e: React.MouseEvent) => {
       if (!isRotating || !rotateStart) return;
 
-      const element = elements.find((el) => el.id === rotateStart.elementId);
+      const element = elements.find(el => el.id === rotateStart.elementId);
       if (!element) return;
 
       const bounds = getElementBounds(element);
@@ -851,8 +828,8 @@ export default function App() {
       const currentAngle = Math.atan2(mouseY - centerY, mouseX - centerX);
       const deltaAngle = currentAngle - rotateStart.angle;
 
-      setElements((prev) =>
-        prev.map((el) => {
+      setElements(prev =>
+        prev.map(el => {
           if (el.id === rotateStart.elementId) {
             return {
               ...el,
@@ -860,12 +837,12 @@ export default function App() {
             };
           }
           return el;
-        }),
+        })
       );
 
       setRotateStart({ angle: currentAngle, elementId: rotateStart.elementId });
     },
-    [isRotating, rotateStart, elements, zoom, pan],
+    [isRotating, rotateStart, elements, zoom, pan]
   );
 
   const handleRotateEnd = useCallback(() => {
@@ -878,29 +855,27 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "v" || e.key === "1") setActiveTool("select");
-      if (e.key === "h") setActiveTool("hand");
-      if (e.key === "r" || e.key === "2") setActiveTool("rectangle");
-      if (e.key === "d" || e.key === "3") setActiveTool("diamond");
-      if (e.key === "o" || e.key === "4") setActiveTool("ellipse");
-      if (e.key === "a" || e.key === "5") setActiveTool("arrow");
-      if (e.key === "l" || e.key === "6") setActiveTool("line");
-      if (e.key === "p" || e.key === "7") setActiveTool("draw");
-      if (e.key === "t" || e.key === "8") setActiveTool("text");
-      if (e.key === "e" || e.key === "0") setActiveTool("eraser");
+      if (e.key === 'v' || e.key === '1') setActiveTool('select');
+      if (e.key === 'h') setActiveTool('hand');
+      if (e.key === 'r' || e.key === '2') setActiveTool('rectangle');
+      if (e.key === 'd' || e.key === '3') setActiveTool('diamond');
+      if (e.key === 'o' || e.key === '4') setActiveTool('ellipse');
+      if (e.key === 'a' || e.key === '5') setActiveTool('arrow');
+      if (e.key === 'l' || e.key === '6') setActiveTool('line');
+      if (e.key === 'p' || e.key === '7') setActiveTool('draw');
+      if (e.key === 't' || e.key === '8') setActiveTool('text');
+      if (e.key === 'e' || e.key === '0') setActiveTool('eraser');
 
-      if (e.key === "Delete" || e.key === "Backspace") {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedIds.length > 0) {
-          setElements((prev) =>
-            prev.filter((el) => !selectedIds.includes(el.id)),
-          );
+          setElements(prev => prev.filter(el => !selectedIds.includes(el.id)));
           setSelectedIds([]);
           saveHistory();
         }
       }
 
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === "z" && !e.shiftKey) {
+        if (e.key === 'z' && !e.shiftKey) {
           e.preventDefault();
           const state = historyRef.current.undo();
           if (state) {
@@ -908,7 +883,7 @@ export default function App() {
             setSelectedIds(state.selectedIds);
           }
         }
-        if ((e.key === "z" && e.shiftKey) || e.key === "y") {
+        if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
           e.preventDefault();
           const state = historyRef.current.redo();
           if (state) {
@@ -917,54 +892,52 @@ export default function App() {
           }
         }
 
-        if (e.key === "a") {
+        if (e.key === 'a') {
           e.preventDefault();
-          setSelectedIds(elements.map((el) => el.id));
+          setSelectedIds(elements.map(el => el.id));
         }
 
-        if (e.key === "c" && selectedIds.length > 0) {
+        if (e.key === 'c' && selectedIds.length > 0) {
           e.preventDefault();
-          const selectedElements = elements.filter((el) =>
-            selectedIds.includes(el.id),
-          );
-          localStorage.setItem("clipboard", JSON.stringify(selectedElements));
+          const selectedElements = elements.filter(el => selectedIds.includes(el.id));
+          localStorage.setItem('clipboard', JSON.stringify(selectedElements));
         }
 
-        if (e.key === "v") {
+        if (e.key === 'v') {
           e.preventDefault();
-          const clipboard = localStorage.getItem("clipboard");
+          const clipboard = localStorage.getItem('clipboard');
           if (clipboard) {
             const copiedElements = JSON.parse(clipboard) as DriplElement[];
-            const newElements = copiedElements.map((el) => ({
+            const newElements = copiedElements.map(el => ({
               ...el,
               id: generateId(),
               x: el.x + 20,
               y: el.y + 20,
             }));
-            setElements((prev) => [...prev, ...newElements]);
-            setSelectedIds(newElements.map((el) => el.id));
+            setElements(prev => [...prev, ...newElements]);
+            setSelectedIds(newElements.map(el => el.id));
             saveHistory();
           }
         }
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedIds, elements, saveHistory]);
 
   useEffect(() => {
     if (selectedElement) {
-      setStrokeColor(selectedElement.strokeColor ?? "");
-      setBackgroundColor(selectedElement.backgroundColor ?? "");
+      setStrokeColor(selectedElement.strokeColor ?? '');
+      setBackgroundColor(selectedElement.backgroundColor ?? '');
       setStrokeWidth(selectedElement.strokeWidth ?? 1);
-      setStrokeStyle(selectedElement.strokeStyle ?? "solid");
+      setStrokeStyle(selectedElement.strokeStyle ?? 'solid');
       setSloppiness(selectedElement.roughness ?? 1);
       const roundnessValue =
-        typeof selectedElement.roundness === "object" && selectedElement.roundness !== null
+        typeof selectedElement.roundness === 'object' && selectedElement.roundness !== null
           ? selectedElement.roundness.type
           : selectedElement.roundness || 0;
-      setEdges(roundnessValue > 0 ? "round" : "sharp");
+      setEdges(roundnessValue > 0 ? 'round' : 'sharp');
       setOpacity(selectedElement.opacity ?? 100);
     }
   }, [selectedElement]);
@@ -972,17 +945,15 @@ export default function App() {
   const updateSelectedElement = useCallback(
     (updates: Partial<DriplElement>) => {
       if (selectedIds.length > 0) {
-        setElements((prev) =>
-          prev.map((el) =>
-            selectedIds.includes(el.id)
-              ? ({ ...el, ...updates } as DriplElement)
-              : el,
-          ),
+        setElements(prev =>
+          prev.map(el =>
+            selectedIds.includes(el.id) ? ({ ...el, ...updates } as DriplElement) : el
+          )
         );
         saveHistory();
       }
     },
-    [selectedIds, saveHistory],
+    [selectedIds, saveHistory]
   );
 
   const handleStrokeColorChange = (color: string) => {
@@ -1000,7 +971,7 @@ export default function App() {
     updateSelectedElement({ strokeWidth: width });
   };
 
-  const handleStrokeStyleChange = (style: "solid" | "dashed" | "dotted") => {
+  const handleStrokeStyleChange = (style: 'solid' | 'dashed' | 'dotted') => {
     setStrokeStyle(style);
     updateSelectedElement({ strokeStyle: style });
   };
@@ -1010,9 +981,9 @@ export default function App() {
     updateSelectedElement({ roughness: value });
   };
 
-  const handleEdgesChange = (value: "sharp" | "round") => {
+  const handleEdgesChange = (value: 'sharp' | 'round') => {
     setEdges(value);
-    updateSelectedElement({ roundness: value === "round" ? 1 : 0 });
+    updateSelectedElement({ roundness: value === 'round' ? 1 : 0 });
   };
 
   const handleOpacityChange = (value: number) => {
@@ -1039,17 +1010,13 @@ export default function App() {
         setElements(importedElements);
         saveHistory();
       } catch (error) {
-        console.error("Failed to import file:", error);
+        console.error('Failed to import file:', error);
       }
     }
   };
 
   const handleResetCanvas = () => {
-    if (
-      confirm(
-        "Are you sure you want to reset the canvas? This will delete all elements.",
-      )
-    ) {
+    if (confirm('Are you sure you want to reset the canvas? This will delete all elements.')) {
       setElements([]);
       setSelectedIds([]);
       historyRef.current.clear();
@@ -1064,7 +1031,7 @@ export default function App() {
   // Layer operations
   const handleBringForward = () => {
     if (selectedIds.length !== 1) return;
-    const index = elements.findIndex((el) => el.id === selectedIds[0]);
+    const index = elements.findIndex(el => el.id === selectedIds[0]);
     if (index < elements.length - 1) {
       const newElements = [...elements];
       const current = newElements[index];
@@ -1080,7 +1047,7 @@ export default function App() {
 
   const handleSendBackward = () => {
     if (selectedIds.length !== 1) return;
-    const index = elements.findIndex((el) => el.id === selectedIds[0]);
+    const index = elements.findIndex(el => el.id === selectedIds[0]);
     if (index > 0) {
       const newElements = [...elements];
       const current = newElements[index];
@@ -1096,7 +1063,7 @@ export default function App() {
 
   const handleDelete = () => {
     if (selectedIds.length > 0) {
-      setElements((prev) => prev.filter((el) => !selectedIds.includes(el.id)));
+      setElements(prev => prev.filter(el => !selectedIds.includes(el.id)));
       setSelectedIds([]);
       saveHistory();
     }
@@ -1104,19 +1071,15 @@ export default function App() {
 
   const handleCopy = () => {
     if (selectedIds.length > 0) {
-      const selectedElements = elements.filter((el) =>
-        selectedIds.includes(el.id),
-      );
-      localStorage.setItem("clipboard", JSON.stringify(selectedElements));
+      const selectedElements = elements.filter(el => selectedIds.includes(el.id));
+      localStorage.setItem('clipboard', JSON.stringify(selectedElements));
     }
   };
 
   return (
     <div
       className={`w-screen h-dvh overflow-hidden relative font-sans selection:bg-purple-500/30 ${
-        theme === "dark"
-          ? "bg-[#121112] text-white"
-          : "bg-[#f7f5f6] text-gray-900"
+        theme === 'dark' ? 'bg-[#121112] text-white' : 'bg-[#f7f5f6] text-gray-900'
       }`}
     >
       <input
@@ -1135,12 +1098,12 @@ export default function App() {
           }}
           className={`p-2 rounded-lg border border-gray-700 shadow-sm transition-colors ${
             isMenuOpen
-              ? theme === "dark"
-                ? "bg-[#403c66] text-[#a8a5ff]"
-                : "bg-[#e0e7ff] text-[#4f46e5]"
-              : theme === "dark"
-                ? "bg-[#232329] hover:bg-[#31303b] text-gray-300"
-                : "bg-white hover:bg-gray-100 text-gray-800"
+              ? theme === 'dark'
+                ? 'bg-[#403c66] text-[#a8a5ff]'
+                : 'bg-[#e0e7ff] text-[#4f46e5]'
+              : theme === 'dark'
+                ? 'bg-[#232329] hover:bg-[#31303b] text-gray-300'
+                : 'bg-white hover:bg-gray-100 text-gray-800'
           }`}
         >
           <Menu size={20} />
@@ -1153,12 +1116,12 @@ export default function App() {
           }}
           className={`p-2 rounded-lg border shadow-sm transition-colors ${
             isLibraryOpen
-              ? theme === "dark"
-                ? "bg-[#403c66] text-[#a8a5ff] border-gray-700"
-                : "bg-[#e0e7ff] text-[#4f46e5] border-gray-200"
-              : theme === "dark"
-                ? "bg-[#232329] hover:bg-[#31303b] text-gray-300 border-gray-700"
-                : "bg-white hover:bg-gray-100 text-gray-800 border-gray-200"
+              ? theme === 'dark'
+                ? 'bg-[#403c66] text-[#a8a5ff] border-gray-700'
+                : 'bg-[#e0e7ff] text-[#4f46e5] border-gray-200'
+              : theme === 'dark'
+                ? 'bg-[#232329] hover:bg-[#31303b] text-gray-300 border-gray-700'
+                : 'bg-white hover:bg-gray-100 text-gray-800 border-gray-200'
           }`}
         >
           <Library size={20} />
@@ -1168,9 +1131,9 @@ export default function App() {
       <div className="absolute top-4 right-4 z-50 flex gap-2">
         <button
           className={`px-3 py-1.5 text-xs font-medium hover:bg-opacity-80 rounded-lg border flex items-center gap-1.5 ${
-            theme === "dark"
-              ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-300"
-              : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
+            theme === 'dark'
+              ? 'bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-300'
+              : 'bg-white hover:bg-gray-100 border-gray-200 text-gray-800'
           }`}
         >
           <Globe size={14} />
@@ -1182,9 +1145,9 @@ export default function App() {
         </button>
         <button
           className={`p-2 hover:bg-opacity-80 rounded-lg border text-gray-400 ${
-            theme === "dark"
-              ? "bg-[#232329] hover:bg-[#31303b] border-gray-700"
-              : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
+            theme === 'dark'
+              ? 'bg-[#232329] hover:bg-[#31303b] border-gray-700'
+              : 'bg-white hover:bg-gray-100 border-gray-200 text-gray-800'
           }`}
         >
           <MoreHorizontal size={18} />
@@ -1193,27 +1156,25 @@ export default function App() {
 
       <div
         className={`absolute top-4 left-1/2 -translate-x-1/2 p-1.5 rounded-xl border shadow-2xl flex items-center gap-0.5 z-50 ${
-          theme === "dark"
-            ? "bg-[#232329] border-gray-700"
-            : "bg-white border-gray-200"
+          theme === 'dark' ? 'bg-[#232329] border-gray-700' : 'bg-white border-gray-200'
         }`}
       >
         <IconButton icon={<Lock size={17} />} />
         <div className="w-px h-6 bg-gray-700 mx-1.5" />
         <IconButton
           icon={<Hand size={19} />}
-          isActive={activeTool === "hand"}
-          onClick={() => setActiveTool("hand")}
+          isActive={activeTool === 'hand'}
+          onClick={() => setActiveTool('hand')}
         />
         <IconButton
           icon={<MousePointer2 size={19} />}
-          isActive={activeTool === "select"}
-          onClick={() => setActiveTool("select")}
+          isActive={activeTool === 'select'}
+          onClick={() => setActiveTool('select')}
         />
         <IconButton
           icon={<Square size={19} />}
-          isActive={activeTool === "rectangle"}
-          onClick={() => setActiveTool("rectangle")}
+          isActive={activeTool === 'rectangle'}
+          onClick={() => setActiveTool('rectangle')}
         />
         <IconButton
           icon={
@@ -1221,53 +1182,53 @@ export default function App() {
               <Square size={19} />
             </div>
           }
-          isActive={activeTool === "diamond"}
-          onClick={() => setActiveTool("diamond")}
+          isActive={activeTool === 'diamond'}
+          onClick={() => setActiveTool('diamond')}
         />
         <IconButton
           icon={<Circle size={19} />}
-          isActive={activeTool === "ellipse"}
-          onClick={() => setActiveTool("ellipse")}
+          isActive={activeTool === 'ellipse'}
+          onClick={() => setActiveTool('ellipse')}
         />
         <IconButton
           icon={<ArrowRight size={19} />}
-          isActive={activeTool === "arrow"}
-          onClick={() => setActiveTool("arrow")}
+          isActive={activeTool === 'arrow'}
+          onClick={() => setActiveTool('arrow')}
         />
         <IconButton
           icon={<Minus size={19} />}
-          isActive={activeTool === "line"}
-          onClick={() => setActiveTool("line")}
+          isActive={activeTool === 'line'}
+          onClick={() => setActiveTool('line')}
         />
         <IconButton
           icon={<Edit3 size={19} />}
-          isActive={activeTool === "draw"}
-          onClick={() => setActiveTool("draw")}
+          isActive={activeTool === 'draw'}
+          onClick={() => setActiveTool('draw')}
         />
         <IconButton
           icon={<Type size={19} />}
-          isActive={activeTool === "text"}
+          isActive={activeTool === 'text'}
           onClick={() => {
-            console.log("Text tool button clicked");
-            setActiveTool("text");
+            console.log('Text tool button clicked');
+            setActiveTool('text');
           }}
         />
         <IconButton
           icon={<ImageIcon size={19} />}
-          isActive={activeTool === "image"}
-          onClick={() => setActiveTool("image")}
+          isActive={activeTool === 'image'}
+          onClick={() => setActiveTool('image')}
         />
         <IconButton
           icon={<Eraser size={19} />}
-          isActive={activeTool === "eraser"}
-          onClick={() => setActiveTool("eraser")}
+          isActive={activeTool === 'eraser'}
+          onClick={() => setActiveTool('eraser')}
         />
       </div>
 
       {isMenuOpen && (
         <div
           className={`absolute top-20 left-4 w-70 rounded-xl border border-gray-700 shadow-2xl p-3 z-50 flex flex-col max-h-[calc(100vh-100px)] ${
-            theme === "dark" ? "bg-[#232329]" : "bg-white"
+            theme === 'dark' ? 'bg-[#232329]' : 'bg-white'
           }`}
         >
           <div className="flex-1 overflow-y-auto pr-1 space-y-0.5 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
@@ -1277,32 +1238,21 @@ export default function App() {
               shortcut="Ctrl+O"
               onClick={() => fileInputRef.current?.click()}
             />
-            <MenuItem
-              icon={<Save size={18} />}
-              label="Save to..."
-              onClick={handleExportJSON}
-            />
+            <MenuItem icon={<Save size={18} />} label="Save to..." onClick={handleExportJSON} />
             <MenuItem
               icon={<Download size={18} />}
               label="Export image..."
               shortcut="Ctrl+Shift+E"
               onClick={handleExportImage}
             />
-            <MenuItem
-              icon={<Users size={18} />}
-              label="Live collaboration..."
-            />
+            <MenuItem icon={<Users size={18} />} label="Live collaboration..." />
             <MenuItem
               icon={<Search size={18} />}
               label="Command palette"
               shortcut="Ctrl+/"
               highlight
             />
-            <MenuItem
-              icon={<Search size={18} />}
-              label="Find on canvas"
-              shortcut="Ctrl+F"
-            />
+            <MenuItem icon={<Search size={18} />} label="Find on canvas" shortcut="Ctrl+F" />
             <MenuItem
               icon={<HelpCircle size={18} />}
               label="Help"
@@ -1328,51 +1278,51 @@ export default function App() {
           </div>
 
           <div
-            className={`pt-3 border-t mt-3 space-y-3 ${effectiveTheme === "dark" ? "border-gray-700/50" : "border-gray-200"}`}
+            className={`pt-3 border-t mt-3 space-y-3 ${effectiveTheme === 'dark' ? 'border-gray-700/50' : 'border-gray-200'}`}
           >
             <div className="px-2">
               <div
-                className={`text-xs mb-2 font-medium ${effectiveTheme === "dark" ? "text-gray-400" : "text-gray-500"}`}
+                className={`text-xs mb-2 font-medium ${effectiveTheme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}
               >
                 Theme
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setTheme("light")}
+                  onClick={() => setTheme('light')}
                   className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
-                    theme === "light"
-                      ? effectiveTheme === "dark"
-                        ? "bg-[#403c66] text-[#a8a5ff]"
-                        : "bg-[#e0e7ff] text-[#4f46e5]"
-                      : effectiveTheme === "dark"
-                        ? "bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]"
-                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    theme === 'light'
+                      ? effectiveTheme === 'dark'
+                        ? 'bg-[#403c66] text-[#a8a5ff]'
+                        : 'bg-[#e0e7ff] text-[#4f46e5]'
+                      : effectiveTheme === 'dark'
+                        ? 'bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                   }`}
                 >
                   <Sun size={14} />
                 </button>
                 <button
-                  onClick={() => setTheme("dark")}
+                  onClick={() => setTheme('dark')}
                   className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
-                    theme === "dark"
-                      ? "bg-[#403c66] text-[#a8a5ff]"
-                      : effectiveTheme === "dark"
-                        ? "bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]"
-                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    theme === 'dark'
+                      ? 'bg-[#403c66] text-[#a8a5ff]'
+                      : effectiveTheme === 'dark'
+                        ? 'bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                   }`}
                 >
                   <Moon size={14} />
                 </button>
                 <button
-                  onClick={() => setTheme("system")}
+                  onClick={() => setTheme('system')}
                   className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
-                    theme === "system"
-                      ? effectiveTheme === "dark"
-                        ? "bg-[#403c66] text-[#a8a5ff]"
-                        : "bg-[#e0e7ff] text-[#4f46e5]"
-                      : effectiveTheme === "dark"
-                        ? "bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]"
-                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    theme === 'system'
+                      ? effectiveTheme === 'dark'
+                        ? 'bg-[#403c66] text-[#a8a5ff]'
+                        : 'bg-[#e0e7ff] text-[#4f46e5]'
+                      : effectiveTheme === 'dark'
+                        ? 'bg-[#1a1a20] text-gray-400 hover:bg-[#31303b]'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                   }`}
                 >
                   <Monitor size={14} />
@@ -1383,9 +1333,9 @@ export default function App() {
             <div className="px-2">
               <button
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                  effectiveTheme === "dark"
-                    ? "bg-[#1a1a20] hover:bg-[#31303b] text-gray-300"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  effectiveTheme === 'dark'
+                    ? 'bg-[#1a1a20] hover:bg-[#31303b] text-gray-300'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                 }`}
               >
                 <span className="text-xs">English</span>
@@ -1394,11 +1344,9 @@ export default function App() {
             </div>
 
             <div className="px-2">
-              <div className="text-xs text-gray-400 mb-2 font-medium">
-                Canvas background
-              </div>
+              <div className="text-xs text-gray-400 mb-2 font-medium">Canvas background</div>
               <div className="flex gap-2 flex-wrap">
-                {canvasBgColors.map((c) => (
+                {canvasBgColors.map(c => (
                   <ColorSwatch
                     key={c}
                     color={c}
@@ -1425,7 +1373,7 @@ export default function App() {
             <div className="p-3 bg-[#1a1a20] rounded-lg border border-gray-700/50">
               <div className="text-sm text-gray-300 mb-2">Arrows</div>
               <div className="grid grid-cols-3 gap-2">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
+                {[1, 2, 3, 4, 5, 6].map(i => (
                   <div
                     key={i}
                     className="aspect-square bg-[#232329] rounded border border-gray-700/50 flex items-center justify-center hover:border-[#a8a5ff] transition-colors cursor-pointer"
@@ -1439,7 +1387,7 @@ export default function App() {
             <div className="p-3 bg-[#1a1a20] rounded-lg border border-gray-700/50">
               <div className="text-sm text-gray-300 mb-2">Shapes</div>
               <div className="grid grid-cols-3 gap-2">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
+                {[1, 2, 3, 4, 5, 6].map(i => (
                   <div
                     key={i}
                     className="aspect-square bg-[#232329] rounded border border-gray-700/50 flex items-center justify-center hover:border-[#a8a5ff] transition-colors cursor-pointer"
@@ -1456,12 +1404,12 @@ export default function App() {
       {!isMenuOpen && !isLibraryOpen && selectedIds.length > 0 && (
         <div
           className={`absolute top-20 left-4 w-60 rounded-xl border border-gray-700 shadow-2xl p-4 z-40 max-h-[calc(100vh-100px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent ${
-            theme === "dark" ? "bg-[#232329]" : "bg-white"
+            theme === 'dark' ? 'bg-[#232329]' : 'bg-white'
           }`}
         >
           <SectionLabel>Stroke</SectionLabel>
           <div className="flex flex-wrap mb-2 gap-1">
-            {strokeColors.map((c) => (
+            {strokeColors.map(c => (
               <ColorSwatch
                 key={c}
                 color={c}
@@ -1473,7 +1421,7 @@ export default function App() {
 
           <SectionLabel>Background</SectionLabel>
           <div className="flex flex-wrap mb-2 gap-1">
-            {bgColors.map((c) => (
+            {bgColors.map(c => (
               <ColorSwatch
                 key={c}
                 color={c}
@@ -1487,19 +1435,19 @@ export default function App() {
           <div className="flex bg-[#1a1a20] p-1 rounded-lg mb-2 border border-gray-700/50">
             <button
               onClick={() => handleStrokeWidthChange(1)}
-              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeWidth === 1 ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeWidth === 1 ? 'bg-[#403c66] text-[#a8a5ff]' : 'hover:bg-[#31303b] text-gray-400'}`}
             >
               <div className="h-0.5 w-5 bg-current rounded-full"></div>
             </button>
             <button
               onClick={() => handleStrokeWidthChange(2)}
-              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeWidth === 2 ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeWidth === 2 ? 'bg-[#403c66] text-[#a8a5ff]' : 'hover:bg-[#31303b] text-gray-400'}`}
             >
               <div className="h-1 w-5 bg-current rounded-full"></div>
             </button>
             <button
               onClick={() => handleStrokeWidthChange(3)}
-              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeWidth === 3 ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeWidth === 3 ? 'bg-[#403c66] text-[#a8a5ff]' : 'hover:bg-[#31303b] text-gray-400'}`}
             >
               <div className="h-1.5 w-5 bg-current rounded-full"></div>
             </button>
@@ -1508,20 +1456,20 @@ export default function App() {
           <SectionLabel>Stroke style</SectionLabel>
           <div className="flex bg-[#1a1a20] p-1 rounded-lg mb-2 border border-gray-700/50">
             <button
-              onClick={() => handleStrokeStyleChange("solid")}
-              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeStyle === "solid" ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+              onClick={() => handleStrokeStyleChange('solid')}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeStyle === 'solid' ? 'bg-[#403c66] text-[#a8a5ff]' : 'hover:bg-[#31303b] text-gray-400'}`}
             >
               <div className="h-0.5 w-5 bg-current"></div>
             </button>
             <button
-              onClick={() => handleStrokeStyleChange("dashed")}
-              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeStyle === "dashed" ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+              onClick={() => handleStrokeStyleChange('dashed')}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeStyle === 'dashed' ? 'bg-[#403c66] text-[#a8a5ff]' : 'hover:bg-[#31303b] text-gray-400'}`}
             >
               <div className="h-0.5 w-5 bg-current border-b-2 border-dashed"></div>
             </button>
             <button
-              onClick={() => handleStrokeStyleChange("dotted")}
-              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeStyle === "dotted" ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+              onClick={() => handleStrokeStyleChange('dotted')}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${strokeStyle === 'dotted' ? 'bg-[#403c66] text-[#a8a5ff]' : 'hover:bg-[#31303b] text-gray-400'}`}
             >
               <div className="h-0.5 w-5 bg-current border-b-2 border-dotted"></div>
             </button>
@@ -1531,13 +1479,13 @@ export default function App() {
           <div className="flex bg-[#1a1a20] p-1 rounded-lg mb-2 gap-1 border border-gray-700/50">
             <button
               onClick={() => handleSloppinessChange(0)}
-              className={`flex-1 h-8 rounded flex items-center justify-center transition-colors ${sloppiness === 0 ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+              className={`flex-1 h-8 rounded flex items-center justify-center transition-colors ${sloppiness === 0 ? 'bg-[#403c66] text-[#a8a5ff]' : 'hover:bg-[#31303b] text-gray-400'}`}
             >
               <Minus size={16} />
             </button>
             <button
               onClick={() => handleSloppinessChange(1)}
-              className={`flex-1 h-8 rounded flex items-center justify-center transition-colors ${sloppiness === 1 ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+              className={`flex-1 h-8 rounded flex items-center justify-center transition-colors ${sloppiness === 1 ? 'bg-[#403c66] text-[#a8a5ff]' : 'hover:bg-[#31303b] text-gray-400'}`}
             >
               <svg
                 width="16"
@@ -1552,7 +1500,7 @@ export default function App() {
             </button>
             <button
               onClick={() => handleSloppinessChange(2)}
-              className={`flex-1 h-8 rounded flex items-center justify-center transition-colors ${sloppiness === 2 ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+              className={`flex-1 h-8 rounded flex items-center justify-center transition-colors ${sloppiness === 2 ? 'bg-[#403c66] text-[#a8a5ff]' : 'hover:bg-[#31303b] text-gray-400'}`}
             >
               <svg
                 width="16"
@@ -1570,14 +1518,14 @@ export default function App() {
           <SectionLabel>Edges</SectionLabel>
           <div className="flex bg-[#1a1a20] p-1 rounded-lg mb-2 border border-gray-700/50">
             <button
-              onClick={() => handleEdgesChange("sharp")}
-              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${edges === "sharp" ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+              onClick={() => handleEdgesChange('sharp')}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${edges === 'sharp' ? 'bg-[#403c66] text-[#a8a5ff]' : 'hover:bg-[#31303b] text-gray-400'}`}
             >
               <Square size={15} />
             </button>
             <button
-              onClick={() => handleEdgesChange("round")}
-              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${edges === "round" ? "bg-[#403c66] text-[#a8a5ff]" : "hover:bg-[#31303b] text-gray-400"}`}
+              onClick={() => handleEdgesChange('round')}
+              className={`flex-1 h-8 flex items-center justify-center rounded transition-colors ${edges === 'round' ? 'bg-[#403c66] text-[#a8a5ff]' : 'hover:bg-[#31303b] text-gray-400'}`}
             >
               <div className="w-3.5 h-3.5 border-2 border-current rounded-md"></div>
             </button>
@@ -1590,12 +1538,10 @@ export default function App() {
               min="0"
               max="100"
               value={opacity}
-              onChange={(e) => handleOpacityChange(parseInt(e.target.value))}
+              onChange={e => handleOpacityChange(parseInt(e.target.value))}
               className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#a8a5ff]"
             />
-            <span className="text-xs text-gray-400 w-8 text-right font-mono">
-              {opacity}
-            </span>
+            <span className="text-xs text-gray-400 w-8 text-right font-mono">{opacity}</span>
           </div>
 
           <SectionLabel>Layers</SectionLabel>
@@ -1663,8 +1609,8 @@ export default function App() {
 
         {selectedIds.length > 0 &&
           elements
-            .filter((el) => selectedIds.includes(el.id))
-            .map((selectedShape) => {
+            .filter(el => selectedIds.includes(el.id))
+            .map(selectedShape => {
               let displayElement = selectedShape;
 
               if (isMoving && selectedIds.includes(selectedShape.id)) {
@@ -1677,11 +1623,7 @@ export default function App() {
                     y: p.y + moveOffset.y,
                   })),
                 } as DriplElement;
-              } else if (
-                isRotating &&
-                rotateStart &&
-                rotateStart.elementId === selectedShape.id
-              ) {
+              } else if (isRotating && rotateStart && rotateStart.elementId === selectedShape.id) {
                 displayElement = {
                   ...selectedShape,
                   rotation: (selectedShape.rotation || 0) + rotateOffset,
@@ -1707,67 +1649,63 @@ export default function App() {
                     transform: displayElement.rotation
                       ? `rotate(${displayElement.rotation}rad)`
                       : undefined,
-                    transformOrigin: "center center",
+                    transformOrigin: 'center center',
                   }}
-                  onMouseDown={(e) => handleMoveStart(e, selectedShape.id)}
+                  onMouseDown={e => handleMoveStart(e, selectedShape.id)}
                 >
                   <div className="absolute -inset-2 border-2 border-[#a8a5ff] rounded-lg pointer-events-none">
                     {[
                       {
-                        pos: "top-0 left-0",
-                        handle: "top-left",
-                        cursor: "nwse-resize",
+                        pos: 'top-0 left-0',
+                        handle: 'top-left',
+                        cursor: 'nwse-resize',
                       },
                       {
-                        pos: "top-0 left-1/2",
-                        handle: "top",
-                        cursor: "ns-resize",
+                        pos: 'top-0 left-1/2',
+                        handle: 'top',
+                        cursor: 'ns-resize',
                       },
                       {
-                        pos: "top-0 right-0",
-                        handle: "top-right",
-                        cursor: "nesw-resize",
+                        pos: 'top-0 right-0',
+                        handle: 'top-right',
+                        cursor: 'nesw-resize',
                       },
                       {
-                        pos: "top-1/2 right-0",
-                        handle: "right",
-                        cursor: "ew-resize",
+                        pos: 'top-1/2 right-0',
+                        handle: 'right',
+                        cursor: 'ew-resize',
                       },
                       {
-                        pos: "bottom-0 right-0",
-                        handle: "bottom-right",
-                        cursor: "nwse-resize",
+                        pos: 'bottom-0 right-0',
+                        handle: 'bottom-right',
+                        cursor: 'nwse-resize',
                       },
                       {
-                        pos: "bottom-0 left-1/2",
-                        handle: "bottom",
-                        cursor: "ns-resize",
+                        pos: 'bottom-0 left-1/2',
+                        handle: 'bottom',
+                        cursor: 'ns-resize',
                       },
                       {
-                        pos: "bottom-0 left-0",
-                        handle: "bottom-left",
-                        cursor: "nesw-resize",
+                        pos: 'bottom-0 left-0',
+                        handle: 'bottom-left',
+                        cursor: 'nesw-resize',
                       },
                       {
-                        pos: "top-1/2 left-0",
-                        handle: "left",
-                        cursor: "ew-resize",
+                        pos: 'top-1/2 left-0',
+                        handle: 'left',
+                        cursor: 'ew-resize',
                       },
                     ].map((item, i) => (
                       <div
                         key={i}
                         className={`absolute w-2 h-2 bg-white border border-[#a8a5ff] -translate-x-1/2 -translate-y-1/2 pointer-events-auto ${item.pos}`}
                         style={{ cursor: item.cursor }}
-                        onMouseDown={(e) =>
-                          handleResizeStart(e, item.handle, selectedShape.id)
-                        }
+                        onMouseDown={e => handleResizeStart(e, item.handle, selectedShape.id)}
                       />
                     ))}
                     <div
                       className="absolute top-6 left-1/2 -translate-x-1/2 w-2 h-2 bg-white border border-[#a8a5ff] rounded-full cursor-grab pointer-events-auto"
-                      onMouseDown={(e) =>
-                        handleRotateStart(e, selectedShape.id)
-                      }
+                      onMouseDown={e => handleRotateStart(e, selectedShape.id)}
                     />
                     <div className="absolute -top-5.5 left-1/2 -translate-x-1/2 w-px h-4 bg-[#a8a5ff]" />
                   </div>
@@ -1779,9 +1717,7 @@ export default function App() {
       <div className="absolute bottom-4 left-4 flex gap-2 z-50">
         <div
           className={`flex items-center rounded-lg border p-1 ${
-            theme === "dark"
-              ? "bg-[#232329] border-gray-700"
-              : "bg-white border-gray-200"
+            theme === 'dark' ? 'bg-[#232329] border-gray-700' : 'bg-white border-gray-200'
           }`}
         >
           <button
@@ -1811,12 +1747,11 @@ export default function App() {
               setSelectedIds(state.selectedIds);
             }
           }}
-           
           disabled={!historyRef.current.canUndo()}
           className={`p-2 hover:bg-opacity-80 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-            theme === "dark"
-              ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-400"
-              : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
+            theme === 'dark'
+              ? 'bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-400'
+              : 'bg-white hover:bg-gray-100 border-gray-200 text-gray-800'
           }`}
         >
           <Undo size={16} />
@@ -1829,12 +1764,11 @@ export default function App() {
               setSelectedIds(state.selectedIds);
             }
           }}
-           
           disabled={!historyRef.current.canRedo()}
           className={`p-2 hover:bg-opacity-80 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-            theme === "dark"
-              ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-400"
-              : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
+            theme === 'dark'
+              ? 'bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-400'
+              : 'bg-white hover:bg-gray-100 border-gray-200 text-gray-800'
           }`}
         >
           <Redo size={16} />
@@ -1845,9 +1779,9 @@ export default function App() {
         <button
           onClick={() => setIsHelpOpen(true)}
           className={`p-2 hover:bg-opacity-80 rounded-full border shadow-sm transition-colors ${
-            theme === "dark"
-              ? "bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-400"
-              : "bg-white hover:bg-gray-100 border-gray-200 text-gray-800"
+            theme === 'dark'
+              ? 'bg-[#232329] hover:bg-[#31303b] border-gray-700 text-gray-400'
+              : 'bg-white hover:bg-gray-100 border-gray-200 text-gray-800'
           }`}
         >
           <HelpCircle size={20} />

@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import React from "react";
-import StaticCanvas from "./StaticCanvas";
-import InteractiveCanvas from "./InteractiveCanvas";
-import type { DriplElement, Point } from "@dripl/common";
-import { Viewport } from "@/utils/canvas-coordinates";
-import type { CollaboratorCursor } from "@/renderer/interactiveScene";
+import React from 'react';
+import StaticCanvas from './StaticCanvas';
+import InteractiveCanvas from './InteractiveCanvas';
+import type { DriplElement, Point } from '@dripl/common';
+import { Viewport } from '@/utils/canvas-coordinates';
+import type { CollaboratorCursor } from '@/renderer/interactiveScene';
 
 interface DualCanvasProps {
   containerRef: React.RefObject<HTMLDivElement>;
@@ -15,7 +15,7 @@ interface DualCanvasProps {
   draftElement: DriplElement | null;
   eraserPath: Point[];
   viewport: Viewport;
-  theme?: "light" | "dark";
+  theme?: 'light' | 'dark';
   onPointerDown?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerMove?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerUp?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
@@ -42,7 +42,7 @@ export function DualCanvas({
   draftElement,
   eraserPath,
   viewport,
-  theme = "dark",
+  theme = 'dark',
   onPointerDown,
   onPointerMove,
   onPointerUp,
@@ -60,9 +60,9 @@ export function DualCanvas({
   return (
     <div
       style={{
-        position: "absolute",
+        position: 'absolute',
         inset: 0,
-        pointerEvents: "none",
+        pointerEvents: 'none',
       }}
     >
       <StaticCanvas

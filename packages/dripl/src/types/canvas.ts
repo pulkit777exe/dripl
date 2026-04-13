@@ -1,4 +1,4 @@
-import type { Theme } from "../theme/colors";
+import type { Theme } from '../theme/colors';
 
 export type { Theme };
 
@@ -15,29 +15,29 @@ export interface Bounds {
 }
 
 export type ToolType =
-  | "select"
-  | "hand"
-  | "rectangle"
-  | "ellipse"
-  | "diamond"
-  | "arrow"
-  | "line"
-  | "freedraw"
-  | "text"
-  | "image"
-  | "eraser"
-  | "frame";
+  | 'select'
+  | 'hand'
+  | 'rectangle'
+  | 'ellipse'
+  | 'diamond'
+  | 'arrow'
+  | 'line'
+  | 'freedraw'
+  | 'text'
+  | 'image'
+  | 'eraser'
+  | 'frame';
 
-export type StrokeStyle = "solid" | "dashed" | "dotted";
+export type StrokeStyle = 'solid' | 'dashed' | 'dotted';
 
 export type FillStyle =
-  | "hachure"
-  | "solid"
-  | "zigzag"
-  | "cross-hatch"
-  | "dots"
-  | "dashed"
-  | "zigzag-line";
+  | 'hachure'
+  | 'solid'
+  | 'zigzag'
+  | 'cross-hatch'
+  | 'dots'
+  | 'dashed'
+  | 'zigzag-line';
 
 export interface RemoteUser {
   userId: string;
@@ -109,12 +109,12 @@ export const DEFAULT_VIEWPORT: ViewportState = {
 };
 
 export const DEFAULT_DRAWING_STYLE: DrawingStyle = {
-  strokeColor: "#1e1e1e", // Excalidraw default stroke color
-  backgroundColor: "transparent",
+  strokeColor: '#1e1e1e', // Excalidraw default stroke color
+  backgroundColor: 'transparent',
   strokeWidth: 2,
   roughness: 1,
-  strokeStyle: "solid",
-  fillStyle: "hachure",
+  strokeStyle: 'solid',
+  fillStyle: 'hachure',
 };
 
 export const DEFAULT_SELECTION: SelectionState = {
@@ -124,8 +124,8 @@ export const DEFAULT_SELECTION: SelectionState = {
 };
 
 export const DEFAULT_APP_STATE: CanvasAppState = {
-  theme: "light",
-  activeTool: "select",
+  theme: 'light',
+  activeTool: 'select',
   viewport: DEFAULT_VIEWPORT,
   style: DEFAULT_DRAWING_STYLE,
   selection: DEFAULT_SELECTION,
@@ -137,7 +137,7 @@ export const DEFAULT_APP_STATE: CanvasAppState = {
   },
   file: {
     fileId: null,
-    fileName: "Untitled",
+    fileName: 'Untitled',
     isSaving: false,
     lastSaved: null,
   },

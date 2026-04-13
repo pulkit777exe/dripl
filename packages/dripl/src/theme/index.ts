@@ -7,14 +7,9 @@ export {
   getContrastingTextColor,
   type ColorPalette,
   type Theme,
-} from "./colors";
+} from './colors';
 
-export {
-  ThemeProvider,
-  useTheme,
-  useThemeColors,
-  useThemeColor,
-} from "./ThemeContext";
+export { ThemeProvider, useTheme, useThemeColors, useThemeColor } from './ThemeContext';
 
 export {
   useCanvasColors,
@@ -22,4 +17,4 @@ export {
   getUniversalStrokeColor,
   getReadableTextColor,
   type CanvasColors,
-} from "./canvas-colors";
+} from './canvas-colors';

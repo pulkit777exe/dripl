@@ -10,14 +10,7 @@
  * 3. Use <TunnelInlet name="menu">content</TunnelInlet> to tunnel content
  */
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useMemo,
-  ReactNode,
-} from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 
 interface TunnelContextValue {
   tunnels: Map<string, ReactNode>;
@@ -34,7 +27,7 @@ export function TunnelProvider({ children }: { children: ReactNode }) {
   const [tunnels, setTunnels] = useState<Map<string, ReactNode>>(new Map());
 
   const setTunnel = useCallback((name: string, content: ReactNode) => {
-    setTunnels((prev) => {
+    setTunnels(prev => {
       const next = new Map(prev);
       next.set(name, content);
       return next;
@@ -42,7 +35,7 @@ export function TunnelProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearTunnel = useCallback((name: string) => {
-    setTunnels((prev) => {
+    setTunnels(prev => {
       const next = new Map(prev);
       next.delete(name);
       return next;
@@ -51,12 +44,10 @@ export function TunnelProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({ tunnels, setTunnel, clearTunnel }),
-    [tunnels, setTunnel, clearTunnel],
+    [tunnels, setTunnel, clearTunnel]
   );
 
-  return (
-    <TunnelContext.Provider value={value}>{children}</TunnelContext.Provider>
-  );
+  return <TunnelContext.Provider value={value}>{children}</TunnelContext.Provider>;
 }
 
 /**
@@ -65,7 +56,7 @@ export function TunnelProvider({ children }: { children: ReactNode }) {
 export function useTunnel() {
   const context = useContext(TunnelContext);
   if (!context) {
-    throw new Error("useTunnel must be used within a TunnelProvider");
+    throw new Error('useTunnel must be used within a TunnelProvider');
   }
   return context;
 }
@@ -73,13 +64,7 @@ export function useTunnel() {
 /**
  * Outlet - renders the tunneled content at this location
  */
-export function TunnelOutlet({
-  name,
-  fallback = null,
-}: {
-  name: string;
-  fallback?: ReactNode;
-}) {
+export function TunnelOutlet({ name, fallback = null }: { name: string; fallback?: ReactNode }) {
   const { tunnels } = useTunnel();
   return <>{tunnels.get(name) ?? fallback}</>;
 }
@@ -87,13 +72,7 @@ export function TunnelOutlet({
 /**
  * Inlet - sends content to the named outlet
  */
-export function TunnelInlet({
-  name,
-  children,
-}: {
-  name: string;
-  children: ReactNode;
-}) {
+export function TunnelInlet({ name, children }: { name: string; children: ReactNode }) {
   const { setTunnel, clearTunnel } = useTunnel();
 
   React.useEffect(() => {
@@ -107,8 +86,8 @@ export function TunnelInlet({
 
 // Predefined tunnel names for Dripl
 export const TUNNEL_NAMES = {
-  MENU: "menu",
-  TOOLBAR: "toolbar",
-  PROPERTIES: "properties",
-  STATUS_BAR: "statusBar",
+  MENU: 'menu',
+  TOOLBAR: 'toolbar',
+  PROPERTIES: 'properties',
+  STATUS_BAR: 'statusBar',
 } as const;

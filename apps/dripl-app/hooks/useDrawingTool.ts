@@ -1,1 +1,1 @@
-export { useDrawingTools as useDrawingTool } from "@/hooks/useDrawingTools";
+export { useDrawingTools as useDrawingTool } from '@/hooks/useDrawingTools';

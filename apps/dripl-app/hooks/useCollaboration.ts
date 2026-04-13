@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DriplElement } from "@dripl/common";
-import { useCanvasStore } from "@/lib/canvas-store";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { DriplElement } from '@dripl/common';
+import { useCanvasStore } from '@/lib/canvas-store';
 
 export interface CollabUser {
   userId: string;
@@ -14,32 +14,28 @@ export interface CollabUser {
 }
 
 interface UseCollaborationOptions {
-  onRemoteElements?: (
-    added: DriplElement[],
-    updated: DriplElement[],
-    deleted: string[],
-  ) => void;
+  onRemoteElements?: (added: DriplElement[], updated: DriplElement[], deleted: string[]) => void;
   onFullSync?: (elements: DriplElement[]) => void;
   displayName?: string | null;
 }
 
 type ServerMessage =
   | {
-      type: "room-state" | "sync_room_state";
+      type: 'room-state' | 'sync_room_state';
       elements: DriplElement[];
       users: { userId: string; userName?: string; displayName?: string; color: string }[];
       yourUserId?: string;
     }
   | {
-      type: "element-update";
+      type: 'element-update';
       elements?: DriplElement[];
       element?: DriplElement;
     }
-  | { type: "add_element"; element: DriplElement }
-  | { type: "update_element"; element: DriplElement }
-  | { type: "delete_element"; elementId: string }
+  | { type: 'add_element'; element: DriplElement }
+  | { type: 'update_element'; element: DriplElement }
+  | { type: 'delete_element'; elementId: string }
   | {
-      type: "cursor-move" | "cursor_move";
+      type: 'cursor-move' | 'cursor_move';
       userId: string;
       x: number;
       y: number;
@@ -48,53 +44,50 @@ type ServerMessage =
       color: string;
     }
   | {
-      type: "user_join" | "user-join";
+      type: 'user_join' | 'user-join';
       userId: string;
       userName?: string;
       displayName?: string;
       color: string;
     }
-  | { type: "user_leave" | "user-leave"; userId: string }
-  | { type: "pong" }
-  | { type: "error"; message: string };
+  | { type: 'user_leave' | 'user-leave'; userId: string }
+  | { type: 'pong' }
+  | { type: 'error'; message: string };
 
 type ClientMessage =
   | {
-      type: "join";
+      type: 'join';
       roomId: string;
       userId: string;
       displayName: string;
       color: string;
     }
-  | { type: "leave" }
-  | { type: "element-update"; elements: DriplElement[] }
+  | { type: 'leave' }
+  | { type: 'element-update'; elements: DriplElement[] }
   | {
-      type: "cursor-move";
+      type: 'cursor-move';
       x: number;
       y: number;
       userName: string;
       displayName: string;
       color: string;
     }
-  | { type: "ping" };
+  | { type: 'ping' };
 
 export interface UseCollaborationReturn {
   isConnected: boolean;
   collaborators: CollabUser[];
-  broadcastElements: (
-    _prevElements: DriplElement[],
-    nextElements: DriplElement[],
-  ) => void;
+  broadcastElements: (_prevElements: DriplElement[], nextElements: DriplElement[]) => void;
   broadcastCursor: (x: number, y: number) => void;
   lockElement: (_elementId: string) => void;
   unlockElement: (_elementId: string) => void;
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001";
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001';
 
 export function useCollaboration(
   roomId: string | null,
-  options: UseCollaborationOptions = {},
+  options: UseCollaborationOptions = {}
 ): UseCollaborationReturn {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -106,22 +99,19 @@ export function useCollaboration(
   const lastCursorSentAtRef = useRef(0);
 
   const [isConnected, setIsConnected] = useState(false);
-  const [collaboratorsMap, setCollaboratorsMap] = useState<Map<string, CollabUser>>(
-    new Map(),
-  );
+  const [collaboratorsMap, setCollaboratorsMap] = useState<Map<string, CollabUser>>(new Map());
 
   const fallbackUserIdRef = useRef(crypto.randomUUID());
-  const userId =
-    useCanvasStore((state) => state.userId) ?? fallbackUserIdRef.current;
-  const setIsStoreConnected = useCanvasStore((state) => state.setIsConnected);
-  const setRemoteUsers = useCanvasStore((state) => state.setRemoteUsers);
-  const addRemoteUser = useCanvasStore((state) => state.addRemoteUser);
-  const removeRemoteUser = useCanvasStore((state) => state.removeRemoteUser);
-  const updateRemoteCursor = useCanvasStore((state) => state.updateRemoteCursor);
-  const clearElementLocks = useCanvasStore((state) => state.clearElementLocks);
+  const userId = useCanvasStore(state => state.userId) ?? fallbackUserIdRef.current;
+  const setIsStoreConnected = useCanvasStore(state => state.setIsConnected);
+  const setRemoteUsers = useCanvasStore(state => state.setRemoteUsers);
+  const addRemoteUser = useCanvasStore(state => state.addRemoteUser);
+  const removeRemoteUser = useCanvasStore(state => state.removeRemoteUser);
+  const updateRemoteCursor = useCanvasStore(state => state.updateRemoteCursor);
+  const clearElementLocks = useCanvasStore(state => state.clearElementLocks);
 
-  const displayNameRef = useRef(options.displayName?.trim() || "Guest");
-  const colorRef = useRef("#6965db");
+  const displayNameRef = useRef(options.displayName?.trim() || 'Guest');
+  const colorRef = useRef('#6965db');
   const onRemoteElementsRef = useRef(options.onRemoteElements);
   const onFullSyncRef = useRef(options.onFullSync);
 
@@ -147,7 +137,7 @@ export function useCollaboration(
       broadcastTimerRef.current = null;
       const pending = pendingElementsRef.current;
       if (!pending || !roomId) return;
-      send({ type: "element-update", elements: pending });
+      send({ type: 'element-update', elements: pending });
       pendingElementsRef.current = null;
     }, 100);
   }, [roomId, send]);
@@ -157,7 +147,7 @@ export function useCollaboration(
       pendingElementsRef.current = nextElements;
       flushElementBroadcast();
     },
-    [flushElementBroadcast],
+    [flushElementBroadcast]
   );
 
   const broadcastCursor = useCallback(
@@ -166,7 +156,7 @@ export function useCollaboration(
       if (now - lastCursorSentAtRef.current < 50) return;
       lastCursorSentAtRef.current = now;
       send({
-        type: "cursor-move",
+        type: 'cursor-move',
         x,
         y,
         userName: displayNameRef.current,
@@ -174,7 +164,7 @@ export function useCollaboration(
         color: colorRef.current,
       });
     },
-    [send],
+    [send]
   );
 
   const lockElement = useCallback((_elementId: string) => {}, []);
@@ -201,7 +191,7 @@ export function useCollaboration(
 
     shouldReconnectRef.current = true;
 
-    const savedColor = localStorage.getItem("dripl_cursor_color");
+    const savedColor = localStorage.getItem('dripl_cursor_color');
     if (savedColor) colorRef.current = savedColor;
 
     const connect = () => {
@@ -213,7 +203,7 @@ export function useCollaboration(
         setIsConnected(true);
         setIsStoreConnected(true);
         send({
-          type: "join",
+          type: 'join',
           roomId,
           userId,
           displayName: displayNameRef.current,
@@ -224,11 +214,11 @@ export function useCollaboration(
           window.clearInterval(heartbeatTimerRef.current);
         }
         heartbeatTimerRef.current = window.setInterval(() => {
-          send({ type: "ping" });
+          send({ type: 'ping' });
         }, 15_000);
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = event => {
         let message: ServerMessage | null = null;
         try {
           message = JSON.parse(event.data) as ServerMessage;
@@ -237,16 +227,13 @@ export function useCollaboration(
         }
         if (!message) return;
 
-        if (message.type === "room-state" || message.type === "sync_room_state") {
+        if (message.type === 'room-state' || message.type === 'sync_room_state') {
           onFullSyncRef.current?.(message.elements);
-          const users = new Map<
-            string,
-            { userId: string; userName: string; color: string }
-          >();
+          const users = new Map<string, { userId: string; userName: string; color: string }>();
           const nextCollaborators = new Map<string, CollabUser>();
           for (const remote of message.users) {
             if (remote.userId === userId) continue;
-            const remoteName = remote.displayName ?? remote.userName ?? "Guest";
+            const remoteName = remote.displayName ?? remote.userName ?? 'Guest';
             users.set(remote.userId, {
               userId: remote.userId,
               userName: remoteName,
@@ -266,7 +253,7 @@ export function useCollaboration(
           return;
         }
 
-        if (message.type === "element-update") {
+        if (message.type === 'element-update') {
           if (Array.isArray(message.elements)) {
             onFullSyncRef.current?.(message.elements);
           } else if (message.element) {
@@ -275,29 +262,29 @@ export function useCollaboration(
           return;
         }
 
-        if (message.type === "add_element") {
+        if (message.type === 'add_element') {
           onRemoteElementsRef.current?.([message.element], [], []);
           return;
         }
-        if (message.type === "update_element") {
+        if (message.type === 'update_element') {
           onRemoteElementsRef.current?.([], [message.element], []);
           return;
         }
-        if (message.type === "delete_element") {
+        if (message.type === 'delete_element') {
           onRemoteElementsRef.current?.([], [], [message.elementId]);
           return;
         }
 
-        if (message.type === "cursor_move" || message.type === "cursor-move") {
+        if (message.type === 'cursor_move' || message.type === 'cursor-move') {
           if (message.userId === userId) return;
-          const displayName = message.displayName ?? message.userName ?? "Guest";
+          const displayName = message.displayName ?? message.userName ?? 'Guest';
           updateRemoteCursor(message.userId, {
             x: message.x,
             y: message.y,
             userName: displayName,
             color: message.color,
           });
-          setCollaboratorsMap((prev) => {
+          setCollaboratorsMap(prev => {
             const next = new Map(prev);
             next.set(message.userId, {
               userId: message.userId,
@@ -312,15 +299,15 @@ export function useCollaboration(
           return;
         }
 
-        if (message.type === "user_join" || message.type === "user-join") {
+        if (message.type === 'user_join' || message.type === 'user-join') {
           if (message.userId === userId) return;
-          const displayName = message.displayName ?? message.userName ?? "Guest";
+          const displayName = message.displayName ?? message.userName ?? 'Guest';
           addRemoteUser({
             userId: message.userId,
             userName: displayName,
             color: message.color,
           });
-          setCollaboratorsMap((prev) => {
+          setCollaboratorsMap(prev => {
             const next = new Map(prev);
             next.set(message.userId, {
               userId: message.userId,
@@ -335,9 +322,9 @@ export function useCollaboration(
           return;
         }
 
-        if (message.type === "user_leave" || message.type === "user-leave") {
+        if (message.type === 'user_leave' || message.type === 'user-leave') {
           removeRemoteUser(message.userId);
-          setCollaboratorsMap((prev) => {
+          setCollaboratorsMap(prev => {
             const next = new Map(prev);
             next.delete(message.userId);
             return next;
@@ -377,7 +364,7 @@ export function useCollaboration(
       if (broadcastTimerRef.current) {
         window.clearTimeout(broadcastTimerRef.current);
       }
-      send({ type: "leave" });
+      send({ type: 'leave' });
       wsRef.current?.close();
       setIsStoreConnected(false);
       setRemoteUsers(new Map());
@@ -396,10 +383,7 @@ export function useCollaboration(
     userId,
   ]);
 
-  const collaborators = useMemo(
-    () => Array.from(collaboratorsMap.values()),
-    [collaboratorsMap],
-  );
+  const collaborators = useMemo(() => Array.from(collaboratorsMap.values()), [collaboratorsMap]);
 
   return {
     isConnected,

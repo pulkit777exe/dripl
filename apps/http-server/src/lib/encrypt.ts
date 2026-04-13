@@ -1,8 +1,4 @@
-import {
-  createEncryptedRoomUrl,
-  encrypt,
-  type EncryptedPayload,
-} from "@dripl/utils";
+import { createEncryptedRoomUrl, encrypt, type EncryptedPayload } from '@dripl/utils';
 
 export interface StoredFileContent {
   elements: unknown[];
@@ -11,9 +7,9 @@ export interface StoredFileContent {
 }
 
 function isEncryptedPayload(value: unknown): value is EncryptedPayload {
-  if (!value || typeof value !== "object") return false;
+  if (!value || typeof value !== 'object') return false;
   const candidate = value as Record<string, unknown>;
-  return typeof candidate.iv === "string" && typeof candidate.data === "string";
+  return typeof candidate.iv === 'string' && typeof candidate.data === 'string';
 }
 
 export function parseStoredFileContent(raw: string | null | undefined): StoredFileContent {
@@ -35,14 +31,13 @@ export function parseStoredFileContent(raw: string | null | undefined): StoredFi
       };
     }
 
-    if (parsed && typeof parsed === "object") {
+    if (parsed && typeof parsed === 'object') {
       const record = parsed as Record<string, unknown>;
       const parsedElements = Array.isArray(record.elements) ? record.elements : [];
       const parsedEncryptedPayload = isEncryptedPayload(record.encryptedPayload)
         ? record.encryptedPayload
         : null;
-      const parsedEncryptedAt =
-        typeof record.encryptedAt === "string" ? record.encryptedAt : null;
+      const parsedEncryptedAt = typeof record.encryptedAt === 'string' ? record.encryptedAt : null;
 
       if (isEncryptedPayload(parsed)) {
         return {
@@ -83,7 +78,7 @@ export function serializeStoredFileContent(content: StoredFileContent): string {
 
 export async function buildEncryptedShare(
   baseShareUrl: string,
-  elements: unknown[],
+  elements: unknown[]
 ): Promise<{ shareUrl: string; encryptedPayload: EncryptedPayload }> {
   const { url, key } = await createEncryptedRoomUrl(baseShareUrl);
   const encryptedPayload = await encrypt(elements, key);

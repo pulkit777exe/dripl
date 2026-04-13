@@ -7,4 +7,4 @@ export {
   getElementBounds,
   elementIntersectsSegment,
   getFreedrawOutline,
-} from "@dripl/math";
+} from '@dripl/math';

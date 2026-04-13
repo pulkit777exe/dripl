@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React from "react";
+import React from 'react';
 import {
   MousePointer2,
   Square,
@@ -12,26 +12,26 @@ import {
   Image as ImageIcon,
   Pencil,
   Hand,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface SidebarProps {
   activeTool?: string;
   onToolSelect?: (tool: string) => void;
 }
 
-export function Sidebar({ activeTool = "select", onToolSelect }: SidebarProps) {
+export function Sidebar({ activeTool = 'select', onToolSelect }: SidebarProps) {
   const tools = [
-    { id: "select", icon: MousePointer2, label: "Select" },
-    { id: "hand", icon: Hand, label: "Pan" },
-    { id: "rectangle", icon: Square, label: "Rectangle" },
-    { id: "diamond", icon: Diamond, label: "Diamond" },
-    { id: "ellipse", icon: Circle, label: "Ellipse" },
-    { id: "arrow", icon: ArrowRight, label: "Arrow" },
-    { id: "line", icon: Minus, label: "Line" },
-    { id: "text", icon: Type, label: "Text" },
-    { id: "image", icon: ImageIcon, label: "Image" },
-    { id: "freedraw", icon: Pencil, label: "Draw" },
+    { id: 'select', icon: MousePointer2, label: 'Select' },
+    { id: 'hand', icon: Hand, label: 'Pan' },
+    { id: 'rectangle', icon: Square, label: 'Rectangle' },
+    { id: 'diamond', icon: Diamond, label: 'Diamond' },
+    { id: 'ellipse', icon: Circle, label: 'Ellipse' },
+    { id: 'arrow', icon: ArrowRight, label: 'Arrow' },
+    { id: 'line', icon: Minus, label: 'Line' },
+    { id: 'text', icon: Type, label: 'Text' },
+    { id: 'image', icon: ImageIcon, label: 'Image' },
+    { id: 'freedraw', icon: Pencil, label: 'Draw' },
   ];
 
   return (
@@ -40,19 +40,17 @@ export function Sidebar({ activeTool = "select", onToolSelect }: SidebarProps) {
         <div className="h-8 w-8 rounded bg-primary" />
       </div>
       <div className="flex flex-col gap-2">
-        {tools.map((tool) => (
+        {tools.map(tool => (
           <button
             key={tool.id}
-            onPointerDown={(event) => {
+            onPointerDown={event => {
               event.preventDefault();
               onToolSelect?.(tool.id);
             }}
             onClick={() => onToolSelect?.(tool.id)}
             className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground",
-              activeTool === tool.id
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground",
+              'flex h-10 w-10 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground',
+              activeTool === tool.id ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
             )}
             title={tool.label}
           >

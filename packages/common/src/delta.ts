@@ -1,7 +1,7 @@
-import type { DriplElement } from "./types/element";
-import type { Scene } from "./scene";
+import type { DriplElement } from './types/element';
+import type { Scene } from './scene';
 
-export type DeltaOperation = "add" | "update" | "delete" | "restore";
+export type DeltaOperation = 'add' | 'update' | 'delete' | 'restore';
 
 export interface Delta {
   id: string;
@@ -44,7 +44,7 @@ export class DeltaManager {
   createAddDelta(element: DriplElement): Delta {
     const delta: Delta = {
       id: this.generateId(),
-      operation: "add",
+      operation: 'add',
       elementId: element.id,
       timestamp: Date.now(),
       after: element,
@@ -55,11 +55,11 @@ export class DeltaManager {
   createUpdateDelta(
     elementId: string,
     before: Partial<DriplElement>,
-    after: Partial<DriplElement>,
+    after: Partial<DriplElement>
   ): Delta {
     const delta: Delta = {
       id: this.generateId(),
-      operation: "update",
+      operation: 'update',
       elementId: elementId,
       timestamp: Date.now(),
       before,
@@ -71,7 +71,7 @@ export class DeltaManager {
   createDeleteDelta(elementId: string, before: Partial<DriplElement>): Delta {
     const delta: Delta = {
       id: this.generateId(),
-      operation: "delete",
+      operation: 'delete',
       elementId: elementId,
       timestamp: Date.now(),
       before,
@@ -82,7 +82,7 @@ export class DeltaManager {
   createRestoreDelta(elementId: string, after: Partial<DriplElement>): Delta {
     const delta: Delta = {
       id: this.generateId(),
-      operation: "restore",
+      operation: 'restore',
       elementId: elementId,
       timestamp: Date.now(),
       after,
@@ -94,23 +94,23 @@ export class DeltaManager {
     const clonedScene = scene.clone();
 
     switch (delta.operation) {
-      case "add":
+      case 'add':
         if (delta.after) {
           clonedScene.addElement(delta.after as DriplElement);
         }
         break;
 
-      case "update":
+      case 'update':
         if (delta.after) {
           clonedScene.updateElement(delta.elementId, delta.after);
         }
         break;
 
-      case "delete":
+      case 'delete':
         clonedScene.deleteElement(delta.elementId);
         break;
 
-      case "restore":
+      case 'restore':
         if (delta.after) {
           clonedScene.restoreElement(delta.elementId);
         }
@@ -122,7 +122,7 @@ export class DeltaManager {
 
   applyDeltas(scene: Scene, deltas: Delta[]): Scene {
     let result = scene;
-    deltas.forEach((delta) => {
+    deltas.forEach(delta => {
       result = this.applyDelta(result, delta);
     });
     return result;
@@ -132,24 +132,24 @@ export class DeltaManager {
     const clonedScene = scene.clone();
 
     switch (delta.operation) {
-      case "add":
+      case 'add':
         clonedScene.deleteElement(delta.elementId);
         break;
 
-      case "update":
+      case 'update':
         if (delta.before) {
           clonedScene.updateElement(delta.elementId, delta.before);
         }
         break;
 
-      case "delete":
+      case 'delete':
         if (delta.before) {
           clonedScene.restoreElement(delta.elementId);
           clonedScene.updateElement(delta.elementId, delta.before);
         }
         break;
 
-      case "restore":
+      case 'restore':
         clonedScene.deleteElement(delta.elementId);
         break;
     }
@@ -159,7 +159,7 @@ export class DeltaManager {
 
   revertDeltas(scene: Scene, deltas: Delta[]): Scene {
     let result = scene;
-    [...deltas].reverse().forEach((delta) => {
+    [...deltas].reverse().forEach(delta => {
       result = this.revertDelta(result, delta);
     });
     return result;
@@ -174,7 +174,7 @@ export class DeltaManager {
   }
 
   getDelta(id: string): Delta | undefined {
-    return this.deltas.find((d) => d.id === id);
+    return this.deltas.find(d => d.id === id);
   }
 
   clear(): void {
@@ -220,9 +220,7 @@ export class SceneHistory {
     }
 
     this.states.push(
-      delta !== undefined
-        ? { scene: scene.clone(), delta }
-        : { scene: scene.clone() },
+      delta !== undefined ? { scene: scene.clone(), delta } : { scene: scene.clone() }
     );
     this.currentIndex++;
 

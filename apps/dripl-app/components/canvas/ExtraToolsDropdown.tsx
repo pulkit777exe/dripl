@@ -1,17 +1,9 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect } from "react";
-import {
-  Layout,
-  Code,
-  Zap,
-  Scissors,
-  Sparkles,
-  ChevronDown,
-  Wand2,
-} from "lucide-react";
-import { useCanvasStore } from "@/lib/canvas-store";
-import { AIGenerateModal } from "./AIGenerateModal";
+import { useState, useRef, useEffect } from 'react';
+import { Layout, Code, Zap, Scissors, Sparkles, ChevronDown, Wand2 } from 'lucide-react';
+import { useCanvasStore } from '@/lib/canvas-store';
+import { AIGenerateModal } from './AIGenerateModal';
 
 interface ExtraTool {
   id: string;
@@ -26,63 +18,59 @@ export function ExtraToolsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const setActiveTool = useCanvasStore((state) => state.setActiveTool);
+  const setActiveTool = useCanvasStore(state => state.setActiveTool);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
 
     if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isOpen]);
 
   const extraTools: ExtraTool[] = [
     {
-      id: "frame",
-      label: "Frame",
+      id: 'frame',
+      label: 'Frame',
       icon: Layout,
-      shortcut: "F",
+      shortcut: 'F',
       perform: () => {
-        console.log("Frame tool selected");
+        console.log('Frame tool selected');
         setIsOpen(false);
       },
     },
     {
-      id: "embeddable",
-      label: "Embeddable",
+      id: 'embeddable',
+      label: 'Embeddable',
       icon: Code,
       perform: () => {
-        console.log("Embeddable tool selected");
+        console.log('Embeddable tool selected');
         setIsOpen(false);
       },
       disabled: true,
     },
     {
-      id: "laser",
-      label: "Laser",
+      id: 'laser',
+      label: 'Laser',
       icon: Zap,
-      shortcut: "K",
+      shortcut: 'K',
       perform: () => {
-        console.log("Laser tool selected");
+        console.log('Laser tool selected');
         setIsOpen(false);
       },
       disabled: true,
     },
     {
-      id: "lasso",
-      label: "Lasso",
+      id: 'lasso',
+      label: 'Lasso',
       icon: Scissors,
       perform: () => {
-        console.log("Lasso tool selected");
+        console.log('Lasso tool selected');
         setIsOpen(false);
       },
       disabled: true,
@@ -91,8 +79,8 @@ export function ExtraToolsDropdown() {
 
   const generateTools: ExtraTool[] = [
     {
-      id: "ai-diagram",
-      label: "AI Diagram",
+      id: 'ai-diagram',
+      label: 'AI Diagram',
       icon: Wand2,
       perform: () => {
         setShowAIModal(true);
@@ -100,8 +88,8 @@ export function ExtraToolsDropdown() {
       },
     },
     {
-      id: "text-to-diagram",
-      label: "Text to Diagram",
+      id: 'text-to-diagram',
+      label: 'Text to Diagram',
       icon: Sparkles,
       perform: () => {
         setShowAIModal(true);
@@ -109,8 +97,8 @@ export function ExtraToolsDropdown() {
       },
     },
     {
-      id: "mermaid",
-      label: "Mermaid to Dripl",
+      id: 'mermaid',
+      label: 'Mermaid to Dripl',
       icon: Sparkles,
       perform: () => {
         setShowAIModal(true);
@@ -128,8 +116,8 @@ export function ExtraToolsDropdown() {
             relative p-2 rounded-lg transition-colors
             ${
               isOpen
-                ? "bg-tool-active-bg text-tool-active-text "
-                : "text-tool-inactive-text hover:bg-tool-hover-bg "
+                ? 'bg-tool-active-bg text-tool-active-text '
+                : 'text-tool-inactive-text hover:bg-tool-hover-bg '
             }
           `}
           aria-label="Extra tools"
@@ -145,7 +133,7 @@ export function ExtraToolsDropdown() {
           <ChevronDown
             size={12}
             className={`absolute -bottom-1 -right-1 transition-transform ${
-              isOpen ? "rotate-180" : ""
+              isOpen ? 'rotate-180' : ''
             }`}
           />
         </button>
@@ -155,7 +143,7 @@ export function ExtraToolsDropdown() {
             <div className="px-2 py-1.5 text-[11px] font-medium text-panel-label uppercase ">
               Tools
             </div>
-            {extraTools.map((tool) => {
+            {extraTools.map(tool => {
               const Icon = tool.icon;
               return (
                 <button
@@ -166,8 +154,8 @@ export function ExtraToolsDropdown() {
                     w-full flex items-center justify-between px-3 py-2 text-sm transition-colors
                     ${
                       tool.disabled
-                        ? "text-panel-label opacity-50 cursor-not-allowed "
-                        : "text-panel-text hover:bg-panel-btn-hover "
+                        ? 'text-panel-label opacity-50 cursor-not-allowed '
+                        : 'text-panel-text hover:bg-panel-btn-hover '
                     }
                   `}
                 >
@@ -190,7 +178,7 @@ export function ExtraToolsDropdown() {
               <Sparkles size={12} className="text-primary" />
               AI Generate
             </div>
-            {generateTools.map((tool) => {
+            {generateTools.map(tool => {
               const Icon = tool.icon;
               return (
                 <button
@@ -201,8 +189,8 @@ export function ExtraToolsDropdown() {
                     w-full flex items-center justify-between px-3 py-2 text-sm transition-colors
                     ${
                       tool.disabled
-                        ? "text-panel-label opacity-50 cursor-not-allowed "
-                        : "text-panel-text hover:bg-panel-btn-hover "
+                        ? 'text-panel-label opacity-50 cursor-not-allowed '
+                        : 'text-panel-text hover:bg-panel-btn-hover '
                     }
                   `}
                 >
@@ -217,10 +205,7 @@ export function ExtraToolsDropdown() {
         )}
       </div>
 
-      <AIGenerateModal
-        isOpen={showAIModal}
-        onClose={() => setShowAIModal(false)}
-      />
+      <AIGenerateModal isOpen={showAIModal} onClose={() => setShowAIModal(false)} />
     </>
   );
 }

@@ -1,5 +1,5 @@
-import { Navbar } from "./ui/Navbar";
-import { Footer } from "./sections/Footer";
+import { Navbar } from './ui/Navbar';
+import { Footer } from './sections/Footer';
 
 interface MarketingLayoutProps {
   children: React.ReactNode;
@@ -19,9 +19,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
 
       <Navbar />
 
-      <main className="relative z-10 flex flex-col items-center">
-        {children}
-      </main>
+      <main className="relative z-10 flex flex-col items-center">{children}</main>
 
       <Footer />
     </div>

@@ -1,6 +1,6 @@
-import type { Point, DriplElement } from "./types/element";
+import type { Point, DriplElement } from './types/element';
 
-export type PointerType = "mouse" | "touch" | "pen";
+export type PointerType = 'mouse' | 'touch' | 'pen';
 
 export interface PointerInfo {
   id: number;
@@ -8,11 +8,11 @@ export interface PointerInfo {
   point: Point;
   pressure: number;
   timestamp: number;
-  button: "left" | "middle" | "right" | null;
+  button: 'left' | 'middle' | 'right' | null;
 }
 
 export interface PointerEventData {
-  type: "pointer_down" | "pointer_move" | "pointer_up" | "pointer_cancel";
+  type: 'pointer_down' | 'pointer_move' | 'pointer_up' | 'pointer_cancel';
   pointer: PointerInfo;
   timestamp: number;
 }
@@ -115,24 +115,21 @@ export class PointerManager {
   private setupEventListeners(): void {
     if (!this.container) return;
 
-    this.container.addEventListener("pointerdown", this.handlePointerDown);
-    this.container.addEventListener("pointermove", this.handlePointerMove);
-    this.container.addEventListener("pointerup", this.handlePointerUp);
-    this.container.addEventListener("pointercancel", this.handlePointerCancel);
-    this.container.addEventListener("pointerleave", this.handlePointerUp);
+    this.container.addEventListener('pointerdown', this.handlePointerDown);
+    this.container.addEventListener('pointermove', this.handlePointerMove);
+    this.container.addEventListener('pointerup', this.handlePointerUp);
+    this.container.addEventListener('pointercancel', this.handlePointerCancel);
+    this.container.addEventListener('pointerleave', this.handlePointerUp);
   }
 
   private removeEventListeners(): void {
     if (!this.container) return;
 
-    this.container.removeEventListener("pointerdown", this.handlePointerDown);
-    this.container.removeEventListener("pointermove", this.handlePointerMove);
-    this.container.removeEventListener("pointerup", this.handlePointerUp);
-    this.container.removeEventListener(
-      "pointercancel",
-      this.handlePointerCancel,
-    );
-    this.container.removeEventListener("pointerleave", this.handlePointerUp);
+    this.container.removeEventListener('pointerdown', this.handlePointerDown);
+    this.container.removeEventListener('pointermove', this.handlePointerMove);
+    this.container.removeEventListener('pointerup', this.handlePointerUp);
+    this.container.removeEventListener('pointercancel', this.handlePointerCancel);
+    this.container.removeEventListener('pointerleave', this.handlePointerUp);
   }
 
   private handlePointerDown = (e: globalThis.PointerEvent): void => {
@@ -142,7 +139,7 @@ export class PointerManager {
     this.lastPosition.set(e.pointerId, { ...pointerInfo.point });
 
     this.dispatchEvent({
-      type: "pointer_down",
+      type: 'pointer_down',
       pointer: pointerInfo,
       timestamp: Date.now(),
     });
@@ -152,14 +149,11 @@ export class PointerManager {
     if (!this.activePointers.has(e.pointerId)) return;
 
     const pointerInfo: PointerInfo = this.createPointerInfo(e);
-    this.lastPosition.set(
-      e.pointerId,
-      this.activePointers.get(e.pointerId)!.point,
-    );
+    this.lastPosition.set(e.pointerId, this.activePointers.get(e.pointerId)!.point);
     this.activePointers.set(e.pointerId, pointerInfo);
 
     this.dispatchEvent({
-      type: "pointer_move",
+      type: 'pointer_move',
       pointer: pointerInfo,
       timestamp: Date.now(),
     });
@@ -172,7 +166,7 @@ export class PointerManager {
     const finalInfo = this.createPointerInfo(e);
 
     this.dispatchEvent({
-      type: "pointer_up",
+      type: 'pointer_up',
       pointer: finalInfo,
       timestamp: Date.now(),
     });
@@ -189,7 +183,7 @@ export class PointerManager {
     const finalInfo = this.createPointerInfo(e);
 
     this.dispatchEvent({
-      type: "pointer_cancel",
+      type: 'pointer_cancel',
       pointer: finalInfo,
       timestamp: Date.now(),
     });
@@ -200,11 +194,11 @@ export class PointerManager {
   };
 
   private createPointerInfo(e: globalThis.PointerEvent): PointerInfo {
-    let button: "left" | "middle" | "right" | null = null;
+    let button: 'left' | 'middle' | 'right' | null = null;
 
-    if (e.button === 0) button = "left";
-    if (e.button === 1) button = "middle";
-    if (e.button === 2) button = "right";
+    if (e.button === 0) button = 'left';
+    if (e.button === 1) button = 'middle';
+    if (e.button === 2) button = 'right';
 
     return {
       id: e.pointerId,
@@ -217,10 +211,10 @@ export class PointerManager {
   }
 
   private getPointerType(pointerType: string): PointerType {
-    if (pointerType === "mouse") return "mouse";
-    if (pointerType === "touch") return "touch";
-    if (pointerType === "pen") return "pen";
-    return "mouse"; // Default to mouse for unknown types
+    if (pointerType === 'mouse') return 'mouse';
+    if (pointerType === 'touch') return 'touch';
+    if (pointerType === 'pen') return 'pen';
+    return 'mouse'; // Default to mouse for unknown types
   }
 
   private getCanvasPoint(e: globalThis.PointerEvent): Point {
@@ -236,11 +230,11 @@ export class PointerManager {
   }
 
   private dispatchEvent(event: PointerEventData): void {
-    this.subscribers.forEach((callback) => {
+    this.subscribers.forEach(callback => {
       try {
         callback(event);
       } catch (error) {
-        console.error("Error in pointer event handler:", error);
+        console.error('Error in pointer event handler:', error);
       }
     });
   }
@@ -287,13 +281,13 @@ export class DragDetector {
 
   private handlePointerEvent(event: PointerEventData): void {
     switch (event.type) {
-      case "pointer_down":
+      case 'pointer_down':
         this.dragStart = event.pointer.point;
         this.dragEnd = event.pointer.point;
         this.isDragging = false;
         break;
 
-      case "pointer_move":
+      case 'pointer_move':
         if (this.dragStart) {
           this.dragEnd = event.pointer.point;
 
@@ -304,8 +298,8 @@ export class DragDetector {
         }
         break;
 
-      case "pointer_up":
-      case "pointer_cancel":
+      case 'pointer_up':
+      case 'pointer_cancel':
         this.dragStart = null;
         this.dragEnd = null;
         this.isDragging = false;

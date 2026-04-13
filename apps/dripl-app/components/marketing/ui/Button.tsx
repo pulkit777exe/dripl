@@ -1,20 +1,15 @@
-"use client";
+'use client';
 
-import { useRef, useState } from "react";
-import { motion } from "motion/react";
-import { cn } from "@/lib/utils";
+import { useRef, useState } from 'react';
+import { motion } from 'motion/react';
+import { cn } from '@/lib/utils';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "outline";
+  variant?: 'primary' | 'secondary' | 'outline';
   children: React.ReactNode;
 }
 
-export function Button({
-  className,
-  variant = "primary",
-  children,
-  ...props
-}: ButtonProps) {
+export function Button({ className, variant = 'primary', children, ...props }: ButtonProps) {
   const ref = useRef<HTMLButtonElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
@@ -31,25 +26,24 @@ export function Button({
   };
 
   const variants = {
-    primary: "bg-deep-charcoal text-white hover:bg-black shadow-attio-md",
+    primary: 'bg-deep-charcoal text-white hover:bg-black shadow-attio-md',
     secondary:
-      "bg-white text-foreground border border-structure-grey hover:bg-vapor-grey shadow-attio-sm",
-    outline:
-      "bg-transparent text-foreground border border-structure-grey hover:bg-white/50",
+      'bg-white text-foreground border border-structure-grey hover:bg-vapor-grey shadow-attio-sm',
+    outline: 'bg-transparent text-foreground border border-structure-grey hover:bg-white/50',
   };
 
   return (
     <motion.button
       ref={ref}
       className={cn(
-        "relative flex h-12 items-center justify-center rounded-lg px-8 text-base font-medium transition-colors",
+        'relative flex h-12 items-center justify-center rounded-lg px-8 text-base font-medium transition-colors',
         variants[variant],
-        className,
+        className
       )}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       animate={{ x: position.x, y: position.y }}
-      transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.1 }}
+      transition={{ type: 'spring', stiffness: 150, damping: 15, mass: 0.1 }}
       {...(props as any)}
     >
       {children}

@@ -1,5 +1,5 @@
-import type { DriplElement, Point } from "@dripl/common";
-import { getBounds } from "@dripl/math";
+import type { DriplElement, Point } from '@dripl/common';
+import { getBounds } from '@dripl/math';
 
 export interface ZoomSettings {
   minZoom: number;
@@ -35,7 +35,7 @@ export function zoomToFit(
   elements: DriplElement[],
   canvasWidth: number,
   canvasHeight: number,
-  padding: number = 20,
+  padding: number = 20
 ): { zoom: number; centerX: number; centerY: number } {
   if (elements.length === 0) {
     return { zoom: 1, centerX: canvasWidth / 2, centerY: canvasHeight / 2 };
@@ -43,7 +43,7 @@ export function zoomToFit(
 
   // Calculate combined bounds of all elements
   const allPoints: Point[] = [];
-  elements.forEach((element) => {
+  elements.forEach(element => {
     allPoints.push(...getElementPoints(element));
   });
 
@@ -57,7 +57,7 @@ export function zoomToFit(
   // Ensure zoom stays within limits
   const finalZoom = Math.min(
     Math.max(fitZoom, DEFAULT_ZOOM_SETTINGS.minZoom),
-    DEFAULT_ZOOM_SETTINGS.maxZoom,
+    DEFAULT_ZOOM_SETTINGS.maxZoom
   );
 
   // Calculate center point
@@ -75,7 +75,7 @@ export function zoomToSelection(
   selectedElements: DriplElement[],
   canvasWidth: number,
   canvasHeight: number,
-  padding: number = 20,
+  padding: number = 20
 ): { zoom: number; centerX: number; centerY: number } | null {
   if (selectedElements.length === 0) {
     return null;
@@ -83,7 +83,7 @@ export function zoomToSelection(
 
   // Calculate combined bounds of selected elements
   const allPoints: Point[] = [];
-  selectedElements.forEach((element) => {
+  selectedElements.forEach(element => {
     allPoints.push(...getElementPoints(element));
   });
 
@@ -97,7 +97,7 @@ export function zoomToSelection(
   // Ensure zoom stays within limits
   const finalZoom = Math.min(
     Math.max(fitZoom, DEFAULT_ZOOM_SETTINGS.minZoom),
-    DEFAULT_ZOOM_SETTINGS.maxZoom,
+    DEFAULT_ZOOM_SETTINGS.maxZoom
   );
 
   // Calculate center point
@@ -116,7 +116,7 @@ export function calculateZoom(
   delta: number,
   minZoom: number = DEFAULT_ZOOM_SETTINGS.minZoom,
   maxZoom: number = DEFAULT_ZOOM_SETTINGS.maxZoom,
-  step: number = DEFAULT_ZOOM_SETTINGS.zoomStep,
+  step: number = DEFAULT_ZOOM_SETTINGS.zoomStep
 ): number {
   const direction = delta > 0 ? 1 : -1;
   let newZoom = currentZoom + direction * step;
@@ -138,7 +138,7 @@ export function calculateZoom(
 export function getScaledDimensions(
   width: number,
   height: number,
-  zoom: number,
+  zoom: number
 ): { width: number; height: number } {
   return {
     width: width * zoom,
@@ -161,7 +161,7 @@ export function getMousePosition(
     width: number;
     height: number;
     zoom: number;
-  },
+  }
 ): Point {
   return {
     x: (event.clientX - viewport.x) / viewport.zoom,

@@ -1,4 +1,4 @@
-import { Point } from "@dripl/common";
+import { Point } from '@dripl/common';
 
 export interface EraserPoint extends Point {
   timestamp: number;

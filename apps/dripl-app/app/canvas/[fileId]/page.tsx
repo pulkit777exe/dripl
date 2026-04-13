@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
-import { CanvasControls } from "@/components/canvas/CanvasControls";
-import { useTheme } from "@/hooks/useTheme";
-import { TopBar } from "@/components/canvas/TopBar";
-import { CanvasBootstrap } from "@/components/canvas/CanvasBootstrap";
-import { CommandPalette } from "@/components/canvas/CommandPalette";
-import { useAuth } from "@/app/context/AuthContext";
-import { useCanvasStore } from "@/lib/canvas-store";
-import { apiClient } from "@/lib/api";
-import type { DriplElement } from "@dripl/common";
+import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
+import { CanvasControls } from '@/components/canvas/CanvasControls';
+import { useTheme } from '@/hooks/useTheme';
+import { TopBar } from '@/components/canvas/TopBar';
+import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
+import { CommandPalette } from '@/components/canvas/CommandPalette';
+import { useAuth } from '@/app/context/AuthContext';
+import { useCanvasStore } from '@/lib/canvas-store';
+import { apiClient } from '@/lib/api';
+import type { DriplElement } from '@dripl/common';
 
 interface CanvasFilePageProps {
   params: Promise<{
@@ -28,18 +28,18 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
   const [isLoadingFile, setIsLoadingFile] = useState(true);
   const skipNextSaveRef = useRef(true);
 
-  const elements = useCanvasStore((state) => state.elements);
-  const setUserId = useCanvasStore((state) => state.setUserId);
-  const setElements = useCanvasStore((state) => state.setElements);
-  const setSelectedIds = useCanvasStore((state) => state.setSelectedIds);
-  const setFileMetadata = useCanvasStore((state) => state.setFileMetadata);
-  const markSaving = useCanvasStore((state) => state.markSaving);
-  const markSaved = useCanvasStore((state) => state.markSaved);
+  const elements = useCanvasStore(state => state.elements);
+  const setUserId = useCanvasStore(state => state.setUserId);
+  const setElements = useCanvasStore(state => state.setElements);
+  const setSelectedIds = useCanvasStore(state => state.setSelectedIds);
+  const setFileMetadata = useCanvasStore(state => state.setFileMetadata);
+  const markSaving = useCanvasStore(state => state.markSaving);
+  const markSaved = useCanvasStore(state => state.markSaved);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      router.replace("/auth/login");
+      router.replace('/auth/login');
       return;
     }
 
@@ -58,8 +58,8 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
         setFileMetadata(response.file.id, response.file.name);
         skipNextSaveRef.current = true;
       } catch (error) {
-        console.error("Failed to load file", error);
-        router.replace("/dashboard");
+        console.error('Failed to load file', error);
+        router.replace('/dashboard');
         return;
       } finally {
         if (!cancelled) {
@@ -73,16 +73,7 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
     return () => {
       cancelled = true;
     };
-  }, [
-    authLoading,
-    fileId,
-    router,
-    setElements,
-    setFileMetadata,
-    setSelectedIds,
-    setUserId,
-    user,
-  ]);
+  }, [authLoading, fileId, router, setElements, setFileMetadata, setSelectedIds, setUserId, user]);
 
   useEffect(() => {
     if (!user || isLoadingFile) return;
@@ -98,7 +89,7 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
         markSaved();
       } catch (error) {
         markSaving(false);
-        console.error("Failed to auto-save file", error);
+        console.error('Failed to auto-save file', error);
       }
     }, 2000);
 
@@ -116,7 +107,7 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
   return (
     <div
       className={`w-screen h-dvh relative overflow-hidden ${
-        effectiveTheme === "dark" ? "bg-[#1A1714]" : "bg-[#F5F0E8]"
+        effectiveTheme === 'dark' ? 'bg-[#1A1714]' : 'bg-[#F5F0E8]'
       }`}
     >
       <div

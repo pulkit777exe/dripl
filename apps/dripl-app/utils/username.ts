@@ -5,58 +5,58 @@
  */
 
 const ADJECTIVES = [
-  "Adorable",
-  "Ambitious",
-  "Brave",
-  "Calm",
-  "Clever",
-  "Curious",
-  "Eager",
-  "Gentle",
-  "Happy",
-  "Jolly",
-  "Kind",
-  "Lively",
-  "Lucky",
-  "Peaceful",
-  "Proud",
-  "Silly",
-  "Witty",
-  "Bold",
-  "Cozy",
-  "Daring",
+  'Adorable',
+  'Ambitious',
+  'Brave',
+  'Calm',
+  'Clever',
+  'Curious',
+  'Eager',
+  'Gentle',
+  'Happy',
+  'Jolly',
+  'Kind',
+  'Lively',
+  'Lucky',
+  'Peaceful',
+  'Proud',
+  'Silly',
+  'Witty',
+  'Bold',
+  'Cozy',
+  'Daring',
 ];
 
 const NOUNS = [
-  "Aardvark",
-  "Bear",
-  "Cat",
-  "Dolphin",
-  "Eagle",
-  "Fox",
-  "Giraffe",
-  "Hawk",
-  "Ibis",
-  "Jaguar",
-  "Koala",
-  "Lion",
-  "Mouse",
-  "Newt",
-  "Otter",
-  "Penguin",
-  "Quail",
-  "Rabbit",
-  "Sloth",
-  "Tiger",
-  "Unicorn",
-  "Viper",
-  "Wolf",
-  "Yak",
-  "Zebra",
+  'Aardvark',
+  'Bear',
+  'Cat',
+  'Dolphin',
+  'Eagle',
+  'Fox',
+  'Giraffe',
+  'Hawk',
+  'Ibis',
+  'Jaguar',
+  'Koala',
+  'Lion',
+  'Mouse',
+  'Newt',
+  'Otter',
+  'Penguin',
+  'Quail',
+  'Rabbit',
+  'Sloth',
+  'Tiger',
+  'Unicorn',
+  'Viper',
+  'Wolf',
+  'Yak',
+  'Zebra',
 ];
 
-const DRIPL_USERNAME_KEY = "dripl_username";
-const EXCALIDRAW_COLLAB_KEY = "excalidraw-collab";
+const DRIPL_USERNAME_KEY = 'dripl_username';
+const EXCALIDRAW_COLLAB_KEY = 'excalidraw-collab';
 
 /**
  * Seeded random number generator (mulberry32) for deterministic results.
@@ -74,11 +74,11 @@ function mulberry32(seed: number): () => number {
  * Get or create a stable client ID (persists in localStorage).
  */
 function getClientId(): string {
-  if (typeof window === "undefined") return "default";
-  let id = localStorage.getItem("dripl_client_id");
+  if (typeof window === 'undefined') return 'default';
+  let id = localStorage.getItem('dripl_client_id');
   if (!id) {
     id = `dripl-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-    localStorage.setItem("dripl_client_id", id);
+    localStorage.setItem('dripl_client_id', id);
   }
   return id;
 }
@@ -88,7 +88,7 @@ function getClientId(): string {
  */
 export function generateRandomUsername(): string {
   const clientId = getClientId();
-  const seed = clientId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const seed = clientId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const random = mulberry32(seed);
 
   const adjIndex = Math.floor(random() * ADJECTIVES.length);
@@ -102,7 +102,7 @@ export function generateRandomUsername(): string {
  * Persists the generated name to both keys if used.
  */
 export function getOrCreateCollaboratorName(): string {
-  if (typeof window === "undefined") return "Anonymous";
+  if (typeof window === 'undefined') return 'Anonymous';
 
   const dripl = localStorage.getItem(DRIPL_USERNAME_KEY);
   if (dripl && dripl.trim()) return dripl.trim();
@@ -122,9 +122,6 @@ export function getOrCreateCollaboratorName(): string {
 
   const generated = generateRandomUsername();
   localStorage.setItem(DRIPL_USERNAME_KEY, generated);
-  localStorage.setItem(
-    EXCALIDRAW_COLLAB_KEY,
-    JSON.stringify({ username: generated }),
-  );
+  localStorage.setItem(EXCALIDRAW_COLLAB_KEY, JSON.stringify({ username: generated }));
   return generated;
 }

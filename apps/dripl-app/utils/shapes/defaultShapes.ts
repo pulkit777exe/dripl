@@ -1,64 +1,53 @@
-import type {
-  ShapeDefinition,
-  DriplElement,
-  Point,
-  ElementBase,
-} from "@dripl/common";
-import {
-  createRectangleElement,
-  RectangleToolState,
-} from "@/utils/tools/rectangle";
-import { createEllipseElement, EllipseToolState } from "@/utils/tools/ellipse";
-import { createDiamondElement, DiamondToolState } from "@/utils/tools/diamond";
-import { createArrowElement, ArrowToolState } from "@/utils/tools/arrow";
-import { createLineElement, LineToolState } from "@/utils/tools/line";
-import {
-  createFreedrawElement,
-  FreedrawToolState,
-} from "@/utils/tools/freedraw";
-import { createTextElement, TextToolState } from "@/utils/tools/text";
-import { createImageElement, ImageToolState } from "@/utils/tools/image";
-import { createFrameElement, FrameToolState } from "@/utils/tools/frame";
+import type { ShapeDefinition, DriplElement, Point, ElementBase } from '@dripl/common';
+import { createRectangleElement, RectangleToolState } from '@/utils/tools/rectangle';
+import { createEllipseElement, EllipseToolState } from '@/utils/tools/ellipse';
+import { createDiamondElement, DiamondToolState } from '@/utils/tools/diamond';
+import { createArrowElement, ArrowToolState } from '@/utils/tools/arrow';
+import { createLineElement, LineToolState } from '@/utils/tools/line';
+import { createFreedrawElement, FreedrawToolState } from '@/utils/tools/freedraw';
+import { createTextElement, TextToolState } from '@/utils/tools/text';
+import { createImageElement, ImageToolState } from '@/utils/tools/image';
+import { createFrameElement, FrameToolState } from '@/utils/tools/frame';
 
 // Rectangle shape definition
 export const rectangleShape: ShapeDefinition = {
-  type: "rectangle",
-  name: "Rectangle",
-  icon: "square",
-  category: "basic",
+  type: 'rectangle',
+  name: 'Rectangle',
+  icon: 'square',
+  category: 'basic',
   create: (props: Partial<DriplElement>) =>
     ({
       id: crypto.randomUUID(),
-      type: "rectangle" as const,
+      type: 'rectangle' as const,
       x: 0,
       y: 0,
       width: 100,
       height: 100,
-      strokeColor: "#000000",
-      backgroundColor: "transparent",
+      strokeColor: '#000000',
+      backgroundColor: 'transparent',
       strokeWidth: 2,
       opacity: 1,
       roughness: 1,
-      strokeStyle: "solid",
-      fillStyle: "hachure",
+      strokeStyle: 'solid',
+      fillStyle: 'hachure',
       ...props,
     }) as DriplElement,
   validate: (element: any) => {
     return (
       element &&
-      element.type === "rectangle" &&
-      typeof element.x === "number" &&
-      typeof element.y === "number" &&
-      typeof element.width === "number" &&
-      typeof element.height === "number"
+      element.type === 'rectangle' &&
+      typeof element.x === 'number' &&
+      typeof element.y === 'number' &&
+      typeof element.width === 'number' &&
+      typeof element.height === 'number'
     );
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
-    ctx.strokeStyle = element.strokeColor || "#000000";
+    ctx.strokeStyle = element.strokeColor || '#000000';
     ctx.lineWidth = element.strokeWidth || 2;
     ctx.globalAlpha = element.opacity || 1;
 
-    if (element.backgroundColor && element.backgroundColor !== "transparent") {
+    if (element.backgroundColor && element.backgroundColor !== 'transparent') {
       ctx.fillStyle = element.backgroundColor;
       ctx.fillRect(element.x, element.y, element.width, element.height);
     }
@@ -85,39 +74,39 @@ export const rectangleShape: ShapeDefinition = {
 };
 
 export const ellipseShape: ShapeDefinition = {
-  type: "ellipse",
-  name: "Ellipse",
-  icon: "circle",
-  category: "basic",
+  type: 'ellipse',
+  name: 'Ellipse',
+  icon: 'circle',
+  category: 'basic',
   create: (props: Partial<DriplElement>) =>
     ({
       id: crypto.randomUUID(),
-      type: "ellipse" as const,
+      type: 'ellipse' as const,
       x: 0,
       y: 0,
       width: 100,
       height: 100,
-      strokeColor: "#000000",
-      backgroundColor: "transparent",
+      strokeColor: '#000000',
+      backgroundColor: 'transparent',
       strokeWidth: 2,
       opacity: 1,
       roughness: 1,
-      strokeStyle: "solid",
-      fillStyle: "hachure",
+      strokeStyle: 'solid',
+      fillStyle: 'hachure',
       ...props,
     }) as DriplElement,
   validate: (element: any) => {
     return (
       element &&
-      element.type === "ellipse" &&
-      typeof element.x === "number" &&
-      typeof element.y === "number" &&
-      typeof element.width === "number" &&
-      typeof element.height === "number"
+      element.type === 'ellipse' &&
+      typeof element.x === 'number' &&
+      typeof element.y === 'number' &&
+      typeof element.width === 'number' &&
+      typeof element.height === 'number'
     );
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
-    ctx.strokeStyle = element.strokeColor || "#000000";
+    ctx.strokeStyle = element.strokeColor || '#000000';
     ctx.lineWidth = element.strokeWidth || 2;
     ctx.globalAlpha = element.opacity || 1;
 
@@ -129,10 +118,10 @@ export const ellipseShape: ShapeDefinition = {
       element.height / 2,
       0,
       0,
-      2 * Math.PI,
+      2 * Math.PI
     );
 
-    if (element.backgroundColor && element.backgroundColor !== "transparent") {
+    if (element.backgroundColor && element.backgroundColor !== 'transparent') {
       ctx.fillStyle = element.backgroundColor;
       ctx.fill();
     }
@@ -159,39 +148,39 @@ export const ellipseShape: ShapeDefinition = {
 };
 
 export const diamondShape: ShapeDefinition = {
-  type: "diamond",
-  name: "Diamond",
-  icon: "diamond",
-  category: "basic",
+  type: 'diamond',
+  name: 'Diamond',
+  icon: 'diamond',
+  category: 'basic',
   create: (props: Partial<DriplElement>) =>
     ({
       id: crypto.randomUUID(),
-      type: "diamond" as const,
+      type: 'diamond' as const,
       x: 0,
       y: 0,
       width: 100,
       height: 100,
-      strokeColor: "#000000",
-      backgroundColor: "transparent",
+      strokeColor: '#000000',
+      backgroundColor: 'transparent',
       strokeWidth: 2,
       opacity: 1,
       roughness: 1,
-      strokeStyle: "solid",
-      fillStyle: "hachure",
+      strokeStyle: 'solid',
+      fillStyle: 'hachure',
       ...props,
     }) as DriplElement,
   validate: (element: any) => {
     return (
       element &&
-      element.type === "diamond" &&
-      typeof element.x === "number" &&
-      typeof element.y === "number" &&
-      typeof element.width === "number" &&
-      typeof element.height === "number"
+      element.type === 'diamond' &&
+      typeof element.x === 'number' &&
+      typeof element.y === 'number' &&
+      typeof element.width === 'number' &&
+      typeof element.height === 'number'
     );
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
-    ctx.strokeStyle = element.strokeColor || "#000000";
+    ctx.strokeStyle = element.strokeColor || '#000000';
     ctx.lineWidth = element.strokeWidth || 2;
     ctx.globalAlpha = element.opacity || 1;
 
@@ -207,7 +196,7 @@ export const diamondShape: ShapeDefinition = {
     ctx.lineTo(element.x, centerY);
     ctx.closePath();
 
-    if (element.backgroundColor && element.backgroundColor !== "transparent") {
+    if (element.backgroundColor && element.backgroundColor !== 'transparent') {
       ctx.fillStyle = element.backgroundColor;
       ctx.fill();
     }
@@ -234,25 +223,25 @@ export const diamondShape: ShapeDefinition = {
 };
 
 export const arrowShape: ShapeDefinition = {
-  type: "arrow",
-  name: "Arrow",
-  icon: "arrow-right",
-  category: "connectors",
+  type: 'arrow',
+  name: 'Arrow',
+  icon: 'arrow-right',
+  category: 'connectors',
   create: (props: Partial<DriplElement>) =>
     ({
       id: crypto.randomUUID(),
-      type: "arrow" as const,
+      type: 'arrow' as const,
       x: 0,
       y: 0,
       width: 100,
       height: 100,
-      strokeColor: "#000000",
-      backgroundColor: "transparent",
+      strokeColor: '#000000',
+      backgroundColor: 'transparent',
       strokeWidth: 2,
       opacity: 1,
       roughness: 1,
-      strokeStyle: "solid",
-      fillStyle: "hachure",
+      strokeStyle: 'solid',
+      fillStyle: 'hachure',
       points: [
         { x: 0, y: 0 },
         { x: 100, y: 100 },
@@ -262,7 +251,7 @@ export const arrowShape: ShapeDefinition = {
   validate: (element: any) => {
     return (
       element &&
-      element.type === "arrow" &&
+      element.type === 'arrow' &&
       Array.isArray(element.points) &&
       element.points.length >= 2
     );
@@ -271,7 +260,7 @@ export const arrowShape: ShapeDefinition = {
     const arrowElement = element as any;
     if (!arrowElement.points || arrowElement.points.length < 2) return;
 
-    ctx.strokeStyle = element.strokeColor || "#000000";
+    ctx.strokeStyle = element.strokeColor || '#000000';
     ctx.lineWidth = element.strokeWidth || 2;
     ctx.globalAlpha = element.opacity || 1;
 
@@ -289,11 +278,11 @@ export const arrowShape: ShapeDefinition = {
     ctx.moveTo(arrowElement.points[1].x, arrowElement.points[1].y);
     ctx.lineTo(
       arrowElement.points[1].x - headLength * Math.cos(angle - Math.PI / 6),
-      arrowElement.points[1].y - headLength * Math.sin(angle - Math.PI / 6),
+      arrowElement.points[1].y - headLength * Math.sin(angle - Math.PI / 6)
     );
     ctx.lineTo(
       arrowElement.points[1].x - headLength * Math.cos(angle + Math.PI / 6),
-      arrowElement.points[1].y - headLength * Math.sin(angle + Math.PI / 6),
+      arrowElement.points[1].y - headLength * Math.sin(angle + Math.PI / 6)
     );
     ctx.closePath();
     ctx.fill();
@@ -316,25 +305,25 @@ export const arrowShape: ShapeDefinition = {
 };
 
 export const lineShape: ShapeDefinition = {
-  type: "line",
-  name: "Line",
-  icon: "minus",
-  category: "connectors",
+  type: 'line',
+  name: 'Line',
+  icon: 'minus',
+  category: 'connectors',
   create: (props: Partial<DriplElement>) =>
     ({
       id: crypto.randomUUID(),
-      type: "line" as const,
+      type: 'line' as const,
       x: 0,
       y: 0,
       width: 100,
       height: 100,
-      strokeColor: "#000000",
-      backgroundColor: "transparent",
+      strokeColor: '#000000',
+      backgroundColor: 'transparent',
       strokeWidth: 2,
       opacity: 1,
       roughness: 1,
-      strokeStyle: "solid",
-      fillStyle: "hachure",
+      strokeStyle: 'solid',
+      fillStyle: 'hachure',
       points: [
         { x: 0, y: 0 },
         { x: 100, y: 100 },
@@ -344,7 +333,7 @@ export const lineShape: ShapeDefinition = {
   validate: (element: any) => {
     return (
       element &&
-      element.type === "line" &&
+      element.type === 'line' &&
       Array.isArray(element.points) &&
       element.points.length >= 2
     );
@@ -353,7 +342,7 @@ export const lineShape: ShapeDefinition = {
     const lineElement = element as any;
     if (!lineElement.points || lineElement.points.length < 2) return;
 
-    ctx.strokeStyle = element.strokeColor || "#000000";
+    ctx.strokeStyle = element.strokeColor || '#000000';
     ctx.lineWidth = element.strokeWidth || 2;
     ctx.globalAlpha = element.opacity || 1;
 
@@ -380,40 +369,37 @@ export const lineShape: ShapeDefinition = {
 };
 
 export const textShape: ShapeDefinition = {
-  type: "text",
-  name: "Text",
-  icon: "type",
-  category: "text",
+  type: 'text',
+  name: 'Text',
+  icon: 'type',
+  category: 'text',
   create: (props: Partial<DriplElement>) =>
     ({
       id: crypto.randomUUID(),
-      type: "text" as const,
+      type: 'text' as const,
       x: 0,
       y: 0,
       width: 100,
       height: 30,
-      strokeColor: "#000000",
-      backgroundColor: "transparent",
+      strokeColor: '#000000',
+      backgroundColor: 'transparent',
       strokeWidth: 2,
       opacity: 1,
       roughness: 1,
-      strokeStyle: "solid",
-      fillStyle: "hachure",
-      text: "Text",
+      strokeStyle: 'solid',
+      fillStyle: 'hachure',
+      text: 'Text',
       fontSize: 20,
-      fontFamily:
-        '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
+      fontFamily: '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
       ...props,
     }) as DriplElement,
   validate: (element: any) => {
-    return (
-      element && element.type === "text" && typeof element.text === "string"
-    );
+    return element && element.type === 'text' && typeof element.text === 'string';
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
     const textElement = element as any;
 
-    ctx.fillStyle = element.strokeColor || "#000000";
+    ctx.fillStyle = element.strokeColor || '#000000';
     ctx.font = `${textElement.fontSize}px ${textElement.fontFamily}`;
     ctx.globalAlpha = element.opacity || 1;
 
@@ -437,32 +423,30 @@ export const textShape: ShapeDefinition = {
 };
 
 export const imageShape: ShapeDefinition = {
-  type: "image",
-  name: "Image",
-  icon: "image",
-  category: "media",
+  type: 'image',
+  name: 'Image',
+  icon: 'image',
+  category: 'media',
   create: (props: Partial<DriplElement>) =>
     ({
       id: crypto.randomUUID(),
-      type: "image" as const,
+      type: 'image' as const,
       x: 0,
       y: 0,
       width: 200,
       height: 150,
-      strokeColor: "#000000",
-      backgroundColor: "transparent",
+      strokeColor: '#000000',
+      backgroundColor: 'transparent',
       strokeWidth: 2,
       opacity: 1,
       roughness: 1,
-      strokeStyle: "solid",
-      fillStyle: "hachure",
-      src: "",
+      strokeStyle: 'solid',
+      fillStyle: 'hachure',
+      src: '',
       ...props,
     }) as DriplElement,
   validate: (element: any) => {
-    return (
-      element && element.type === "image" && typeof element.src === "string"
-    );
+    return element && element.type === 'image' && typeof element.src === 'string';
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
     const imageElement = element as any;
@@ -492,43 +476,43 @@ export const imageShape: ShapeDefinition = {
 };
 
 export const frameShape: ShapeDefinition = {
-  type: "frame",
-  name: "Frame",
-  icon: "square",
-  category: "containers",
+  type: 'frame',
+  name: 'Frame',
+  icon: 'square',
+  category: 'containers',
   create: (props: Partial<DriplElement>) =>
     ({
       id: crypto.randomUUID(),
-      type: "frame" as const,
+      type: 'frame' as const,
       x: 0,
       y: 0,
       width: 300,
       height: 200,
-      strokeColor: "#000000",
-      backgroundColor: "transparent",
+      strokeColor: '#000000',
+      backgroundColor: 'transparent',
       strokeWidth: 2,
       opacity: 1,
       roughness: 1,
-      strokeStyle: "solid",
-      fillStyle: "hachure",
-      title: "Frame",
+      strokeStyle: 'solid',
+      fillStyle: 'hachure',
+      title: 'Frame',
       padding: 20,
       ...props,
     }) as DriplElement,
   validate: (element: any) => {
     return (
       element &&
-      element.type === "frame" &&
-      typeof element.x === "number" &&
-      typeof element.y === "number" &&
-      typeof element.width === "number" &&
-      typeof element.height === "number"
+      element.type === 'frame' &&
+      typeof element.x === 'number' &&
+      typeof element.y === 'number' &&
+      typeof element.width === 'number' &&
+      typeof element.height === 'number'
     );
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
     const frameElement = element as any;
 
-    ctx.strokeStyle = element.strokeColor || "#000000";
+    ctx.strokeStyle = element.strokeColor || '#000000';
     ctx.lineWidth = element.strokeWidth || 2;
     ctx.globalAlpha = element.opacity || 1;
 
@@ -540,12 +524,12 @@ export const frameShape: ShapeDefinition = {
       element.x + padding,
       element.y + padding,
       element.width - 2 * padding,
-      element.height - 2 * padding,
+      element.height - 2 * padding
     );
     ctx.setLineDash([]);
 
     if (frameElement.title) {
-      ctx.fillStyle = element.strokeColor || "#000000";
+      ctx.fillStyle = element.strokeColor || '#000000';
       ctx.font = '14px "Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
       ctx.fillText(frameElement.title, element.x + 10, element.y - 10);
     }
@@ -573,42 +557,40 @@ export const frameShape: ShapeDefinition = {
 };
 
 export const freedrawShape: ShapeDefinition = {
-  type: "freedraw",
-  name: "Freedraw",
-  icon: "pen",
-  category: "drawing",
+  type: 'freedraw',
+  name: 'Freedraw',
+  icon: 'pen',
+  category: 'drawing',
   create: (props: Partial<DriplElement>) =>
     ({
       id: crypto.randomUUID(),
-      type: "freedraw" as const,
+      type: 'freedraw' as const,
       x: 0,
       y: 0,
       width: 100,
       height: 100,
-      strokeColor: "#000000",
-      backgroundColor: "transparent",
+      strokeColor: '#000000',
+      backgroundColor: 'transparent',
       strokeWidth: 2,
       opacity: 1,
       roughness: 1,
-      strokeStyle: "solid",
-      fillStyle: "hachure",
+      strokeStyle: 'solid',
+      fillStyle: 'hachure',
       points: [],
       ...props,
     }) as DriplElement,
   validate: (element: any) => {
-    return (
-      element && element.type === "freedraw" && Array.isArray(element.points)
-    );
+    return element && element.type === 'freedraw' && Array.isArray(element.points);
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
     const freedrawElement = element as any;
     if (!freedrawElement.points || freedrawElement.points.length < 2) return;
 
-    ctx.strokeStyle = element.strokeColor || "#000000";
+    ctx.strokeStyle = element.strokeColor || '#000000';
     ctx.lineWidth = element.strokeWidth || 2;
     ctx.globalAlpha = element.opacity || 1;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 
     ctx.beginPath();
     ctx.moveTo(freedrawElement.points[0].x, freedrawElement.points[0].y);

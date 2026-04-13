@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { X, Sparkles, Loader2, AlertCircle } from "lucide-react";
-import { useCanvasStore } from "@/lib/canvas-store";
-import { useAuth } from "@/app/context/AuthContext";
+import { useState } from 'react';
+import { X, Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { useCanvasStore } from '@/lib/canvas-store';
+import { useAuth } from '@/app/context/AuthContext';
 
 interface AIGenerateModalProps {
   isOpen: boolean;
@@ -11,24 +11,24 @@ interface AIGenerateModalProps {
 }
 
 const EXAMPLE_PROMPTS = [
-  "A flowchart showing user authentication flow",
-  "A system architecture diagram with frontend, backend, and database",
-  "An ER diagram for a blog with users, posts, and comments",
-  "A decision tree for customer support",
-  "A mind map about project management",
+  'A flowchart showing user authentication flow',
+  'A system architecture diagram with frontend, backend, and database',
+  'An ER diagram for a blog with users, posts, and comments',
+  'A decision tree for customer support',
+  'A mind map about project management',
 ];
 
 export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const addElements = useCanvasStore((state) => state.addElements);
+  const addElements = useCanvasStore(state => state.addElements);
   const { user } = useAuth();
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      setError("Please enter a prompt");
+      setError('Please enter a prompt');
       return;
     }
 
@@ -36,28 +36,28 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
     setError(null);
 
     try {
-      const response = await fetch("/api/ai/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: prompt.trim(),
-          userId: user?.id || "anonymous",
+          userId: user?.id || 'anonymous',
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to generate diagram");
+        throw new Error(data.error || 'Failed to generate diagram');
       }
 
       if (data.elements && Array.isArray(data.elements)) {
         addElements(data.elements);
         onClose();
-        setPrompt("");
+        setPrompt('');
       }
     } catch (err: any) {
-      setError(err.message || "An error occurred");
+      setError(err.message || 'An error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -77,14 +77,12 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
     >
       <div
         className="bg-[#232329] border border-[#333] rounded-2xl shadow-2xl w-[500px] max-h-[80vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-[#333]">
           <div className="flex items-center gap-2">
             <Sparkles size={20} className="text-[#6965db]" />
-            <h2 className="text-lg font-semibold text-white">
-              AI Diagram Generator
-            </h2>
+            <h2 className="text-lg font-semibold text-white">AI Diagram Generator</h2>
           </div>
           <button
             onClick={onClose}
@@ -96,12 +94,10 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
         <div className="p-4 space-y-4">
           <div className="space-y-2">
-            <label className="text-sm text-gray-400">
-              Describe your diagram
-            </label>
+            <label className="text-sm text-gray-400">Describe your diagram</label>
             <textarea
               value={prompt}
-              onChange={(e) => {
+              onChange={e => {
                 setPrompt(e.target.value);
                 setError(null);
               }}
@@ -124,7 +120,7 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
                   className="px-3 py-1.5 text-xs bg-[#1a1a20] border border-[#333] rounded-full text-gray-300 hover:bg-[#2a2a3a] hover:border-[#6965db] transition-colors"
                   disabled={isLoading}
                 >
-                  {example.length > 40 ? example.slice(0, 40) + "..." : example}
+                  {example.length > 40 ? example.slice(0, 40) + '...' : example}
                 </button>
               ))}
             </div>

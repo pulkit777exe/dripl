@@ -1,8 +1,8 @@
-import { useCallback, useRef } from "react";
-import type { DriplElement } from "@dripl/common";
+import { useCallback, useRef } from 'react';
+import type { DriplElement } from '@dripl/common';
 
 interface ClipboardData {
-  type: "dripl-clipboard";
+  type: 'dripl-clipboard';
   elements: DriplElement[];
 }
 
@@ -13,32 +13,30 @@ export function useClipboard() {
     if (elements.length === 0) return;
 
     const data: ClipboardData = {
-      type: "dripl-clipboard",
-      elements: elements.map((el) => ({ ...el })),
+      type: 'dripl-clipboard',
+      elements: elements.map(el => ({ ...el })),
     };
 
     const json = JSON.stringify(data);
 
     try {
       await navigator.clipboard.writeText(json);
-      localClipboard.current = elements.map((el) => ({ ...el }));
+      localClipboard.current = elements.map(el => ({ ...el }));
     } catch (error) {
-      console.warn("System clipboard not available:", error);
-      localClipboard.current = elements.map((el) => ({ ...el }));
+      console.warn('System clipboard not available:', error);
+      localClipboard.current = elements.map(el => ({ ...el }));
     }
   }, []);
 
   const paste = useCallback(
-    async (
-      offset: { x: number; y: number } = { x: 20, y: 20 },
-    ): Promise<DriplElement[]> => {
+    async (offset: { x: number; y: number } = { x: 20, y: 20 }): Promise<DriplElement[]> => {
       let elements: DriplElement[] = [];
 
       try {
         const text = await navigator.clipboard.readText();
         const data = JSON.parse(text);
 
-        if (data.type === "dripl-clipboard" && Array.isArray(data.elements)) {
+        if (data.type === 'dripl-clipboard' && Array.isArray(data.elements)) {
           elements = data.elements;
         }
       } catch {
@@ -47,22 +45,22 @@ export function useClipboard() {
 
       if (elements.length === 0) return [];
 
-      return elements.map((el) => ({
+      return elements.map(el => ({
         ...el,
         id: crypto.randomUUID(),
         x: el.x + offset.x,
         y: el.y + offset.y,
       }));
     },
-    [],
+    []
   );
 
   const cut = useCallback(
     async (elements: DriplElement[]): Promise<string[]> => {
       await copy(elements);
-      return elements.map((el) => el.id);
+      return elements.map(el => el.id);
     },
-    [copy],
+    [copy]
   );
 
   const hasContent = useCallback(async (): Promise<boolean> => {
@@ -71,7 +69,7 @@ export function useClipboard() {
     try {
       const text = await navigator.clipboard.readText();
       const data = JSON.parse(text);
-      return data.type === "dripl-clipboard" && Array.isArray(data.elements);
+      return data.type === 'dripl-clipboard' && Array.isArray(data.elements);
     } catch {
       return false;
     }

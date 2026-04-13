@@ -1,14 +1,6 @@
-import type { DriplElement, Point } from "@dripl/common";
+import type { DriplElement, Point } from '@dripl/common';
 
-export type TransformHandleDirection =
-  | "n"
-  | "e"
-  | "s"
-  | "w"
-  | "ne"
-  | "se"
-  | "sw"
-  | "nw";
+export type TransformHandleDirection = 'n' | 'e' | 's' | 'w' | 'ne' | 'se' | 'sw' | 'nw';
 
 const MIN_WIDTH_OR_HEIGHT = 1;
 
@@ -21,18 +13,18 @@ export const getResizedOrigin = (
   angle: number,
   handleDirection: TransformHandleDirection,
   shouldMaintainAspectRatio: boolean,
-  shouldResizeFromCenter: boolean,
+  shouldResizeFromCenter: boolean
 ): Point => {
   const anchor = getResizeAnchor(
     handleDirection,
     shouldMaintainAspectRatio,
-    shouldResizeFromCenter,
+    shouldResizeFromCenter
   );
 
   const [x, y] = [prevOrigin.x, prevOrigin.y];
 
   switch (anchor) {
-    case "top-left":
+    case 'top-left':
       return {
         x:
           x +
@@ -45,7 +37,7 @@ export const getResizedOrigin = (
           ((newWidth - prevWidth) / 2) * Math.sin(angle) +
           ((newHeight - prevHeight) / 2) * Math.cos(angle),
       };
-    case "top-right":
+    case 'top-right':
       return {
         x:
           x +
@@ -57,7 +49,7 @@ export const getResizedOrigin = (
           ((prevWidth - newWidth) / 2) * Math.sin(angle) +
           ((newHeight - prevHeight) / 2) * Math.cos(angle),
       };
-    case "bottom-left":
+    case 'bottom-left':
       return {
         x:
           x +
@@ -68,7 +60,7 @@ export const getResizedOrigin = (
           ((prevHeight - newHeight) / 2) * (Math.cos(angle) + 1) +
           ((prevWidth - newWidth) / 2) * Math.sin(angle),
       };
-    case "bottom-right":
+    case 'bottom-right':
       return {
         x:
           x +
@@ -79,41 +71,29 @@ export const getResizedOrigin = (
           ((prevHeight - newHeight) / 2) * (Math.cos(angle) + 1) +
           ((prevWidth - newWidth) / 2) * Math.sin(angle),
       };
-    case "center":
+    case 'center':
       return {
         x: x - (newWidth - prevWidth) / 2,
         y: y - (newHeight - prevHeight) / 2,
       };
-    case "east-side":
+    case 'east-side':
       return {
         x: x + ((prevWidth - newWidth) / 2) * (Math.cos(angle) + 1),
-        y:
-          y +
-          ((prevWidth - newWidth) / 2) * Math.sin(angle) +
-          (prevHeight - newHeight) / 2,
+        y: y + ((prevWidth - newWidth) / 2) * Math.sin(angle) + (prevHeight - newHeight) / 2,
       };
-    case "west-side":
+    case 'west-side':
       return {
         x: x + ((prevWidth - newWidth) / 2) * (1 - Math.cos(angle)),
-        y:
-          y +
-          ((newWidth - prevWidth) / 2) * Math.sin(angle) +
-          (prevHeight - newHeight) / 2,
+        y: y + ((newWidth - prevWidth) / 2) * Math.sin(angle) + (prevHeight - newHeight) / 2,
       };
-    case "north-side":
+    case 'north-side':
       return {
-        x:
-          x +
-          (prevWidth - newWidth) / 2 +
-          ((prevHeight - newHeight) / 2) * Math.sin(angle),
+        x: x + (prevWidth - newWidth) / 2 + ((prevHeight - newHeight) / 2) * Math.sin(angle),
         y: y + ((newHeight - prevHeight) / 2) * (Math.cos(angle) - 1),
       };
-    case "south-side":
+    case 'south-side':
       return {
-        x:
-          x +
-          (prevWidth - newWidth) / 2 +
-          ((newHeight - prevHeight) / 2) * Math.sin(angle),
+        x: x + (prevWidth - newWidth) / 2 + ((newHeight - prevHeight) / 2) * Math.sin(angle),
         y: y + ((prevHeight - newHeight) / 2) * (Math.cos(angle) + 1),
       };
     default:
@@ -124,54 +104,46 @@ export const getResizedOrigin = (
 const getResizeAnchor = (
   handleDirection: TransformHandleDirection,
   shouldMaintainAspectRatio: boolean,
-  shouldResizeFromCenter: boolean,
+  shouldResizeFromCenter: boolean
 ): string => {
   if (shouldResizeFromCenter) {
-    return "center";
+    return 'center';
   }
 
   if (shouldMaintainAspectRatio) {
-    if (handleDirection.includes("n") && handleDirection.includes("e"))
-      return "top-right";
-    if (handleDirection.includes("n") && handleDirection.includes("w"))
-      return "top-left";
-    if (handleDirection.includes("s") && handleDirection.includes("e"))
-      return "bottom-right";
-    if (handleDirection.includes("s") && handleDirection.includes("w"))
-      return "bottom-left";
+    if (handleDirection.includes('n') && handleDirection.includes('e')) return 'top-right';
+    if (handleDirection.includes('n') && handleDirection.includes('w')) return 'top-left';
+    if (handleDirection.includes('s') && handleDirection.includes('e')) return 'bottom-right';
+    if (handleDirection.includes('s') && handleDirection.includes('w')) return 'bottom-left';
   }
 
-  if (handleDirection.includes("n") && handleDirection.includes("e"))
-    return "top-right";
-  if (handleDirection.includes("n") && handleDirection.includes("w"))
-    return "top-left";
-  if (handleDirection.includes("s") && handleDirection.includes("e"))
-    return "bottom-right";
-  if (handleDirection.includes("s") && handleDirection.includes("w"))
-    return "bottom-left";
-  if (handleDirection.includes("n")) return "north-side";
-  if (handleDirection.includes("s")) return "south-side";
-  if (handleDirection.includes("e")) return "east-side";
-  if (handleDirection.includes("w")) return "west-side";
+  if (handleDirection.includes('n') && handleDirection.includes('e')) return 'top-right';
+  if (handleDirection.includes('n') && handleDirection.includes('w')) return 'top-left';
+  if (handleDirection.includes('s') && handleDirection.includes('e')) return 'bottom-right';
+  if (handleDirection.includes('s') && handleDirection.includes('w')) return 'bottom-left';
+  if (handleDirection.includes('n')) return 'north-side';
+  if (handleDirection.includes('s')) return 'south-side';
+  if (handleDirection.includes('e')) return 'east-side';
+  if (handleDirection.includes('w')) return 'west-side';
 
-  return "center";
+  return 'center';
 };
 
 const measureFontSizeFromWidth = (
   element: DriplElement,
-  metricsWidth: number,
+  metricsWidth: number
 ): { size: number; height: number } => {
   const maxFontSize = 200;
   const minFontSize = 8;
 
   for (let fontSize = maxFontSize; fontSize >= minFontSize; fontSize -= 1) {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
     if (!ctx) continue;
 
-    ctx.font = `${fontSize}px ${element.fontFamily || "Arial"}`;
-    const metrics = ctx.measureText(element.text || "A");
-    
+    ctx.font = `${fontSize}px ${element.fontFamily || 'Arial'}`;
+    const metrics = ctx.measureText(element.text || 'A');
+
     if (metrics.width <= metricsWidth) {
       return {
         size: fontSize,
@@ -188,31 +160,27 @@ const measureFontSizeFromWidth = (
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getMinTextElementWidth = (fontString: string, _lineHeight: number): number => {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
   if (!ctx) return 20;
 
   ctx.font = fontString;
-  const metrics = ctx.measureText("A");
+  const metrics = ctx.measureText('A');
   return metrics.width + 8;
 };
 
-const wrapText = (
-  text: string,
-  fontString: string,
-  maxWidth: number,
-): string => {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
+const wrapText = (text: string, fontString: string, maxWidth: number): string => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
   if (!ctx) return text;
 
   ctx.font = fontString;
-  const words = text.split(" ");
+  const words = text.split(' ');
   const lines: string[] = [];
-  let currentLine = (words[0] || "") as string;
+  let currentLine = (words[0] || '') as string;
 
   for (let i = 1; i < words.length; i++) {
-    const word = (words[i] || "") as string;
+    const word = (words[i] || '') as string;
     const testLine = `${currentLine} ${word}`;
     const metrics = ctx.measureText(testLine);
 
@@ -227,23 +195,23 @@ const wrapText = (
     lines.push(currentLine);
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 };
 
 const measureText = (
   text: string,
   fontString: string,
-  lineHeight: number,
+  lineHeight: number
 ): { width: number; height: number } => {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
   if (!ctx) return { width: 0, height: 0 };
 
   ctx.font = fontString;
-  const lines = text.split("\n");
+  const lines = text.split('\n');
   let maxWidth = 0;
 
-  lines.forEach((line) => {
+  lines.forEach(line => {
     const metrics = ctx.measureText(line);
     if (metrics.width > maxWidth) {
       maxWidth = metrics.width;
@@ -262,11 +230,11 @@ export const resizeSingleTextElement = (
   handleDirection: TransformHandleDirection,
   shouldResizeFromCenter: boolean,
   nextWidth: number,
-  nextHeight: number,
+  nextHeight: number
 ): Partial<DriplElement> => {
-  if (element.type !== "text") return {};
+  if (element.type !== 'text') return {};
 
-  if (handleDirection.includes("n") || handleDirection.includes("s")) {
+  if (handleDirection.includes('n') || handleDirection.includes('s')) {
     const metricsWidth = origElement.width * (nextHeight / origElement.height);
     const metrics = measureFontSizeFromWidth(element, metricsWidth);
 
@@ -280,7 +248,7 @@ export const resizeSingleTextElement = (
       origElement.angle || 0,
       handleDirection,
       false,
-      shouldResizeFromCenter,
+      shouldResizeFromCenter
     );
 
     return {
@@ -292,22 +260,22 @@ export const resizeSingleTextElement = (
     };
   }
 
-  if (handleDirection === "e" || handleDirection === "w") {
+  if (handleDirection === 'e' || handleDirection === 'w') {
     const minWidth = getMinTextElementWidth(
-      `${element.fontSize || 16}px ${element.fontFamily || "Arial"}`,
-      (element.lineHeight as number) || 1.2,
+      `${element.fontSize || 16}px ${element.fontFamily || 'Arial'}`,
+      (element.lineHeight as number) || 1.2
     );
 
     const newWidth = Math.max(minWidth, nextWidth);
     const text = wrapText(
-      element.text || "",
-      `${element.fontSize || 16}px ${element.fontFamily || "Arial"}`,
-      Math.abs(newWidth),
+      element.text || '',
+      `${element.fontSize || 16}px ${element.fontFamily || 'Arial'}`,
+      Math.abs(newWidth)
     );
     const metrics = measureText(
       text,
-      `${element.fontSize || 16}px ${element.fontFamily || "Arial"}`,
-      (element.lineHeight as number) || 1.2,
+      `${element.fontSize || 16}px ${element.fontFamily || 'Arial'}`,
+      (element.lineHeight as number) || 1.2
     );
 
     const newHeight = metrics.height;
@@ -321,7 +289,7 @@ export const resizeSingleTextElement = (
       element.angle || 0,
       handleDirection,
       false,
-      shouldResizeFromCenter,
+      shouldResizeFromCenter
     );
 
     return {
@@ -343,9 +311,9 @@ export const resizeSingleLinearElement = (
   handleDirection: TransformHandleDirection,
   shouldResizeFromCenter: boolean,
   nextWidth: number,
-  nextHeight: number,
+  nextHeight: number
 ): Partial<DriplElement> => {
-  if (!("points" in element) || !element.points) return {};
+  if (!('points' in element) || !element.points) return {};
 
   const prevWidth = origElement.width;
   const prevHeight = origElement.height;
@@ -362,7 +330,7 @@ export const resizeSingleLinearElement = (
     element.angle || 0,
     handleDirection,
     false,
-    shouldResizeFromCenter,
+    shouldResizeFromCenter
   );
 
   return {
@@ -383,9 +351,9 @@ export const resizeSingleFreeDrawElement = (
   handleDirection: TransformHandleDirection,
   shouldResizeFromCenter: boolean,
   nextWidth: number,
-  nextHeight: number,
+  nextHeight: number
 ): Partial<DriplElement> => {
-  if (!("points" in element) || !element.points) return {};
+  if (!('points' in element) || !element.points) return {};
 
   const prevWidth = origElement.width;
   const prevHeight = origElement.height;
@@ -402,7 +370,7 @@ export const resizeSingleFreeDrawElement = (
     element.angle || 0,
     handleDirection,
     false,
-    shouldResizeFromCenter,
+    shouldResizeFromCenter
   );
 
   return {
@@ -429,41 +397,41 @@ export const resizeSingleElement = (
   }: {
     shouldMaintainAspectRatio?: boolean;
     shouldResizeFromCenter?: boolean;
-  } = {},
+  } = {}
 ): Partial<DriplElement> => {
   const newWidth = Math.max(MIN_WIDTH_OR_HEIGHT, nextWidth);
   const newHeight = Math.max(MIN_WIDTH_OR_HEIGHT, nextHeight);
 
-  if (latestElement.type === "text") {
+  if (latestElement.type === 'text') {
     return resizeSingleTextElement(
       origElement,
       latestElement,
       handleDirection,
       shouldResizeFromCenter,
       newWidth,
-      newHeight,
+      newHeight
     );
   }
 
-  if (latestElement.type === "arrow" || latestElement.type === "line") {
+  if (latestElement.type === 'arrow' || latestElement.type === 'line') {
     return resizeSingleLinearElement(
       origElement,
       latestElement,
       handleDirection,
       shouldResizeFromCenter,
       newWidth,
-      newHeight,
+      newHeight
     );
   }
 
-  if (latestElement.type === "freedraw") {
+  if (latestElement.type === 'freedraw') {
     return resizeSingleFreeDrawElement(
       origElement,
       latestElement,
       handleDirection,
       shouldResizeFromCenter,
       newWidth,
-      newHeight,
+      newHeight
     );
   }
 
@@ -477,7 +445,7 @@ export const resizeSingleElement = (
     origElement.angle || 0,
     handleDirection,
     shouldMaintainAspectRatio,
-    shouldResizeFromCenter,
+    shouldResizeFromCenter
   );
 
   return {

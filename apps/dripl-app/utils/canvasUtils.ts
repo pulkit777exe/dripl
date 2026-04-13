@@ -1,6 +1,6 @@
-import type { DriplElement, Point } from "@dripl/common";
-import type { Bounds, AppState } from "@/types/canvas";
-import { getElementBounds, isPointInElement } from "@dripl/math";
+import type { DriplElement, Point } from '@dripl/common';
+import type { Bounds, AppState } from '@/types/canvas';
+import { getElementBounds, isPointInElement } from '@dripl/math';
 export type { Point, Bounds, AppState };
 export type { DriplElement };
 
@@ -14,20 +14,20 @@ export function normalizeElement(element: DriplElement): DriplElement {
     ...element,
     // Ensure all required fields are present
     id: element.id || generateId(),
-    type: element.type || "rectangle",
+    type: element.type || 'rectangle',
     x: element.x || 0,
     y: element.y || 0,
     width: element.width || 100,
     height: element.height || 100,
-    angle: typeof element.angle === "number" ? element.angle : 0,
+    angle: typeof element.angle === 'number' ? element.angle : 0,
     version: element.version || 1,
     versionNonce: element.versionNonce || Math.floor(Math.random() * 2_147_483_647),
-    opacity: typeof element.opacity === "number" ? element.opacity : 1,
-    strokeColor: element.strokeColor || "#000000",
+    opacity: typeof element.opacity === 'number' ? element.opacity : 1,
+    strokeColor: element.strokeColor || '#000000',
     strokeWidth: element.strokeWidth || 2,
-    strokeStyle: element.strokeStyle || "solid",
-    backgroundColor: element.backgroundColor || "transparent",
-    fillStyle: element.fillStyle || "hachure",
+    strokeStyle: element.strokeStyle || 'solid',
+    backgroundColor: element.backgroundColor || 'transparent',
+    fillStyle: element.fillStyle || 'hachure',
     roughness: element.roughness || 1,
     isDeleted: element.isDeleted || false,
     updated: element.updated || Date.now(),
@@ -38,7 +38,7 @@ export function normalizeElement(element: DriplElement): DriplElement {
   normalized.height = Math.max(normalized.height, 1);
 
   // Ensure angle is between 0 and 2π
-  if (typeof normalized.angle === "number") {
+  if (typeof normalized.angle === 'number') {
     normalized.angle = normalized.angle % (2 * Math.PI);
     if (normalized.angle < 0) {
       normalized.angle += 2 * Math.PI;
@@ -48,13 +48,16 @@ export function normalizeElement(element: DriplElement): DriplElement {
   }
 
   // Ensure points array exists for line-based elements
-  if ((normalized.type === "line" || normalized.type === "arrow" || normalized.type === "freedraw") && (!normalized.points || !Array.isArray(normalized.points))) {
+  if (
+    (normalized.type === 'line' || normalized.type === 'arrow' || normalized.type === 'freedraw') &&
+    (!normalized.points || !Array.isArray(normalized.points))
+  ) {
     normalized.points = [];
   }
 
   // For text elements, ensure text property exists
-  if (normalized.type === "text" && !normalized.text) {
-    normalized.text = "";
+  if (normalized.type === 'text' && !normalized.text) {
+    normalized.text = '';
     normalized.fontSize = normalized.fontSize || 20;
     normalized.fontFamily =
       normalized.fontFamily ||
@@ -62,12 +65,12 @@ export function normalizeElement(element: DriplElement): DriplElement {
   }
 
   // For image elements, ensure src property exists
-  if (normalized.type === "image" && !normalized.src) {
-    normalized.src = "";
+  if (normalized.type === 'image' && !normalized.src) {
+    normalized.src = '';
   }
 
   // For frame elements, ensure padding property exists
-  if (normalized.type === "frame" && typeof normalized.padding !== "number") {
+  if (normalized.type === 'frame' && typeof normalized.padding !== 'number') {
     normalized.padding = 20;
   }
 
@@ -75,8 +78,8 @@ export function normalizeElement(element: DriplElement): DriplElement {
 }
 
 export const STORAGE_KEYS = {
-  ELEMENTS: "dripl-elements",
-  STATE: "dripl-state",
+  ELEMENTS: 'dripl-elements',
+  STATE: 'dripl-state',
 };
 
 export { getElementBounds, isPointInElement };
@@ -84,7 +87,7 @@ export { getElementBounds, isPointInElement };
 export function drawShape(
   ctx: CanvasRenderingContext2D,
   element: DriplElement,
-  isSelected: boolean = false,
+  isSelected: boolean = false
 ): void {
   ctx.save();
 
@@ -98,46 +101,46 @@ export function drawShape(
     ctx.translate(-centerX, -centerY);
   }
 
-  ctx.strokeStyle = element.strokeColor ?? "#000000";
+  ctx.strokeStyle = element.strokeColor ?? '#000000';
   ctx.lineWidth = element.strokeWidth ?? 1;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
 
-  if (element.strokeStyle === "dashed") {
+  if (element.strokeStyle === 'dashed') {
     ctx.setLineDash([10, 5]);
-  } else if (element.strokeStyle === "dotted") {
+  } else if (element.strokeStyle === 'dotted') {
     ctx.setLineDash([2, 3]);
   } else {
     ctx.setLineDash([]);
   }
 
-  if (element.backgroundColor && element.backgroundColor !== "transparent") {
+  if (element.backgroundColor && element.backgroundColor !== 'transparent') {
     ctx.fillStyle = element.backgroundColor;
   }
 
   switch (element.type) {
-    case "rectangle":
+    case 'rectangle':
       drawRectangle(ctx, element);
       break;
-    case "ellipse":
+    case 'ellipse':
       drawEllipse(ctx, element);
       break;
-    case "diamond":
+    case 'diamond':
       drawDiamond(ctx, element);
       break;
-    case "arrow":
+    case 'arrow':
       drawArrow(ctx, element);
       break;
-    case "line":
+    case 'line':
       drawLine(ctx, element);
       break;
-    case "freedraw":
+    case 'freedraw':
       drawFreedraw(ctx, element);
       break;
-    case "text":
+    case 'text':
       drawText(ctx, element);
       break;
-    case "frame":
+    case 'frame':
       drawFrame(ctx, element);
       break;
   }
@@ -145,12 +148,9 @@ export function drawShape(
   ctx.restore();
 }
 
-function drawRectangle(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-): void {
+function drawRectangle(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   const roundnessValue =
-    typeof element.roundness === "object" && element.roundness !== null
+    typeof element.roundness === 'object' && element.roundness !== null
       ? element.roundness.type
       : element.roundness || 0;
   const radius = roundnessValue * 12;
@@ -163,21 +163,21 @@ function drawRectangle(
       element.x + element.width,
       element.y,
       element.x + element.width,
-      element.y + radius,
+      element.y + radius
     );
     ctx.lineTo(element.x + element.width, element.y + element.height - radius);
     ctx.quadraticCurveTo(
       element.x + element.width,
       element.y + element.height,
       element.x + element.width - radius,
-      element.y + element.height,
+      element.y + element.height
     );
     ctx.lineTo(element.x + radius, element.y + element.height);
     ctx.quadraticCurveTo(
       element.x,
       element.y + element.height,
       element.x,
-      element.y + element.height - radius,
+      element.y + element.height - radius
     );
     ctx.lineTo(element.x, element.y + radius);
     ctx.quadraticCurveTo(element.x, element.y, element.x + radius, element.y);
@@ -188,16 +188,13 @@ function drawRectangle(
     ctx.closePath();
   }
 
-  if (element.backgroundColor !== "transparent") {
+  if (element.backgroundColor !== 'transparent') {
     ctx.fill();
   }
   ctx.stroke();
 }
 
-function drawEllipse(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-): void {
+function drawEllipse(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   const centerX = element.x + element.width / 2;
   const centerY = element.y + element.height / 2;
   const radiusX = element.width / 2;
@@ -207,16 +204,13 @@ function drawEllipse(
   ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
   ctx.closePath();
 
-  if (element.backgroundColor !== "transparent") {
+  if (element.backgroundColor !== 'transparent') {
     ctx.fill();
   }
   ctx.stroke();
 }
 
-function drawDiamond(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-): void {
+function drawDiamond(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   const centerX = element.x + element.width / 2;
   const centerY = element.y + element.height / 2;
 
@@ -227,7 +221,7 @@ function drawDiamond(
   ctx.lineTo(element.x, centerY);
   ctx.closePath();
 
-  if (element.backgroundColor !== "transparent") {
+  if (element.backgroundColor !== 'transparent') {
     ctx.fill();
   }
   ctx.stroke();
@@ -251,10 +245,7 @@ function drawArrow(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   const lastPoint = element.points[element.points.length - 1];
   const secondLastPoint = element.points[element.points.length - 2];
   if (lastPoint === undefined || secondLastPoint === undefined) return;
-  const angle = Math.atan2(
-    lastPoint.y - secondLastPoint.y,
-    lastPoint.x - secondLastPoint.x,
-  );
+  const angle = Math.atan2(lastPoint.y - secondLastPoint.y, lastPoint.x - secondLastPoint.x);
   const arrowLength = 15;
   const arrowWidth = 10;
 
@@ -262,12 +253,12 @@ function drawArrow(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   ctx.moveTo(lastPoint.x, lastPoint.y);
   ctx.lineTo(
     lastPoint.x - arrowLength * Math.cos(angle - Math.PI / 6),
-    lastPoint.y - arrowLength * Math.sin(angle - Math.PI / 6),
+    lastPoint.y - arrowLength * Math.sin(angle - Math.PI / 6)
   );
   ctx.moveTo(lastPoint.x, lastPoint.y);
   ctx.lineTo(
     lastPoint.x - arrowLength * Math.cos(angle + Math.PI / 6),
-    lastPoint.y - arrowLength * Math.sin(angle + Math.PI / 6),
+    lastPoint.y - arrowLength * Math.sin(angle + Math.PI / 6)
   );
   ctx.stroke();
 }
@@ -288,10 +279,7 @@ function drawLine(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   ctx.stroke();
 }
 
-function drawFreedraw(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-): void {
+function drawFreedraw(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   if (!element.points || element.points.length < 2) return;
 
   const firstPoint = element.points[0];
@@ -322,19 +310,18 @@ function drawText(ctx: CanvasRenderingContext2D, element: DriplElement): void {
 
   const fontSize = element.fontSize || 20;
   const fontFamily =
-    element.fontFamily ||
-    '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
+    element.fontFamily || '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
 
   ctx.font = `${fontSize}px ${fontFamily}, cursive`;
-  ctx.fillStyle = element.strokeColor ?? "#000000";
-  ctx.textBaseline = "top";
+  ctx.fillStyle = element.strokeColor ?? '#000000';
+  ctx.textBaseline = 'top';
 
-  const words = element.text.split(" ");
+  const words = element.text.split(' ');
   const lines: string[] = [];
-  let currentLine = "";
+  let currentLine = '';
 
   for (const word of words) {
-    const testLine = currentLine + (currentLine ? " " : "") + word;
+    const testLine = currentLine + (currentLine ? ' ' : '') + word;
     const metrics = ctx.measureText(testLine);
 
     if (metrics.width > element.width && currentLine) {
@@ -365,26 +352,23 @@ function drawFrame(ctx: CanvasRenderingContext2D, element: DriplElement): void {
     element.x + padding,
     element.y + padding,
     element.width - 2 * padding,
-    element.height - 2 * padding,
+    element.height - 2 * padding
   );
   ctx.setLineDash([]);
 
   // Draw title
   if (frameElement.title) {
-    ctx.fillStyle = element.strokeColor ?? "#000000";
+    ctx.fillStyle = element.strokeColor ?? '#000000';
     ctx.font = '14px "Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
     ctx.fillText(frameElement.title, element.x + 10, element.y - 10);
   }
 }
 
-export function exportToPNG(
-  canvas: HTMLCanvasElement,
-  filename: string = "canvas.png",
-): void {
-  canvas.toBlob((blob) => {
+export function exportToPNG(canvas: HTMLCanvasElement, filename: string = 'canvas.png'): void {
+  canvas.toBlob(blob => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    const link = document.createElement('a');
     link.download = filename;
     link.href = url;
     link.click();
@@ -392,20 +376,21 @@ export function exportToPNG(
   });
 }
 
-export function exportToJSON(
-  elements: DriplElement[],
-  filename: string = "canvas.json",
-): void {
+export function exportToJSON(elements: DriplElement[], filename: string = 'canvas.json'): void {
   // Normalize elements before exporting to ensure complete state
   const normalizedElements = elements.map(normalizeElement);
-  
-  const json = JSON.stringify({ 
-    elements: normalizedElements, 
-    version: "1.0" 
-  }, null, 2);
-  const blob = new Blob([json], { type: "application/json" });
+
+  const json = JSON.stringify(
+    {
+      elements: normalizedElements,
+      version: '1.0',
+    },
+    null,
+    2
+  );
+  const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const link = document.createElement('a');
   link.download = filename;
   link.href = url;
   link.click();
@@ -415,14 +400,14 @@ export function exportToJSON(
 export function importFromJSON(file: File): Promise<DriplElement[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = e => {
       try {
         const json = JSON.parse(e.target?.result as string);
         const rawElements = json.elements || [];
-        
+
         // Normalize all elements
         const normalizedElements = rawElements.map(normalizeElement);
-        
+
         // Re-sort elements by z-index or index
         const sortedElements = [...normalizedElements].sort((a, b) => {
           // Use zIndex if available, otherwise use index or position
@@ -431,7 +416,7 @@ export function importFromJSON(file: File): Promise<DriplElement[]> {
           }
           return (a.y || 0) - (b.y || 0);
         });
-        
+
         resolve(sortedElements);
       } catch (error) {
         reject(error);
@@ -445,15 +430,12 @@ export function importFromJSON(file: File): Promise<DriplElement[]> {
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
-export const saveToLocalStorage = (
-  elements: DriplElement[],
-  appState: Partial<AppState>,
-) => {
+export const saveToLocalStorage = (elements: DriplElement[], appState: Partial<AppState>) => {
   try {
     localStorage.setItem(STORAGE_KEYS.ELEMENTS, JSON.stringify(elements));
     localStorage.setItem(STORAGE_KEYS.STATE, JSON.stringify(appState));
   } catch (error) {
-    console.error("Error saving to local storage:", error);
+    console.error('Error saving to local storage:', error);
   }
 };
 
@@ -467,7 +449,7 @@ export const loadFromLocalStorage = () => {
       appState: state ? JSON.parse(state) : null,
     };
   } catch (error) {
-    console.error("Error loading from local storage:", error);
+    console.error('Error loading from local storage:', error);
     return { elements: null, appState: null };
   }
 };

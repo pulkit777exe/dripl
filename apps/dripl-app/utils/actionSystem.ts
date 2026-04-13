@@ -1,9 +1,9 @@
-import type { DriplElement } from "@dripl/common";
-import type { AppState } from "@/types/canvas";
-import type React from "react";
+import type { DriplElement } from '@dripl/common';
+import type { AppState } from '@/types/canvas';
+import type React from 'react';
 
 // Action source types for analytics
-export type ActionSource = "ui" | "keyboard" | "contextMenu" | "api";
+export type ActionSource = 'ui' | 'keyboard' | 'contextMenu' | 'api';
 
 // Result type from performing an action
 export type ActionResult =
@@ -24,20 +24,20 @@ export interface Action {
     elements: DriplElement[],
     appState: AppState,
     value?: unknown,
-    app?: unknown,
+    app?: unknown
   ) => ActionResult;
   keyPriority?: number;
   keyTest?: (
     event: React.KeyboardEvent | KeyboardEvent,
     appState: AppState,
     elements: DriplElement[],
-    app?: unknown,
+    app?: unknown
   ) => boolean;
   predicate?: (
     elements: DriplElement[],
     appState: AppState,
     appProps: unknown,
-    app?: unknown,
+    app?: unknown
   ) => boolean;
   checked?: (appState: AppState) => boolean;
   trackEvent?: boolean | { category: string; action?: string };
@@ -49,12 +49,10 @@ export class ActionManager {
   private actions: Map<string, Action> = new Map();
 
   constructor(
-    private updater: (
-      actionResult: ActionResult | Promise<ActionResult>,
-    ) => void,
+    private updater: (actionResult: ActionResult | Promise<ActionResult>) => void,
     private getAppState: () => AppState,
     private getElements: () => DriplElement[],
-    private app?: unknown,
+    private app?: unknown
   ) {}
 
   registerAction(action: Action) {
@@ -62,7 +60,7 @@ export class ActionManager {
   }
 
   registerAll(actions: Action[]) {
-    actions.forEach((action) => this.registerAction(action));
+    actions.forEach(action => this.registerAction(action));
   }
 
   getAction(name: string): Action | undefined {
@@ -75,16 +73,13 @@ export class ActionManager {
 
   executeAction(
     action: Action | string,
-    source: ActionSource = "api",
-    value: unknown = null,
+    source: ActionSource = 'api',
+    value: unknown = null
   ): void {
-    const actionInstance =
-      typeof action === "string" ? this.getAction(action) : action;
+    const actionInstance = typeof action === 'string' ? this.getAction(action) : action;
 
     if (!actionInstance) {
-      console.warn(
-        `Action not found: ${typeof action === "string" ? action : "unknown"}`,
-      );
+      console.warn(`Action not found: ${typeof action === 'string' ? action : 'unknown'}`);
       return;
     }
 
@@ -99,7 +94,7 @@ export class ActionManager {
         elements,
         appState,
         appProps as { props?: Record<string, unknown> },
-        this.app,
+        this.app
       )
     ) {
       return;
@@ -108,17 +103,15 @@ export class ActionManager {
     // Track event
     if (actionInstance.trackEvent) {
       const category =
-        typeof actionInstance.trackEvent === "object"
+        typeof actionInstance.trackEvent === 'object'
           ? actionInstance.trackEvent.category
-          : "actions";
+          : 'actions';
       const actionName =
-        typeof actionInstance.trackEvent === "object"
+        typeof actionInstance.trackEvent === 'object'
           ? actionInstance.trackEvent.action || actionInstance.name
           : actionInstance.name;
 
-      console.log(
-        `[Analytics] Tracked action: ${actionName} (${category}) from ${source}`,
-      );
+      console.log(`[Analytics] Tracked action: ${actionName} (${category}) from ${source}`);
     }
 
     // Perform action
@@ -126,7 +119,7 @@ export class ActionManager {
       this.getElements(),
       this.getAppState(),
       value,
-      this.app,
+      this.app
     );
 
     // Update app state
@@ -136,27 +129,24 @@ export class ActionManager {
   }
 
   handleKeyDown(event: React.KeyboardEvent | KeyboardEvent): boolean {
-    const canvasActions = (this.app as { props?: { canvasActions?: Record<string, boolean> } } | undefined)?.props?.canvasActions || {};
+    const canvasActions =
+      (this.app as { props?: { canvasActions?: Record<string, boolean> } } | undefined)?.props
+        ?.canvasActions || {};
 
     const matchingActions = Array.from(this.actions.values())
       .sort((a, b) => (b.keyPriority || 0) - (a.keyPriority || 0))
       .filter(
-        (action) =>
+        action =>
           canvasActions[action.name] !== false &&
           action.keyTest &&
-          action.keyTest(
-            event,
-            this.getAppState(),
-            this.getElements(),
-            this.app,
-          ),
+          action.keyTest(event, this.getAppState(), this.getElements(), this.app)
       );
 
     if (matchingActions.length !== 1) {
       if (matchingActions.length > 1) {
         console.warn(
-          "Multiple actions match shortcut:",
-          matchingActions.map((a) => a.name),
+          'Multiple actions match shortcut:',
+          matchingActions.map(a => a.name)
         );
       }
       return false;
@@ -166,7 +156,7 @@ export class ActionManager {
 
     event.preventDefault();
     event.stopPropagation();
-    this.executeAction(action, "keyboard");
+    this.executeAction(action, 'keyboard');
 
     return true;
   }
@@ -179,20 +169,13 @@ export function trackAction(
   appState: AppState,
   elements: DriplElement[],
   app: unknown,
-  value: unknown,
+  value: unknown
 ): void {
   if (action.trackEvent) {
-    const category =
-      typeof action.trackEvent === "object"
-        ? action.trackEvent.category
-        : "actions";
+    const category = typeof action.trackEvent === 'object' ? action.trackEvent.category : 'actions';
     const actionName =
-      typeof action.trackEvent === "object"
-        ? action.trackEvent.action || action.name
-        : action.name;
+      typeof action.trackEvent === 'object' ? action.trackEvent.action || action.name : action.name;
 
-    console.log(
-      `[Analytics] Tracked action: ${actionName} (${category}) from ${source}`,
-    );
+    console.log(`[Analytics] Tracked action: ${actionName} (${category}) from ${source}`);
   }
 }

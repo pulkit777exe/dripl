@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
+import { useEffect } from 'react';
 
 export default function DashboardError({
   error,
@@ -16,9 +16,7 @@ export default function DashboardError({
   return (
     <div className="flex-1 flex items-center justify-center bg-background">
       <div className="text-center">
-        <h2 className="text-xl font-semibold text-foreground mb-2">
-          Something went wrong!
-        </h2>
+        <h2 className="text-xl font-semibold text-foreground mb-2">Something went wrong!</h2>
         <p className="text-muted-foreground mb-4">{error.message}</p>
         <button
           onClick={reset}

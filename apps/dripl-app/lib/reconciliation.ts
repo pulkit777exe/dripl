@@ -1,6 +1,6 @@
-import type { DriplElement } from "@dripl/common";
-import type { AppState } from "@/types/canvas";
-import { normalizeElement } from "@/utils/canvasUtils";
+import type { DriplElement } from '@dripl/common';
+import type { AppState } from '@/types/canvas';
+import { normalizeElement } from '@/utils/canvasUtils';
 
 export interface ReconciliationResult {
   accepted: DriplElement[];
@@ -53,7 +53,7 @@ export interface ReconcileOptions {
 const getDiscardReason = (
   local: DriplElement | undefined,
   remote: DriplElement,
-  options: ReconcileOptions = {},
+  options: ReconcileOptions = {}
 ): string => {
   const { editingElementId, draftElementId } = options;
 
@@ -88,10 +88,10 @@ const getDiscardReason = (
 export const shouldDiscardRemoteElement = (
   local: DriplElement | undefined,
   remote: DriplElement,
-  options: ReconcileOptions = {},
+  options: ReconcileOptions = {}
 ): boolean => {
   const discard = getDiscardReason(local, remote, options) !== 'accept';
-  
+
   console.log('[RECONCILE] shouldDiscardRemoteElement', {
     id: remote.id,
     localVersion: local?.version,
@@ -99,7 +99,7 @@ export const shouldDiscardRemoteElement = (
     localNonce: local?.versionNonce,
     remoteNonce: remote.versionNonce,
     discard,
-    reason: getDiscardReason(local, remote, options)
+    reason: getDiscardReason(local, remote, options),
   });
 
   return discard;
@@ -123,17 +123,17 @@ export function reconcileElements(
   incomingElements: DriplElement[],
   /** @deprecated Pass options instead — kept for backwards compat */
   localAppState: AppState | ReconcileOptions = {} as AppState,
-  options: ReconcileOptions = {},
+  options: ReconcileOptions = {}
 ): ReconciliationResult {
   // Support the old (localAppState, no extra options) and new
   // (localAppState + options) call signatures seamlessly.
   const resolvedOptions: ReconcileOptions =
-    "editingElementId" in localAppState || "draftElementId" in localAppState
+    'editingElementId' in localAppState || 'draftElementId' in localAppState
       ? (localAppState as ReconcileOptions)
       : options;
 
   const localMap = new Map<string, DriplElement>();
-  localElements.forEach((el) => localMap.set(el.id, el));
+  localElements.forEach(el => localMap.set(el.id, el));
 
   const accepted: DriplElement[] = [];
   const rejected: DriplElement[] = [];
@@ -144,11 +144,7 @@ export function reconcileElements(
     const normalizedIncoming = normalizeElement(incoming);
     const local = localMap.get(normalizedIncoming.id);
 
-    const discard = shouldDiscardRemoteElement(
-      local,
-      normalizedIncoming,
-      resolvedOptions,
-    );
+    const discard = shouldDiscardRemoteElement(local, normalizedIncoming, resolvedOptions);
 
     if (discard) {
       rejected.push(normalizedIncoming);
@@ -166,7 +162,7 @@ export function reconcileElements(
     incomingCount: incomingElements.length,
     acceptedCount: accepted.length,
     rejectedCount: rejected.length,
-    needsRender: needsRender
+    needsRender: needsRender,
   });
 
   return { accepted, rejected, needsRender };
@@ -176,13 +172,10 @@ export function shouldAcceptUpdate(
   localVersion: number,
   incomingVersion: number,
   localVersionNonce: number,
-  incomingVersionNonce: number,
+  incomingVersionNonce: number
 ): boolean {
   if (incomingVersion > localVersion) return true;
-  if (
-    incomingVersion === localVersion &&
-    incomingVersionNonce < localVersionNonce
-  ) {
+  if (incomingVersion === localVersion && incomingVersionNonce < localVersionNonce) {
     return true;
   }
   return false;
@@ -192,10 +185,7 @@ export function getNextVersion(currentVersion: number | undefined): number {
   return (currentVersion ?? 0) + 1;
 }
 
-export function withVersion<T extends DriplElement>(
-  element: T,
-  version?: number,
-): T {
+export function withVersion<T extends DriplElement>(element: T, version?: number): T {
   return {
     ...element,
     version: version ?? 1,
@@ -203,9 +193,7 @@ export function withVersion<T extends DriplElement>(
   };
 }
 
-export function createWithInitialVersion<T extends DriplElement>(
-  element: T,
-): T {
+export function createWithInitialVersion<T extends DriplElement>(element: T): T {
   return {
     ...element,
     version: 1,
@@ -214,10 +202,7 @@ export function createWithInitialVersion<T extends DriplElement>(
   };
 }
 
-export function mergeElement(
-  local: DriplElement,
-  incoming: DriplElement,
-): DriplElement {
+export function mergeElement(local: DriplElement, incoming: DriplElement): DriplElement {
   const localVersion = local.version ?? 0;
   const incomingVersion = incoming.version ?? 0;
 
@@ -232,7 +217,7 @@ export function mergeElement(
   if (incomingVersion === localVersion) {
     const localNonce = local.versionNonce ?? 0;
     const incomingNonce = incoming.versionNonce ?? 0;
-    
+
     if (incomingNonce < localNonce) {
       return {
         ...incoming,
@@ -247,7 +232,7 @@ export function mergeElement(
 
 export function calculateDirtyRegions(
   elements: DriplElement[],
-  previousElements: Map<string, DriplElement>,
+  previousElements: Map<string, DriplElement>
 ): Array<{ x: number; y: number; width: number; height: number }> {
   const regions: Array<{
     x: number;
@@ -284,19 +269,19 @@ export class ReconciliationManager {
   process(
     localElements: DriplElement[],
     incomingElements: DriplElement[],
-    options: ReconcileOptions = {},
+    options: ReconcileOptions = {}
   ): DriplElement[] {
     const result = reconcileElements(localElements, incomingElements, options);
 
-    result.accepted.forEach((el) => {
+    result.accepted.forEach(el => {
       this.localVersion.set(el.id, el.version ?? 0);
       this.localVersionNonce.set(el.id, el.versionNonce ?? 0);
     });
 
     if (result.accepted.length > 0) {
-      const localMap = new Map(localElements.map((el) => [el.id, el]));
+      const localMap = new Map(localElements.map(el => [el.id, el]));
 
-      result.accepted.forEach((el) => {
+      result.accepted.forEach(el => {
         localMap.set(el.id, el);
       });
 
@@ -317,7 +302,7 @@ export class ReconciliationManager {
   shouldAccept(
     elementId: string,
     incomingVersion: number,
-    incomingVersionNonce: number = 0,
+    incomingVersionNonce: number = 0
   ): boolean {
     const localVersion = this.getLocalVersion(elementId);
     const localVersionNonce = this.getLocalVersionNonce(elementId);
@@ -325,7 +310,7 @@ export class ReconciliationManager {
       localVersion,
       incomingVersion,
       localVersionNonce,
-      incomingVersionNonce,
+      incomingVersionNonce
     );
   }
 }

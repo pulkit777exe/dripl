@@ -1,4 +1,4 @@
-import { Point } from "@dripl/common";
+import { Point } from '@dripl/common';
 
 export interface Viewport {
   x: number;
@@ -8,22 +8,14 @@ export interface Viewport {
   zoom: number;
 }
 
-export function screenToCanvas(
-  screenX: number,
-  screenY: number,
-  viewport: Viewport,
-): Point {
+export function screenToCanvas(screenX: number, screenY: number, viewport: Viewport): Point {
   return {
     x: screenX / viewport.zoom - viewport.x / viewport.zoom,
     y: screenY / viewport.zoom - viewport.y / viewport.zoom,
   };
 }
 
-export function canvasToScreen(
-  canvasX: number,
-  canvasY: number,
-  viewport: Viewport,
-): Point {
+export function canvasToScreen(canvasX: number, canvasY: number, viewport: Viewport): Point {
   return {
     x: canvasX * viewport.zoom + viewport.x,
     y: canvasY * viewport.zoom + viewport.y,

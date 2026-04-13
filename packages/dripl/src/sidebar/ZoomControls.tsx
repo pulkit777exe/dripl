@@ -1,6 +1,6 @@
-import { cn } from "../lib/utils";
-import { IconButton } from "../common/IconButton";
-import { Tooltip } from "../common/Tooltip";
+import { cn } from '../lib/utils';
+import { IconButton } from '../common/IconButton';
+import { Tooltip } from '../common/Tooltip';
 
 interface ZoomControlsProps {
   zoom: number;
@@ -20,10 +20,10 @@ export const ZoomControls = ({
   return (
     <div
       className={cn(
-        "flex items-center gap-1 rounded-xl p-1",
-        "bg-neutral-100 dark:bg-neutral-800",
-        "border border-neutral-200 dark:border-neutral-700",
-        className,
+        'flex items-center gap-1 rounded-xl p-1',
+        'bg-neutral-100 dark:bg-neutral-800',
+        'border border-neutral-200 dark:border-neutral-700',
+        className
       )}
     >
       <Tooltip content="Zoom Out (-)">
@@ -46,7 +46,7 @@ export const ZoomControls = ({
       <button
         onClick={onReset}
         className={cn(
-          "min-w-12 text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100",
+          'min-w-12 text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
         )}
         aria-label="Reset Zoom"
       >

@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useState, useCallback, useEffect } from "react";
-import type { DriplElement, Point } from "@dripl/common";
+import { useState, useCallback, useEffect } from 'react';
+import type { DriplElement, Point } from '@dripl/common';
 import {
   zoomToFit,
   zoomToSelection,
   calculateZoom,
   getMousePosition,
   DEFAULT_ZOOM_SETTINGS,
-} from "@/utils/zoomUtils";
-import { getVisibleElements } from "@/utils/viewport-culling";
+} from '@/utils/zoomUtils';
+import { getVisibleElements } from '@/utils/viewport-culling';
 
 export interface Viewport {
   x: number;
@@ -43,21 +43,21 @@ export function useZoom(elements: DriplElement[]): UseZoomReturn {
 
   useEffect(() => {
     const handleResize = () => {
-      setViewport((prev) => ({
+      setViewport(prev => ({
         ...prev,
         width: window.innerWidth,
         height: window.innerHeight,
       }));
     };
 
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const visibleElements = getVisibleElements(elements, viewport);
 
   const updateCanvasSize = useCallback(() => {
-    setViewport((prev) => ({
+    setViewport(prev => ({
       ...prev,
       width: window.innerWidth,
       height: window.innerHeight,
@@ -65,21 +65,21 @@ export function useZoom(elements: DriplElement[]): UseZoomReturn {
   }, []);
 
   const zoomIn = useCallback(() => {
-    setViewport((prev) => ({
+    setViewport(prev => ({
       ...prev,
       zoom: calculateZoom(prev.zoom, 1),
     }));
   }, []);
 
   const zoomOut = useCallback(() => {
-    setViewport((prev) => ({
+    setViewport(prev => ({
       ...prev,
       zoom: calculateZoom(prev.zoom, -1),
     }));
   }, []);
 
   const resetZoom = useCallback(() => {
-    setViewport((prev) => ({
+    setViewport(prev => ({
       ...prev,
       zoom: 1,
       x: 0,
@@ -89,32 +89,24 @@ export function useZoom(elements: DriplElement[]): UseZoomReturn {
 
   const handleZoomToFit = useCallback(
     (elementsToFit: DriplElement[]) => {
-      const { zoom, centerX, centerY } = zoomToFit(
-        elementsToFit,
-        viewport.width,
-        viewport.height,
-      );
+      const { zoom, centerX, centerY } = zoomToFit(elementsToFit, viewport.width, viewport.height);
 
-      setViewport((prev) => ({
+      setViewport(prev => ({
         ...prev,
         zoom,
         x: prev.width / 2 - centerX * zoom,
         y: prev.height / 2 - centerY * zoom,
       }));
     },
-    [viewport.width, viewport.height],
+    [viewport.width, viewport.height]
   );
 
   const handleZoomToSelection = useCallback(
     (selectedElements: DriplElement[]) => {
-      const result = zoomToSelection(
-        selectedElements,
-        viewport.width,
-        viewport.height,
-      );
+      const result = zoomToSelection(selectedElements, viewport.width, viewport.height);
 
       if (result) {
-        setViewport((prev) => ({
+        setViewport(prev => ({
           ...prev,
           zoom: result.zoom,
           x: prev.width / 2 - result.centerX * result.zoom,
@@ -122,14 +114,14 @@ export function useZoom(elements: DriplElement[]): UseZoomReturn {
         }));
       }
     },
-    [viewport.width, viewport.height],
+    [viewport.width, viewport.height]
   );
 
   const handleSetZoom = useCallback((newZoom: number, center?: Point) => {
-    setViewport((prev) => {
+    setViewport(prev => {
       const boundedZoom = Math.min(
         Math.max(newZoom, DEFAULT_ZOOM_SETTINGS.minZoom),
-        DEFAULT_ZOOM_SETTINGS.maxZoom,
+        DEFAULT_ZOOM_SETTINGS.maxZoom
       );
 
       if (center) {
@@ -155,7 +147,7 @@ export function useZoom(elements: DriplElement[]): UseZoomReturn {
     (event: React.MouseEvent<HTMLDivElement>) => {
       return getMousePosition(event, viewport);
     },
-    [viewport],
+    [viewport]
   );
 
   return {

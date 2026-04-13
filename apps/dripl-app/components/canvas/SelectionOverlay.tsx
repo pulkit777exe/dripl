@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { DriplElement, Point } from "@dripl/common";
-import { getElementBounds } from "@dripl/math";
+import { DriplElement, Point } from '@dripl/common';
+import { getElementBounds } from '@dripl/math';
 
 interface SelectionOverlayProps {
   zoom: number;
@@ -14,67 +14,65 @@ interface SelectionOverlayProps {
   marqueeSelection?: { start: Point; end: Point; active: boolean } | null;
 }
 
-export type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
 const H = 12;
 
-
 const CORNER_HANDLES: { id: ResizeHandle; css: React.CSSProperties }[] = [
-  { id: "nw", css: { top: -H / 2, left: -H / 2, cursor: "nw-resize" } },
-  { id: "ne", css: { top: -H / 2, right: -H / 2, cursor: "ne-resize" } },
-  { id: "se", css: { bottom: -H / 2, right: -H / 2, cursor: "se-resize" } },
-  { id: "sw", css: { bottom: -H / 2, left: -H / 2, cursor: "sw-resize" } },
+  { id: 'nw', css: { top: -H / 2, left: -H / 2, cursor: 'nw-resize' } },
+  { id: 'ne', css: { top: -H / 2, right: -H / 2, cursor: 'ne-resize' } },
+  { id: 'se', css: { bottom: -H / 2, right: -H / 2, cursor: 'se-resize' } },
+  { id: 'sw', css: { bottom: -H / 2, left: -H / 2, cursor: 'sw-resize' } },
 ];
 
 const EDGE_HANDLES: { id: ResizeHandle; css: React.CSSProperties }[] = [
   {
-    id: "n",
+    id: 'n',
     css: {
       top: -H / 2,
-      left: "50%",
-      transform: "translateX(-50%)",
-      cursor: "n-resize",
+      left: '50%',
+      transform: 'translateX(-50%)',
+      cursor: 'n-resize',
     },
   },
   {
-    id: "e",
+    id: 'e',
     css: {
-      top: "50%",
+      top: '50%',
       right: -H / 2,
-      transform: "translateY(-50%)",
-      cursor: "e-resize",
+      transform: 'translateY(-50%)',
+      cursor: 'e-resize',
     },
   },
   {
-    id: "s",
+    id: 's',
     css: {
       bottom: -H / 2,
-      left: "50%",
-      transform: "translateX(-50%)",
-      cursor: "s-resize",
+      left: '50%',
+      transform: 'translateX(-50%)',
+      cursor: 's-resize',
     },
   },
   {
-    id: "w",
+    id: 'w',
     css: {
-      top: "50%",
+      top: '50%',
       left: -H / 2,
-      transform: "translateY(-50%)",
-      cursor: "w-resize",
+      transform: 'translateY(-50%)',
+      cursor: 'w-resize',
     },
   },
 ];
 
-
 const baseHandle: React.CSSProperties = {
   width: H,
   height: H,
-  backgroundColor: "transparent",
-  border: "none",
-  position: "absolute",
-  pointerEvents: "auto",
+  backgroundColor: 'transparent',
+  border: 'none',
+  position: 'absolute',
+  pointerEvents: 'auto',
   zIndex: 20,
-  boxSizing: "border-box",
+  boxSizing: 'border-box',
 };
 
 export function SelectionOverlay({
@@ -91,7 +89,7 @@ export function SelectionOverlay({
 
   if (selectedIds.size === 0) return null;
 
-  const selected = elements.filter((el) => selectedIds.has(el.id));
+  const selected = elements.filter(el => selectedIds.has(el.id));
   if (selected.length === 0) return null;
 
   let minX = Infinity,
@@ -99,7 +97,7 @@ export function SelectionOverlay({
     maxX = -Infinity,
     maxY = -Infinity;
 
-  selected.forEach((el) => {
+  selected.forEach(el => {
     const b = getElementBounds(el);
     minX = Math.min(minX, b.x);
     minY = Math.min(minY, b.y);
@@ -132,7 +130,7 @@ export function SelectionOverlay({
               key={id}
               className="resize-handle"
               style={{ ...baseHandle, ...css }}
-              onPointerDown={(e) => onResizeStart(id, e)}
+              onPointerDown={e => onResizeStart(id, e)}
             />
           ))}
 
@@ -144,7 +142,7 @@ export function SelectionOverlay({
                 ...baseHandle,
                 ...css,
               }}
-              onPointerDown={(e) => onResizeStart(id, e)}
+              onPointerDown={e => onResizeStart(id, e)}
             />
           ))}
 
@@ -153,15 +151,15 @@ export function SelectionOverlay({
             style={{
               width: 18,
               height: 18,
-              backgroundColor: "transparent",
-              border: "none",
+              backgroundColor: 'transparent',
+              border: 'none',
               borderRadius: 9,
-              position: "absolute",
+              position: 'absolute',
               top: -30,
-              left: "50%",
-              transform: "translateX(-50%)",
-              cursor: "grab",
-              pointerEvents: "auto",
+              left: '50%',
+              transform: 'translateX(-50%)',
+              cursor: 'grab',
+              pointerEvents: 'auto',
               zIndex: 20,
             }}
             onPointerDown={onRotateStart}

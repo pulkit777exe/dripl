@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { v4 as uuidv4 } from "uuid";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { v4 as uuidv4 } from 'uuid';
 import {
   Search,
   Home,
@@ -16,17 +16,17 @@ import {
   Clock,
   MoreHorizontal,
   LucideIcon,
-} from "lucide-react";
-import { getAllCanvasRooms, CanvasRoomData } from "@/lib/canvas-db";
+} from 'lucide-react';
+import { getAllCanvasRooms, CanvasRoomData } from '@/lib/canvas-db';
 
 export function LandingPage() {
   const router = useRouter();
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState('');
   const [recentRooms, setRecentRooms] = useState<CanvasRoomData[]>([]);
 
   useEffect(() => {
     // Load recent rooms
-    getAllCanvasRooms().then((rooms) => {
+    getAllCanvasRooms().then(rooms => {
       const sorted = rooms.sort((a, b) => b.lastModified - a.lastModified);
       setRecentRooms(sorted);
     });
@@ -72,12 +72,7 @@ export function LandingPage() {
         {/* Navigation */}
         <nav className="flex-1 space-y-1">
           <NavItem icon={Home} label="Dashboard" />
-          <NavItem
-            icon={CheckSquare}
-            label="Tasks"
-            active
-            count={recentRooms.length}
-          />
+          <NavItem icon={CheckSquare} label="Tasks" active count={recentRooms.length} />
           <NavItem icon={Inbox} label="Inbox" count={3} />
           <NavItem icon={Calendar} label="Calendar" />
           <NavItem icon={Users} label="Meeting" />
@@ -90,9 +85,7 @@ export function LandingPage() {
             <div className="w-8 h-8 rounded-full bg-linear-to-br from-purple-500 to-indigo-500 border border-foreground/10" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">Pulkit</div>
-              <div className="text-xs text-muted-foreground truncate">
-                Pro Plan
-              </div>
+              <div className="text-xs text-muted-foreground truncate">Pro Plan</div>
             </div>
           </div>
         </div>
@@ -134,7 +127,7 @@ export function LandingPage() {
             </button>
 
             {/* Recent Rooms */}
-            {recentRooms.map((room) => (
+            {recentRooms.map(room => (
               <div
                 key={room.roomId}
                 onClick={() => router.push(`/canvas/${room.roomId}`)}
@@ -159,9 +152,7 @@ export function LandingPage() {
                     <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate max-w-[150px]">
                       {room.roomId}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      Edited just now
-                    </span>
+                    <span className="text-xs text-muted-foreground">Edited just now</span>
                   </div>
                   <div className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-accent text-muted-foreground transition-colors">
                     <MoreHorizontal className="w-5 h-5" />
@@ -192,18 +183,16 @@ function NavItem({
       href="#"
       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
         active
-          ? "bg-accent text-foreground font-medium shadow-sm border border-foreground/5"
-          : "text-muted-foreground hover:text-foreground hover:bg-card"
+          ? 'bg-accent text-foreground font-medium shadow-sm border border-foreground/5'
+          : 'text-muted-foreground hover:text-foreground hover:bg-card'
       }`}
     >
       <Icon
-        className={`w-5 h-5 ${active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}
+        className={`w-5 h-5 ${active ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}
       />
       <span>{label}</span>
       {count !== undefined && (
-        <span
-          className={`ml-auto text-xs ${active ? "text-white" : "text-gray-600"}`}
-        >
+        <span className={`ml-auto text-xs ${active ? 'text-white' : 'text-gray-600'}`}>
           {count}
         </span>
       )}

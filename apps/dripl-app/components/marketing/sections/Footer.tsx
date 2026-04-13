@@ -1,9 +1,9 @@
-import Link from "next/link";
+import Link from 'next/link';
 
 const FOOTER_LINKS = {
-  Product: ["Changelog", "Roadmap", "Download", "Status"],
-  Company: ["About", "Careers", "Legal"],
-  Social: ["Twitter", "LinkedIn", "GitHub"],
+  Product: ['Changelog', 'Roadmap', 'Download', 'Status'],
+  Company: ['About', 'Careers', 'Legal'],
+  Social: ['Twitter', 'LinkedIn', 'GitHub'],
 };
 
 export function Footer() {
@@ -12,9 +12,7 @@ export function Footer() {
       <div className="container mx-auto px-6">
         <div className="grid grid-cols-2 gap-12 md:grid-cols-5">
           <div className="col-span-2 md:col-span-1">
-            <h3 className="mb-4 font-medium tracking-tight text-deep-charcoal">
-              Dripl
-            </h3>
+            <h3 className="mb-4 font-medium tracking-tight text-deep-charcoal">Dripl</h3>
             <p className="text-sm leading-relaxed text-foreground/60">
               Made for creators,
               <br />
@@ -28,14 +26,14 @@ export function Footer() {
                 {category}
               </h4>
               <ul className="space-y-3">
-                {links.map((link) => (
+                {links.map(link => (
                   <li key={link}>
                     <Link
                       href="#"
                       className="text-sm text-foreground/60 transition-colors hover:text-foreground"
                     >
                       {link}
-                      {link === "Careers" && (
+                      {link === 'Careers' && (
                         <span className="ml-2 rounded-full bg-deep-charcoal/5 px-2 py-0.5 text-[10px] font-medium text-deep-charcoal">
                           Hiring
                         </span>

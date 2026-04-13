@@ -1,24 +1,24 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const PointSchema = z.object({
   x: z.number(),
   y: z.number(),
 });
 
-export const TextAlignSchema = z.enum(["left", "center", "right"]);
+export const TextAlignSchema = z.enum(['left', 'center', 'right']);
 
 export const ElementTypeSchema = z.enum([
-  "rectangle",
-  "ellipse",
-  "path",
-  "text",
-  "image",
-  "line",
-  "arrow",
+  'rectangle',
+  'ellipse',
+  'path',
+  'text',
+  'image',
+  'line',
+  'arrow',
   // Legacy types kept for backwards compatibility
-  "diamond",
-  "freedraw",
-  "frame",
+  'diamond',
+  'freedraw',
+  'frame',
 ]);
 
 export const BaseElementSchema = z.object({
@@ -29,9 +29,9 @@ export const BaseElementSchema = z.object({
   width: z.number(),
   height: z.number(),
   angle: z.number().default(0),
-  strokeColor: z.string().default("#000000"),
-  fillColor: z.string().default("transparent"),
-  backgroundColor: z.string().default("transparent"),
+  strokeColor: z.string().default('#000000'),
+  fillColor: z.string().default('transparent'),
+  backgroundColor: z.string().default('transparent'),
   strokeWidth: z.number().default(2),
   opacity: z.number().min(0).max(1).default(1),
   roughness: z.number().min(0).max(2).default(1),
@@ -44,17 +44,9 @@ export const BaseElementSchema = z.object({
   version: z.number().optional(),
   versionNonce: z.number().optional(),
   updated: z.number().optional(),
-  strokeStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
+  strokeStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
   fillStyle: z
-    .enum([
-      "hachure",
-      "solid",
-      "zigzag",
-      "cross-hatch",
-      "dots",
-      "dashed",
-      "zigzag-line",
-    ])
+    .enum(['hachure', 'solid', 'zigzag', 'cross-hatch', 'dots', 'dashed', 'zigzag-line'])
     .optional(),
   seed: z.number().optional(),
   groupId: z.string().optional(),
@@ -62,38 +54,38 @@ export const BaseElementSchema = z.object({
 });
 
 export const RectangleElementSchema = BaseElementSchema.extend({
-  type: z.literal("rectangle"),
+  type: z.literal('rectangle'),
 });
 
 export const EllipseElementSchema = BaseElementSchema.extend({
-  type: z.literal("ellipse"),
+  type: z.literal('ellipse'),
 });
 
 export const PathElementSchema = BaseElementSchema.extend({
-  type: z.literal("path"),
+  type: z.literal('path'),
   points: z.array(PointSchema).min(1),
 });
 
 export const LineElementSchema = BaseElementSchema.extend({
-  type: z.literal("line"),
+  type: z.literal('line'),
   points: z.array(PointSchema).min(2),
 });
 
 export const ArrowElementSchema = BaseElementSchema.extend({
-  type: z.literal("arrow"),
+  type: z.literal('arrow'),
   points: z.array(PointSchema).min(2),
 });
 
 export const TextElementSchema = BaseElementSchema.extend({
-  type: z.literal("text"),
+  type: z.literal('text'),
   text: z.string(),
   fontSize: z.number().default(20),
-  fontFamily: z.string().default("Caveat"),
-  textAlign: TextAlignSchema.default("left"),
+  fontFamily: z.string().default('Caveat'),
+  textAlign: TextAlignSchema.default('left'),
 });
 
 export const ImageElementSchema = BaseElementSchema.extend({
-  type: z.literal("image"),
+  type: z.literal('image'),
   dataUrl: z.string().optional(),
   src: z.string().optional(),
   naturalWidth: z.number().optional(),
@@ -101,21 +93,21 @@ export const ImageElementSchema = BaseElementSchema.extend({
 });
 
 const DiamondElementSchema = BaseElementSchema.extend({
-  type: z.literal("diamond"),
+  type: z.literal('diamond'),
 });
 
 const FreeDrawElementSchema = BaseElementSchema.extend({
-  type: z.literal("freedraw"),
+  type: z.literal('freedraw'),
   points: z.array(PointSchema).min(1),
 });
 
 const FrameElementSchema = BaseElementSchema.extend({
-  type: z.literal("frame"),
+  type: z.literal('frame'),
   title: z.string().optional(),
   padding: z.number().optional(),
 });
 
-export const DriplElementSchema = z.discriminatedUnion("type", [
+export const DriplElementSchema = z.discriminatedUnion('type', [
   RectangleElementSchema,
   EllipseElementSchema,
   PathElementSchema,
@@ -132,7 +124,7 @@ export const ElementSchema = DriplElementSchema;
 export const CanvasContentSchema = z.array(DriplElementSchema);
 
 export const CreateFileSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, 'Name is required'),
   folderId: z.string().optional(),
   teamId: z.string().optional(),
 });
@@ -149,7 +141,7 @@ export const FileSchema = z.object({
   content: z.string(),
   preview: z.string().nullable(),
   shareToken: z.string().nullable().optional(),
-  sharePermission: z.enum(["view", "edit"]).nullable().optional(),
+  sharePermission: z.enum(['view', 'edit']).nullable().optional(),
   shareExpiresAt: z.date().nullable().optional(),
   folderId: z.string().nullable(),
   teamId: z.string().nullable(),

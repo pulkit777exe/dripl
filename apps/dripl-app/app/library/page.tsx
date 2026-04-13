@@ -1,17 +1,8 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import {
-  Search,
-  Star,
-  Download,
-  Grid,
-  List,
-  ArrowLeft,
-  Shapes,
-  Heart,
-} from "lucide-react";
-import Link from "next/link";
+import { useState } from 'react';
+import { Search, Star, Download, Grid, List, ArrowLeft, Shapes, Heart } from 'lucide-react';
+import Link from 'next/link';
 
 interface LibraryItem {
   id: string;
@@ -25,56 +16,53 @@ interface LibraryItem {
 
 const MOCK_LIBRARY: LibraryItem[] = [
   {
-    id: "1",
-    name: "Flowchart Shapes",
-    category: "Diagrams",
-    author: "Dripl Team",
+    id: '1',
+    name: 'Flowchart Shapes',
+    category: 'Diagrams',
+    author: 'Dripl Team',
     downloads: 12500,
-    preview: "/placeholder.svg",
+    preview: '/placeholder.svg',
     isFavorite: false,
   },
   {
-    id: "2",
-    name: "UI Icons Pack",
-    category: "Icons",
-    author: "Community",
+    id: '2',
+    name: 'UI Icons Pack',
+    category: 'Icons',
+    author: 'Community',
     downloads: 8200,
-    preview: "/placeholder.svg",
+    preview: '/placeholder.svg',
     isFavorite: true,
   },
   {
-    id: "3",
-    name: "Architecture Symbols",
-    category: "Diagrams",
-    author: "Dripl Team",
+    id: '3',
+    name: 'Architecture Symbols',
+    category: 'Diagrams',
+    author: 'Dripl Team',
     downloads: 5600,
-    preview: "/placeholder.svg",
+    preview: '/placeholder.svg',
     isFavorite: false,
   },
   {
-    id: "4",
-    name: "Hand-drawn Arrows",
-    category: "Shapes",
-    author: "Community",
+    id: '4',
+    name: 'Hand-drawn Arrows',
+    category: 'Shapes',
+    author: 'Community',
     downloads: 15000,
-    preview: "/placeholder.svg",
+    preview: '/placeholder.svg',
     isFavorite: true,
   },
 ];
 
-const CATEGORIES = ["All", "Diagrams", "Icons", "Shapes", "UI Components"];
+const CATEGORIES = ['All', 'Diagrams', 'Icons', 'Shapes', 'UI Components'];
 
 export default function LibraryPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  const filteredItems = MOCK_LIBRARY.filter((item) => {
-    const matchesSearch = item.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      selectedCategory === "All" || item.category === selectedCategory;
+  const filteredItems = MOCK_LIBRARY.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -103,24 +91,24 @@ export default function LibraryPage() {
                 type="text"
                 placeholder="Search library..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={e => setSearchQuery(e.target.value)}
                 className="bg-gray-900 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-purple-500 w-64"
               />
             </div>
 
             <div className="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
               <button
-                onClick={() => setViewMode("grid")}
+                onClick={() => setViewMode('grid')}
                 className={`p-2 rounded ${
-                  viewMode === "grid" ? "bg-gray-700" : "hover:bg-gray-800"
+                  viewMode === 'grid' ? 'bg-gray-700' : 'hover:bg-gray-800'
                 }`}
               >
                 <Grid size={18} />
               </button>
               <button
-                onClick={() => setViewMode("list")}
+                onClick={() => setViewMode('list')}
                 className={`p-2 rounded ${
-                  viewMode === "list" ? "bg-gray-700" : "hover:bg-gray-800"
+                  viewMode === 'list' ? 'bg-gray-700' : 'hover:bg-gray-800'
                 }`}
               >
                 <List size={18} />
@@ -133,14 +121,12 @@ export default function LibraryPage() {
       <div className="max-w-7xl mx-auto p-6">
         {/* Categories */}
         <div className="flex gap-2 mb-6">
-          {CATEGORIES.map((category) => (
+          {CATEGORIES.map(category => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
               className={`px-4 py-2 rounded-full text-sm transition-colors ${
-                selectedCategory === category
-                  ? "bg-purple-600"
-                  : "bg-gray-800 hover:bg-gray-700"
+                selectedCategory === category ? 'bg-purple-600' : 'bg-gray-800 hover:bg-gray-700'
               }`}
             >
               {category}
@@ -149,9 +135,9 @@ export default function LibraryPage() {
         </div>
 
         {/* Grid/List */}
-        {viewMode === "grid" ? (
+        {viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredItems.map((item) => (
+            {filteredItems.map(item => (
               <div
                 key={item.id}
                 className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden hover:border-purple-500 transition-colors group"
@@ -165,9 +151,7 @@ export default function LibraryPage() {
                     <button className="text-gray-500 hover:text-red-500">
                       <Heart
                         size={18}
-                        className={
-                          item.isFavorite ? "fill-red-500 text-red-500" : ""
-                        }
+                        className={item.isFavorite ? 'fill-red-500 text-red-500' : ''}
                       />
                     </button>
                   </div>
@@ -187,7 +171,7 @@ export default function LibraryPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredItems.map((item) => (
+            {filteredItems.map(item => (
               <div
                 key={item.id}
                 className="bg-gray-900 rounded-lg border border-gray-800 p-4 flex items-center justify-between hover:border-purple-500 transition-colors"

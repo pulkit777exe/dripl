@@ -1,13 +1,12 @@
-import type { Metadata } from "next";
-import type { CSSProperties } from "react";
-import "./globals.css";
-import { AuthProvider } from "./context/AuthContext";
-import { ThemeProvider } from "@/components/ThemeProvider";
+import type { Metadata } from 'next';
+import type { CSSProperties } from 'react';
+import './globals.css';
+import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from '@/components/ThemeProvider';
 
 export const metadata: Metadata = {
-  title: "Dripl — Think in public",
-  description:
-    "A collaborative canvas for drawing, designing, and sharing ideas",
+  title: 'Dripl — Think in public',
+  description: 'A collaborative canvas for drawing, designing, and sharing ideas',
 };
 
 export default function RootLayout({
@@ -20,10 +19,9 @@ export default function RootLayout({
       <body
         style={
           {
-            "--font-dm-serif": '"Georgia", "Times New Roman", serif',
-            "--font-source-sans":
-              '"Segoe UI", "Helvetica Neue", "Arial", sans-serif',
-            "--font-caveat": '"Comic Sans MS", "Marker Felt", cursive',
+            '--font-dm-serif': '"Georgia", "Times New Roman", serif',
+            '--font-source-sans': '"Segoe UI", "Helvetica Neue", "Arial", sans-serif',
+            '--font-caveat': '"Comic Sans MS", "Marker Felt", cursive',
           } as CSSProperties
         }
       >

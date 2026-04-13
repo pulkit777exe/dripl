@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request, Response } from 'express';
 // import db from "@dripl/db";
 
 export class TeamController {

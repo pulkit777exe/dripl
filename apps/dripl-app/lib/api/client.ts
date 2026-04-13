@@ -1,4 +1,4 @@
-import { apiClient as coreApiClient } from "@/lib/api";
+import { apiClient as coreApiClient } from '@/lib/api';
 
 type CompatApiClient = typeof coreApiClient & {
   signup: typeof coreApiClient.register;
@@ -9,7 +9,7 @@ type CompatApiClient = typeof coreApiClient & {
   }>;
   updateRoom: (
     slug: string,
-    data: { name?: string; content?: string | unknown[] },
+    data: { name?: string; content?: string | unknown[] }
   ) => ReturnType<typeof coreApiClient.updateFile>;
   getRoom: (slug: string) => Promise<{
     room: { id: string; slug: string; name: string; content: unknown[] };
@@ -33,52 +33,49 @@ compat.signup = coreApiClient.register.bind(coreApiClient);
 compat.getProfile = coreApiClient.me.bind(coreApiClient);
 compat.getFiles = coreApiClient.listFiles.bind(coreApiClient);
 compat.createRoom = async (data?: { name?: string }) => {
-    const created = await coreApiClient.createFile({
-      name: data?.name,
-    });
-    return {
-      room: {
-        id: created.id,
-        slug: created.id,
-        name: created.name,
-      },
-    };}
-compat.updateRoom = async (
-  slug: string,
-  data: { name?: string; content?: string | unknown[] },
-) => {
-    const content =
-      typeof data.content === "string"
-        ? safeParseArray(data.content)
-        : (data.content ?? undefined);
-    return coreApiClient.updateFile(slug, {
-      name: data.name,
-      content: Array.isArray(content) ? content : undefined,
-    });
+  const created = await coreApiClient.createFile({
+    name: data?.name,
+  });
+  return {
+    room: {
+      id: created.id,
+      slug: created.id,
+      name: created.name,
+    },
   };
+};
+compat.updateRoom = async (slug: string, data: { name?: string; content?: string | unknown[] }) => {
+  const content =
+    typeof data.content === 'string' ? safeParseArray(data.content) : (data.content ?? undefined);
+  return coreApiClient.updateFile(slug, {
+    name: data.name,
+    content: Array.isArray(content) ? content : undefined,
+  });
+};
 compat.getRoom = async (slug: string) => {
-    const result = await coreApiClient.getFile(slug);
-    return {
-      room: {
-        id: result.file.id,
-        slug: result.file.id,
-        name: result.file.name,
-        content: result.file.content,
-      },
-    };}
-compat.getRooms = async () => {
-    const response = await coreApiClient.listFiles();
-    return {
-      rooms: response.files.map((file) => ({
-        id: file.id,
-        slug: file.id,
-        name: file.name,
-        createdAt: file.createdAt,
-        updatedAt: file.updatedAt,
-        isPublic: false,
-      })),
-    };
+  const result = await coreApiClient.getFile(slug);
+  return {
+    room: {
+      id: result.file.id,
+      slug: result.file.id,
+      name: result.file.name,
+      content: result.file.content,
+    },
   };
+};
+compat.getRooms = async () => {
+  const response = await coreApiClient.listFiles();
+  return {
+    rooms: response.files.map(file => ({
+      id: file.id,
+      slug: file.id,
+      name: file.name,
+      createdAt: file.createdAt,
+      updatedAt: file.updatedAt,
+      isPublic: false,
+    })),
+  };
+};
 compat.deleteRoom = coreApiClient.deleteFile.bind(coreApiClient);
 
 export const apiClient = compat;

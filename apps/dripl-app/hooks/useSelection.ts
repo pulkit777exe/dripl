@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
-import type { DriplElement, Point } from "@dripl/common";
-import { isPointInElement } from "@/utils/canvasUtils";
+import { useState, useCallback } from 'react';
+import type { DriplElement, Point } from '@dripl/common';
+import { isPointInElement } from '@/utils/canvasUtils';
 
 interface UseSelectionProps {
   elements: DriplElement[];
@@ -11,11 +11,9 @@ export const useSelection = ({ elements, setElements }: UseSelectionProps) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const selectElement = useCallback((id: string, multi: boolean = false) => {
-    setSelectedIds((prev) => {
+    setSelectedIds(prev => {
       if (multi) {
-        return prev.includes(id)
-          ? prev.filter((pid) => pid !== id)
-          : [...prev, id];
+        return prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id];
       }
       return [id];
     });
@@ -27,16 +25,14 @@ export const useSelection = ({ elements, setElements }: UseSelectionProps) => {
 
   const handleSelection = useCallback(
     (point: Point, isShiftKey: boolean) => {
-      const clickedElement = [...elements]
-        .reverse()
-        .find((el) => isPointInElement(point, el));
+      const clickedElement = [...elements].reverse().find(el => isPointInElement(point, el));
 
       if (clickedElement) {
         if (isShiftKey) {
-          setSelectedIds((prev) =>
+          setSelectedIds(prev =>
             prev.includes(clickedElement.id)
-              ? prev.filter((id) => id !== clickedElement.id)
-              : [...prev, clickedElement.id],
+              ? prev.filter(id => id !== clickedElement.id)
+              : [...prev, clickedElement.id]
           );
         } else {
           if (!selectedIds.includes(clickedElement.id)) {
@@ -49,12 +45,12 @@ export const useSelection = ({ elements, setElements }: UseSelectionProps) => {
 
       return clickedElement;
     },
-    [elements, selectedIds],
+    [elements, selectedIds]
   );
 
   const deleteSelected = useCallback(() => {
     if (selectedIds.length > 0) {
-      setElements((prev) => prev.filter((el) => !selectedIds.includes(el.id)));
+      setElements(prev => prev.filter(el => !selectedIds.includes(el.id)));
       setSelectedIds([]);
       return true;
     }
@@ -62,7 +58,7 @@ export const useSelection = ({ elements, setElements }: UseSelectionProps) => {
   }, [selectedIds, setElements]);
 
   const selectAll = useCallback(() => {
-    setSelectedIds(elements.map((el) => el.id));
+    setSelectedIds(elements.map(el => el.id));
   }, [elements]);
 
   return {

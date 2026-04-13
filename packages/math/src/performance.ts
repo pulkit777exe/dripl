@@ -1,11 +1,11 @@
-import type { DriplElement } from "@dripl/common";
-import type { Bounds } from "./geometry";
-import { getElementBounds } from "./intersection";
+import type { DriplElement } from '@dripl/common';
+import type { Bounds } from './geometry';
+import { getElementBounds } from './intersection';
 
 export function isElementInViewport(
   element: DriplElement,
   viewport: Bounds,
-  padding: number = 50,
+  padding: number = 50
 ): boolean {
   const bounds = getElementBounds(element);
 
@@ -29,7 +29,7 @@ export function getViewportBounds(
   canvasHeight: number,
   panX: number,
   panY: number,
-  zoom: number,
+  zoom: number
 ): Bounds {
   return {
     x: -panX / zoom,
@@ -39,11 +39,8 @@ export function getViewportBounds(
   };
 }
 
-export function getVisibleElements(
-  elements: DriplElement[],
-  viewport: Bounds,
-): DriplElement[] {
-  return elements.filter((element) => {
+export function getVisibleElements(elements: DriplElement[], viewport: Bounds): DriplElement[] {
+  return elements.filter(element => {
     if (element.isDeleted) return false;
     return isElementInViewport(element, viewport);
   });
@@ -51,7 +48,7 @@ export function getVisibleElements(
 
 export function getDirtyRegion(
   changedElements: DriplElement[],
-  previousBounds: Map<string, Bounds>,
+  previousBounds: Map<string, Bounds>
 ): Bounds | null {
   if (changedElements.length === 0) return null;
 
@@ -88,7 +85,7 @@ export function getDirtyRegion(
 
 export function debounce<T extends (...args: unknown[]) => void>(
   fn: T,
-  ms: number,
+  ms: number
 ): (...args: Parameters<T>) => void {
   let timeoutId: ReturnType<typeof setTimeout>;
   return function (...args: Parameters<T>) {
@@ -99,7 +96,7 @@ export function debounce<T extends (...args: unknown[]) => void>(
 
 export function throttle<T extends (...args: unknown[]) => void>(
   fn: T,
-  ms: number,
+  ms: number
 ): (...args: Parameters<T>) => void {
   let lastCall = 0;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;

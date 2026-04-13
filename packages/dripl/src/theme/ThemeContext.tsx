@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useEffect, useMemo } from "react";
-import { useStore } from "@tanstack/react-store";
-import { getColorPalette, ColorPalette, Theme } from "./colors";
-import { store, actions, StoreState } from "../store";
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import { useStore } from '@tanstack/react-store';
+import { getColorPalette, ColorPalette, Theme } from './colors';
+import { store, actions, StoreState } from '../store';
 
 interface ThemeContextValue {
   theme: Theme;
@@ -20,19 +20,19 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({
   children,
-  defaultTheme = "light",
-  storageKey = "dripl-theme",
+  defaultTheme = 'light',
+  storageKey = 'dripl-theme',
 }: ThemeProviderProps) {
   const getInitialTheme = (): Theme => {
-    if (typeof window === "undefined") return defaultTheme;
+    if (typeof window === 'undefined') return defaultTheme;
 
     const stored = localStorage.getItem(storageKey);
-    if (stored === "light" || stored === "dark") {
+    if (stored === 'light' || stored === 'dark') {
       return stored;
     }
 
-    if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
-      return "dark";
+    if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
     }
 
     return defaultTheme;
@@ -53,33 +53,33 @@ export function ThemeProvider({
   useEffect(() => {
     const root = document.documentElement;
 
-    if (theme === "dark") {
-      root.classList.add("dark");
-      root.style.colorScheme = "dark";
+    if (theme === 'dark') {
+      root.classList.add('dark');
+      root.style.colorScheme = 'dark';
     } else {
-      root.classList.remove("dark");
-      root.style.colorScheme = "light";
+      root.classList.remove('dark');
+      root.style.colorScheme = 'light';
     }
 
     actions.setAppState({
-      canvasBackgroundColor: theme === "dark" ? "#1e1e1e" : "#ffffff",
+      canvasBackgroundColor: theme === 'dark' ? '#1e1e1e' : '#ffffff',
     });
 
     localStorage.setItem(storageKey, theme);
   }, [theme, storageKey]);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const mediaQuery = window.matchMedia?.('(prefers-color-scheme: dark)');
 
     const handleChange = (e: MediaQueryListEvent) => {
       const stored = localStorage.getItem(storageKey);
       if (!stored) {
-        actions.setAppState({ theme: e.matches ? "dark" : "light" });
+        actions.setAppState({ theme: e.matches ? 'dark' : 'light' });
       }
     };
 
-    mediaQuery?.addEventListener("change", handleChange);
-    return () => mediaQuery?.removeEventListener("change", handleChange);
+    mediaQuery?.addEventListener('change', handleChange);
+    return () => mediaQuery?.removeEventListener('change', handleChange);
   }, [storageKey]);
 
   const setTheme = (newTheme: Theme) => {
@@ -87,7 +87,7 @@ export function ThemeProvider({
   };
 
   const toggleTheme = () => {
-    setTheme(theme === "light" ? "dark" : "light");
+    setTheme(theme === 'light' ? 'dark' : 'light');
   };
 
   const value = useMemo(
@@ -97,18 +97,16 @@ export function ThemeProvider({
       setTheme,
       toggleTheme,
     }),
-    [theme, colors],
+    [theme, colors]
   );
 
-  return (
-    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme(): ThemeContextValue {
   const context = useContext(ThemeContext);
   if (!context) {
-    throw new Error("useTheme must be used within a ThemeProvider");
+    throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;
 }
@@ -118,9 +116,7 @@ export function useThemeColors(): ColorPalette {
   return colors;
 }
 
-export function useThemeColor<K extends keyof ColorPalette>(
-  key: K,
-): ColorPalette[K] {
+export function useThemeColor<K extends keyof ColorPalette>(key: K): ColorPalette[K] {
   const { colors } = useTheme();
   return colors[key];
 }

@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React from "react";
+import React from 'react';
 
 interface LoadFromLinkModalProps {
   isOpen: boolean;
@@ -25,7 +25,7 @@ export function LoadFromLinkModal({
     <div className="fixed inset-0 bg-black/60 z-100 flex items-center justify-center p-4">
       <div
         className="w-full max-w-2xl bg-[#232329] rounded-xl border border-[#3f3f46] shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-[#3f3f46]">
@@ -76,8 +76,7 @@ export function LoadFromLinkModal({
                 Loading external drawing will replace your existing content.
               </h3>
               <p className="text-gray-400">
-                You can back up your drawing first using one of the options
-                below.
+                You can back up your drawing first using one of the options below.
               </p>
             </div>
           </div>
@@ -88,12 +87,9 @@ export function LoadFromLinkModal({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Export as Image */}
             <div className="text-center">
-              <h4 className="text-lg font-medium text-white mb-2">
-                Export as image
-              </h4>
+              <h4 className="text-lg font-medium text-white mb-2">Export as image</h4>
               <p className="text-sm text-gray-400 mb-4">
-                Export the scene data as an image from which you can import
-                later.
+                Export the scene data as an image from which you can import later.
               </p>
               <button
                 onClick={onExportAsImage}
@@ -105,9 +101,7 @@ export function LoadFromLinkModal({
 
             {/* Save to Disk */}
             <div className="text-center">
-              <h4 className="text-lg font-medium text-white mb-2">
-                Save to disk
-              </h4>
+              <h4 className="text-lg font-medium text-white mb-2">Save to disk</h4>
               <p className="text-sm text-gray-400 mb-4">
                 Export the scene data to a file from which you can import later.
               </p>
@@ -121,9 +115,7 @@ export function LoadFromLinkModal({
 
             {/* Export to Cloud */}
             <div className="text-center">
-              <h4 className="text-lg font-medium text-white mb-2">
-                Excalidraw+
-              </h4>
+              <h4 className="text-lg font-medium text-white mb-2">Excalidraw+</h4>
               <p className="text-sm text-gray-400 mb-4">
                 Save the scene to your Excalidraw+ workspace.
               </p>

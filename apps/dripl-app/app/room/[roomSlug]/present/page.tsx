@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect } from 'next/navigation';
 
 interface PageProps {
   params: Promise<{ roomSlug: string }>;
@@ -13,7 +13,7 @@ export default async function RoomPresentPage({ params }: PageProps) {
 
 export function generateMetadata() {
   return {
-    title: "Presentation Mode - Dripl",
-    description: "Full-screen presentation of a collaborative canvas",
+    title: 'Presentation Mode - Dripl',
+    description: 'Full-screen presentation of a collaborative canvas',
   };
 }

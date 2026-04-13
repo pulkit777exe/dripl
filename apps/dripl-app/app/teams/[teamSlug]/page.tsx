@@ -1,22 +1,15 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
-import {
-  ArrowLeft,
-  Users,
-  Settings,
-  FolderOpen,
-  Plus,
-  Search,
-} from "lucide-react";
-import Link from "next/link";
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import { ArrowLeft, Users, Settings, FolderOpen, Plus, Search } from 'lucide-react';
+import Link from 'next/link';
 
 interface TeamMember {
   id: string;
   name: string;
   email: string;
-  role: "owner" | "admin" | "member";
+  role: 'owner' | 'admin' | 'member';
   avatar?: string;
 }
 
@@ -28,23 +21,21 @@ interface TeamFile {
 }
 
 const MOCK_MEMBERS: TeamMember[] = [
-  { id: "1", name: "Alice Johnson", email: "alice@example.com", role: "owner" },
-  { id: "2", name: "Bob Smith", email: "bob@example.com", role: "admin" },
-  { id: "3", name: "Carol White", email: "carol@example.com", role: "member" },
+  { id: '1', name: 'Alice Johnson', email: 'alice@example.com', role: 'owner' },
+  { id: '2', name: 'Bob Smith', email: 'bob@example.com', role: 'admin' },
+  { id: '3', name: 'Carol White', email: 'carol@example.com', role: 'member' },
 ];
 
 const MOCK_FILES: TeamFile[] = [
-  { id: "1", name: "Q1 Planning", updatedAt: new Date(), updatedBy: "Alice" },
-  { id: "2", name: "Product Roadmap", updatedAt: new Date(), updatedBy: "Bob" },
-  { id: "3", name: "Design System", updatedAt: new Date(), updatedBy: "Carol" },
+  { id: '1', name: 'Q1 Planning', updatedAt: new Date(), updatedBy: 'Alice' },
+  { id: '2', name: 'Product Roadmap', updatedAt: new Date(), updatedBy: 'Bob' },
+  { id: '3', name: 'Design System', updatedAt: new Date(), updatedBy: 'Carol' },
 ];
 
 export default function TeamWorkspacePage() {
   const params = useParams();
   const teamSlug = params.teamSlug as string;
-  const [activeTab, setActiveTab] = useState<"files" | "members" | "settings">(
-    "files",
-  );
+  const [activeTab, setActiveTab] = useState<'files' | 'members' | 'settings'>('files');
 
   return (
     <div className="min-h-dvh bg-[#0a0a0a] text-white">
@@ -74,33 +65,33 @@ export default function TeamWorkspacePage() {
       <div className="border-b border-gray-800">
         <div className="max-w-7xl mx-auto flex gap-1 px-4">
           <button
-            onClick={() => setActiveTab("files")}
+            onClick={() => setActiveTab('files')}
             className={`flex items-center gap-2 px-4 py-3 text-sm border-b-2 transition-colors ${
-              activeTab === "files"
-                ? "border-purple-500 text-white"
-                : "border-transparent text-gray-400 hover:text-white"
+              activeTab === 'files'
+                ? 'border-purple-500 text-white'
+                : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
             <FolderOpen size={16} />
             Files
           </button>
           <button
-            onClick={() => setActiveTab("members")}
+            onClick={() => setActiveTab('members')}
             className={`flex items-center gap-2 px-4 py-3 text-sm border-b-2 transition-colors ${
-              activeTab === "members"
-                ? "border-purple-500 text-white"
-                : "border-transparent text-gray-400 hover:text-white"
+              activeTab === 'members'
+                ? 'border-purple-500 text-white'
+                : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
             <Users size={16} />
             Members
           </button>
           <button
-            onClick={() => setActiveTab("settings")}
+            onClick={() => setActiveTab('settings')}
             className={`flex items-center gap-2 px-4 py-3 text-sm border-b-2 transition-colors ${
-              activeTab === "settings"
-                ? "border-purple-500 text-white"
-                : "border-transparent text-gray-400 hover:text-white"
+              activeTab === 'settings'
+                ? 'border-purple-500 text-white'
+                : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
             <Settings size={16} />
@@ -111,7 +102,7 @@ export default function TeamWorkspacePage() {
 
       <div className="max-w-7xl mx-auto p-6">
         {/* Files Tab */}
-        {activeTab === "files" && (
+        {activeTab === 'files' && (
           <div>
             <div className="flex items-center justify-between mb-6">
               <div className="relative">
@@ -128,7 +119,7 @@ export default function TeamWorkspacePage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {MOCK_FILES.map((file) => (
+              {MOCK_FILES.map(file => (
                 <Link
                   key={file.id}
                   href={`/file/${file.id}`}
@@ -138,9 +129,7 @@ export default function TeamWorkspacePage() {
                     <FolderOpen className="text-gray-600" size={32} />
                   </div>
                   <h3 className="font-medium mb-1">{file.name}</h3>
-                  <p className="text-sm text-gray-400">
-                    Updated by {file.updatedBy}
-                  </p>
+                  <p className="text-sm text-gray-400">Updated by {file.updatedBy}</p>
                 </Link>
               ))}
             </div>
@@ -148,7 +137,7 @@ export default function TeamWorkspacePage() {
         )}
 
         {/* Members Tab */}
-        {activeTab === "members" && (
+        {activeTab === 'members' && (
           <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-medium">Team Members</h2>
@@ -159,11 +148,8 @@ export default function TeamWorkspacePage() {
             </div>
 
             <div className="bg-gray-900 rounded-lg border border-gray-800 divide-y divide-gray-800">
-              {MOCK_MEMBERS.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-4"
-                >
+              {MOCK_MEMBERS.map(member => (
+                <div key={member.id} className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
                     <div className="size-10 bg-purple-600 rounded-full flex items-center justify-center text-sm font-medium">
                       {member.name.charAt(0)}
@@ -175,11 +161,11 @@ export default function TeamWorkspacePage() {
                   </div>
                   <span
                     className={`text-xs px-2 py-1 rounded ${
-                      member.role === "owner"
-                        ? "bg-purple-600/20 text-purple-400"
-                        : member.role === "admin"
-                          ? "bg-blue-600/20 text-blue-400"
-                          : "bg-gray-700 text-gray-400"
+                      member.role === 'owner'
+                        ? 'bg-purple-600/20 text-purple-400'
+                        : member.role === 'admin'
+                          ? 'bg-blue-600/20 text-blue-400'
+                          : 'bg-gray-700 text-gray-400'
                     }`}
                   >
                     {member.role}
@@ -191,7 +177,7 @@ export default function TeamWorkspacePage() {
         )}
 
         {/* Settings Tab */}
-        {activeTab === "settings" && (
+        {activeTab === 'settings' && (
           <div className="max-w-2xl">
             <h2 className="text-lg font-medium mb-6">Team Settings</h2>
 

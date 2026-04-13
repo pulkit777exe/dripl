@@ -1,8 +1,8 @@
-import { v4 as uuidv4 } from "uuid";
-import { z } from "zod";
-import { ElementSchema, type DriplElement } from "@dripl/common";
-import { getElementBounds } from "@dripl/math";
-import { renderInteractiveScene } from "@/renderer/interactiveScene";
+import { v4 as uuidv4 } from 'uuid';
+import { z } from 'zod';
+import { ElementSchema, type DriplElement } from '@dripl/common';
+import { getElementBounds } from '@dripl/math';
+import { renderInteractiveScene } from '@/renderer/interactiveScene';
 
 const ElementsSchema = z.array(ElementSchema);
 
@@ -25,7 +25,7 @@ function getSceneBounds(elements: readonly DriplElement[]): SceneBounds {
   let maxX = -Infinity;
   let maxY = -Infinity;
 
-  elements.forEach((element) => {
+  elements.forEach(element => {
     const bounds = getElementBounds(element);
     minX = Math.min(minX, bounds.x);
     minY = Math.min(minY, bounds.y);
@@ -45,11 +45,11 @@ function getSceneBounds(elements: readonly DriplElement[]): SceneBounds {
 
 function escapeXml(text: string): string {
   return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 export async function exportToPng(
@@ -58,10 +58,10 @@ export async function exportToPng(
     scale?: number;
     background?: string;
     padding?: number;
-  } = {},
+  } = {}
 ): Promise<Blob> {
   const scale = options.scale ?? 2;
-  const background = options.background ?? "#ffffff";
+  const background = options.background ?? '#ffffff';
   const padding = options.padding ?? 16;
   const bounds = getSceneBounds(elements);
 
@@ -71,19 +71,19 @@ export async function exportToPng(
   let canvas: OffscreenCanvas | HTMLCanvasElement;
   let ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
 
-  if (typeof OffscreenCanvas !== "undefined") {
+  if (typeof OffscreenCanvas !== 'undefined') {
     canvas = new OffscreenCanvas(width, height);
-    ctx = canvas.getContext("2d");
+    ctx = canvas.getContext('2d');
   } else {
-    const fallback = document.createElement("canvas");
+    const fallback = document.createElement('canvas');
     fallback.width = width;
     fallback.height = height;
     canvas = fallback;
-    ctx = fallback.getContext("2d");
+    ctx = fallback.getContext('2d');
   }
 
   if (!ctx) {
-    throw new Error("Unable to initialize canvas context for export");
+    throw new Error('Unable to initialize canvas context for export');
   }
 
   ctx.fillStyle = background;
@@ -109,25 +109,22 @@ export async function exportToPng(
     clearCanvas: false,
   });
 
-  if ("convertToBlob" in canvas) {
-    return canvas.convertToBlob({ type: "image/png" });
+  if ('convertToBlob' in canvas) {
+    return canvas.convertToBlob({ type: 'image/png' });
   }
 
   return new Promise<Blob>((resolve, reject) => {
-    (canvas as HTMLCanvasElement).toBlob((blob) => {
+    (canvas as HTMLCanvasElement).toBlob(blob => {
       if (!blob) {
-        reject(new Error("PNG export failed"));
+        reject(new Error('PNG export failed'));
         return;
       }
       resolve(blob);
-    }, "image/png");
+    }, 'image/png');
   });
 }
 
-export function exportToSvg(
-  elements: DriplElement[],
-  options: { padding?: number } = {},
-): Blob {
+export function exportToSvg(elements: DriplElement[], options: { padding?: number } = {}): Blob {
   const padding = options.padding ?? 16;
   const bounds = getSceneBounds(elements);
   const width = bounds.width + padding * 2;
@@ -136,23 +133,23 @@ export function exportToSvg(
   const originY = bounds.minY - padding;
 
   const body = elements
-    .map((element) => {
+    .map(element => {
       const type = element.type as string;
-      const stroke = element.strokeColor ?? "#000000";
+      const stroke = element.strokeColor ?? '#000000';
       const fill =
-        "fillColor" in element && typeof element.fillColor === "string"
+        'fillColor' in element && typeof element.fillColor === 'string'
           ? element.fillColor
-          : (element.backgroundColor ?? "transparent");
+          : (element.backgroundColor ?? 'transparent');
       const opacity = element.opacity ?? 1;
       const strokeWidth = element.strokeWidth ?? 2;
 
-      if (type === "rectangle") {
+      if (type === 'rectangle') {
         return `<rect x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" stroke="${stroke}" fill="${fill}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
       }
-      if (type === "ellipse") {
+      if (type === 'ellipse') {
         return `<ellipse cx="${element.x + element.width / 2}" cy="${element.y + element.height / 2}" rx="${element.width / 2}" ry="${element.height / 2}" stroke="${stroke}" fill="${fill}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
       }
-      if (type === "diamond") {
+      if (type === 'diamond') {
         const midX = element.x + element.width / 2;
         const midY = element.y + element.height / 2;
         const points = [
@@ -160,41 +157,35 @@ export function exportToSvg(
           `${element.x + element.width},${midY}`,
           `${midX},${element.y + element.height}`,
           `${element.x},${midY}`,
-        ].join(" ");
+        ].join(' ');
         return `<polygon points="${points}" stroke="${stroke}" fill="${fill}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
       }
-      if (type === "text" && "text" in element) {
+      if (type === 'text' && 'text' in element) {
         const fontSize = element.fontSize || 20;
         const fontFamily =
           element.fontFamily ||
           '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
-        const textAlign =
-          "textAlign" in element && element.textAlign ? element.textAlign : "left";
-        const anchor =
-          textAlign === "center"
-            ? "middle"
-            : textAlign === "right"
-              ? "end"
-              : "start";
+        const textAlign = 'textAlign' in element && element.textAlign ? element.textAlign : 'left';
+        const anchor = textAlign === 'center' ? 'middle' : textAlign === 'right' ? 'end' : 'start';
         const anchorX =
-          textAlign === "left"
+          textAlign === 'left'
             ? element.x
-            : textAlign === "center"
+            : textAlign === 'center'
               ? element.x + element.width / 2
               : element.x + element.width;
         const lineHeight = fontSize * 1.25;
-        const lines = (element.text || "").split("\n");
+        const lines = (element.text || '').split('\n');
         const tspans = lines
           .map(
             (line: string, index: number) =>
-              `<tspan x="${anchorX}" y="${element.y + fontSize + index * lineHeight}">${escapeXml(line)}</tspan>`,
+              `<tspan x="${anchorX}" y="${element.y + fontSize + index * lineHeight}">${escapeXml(line)}</tspan>`
           )
-          .join("");
+          .join('');
         return `<text fill="${stroke}" font-size="${fontSize}" font-family="${fontFamily}" text-anchor="${anchor}" opacity="${opacity}">${tspans}</text>`;
       }
       if (
-        (type === "line" || type === "arrow" || type === "freedraw" || type === "path") &&
-        "points" in element &&
+        (type === 'line' || type === 'arrow' || type === 'freedraw' || type === 'path') &&
+        'points' in element &&
         Array.isArray(element.points) &&
         element.points.length > 0
       ) {
@@ -202,46 +193,46 @@ export function exportToSvg(
           .map((point, index) => {
             const x = point.x + element.x;
             const y = point.y + element.y;
-            return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+            return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
           })
-          .join(" ");
+          .join(' ');
         return `<path d="${pathData}" stroke="${stroke}" fill="${
-          type === "line" ? "none" : fill
+          type === 'line' ? 'none' : fill
         }" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
       }
-      if (type === "image" && "src" in element && element.src) {
+      if (type === 'image' && 'src' in element && element.src) {
         return `<image x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" href="${element.src}" opacity="${opacity}" />`;
       }
-      return "";
+      return '';
     })
     .filter(Boolean)
-    .join("");
+    .join('');
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="${originX} ${originY} ${width} ${height}" width="${width}" height="${height}">${body}</svg>`;
 
-  return new Blob([svg], { type: "image/svg+xml" });
+  return new Blob([svg], { type: 'image/svg+xml' });
 }
 
 export function exportToJson(elements: DriplElement[]): Blob {
   return new Blob([JSON.stringify(elements, null, 2)], {
-    type: "application/json",
+    type: 'application/json',
   });
 }
 
 export function exportCanvas(
-  format: "png" | "svg" | "json",
+  format: 'png' | 'svg' | 'json',
   elements: DriplElement[],
   options?: {
     scale?: number;
     background?: string;
     padding?: number;
-  },
+  }
 ): Promise<Blob> | Blob {
-  if (format === "png") {
+  if (format === 'png') {
     return exportToPng(elements, options);
   }
-  if (format === "svg") {
+  if (format === 'svg') {
     return exportToSvg(elements, options);
   }
   return exportToJson(elements);
@@ -250,16 +241,16 @@ export function exportCanvas(
 export function importFromJson(
   raw: string,
   currentElements: DriplElement[],
-  mode: "merge" | "replace" = "merge",
+  mode: 'merge' | 'replace' = 'merge'
 ): DriplElement[] {
   const parsed = JSON.parse(raw) as unknown;
-  const next = ElementsSchema.parse(parsed).map((element) => ({
+  const next = ElementsSchema.parse(parsed).map(element => ({
     ...element,
     id: uuidv4(),
     updated: Date.now(),
   })) as DriplElement[];
 
-  if (mode === "replace") {
+  if (mode === 'replace') {
     return next;
   }
   return [...currentElements, ...next];
@@ -267,7 +258,7 @@ export function importFromJson(
 
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = filename;
   document.body.appendChild(anchor);

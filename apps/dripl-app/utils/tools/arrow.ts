@@ -1,10 +1,5 @@
-import type {
-  DriplElement,
-  Point,
-  LinearElement,
-  TextElement,
-} from "@dripl/common";
-import { v4 as uuidv4 } from "uuid";
+import type { DriplElement, Point, LinearElement, TextElement } from '@dripl/common';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface ArrowToolState {
   points: Point[];
@@ -16,28 +11,25 @@ export interface ArrowToolState {
 
 export function createArrowElement(
   state: ArrowToolState,
-  baseProps: Omit<
-    DriplElement,
-    "type" | "x" | "y" | "width" | "height" | "points"
-  > & { id: string },
+  baseProps: Omit<DriplElement, 'type' | 'x' | 'y' | 'width' | 'height' | 'points'> & { id: string }
 ): { arrow: LinearElement; label?: TextElement } {
   if (state.points.length === 0) {
-    throw new Error("Arrow must have at least one point");
+    throw new Error('Arrow must have at least one point');
   }
 
-  const minX = Math.min(...state.points.map((p) => p.x));
-  const minY = Math.min(...state.points.map((p) => p.y));
-  const maxX = Math.max(...state.points.map((p) => p.x));
-  const maxY = Math.max(...state.points.map((p) => p.y));
+  const minX = Math.min(...state.points.map(p => p.x));
+  const minY = Math.min(...state.points.map(p => p.y));
+  const maxX = Math.max(...state.points.map(p => p.x));
+  const maxY = Math.max(...state.points.map(p => p.y));
 
-  const relativePoints = state.points.map((p) => ({
+  const relativePoints = state.points.map(p => ({
     x: p.x - minX,
     y: p.y - minY,
   }));
 
   const arrow: LinearElement = {
     ...baseProps,
-    type: "arrow",
+    type: 'arrow',
     x: minX,
     y: minY,
     width: maxX - minX,
@@ -57,17 +49,16 @@ export function createArrowElement(
 
     label = {
       id: labelId,
-      type: "text",
+      type: 'text',
       x: midPoint.x - 25,
       y: midPoint.y - 10,
       width: 100,
       height: 24,
       text: state.label,
       fontSize: 14,
-      fontFamily:
-        '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
-      strokeColor: "transparent",
-      backgroundColor: "transparent",
+      fontFamily: '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
+      strokeColor: 'transparent',
+      backgroundColor: 'transparent',
       strokeWidth: 0,
       opacity: 1,
       containerId: arrow.id,
@@ -83,10 +74,10 @@ function getMidPoint(points: Point[]): Point {
   }
 
   // For multi-point arrows, find the midpoint of the bounding box
-  const minX = Math.min(...points.map((p) => p.x));
-  const maxX = Math.max(...points.map((p) => p.x));
-  const minY = Math.min(...points.map((p) => p.y));
-  const maxY = Math.max(...points.map((p) => p.y));
+  const minX = Math.min(...points.map(p => p.x));
+  const maxX = Math.max(...points.map(p => p.x));
+  const minY = Math.min(...points.map(p => p.y));
+  const maxY = Math.max(...points.map(p => p.y));
 
   return {
     x: minX + (maxX - minX) / 2,
@@ -94,20 +85,14 @@ function getMidPoint(points: Point[]): Point {
   };
 }
 
-export function addPointToArrow(
-  point: Point,
-  state: ArrowToolState,
-): ArrowToolState {
+export function addPointToArrow(point: Point, state: ArrowToolState): ArrowToolState {
   return {
     ...state,
     points: [...state.points, point],
   };
 }
 
-export function removePointFromArrow(
-  index: number,
-  state: ArrowToolState,
-): ArrowToolState {
+export function removePointFromArrow(index: number, state: ArrowToolState): ArrowToolState {
   if (state.points.length <= 2) {
     return state; // Need at least two points for an arrow
   }
@@ -123,7 +108,7 @@ export function removePointFromArrow(
 export function updatePointInArrow(
   index: number,
   point: Point,
-  state: ArrowToolState,
+  state: ArrowToolState
 ): ArrowToolState {
   const newPoints = [...state.points];
   newPoints[index] = point;
@@ -136,7 +121,7 @@ export function updatePointInArrow(
 export function snapArrowToElement(
   point: Point,
   elements: DriplElement[],
-  excludeId?: string,
+  excludeId?: string
 ): Point {
   const SNAP_THRESHOLD = 10;
   let snappedPoint = point;
@@ -164,9 +149,7 @@ export function snapArrowToElement(
     ];
 
     for (const edge of edges) {
-      const distance = Math.sqrt(
-        Math.pow(point.x - edge.x, 2) + Math.pow(point.y - edge.y, 2),
-      );
+      const distance = Math.sqrt(Math.pow(point.x - edge.x, 2) + Math.pow(point.y - edge.y, 2));
       if (distance < SNAP_THRESHOLD && distance < minDistance) {
         minDistance = distance;
         snappedPoint = edge;

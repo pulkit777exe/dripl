@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import type { DriplElement } from "@dripl/common";
-import { Copy, Trash2, Layers, RotateCcw } from "lucide-react";
+import { useEffect, useRef } from 'react';
+import type { DriplElement } from '@dripl/common';
+import { Copy, Trash2, Layers, RotateCcw } from 'lucide-react';
 
 interface ContextMenuProps {
   x: number;
@@ -39,17 +39,17 @@ export function ContextMenu({
     };
 
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         onClose();
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
     };
   }, [onClose]);
 

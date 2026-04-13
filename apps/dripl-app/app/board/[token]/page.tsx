@@ -1,10 +1,10 @@
-import { notFound } from "next/navigation";
-import { db } from "@dripl/db";
-import { CanvasBootstrap } from "@/components/canvas/CanvasBootstrap";
-import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
-import { CanvasControls } from "@/components/canvas/CanvasControls";
-import { CommandPalette } from "@/components/canvas/CommandPalette";
-import { getInMemoryShare } from "@/lib/share-memory-store";
+import { notFound } from 'next/navigation';
+import { db } from '@dripl/db';
+import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
+import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
+import { CanvasControls } from '@/components/canvas/CanvasControls';
+import { CommandPalette } from '@/components/canvas/CommandPalette';
+import { getInMemoryShare } from '@/lib/share-memory-store';
 
 interface BoardPageProps {
   params: Promise<{ token: string }>;
@@ -40,9 +40,7 @@ export default async function BoardTokenPage({ params }: BoardPageProps) {
 
       let elements: unknown[] = [];
       try {
-        elements = shareLink.room.content
-          ? JSON.parse(shareLink.room.content)
-          : [];
+        elements = shareLink.room.content ? JSON.parse(shareLink.room.content) : [];
       } catch {
         elements = [];
       }
@@ -62,9 +60,9 @@ export default async function BoardTokenPage({ params }: BoardPageProps) {
   }
 
   const permission = shareData
-    ? (shareData.permission ?? "view")
-    : (fallback?.permission ?? "view");
-  const readOnly = permission === "VIEW" || permission === "view";
+    ? (shareData.permission ?? 'view')
+    : (fallback?.permission ?? 'view');
+  const readOnly = permission === 'VIEW' || permission === 'view';
   const initialData = shareData?.elements ?? fallback?.elements ?? [];
 
   return (
@@ -100,7 +98,7 @@ export default async function BoardTokenPage({ params }: BoardPageProps) {
 
       {readOnly && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium shadow-lg">
-          Viewing shared canvas — {shareData?.roomName || "Shared Board"}
+          Viewing shared canvas — {shareData?.roomName || 'Shared Board'}
         </div>
       )}
     </div>

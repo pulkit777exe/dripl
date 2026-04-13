@@ -1,4 +1,4 @@
-import type { DriplElement, Point } from "@dripl/common";
+import type { DriplElement, Point } from '@dripl/common';
 
 export interface EllipseToolState {
   startPoint: Point;
@@ -9,13 +9,16 @@ export interface EllipseToolState {
 
 export function createEllipseElement(
   state: EllipseToolState,
-  baseProps: Omit<DriplElement, "type" | "x" | "y" | "width" | "height"> & {
+  baseProps: Omit<DriplElement, 'type' | 'x' | 'y' | 'width' | 'height'> & {
     id: string;
-  },
+  }
 ): DriplElement {
   const fromCenter = state.altKey === true;
   const startPoint = fromCenter
-    ? { x: state.startPoint.x * 2 - state.currentPoint.x, y: state.startPoint.y * 2 - state.currentPoint.y }
+    ? {
+        x: state.startPoint.x * 2 - state.currentPoint.x,
+        y: state.startPoint.y * 2 - state.currentPoint.y,
+      }
     : state.startPoint;
 
   let width = state.currentPoint.x - startPoint.x;
@@ -32,7 +35,7 @@ export function createEllipseElement(
 
   return {
     ...baseProps,
-    type: "ellipse",
+    type: 'ellipse',
     x,
     y,
     width: Math.abs(width),
