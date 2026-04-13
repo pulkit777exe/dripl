@@ -1,49 +1,49 @@
-import { describe, it, expect } from "vitest";
-import { messageSchema } from "../validation";
+import { describe, it, expect } from 'vitest';
+import { messageSchema } from '../validation';
 
-describe("WebSocket Message Validation", () => {
-  describe("join_room", () => {
-    it("should validate a valid join_room message", () => {
+describe('WebSocket Message Validation', () => {
+  describe('join_room', () => {
+    it('should validate a valid join_room message', () => {
       const result = messageSchema.safeParse({
-        type: "join_room",
-        roomId: "abc123",
-        userName: "TestUser",
+        type: 'join_room',
+        roomId: 'abc123',
+        userName: 'TestUser',
       });
       expect(result.success).toBe(true);
     });
 
-    it("should validate join_room without userName", () => {
+    it('should validate join_room without userName', () => {
       const result = messageSchema.safeParse({
-        type: "join_room",
-        roomId: "abc123",
+        type: 'join_room',
+        roomId: 'abc123',
       });
       expect(result.success).toBe(true);
     });
 
-    it("should reject join_room with empty roomId", () => {
+    it('should reject join_room with empty roomId', () => {
       const result = messageSchema.safeParse({
-        type: "join_room",
-        roomId: "",
+        type: 'join_room',
+        roomId: '',
       });
       expect(result.success).toBe(false);
     });
 
-    it("should reject join_room with roomId > 100 chars", () => {
+    it('should reject join_room with roomId > 100 chars', () => {
       const result = messageSchema.safeParse({
-        type: "join_room",
-        roomId: "a".repeat(101),
+        type: 'join_room',
+        roomId: 'a'.repeat(101),
       });
       expect(result.success).toBe(false);
     });
   });
 
-  describe("add_element", () => {
-    it("should validate a valid rectangle element", () => {
+  describe('add_element', () => {
+    it('should validate a valid rectangle element', () => {
       const result = messageSchema.safeParse({
-        type: "add_element",
+        type: 'add_element',
         element: {
-          id: "el-1",
-          type: "rectangle",
+          id: 'el-1',
+          type: 'rectangle',
           x: 100,
           y: 100,
           width: 200,
@@ -53,12 +53,12 @@ describe("WebSocket Message Validation", () => {
       expect(result.success).toBe(true);
     });
 
-    it("should validate a valid ellipse element", () => {
+    it('should validate a valid ellipse element', () => {
       const result = messageSchema.safeParse({
-        type: "add_element",
+        type: 'add_element',
         element: {
-          id: "el-2",
-          type: "ellipse",
+          id: 'el-2',
+          type: 'ellipse',
           x: 0,
           y: 0,
           width: 100,
@@ -68,12 +68,12 @@ describe("WebSocket Message Validation", () => {
       expect(result.success).toBe(true);
     });
 
-    it("should validate a valid arrow element", () => {
+    it('should validate a valid arrow element', () => {
       const result = messageSchema.safeParse({
-        type: "add_element",
+        type: 'add_element',
         element: {
-          id: "el-3",
-          type: "arrow",
+          id: 'el-3',
+          type: 'arrow',
           x: 0,
           y: 0,
           width: 200,
@@ -87,29 +87,29 @@ describe("WebSocket Message Validation", () => {
       expect(result.success).toBe(true);
     });
 
-    it("should validate a valid text element", () => {
+    it('should validate a valid text element', () => {
       const result = messageSchema.safeParse({
-        type: "add_element",
+        type: 'add_element',
         element: {
-          id: "el-4",
-          type: "text",
+          id: 'el-4',
+          type: 'text',
           x: 50,
           y: 50,
           width: 100,
           height: 30,
-          text: "Hello",
+          text: 'Hello',
           fontSize: 16,
-          fontFamily: "sans-serif",
+          fontFamily: 'sans-serif',
         },
       });
       expect(result.success).toBe(true);
     });
 
-    it("should reject element with missing type", () => {
+    it('should reject element with missing type', () => {
       const result = messageSchema.safeParse({
-        type: "add_element",
+        type: 'add_element',
         element: {
-          id: "el-5",
+          id: 'el-5',
           x: 0,
           y: 0,
           width: 100,
@@ -119,12 +119,12 @@ describe("WebSocket Message Validation", () => {
       expect(result.success).toBe(false);
     });
 
-    it("should reject element with invalid type", () => {
+    it('should reject element with invalid type', () => {
       const result = messageSchema.safeParse({
-        type: "add_element",
+        type: 'add_element',
         element: {
-          id: "el-6",
-          type: "invalid_shape",
+          id: 'el-6',
+          type: 'invalid_shape',
           x: 0,
           y: 0,
           width: 100,
@@ -135,13 +135,13 @@ describe("WebSocket Message Validation", () => {
     });
   });
 
-  describe("update_element", () => {
-    it("should validate a valid update_element message", () => {
+  describe('update_element', () => {
+    it('should validate a valid update_element message', () => {
       const result = messageSchema.safeParse({
-        type: "update_element",
+        type: 'update_element',
         element: {
-          id: "el-1",
-          type: "rectangle",
+          id: 'el-1',
+          type: 'rectangle',
           x: 150,
           y: 200,
           width: 250,
@@ -152,68 +152,109 @@ describe("WebSocket Message Validation", () => {
     });
   });
 
-  describe("delete_element", () => {
-    it("should validate a valid delete_element message", () => {
+  describe('delete_element', () => {
+    it('should validate a valid delete_element message', () => {
       const result = messageSchema.safeParse({
-        type: "delete_element",
-        elementId: "el-1",
+        type: 'delete_element',
+        elementId: 'el-1',
       });
       expect(result.success).toBe(true);
     });
 
-    it("should reject delete_element with missing elementId", () => {
+    it('should reject delete_element with missing elementId', () => {
       const result = messageSchema.safeParse({
-        type: "delete_element",
+        type: 'delete_element',
       });
       expect(result.success).toBe(false);
     });
   });
 
-  describe("cursor_move", () => {
-    it("should validate a valid cursor_move message", () => {
+  describe('cursor_move', () => {
+    it('should validate a valid cursor_move message', () => {
       const result = messageSchema.safeParse({
-        type: "cursor_move",
+        type: 'cursor_move',
         x: 500,
         y: 300,
-        userName: "TestUser",
-        color: "#FF6B6B",
+        userName: 'TestUser',
+        color: '#FF6B6B',
       });
       expect(result.success).toBe(true);
     });
 
-    it("should validate cursor_move without optional fields", () => {
+    it('should validate cursor_move without optional fields', () => {
       const result = messageSchema.safeParse({
-        type: "cursor_move",
+        type: 'cursor_move',
         x: 0,
         y: 0,
       });
       expect(result.success).toBe(true);
     });
 
-    it("should reject cursor_move with non-numeric coordinates", () => {
+    it('should reject cursor_move with non-numeric coordinates', () => {
       const result = messageSchema.safeParse({
-        type: "cursor_move",
-        x: "not a number",
+        type: 'cursor_move',
+        x: 'not a number',
         y: 0,
       });
       expect(result.success).toBe(false);
     });
   });
 
-  describe("leave_room", () => {
-    it("should validate a valid leave_room message", () => {
+  describe('leave_room', () => {
+    it('should validate a valid leave_room message', () => {
       const result = messageSchema.safeParse({
-        type: "leave_room",
+        type: 'leave_room',
       });
       expect(result.success).toBe(true);
     });
   });
 
-  describe("unknown message types", () => {
-    it("should reject unknown message types", () => {
+  describe('unknown message types', () => {
+    it('should reject unknown message types', () => {
       const result = messageSchema.safeParse({
-        type: "unknown_type",
-        data: "test",
+        type: 'unknown_type',
+        data: 'test',
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should reject message with missing type field', () => {
+      const result = messageSchema.safeParse({
+        roomId: 'abc123',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject message with null type', () => {
+      const result = messageSchema.safeParse({
+        type: null,
+        roomId: 'abc123',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject message with undefined required fields', () => {
+      const result = messageSchema.safeParse({
+        type: 'join_room',
+        roomId: undefined,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject message with empty string roomId', () => {
+      const result = messageSchema.safeParse({
+        type: 'join_room',
+        roomId: '',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject add_element with null element', () => {
+      const result = messageSchema.safeParse({
+        type: 'add_element',
+        element: null,
       });
       expect(result.success).toBe(false);
     });

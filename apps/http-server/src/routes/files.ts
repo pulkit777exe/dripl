@@ -137,7 +137,13 @@ filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
 
     res.json({ files, total, page, limit });
   } catch (error) {
-    console.error('list files error', error);
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'list_files_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
     res.status(500).json({ error: 'Failed to list files' });
   }
 });
@@ -187,7 +193,13 @@ filesRouter.post('/', async (req: AuthenticatedRequest, res) => {
 
     res.status(201).json(file);
   } catch (error) {
-    console.error('create file error', error);
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'create_file_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
     res.status(500).json({ error: 'Failed to create file' });
   }
 });
@@ -232,7 +244,13 @@ filesRouter.get('/:id', async (req: AuthenticatedRequest, res) => {
       },
     });
   } catch (error) {
-    console.error('get file error', error);
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'get_file_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
     res.status(500).json({ error: 'Failed to load file' });
   }
 });
@@ -309,7 +327,13 @@ filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
 
     res.json({ file: updated });
   } catch (error) {
-    console.error('update file error', error);
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'update_file_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
     res.status(500).json({ error: 'Failed to update file' });
   }
 });
@@ -343,7 +367,13 @@ filesRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error('delete file error', error);
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'delete_file_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
     res.status(500).json({ error: 'Failed to delete file' });
   }
 });
@@ -414,7 +444,13 @@ filesRouter.post('/:id/share', async (req: AuthenticatedRequest, res) => {
       shareUrl,
     });
   } catch (error) {
-    console.error('share file error', error);
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'share_file_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
     res.status(500).json({ error: 'Failed to create share link' });
   }
 });
@@ -452,7 +488,13 @@ filesRouter.delete('/:id/share', async (req: AuthenticatedRequest, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error('revoke share error', error);
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'revoke_share_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
     res.status(500).json({ error: 'Failed to revoke share link' });
   }
 });

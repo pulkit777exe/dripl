@@ -26,7 +26,13 @@ export class FileController {
         files,
       });
     } catch (error) {
-      console.error('Error fetching files:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'fetch_files_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({
         error: 'Internal server error',
       });
@@ -51,7 +57,13 @@ export class FileController {
         file,
       });
     } catch (error) {
-      console.error('Error creating file:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'create_file_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({
         error: 'Internal server error',
       });
@@ -80,7 +92,13 @@ export class FileController {
         file,
       });
     } catch (error) {
-      console.error('Error fetching file:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'fetch_file_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({
         error: 'Internal server error',
       });
@@ -107,7 +125,7 @@ export class FileController {
       }
 
       const updatedFile = await prisma.file.update({
-        where: { id: fileId },
+        where: { id: fileId, userId: req.userId },
         data: {
           name,
           content,
@@ -119,7 +137,13 @@ export class FileController {
         file: updatedFile,
       });
     } catch (error) {
-      console.error('Error updating file:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'update_file_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({
         error: 'Internal server error',
       });
@@ -145,14 +169,20 @@ export class FileController {
       }
 
       await prisma.file.delete({
-        where: { id: fileId },
+        where: { id: fileId, userId: req.userId },
       });
 
       res.json({
         status: 'file deleted',
       });
     } catch (error) {
-      console.error('Error deleting file:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'delete_file_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({
         error: 'Internal server error',
       });

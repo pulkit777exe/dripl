@@ -10,7 +10,6 @@
     { "path": "./packages/dripl" },
     { "path": "./packages/element" },
     { "path": "./packages/math" },
-    { "path": "./packages/runtime" },
     { "path": "./packages/utils" },
     { "path": "./tooling/typescript-config" }
   ],

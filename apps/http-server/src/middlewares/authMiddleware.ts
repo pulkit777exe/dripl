@@ -21,7 +21,13 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
     req.userId = decoded.userId;
     next();
   } catch (error) {
-    console.error('Auth error:', error);
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'auth_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 };

@@ -49,12 +49,19 @@ app.use('/api/files', authMiddleware, filesRouter);
 app.use('/api/folders', authMiddleware, foldersRouter);
 
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('http-server error', error);
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      event: 'http_server_error',
+      error: error.message,
+      stack: error.stack,
+    })
+  );
   res.status(500).json({
     error: 'Internal server error',
   });
 });
 
 app.listen(port, () => {
-  console.log(`HTTP server listening on port ${port}`);
+  console.log(JSON.stringify({ level: 'info', event: 'http_server_started', port }));
 });

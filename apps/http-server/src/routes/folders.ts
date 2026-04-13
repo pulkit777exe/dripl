@@ -1,7 +1,7 @@
-import { Router } from "express";
-import { z } from "zod";
-import { db } from "@dripl/db";
-import type { AuthenticatedRequest } from "../middleware/auth";
+import { Router } from 'express';
+import { z } from 'zod';
+import { db } from '@dripl/db';
+import type { AuthenticatedRequest } from '../middleware/auth';
 
 const createFolderSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -19,12 +19,12 @@ function getSingleParam(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) {
     return value[0] ?? null;
   }
-  return typeof value === "string" ? value : null;
+  return typeof value === 'string' ? value : null;
 }
 
 async function assertParentFolder(
   userId: string,
-  parentId: string | null | undefined,
+  parentId: string | null | undefined
 ): Promise<boolean> {
   if (!parentId) return true;
   const parent = await db.folder.findFirst({
@@ -34,16 +34,16 @@ async function assertParentFolder(
   return Boolean(parent);
 }
 
-foldersRouter.get("/", async (req: AuthenticatedRequest, res) => {
+foldersRouter.get('/', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
   try {
     const folders = await db.folder.findMany({
       where: { userId: req.userId },
-      orderBy: { updatedAt: "desc" },
+      orderBy: { updatedAt: 'desc' },
       include: {
         _count: {
           select: {
@@ -54,7 +54,7 @@ foldersRouter.get("/", async (req: AuthenticatedRequest, res) => {
     });
 
     res.json({
-      folders: folders.map((folder) => ({
+      folders: folders.map(folder => ({
         id: folder.id,
         name: folder.name,
         parentId: folder.parentId,
@@ -64,21 +64,27 @@ foldersRouter.get("/", async (req: AuthenticatedRequest, res) => {
       })),
     });
   } catch (error) {
-    console.error("list folders error", error);
-    res.status(500).json({ error: "Failed to list folders" });
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'list_folders_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+    res.status(500).json({ error: 'Failed to list folders' });
   }
 });
 
-foldersRouter.post("/", async (req: AuthenticatedRequest, res) => {
+foldersRouter.post('/', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
   const parsedBody = createFolderSchema.safeParse(req.body);
   if (!parsedBody.success) {
     res.status(400).json({
-      error: "Invalid create folder payload",
+      error: 'Invalid create folder payload',
       details: parsedBody.error.flatten(),
     });
     return;
@@ -88,7 +94,7 @@ foldersRouter.post("/", async (req: AuthenticatedRequest, res) => {
     const parentId = parsedBody.data.parentId ?? null;
     const hasParent = await assertParentFolder(req.userId, parentId);
     if (!hasParent) {
-      res.status(404).json({ error: "Parent folder not found" });
+      res.status(404).json({ error: 'Parent folder not found' });
       return;
     }
 
@@ -109,27 +115,33 @@ foldersRouter.post("/", async (req: AuthenticatedRequest, res) => {
 
     res.status(201).json({ folder });
   } catch (error) {
-    console.error("create folder error", error);
-    res.status(500).json({ error: "Failed to create folder" });
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'create_folder_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+    res.status(500).json({ error: 'Failed to create folder' });
   }
 });
 
-foldersRouter.patch("/:id", async (req: AuthenticatedRequest, res) => {
+foldersRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
   const id = getSingleParam(req.params.id);
   if (!id) {
-    res.status(400).json({ error: "Folder id is required" });
+    res.status(400).json({ error: 'Folder id is required' });
     return;
   }
 
   const parsedBody = patchFolderSchema.safeParse(req.body);
   if (!parsedBody.success) {
     res.status(400).json({
-      error: "Invalid update folder payload",
+      error: 'Invalid update folder payload',
       details: parsedBody.error.flatten(),
     });
     return;
@@ -141,19 +153,19 @@ foldersRouter.patch("/:id", async (req: AuthenticatedRequest, res) => {
       select: { id: true },
     });
     if (!existing) {
-      res.status(404).json({ error: "Folder not found" });
+      res.status(404).json({ error: 'Folder not found' });
       return;
     }
 
     const parentId = parsedBody.data.parentId;
     if (parentId === id) {
-      res.status(400).json({ error: "Folder cannot be its own parent" });
+      res.status(400).json({ error: 'Folder cannot be its own parent' });
       return;
     }
     if (parentId !== undefined) {
       const hasParent = await assertParentFolder(req.userId, parentId ?? null);
       if (!hasParent) {
-        res.status(404).json({ error: "Parent folder not found" });
+        res.status(404).json({ error: 'Parent folder not found' });
         return;
       }
     }
@@ -175,20 +187,26 @@ foldersRouter.patch("/:id", async (req: AuthenticatedRequest, res) => {
 
     res.json({ folder: updated });
   } catch (error) {
-    console.error("update folder error", error);
-    res.status(500).json({ error: "Failed to update folder" });
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'update_folder_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+    res.status(500).json({ error: 'Failed to update folder' });
   }
 });
 
-foldersRouter.delete("/:id", async (req: AuthenticatedRequest, res) => {
+foldersRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
   const id = getSingleParam(req.params.id);
   if (!id) {
-    res.status(400).json({ error: "Folder id is required" });
+    res.status(400).json({ error: 'Folder id is required' });
     return;
   }
 
@@ -198,7 +216,7 @@ foldersRouter.delete("/:id", async (req: AuthenticatedRequest, res) => {
       select: { id: true },
     });
     if (!root) {
-      res.status(404).json({ error: "Folder not found" });
+      res.status(404).json({ error: 'Folder not found' });
       return;
     }
 
@@ -213,7 +231,7 @@ foldersRouter.delete("/:id", async (req: AuthenticatedRequest, res) => {
         },
         select: { id: true },
       });
-      frontier = children.map((child) => child.id);
+      frontier = children.map(child => child.id);
       for (const folder of children) {
         toDelete.add(folder.id);
       }
@@ -237,8 +255,14 @@ foldersRouter.delete("/:id", async (req: AuthenticatedRequest, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error("delete folder error", error);
-    res.status(500).json({ error: "Failed to delete folder" });
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'delete_folder_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+    res.status(500).json({ error: 'Failed to delete folder' });
   }
 });
 

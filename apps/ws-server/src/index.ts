@@ -288,7 +288,9 @@ wss.on('connection', (ws, req) => {
     const MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
     const messageStr = raw.toString();
     if (messageStr.length > MAX_MESSAGE_SIZE) {
-      console.warn(`[WS] Message too large: ${messageStr.length} bytes`);
+      console.warn(
+        JSON.stringify({ level: 'warn', event: 'message_too_large', size: messageStr.length })
+      );
       ws.close(1009, 'Message too large');
       return;
     }
@@ -561,7 +563,7 @@ const periodicSave = setInterval(async () => {
 }, PERIODIC_SAVE_INTERVAL_MS);
 
 server.listen(WS_PORT, () => {
-  console.log(`WebSocket server listening on ${WS_PORT}`);
+  console.log(JSON.stringify({ level: 'info', event: 'websocket_server_started', port: WS_PORT }));
 });
 
 async function shutdown() {

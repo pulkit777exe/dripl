@@ -44,7 +44,13 @@ export class RoomController {
 
       res.json({ rooms });
     } catch (error) {
-      console.error('Error fetching rooms:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'fetch_rooms_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -79,7 +85,13 @@ export class RoomController {
         room,
       });
     } catch (error) {
-      console.error('Error creating room:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'create_room_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -129,7 +141,13 @@ export class RoomController {
 
       res.json({ room });
     } catch (error) {
-      console.error('Error fetching room:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'fetch_room_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -165,7 +183,13 @@ export class RoomController {
         room: updatedRoom,
       });
     } catch (error) {
-      console.error('Error updating room:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'update_room_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -194,7 +218,13 @@ export class RoomController {
 
       res.json({ status: 'room deleted' });
     } catch (error) {
-      console.error('Error deleting room:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'delete_room_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -253,7 +283,13 @@ export class RoomController {
         member,
       });
     } catch (error) {
-      console.error('Error adding member:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'add_member_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -288,7 +324,13 @@ export class RoomController {
 
       res.json({ status: 'member removed' });
     } catch (error) {
-      console.error('Error removing member:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'remove_member_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -336,7 +378,13 @@ export class RoomController {
         expiresAt: shareLink.expiresAt,
       });
     } catch (error) {
-      console.error('Error creating share link:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'create_share_link_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -376,7 +424,13 @@ export class RoomController {
         expiresAt: shareLink.expiresAt,
       });
     } catch (error) {
-      console.error('Error fetching share link:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'fetch_share_link_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -411,7 +465,13 @@ export class RoomController {
 
       res.json({ rooms: sharedRooms });
     } catch (error) {
-      console.error('Error fetching shared rooms:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'fetch_shared_rooms_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({ error: 'Internal server error' });
     }
   }

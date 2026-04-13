@@ -1,15 +1,13 @@
-import { Router } from "express";
-import { db } from "@dripl/db";
-import { parseStoredFileContent } from "../lib/encrypt";
+import { Router } from 'express';
+import { db } from '@dripl/db';
+import { parseStoredFileContent } from '../lib/encrypt';
 
 const shareRouter: Router = Router();
 
-shareRouter.get("/:token", async (req, res) => {
-  const token = Array.isArray(req.params.token)
-    ? req.params.token[0]
-    : req.params.token;
+shareRouter.get('/:token', async (req, res) => {
+  const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
   if (!token) {
-    res.status(400).json({ error: "Share token is required" });
+    res.status(400).json({ error: 'Share token is required' });
     return;
   }
 
@@ -29,12 +27,12 @@ shareRouter.get("/:token", async (req, res) => {
     });
 
     if (!file) {
-      res.status(404).json({ error: "Share link not found" });
+      res.status(404).json({ error: 'Share link not found' });
       return;
     }
 
     if (file.shareExpiresAt && file.shareExpiresAt.getTime() < Date.now()) {
-      res.status(410).json({ error: "Share link has expired" });
+      res.status(410).json({ error: 'Share link has expired' });
       return;
     }
 
@@ -45,13 +43,19 @@ shareRouter.get("/:token", async (req, res) => {
         name: file.name,
         updatedAt: file.updatedAt,
       },
-      permission: file.sharePermission ?? "view",
+      permission: file.sharePermission ?? 'view',
       encryptedPayload: parsed.encryptedPayload,
       elements: parsed.encryptedPayload ? null : parsed.elements,
     });
   } catch (error) {
-    console.error("get share error", error);
-    res.status(500).json({ error: "Failed to load shared file" });
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'get_share_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+    res.status(500).json({ error: 'Failed to load shared file' });
   }
 });
 

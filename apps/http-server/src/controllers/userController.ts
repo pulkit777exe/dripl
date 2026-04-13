@@ -76,7 +76,13 @@ export class UserController {
         token,
       });
     } catch (error) {
-      console.error('Error creating user:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'create_user_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({
         error: 'Internal server error',
       });
@@ -141,7 +147,13 @@ export class UserController {
         token,
       });
     } catch (error) {
-      console.error('Error during login:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'login_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({
         error: 'Internal server error',
       });
@@ -180,7 +192,13 @@ export class UserController {
         user,
       });
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'fetch_profile_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({
         error: 'Internal server error',
       });
@@ -210,7 +228,13 @@ export class UserController {
         user: updatedUser,
       });
     } catch (error) {
-      console.error('Error updating user profile:', error);
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'update_profile_error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       res.status(500).json({
         error: 'Internal server error',
       });
