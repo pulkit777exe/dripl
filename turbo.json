@@ -10,7 +10,8 @@
     "SMTP_USER",
     "SMTP_PASS",
     "GOOGLE_CLIENT_ID",
-    "GEMINI_API_KEY"
+    "GEMINI_API_KEY",
+    "DEBUG_PRISMA"
   ],
   "tasks": {
     "build": {
@@ -26,7 +27,8 @@
         "SMTP_USER",
         "SMTP_PASS",
         "GOOGLE_CLIENT_ID",
-        "GEMINI_API_KEY"
+        "GEMINI_API_KEY",
+        "DEBUG_PRISMA"
       ],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
