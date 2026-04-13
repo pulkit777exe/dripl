@@ -1,5 +1,11 @@
 # Dripl
 
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org)
+[![Prisma](https://img.shields.io/badge/Prisma-7-purple.svg)](https://prisma.io)
+
 Real-time collaborative whiteboard with hand-drawn rendering, live cursors, and shareable links.
 
 ---
@@ -35,11 +41,11 @@ Open `http://localhost:3000`
 
 ```
 ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│  dripl-app  │   │http-server   │  │ ws-server    │
-│  Next.js 16 │   │  Express 5   │  │    ws        │
-│  Port 3000  │   │  Port 3002   │  │ Port 3001    │
+│  dripl-app   │  │http-server   │  │ ws-server    │
+│  Next.js 16  │  │  Express 5   │  │    ws        │
+│  Port 3000   │  │  Port 3002   │  │ Port 3001    │
 └──────────────┘  └──────────────┘  └──────────────┘
-       │                 │               │
+       │                │                │
        └────────────────┼────────────────┘
                         ▼
                  ┌──────────────┐
