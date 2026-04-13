@@ -22,14 +22,18 @@ All critical issues have been resolved. The following are either fixed or known 
 | 12  | @dripl/dripl PeerDependencies                                         | Fixed  |
 | 13  | Dead Code (redis.ts)                                                  | Fixed  |
 | 14  | Empty Catch Blocks (share API)                                        | Fixed  |
+| 15  | IDOR Vulnerability (fileController.ts)                                | Fixed  |
+| 16  | Dead Code (packages/runtime)                                          | Fixed  |
+| 17  | Orphaned websocket-server.ts in http-server                           | Fixed  |
+| 18  | Console Logging Standardization (58+ statements to JSON)              | Fixed  |
+| 19  | ws-server Validation Tests                                            | Fixed  |
 
 ### ⚠️ Known Limitations
 
 1. **AI Generation Feature** — Requires valid `GEMINI_API_KEY` in `.env`
-2. **Test Coverage** — Partial coverage (math, element, ws-server have 0 tests)
+2. **Test Coverage** — Partial coverage (dripl-app, math, element have tests; http-server, ws-server have limited tests)
 3. **Next.js Dev Lock** — Rare race condition with multiple processes (workaround: `rm -rf .next`)
 4. **Duplicate Canvas Store** — Two stores (Zustand in dripl-app + TanStack in runtime)
-5. **Console Logging** — 58+ scattered console.error/log statements (consider pino)
 
 ---
 

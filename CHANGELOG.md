@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Security - IDOR**: Fix IDOR vulnerability in fileController.ts (updateFile, deleteFile methods)
+- **Dead Code**: Remove unused packages/runtime (store refactored to dripl-app)
+- **Orphaned Code**: Remove duplicate websocket-server.ts from http-server
+- **Code Quality**: Standardize console logging to JSON format across http-server and ws-server
+- **Tests**: Add 5 edge case tests to ws-server validation.test.ts
+
 ---
 
 ## [1.0.0] - 2026-04-07
