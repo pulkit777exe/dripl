@@ -16,6 +16,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "cache": false,
       "inputs": ["packages/math/src/**/*.ts", "packages/element/src/**/*.ts"],
       "env": [
         "JWT_SECRET",
