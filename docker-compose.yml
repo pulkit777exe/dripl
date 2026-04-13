@@ -18,7 +18,7 @@ services:
   ws-server:
     build:
       context: .
-      dockerfile: apps/ws-server/Dockerfile
+      dockerfile: docker/Dockerfile.ws-server
     ports:
       - '3001:3001'
     environment:
@@ -33,7 +33,7 @@ services:
   http-server:
     build:
       context: .
-      dockerfile: apps/http-server/Dockerfile
+      dockerfile: docker/Dockerfile.http-server
     ports:
       - '3002:3002'
     environment:
@@ -49,7 +49,7 @@ services:
   dripl-app:
     build:
       context: .
-      dockerfile: apps/dripl-app/Dockerfile
+      dockerfile: docker/Dockerfile.dripl-app
     ports:
       - '3000:3000'
     environment:
