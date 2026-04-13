@@ -16,26 +16,10 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["packages/math/src/**/*.ts", "packages/element/src/**/*.ts"],
-      "env": [
-        "JWT_SECRET",
-        "PORT",
-        "WS_PORT",
-        "FRONTEND_URL",
-        "REDIS_URL",
-        "DATABASE_URL",
-        "NODE_ENV",
-        "SMTP_USER",
-        "SMTP_PASS",
-        "GOOGLE_CLIENT_ID",
-        "GEMINI_API_KEY",
-        "DEBUG_PRISMA"
-      ],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": []
     },
     "lint": {},
     "dev": {
-      "cache": false,
       "persistent": true,
       "dependsOn": ["^build"],
       "env": [
