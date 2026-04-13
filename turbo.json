@@ -1,6 +1,4 @@
 {
-  "$schema": "https://turbo.build/schema.json",
-  "ui": "tui",
   "globalEnv": [
     "JWT_SECRET",
     "PORT",
@@ -8,11 +6,28 @@
     "FRONTEND_URL",
     "REDIS_URL",
     "DATABASE_URL",
-    "NODE_ENV"
+    "NODE_ENV",
+    "SMTP_USER",
+    "SMTP_PASS",
+    "GOOGLE_CLIENT_ID",
+    "GEMINI_API_KEY"
   ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": [
+        "JWT_SECRET",
+        "PORT",
+        "WS_PORT",
+        "FRONTEND_URL",
+        "REDIS_URL",
+        "DATABASE_URL",
+        "NODE_ENV",
+        "SMTP_USER",
+        "SMTP_PASS",
+        "GOOGLE_CLIENT_ID",
+        "GEMINI_API_KEY"
+      ],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "lint": {},
