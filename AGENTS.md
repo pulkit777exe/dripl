@@ -33,7 +33,6 @@ All critical issues have been resolved. The following are either fixed or known 
 1. **AI Generation Feature** — Requires valid `GEMINI_API_KEY` in `.env`
 2. **Test Coverage** — Partial coverage (dripl-app, math, element have tests; http-server, ws-server have limited tests)
 3. **Next.js Dev Lock** — Rare race condition with multiple processes (workaround: `rm -rf .next`)
-4. **Duplicate Canvas Store** — Two stores (Zustand in dripl-app + TanStack in runtime)
 
 ---
 

@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - **Orphaned Code**: Remove duplicate websocket-server.ts from http-server
 - **Code Quality**: Standardize console logging to JSON format across http-server and ws-server
 - **Tests**: Add 5 edge case tests to ws-server validation.test.ts
+- **Duplicate Store**: Remove TanStack store, keep only Zustand in canvas-store.ts
 
 ---
 

@@ -13,7 +13,6 @@
   "dependencies": {
     "@dripl/common": "workspace:*",
     "@dripl/db": "workspace:*",
-    "@dripl/dripl": "workspace:*",
     "@dripl/element": "workspace:*",
     "@dripl/math": "workspace:*",
     "@dripl/utils": "workspace:*",
@@ -22,8 +21,6 @@
     "@prisma/client": "^7.0.1",
     "@react-oauth/google": "^0.13.5",
     "@tailwindcss/postcss": "^4.1.17",
-    "@tanstack/react-query": "^5.90.11",
-    "@tanstack/react-store": "^0.8.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.26.1",
