@@ -164,6 +164,15 @@ dripl/
 
 ---
 
+## Support
+
+For issues and questions:
+
+- Open an [Issue](https://github.com/pulkit777exe/dripl/issues)
+- Check [Discussions](https://github.com/pulkit777exe/dripl/discussions)
+
+
+
 ## License
 
 MIT
