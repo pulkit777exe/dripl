@@ -10,6 +10,7 @@ Real-time collaborative whiteboard with hand-drawn rendering, live cursors, and 
 
 - Node.js 20+
 - pnpm 10+
+- PostgreSQL (for local development)
 
 ### Installation
 
@@ -34,25 +35,26 @@ Open `http://localhost:3000`
 
 ```
 ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│  dripl-app   │  │http-server  │  │ ws-server   │
-│  Next.js 16  │  │  Express 5 │  │    ws      │
-│  Port 3000   │  │  Port 3002  │  │ Port 3001  │
+│  dripl-app  │   │http-server   │  │ ws-server    │
+│  Next.js 16 │   │  Express 5   │  │    ws        │
+│  Port 3000  │   │  Port 3002   │  │ Port 3001    │
 └──────────────┘  └──────────────┘  └──────────────┘
-       │                 │                 │
+       │                 │               │
        └────────────────┼────────────────┘
                         ▼
                  ┌──────────────┐
                  │ PostgreSQL   │
-                 │  (Neon)     │
                  └──────────────┘
 ```
 
 ### Tech Stack
 
-- **Frontend**: Next.js 16, React 19, Tailwind CSS 4, Zustand
-- **Rendering**: roughjs, HTML5 Canvas
-- **Backend**: Express 5, WebSocket (ws), Prisma 7
-- **Database**: PostgreSQL (Neon)
+| Layer     | Technology                                    |
+| --------- | --------------------------------------------- |
+| Frontend  | Next.js 16, React 19, Tailwind CSS 4, Zustand |
+| Rendering | roughjs, HTML5 Canvas                         |
+| Backend   | Express 5, WebSocket (ws), Prisma 7           |
+| Database  | PostgreSQL                                    |
 
 ---
 
@@ -64,7 +66,7 @@ Open `http://localhost:3000`
 - **Sharing**: Public links, view/edit permissions
 - **Export**: PNG, SVG, JSON
 - **Theme**: Dark/light mode
-- **Keyboard Shortcuts**: V, R, E, D, P, L, A, T, F, X, H + Ctrl combos
+- **Keyboard Shortcuts**: V, R, E, D, P, L, A, T, F, X, H + Ctrl combinations
 
 ---
 
@@ -75,10 +77,33 @@ pnpm dev          # Start all services
 pnpm build        # Build for production
 pnpm test         # Run tests
 pnpm lint         # Lint code
-pnpm format      # Format with Prettier
-pnpm db:migrate  # Database migrations
-pnpm db:studio  # Prisma Studio GUI
+pnpm format       # Format with Prettier
+pnpm db:migrate   # Database migrations
 ```
+
+---
+
+## Development
+
+### Running Individual Services
+
+```bash
+cd apps/dripl-app && pnpm dev     # Port 3000
+cd apps/http-server && pnpm dev   # Port 3002
+cd apps/ws-server && pnpm dev     # Port 3001
+```
+
+### Docker
+
+```bash
+# Start all services with Docker Compose
+docker-compose up --build
+
+# Or for development
+docker-compose up
+```
+
+Dockerfiles are located in `docker/` directory.
 
 ---
 
@@ -112,9 +137,27 @@ pnpm build    # Regenerates all packages
 
 ---
 
-## Resources
+## Project Structure
 
-- [Next.js](https://nextjs.org)
-- [roughjs](https://roughjs.com)
-- [Prisma](https://prisma.io)
-- [Zustand](https://zustand-demo.pmnd.rs)
+```
+dripl/
+├── apps/
+│   ├── dripl-app/       # Next.js frontend
+│   ├── http-server/     # Express REST API
+│   └── ws-server/       # WebSocket server
+├── packages/
+│   ├── common/          # Shared types
+│   ├── db/              # Prisma schema
+│   ├── dripl/           # UI components
+│   ├── element/         # Element utilities
+│   ├── math/            # Geometry utilities
+│   └── utils/           # Shared utilities
+├── docker/              # Dockerfiles
+└── docker-compose.yml   # Local development
+```
+
+---
+
+## License
+
+MIT
