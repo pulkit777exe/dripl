@@ -5,9 +5,9 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index",
   "exports": {
-    ".": "./dist/index.js",
+    ".": "./dist/index",
     "./*": "./dist/*",
     "./styles": "./dist/styles/index.css"
   },

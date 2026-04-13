@@ -4,11 +4,11 @@
   "description": "Math utilities for geometry and intersection calculations",
   "license": "MIT",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "default": "./dist/index"
     }
   },
   "scripts": {

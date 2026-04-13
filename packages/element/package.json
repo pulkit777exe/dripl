@@ -3,12 +3,12 @@
   "version": "0.0.0",
   "description": "Element factory and rendering for Dripl canvas",
   "license": "MIT",
-  "main": "./dist/index.js",
+  "main": "./dist/index",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "default": "./dist/index"
     }
   },
   "scripts": {

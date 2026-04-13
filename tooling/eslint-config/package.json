@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "main": "./index.js",
+  "main": "./index",
   "peerDependencies": {
     "eslint": "^9.0.0",
     "@typescript-eslint/parser": "^8.0.0",

@@ -4,11 +4,11 @@
   "description": "Database layer with Prisma ORM for Dripl",
   "license": "MIT",
   "private": true,
-  "main": "./dist/index.js",
+  "main": "./dist/index",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "default": "./dist/index"
     }
   },
   "type": "module",
