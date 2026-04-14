@@ -1,42 +1,94 @@
 {
+  "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalEnv": [
-    "JWT_SECRET",
-    "PORT",
-    "WS_PORT",
-    "FRONTEND_URL",
-    "REDIS_URL",
-    "DATABASE_URL",
-    "NODE_ENV",
-    "SMTP_USER",
-    "SMTP_PASS",
-    "GOOGLE_CLIENT_ID",
-    "GEMINI_API_KEY",
-    "DEBUG_PRISMA"
-  ],
+  "envMode": "strict",
+  "globalEnv": ["CI", "NODE_ENV", "VERCEL"],
+  "globalPassThroughEnv": ["GITHUB_TOKEN", "NPM_TOKEN", "TURBO_TOKEN", "TURBO_TEAM", "VERCEL_URL"],
+  "boundaries": {
+    "tags": {
+      "app:web": {
+        "dependencies": {
+          "deny": ["app:web", "app:server"]
+        }
+      },
+      "app:server": {
+        "dependencies": {
+          "deny": ["app:web", "app:server"]
+        }
+      },
+      "pkg:core": {
+        "dependencies": {
+          "deny": ["app:web", "app:server"]
+        }
+      },
+      "pkg:data": {
+        "dependencies": {
+          "deny": ["app:web", "app:server"]
+        },
+        "dependents": {
+          "deny": ["pkg:core"]
+        }
+      }
+    }
+  },
   "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "cache": false,
-      "outputs": []
+    "transit": {
+      "dependsOn": ["^transit"],
+      "outputs": [],
+      "description": "Dependency-aware transit node for parallel tasks"
     },
-    "lint": {},
-    "dev": {
-      "persistent": true,
+    "build": {
+      "description": "Compile deployable artifacts",
       "dependsOn": ["^build"],
-      "env": [
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "outputLogs": "new-only"
+    },
+    "lint": {
+      "description": "Run static analysis in parallel with dependency-aware hashing",
+      "dependsOn": ["transit"],
+      "outputs": [],
+      "outputLogs": "new-only"
+    },
+    "dev": {
+      "description": "Run local development servers",
+      "cache": false,
+      "persistent": true,
+      "interruptible": true,
+      "dependsOn": ["^build"],
+      "passThroughEnv": [
+        "NEXT_PUBLIC_*",
+        "GEMINI_API_KEY",
+        "GOOGLE_CLIENT_ID",
+        "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
         "JWT_SECRET",
         "PORT",
         "WS_PORT",
         "FRONTEND_URL",
         "REDIS_URL",
         "DATABASE_URL",
-        "NODE_ENV"
+        "NODE_ENV",
+        "SMTP_USER",
+        "SMTP_PASS"
       ]
     },
     "test": {
-      "dependsOn": ["build"],
-      "inputs": ["src/**/*.tsx", "src/**/*.ts", "test/**/*.ts", "test/**/*.tsx"]
+      "description": "Execute test suites",
+      "dependsOn": ["^build", "build"],
+      "env": ["DATABASE_URL", "JWT_SECRET", "NEXT_PUBLIC_*", "GEMINI_API_KEY", "GOOGLE_CLIENT_ID"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.env",
+        "$TURBO_ROOT$/.env.test",
+        "$TURBO_ROOT$/.env.test.local"
+      ],
+      "outputs": [],
+      "outputLogs": "new-only"
+    },
+    "check-types": {
+      "description": "Type-check packages without emitting files",
+      "dependsOn": ["transit"],
+      "outputs": [],
+      "outputLogs": "new-only"
     }
   }
 }

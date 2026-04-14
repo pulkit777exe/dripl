@@ -1,0 +1,28 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tags": ["app:web"],
+  "tasks": {
+    "build": {
+      "description": "Build Next.js app with precise env hashing",
+      "env": ["NEXT_PUBLIC_*"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.env",
+        "$TURBO_ROOT$/.env.local",
+        "$TURBO_ROOT$/.env.production",
+        "$TURBO_ROOT$/.env.production.local"
+      ],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "test": {
+      "env": ["NEXT_PUBLIC_*", "GEMINI_API_KEY"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.env",
+        "$TURBO_ROOT$/.env.test",
+        "$TURBO_ROOT$/.env.test.local"
+      ]
+    }
+  }
+}

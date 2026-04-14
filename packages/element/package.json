@@ -23,9 +23,11 @@
     "roughjs": "^4.6.6"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
     "eslint": "latest",
+    "typescript-eslint": "^8.58.2",
     "typescript": "latest",
     "vitest": "latest"
   }

@@ -336,12 +336,18 @@ importers:
       '@dripl/typescript-config':
         specifier: workspace:*
         version: link:../../tooling/typescript-config
+      '@eslint/js':
+        specifier: ^10.0.1
+        version: 10.0.1(eslint@10.2.0(jiti@2.6.1))
       eslint:
         specifier: latest
         version: 10.2.0(jiti@2.6.1)
       typescript:
         specifier: latest
         version: 6.0.2
+      typescript-eslint:
+        specifier: ^8.58.2
+        version: 8.58.2(eslint@10.2.0(jiti@2.6.1))(typescript@6.0.2)
       vitest:
         specifier: latest
         version: 4.1.4(@types/node@25.6.0)(jsdom@26.1.0)(vite@7.3.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
@@ -462,12 +468,18 @@ importers:
       '@dripl/typescript-config':
         specifier: workspace:*
         version: link:../../tooling/typescript-config
+      '@eslint/js':
+        specifier: ^10.0.1
+        version: 10.0.1(eslint@10.2.0(jiti@2.6.1))
       eslint:
         specifier: latest
         version: 10.2.0(jiti@2.6.1)
       typescript:
         specifier: latest
         version: 6.0.2
+      typescript-eslint:
+        specifier: ^8.58.2
+        version: 8.58.2(eslint@10.2.0(jiti@2.6.1))(typescript@6.0.2)
       vitest:
         specifier: latest
         version: 4.1.4(@types/node@25.6.0)(jsdom@26.1.0)(vite@7.3.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
@@ -484,12 +496,18 @@ importers:
       '@dripl/typescript-config':
         specifier: workspace:*
         version: link:../../tooling/typescript-config
+      '@eslint/js':
+        specifier: ^10.0.1
+        version: 10.0.1(eslint@10.2.0(jiti@2.6.1))
       eslint:
         specifier: latest
         version: 10.2.0(jiti@2.6.1)
       typescript:
         specifier: latest
         version: 6.0.2
+      typescript-eslint:
+        specifier: ^8.58.2
+        version: 8.58.2(eslint@10.2.0(jiti@2.6.1))(typescript@6.0.2)
       vitest:
         specifier: latest
         version: 4.1.4(@types/node@25.6.0)(jsdom@26.1.0)(vite@7.3.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
@@ -506,6 +524,9 @@ importers:
       '@dripl/typescript-config':
         specifier: workspace:*
         version: link:../../tooling/typescript-config
+      '@eslint/js':
+        specifier: ^10.0.1
+        version: 10.0.1(eslint@10.2.0(jiti@2.6.1))
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
@@ -515,6 +536,9 @@ importers:
       typescript:
         specifier: latest
         version: 6.0.2
+      typescript-eslint:
+        specifier: ^8.58.2
+        version: 8.58.2(eslint@10.2.0(jiti@2.6.1))(typescript@6.0.2)
       vitest:
         specifier: latest
         version: 4.1.4(@types/node@22.19.17)(jsdom@26.1.0)(vite@7.3.2(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tags": ["pkg:data"],
+  "tasks": {
+    "build": {
+      "description": "Build db package with Prisma env-sensitive hashing",
+      "env": ["DATABASE_URL"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.env",
+        "$TURBO_ROOT$/.env.local",
+        "$TURBO_ROOT$/.env.production",
+        "$TURBO_ROOT$/.env.production.local"
+      ],
+      "outputs": ["dist/**"]
+    }
+  }
+}
