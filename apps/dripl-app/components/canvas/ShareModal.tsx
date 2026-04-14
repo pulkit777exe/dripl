@@ -93,37 +93,40 @@ export function ShareModal({ isOpen, onClose, onStartSession, onExportToLink }: 
     { id: 'email' as TabType, label: 'Email Invite', icon: Mail },
   ];
 
+  const inputClass =
+    'w-full rounded-md border border-[#D4D0C9] bg-white px-3 py-2 text-[13px] text-[#1A1917] outline-none transition-all placeholder:text-[#9B9890] focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20';
+
   return (
     <div
-      className="fixed inset-0 z-300 flex items-center justify-center bg-background/80 backdrop-blur-md pointer-events-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-300 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-card border border-border rounded-2xl shadow-2xl ring-1 ring-primary/10 w-120 p-6 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-[440px] p-5 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         onClick={e => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+          className="absolute top-4 right-4 p-1.5 text-[#9B9890] hover:text-[#1A1917] hover:bg-[#E8E5DE] rounded-md transition-colors"
         >
-          <X size={20} />
+          <X size={18} />
         </button>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-secondary/50 p-1 rounded-xl">
+        <div className="flex gap-0.5 mb-5 rounded-md border border-[#D4D0C9] bg-white p-0.5">
           {tabs.map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded text-[12px] font-medium transition-all ${
                   activeTab === tab.id
-                    ? 'bg-background text-foreground shadow-button'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                    ? 'bg-[#E8E5DE] text-[#1A1917]'
+                    : 'text-[#9B9890] hover:text-[#1A1917]'
                 }`}
               >
-                <Icon size={16} />
+                <Icon size={14} />
                 {tab.label}
               </button>
             );
@@ -133,20 +136,19 @@ export function ShareModal({ isOpen, onClose, onStartSession, onExportToLink }: 
         {/* Session Tab */}
         {activeTab === 'session' && (
           <div className="text-center py-6">
-            <div className="w-20 h-20 bg-linear-to-br from-primary/20 to-secondary rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-inner">
-              <Play size={36} className="text-primary ml-1" />
+            <div className="w-16 h-16 bg-[#FAE8E5] rounded-xl flex items-center justify-center mx-auto mb-4">
+              <Play size={28} className="text-[#E8462A] ml-0.5" />
             </div>
-            <h2 className="text-xl font-semibold text-foreground mb-2">Start live session</h2>
-            <p className="text-muted-foreground mb-6">
-              Collaborate in real-time with end-to-end encryption. No account required for
-              participants.
+            <h2 className="text-[15px] font-semibold text-[#1A1917] mb-1">Start live session</h2>
+            <p className="text-[13px] text-[#6B6860] mb-5 max-w-xs mx-auto">
+              Collaborate in real-time with end-to-end encryption. No account required for participants.
             </p>
             <button
               onClick={handleStartSession}
               disabled={isStartingSession}
-              className="inline-flex items-center gap-2 px-8 py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-5 py-2 bg-[#E8462A] text-white text-[13px] font-medium rounded-md hover:bg-[#D93D22] transition-colors disabled:opacity-50"
             >
-              <Play size={16} fill="currentColor" />
+              <Play size={14} fill="currentColor" />
               {isStartingSession ? 'Starting...' : 'Start Session'}
             </button>
           </div>
@@ -154,30 +156,28 @@ export function ShareModal({ isOpen, onClose, onStartSession, onExportToLink }: 
 
         {/* Link Tab */}
         {activeTab === 'link' && (
-          <div className="space-y-5">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-foreground mb-2">Shareable Link</h3>
-              <p className="text-sm text-muted-foreground">
-                Create a shareable link with optional password protection.
-              </p>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-[14px] font-semibold text-[#1A1917] mb-1">Shareable Link</h3>
+              <p className="text-[12px] text-[#9B9890]">Create a shareable link with optional password protection.</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
-                className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
+                className={`px-3 py-2 rounded-md border text-[12px] font-medium transition-all ${
                   permission === 'view'
-                    ? 'border-primary bg-primary/10 text-primary shadow-inner'
-                    : 'border-border hover:bg-secondary/50 text-foreground'
+                    ? 'border-[#E8462A] bg-[#FAE8E5] text-[#E8462A]'
+                    : 'border-[#D4D0C9] hover:bg-[#E8E5DE] text-[#6B6860]'
                 }`}
                 onClick={() => setPermission('view')}
               >
                 View only
               </button>
               <button
-                className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
+                className={`px-3 py-2 rounded-md border text-[12px] font-medium transition-all ${
                   permission === 'edit'
-                    ? 'border-primary bg-primary/10 text-primary shadow-inner'
-                    : 'border-border hover:bg-secondary/50 text-foreground'
+                    ? 'border-[#E8462A] bg-[#FAE8E5] text-[#E8462A]'
+                    : 'border-[#D4D0C9] hover:bg-[#E8E5DE] text-[#6B6860]'
                 }`}
                 onClick={() => setPermission('edit')}
               >
@@ -185,72 +185,64 @@ export function ShareModal({ isOpen, onClose, onStartSession, onExportToLink }: 
               </button>
             </div>
 
-            <div className="flex items-center gap-2">
-              <select
-                className="flex-1 px-4 py-3 rounded-xl border border-border bg-background text-sm shadow-inner"
-                value={expiry}
-                onChange={e => setExpiry(Number(e.target.value))}
-              >
-                <option value={1}>Expires in 1 hour</option>
-                <option value={24}>Expires in 24 hours</option>
-                <option value={24 * 7}>Expires in 7 days</option>
-                <option value={24 * 30}>Expires in 30 days</option>
-                <option value={-1}>Never expires</option>
-              </select>
-            </div>
+            <select
+              className={inputClass}
+              value={expiry}
+              onChange={e => setExpiry(Number(e.target.value))}
+            >
+              <option value={1}>Expires in 1 hour</option>
+              <option value={24}>Expires in 24 hours</option>
+              <option value={24 * 7}>Expires in 7 days</option>
+              <option value={24 * 30}>Expires in 30 days</option>
+              <option value={-1}>Never expires</option>
+            </select>
 
-            <label className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded-lg hover:bg-secondary/50 transition-colors">
+            <label className="flex items-center gap-2 text-[13px] cursor-pointer py-1 text-[#6B6860]">
               <input
                 type="checkbox"
                 checked={usePassword}
                 onChange={e => setUsePassword(e.target.checked)}
-                className="rounded border-border w-4 h-4"
+                className="rounded border-[#D4D0C9] w-3.5 h-3.5 accent-[#E8462A]"
               />
-              <Lock size={16} className="text-muted-foreground" />
-              <span className="text-foreground">Protect with password</span>
+              <Lock size={14} />
+              Protect with password
             </label>
 
             {usePassword && (
-              <div className="relative">
-                <Lock
-                  size={16}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-                />
-                <input
-                  type="password"
-                  placeholder="Enter password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-border bg-background text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
+              <input
+                type="password"
+                placeholder="Enter password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className={inputClass}
+              />
             )}
 
             <button
               onClick={handleExportToLink}
               disabled={isExporting || (usePassword && !password)}
-              className="w-full py-3 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-all shadow-button hover:shadow-button-hover disabled:opacity-50"
+              className="w-full py-2 bg-[#E8462A] text-white text-[13px] font-medium rounded-md hover:bg-[#D93D22] transition-colors disabled:opacity-50"
             >
               {isExporting ? 'Creating...' : 'Create Link'}
             </button>
 
             {shareUrl && (
-              <div className="mt-5 p-5 bg-secondary/30 rounded-xl border border-border shadow-inner">
-                <div className="flex items-center gap-3 mb-4">
+              <div className="p-4 bg-white rounded-lg border border-[#E4E0D9]">
+                <div className="flex items-center gap-2 mb-3">
                   <input
                     readOnly
                     value={shareUrl}
-                    className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-background text-sm shadow-inner"
+                    className="flex-1 px-3 py-1.5 rounded-md border border-[#D4D0C9] bg-[#F0EDE6] text-[12px] text-[#6B6860]"
                   />
                   <button
                     onClick={copyLink}
-                    className="p-2.5 rounded-lg border border-border hover:bg-accent transition-colors shadow-button"
+                    className="p-1.5 rounded-md border border-[#D4D0C9] hover:bg-[#E8E5DE] transition-colors"
                   >
-                    {copied ? <Check size={18} className="text-green-600" /> : <Copy size={18} />}
+                    {copied ? <Check size={16} className="text-green-600" /> : <Copy size={16} className="text-[#6B6860]" />}
                   </button>
                 </div>
                 <div className="flex justify-center">
-                  <canvas ref={qrCanvasRef} className="rounded-lg shadow-md" />
+                  <canvas ref={qrCanvasRef} className="rounded-md" />
                 </div>
               </div>
             )}
@@ -259,44 +251,36 @@ export function ShareModal({ isOpen, onClose, onStartSession, onExportToLink }: 
 
         {/* Email Tab */}
         {activeTab === 'email' && (
-          <div className="space-y-5">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-foreground mb-2">Invite via Email</h3>
-              <p className="text-sm text-muted-foreground">
-                Send an invitation link directly to someone&apos;s inbox.
-              </p>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-[14px] font-semibold text-[#1A1917] mb-1">Invite via Email</h3>
+              <p className="text-[12px] text-[#9B9890]">Send an invitation link directly to someone&apos;s inbox.</p>
             </div>
 
-            <div className="relative">
-              <Mail
-                size={16}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <input
-                type="email"
-                placeholder="email@example.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-xl border border-border bg-background text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
-            </div>
+            <input
+              type="email"
+              placeholder="email@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className={inputClass}
+            />
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
-                className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
+                className={`px-3 py-2 rounded-md border text-[12px] font-medium transition-all ${
                   permission === 'view'
-                    ? 'border-primary bg-primary/10 text-primary shadow-inner'
-                    : 'border-border hover:bg-secondary/50 text-foreground'
+                    ? 'border-[#E8462A] bg-[#FAE8E5] text-[#E8462A]'
+                    : 'border-[#D4D0C9] hover:bg-[#E8E5DE] text-[#6B6860]'
                 }`}
                 onClick={() => setPermission('view')}
               >
                 View only
               </button>
               <button
-                className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
+                className={`px-3 py-2 rounded-md border text-[12px] font-medium transition-all ${
                   permission === 'edit'
-                    ? 'border-primary bg-primary/10 text-primary shadow-inner'
-                    : 'border-border hover:bg-secondary/50 text-foreground'
+                    ? 'border-[#E8462A] bg-[#FAE8E5] text-[#E8462A]'
+                    : 'border-[#D4D0C9] hover:bg-[#E8E5DE] text-[#6B6860]'
                 }`}
                 onClick={() => setPermission('edit')}
               >
@@ -304,45 +288,39 @@ export function ShareModal({ isOpen, onClose, onStartSession, onExportToLink }: 
               </button>
             </div>
 
-            <label className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded-lg hover:bg-secondary/50 transition-colors">
+            <label className="flex items-center gap-2 text-[13px] cursor-pointer py-1 text-[#6B6860]">
               <input
                 type="checkbox"
                 checked={usePassword}
                 onChange={e => setUsePassword(e.target.checked)}
-                className="rounded border-border w-4 h-4"
+                className="rounded border-[#D4D0C9] w-3.5 h-3.5 accent-[#E8462A]"
               />
-              <Lock size={14} className="text-muted-foreground" />
-              <span className="text-foreground">Add password protection</span>
+              <Lock size={14} />
+              Add password protection
             </label>
 
             {usePassword && (
-              <div className="relative">
-                <Lock
-                  size={16}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-                />
-                <input
-                  type="password"
-                  placeholder="Set a password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-border bg-background text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
+              <input
+                type="password"
+                placeholder="Set a password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className={inputClass}
+              />
             )}
 
             <button
               onClick={handleExportToLink}
               disabled={isExporting || !email || (usePassword && !password)}
-              className="w-full py-3 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-all shadow-button hover:shadow-button-hover disabled:opacity-50"
+              className="w-full py-2 bg-[#E8462A] text-white text-[13px] font-medium rounded-md hover:bg-[#D93D22] transition-colors disabled:opacity-50"
             >
               {isExporting ? 'Sending...' : 'Send Invite'}
             </button>
 
             {emailSent && (
-              <div className="p-5 bg-green-500/10 border border-green-500/20 rounded-xl text-center shadow-inner">
-                <Check size={28} className="mx-auto mb-2 text-green-600" />
-                <p className="text-sm text-green-700 font-medium">Invitation sent to {email}!</p>
+              <div className="p-4 bg-[#E8F5E9] border border-[#A5D6A7] rounded-lg text-center">
+                <Check size={24} className="mx-auto mb-1 text-green-600" />
+                <p className="text-[13px] text-green-700 font-medium">Invitation sent to {email}!</p>
               </div>
             )}
           </div>

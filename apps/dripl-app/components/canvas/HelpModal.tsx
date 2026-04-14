@@ -13,9 +13,9 @@ interface ShortcutItemProps {
 
 function ShortcutItem({ toolName, shortcut }: ShortcutItemProps) {
   return (
-    <div className="flex justify-between items-center py-2 border-b border-(--color-panel-slider)/50 last:border-b-0">
-      <div className="text-(--color-tool-inactive-text) flex-1">{toolName}</div>
-      <div className="text-xs font-mono px-3 py-0.5 rounded-md bg-(--color-tool-hover-bg) text-(--color-tool-inactive-text) border border-(--color-panel-slider)/50 min-w-12.5 text-center">
+    <div className="flex justify-between items-center py-1.5 border-b border-[#E4E0D9] last:border-b-0">
+      <div className="text-[13px] text-[#6B6860] flex-1">{toolName}</div>
+      <div className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#E8E5DE] text-[#6B6860] border border-[#D4D0C9] min-w-[48px] text-center">
         {shortcut}
       </div>
     </div>
@@ -29,7 +29,7 @@ interface HeaderButtonProps {
 
 function HeaderButton({ icon, label }: HeaderButtonProps) {
   return (
-    <button className="flex items-center gap-2 px-3 py-2 bg-(--color-panel-btn-bg) hover:bg-(--color-tool-hover-bg) rounded-lg text-sm text-(--color-tool-inactive-text) border border-(--color-panel-slider)/50 transition-colors">
+    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[#E8E5DE] rounded-md text-[12px] text-[#6B6860] border border-[#D4D0C9] transition-colors">
       {icon}
       {label}
     </button>
@@ -39,42 +39,42 @@ function HeaderButton({ icon, label }: HeaderButtonProps) {
 export default function HelpModal({ onClose }: HelpModalProps) {
   return (
     <div
-      className="fixed inset-0 bg-black/60 z-100 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/30 backdrop-blur-sm z-100 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-5xl bg-(--color-panel-bg) rounded-xl border border-(--color-panel-slider) shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="w-full max-w-4xl bg-[#FAFAF7] rounded-xl border border-[#E4E0D9] shadow-lg max-h-[90vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center p-5 border-b border-(--color-panel-slider)/50">
-          <h2 className="text-xl font-semibold text-(--color-panel-text) flex items-center gap-3">
-            <HelpCircle size={24} className="text-(--color-tool-active-text)" />
+        <div className="flex justify-between items-center px-5 py-3.5 border-b border-[#E4E0D9]">
+          <h2 className="text-[15px] font-semibold text-[#1A1917] flex items-center gap-2">
+            <HelpCircle size={18} className="text-[#E8462A]" />
             Help
           </h2>
           <button
             onClick={onClose}
-            className="p-2 text-(--color-tool-inactive-text) hover:bg-(--color-tool-hover-bg) rounded-full transition-colors"
+            className="p-1 text-[#9B9890] hover:text-[#1A1917] hover:bg-[#E8E5DE] rounded-md transition-colors"
           >
-            <X size={24} />
+            <X size={18} />
           </button>
         </div>
 
-        <div className="p-5 flex gap-3 border-b border-panel-slider flex-wrap">
-          <HeaderButton icon={<BookOpen size={18} />} label="Documentation" />
-          <HeaderButton icon={<ExternalLink size={18} />} label="Blog" />
-          <HeaderButton icon={<Github size={18} />} label="GitHub" />
-          <HeaderButton icon={<Youtube size={18} />} label="YouTube" />
+        <div className="px-5 py-3 flex gap-2 border-b border-[#E4E0D9] flex-wrap">
+          <HeaderButton icon={<BookOpen size={14} />} label="Documentation" />
+          <HeaderButton icon={<ExternalLink size={14} />} label="Blog" />
+          <HeaderButton icon={<Github size={14} />} label="GitHub" />
+          <HeaderButton icon={<Youtube size={14} />} label="YouTube" />
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
-          <h3 className="text-lg font-semibold text-panel-text mb-4 flex items-center gap-2">
-            <Keyboard size={20} className="text-tool-inactive-text" />
+          <h3 className="text-[14px] font-semibold text-[#1A1917] mb-3 flex items-center gap-2">
+            <Keyboard size={16} className="text-[#6B6860]" />
             Keyboard shortcuts
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-0 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-0 text-sm">
             <div>
-              <h4 className="text-xs font-bold text-panel-label uppercase mb-2 mt-4">Tools</h4>
+              <h4 className="text-[11px] font-semibold text-[#9B9890] uppercase tracking-wider mb-2 mt-3">Tools</h4>
               <ShortcutItem toolName="Hand (panning tool)" shortcut="H" />
               <ShortcutItem toolName="Selection" shortcut="V or 1" />
               <ShortcutItem toolName="Rectangle" shortcut="R or 2" />
@@ -90,7 +90,7 @@ export default function HelpModal({ onClose }: HelpModalProps) {
             </div>
 
             <div>
-              <h4 className="text-xs font-bold text-panel-label uppercase mb-2 mt-4">Editor</h4>
+              <h4 className="text-[11px] font-semibold text-[#9B9890] uppercase tracking-wider mb-2 mt-3">Editor</h4>
               <ShortcutItem toolName="Move canvas" shortcut="Space + Drag" />
               <ShortcutItem toolName="Delete" shortcut="Delete" />
               <ShortcutItem toolName="Cut" shortcut="Ctrl+X" />

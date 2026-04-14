@@ -72,29 +72,29 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-300 pt-100 flex items-center justify-center pointer-events-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-300 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-[#232329] border border-[#333] rounded-2xl shadow-2xl w-[500px] max-h-[80vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-[480px] max-h-[80vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b border-[#333]">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E4E0D9]">
           <div className="flex items-center gap-2">
-            <Sparkles size={20} className="text-[#6965db]" />
-            <h2 className="text-lg font-semibold text-white">AI Diagram Generator</h2>
+            <Sparkles size={18} className="text-[#E8462A]" />
+            <h2 className="text-[15px] font-semibold text-[#1A1917]">AI Diagram Generator</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-white hover:bg-[#333] rounded-lg transition-colors"
+            className="p-1 text-[#9B9890] hover:text-[#1A1917] hover:bg-[#E8E5DE] rounded-md transition-colors"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm text-gray-400">Describe your diagram</label>
+        <div className="p-5 space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium text-[#6B6860]">Describe your diagram</label>
             <textarea
               value={prompt}
               onChange={e => {
@@ -102,22 +102,20 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
                 setError(null);
               }}
               placeholder="e.g., A flowchart showing the checkout process for an e-commerce site"
-              className="w-full h-32 p-3 bg-[#1a1a20] border border-[#333] rounded-lg text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-[#6965db] focus:border-transparent"
+              className="w-full h-28 px-3 py-2 bg-white border border-[#D4D0C9] rounded-md text-[13px] text-[#1A1917] placeholder-[#9B9890] resize-none outline-none focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20"
               disabled={isLoading}
             />
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>{prompt.length}/2000</span>
-            </div>
+            <div className="text-[11px] text-[#9B9890]">{prompt.length}/2000</div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm text-gray-400">Try an example</label>
-            <div className="flex flex-wrap gap-2">
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium text-[#6B6860]">Try an example</label>
+            <div className="flex flex-wrap gap-1.5">
               {EXAMPLE_PROMPTS.map((example, index) => (
                 <button
                   key={index}
                   onClick={() => handleExampleClick(example)}
-                  className="px-3 py-1.5 text-xs bg-[#1a1a20] border border-[#333] rounded-full text-gray-300 hover:bg-[#2a2a3a] hover:border-[#6965db] transition-colors"
+                  className="px-2.5 py-1 text-[11px] bg-white border border-[#D4D0C9] rounded-full text-[#6B6860] hover:bg-[#E8E5DE] hover:border-[#E8462A] transition-colors"
                   disabled={isLoading}
                 >
                   {example.length > 40 ? example.slice(0, 40) + '...' : example}
@@ -127,17 +125,17 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
-              <AlertCircle size={16} />
+            <div className="flex items-center gap-2 px-3 py-2 bg-[#FAE8E5] border border-[#E8462A]/20 rounded-md text-[#C0392B] text-[13px]">
+              <AlertCircle size={14} />
               {error}
             </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-3 p-4 border-t border-[#333]">
+        <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-[#E4E0D9]">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+            className="px-3 py-1.5 text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors"
             disabled={isLoading}
           >
             Cancel
@@ -145,16 +143,16 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
           <button
             onClick={handleGenerate}
             disabled={isLoading || !prompt.trim()}
-            className="flex items-center gap-2 px-4 py-2 bg-[#6965db] text-white font-medium rounded-lg hover:bg-[#5a56c7] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#E8462A] text-white text-[13px] font-medium rounded-md hover:bg-[#D93D22] disabled:opacity-50 transition-colors"
           >
             {isLoading ? (
               <>
-                <Loader2 size={16} className="animate-spin" />
+                <Loader2 size={14} className="animate-spin" />
                 Generating...
               </>
             ) : (
               <>
-                <Sparkles size={16} />
+                <Sparkles size={14} />
                 Generate
               </>
             )}

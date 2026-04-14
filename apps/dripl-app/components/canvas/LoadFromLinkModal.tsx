@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { X, AlertCircle } from 'lucide-react';
 
 interface LoadFromLinkModalProps {
   isOpen: boolean;
@@ -22,60 +23,33 @@ export function LoadFromLinkModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-100 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-100 flex items-center justify-center p-4">
       <div
-        className="w-full max-w-2xl bg-[#232329] rounded-xl border border-[#3f3f46] shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="w-full max-w-2xl bg-[#FAFAF7] rounded-xl border border-[#E4E0D9] shadow-lg max-h-[90vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-[#3f3f46]">
-          <h2 className="text-xl font-semibold text-white flex items-center gap-3">
-            Load from link
-          </h2>
+        <div className="flex justify-between items-center px-5 py-3.5 border-b border-[#E4E0D9]">
+          <h2 className="text-[15px] font-semibold text-[#1A1917]">Load from link</h2>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:bg-gray-700 rounded-full transition-colors"
+            className="p-1 text-[#9B9890] hover:text-[#1A1917] hover:bg-[#E8E5DE] rounded-md transition-colors"
           >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X size={18} />
           </button>
         </div>
 
-        {/* Warning Message */}
-        <div className="p-6 bg-[#ff6b6b]/10 border-b border-[#ff6b6b]/20">
-          <div className="flex items-start gap-4">
-            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#ff6b6b]/20 flex items-center justify-center">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#ff6b6b"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
+        {/* Warning */}
+        <div className="px-5 py-4 bg-[#FAE8E5] border-b border-[#E8462A]/15">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-[#E8462A]/15 flex items-center justify-center">
+              <AlertCircle className="h-5 w-5 text-[#E8462A]" />
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-white mb-2">
+            <div>
+              <h3 className="text-[14px] font-semibold text-[#1A1917] mb-0.5">
                 Loading external drawing will replace your existing content.
               </h3>
-              <p className="text-gray-400">
+              <p className="text-[12px] text-[#6B6860]">
                 You can back up your drawing first using one of the options below.
               </p>
             </div>
@@ -83,63 +57,60 @@ export function LoadFromLinkModal({
         </div>
 
         {/* Backup Options */}
-        <div className="p-6 space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Export as Image */}
+        <div className="p-5 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center">
-              <h4 className="text-lg font-medium text-white mb-2">Export as image</h4>
-              <p className="text-sm text-gray-400 mb-4">
+              <h4 className="text-[14px] font-medium text-[#1A1917] mb-1">Export as image</h4>
+              <p className="text-[12px] text-[#9B9890] mb-3">
                 Export the scene data as an image from which you can import later.
               </p>
               <button
                 onClick={onExportAsImage}
-                className="w-full px-4 py-2 bg-[#2a2a3a] hover:bg-[#3a3a4a] text-white rounded-lg border border-[#3f3f46] transition-colors"
+                className="w-full px-3 py-2 bg-white hover:bg-[#E8E5DE] text-[#1A1917] text-[13px] font-medium rounded-md border border-[#D4D0C9] transition-colors"
               >
                 Export as image
               </button>
             </div>
 
-            {/* Save to Disk */}
             <div className="text-center">
-              <h4 className="text-lg font-medium text-white mb-2">Save to disk</h4>
-              <p className="text-sm text-gray-400 mb-4">
+              <h4 className="text-[14px] font-medium text-[#1A1917] mb-1">Save to disk</h4>
+              <p className="text-[12px] text-[#9B9890] mb-3">
                 Export the scene data to a file from which you can import later.
               </p>
               <button
                 onClick={onSaveToDisk}
-                className="w-full px-4 py-2 bg-[#2a2a3a] hover:bg-[#3a3a4a] text-white rounded-lg border border-[#3f3f46] transition-colors"
+                className="w-full px-3 py-2 bg-white hover:bg-[#E8E5DE] text-[#1A1917] text-[13px] font-medium rounded-md border border-[#D4D0C9] transition-colors"
               >
                 Save to disk
               </button>
             </div>
 
-            {/* Export to Cloud */}
             <div className="text-center">
-              <h4 className="text-lg font-medium text-white mb-2">Excalidraw+</h4>
-              <p className="text-sm text-gray-400 mb-4">
-                Save the scene to your Excalidraw+ workspace.
+              <h4 className="text-[14px] font-medium text-[#1A1917] mb-1">Cloud backup</h4>
+              <p className="text-[12px] text-[#9B9890] mb-3">
+                Save the scene to your Dripl cloud workspace.
               </p>
               <button
                 onClick={onExportToCloud}
-                className="w-full px-4 py-2 bg-[#2a2a3a] hover:bg-[#3a3a4a] text-white rounded-lg border border-[#3f3f46] transition-colors"
+                className="w-full px-3 py-2 bg-white hover:bg-[#E8E5DE] text-[#1A1917] text-[13px] font-medium rounded-md border border-[#D4D0C9] transition-colors"
               >
-                Export to Excalidraw+
+                Export to cloud
               </button>
             </div>
           </div>
 
-          {/* Replace Button */}
-          <div className="pt-6 border-t border-[#3f3f46]">
-            <div className="flex justify-end gap-3">
+          {/* Replace */}
+          <div className="pt-4 border-t border-[#E4E0D9]">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                className="px-3 py-1.5 text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={onReplaceContent}
-                className="px-6 py-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-lg font-medium transition-colors"
+                className="px-4 py-1.5 bg-[#E8462A] hover:bg-[#D93D22] text-white text-[13px] font-medium rounded-md transition-colors"
               >
                 Replace my content
               </button>
