@@ -18,10 +18,10 @@ importers:
         specifier: latest
         version: 3.8.2
       prisma:
-        specifier: ^7.0.1
+        specifier: ^7.2.0
         version: 7.7.0(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.2)
       tsx:
-        specifier: ^4.21.0
+        specifier: ^4.20.6
         version: 4.21.0
       turbo:
         specifier: latest
@@ -30,7 +30,7 @@ importers:
         specifier: latest
         version: 6.0.2
       typescript-eslint:
-        specifier: ^8.58.1
+        specifier: ^8.58.2
         version: 8.58.2(eslint@10.2.0(jiti@2.6.1))(typescript@6.0.2)
 
   apps/dripl-app:

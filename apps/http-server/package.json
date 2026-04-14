@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node dist/index.js",
-    "build": "tsc -b",
+    "build": "tsc -b --force",
     "dev": "dotenv -e ../../.env -- tsx watch src/index.ts",
     "test": "vitest run"
   },
