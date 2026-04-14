@@ -18,130 +18,130 @@
   /* ----------------------------------------
      Canvas & Background Colors
      ---------------------------------------- */
-  --color-canvas-bg: #f7f5f6;
-  --color-canvas-grid: #e5e5e5;
-  --color-canvas-grid-dark: #333333;
+  --color-canvas-bg: #F0EDE6;
+  --color-canvas-grid: #D4D0C9;
+  --color-canvas-grid-dark: #3A3830;
   
   /* ----------------------------------------
      Toolbar Colors
      ---------------------------------------- */
-  --color-toolbar-bg: #ffffff;
-  --color-toolbar-border: #e5e5e5;
-  --color-toolbar-divider: #e5e5e5;
-  --color-toolbar-shadow: rgba(0, 0, 0, 0.1);
+  --color-toolbar-bg: #F0EDE6;
+  --color-toolbar-border: #E4E0D9;
+  --color-toolbar-divider: #E4E0D9;
+  --color-toolbar-shadow: rgba(0, 0, 0, 0.04);
   
   /* ----------------------------------------
      Tool/Button States
      ---------------------------------------- */
-  --color-tool-active-bg: #fff1ed;
-  --color-tool-active-text: #e85d38;
-  --color-tool-active-border: #e85d38;
-  --color-tool-active-shadow: rgba(232, 93, 56, 0.15);
+  --color-tool-active-bg: #FAE8E5;
+  --color-tool-active-text: #E8462A;
+  --color-tool-active-border: #E8462A;
+  --color-tool-active-shadow: rgba(232, 70, 42, 0.15);
   
   --color-tool-inactive-bg: transparent;
-  --color-tool-inactive-text: #6b7280;
+  --color-tool-inactive-text: #6B6860;
   
-  --color-tool-hover-bg: #f9fafb;
-  --color-tool-hover-text: #374151;
+  --color-tool-hover-bg: #E8E5DE;
+  --color-tool-hover-text: #1A1917;
   
   --color-tool-disabled-bg: transparent;
-  --color-tool-disabled-text: #9ca3af;
+  --color-tool-disabled-text: #9B9890;
   
   /* ----------------------------------------
      Panel Colors (Properties Panel, etc.)
      ---------------------------------------- */
-  --color-panel-bg: #ffffff;
-  --color-panel-border: #e5e5e5;
-  --color-panel-shadow: rgba(0, 0, 0, 0.05);
+  --color-panel-bg: #FAFAF7;
+  --color-panel-border: #E4E0D9;
+  --color-panel-shadow: rgba(0, 0, 0, 0.04);
   
-  --color-panel-header-bg: #fdf8f6;
-  --color-panel-header-text: #374151;
+  --color-panel-header-bg: #E8E5DE;
+  --color-panel-header-text: #1A1917;
   
-  --color-panel-label: #6b7280;
-  --color-panel-text: #374151;
-  --color-panel-value: #111827;
+  --color-panel-label: #6B6860;
+  --color-panel-text: #1A1917;
+  --color-panel-value: #1A1917;
   
-  --color-panel-divider: #e5e5e5;
+  --color-panel-divider: #E4E0D9;
   
-  --color-panel-btn-bg: #fdf8f6;
-  --color-panel-btn-hover: #f3f4f6;
-  --color-panel-btn-active: #e85d38;
-  --color-panel-btn-text: #374151;
+  --color-panel-btn-bg: #E8E5DE;
+  --color-panel-btn-hover: #D4D0C9;
+  --color-panel-btn-active: #E8462A;
+  --color-panel-btn-text: #1A1917;
   --color-panel-btn-active-text: #ffffff;
   
-  --color-panel-slider-track: #d1d5db;
-  --color-panel-slider-fill: #e85d38;
+  --color-panel-slider-track: #D4D0C9;
+  --color-panel-slider-fill: #E8462A;
   --color-panel-slider-thumb: #ffffff;
   
-  --color-panel-input-bg: #ffffff;
-  --color-panel-input-border: #d1d5db;
-  --color-panel-input-text: #374151;
-  --color-panel-input-focus-border: #e85d38;
+  --color-panel-input-bg: #FAFAF7;
+  --color-panel-input-border: #D4D0C9;
+  --color-panel-input-text: #1A1917;
+  --color-panel-input-focus-border: #E8462A;
   
   /* ----------------------------------------
      Selection & Handles
      ---------------------------------------- */
-  --color-selection-fill: rgba(232, 93, 56, 0.1);
-  --color-selection-stroke: #e85d38;
+  --color-selection-fill: rgba(232, 70, 42, 0.1);
+  --color-selection-stroke: #E8462A;
   --color-selection-handle-bg: #ffffff;
-  --color-selection-handle-border: #e85d38;
-  --color-selection-handle-shadow: rgba(232, 93, 56, 0.3);
+  --color-selection-handle-border: #E8462A;
+  --color-selection-handle-shadow: rgba(232, 70, 42, 0.2);
   
   /* ----------------------------------------
      Context Menu
      ---------------------------------------- */
-  --color-context-menu-bg: #ffffff;
-  --color-context-menu-border: #e5e5e5;
-  --color-context-menu-shadow: rgba(0, 0, 0, 0.15);
-  --color-context-menu-item-hover: #fdf8f6;
-  --color-context-menu-item-text: #374151;
-  --color-context-menu-item-icon: #6b7280;
-  --color-context-menu-divider: #e5e5e5;
+  --color-context-menu-bg: #FAFAF7;
+  --color-context-menu-border: #E4E0D9;
+  --color-context-menu-shadow: rgba(0, 0, 0, 0.08);
+  --color-context-menu-item-hover: #E8E5DE;
+  --color-context-menu-item-text: #1A1917;
+  --color-context-menu-item-icon: #6B6860;
+  --color-context-menu-divider: #E4E0D9;
   
   /* ----------------------------------------
      Modal Colors
      ---------------------------------------- */
-  --color-modal-overlay: rgba(0, 0, 0, 0.5);
-  --color-modal-bg: #ffffff;
-  --color-modal-border: #e5e5e5;
-  --color-modal-shadow: rgba(0, 0, 0, 0.2);
-  --color-modal-header-text: #111827;
-  --color-modal-body-text: #374151;
+  --color-modal-overlay: rgba(0, 0, 0, 0.4);
+  --color-modal-bg: #FAFAF7;
+  --color-modal-border: #D4D0C9;
+  --color-modal-shadow: rgba(0, 0, 0, 0.08);
+  --color-modal-header-text: #1A1917;
+  --color-modal-body-text: #1A1917;
   
   /* ----------------------------------------
      Text Colors
      ---------------------------------------- */
-  --color-text-primary: #111827;
-  --color-text-secondary: #374151;
-  --color-text-tertiary: #6b7280;
-  --color-text-muted: #9ca3af;
-  --color-text-disabled: #d1d5db;
+  --color-text-primary: #1A1917;
+  --color-text-secondary: #6B6860;
+  --color-text-tertiary: #9B9890;
+  --color-text-muted: #9B9890;
+  --color-text-disabled: #D4D0C9;
   --color-text-inverse: #ffffff;
-  --color-text-link: #e85d38;
-  --color-text-link-hover: #d64d29;
+  --color-text-link: #E8462A;
+  --color-text-link-hover: #D93D22;
   
   /* ----------------------------------------
      UI Component Colors
      ---------------------------------------- */
-  --color-background: #fdf8f6;
-  --color-foreground: #333333;
-  --color-card: #f9f9f9;
-  --color-card-foreground: #333333;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #333333;
-  --color-primary: #e85d38;
+  --color-background: #F0EDE6;
+  --color-foreground: #1A1917;
+  --color-card: #FAFAF7;
+  --color-card-foreground: #1A1917;
+  --color-popover: #FAFAF7;
+  --color-popover-foreground: #1A1917;
+  --color-primary: #E8462A;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #fdf8f6;
-  --color-secondary-foreground: #333333;
-  --color-muted: #f4f4f5;
-  --color-muted-foreground: #6b7280;
-  --color-accent: #fff1ed;
-  --color-accent-foreground: #333333;
-  --color-destructive: #ef4444;
+  --color-secondary: #E8E5DE;
+  --color-secondary-foreground: #1A1917;
+  --color-muted: #E8E5DE;
+  --color-muted-foreground: #6B6860;
+  --color-accent: #FAE8E5;
+  --color-accent-foreground: #1A1917;
+  --color-destructive: #C0392B;
   --color-destructive-foreground: #ffffff;
-  --color-border: #e5e7eb;
-  --color-input: #f9fafb;
-  --color-ring: #e85d38;
+  --color-border: #D4D0C9;
+  --color-input: #FAFAF7;
+  --color-ring: #E8462A;
   
   /* ----------------------------------------
      Status Colors
@@ -154,8 +154,8 @@
   --color-warning-bg: #fef3c7;
   --color-warning-text: #92400e;
   
-  --color-error: #ef4444;
-  --color-error-bg: #fee2e2;
+  --color-error: #C0392B;
+  --color-error-bg: #FAE8E5;
   --color-error-text: #991b1b;
   
   --color-info: #3b82f6;
@@ -165,15 +165,15 @@
   /* ----------------------------------------
      Shape/Element Colors
      ---------------------------------------- */
-  --color-element-stroke: #000000;
+  --color-element-stroke: #1A1917;
   --color-element-fill: transparent;
-  --color-element-stroke-selected: #6965db;
+  --color-element-stroke-selected: #E8462A;
   
   /* ----------------------------------------
      Collaborator Colors
      ---------------------------------------- */
   --color-cursor-outline: #ffffff;
-  --color-cursor-shadow: rgba(0, 0, 0, 0.3);
+  --color-cursor-shadow: rgba(0, 0, 0, 0.2);
   
   /* ----------------------------------------
      Animation & Transition
@@ -191,130 +191,130 @@
   /* ----------------------------------------
      Canvas & Background Colors
      ---------------------------------------- */
-  --color-canvas-bg: #121112;
-  --color-canvas-grid: #333333;
-  --color-canvas-grid-dark: #1a1a1a;
+  --color-canvas-bg: #1C1A17;
+  --color-canvas-grid: #3A3830;
+  --color-canvas-grid-dark: #242219;
   
   /* ----------------------------------------
      Toolbar Colors
      ---------------------------------------- */
-  --color-toolbar-bg: #232329;
-  --color-toolbar-border: #3f3f46;
-  --color-toolbar-divider: #3f3f46;
-  --color-toolbar-shadow: rgba(0, 0, 0, 0.3);
+  --color-toolbar-bg: #1C1A17;
+  --color-toolbar-border: #3A3830;
+  --color-toolbar-divider: #3A3830;
+  --color-toolbar-shadow: rgba(0, 0, 0, 0.15);
   
   /* ----------------------------------------
      Tool/Button States
      ---------------------------------------- */
-  --color-tool-active-bg: #4a2115;
-  --color-tool-active-text: #fbd5cb;
-  --color-tool-active-border: #e85d38;
-  --color-tool-active-shadow: rgba(242, 122, 90, 0.2);
+  --color-tool-active-bg: #3A2018;
+  --color-tool-active-text: #FAC8BE;
+  --color-tool-active-border: #E8462A;
+  --color-tool-active-shadow: rgba(232, 70, 42, 0.2);
   
   --color-tool-inactive-bg: transparent;
-  --color-tool-inactive-text: #9ca3af;
+  --color-tool-inactive-text: #9B9890;
   
-  --color-tool-hover-bg: #31303b;
-  --color-tool-hover-text: #e5e7eb;
+  --color-tool-hover-bg: #2E2C28;
+  --color-tool-hover-text: #F0EDE6;
   
   --color-tool-disabled-bg: transparent;
-  --color-tool-disabled-text: #6b7280;
+  --color-tool-disabled-text: #6B6860;
   
   /* ----------------------------------------
      Panel Colors (Properties Panel, etc.)
      ---------------------------------------- */
-  --color-panel-bg: #232329;
-  --color-panel-border: #333333;
-  --color-panel-shadow: rgba(0, 0, 0, 0.2);
+  --color-panel-bg: #242219;
+  --color-panel-border: #3A3830;
+  --color-panel-shadow: rgba(0, 0, 0, 0.12);
   
-  --color-panel-header-bg: #2a2a3a;
-  --color-panel-header-text: #e5e7eb;
+  --color-panel-header-bg: #2E2C28;
+  --color-panel-header-text: #F0EDE6;
   
-  --color-panel-label: #9ca3af;
-  --color-panel-text: #e5e7eb;
+  --color-panel-label: #9B9890;
+  --color-panel-text: #F0EDE6;
   --color-panel-value: #ffffff;
   
-  --color-panel-divider: #333333;
+  --color-panel-divider: #3A3830;
   
-  --color-panel-btn-bg: #2a2a3a;
-  --color-panel-btn-hover: #3a3a4a;
-  --color-panel-btn-active: #e85d38;
-  --color-panel-btn-text: #e5e7eb;
+  --color-panel-btn-bg: #2E2C28;
+  --color-panel-btn-hover: #3A3830;
+  --color-panel-btn-active: #E8462A;
+  --color-panel-btn-text: #F0EDE6;
   --color-panel-btn-active-text: #ffffff;
   
-  --color-panel-slider-track: #333333;
-  --color-panel-slider-fill: #e85d38;
+  --color-panel-slider-track: #3A3830;
+  --color-panel-slider-fill: #E8462A;
   --color-panel-slider-thumb: #ffffff;
   
-  --color-panel-input-bg: #1a181a;
-  --color-panel-input-border: #333333;
-  --color-panel-input-text: #e5e7eb;
-  --color-panel-input-focus-border: #e85d38;
+  --color-panel-input-bg: #1C1A17;
+  --color-panel-input-border: #3A3830;
+  --color-panel-input-text: #F0EDE6;
+  --color-panel-input-focus-border: #E8462A;
   
   /* ----------------------------------------
      Selection & Handles
      ---------------------------------------- */
-  --color-selection-fill: rgba(232, 93, 56, 0.2);
-  --color-selection-stroke: #e85d38;
+  --color-selection-fill: rgba(232, 70, 42, 0.2);
+  --color-selection-stroke: #E8462A;
   --color-selection-handle-bg: #ffffff;
-  --color-selection-handle-border: #e85d38;
-  --color-selection-handle-shadow: rgba(242, 122, 90, 0.4);
+  --color-selection-handle-border: #E8462A;
+  --color-selection-handle-shadow: rgba(232, 70, 42, 0.3);
   
   /* ----------------------------------------
      Context Menu
      ---------------------------------------- */
-  --color-context-menu-bg: #232329;
-  --color-context-menu-border: #333333;
-  --color-context-menu-shadow: rgba(0, 0, 0, 0.4);
-  --color-context-menu-item-hover: #31303b;
-  --color-context-menu-item-text: #e5e7eb;
-  --color-context-menu-item-icon: #9ca3af;
-  --color-context-menu-divider: #333333;
+  --color-context-menu-bg: #242219;
+  --color-context-menu-border: #3A3830;
+  --color-context-menu-shadow: rgba(0, 0, 0, 0.25);
+  --color-context-menu-item-hover: #2E2C28;
+  --color-context-menu-item-text: #F0EDE6;
+  --color-context-menu-item-icon: #9B9890;
+  --color-context-menu-divider: #3A3830;
   
   /* ----------------------------------------
      Modal Colors
      ---------------------------------------- */
-  --color-modal-overlay: rgba(0, 0, 0, 0.7);
-  --color-modal-bg: #232329;
-  --color-modal-border: #333333;
-  --color-modal-shadow: rgba(0, 0, 0, 0.4);
+  --color-modal-overlay: rgba(0, 0, 0, 0.6);
+  --color-modal-bg: #242219;
+  --color-modal-border: #3A3830;
+  --color-modal-shadow: rgba(0, 0, 0, 0.2);
   --color-modal-header-text: #ffffff;
-  --color-modal-body-text: #e5e7eb;
+  --color-modal-body-text: #F0EDE6;
   
   /* ----------------------------------------
      Text Colors
      ---------------------------------------- */
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #e5e7eb;
-  --color-text-tertiary: #9ca3af;
-  --color-text-muted: #6b7280;
-  --color-text-disabled: #4b5563;
-  --color-text-inverse: #111827;
-  --color-text-link: #f27a5a;
-  --color-text-link-hover: #fbd5cb;
+  --color-text-primary: #F0EDE6;
+  --color-text-secondary: #9B9890;
+  --color-text-tertiary: #6B6860;
+  --color-text-muted: #6B6860;
+  --color-text-disabled: #3A3830;
+  --color-text-inverse: #1A1917;
+  --color-text-link: #E8462A;
+  --color-text-link-hover: #FAC8BE;
   
   /* ----------------------------------------
      UI Component Colors
      ---------------------------------------- */
-  --color-background: #121112;
-  --color-foreground: #d6d6d6;
-  --color-card: #232329;
-  --color-card-foreground: #d6d6d6;
-  --color-popover: #232329;
-  --color-popover-foreground: #d6d6d6;
-  --color-primary: #f27a5a;
+  --color-background: #1C1A17;
+  --color-foreground: #F0EDE6;
+  --color-card: #2C2A25;
+  --color-card-foreground: #F0EDE6;
+  --color-popover: #2C2A25;
+  --color-popover-foreground: #F0EDE6;
+  --color-primary: #E8462A;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #1a181a;
-  --color-secondary-foreground: #d6d6d6;
-  --color-muted: #1a181a;
-  --color-muted-foreground: #888888;
-  --color-accent: #2a2a3a;
-  --color-accent-foreground: #d6d6d6;
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #121112;
-  --color-border: #333333;
-  --color-input: #2a2a3a;
-  --color-ring: #f27a5a;
+  --color-secondary: #242219;
+  --color-secondary-foreground: #F0EDE6;
+  --color-muted: #242219;
+  --color-muted-foreground: #9B9890;
+  --color-accent: #3A2018;
+  --color-accent-foreground: #F0EDE6;
+  --color-destructive: #E8462A;
+  --color-destructive-foreground: #1C1A17;
+  --color-border: #3A3830;
+  --color-input: #2C2A25;
+  --color-ring: #E8462A;
   
   /* ----------------------------------------
      Status Colors
@@ -327,9 +327,9 @@
   --color-warning-bg: #451a03;
   --color-warning-text: #fcd34d;
   
-  --color-error: #ef4444;
-  --color-error-bg: #450a0a;
-  --color-error-text: #fca5a5;
+  --color-error: #E8462A;
+  --color-error-bg: #3A2018;
+  --color-error-text: #FAC8BE;
   
   --color-info: #3b82f6;
   --color-info-bg: #1e3a5f;
@@ -338,15 +338,15 @@
   /* ----------------------------------------
      Shape/Element Colors
      ---------------------------------------- */
-  --color-element-stroke: #ffffff;
+  --color-element-stroke: #F0EDE6;
   --color-element-fill: transparent;
-  --color-element-stroke-selected: #e85d38;
+  --color-element-stroke-selected: #E8462A;
   
   /* ----------------------------------------
      Collaborator Colors
      ---------------------------------------- */
-  --color-cursor-outline: #000000;
-  --color-cursor-shadow: rgba(0, 0, 0, 0.5);
+  --color-cursor-outline: #1A1917;
+  --color-cursor-shadow: rgba(0, 0, 0, 0.4);
 }
 
 /* ============================================
