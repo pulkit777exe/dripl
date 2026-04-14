@@ -2,7 +2,7 @@
   "name": "dripl",
   "private": true,
   "scripts": {
-    "build": "pnpm run db:generate && pnpm -r --filter='@dripl/*' run build && turbo run build",
+    "build": "pnpm run db:generate && pnpm -r --filter='@dripl/*' run build && pnpm turbo run build",
     "postinstall": "pnpm approve-builds --all",
     "db:generate": "prisma generate --schema=./packages/db/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=./packages/db/prisma/schema.prisma",
@@ -23,6 +23,10 @@
     "typescript-eslint": "^8.58.1"
   },
   "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=10"
+  },
   "workspaces": [
     "apps/*",
     "packages/*",
