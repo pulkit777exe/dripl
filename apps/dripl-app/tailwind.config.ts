@@ -29,10 +29,11 @@ const config = {
         ],
       },
       colors: {
-        'deep-charcoal': '#17130f',
-        'structure-grey': '#d8d2c8',
-        'vapor-grey': '#f3efe8',
-        'off-white': '#faf7f2',
+        'deep-charcoal': '#1A1917',
+        'structure-grey': '#D4D0C9',
+        'vapor-grey': '#E8E5DE',
+        'off-white': '#FAFAF7',
+        'warm-cream': '#F0EDE6',
         border: 'var(--color-border)',
         input: 'var(--color-input)',
         ring: 'var(--color-ring)',
@@ -103,11 +104,9 @@ const config = {
           'linear-gradient(to right, hsl(var(--border) / 0.4) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border) / 0.4) 1px, transparent 1px)',
       },
       boxShadow: {
-        'attio-sm': '0px 1px 2px rgba(0, 0, 0, 0.04), 0px 1px 1px rgba(0, 0, 0, 0.02)',
-        'attio-md':
-          '0px 4px 8px rgba(0, 0, 0, 0.04), 0px 2px 4px rgba(0, 0, 0, 0.02), 0 0 0 1px rgba(0,0,0,0.04)',
-        'attio-lg':
-          '0px 12px 24px rgba(0, 0, 0, 0.06), 0px 4px 8px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0,0,0,0.04)',
+        'attio-sm': '0px 1px 2px rgba(0, 0, 0, 0.04)',
+        'attio-md': '0px 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0,0,0,0.03)',
+        'attio-lg': '0px 4px 12px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0,0,0,0.03)',
       },
     },
   },
