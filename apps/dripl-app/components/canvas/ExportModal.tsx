@@ -131,11 +131,11 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg p-5 w-[440px]"
+        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg p-5 w-[440px] animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">

@@ -23,9 +23,9 @@ export function LoadFromLinkModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-100 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-100 flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div
-        className="w-full max-w-2xl bg-[#FAFAF7] rounded-xl border border-[#E4E0D9] shadow-lg max-h-[90vh] overflow-hidden flex flex-col"
+        className="w-full max-w-2xl bg-[#FAFAF7] rounded-xl border border-[#E4E0D9] shadow-lg max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -42,7 +42,7 @@ export function LoadFromLinkModal({
         {/* Warning */}
         <div className="px-5 py-4 bg-[#FAE8E5] border-b border-[#E8462A]/15">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-[#E8462A]/15 flex items-center justify-center">
+            <div className="shrink-0 w-9 h-9 rounded-lg bg-[#E8462A]/15 flex items-center justify-center">
               <AlertCircle className="h-5 w-5 text-[#E8462A]" />
             </div>
             <div>

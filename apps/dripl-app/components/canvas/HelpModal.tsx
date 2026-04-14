@@ -39,11 +39,11 @@ function HeaderButton({ icon, label }: HeaderButtonProps) {
 export default function HelpModal({ onClose }: HelpModalProps) {
   return (
     <div
-      className="fixed inset-0 bg-black/30 backdrop-blur-sm z-100 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/30 backdrop-blur-sm z-100 flex items-center justify-center p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl bg-[#FAFAF7] rounded-xl border border-[#E4E0D9] shadow-lg max-h-[90vh] overflow-hidden flex flex-col"
+        className="w-full max-w-4xl bg-[#FAFAF7] rounded-xl border border-[#E4E0D9] shadow-lg max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-between items-center px-5 py-3.5 border-b border-[#E4E0D9]">

@@ -18,8 +18,8 @@ export function NameInputModal({ onSubmit }: NameInputModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg p-7 w-full max-w-sm mx-4 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg p-7 w-full max-w-sm mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
         <div className="flex items-center gap-2 mb-4 justify-center">
           <div className="h-8 w-8 rounded-lg bg-[#E8462A] flex items-center justify-center text-white">
             <PenLine className="h-4 w-4" />
