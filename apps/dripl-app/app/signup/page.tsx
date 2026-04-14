@@ -8,7 +8,7 @@ import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
 
 const fieldClassName =
-  'w-full rounded-xl border border-border/70 bg-secondary/35 px-4 py-2.5 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary/45 focus:bg-card focus:ring-2 focus:ring-primary/20';
+  'w-full rounded-xl border border-border/50 bg-input px-4 py-2.5 text-[15px] font-medium text-foreground outline-none transition-all duration-200 placeholder:text-muted-foreground/60 focus:border-primary/50 focus:bg-background focus:ring-[3px] focus:ring-primary/20 hover:border-border/80';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
@@ -95,7 +95,7 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50"
+            className="mt-2 w-full rounded-xl bg-primary px-4 py-3 text-[15px] font-semibold tracking-wide text-primary-foreground shadow-sm transition-all duration-200 hover:scale-[0.98] hover:bg-primary/95 hover:shadow disabled:opacity-50"
           >
             {loading ? 'Creating account...' : 'Create account'}
           </button>

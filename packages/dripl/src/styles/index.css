@@ -33,15 +33,15 @@
   /* ----------------------------------------
      Tool/Button States
      ---------------------------------------- */
-  --color-tool-active-bg: #ebe9ff;
-  --color-tool-active-text: #6965db;
-  --color-tool-active-border: #6965db;
-  --color-tool-active-shadow: rgba(105, 101, 219, 0.15);
+  --color-tool-active-bg: #fff1ed;
+  --color-tool-active-text: #e85d38;
+  --color-tool-active-border: #e85d38;
+  --color-tool-active-shadow: rgba(232, 93, 56, 0.15);
   
   --color-tool-inactive-bg: transparent;
   --color-tool-inactive-text: #6b7280;
   
-  --color-tool-hover-bg: #f3f4f6;
+  --color-tool-hover-bg: #f9fafb;
   --color-tool-hover-text: #374151;
   
   --color-tool-disabled-bg: transparent;
@@ -54,7 +54,7 @@
   --color-panel-border: #e5e5e5;
   --color-panel-shadow: rgba(0, 0, 0, 0.05);
   
-  --color-panel-header-bg: #f9fafb;
+  --color-panel-header-bg: #fdf8f6;
   --color-panel-header-text: #374151;
   
   --color-panel-label: #6b7280;
@@ -63,29 +63,29 @@
   
   --color-panel-divider: #e5e5e5;
   
-  --color-panel-btn-bg: #f3f4f6;
-  --color-panel-btn-hover: #e5e7eb;
-  --color-panel-btn-active: #6965db;
+  --color-panel-btn-bg: #fdf8f6;
+  --color-panel-btn-hover: #f3f4f6;
+  --color-panel-btn-active: #e85d38;
   --color-panel-btn-text: #374151;
   --color-panel-btn-active-text: #ffffff;
   
   --color-panel-slider-track: #d1d5db;
-  --color-panel-slider-fill: #6965db;
+  --color-panel-slider-fill: #e85d38;
   --color-panel-slider-thumb: #ffffff;
   
   --color-panel-input-bg: #ffffff;
   --color-panel-input-border: #d1d5db;
   --color-panel-input-text: #374151;
-  --color-panel-input-focus-border: #6965db;
+  --color-panel-input-focus-border: #e85d38;
   
   /* ----------------------------------------
      Selection & Handles
      ---------------------------------------- */
-  --color-selection-fill: rgba(105, 101, 219, 0.1);
-  --color-selection-stroke: #6965db;
+  --color-selection-fill: rgba(232, 93, 56, 0.1);
+  --color-selection-stroke: #e85d38;
   --color-selection-handle-bg: #ffffff;
-  --color-selection-handle-border: #6965db;
-  --color-selection-handle-shadow: rgba(105, 101, 219, 0.3);
+  --color-selection-handle-border: #e85d38;
+  --color-selection-handle-shadow: rgba(232, 93, 56, 0.3);
   
   /* ----------------------------------------
      Context Menu
@@ -93,7 +93,7 @@
   --color-context-menu-bg: #ffffff;
   --color-context-menu-border: #e5e5e5;
   --color-context-menu-shadow: rgba(0, 0, 0, 0.15);
-  --color-context-menu-item-hover: #f3f4f6;
+  --color-context-menu-item-hover: #fdf8f6;
   --color-context-menu-item-text: #374151;
   --color-context-menu-item-icon: #6b7280;
   --color-context-menu-divider: #e5e5e5;
@@ -117,31 +117,31 @@
   --color-text-muted: #9ca3af;
   --color-text-disabled: #d1d5db;
   --color-text-inverse: #ffffff;
-  --color-text-link: #6965db;
-  --color-text-link-hover: #5a56c8;
+  --color-text-link: #e85d38;
+  --color-text-link-hover: #d64d29;
   
   /* ----------------------------------------
      UI Component Colors
      ---------------------------------------- */
-  --color-background: #f7f5f6;
-  --color-foreground: #323233;
-  --color-card: #f7f5f6;
-  --color-card-foreground: #323233;
-  --color-popover: #f7f5f6;
-  --color-popover-foreground: #323233;
-  --color-primary: #6965db;
+  --color-background: #fdf8f6;
+  --color-foreground: #333333;
+  --color-card: #f9f9f9;
+  --color-card-foreground: #333333;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #333333;
+  --color-primary: #e85d38;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #f2f1f0;
-  --color-secondary-foreground: #323233;
-  --color-muted: #f2f1f0;
+  --color-secondary: #fdf8f6;
+  --color-secondary-foreground: #333333;
+  --color-muted: #f4f4f5;
   --color-muted-foreground: #6b7280;
-  --color-accent: #f2f1f0;
-  --color-accent-foreground: #323233;
+  --color-accent: #fff1ed;
+  --color-accent-foreground: #333333;
   --color-destructive: #ef4444;
-  --color-destructive-foreground: #f7f5f6;
-  --color-border: #e5e5e5;
-  --color-input: #e5e5e5;
-  --color-ring: #6965db;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #e5e7eb;
+  --color-input: #f9fafb;
+  --color-ring: #e85d38;
   
   /* ----------------------------------------
      Status Colors
@@ -206,10 +206,10 @@
   /* ----------------------------------------
      Tool/Button States
      ---------------------------------------- */
-  --color-tool-active-bg: #403c66;
-  --color-tool-active-text: #a8a5ff;
-  --color-tool-active-border: #6965db;
-  --color-tool-active-shadow: rgba(168, 165, 255, 0.2);
+  --color-tool-active-bg: #4a2115;
+  --color-tool-active-text: #fbd5cb;
+  --color-tool-active-border: #e85d38;
+  --color-tool-active-shadow: rgba(242, 122, 90, 0.2);
   
   --color-tool-inactive-bg: transparent;
   --color-tool-inactive-text: #9ca3af;
@@ -238,27 +238,27 @@
   
   --color-panel-btn-bg: #2a2a3a;
   --color-panel-btn-hover: #3a3a4a;
-  --color-panel-btn-active: #6965db;
+  --color-panel-btn-active: #e85d38;
   --color-panel-btn-text: #e5e7eb;
   --color-panel-btn-active-text: #ffffff;
   
   --color-panel-slider-track: #333333;
-  --color-panel-slider-fill: #6965db;
+  --color-panel-slider-fill: #e85d38;
   --color-panel-slider-thumb: #ffffff;
   
   --color-panel-input-bg: #1a181a;
   --color-panel-input-border: #333333;
   --color-panel-input-text: #e5e7eb;
-  --color-panel-input-focus-border: #6965db;
+  --color-panel-input-focus-border: #e85d38;
   
   /* ----------------------------------------
      Selection & Handles
      ---------------------------------------- */
-  --color-selection-fill: rgba(105, 101, 219, 0.2);
-  --color-selection-stroke: #6965db;
+  --color-selection-fill: rgba(232, 93, 56, 0.2);
+  --color-selection-stroke: #e85d38;
   --color-selection-handle-bg: #ffffff;
-  --color-selection-handle-border: #6965db;
-  --color-selection-handle-shadow: rgba(168, 165, 255, 0.4);
+  --color-selection-handle-border: #e85d38;
+  --color-selection-handle-shadow: rgba(242, 122, 90, 0.4);
   
   /* ----------------------------------------
      Context Menu
@@ -290,8 +290,8 @@
   --color-text-muted: #6b7280;
   --color-text-disabled: #4b5563;
   --color-text-inverse: #111827;
-  --color-text-link: #a8a5ff;
-  --color-text-link-hover: #c4c1ff;
+  --color-text-link: #f27a5a;
+  --color-text-link-hover: #fbd5cb;
   
   /* ----------------------------------------
      UI Component Colors
@@ -302,7 +302,7 @@
   --color-card-foreground: #d6d6d6;
   --color-popover: #232329;
   --color-popover-foreground: #d6d6d6;
-  --color-primary: #6965db;
+  --color-primary: #f27a5a;
   --color-primary-foreground: #ffffff;
   --color-secondary: #1a181a;
   --color-secondary-foreground: #d6d6d6;
@@ -314,7 +314,7 @@
   --color-destructive-foreground: #121112;
   --color-border: #333333;
   --color-input: #2a2a3a;
-  --color-ring: #6965db;
+  --color-ring: #f27a5a;
   
   /* ----------------------------------------
      Status Colors
@@ -340,7 +340,7 @@
      ---------------------------------------- */
   --color-element-stroke: #ffffff;
   --color-element-fill: transparent;
-  --color-element-stroke-selected: #6965db;
+  --color-element-stroke-selected: #e85d38;
   
   /* ----------------------------------------
      Collaborator Colors

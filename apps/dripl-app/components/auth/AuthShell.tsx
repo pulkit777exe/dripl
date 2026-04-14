@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { PenLine } from 'lucide-react';
+import { Leaf } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 
 type AuthShellProps = {
   title: string;
@@ -10,31 +12,54 @@ type AuthShellProps = {
 
 export function AuthShell({ title, subtitle, children, footer }: AuthShellProps) {
   return (
-    <div className="auth-shell relative min-h-dvh overflow-hidden">
-      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl items-center gap-8 px-4 py-8 sm:px-8 lg:gap-12">
-        <div className="hidden w-full max-w-sm flex-col gap-6 rounded-3xl border border-border/70 bg-card/75 p-8 shadow-lg backdrop-blur-sm lg:flex">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/95 text-primary-foreground shadow-md">
-              <PenLine className="h-4 w-4" />
-            </div>
-            <span className="text-xl font-semibold tracking-tight text-foreground">Dripl</span>
-          </Link>
-          <div className="space-y-2">
-            <p className="text-3xl leading-tight text-foreground">Move ideas from rough to ready.</p>
-            <p className="text-sm leading-6 text-muted-foreground">
-              Plan visually, collaborate in real time, and ship with confidence.
-            </p>
-          </div>
-        </div>
+    <div className="flex min-h-dvh w-full overflow-hidden bg-white duration-300 animate-in fade-in">
+      {/* Left Branding Area */}
+      <div className="relative hidden w-1/2 flex-col justify-between bg-[#FDF8F6] p-12 lg:flex xl:p-20">
+        <Image src="/maple.png" alt="Branding background" fill className="object-cover opacity-80 mix-blend-multiply pointer-events-none" priority />
 
-        <div className="w-full max-w-md lg:ml-auto">
-          <div className="rounded-3xl border border-border/70 bg-card/90 p-6 shadow-xl backdrop-blur-sm sm:p-8">
-            <div className="mb-8 space-y-2 text-center">
-              <h1 className="text-3xl font-semibold text-foreground">{title}</h1>
-              <p className="text-sm text-muted-foreground">{subtitle}</p>
-            </div>
-            {children}
-            {footer && <div className="mt-8 border-t border-border/50 pt-5">{footer}</div>}
+        <Link href="/" className="relative z-10 flex w-max items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-md text-primary-foreground">
+            <Leaf className="h-5 w-5" />
+          </div>
+          <span className="text-2xl font-semibold tracking-tight text-primary">Dripl</span>
+        </Link>
+        <div className="relative z-10 max-w-md space-y-4">
+          <h2 className="text-4xl font-bold tracking-tight text-foreground leading-tight">
+            Move ideas from rough to ready.
+          </h2>
+          <p className="text-lg text-muted-foreground">
+            Continue organizing your thoughts, wireframes, and collections in one calm workspace.
+          </p>
+        </div>
+      </div>
+
+      {/* Right Content Area */}
+      <div className="flex w-full items-center justify-center p-6 sm:p-12 lg:w-1/2 bg-white">
+        <div className="w-full max-w-[420px]">
+          <div className="mb-8 flex flex-col items-center space-y-3 text-center sm:items-start sm:text-left">
+            {/* Mobile Logo */}
+            <Link href="/" className="mb-4 flex items-center gap-3 lg:hidden">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-md text-primary-foreground">
+                <Leaf className="h-5 w-5" />
+              </div>
+              <span className="text-xl font-semibold tracking-tight text-primary">Dripl</span>
+            </Link>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">{title}</h1>
+            <p className="text-[15px] text-muted-foreground">{subtitle}</p>
+          </div>
+          <div className="relative">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={title}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+              >
+                {children}
+                {footer && <div className="mt-8 border-t border-border/50 pt-6">{footer}</div>}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </div>
