@@ -3,26 +3,25 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutGrid,
-  Clock,
-  User,
-  Folder,
+  Bookmark,
+  FolderOpen,
+  PenLine,
+  Trash2,
   HelpCircle,
-  Search,
-  Plus,
   Settings,
   LogOut,
+  ChevronDown,
+  Plus,
 } from 'lucide-react';
 import { ThemeToggle } from '../ThemeToggle';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
-const items = [
-  { label: 'All Files', icon: LayoutGrid, href: '/dashboard' },
-  { label: 'Recents', icon: Clock, href: '/dashboard/recents' },
-  { label: 'Created by Me', icon: User, href: '/dashboard/created' },
-  { label: 'Folders', icon: Folder, href: '/dashboard/folders' },
-  { label: 'Unsorted', icon: HelpCircle, href: '/dashboard/unsorted' },
+const navItems = [
+  { label: 'All Files', icon: Bookmark, href: '/dashboard', count: 0 },
+  { label: 'Collections', icon: FolderOpen, href: '/dashboard/folders', count: 0 },
+  { label: 'Canvas', icon: PenLine, href: '/dashboard/canvas' },
+  { label: 'Trash', icon: Trash2, href: '/dashboard/trash' },
 ];
 
 export function DashboardSidebar() {
@@ -32,92 +31,102 @@ export function DashboardSidebar() {
 
   const handleLogout = async () => {
     await logout();
-    router.push('/auth/login');
+    router.push('/login');
   };
 
   return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col h-full shadow-sm z-10 relative">
-      <div className="p-4">
-        <div className="flex items-center gap-2.5 px-2 py-1.5 mb-6">
-          <div className="h-8 w-8 rounded-lg bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
-            <span className="text-primary-foreground font-bold text-sm">D</span>
+    <aside className="w-[220px] flex flex-col h-full bg-[#FAFAF7] border-r border-[#E4E0D9]">
+      {/* Workspace header */}
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-7 w-7 rounded-md bg-[#E8462A] flex items-center justify-center">
+            <PenLine className="h-3.5 w-3.5 text-white" />
           </div>
-          <span className="font-semibold text-foreground text-lg tracking-tight">Dripl</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-[#1A1917] truncate">
+              {user?.name ? `${user.name}'s Workspace` : 'Workspace'}
+            </p>
+            <p className="text-[11px] text-[#9B9890]">Workspace</p>
+          </div>
         </div>
 
-        <button className="w-full flex items-center gap-2.5 px-3 py-2.5 mb-4 rounded-xl bg-primary/10 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground shadow-sm transition-all border border-primary/20">
-          <Plus className="h-4 w-4" />
-          New Canvas
+        {/* New canvas button */}
+        <button
+          onClick={() => router.push('/canvas/new')}
+          className="w-full flex items-center justify-center gap-1.5 rounded-md border border-[#D4D0C9] bg-white px-3 py-[6px] text-[13px] font-medium text-[#1A1917] transition-colors hover:bg-[#E8E5DE]"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          New canvas
         </button>
+      </div>
 
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
-          <input
-            type="text"
-            placeholder="Search"
-            className="w-full bg-secondary/40 border-0 rounded-lg py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:bg-secondary/60 transition-colors"
-          />
-        </div>
-
+      {/* Navigation */}
+      <div className="px-3 flex-1">
+        <p className="text-[11px] font-medium text-[#9B9890] uppercase tracking-wider px-2 mb-1.5">Main Menu</p>
         <nav className="space-y-0.5">
-          {items.map(item => {
+          {navItems.map(item => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2 px-2 py-[6px] rounded-md text-[13px] transition-colors ${
                   isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                    ? 'bg-[#FAE8E5] text-[#E8462A] font-medium'
+                    : 'text-[#6B6860] hover:bg-[#E8E5DE] hover:text-[#1A1917]'
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.count !== undefined && (
+                  <span className={`text-[11px] rounded-full px-1.5 py-0.5 ${
+                    isActive
+                      ? 'bg-[#E8462A] text-white'
+                      : 'bg-[#E8E5DE] text-[#6B6860]'
+                  }`}>
+                    {item.count}
+                  </span>
+                )}
               </Link>
             );
           })}
         </nav>
       </div>
 
-      <div className="mt-auto p-4 border-t border-border/50">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-medium text-muted-foreground">Appearance</span>
-          <ThemeToggle />
-        </div>
+      {/* Bottom section */}
+      <div className="px-3 pb-3 mt-auto">
+        <p className="text-[11px] font-medium text-[#9B9890] uppercase tracking-wider px-2 mb-1.5">Support</p>
+        <Link href="#" className="flex items-center gap-2 px-2 py-[6px] rounded-md text-[13px] text-[#6B6860] hover:bg-[#E8E5DE] hover:text-[#1A1917] transition-colors">
+          <HelpCircle className="h-4 w-4" />
+          Help
+        </Link>
+        <Link href="/settings/profile" className="flex items-center gap-2 px-2 py-[6px] rounded-md text-[13px] text-[#6B6860] hover:bg-[#E8E5DE] hover:text-[#1A1917] transition-colors">
+          <Settings className="h-4 w-4" />
+          Settings
+        </Link>
 
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-medium text-muted-foreground">Settings</span>
-          <button className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors">
-            <Settings className="h-4 w-4" />
-          </button>
-        </div>
-
+        {/* User */}
         {user && (
-          <div className="flex items-center justify-between pt-3 border-t border-border/50">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-primary text-xs font-medium uppercase">
+          <div className="mt-3 pt-3 border-t border-[#E4E0D9]">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-7 h-7 rounded-full bg-[#E8E5DE] flex items-center justify-center border border-[#D4D0C9]">
+                <span className="text-[11px] font-medium text-[#6B6860] uppercase">
                   {user.name?.[0] || user.email?.[0] || 'U'}
                 </span>
               </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-foreground truncate max-w-[100px]">
-                  {user.name || user.email}
-                </span>
-                <span className="text-xs text-muted-foreground truncate max-w-[100px]">
-                  {user.email}
-                </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-medium text-[#1A1917] truncate">{user.name || 'User'}</p>
+                <p className="text-[11px] text-[#9B9890] truncate">{user.email}</p>
               </div>
+              <button
+                onClick={handleLogout}
+                className="p-1 rounded-md text-[#9B9890] hover:text-[#C0392B] hover:bg-[#FAE8E5] transition-colors"
+                title="Logout"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
             </div>
-            <button
-              onClick={handleLogout}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-              title="Logout"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
           </div>
         )}
       </div>

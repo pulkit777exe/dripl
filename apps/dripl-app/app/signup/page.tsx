@@ -8,7 +8,7 @@ import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
 
 const fieldClassName =
-  'w-full rounded-xl border border-border/50 bg-input px-4 py-2.5 text-[15px] font-medium text-foreground outline-none transition-all duration-200 placeholder:text-muted-foreground/60 focus:border-primary/50 focus:bg-background focus:ring-[3px] focus:ring-primary/20 hover:border-border/80';
+  'w-full rounded-md border border-[#D4D0C9] bg-white px-3 py-2 text-[14px] text-[#1A1917] outline-none transition-all placeholder:text-[#9B9890] focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
@@ -46,85 +46,74 @@ export default function SignupPage() {
 
   return (
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}>
-      <AuthShell title="Create account" subtitle="Set up your workspace in under a minute.">
+      <AuthShell
+        title="Create your account"
+        subtitle="Set up your workspace in under a minute."
+      >
         {error && (
-          <div className="mb-5 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="mb-4 rounded-md border border-[#E8462A]/20 bg-[#FAE8E5] px-3 py-2.5 text-[13px] text-[#C0392B]">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Name
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={event => setName(event.target.value)}
-              className={fieldClassName}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={event => setEmail(event.target.value)}
-              className={fieldClassName}
-              required
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={event => setPassword(event.target.value)}
-              className={fieldClassName}
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-2 w-full rounded-xl bg-primary px-4 py-3 text-[15px] font-semibold tracking-wide text-primary-foreground shadow-sm transition-all duration-200 hover:scale-[0.98] hover:bg-primary/95 hover:shadow disabled:opacity-50"
-          >
-            {loading ? 'Creating account...' : 'Create account'}
-          </button>
-        </form>
-
-        <div className="my-6 flex items-center gap-4">
-          <div className="h-px flex-1 bg-border" />
-          <span className="text-xs uppercase tracking-wider text-muted-foreground">or continue with</span>
-          <div className="h-px flex-1 bg-border" />
-        </div>
-
-        <div className="flex justify-center">
+        {/* Google button first */}
+        <div className="flex justify-center mb-4">
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={() => setError('Google signup failed')}
             theme="outline"
-            shape="pill"
+            shape="rectangular"
             size="large"
+            width="380"
+            text="continue_with"
           />
         </div>
 
-        <div className="mt-8 border-t border-border/50 pt-5">
-          <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{' '}
-            <Link href="/login" className="font-medium text-primary hover:underline">
-              Sign in
-            </Link>
-          </p>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-px flex-1 bg-[#E4E0D9]" />
+          <span className="text-[12px] text-[#9B9890]">or</span>
+          <div className="h-px flex-1 bg-[#E4E0D9]" />
         </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            type="text"
+            value={name}
+            onChange={event => setName(event.target.value)}
+            placeholder="Full name"
+            className={fieldClassName}
+          />
+          <input
+            type="email"
+            value={email}
+            onChange={event => setEmail(event.target.value)}
+            placeholder="Enter your email"
+            className={fieldClassName}
+            required
+          />
+          <input
+            type="password"
+            value={password}
+            onChange={event => setPassword(event.target.value)}
+            placeholder="Password"
+            className={fieldClassName}
+            required
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-md border border-[#D4D0C9] bg-white px-4 py-2 text-[14px] font-medium text-[#1A1917] transition-colors hover:bg-[#E8E5DE] disabled:opacity-50"
+          >
+            {loading ? 'Creating account...' : 'Sign up with email'}
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-[13px] text-[#6B6860]">
+          Already have an account?{' '}
+          <Link href="/login" className="font-medium text-[#1A1917] underline underline-offset-2 hover:text-[#E8462A]">
+            Sign in
+          </Link>
+        </p>
       </AuthShell>
     </GoogleOAuthProvider>
   );

@@ -76,78 +76,81 @@ export function FileBrowser({
   };
 
   return (
-    <div className="flex-1 p-6 overflow-auto bg-background">
+    <div className="flex-1 p-6 overflow-auto bg-[#F0EDE6]">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold text-foreground">Your Files</h2>
-          <span className="text-sm text-muted-foreground">({files.length})</span>
+          <h2 className="text-[15px] font-semibold text-[#1A1917]">All Files</h2>
+          <span className="text-[12px] text-[#9B9890]">({files.length})</span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-secondary/40 rounded-lg p-1">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5 rounded-md border border-[#D4D0C9] bg-white p-0.5">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-md transition-all ${
+              className={`p-1.5 rounded transition-all ${
                 viewMode === 'grid'
-                  ? 'bg-background shadow-sm text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-[#E8E5DE] text-[#1A1917]'
+                  : 'text-[#9B9890] hover:text-[#1A1917]'
               }`}
             >
-              <Grid3X3 className="h-4 w-4" />
+              <Grid3X3 className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-all ${
+              className={`p-1.5 rounded transition-all ${
                 viewMode === 'list'
-                  ? 'bg-background shadow-sm text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-[#E8E5DE] text-[#1A1917]'
+                  : 'text-[#9B9890] hover:text-[#1A1917]'
               }`}
             >
-              <List className="h-4 w-4" />
+              <List className="h-3.5 w-3.5" />
             </button>
           </div>
 
-          <button className="p-2 rounded-lg bg-secondary/40 text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors">
-            <SlidersHorizontal className="h-4 w-4" />
+          <button className="p-1.5 rounded-md border border-[#D4D0C9] bg-white text-[#9B9890] hover:text-[#1A1917] hover:bg-[#E8E5DE] transition-colors">
+            <SlidersHorizontal className="h-3.5 w-3.5" />
           </button>
 
           <button
             onClick={onStartNewCanvas}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#E8462A] text-white text-[13px] font-medium hover:bg-[#D93D22] transition-colors"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5" />
             New Canvas
           </button>
         </div>
       </div>
 
       {files.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-32 text-center">
-          <div className="w-24 h-24 rounded-2xl bg-secondary/60 flex items-center justify-center mb-6">
-            <File className="h-12 w-12 text-muted-foreground/50" />
+        <div className="flex flex-col items-center justify-center py-28 text-center">
+          <div className="w-32 h-32 mb-6 opacity-20">
+            <svg viewBox="0 0 120 120" fill="none" className="w-full h-full">
+              <rect x="20" y="10" width="80" height="100" rx="8" stroke="#9B9890" strokeWidth="2" />
+              <path d="M60 10v60l25-25" stroke="#9B9890" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M60 70L35 45" stroke="#9B9890" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </div>
-          <h3 className="text-2xl font-semibold text-foreground mb-2">No files yet</h3>
-          <p className="text-muted-foreground max-w-md mb-8">
-            Create your first canvas to start drawing, designing, and collaborating in real-time.
+          <h3 className="text-[15px] font-semibold text-[#1A1917] mb-1">No files yet</h3>
+          <p className="text-[13px] text-[#9B9890] max-w-xs mb-6">
+            Create your first canvas and it will show up here.
           </p>
           <button
             onClick={onStartNewCanvas}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shadow-md"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-[#D4D0C9] bg-white text-[13px] font-medium text-[#1A1917] hover:bg-[#E8E5DE] transition-colors"
           >
-            <Plus className="h-5 w-5" />
-            Create your first canvas
+            Add canvas
           </button>
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {files.map(file => (
             <Link
               key={file.id}
               href={`/canvas/${file.id}`}
-              className="group relative rounded-xl border border-border/60 bg-card hover:border-primary/30 hover:shadow-lg transition-all duration-200"
+              className="group relative rounded-lg border border-[#E4E0D9] bg-[#FAFAF7] hover:border-[#D4D0C9] hover:shadow-sm transition-all"
             >
-              <div className="aspect-square bg-secondary/30 flex items-center justify-center rounded-t-xl">
-                <File className="h-12 w-12 text-muted-foreground/40" />
+              <div className="aspect-square bg-[#E8E5DE]/40 flex items-center justify-center rounded-t-lg">
+                <File className="h-10 w-10 text-[#D4D0C9]" />
               </div>
               <div className="p-3">
                 {editingId === file.id ? (
@@ -163,9 +166,9 @@ export function FileBrowser({
                     autoFocus
                   />
                 ) : (
-                  <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
+                  <p className="text-[13px] font-medium text-[#1A1917] truncate">{file.name}</p>
                 )}
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-[11px] text-[#9B9890] mt-0.5">
                   {formatDistanceToNow(new Date(file.updatedAt), {
                     addSuffix: true,
                   })}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileBrowser } from '@/components/dashboard/FileBrowser';
+import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { useAuth } from '@/app/context/AuthContext';
 import { apiClient, type FileSummary, type FolderSummary } from '@/lib/api';
 
@@ -63,8 +64,6 @@ export default function DashboardPage() {
     [loadData, search]
   );
 
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-
   const handleCreateFile = useCallback(async () => {
     const file = await apiClient.createFile({ name: 'Untitled file' });
     router.push(`/canvas/${file.id}`);
@@ -94,10 +93,10 @@ export default function DashboardPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-background">
+      <div className="flex h-dvh items-center justify-center bg-[#F0EDE6]">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Loading...</p>
+          <div className="w-7 h-7 border-2 border-[#E8462A] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[13px] text-[#6B6860]">Loading...</p>
         </div>
       </div>
     );
@@ -108,11 +107,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex h-dvh w-full flex-col bg-background text-foreground">
-      <header className="border-b border-border/50 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+    <div className="flex h-dvh w-full bg-[#F0EDE6]">
+      <DashboardSidebar />
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top bar */}
+        <header className="flex items-center justify-between border-b border-[#E4E0D9] bg-[#FAFAF7] px-6 py-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-[15px] font-semibold text-[#1A1917]">Your Files</h1>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -120,10 +121,10 @@ export default function DashboardPage() {
                 value={search}
                 onChange={event => setSearch(event.target.value)}
                 placeholder="Search files..."
-                className="w-64 h-9 rounded-lg border border-border/60 bg-secondary/30 px-4 py-2 pl-9 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:bg-secondary/50 focus:border-primary/30 transition-colors"
+                className="w-56 h-8 rounded-md border border-[#D4D0C9] bg-white px-3 py-1.5 pl-8 text-[13px] text-[#1A1917] placeholder:text-[#9B9890] focus:outline-none focus:border-[#E8462A] transition-colors"
               />
               <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#9B9890]"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -137,19 +138,19 @@ export default function DashboardPage() {
               </svg>
             </div>
           </div>
-        </div>
-      </header>
-      <FileBrowser
-        files={fileItems}
-        total={total}
-        page={page}
-        pageSize={PAGE_SIZE}
-        onPageChange={handlePageChange}
-        onCreateFile={handleCreateFile}
-        onStartNewCanvas={handleCreateFile}
-        onDeleteFile={handleDeleteFile}
-        onRenameFile={handleRenameFile}
-      />
+        </header>
+        <FileBrowser
+          files={fileItems}
+          total={total}
+          page={page}
+          pageSize={PAGE_SIZE}
+          onPageChange={handlePageChange}
+          onCreateFile={handleCreateFile}
+          onStartNewCanvas={handleCreateFile}
+          onDeleteFile={handleDeleteFile}
+          onRenameFile={handleRenameFile}
+        />
+      </div>
     </div>
   );
 }
