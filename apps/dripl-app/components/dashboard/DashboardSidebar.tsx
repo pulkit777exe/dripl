@@ -90,7 +90,7 @@ export function DashboardSidebar() {
                 <Icon className={`h-[18px] w-[18px] ${isActive ? 'text-[#1A1917]' : 'text-[#6B6860]'}`} />
                 <span className="flex-1">{item.label}</span>
                 {item.count !== undefined && (
-                  <span className={`text-[10px] rounded border border-[#C2BEB6] px-1.5 py-[1px] ${
+                  <span className={`text-[10px] rounded border border-[#C2BEB6] px-1.5 py-px ${
                     isActive
                       ? 'bg-[#D4D0C9] text-[#1A1917]'
                       : 'bg-[#D4D0C9] text-[#6B6860]'
