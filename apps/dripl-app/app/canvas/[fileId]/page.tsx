@@ -39,7 +39,7 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      router.replace('/auth/login');
+      router.replace('/login');
       return;
     }
 

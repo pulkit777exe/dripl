@@ -45,7 +45,7 @@ export default function LandingPage() {
             <span className="text-xl font-semibold tracking-tight">Dripl</span>
           </Link>
           <Link
-            href="/auth/login"
+            href="/login"
             className="inline-flex items-center gap-1 rounded-full border border-[#2d241a]/20 bg-[#f9f4ec] px-4 py-2 text-sm font-medium text-[#2d241a] transition-colors hover:bg-white"
           >
             Sign in <ArrowUpRight className="h-3.5 w-3.5" />
@@ -68,7 +68,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                href="/auth/register"
+                href="/signup"
                 className="rounded-xl bg-[#1f1a14] px-5 py-3 text-sm font-semibold text-[#f6f0e7] transition-colors hover:bg-[#2d241a]"
               >
                 Start free workspace
@@ -108,7 +108,9 @@ export default function LandingPage() {
                   <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-[#6d6358]">
                     Active Boards
                   </p>
-                  <p className="mt-1 text-sm font-medium">Campaign timeline, launch retro, social queue</p>
+                  <p className="mt-1 text-sm font-medium">
+                    Campaign timeline, launch retro, social queue
+                  </p>
                 </div>
               </div>
             </div>
