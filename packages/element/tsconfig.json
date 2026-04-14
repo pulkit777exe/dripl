@@ -2,7 +2,6 @@
   "extends": "@dripl/typescript-config/tsconfig.json",
   "compilerOptions": {
     "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json",
-    "composite": true,
     "outDir": "dist",
     "rootDir": "src"
   },

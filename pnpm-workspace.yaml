@@ -1,4 +1,11 @@
 packages:
-  - "apps/*"
-  - "packages/*"
-  - "tooling/*"
+  - 'apps/*'
+  - 'packages/*'
+  - 'tooling/*'
+
+onlyBuiltDependencies:
+  - '@prisma/engines'
+  - esbuild
+  - prisma
+  - sharp
+  - unrs-resolver
