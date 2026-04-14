@@ -27,44 +27,20 @@ h6 {
 }
 
 .glass-card {
-  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-card) 88%, transparent),
-      color-mix(in srgb, var(--color-card) 76%, transparent)
-    );
-  box-shadow:
-    0 12px 26px -16px rgba(12, 16, 26, 0.35),
-    0 8px 20px -14px rgba(12, 16, 26, 0.25);
-  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .dark .glass-card {
-  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-card) 72%, transparent),
-      color-mix(in srgb, var(--color-card) 58%, transparent)
-    );
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .auth-shell {
-  background-color: #fafafa;
+  background-color: var(--color-background);
   display: flex;
-}
-
-.auth-shell::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--color-border) 40%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--color-border) 40%, transparent) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.3;
 }
 
 :root {
@@ -72,130 +48,131 @@ h6 {
   --font-caveat: 'Caveat';
   --font-dm-serif: 'DM Serif Display';
 
-  --color-background: #ffffff;
-  --color-foreground: #171717;
-  --color-card: #ffffff;
-  --color-card-foreground: #171717;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #171717;
+  /* Auorum warm cream palette */
+  --color-background: #F0EDE6;
+  --color-foreground: #1A1917;
+  --color-card: #FAFAF7;
+  --color-card-foreground: #1A1917;
+  --color-popover: #FAFAF7;
+  --color-popover-foreground: #1A1917;
 
-  --color-primary: #e85d38;
+  --color-primary: #E8462A;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #fdf8f6;
-  --color-secondary-foreground: #1f2937;
-  --color-muted: #f4f4f5;
-  --color-muted-foreground: #6b7280;
-  --color-accent: #fdf8f6;
-  --color-accent-foreground: #18181b;
-  --color-destructive: #ef4444;
+  --color-secondary: #E8E5DE;
+  --color-secondary-foreground: #1A1917;
+  --color-muted: #E8E5DE;
+  --color-muted-foreground: #6B6860;
+  --color-accent: #FAE8E5;
+  --color-accent-foreground: #1A1917;
+  --color-destructive: #C0392B;
   --color-destructive-foreground: #ffffff;
 
-  --color-border: #e5e7eb;
-  --color-input: #f9fafb;
-  --color-ring: #e85d38;
+  --color-border: #D4D0C9;
+  --color-input: #FAFAF7;
+  --color-ring: #E8462A;
 
-  --color-toolbar-bg: #ffffff;
-  --color-toolbar-border: #e4e4e7;
-  --color-toolbar-divider: #e4e4e7;
+  --color-toolbar-bg: #F0EDE6;
+  --color-toolbar-border: #E4E0D9;
+  --color-toolbar-divider: #E4E0D9;
 
-  --color-tool-active-bg: #fff1ed;
-  --color-tool-active-text: #e85d38;
-  --color-tool-active-shadow: rgba(232, 93, 56, 0.2);
+  --color-tool-active-bg: #FAE8E5;
+  --color-tool-active-text: #E8462A;
+  --color-tool-active-shadow: rgba(232, 70, 42, 0.2);
 
-  --color-tool-inactive-text: #6b7280;
-  --color-tool-hover-bg: #f9fafb;
-  --color-tool-hover-text: #1f2937;
+  --color-tool-inactive-text: #6B6860;
+  --color-tool-hover-bg: #E8E5DE;
+  --color-tool-hover-text: #1A1917;
 
-  --color-panel-bg: #ffffff;
-  --color-panel-border: #e4e4e7;
-  --color-panel-btn-bg: #fdf8f6;
-  --color-panel-btn-hover: #f3f4f6;
-  --color-panel-btn-active: #e85d38;
+  --color-panel-bg: #FAFAF7;
+  --color-panel-border: #E4E0D9;
+  --color-panel-btn-bg: #E8E5DE;
+  --color-panel-btn-hover: #D4D0C9;
+  --color-panel-btn-active: #E8462A;
   --color-panel-btn-active-text: #ffffff;
-  --color-panel-label: #6b7280;
-  --color-panel-text: #1f2937;
-  --color-panel-divider: #e4e4e7;
-  --color-panel-slider: #d4d4d8;
-  --color-panel-menu-active: #fff1ed;
+  --color-panel-label: #6B6860;
+  --color-panel-text: #1A1917;
+  --color-panel-divider: #E4E0D9;
+  --color-panel-slider: #D4D0C9;
+  --color-panel-menu-active: #FAE8E5;
 
-  --color-canvas-bg: #fafafa;
-  --color-hint-bg: #f4f4f5;
-  --color-hint-text: #6b7280;
+  --color-canvas-bg: #F0EDE6;
+  --color-hint-bg: #E8E5DE;
+  --color-hint-text: #6B6860;
 
-  --color-default-stroke: #1f2937;
+  --color-default-stroke: #1A1917;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
-  --shadow-button: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-button-hover: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-inner: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-button: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-button-hover: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
 
-  --radius: 0.75rem;
+  --radius: 0.5rem;
 }
 
 .dark,
 html.dark {
-  --color-background: #09090b;
-  --color-foreground: #fafafa;
-  --color-card: #18181b;
-  --color-card-foreground: #fafafa;
-  --color-popover: #18181b;
-  --color-popover-foreground: #fafafa;
+  --color-background: #1C1A17;
+  --color-foreground: #F0EDE6;
+  --color-card: #2C2A25;
+  --color-card-foreground: #F0EDE6;
+  --color-popover: #2C2A25;
+  --color-popover-foreground: #F0EDE6;
 
-  --color-primary: #f27a5a;
+  --color-primary: #E8462A;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #2a1612;
-  --color-secondary-foreground: #fafafa;
-  --color-muted: #27272a;
-  --color-muted-foreground: #a1a1aa;
-  --color-accent: #2a1612;
-  --color-accent-foreground: #fafafa;
-  --color-destructive: #f87171;
-  --color-destructive-foreground: #09090b;
+  --color-secondary: #242219;
+  --color-secondary-foreground: #F0EDE6;
+  --color-muted: #242219;
+  --color-muted-foreground: #9B9890;
+  --color-accent: #3A2018;
+  --color-accent-foreground: #F0EDE6;
+  --color-destructive: #E8462A;
+  --color-destructive-foreground: #1C1A17;
 
-  --color-border: #27272a;
-  --color-input: #1f1f22;
-  --color-ring: #f27a5a;
+  --color-border: #3A3830;
+  --color-input: #2C2A25;
+  --color-ring: #E8462A;
 
-  --color-toolbar-bg: #18181b;
-  --color-toolbar-border: #27272a;
-  --color-toolbar-divider: #27272a;
-  --color-tool-active-bg: #3b170e;
-  --color-tool-active-text: #fbd5cb;
-  --color-tool-active-shadow: rgba(242, 122, 90, 0.25);
+  --color-toolbar-bg: #1C1A17;
+  --color-toolbar-border: #3A3830;
+  --color-toolbar-divider: #3A3830;
+  --color-tool-active-bg: #3A2018;
+  --color-tool-active-text: #FAC8BE;
+  --color-tool-active-shadow: rgba(232, 70, 42, 0.25);
 
-  --color-tool-inactive-text: #a1a1aa;
-  --color-tool-hover-bg: #27272a;
-  --color-tool-hover-text: #fafafa;
+  --color-tool-inactive-text: #9B9890;
+  --color-tool-hover-bg: #2E2C28;
+  --color-tool-hover-text: #F0EDE6;
 
-  --color-panel-bg: #18181b;
-  --color-panel-border: #27272a;
-  --color-panel-btn-bg: #27272a;
-  --color-panel-btn-hover: #3f3f46;
-  --color-panel-btn-active: #f27a5a;
+  --color-panel-bg: #242219;
+  --color-panel-border: #3A3830;
+  --color-panel-btn-bg: #2E2C28;
+  --color-panel-btn-hover: #3A3830;
+  --color-panel-btn-active: #E8462A;
   --color-panel-btn-active-text: #ffffff;
-  --color-panel-label: #a1a1aa;
-  --color-panel-text: #fafafa;
-  --color-panel-divider: #27272a;
-  --color-panel-slider: #3f3f46;
-  --color-panel-menu-active: #3b170e;
+  --color-panel-label: #9B9890;
+  --color-panel-text: #F0EDE6;
+  --color-panel-divider: #3A3830;
+  --color-panel-slider: #3A3830;
+  --color-panel-menu-active: #3A2018;
 
-  --color-canvas-bg: #09090b;
-  --color-hint-bg: #27272a;
-  --color-hint-text: #a1a1aa;
-  --color-default-stroke: #fafafa;
+  --color-canvas-bg: #1C1A17;
+  --color-hint-bg: #242219;
+  --color-hint-text: #9B9890;
+  --color-default-stroke: #F0EDE6;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
-  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.3);
-  --shadow-button: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-button-hover: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-inner: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-button: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-button-hover: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .tool-btn-active {
@@ -297,43 +274,33 @@ html.dark {
 }
 
 .shadow-inner {
-  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .dark .shadow-inner {
-  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
 .shadow-button {
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.1),
-    0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .shadow-button-hover:hover {
-  box-shadow:
-    0 4px 6px rgba(0, 0, 0, 0.1),
-    0 2px 4px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .shadow-card {
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.08),
-    0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .dark .shadow-button,
 .dark .shadow-button-hover,
 .dark .shadow-card {
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.3),
-    0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .dark .shadow-button-hover:hover {
-  box-shadow:
-    0 4px 6px rgba(0, 0, 0, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 input[type='range'] {
