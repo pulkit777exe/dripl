@@ -43,7 +43,7 @@ export function TestimonialCarousel() {
             repeat: Infinity,
             ease: 'linear',
           }}
-          className="flex w-max gap-8 px-8 hover:paused"
+          className="flex w-max gap-8 px-8"
         >
           {[...TESTIMONIALS, ...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
             <div

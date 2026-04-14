@@ -1,22 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { GoogleOAuthProvider, GoogleLogin, type CredentialResponse } from '@react-oauth/google';
+import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
-import { GoogleOAuthProvider, GoogleLogin, CredentialResponse } from '@react-oauth/google';
+
+const fieldClassName =
+  'w-full rounded-xl border border-border/70 bg-secondary/35 px-4 py-2.5 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary/45 focus:bg-card focus:ring-2 focus:ring-primary/20';
 
 export default function SignupPage() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signup, googleLogin } = useAuth();
   const router = useRouter();
+  const { signup, googleLogin } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError('');
     setLoading(true);
 
@@ -31,127 +35,97 @@ export default function SignupPage() {
   };
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
-    if (credentialResponse.credential) {
-      try {
-        await googleLogin(credentialResponse.credential);
-        router.push('/dashboard');
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Google signup failed');
-      }
+    if (!credentialResponse.credential) return;
+    try {
+      await googleLogin(credentialResponse.credential);
+      router.push('/dashboard');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Google signup failed');
     }
   };
 
   return (
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}>
-      <div className="min-h-dvh flex items-center justify-center bg-background relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.02] pointer-events-none"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E\")",
-          }}
-        />
-
-        <div className="absolute top-8 left-8 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
-            <span className="text-primary-foreground font-bold text-sm">D</span>
+      <AuthShell title="Create account" subtitle="Set up your workspace in under a minute.">
+        {error && (
+          <div className="mb-5 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
           </div>
-          <Link href="/" className="font-semibold text-foreground text-xl tracking-tight">
-            Dripl
-          </Link>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={event => setName(event.target.value)}
+              className={fieldClassName}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={event => setEmail(event.target.value)}
+              className={fieldClassName}
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={event => setPassword(event.target.value)}
+              className={fieldClassName}
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-2 w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50"
+          >
+            {loading ? 'Creating account...' : 'Create account'}
+          </button>
+        </form>
+
+        <div className="my-6 flex items-center gap-4">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs uppercase tracking-wider text-muted-foreground">or continue with</span>
+          <div className="h-px flex-1 bg-border" />
         </div>
 
-        <div className="w-full max-w-md p-8 relative">
-          <div className="bg-card border border-border/50 rounded-2xl shadow-xl p-8 backdrop-blur-sm">
-            <div className="mb-8 text-center">
-              <h1 className="text-3xl font-semibold text-foreground mb-2">Create account</h1>
-              <p className="text-sm text-muted-foreground">Start drawing and collaborating today</p>
-            </div>
-
-            {error && (
-              <div className="mb-6 p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm text-center">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-secondary/40 border border-border/60 rounded-xl text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50 shadow-inner"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-secondary/40 border border-border/60 rounded-xl text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50 shadow-inner"
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-secondary/40 border border-border/60 rounded-xl text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all shadow-inner"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-all shadow-button hover:shadow-button-hover disabled:opacity-50 mt-2"
-              >
-                {loading ? 'Creating account...' : 'Create account'}
-              </button>
-            </form>
-
-            <div className="mt-6">
-              <div className="relative flex py-4 items-center">
-                <div className="grow border-t border-border"></div>
-                <span className="shrink-0 mx-4 text-muted-foreground text-xs uppercase tracking-wider">
-                  or sign up with
-                </span>
-                <div className="grow border-t border-border"></div>
-              </div>
-              <div className="flex justify-center mt-2">
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError('Google signup failed')}
-                  theme="outline"
-                  shape="rectangular"
-                  size="large"
-                />
-              </div>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-border/50">
-              <p className="text-center text-sm text-muted-foreground">
-                Already have an account?{' '}
-                <Link href="/login" className="text-primary font-medium hover:underline">
-                  Sign in
-                </Link>
-              </p>
-            </div>
-          </div>
+        <div className="flex justify-center">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError('Google signup failed')}
+            theme="outline"
+            shape="pill"
+            size="large"
+          />
         </div>
-      </div>
+
+        <div className="mt-8 border-t border-border/50 pt-5">
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link href="/login" className="font-medium text-primary hover:underline">
+              Sign in
+            </Link>
+          </p>
+        </div>
+      </AuthShell>
     </GoogleOAuthProvider>
   );
 }

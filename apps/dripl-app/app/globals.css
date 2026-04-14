@@ -26,6 +26,49 @@ h6 {
   font-family: var(--font-source-sans), 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;
 }
 
+.glass-card {
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-card) 88%, transparent),
+      color-mix(in srgb, var(--color-card) 76%, transparent)
+    );
+  box-shadow:
+    0 12px 26px -16px rgba(12, 16, 26, 0.35),
+    0 8px 20px -14px rgba(12, 16, 26, 0.25);
+  backdrop-filter: blur(10px);
+}
+
+.dark .glass-card {
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-card) 72%, transparent),
+      color-mix(in srgb, var(--color-card) 58%, transparent)
+    );
+}
+
+.auth-shell {
+  background:
+    radial-gradient(circle at 12% 16%, rgba(251, 191, 36, 0.1), transparent 46%),
+    radial-gradient(circle at 88% 12%, rgba(56, 189, 248, 0.08), transparent 44%),
+    var(--color-background);
+}
+
+.auth-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--color-border) 40%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-border) 40%, transparent) 1px, transparent 1px);
+  background-size: 36px 36px;
+  opacity: 0.25;
+}
+
 :root {
   --font-source-sans: 'Source Sans 3';
   --font-caveat: 'Caveat';

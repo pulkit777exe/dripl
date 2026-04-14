@@ -1,42 +1,46 @@
 'use client';
 
-import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
+
+const fieldClassName =
+  'w-full rounded-xl border border-border/70 bg-secondary/35 px-4 py-2.5 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary/45 focus:bg-card focus:ring-2 focus:ring-primary/20';
 
 function ResetPasswordForm() {
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
-
+  const { resetPassword } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
-  const { resetPassword } = useAuth();
-  const router = useRouter();
-
   if (!token) {
     return (
-      <div className="text-center">
-        <p className="text-destructive mb-4">Invalid or missing reset token.</p>
+      <div className="space-y-6 text-center">
+        <p className="rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Invalid or missing reset token.
+        </p>
         <Link
           href="/forgot-password"
-          className="text-primary text-sm font-medium hover:underline border border-border px-4 py-2 rounded-lg inline-block"
+          className="inline-flex rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/50"
         >
-          Request new link
+          Request a new link
         </Link>
       </div>
     );
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setStatus('loading');
     try {
       await resetPassword(token, password);
       setStatus('success');
-      setTimeout(() => router.push('/login'), 3000);
+      setTimeout(() => router.push('/login'), 2500);
     } catch (err: unknown) {
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Failed to reset password.');
@@ -45,13 +49,8 @@ function ResetPasswordForm() {
 
   if (status === 'success') {
     return (
-      <div className="text-center">
-        <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
-          <p className="text-sm text-green-600 font-medium">
-            Password has been reset successfully!
-          </p>
-          <p className="text-xs text-green-700 mt-2">Redirecting to login...</p>
-        </div>
+      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-4 text-center text-sm text-emerald-700 dark:text-emerald-300">
+        Password reset successful. Redirecting you to login...
       </div>
     );
   }
@@ -59,20 +58,20 @@ function ResetPasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="mb-6 p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm text-center">
+        <div className="rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block">
-          New Password
+        <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          New password
         </label>
         <input
           type="password"
           value={password}
-          onChange={e => setPassword(e.target.value)}
-          className="w-full px-4 py-2.5 bg-secondary/40 border border-border/60 rounded-xl text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all shadow-inner"
+          onChange={event => setPassword(event.target.value)}
+          className={fieldClassName}
           required
         />
       </div>
@@ -80,7 +79,7 @@ function ResetPasswordForm() {
       <button
         type="submit"
         disabled={status === 'loading' || !password}
-        className="w-full py-2.5 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-all shadow-button hover:shadow-button-hover disabled:opacity-50 mt-2"
+        className="mt-2 w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50"
       >
         {status === 'loading' ? 'Resetting...' : 'Reset password'}
       </button>
@@ -90,35 +89,10 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-dvh flex items-center justify-center bg-background relative overflow-hidden">
-      <div
-        className="absolute inset-0 opacity-[0.02] pointer-events-none"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E\")",
-        }}
-      />
-
-      <div className="absolute top-8 left-8 flex items-center gap-2">
-        <div className="h-8 w-8 rounded-lg bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
-          <span className="text-primary-foreground font-bold text-sm">D</span>
-        </div>
-        <Link href="/" className="font-semibold text-foreground text-xl tracking-tight">
-          Dripl
-        </Link>
-      </div>
-
-      <div className="w-full max-w-md p-8 relative">
-        <div className="bg-card border border-border/70 rounded-2xl shadow-md p-8">
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-semibold text-foreground mb-2">Set New Password</h1>
-            <p className="text-sm text-muted-foreground">Enter your new password below.</p>
-          </div>
-          <Suspense fallback={<p>Loading...</p>}>
-            <ResetPasswordForm />
-          </Suspense>
-        </div>
-      </div>
-    </div>
+    <AuthShell title="Set new password" subtitle="Choose a strong password for your account.">
+      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading...</p>}>
+        <ResetPasswordForm />
+      </Suspense>
+    </AuthShell>
   );
 }

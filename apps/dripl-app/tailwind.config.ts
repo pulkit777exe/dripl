@@ -29,6 +29,10 @@ const config = {
         ],
       },
       colors: {
+        'deep-charcoal': '#17130f',
+        'structure-grey': '#d8d2c8',
+        'vapor-grey': '#f3efe8',
+        'off-white': '#faf7f2',
         border: 'var(--color-border)',
         input: 'var(--color-input)',
         ring: 'var(--color-ring)',

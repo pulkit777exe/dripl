@@ -3,7 +3,6 @@
 import { motion, useScroll, useTransform } from 'motion/react';
 import { Button } from '../ui/Button';
 import { Play } from 'lucide-react';
-import { useRef } from 'react';
 
 export function HeroSection({ onStartDrawing }: { onStartDrawing?: () => void }) {
   const { scrollY } = useScroll();
@@ -18,7 +17,7 @@ export function HeroSection({ onStartDrawing }: { onStartDrawing?: () => void })
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="text-white text-5xl font-medium leading-[1.1] tracking-[-0.04em] md:text-7xl"
+          className="text-deep-charcoal text-5xl font-medium leading-[1.1] tracking-[-0.04em] md:text-7xl"
         >
           The social scheduling canvas.
         </motion.h1>
@@ -27,7 +26,7 @@ export function HeroSection({ onStartDrawing }: { onStartDrawing?: () => void })
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-          className="mt-6 max-w-[640px] text-lg font-light text-center leading-relaxed md:text-xl text-gray-400"
+          className="mt-6 max-w-[640px] text-center text-lg font-light leading-relaxed text-foreground/70 md:text-xl"
         >
           Stop thinking in lists. Dripl gives you an infinite collaborative workspace to plan,
           visualize, and schedule posts across every network at once.
@@ -82,7 +81,7 @@ export function HeroSection({ onStartDrawing }: { onStartDrawing?: () => void })
         </div>
       </motion.div>
 
-      <div className="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[1000px] w-[1000px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-100/30 blur-[120px]" />
+      <div className="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[1000px] w-[1000px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-200/35 blur-[120px]" />
     </section>
   );
 }
