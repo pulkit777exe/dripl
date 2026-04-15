@@ -18,10 +18,6 @@ function createPrismaClient(): PrismaClient {
   const isLocalhost = dbUrl.includes('localhost');
   const shouldDisableSsl = isLocalhost || process.env.NODE_ENV !== 'production';
 
-  console.log('[db] DATABASE_URL (masked):', dbUrl.replace(/\/\/[^@]+@/, '//***:***@'));
-  console.log('[db] NODE_ENV:', process.env.NODE_ENV);
-  console.log('[db] isLocalhost:', isLocalhost);
-  console.log('[db] shouldDisableSsl:', shouldDisableSsl);
 
   const url = new URL(dbUrl);
   const poolConfig = {
@@ -33,7 +29,6 @@ function createPrismaClient(): PrismaClient {
     ssl: shouldDisableSsl ? false : { rejectUnauthorized: false },
   };
 
-  console.log('[db] Pool config:', JSON.stringify({ ...poolConfig, password: '***' }));
 
   const pool = new Pool(poolConfig);
 
@@ -42,7 +37,6 @@ function createPrismaClient(): PrismaClient {
   });
 
   pool.on('connect', () => {
-    console.log('[db] New client connected');
   });
 
   const adapter = new PrismaPg(pool);

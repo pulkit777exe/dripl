@@ -41,3 +41,4 @@ export {
 export * from './theme/index';
 
 export * from './types/index';
+export { store, actions, selectors, defaultAppState } from './store/index';
