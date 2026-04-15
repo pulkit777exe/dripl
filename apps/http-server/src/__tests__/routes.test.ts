@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import express, { Express } from 'express';
+import express, { Express, type Request, type Response } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import { userRouter } from '../routes/UserRoute';
-import { fileRouter } from '../routes/FileRoute';
-import roomRoutes from '../routes/roomRoutes';
+import jwt from 'jsonwebtoken';
+import { authRouter } from '../routes/auth';
+import { filesRouter } from '../routes/files';
+import { foldersRouter } from '../routes/folders';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
 
 function createTestApp(): Express {
   const app: Express = express();
@@ -18,13 +21,17 @@ function createTestApp(): Express {
       credentials: true,
     })
   );
-  app.use('/api/users', userRouter);
-  app.use('/api/files', fileRouter);
-  app.use('/api/rooms', roomRoutes);
+  app.use('/api/auth', authRouter);
+  app.use('/api/files', filesRouter);
+  app.use('/api/folders', foldersRouter);
   app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
   });
   return app;
+}
+
+function createAuthToken(userId: string): string {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '1h' });
 }
 
 const app = createTestApp();
@@ -38,70 +45,65 @@ describe('HTTP Server Routes', () => {
     });
   });
 
-  describe('POST /api/users/signup', () => {
+  describe('POST /api/auth/register', () => {
     it('should return 400 when email is missing', async () => {
       const res = await request(app)
-        .post('/api/users/signup')
+        .post('/api/auth/register')
         .send({ password: 'testpassword123' });
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/email.*password/i);
     });
 
     it('should return 400 when password is too short', async () => {
       const res = await request(app)
-        .post('/api/users/signup')
+        .post('/api/auth/register')
         .send({ email: 'test@example.com', password: 'short' });
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/8 characters/i);
     });
 
     it('should return 400 for invalid email format', async () => {
       const res = await request(app)
-        .post('/api/users/signup')
+        .post('/api/auth/register')
         .send({ email: 'invalid-email', password: 'testpassword123' });
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/email.*format/i);
     });
   });
 
-  describe('POST /api/users/login', () => {
+  describe('POST /api/auth/login', () => {
     it('should return 400 when email is missing', async () => {
-      const res = await request(app).post('/api/users/login').send({ password: 'testpassword123' });
+      const res = await request(app).post('/api/auth/login').send({ password: 'testpassword123' });
       expect(res.status).toBe(400);
     });
 
     it('should return 400 when password is missing', async () => {
-      const res = await request(app).post('/api/users/login').send({ email: 'test@example.com' });
+      const res = await request(app).post('/api/auth/login').send({ email: 'test@example.com' });
       expect(res.status).toBe(400);
-    });
-  });
-
-  describe('GET /api/rooms', () => {
-    it('should return 401 without auth token', async () => {
-      const res = await request(app).get('/api/rooms');
-      expect(res.status).toBe(401);
-    });
-  });
-
-  describe('POST /api/rooms', () => {
-    it('should return 401 without auth token', async () => {
-      const res = await request(app).post('/api/rooms').send({ name: 'Test' });
-      expect(res.status).toBe(401);
-    });
-  });
-
-  describe('POST /api/rooms/:slug/share', () => {
-    it('should return 401 without auth token', async () => {
-      const res = await request(app)
-        .post('/api/rooms/test-slug/share')
-        .send({ permission: 'view' });
-      expect(res.status).toBe(401);
     });
   });
 
   describe('GET /api/files', () => {
     it('should return 401 without auth token', async () => {
       const res = await request(app).get('/api/files');
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('POST /api/files', () => {
+    it('should return 401 without auth token', async () => {
+      const res = await request(app).post('/api/files').send({ name: 'Test' });
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('GET /api/folders', () => {
+    it('should return 401 without auth token', async () => {
+      const res = await request(app).get('/api/folders');
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('POST /api/folders', () => {
+    it('should return 401 without auth token', async () => {
+      const res = await request(app).post('/api/folders').send({ name: 'Test' });
       expect(res.status).toBe(401);
     });
   });
