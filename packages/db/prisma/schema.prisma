@@ -66,6 +66,10 @@ model Folder {
   user User? @relation(fields: [userId], references: [id])
 
   files File[]
+
+  @@index([parentId])
+  @@index([teamId])
+  @@index([userId])
 }
 
 model File {
@@ -78,7 +82,7 @@ model File {
   shareExpiresAt DateTime?
   folderId  String?
   teamId    String?
-  userId    String?
+  userId   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -87,6 +91,11 @@ model File {
   user   User?   @relation(fields: [userId], references: [id])
 
   sharedWith SharedFile[]
+
+  @@index([folderId])
+  @@index([teamId])
+  @@index([userId])
+  @@index([updatedAt])
 }
 
 model SharedFile {
@@ -115,12 +124,16 @@ model CanvasRoom {
   owner   User               @relation(fields: [ownerId], references: [id])
   members CanvasRoomMember[]
   shareLinks ShareLink[]
+
+  @@index([ownerId])
+  @@index([isPublic])
+  @@index([updatedAt])
 }
 
 model CanvasRoomMember {
   id        String   @id @default(cuid())
   roomId    String
-  userId    String
+  userId   String
   role      String   @default("EDITOR")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -129,6 +142,7 @@ model CanvasRoomMember {
   user User       @relation(fields: [userId], references: [id])
 
   @@unique([roomId, userId])
+  @@index([userId])
 }
 
 model ShareLink {
