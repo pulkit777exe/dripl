@@ -19,7 +19,6 @@ packages/
 ├── db/            # Prisma ORM
 ├── element/       # Element factory & rendering
 ├── math/          # Geometry & collision
-├── runtime/       # State management
 ├── utils/         # Storage, encryption
 └── dripl/        # React components
 ```

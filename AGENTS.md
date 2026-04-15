@@ -27,12 +27,16 @@ All critical issues have been resolved. The following are either fixed or known 
 | 17  | Orphaned websocket-server.ts in http-server                           | Fixed  |
 | 18  | Console Logging Standardization (58+ statements to JSON)              | Fixed  |
 | 19  | ws-server Validation Tests                                            | Fixed  |
+| 20  | Auth Middleware — Inconsistent imports                                | Fixed  |
+| 21  | ws-server — Missing element coordinate bounds validation              | Fixed  |
+| 22  | ws-server — No rate limiting                                          | Fixed  |
+| 23  | Database — Missing query indexes                                      | Fixed  |
+| 24  | http-server — Test imports don't match route files                    | Fixed  |
 
 ### ⚠️ Known Limitations
 
 1. **AI Generation Feature** — Requires valid `GEMINI_API_KEY` in `.env`
-2. **Test Coverage** — Partial coverage (dripl-app, math, element have tests; http-server, ws-server have limited tests)
-3. **Next.js Dev Lock** — Rare race condition with multiple processes (workaround: `rm -rf .next`)
+2. **Next.js Dev Lock** — Rare race condition with multiple processes (workaround: `rm -rf .next`)
 
 ---
 
@@ -64,8 +68,9 @@ All critical issues have been resolved. The following are either fixed or known 
 | JWT Secret Validation    | ✅ Throws if missing |
 | CSRF Protection          | ✅ Token endpoints   |
 | Security Headers         | ✅ CSP, HSTS         |
-| Per-user Rate Limiting   | ✅ userId key        |
+| Per-user Rate Limiting   | ✅ HTTP + WebSocket  |
 | WebSocket Message Limits | ✅ 10MB max          |
+| Element Validation       | ✅ Bounds checking   |
 
 ---
 

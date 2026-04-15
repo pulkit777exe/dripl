@@ -4,8 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Tests**: Add canvas coordinates unit tests (10 tests for viewport transformations)
+- **Tests**: Add WebSocket integration tests (26 tests for element CRUD, cursor, room management)
+- **Database**: Add indexes on File, Folder, CanvasRoom, CanvasRoomMember for query optimization
+- **WebSocket**: Add rate limiting (30 msgs/sec per connection)
+
 ### Fixed
 
+- **Code Quality**: Consolidate auth middleware to single source of truth
+- **Tests**: Fix http-server routes test imports
+- **WebSocket**: Add element coordinate bounds validation (width/height 0-50000, coords -100000 to 100000)
+- **WebSocket**: Reduce periodic save interval from 60s to 15s
 - **Security - IDOR**: Fix IDOR vulnerability in fileController.ts (updateFile, deleteFile methods)
 - **Dead Code**: Remove unused packages/runtime (store refactored to dripl-app)
 - **Orphaned Code**: Remove duplicate websocket-server.ts from http-server
