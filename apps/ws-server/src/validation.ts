@@ -7,28 +7,28 @@ const pointSchema = z.object({
 
 const elementBaseSchema = z
   .object({
-    id: z.string(),
+    id: z.string().min(1).max(100),
     type: z.string(),
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
+    x: z.number().min(-100000).max(100000),
+    y: z.number().min(-100000).max(100000),
+    width: z.number().min(0).max(50000),
+    height: z.number().min(0).max(50000),
     strokeColor: z.string().optional(),
     backgroundColor: z.string().optional(),
-    strokeWidth: z.number().optional(),
-    opacity: z.number().optional(),
+    strokeWidth: z.number().min(0).max(100).optional(),
+    opacity: z.number().min(0).max(1).optional(),
     isDeleted: z.boolean().optional(),
-    roughness: z.number().optional(),
+    roughness: z.number().min(0).max(10).optional(),
     strokeStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
     fillStyle: z
       .enum(['hachure', 'solid', 'zigzag', 'cross-hatch', 'dots', 'dashed', 'zigzag-line'])
       .optional(),
     seed: z.number().optional(),
-    angle: z.number().optional(),
+    angle: z.number().min(-360).max(360).optional(),
     locked: z.boolean().optional(),
     groupId: z.string().optional(),
     zIndex: z.number().optional(),
-    rotation: z.number().optional(),
+    rotation: z.number().min(-360).max(360).optional(),
     flipHorizontal: z.number().optional(),
     flipVertical: z.number().optional(),
   })
@@ -68,9 +68,9 @@ const freedrawElementSchema = elementBaseSchema.extend({
 
 const textElementSchema = elementBaseSchema.extend({
   type: z.literal('text'),
-  text: z.string(),
-  fontSize: z.number(),
-  fontFamily: z.string(),
+  text: z.string().max(10000),
+  fontSize: z.number().min(1).max(500),
+  fontFamily: z.string().max(100),
   textAlign: z.enum(['left', 'center', 'right']).optional(),
   verticalAlign: z.enum(['top', 'middle', 'bottom']).optional(),
   boundElementId: z.string().optional(),

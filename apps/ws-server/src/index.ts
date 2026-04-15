@@ -35,7 +35,9 @@ const JWT_SECRET = requiredEnv('JWT_SECRET');
 const WS_PORT = Number(process.env.WS_PORT || 3001);
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const SAVE_DEBOUNCE_MS = 2_000;
-const PERIODIC_SAVE_INTERVAL_MS = 60_000;
+const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;
+const RATE_LIMIT_WINDOW_MS = 1_000;
+const RATE_LIMIT_MAX_MESSAGES = 30;
 
 interface UserConnection {
   userId: string;
@@ -79,6 +81,7 @@ const server = createServer((req, res) => {
 const wss = new WebSocketServer({ server, maxPayload: 1024 * 1024 });
 const rooms = new Map<string, RoomState>();
 const saveTimeouts = new Map<string, NodeJS.Timeout>();
+const userMessageCounts = new Map<string, { count: number; resetAt: number }>();
 
 function parseStoredElements(raw: string | null | undefined): DriplElement[] {
   if (!raw) return [];
@@ -305,6 +308,31 @@ wss.on('connection', (ws, req) => {
     const validation = messageSchema.safeParse(parsed);
     if (!validation.success) {
       return;
+    }
+
+    const wsKey =
+      (ws as unknown as { __wsKey?: string }).__wsKey ||
+      (ws as WebSocket & { __user?: UserConnection }).__user?.userId ||
+      req.url ||
+      '';
+    const now = Date.now();
+    const rateInfo = userMessageCounts.get(wsKey);
+    if (rateInfo && rateInfo.resetAt > now) {
+      rateInfo.count += 1;
+      if (rateInfo.count > RATE_LIMIT_MAX_MESSAGES) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            event: 'rate_limit_exceeded',
+            wsKey,
+            count: rateInfo.count,
+          })
+        );
+        ws.close(4000, 'Rate limit exceeded');
+        return;
+      }
+    } else {
+      userMessageCounts.set(wsKey, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
     }
 
     const message = validation.data;
@@ -537,6 +565,15 @@ const heartbeat = setInterval(() => {
     ws.ping();
   });
 }, HEARTBEAT_INTERVAL_MS);
+
+const rateLimitCleanup = setInterval(() => {
+  const now = Date.now();
+  for (const [key, info] of userMessageCounts.entries()) {
+    if (info.resetAt < now) {
+      userMessageCounts.delete(key);
+    }
+  }
+}, 60_000);
 
 const periodicSave = setInterval(async () => {
   const activeRooms = Array.from(rooms.entries());
