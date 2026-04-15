@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '@dripl/db';
-import type { AuthenticatedRequest } from '../middleware/auth';
+import type { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import {
   buildEncryptedShare,
   parseStoredFileContent,

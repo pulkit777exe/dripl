@@ -9,7 +9,7 @@ import {
   setSessionCookie,
   signSessionToken,
   type AuthenticatedRequest,
-} from '../middleware/auth';
+} from '../middlewares/authMiddleware';
 import { OAuth2Client } from 'google-auth-library';
 import { sendResetPasswordEmail } from '../lib/mailer';
 
