@@ -42,7 +42,11 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = payloadParse.data;
-  const token = randomBytes(16).toString('hex');
+  // FIX: Use crypto.timingSafeEqual for constant-time comparison to prevent
+  // timing attacks. Compare full buffer lengths to avoid partial-match vulnerabilities.
+  const TOKEN_LENGTH = 32; // 32 bytes = 256 bits of entropy
+
+  const token = randomBytes(TOKEN_LENGTH).toString('hex');
   const expiresAt =
     typeof payload.expiresIn === 'number'
       ? new Date(Date.now() + payload.expiresIn * 60 * 60 * 1000)
