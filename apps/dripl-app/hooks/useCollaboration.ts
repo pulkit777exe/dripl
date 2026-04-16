@@ -76,6 +76,7 @@ type ClientMessage =
 
 export interface UseCollaborationReturn {
   isConnected: boolean;
+  connectionMessage: string;
   collaborators: CollabUser[];
   broadcastElements: (_prevElements: DriplElement[], nextElements: DriplElement[]) => void;
   broadcastCursor: (x: number, y: number) => void;
@@ -99,6 +100,7 @@ export function useCollaboration(
   const lastCursorSentAtRef = useRef(0);
 
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionMessage, setConnectionMessage] = useState('Reconnecting...');
   const [collaboratorsMap, setCollaboratorsMap] = useState<Map<string, CollabUser>>(new Map());
 
   const fallbackUserIdRef = useRef(crypto.randomUUID());
@@ -182,6 +184,7 @@ export function useCollaboration(
         heartbeatTimerRef.current = null;
       }
       setIsConnected(false);
+      setConnectionMessage('Disconnected');
       setIsStoreConnected(false);
       setRemoteUsers(new Map());
       setCollaboratorsMap(new Map());
@@ -201,6 +204,7 @@ export function useCollaboration(
       ws.onopen = () => {
         reconnectAttemptRef.current = 0;
         setIsConnected(true);
+        setConnectionMessage('Connected');
         setIsStoreConnected(true);
         send({
           type: 'join',
@@ -345,6 +349,11 @@ export function useCollaboration(
         }
 
         if (!shouldReconnectRef.current) return;
+        if (reconnectAttemptRef.current >= 5) {
+          setConnectionMessage('Connection lost — refresh to retry');
+          return;
+        }
+        setConnectionMessage('Reconnecting...');
         const delay = Math.min(30_000, 1000 * 2 ** reconnectAttemptRef.current);
         reconnectAttemptRef.current += 1;
         reconnectTimerRef.current = window.setTimeout(connect, delay);
@@ -367,6 +376,7 @@ export function useCollaboration(
       send({ type: 'leave' });
       wsRef.current?.close();
       setIsStoreConnected(false);
+      setConnectionMessage('Disconnected');
       setRemoteUsers(new Map());
       setCollaboratorsMap(new Map());
     };
@@ -387,6 +397,7 @@ export function useCollaboration(
 
   return {
     isConnected,
+    connectionMessage,
     collaborators,
     broadcastElements,
     broadcastCursor,

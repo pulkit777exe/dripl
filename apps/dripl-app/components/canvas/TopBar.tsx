@@ -27,6 +27,7 @@ export const TopBar: React.FC = () => {
   const elements = useCanvasStore(state => state.elements);
   const fileId = useCanvasStore(state => state.fileId);
   const isConnected = useCanvasStore(state => state.isConnected);
+  const roomSlug = useCanvasStore(state => state.roomSlug);
   const isSaving = useCanvasStore(state => state.isSaving);
   const lastSaved = useCanvasStore(state => state.lastSaved);
   const remoteUsers = useCanvasStore(state => state.remoteUsers);
@@ -48,6 +49,8 @@ export const TopBar: React.FC = () => {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareFeedbackMessage, setShareFeedbackMessage] = useState<string | null>(null);
+  const [shareErrorMessage, setShareErrorMessage] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [activeLanguage, setActiveLanguage] = useState('en');
   const [isEditingName, setIsEditingName] = useState(false);
@@ -99,48 +102,55 @@ export const TopBar: React.FC = () => {
     }
   };
 
-  const handleStartSession = async () => {
-    if (!fileId) {
-      alert('File must be saved before starting collaboration.');
+  const clearShareMessages = useCallback(() => {
+    setShareFeedbackMessage(null);
+    setShareErrorMessage(null);
+  }, []);
+
+  const handleShareCanvas = useCallback(async () => {
+    clearShareMessages();
+    if (elements.length === 0) {
+      setShareErrorMessage('Nothing to share yet — draw something first.');
       return;
     }
-
     try {
-      const response = await apiClient.shareFile(fileId, {
-        permission: 'edit',
-        expiresInHours: 24,
+      const response = await fetch('/api/canvas/snapshots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: JSON.stringify(elements) }),
       });
-      await navigator.clipboard.writeText(response.shareUrl);
-      alert('Live collaboration link copied to clipboard.');
+      if (!response.ok) throw new Error('Failed to create snapshot');
+      const payload = (await response.json()) as { id: string };
+      const url = `${window.location.origin}/canvas?snapshot=${payload.id}`;
+      await navigator.clipboard.writeText(url);
+      setShareFeedbackMessage('Link copied!');
     } catch (error) {
-      console.error('Failed to start session:', error);
-      alert('Failed to start session. Please try again.');
+      console.error('Failed to share canvas snapshot:', error);
+      setShareErrorMessage('Failed to create share link. Please try again.');
     }
-  };
+  }, [clearShareMessages, elements]);
 
-  const handleExportToLink = async (
-    permission: 'view' | 'edit',
-    expiresIn?: number
-  ): Promise<string | null> => {
-    if (!fileId) {
-      alert('Save canvas to cloud before sharing.');
-      return null;
-    }
-
+  const handleCollaborate = useCallback(async () => {
+    clearShareMessages();
     try {
-      const data = await apiClient.shareFile(fileId, {
-        permission,
-        expiresInHours: expiresIn ?? 24,
-      });
-      const link = data.shareUrl;
-      await navigator.clipboard.writeText(link);
-      return link;
+      const response = await fetch('/api/canvas/rooms', { method: 'POST' });
+      if (response.status === 401) {
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        router.push(`/login?next=${next}`);
+        return;
+      }
+      if (!response.ok) throw new Error('Failed to create room');
+      const payload = (await response.json()) as { roomId: string };
+      const url = `${window.location.origin}/canvas/${payload.roomId}`;
+      await navigator.clipboard.writeText(url);
+      setShareFeedbackMessage('Link copied!');
+      setIsShareModalOpen(false);
+      router.push(`/canvas/${payload.roomId}`);
     } catch (error) {
-      console.error('Error sharing canvas:', error);
-      alert('Failed to create share link. Please try again.');
-      return null;
+      console.error('Failed to start collaboration:', error);
+      setShareErrorMessage('Failed to start collaboration. Please try again.');
     }
-  };
+  }, [clearShareMessages, router]);
 
   const handleResetCanvas = () => {
     if (confirm('Are you sure you want to reset the canvas? This cannot be undone.')) {
@@ -436,10 +446,12 @@ export const TopBar: React.FC = () => {
             )}
           </div>
         )}
-        {isConnected && (
+        {roomSlug !== null && (
           <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-500/10 text-green-500 text-xs">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-            Live
+            <div
+              className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-amber-500'}`}
+            />
+            {isConnected ? 'Live' : 'Reconnecting...'}
           </div>
         )}
         <button
@@ -484,9 +496,14 @@ export const TopBar: React.FC = () => {
 
       <ShareModal
         isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        onStartSession={handleStartSession}
-        onExportToLink={handleExportToLink}
+        onClose={() => {
+          setIsShareModalOpen(false);
+          clearShareMessages();
+        }}
+        onShareCanvas={handleShareCanvas}
+        onCollaborate={handleCollaborate}
+        feedbackMessage={shareFeedbackMessage}
+        errorMessage={shareErrorMessage}
       />
       {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)} />}
     </>

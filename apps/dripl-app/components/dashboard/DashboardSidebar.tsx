@@ -60,7 +60,7 @@ export function DashboardSidebar() {
 
         {/* New canvas button */}
         <button
-          onClick={() => router.push('/canvas/new')}
+          onClick={() => router.push('/canvas')}
           className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-[#E4E0D9] bg-[#FAFAF7] px-3 py-2 text-[13px] font-medium text-[#1A1917] transition-colors hover:bg-[#E8E5DE] shadow-sm"
         >
           <div className="flex items-center justify-center h-4 w-4 bg-[#9B9890]/20 rounded-sm">

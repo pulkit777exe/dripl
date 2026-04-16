@@ -242,6 +242,20 @@ class ApiClient {
       method: 'DELETE',
     });
   }
+
+  async createCanvasRoom(payload?: { name?: string; isPublic?: boolean }): Promise<{
+    roomId: string;
+  }> {
+    const response = await this.request<{ room: { slug: string } }>('/rooms', {
+      method: 'POST',
+      body: JSON.stringify(payload ?? {}),
+    });
+    return { roomId: response.room.slug };
+  }
+
+  async getCanvasRoom(roomId: string): Promise<{ room: { slug: string } }> {
+    return this.request(`/rooms/${roomId}`);
+  }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);

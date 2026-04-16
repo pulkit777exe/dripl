@@ -4,12 +4,12 @@
 html,
 body,
 * {
-  font-family: var(--font-source-sans), 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
 }
 
 .canvas-text-input,
 .canvas-text-node {
-  font-family: var(--font-caveat), 'Caveat', cursive !important;
+  font-family: var(--font-handwritten), 'Caveat', cursive !important;
 }
 
 h1,
@@ -18,12 +18,20 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-dm-serif), 'DM Serif Display', Georgia, serif;
+  font-family: inherit;
 }
 
 .sidebar-panel,
 .properties-panel {
-  font-family: var(--font-source-sans), 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-handwritten {
+  font-family: var(--font-handwritten), 'Caveat', cursive;
+}
+
+.font-ui {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
 }
 
 .glass-card {
@@ -44,9 +52,8 @@ h6 {
 }
 
 :root {
-  --font-source-sans: 'Source Sans 3';
-  --font-caveat: 'Caveat';
-  --font-dm-serif: 'DM Serif Display';
+  --font-ui: 'Inter';
+  --font-handwritten: 'Caveat';
 
   /* Auorum warm cream palette */
   --color-background: #F0EDE6;
@@ -357,21 +364,3 @@ input[type='range']::-moz-range-thumb {
   background: var(--color-muted-foreground);
 }
 
-.canvas-text-input,
-.canvas-text-node {
-  font-family: var(--font-caveat), 'Caveat', cursive !important;
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: var(--font-dm-serif), 'DM Serif Display', Georgia, serif;
-}
-
-.sidebar-panel,
-.properties-panel {
-  font-family: var(--font-source-sans), 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;
-}

@@ -3,12 +3,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
 import { useCollaboration } from '@/hooks/useCollaboration';
-import {
-  saveLocalCanvasToStorage,
-  LocalCanvasState,
-  LOCAL_CANVAS_STORAGE_KEYS,
-  loadLocalCanvasFromStorage,
-} from '@/utils/localCanvasStorage';
+import { saveLocalCanvasToStorage, LocalCanvasState } from '@/utils/localCanvasStorage';
 import { getElementBounds, isPointInElement } from '@dripl/math';
 import { ActionCreator, CanvasContentSchema, type DriplElement } from '@dripl/common';
 import { getOrCreateCollaboratorName } from '@/utils/username';
@@ -186,6 +181,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const prevElementsRef = useRef<DriplElement[]>([]);
   const {
     isConnected,
+    connectionMessage,
     collaborators,
     broadcastElements,
     broadcastCursor,
@@ -251,45 +247,29 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   // ── Persist local canvas ─────────────────────────────────────────────────
   useEffect(() => {
-    if (roomSlug === null) {
+    if (roomSlug !== null) return;
+    const timeoutId = setTimeout(() => {
+      const state = useCanvasStore.getState();
       const appState: LocalCanvasState = {
         theme,
-        zoom,
-        panX,
-        panY,
-        currentStrokeColor,
-        currentBackgroundColor,
-        currentStrokeWidth,
-        currentRoughness,
-        currentStrokeStyle,
-        currentFillStyle,
-        activeTool,
+        zoom: state.zoom,
+        panX: state.panX,
+        panY: state.panY,
+        currentStrokeColor: state.currentStrokeColor,
+        currentBackgroundColor: state.currentBackgroundColor,
+        currentStrokeWidth: state.currentStrokeWidth,
+        currentRoughness: state.currentRoughness,
+        currentStrokeStyle: state.currentStrokeStyle,
+        currentFillStyle: state.currentFillStyle,
+        activeTool: state.activeTool,
       };
-      const timeoutId = setTimeout(() => {
-        saveLocalCanvasToStorage(elements, appState, selectedIds);
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [
-    roomSlug,
-    elements,
-    selectedIds,
-    theme,
-    zoom,
-    panX,
-    panY,
-    currentStrokeColor,
-    currentBackgroundColor,
-    currentStrokeWidth,
-    currentRoughness,
-    currentStrokeStyle,
-    currentFillStyle,
-    activeTool,
-  ]);
+      saveLocalCanvasToStorage(elements, appState, selectedIds);
+    }, 800);
+    return () => clearTimeout(timeoutId);
+  }, [elements, roomSlug, selectedIds, theme]);
 
   useEffect(() => {
     if (roomSlug !== null) return;
-
     const flushToStorage = () => {
       const state = useCanvasStore.getState();
       const appState: LocalCanvasState = {
@@ -307,49 +287,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       };
       saveLocalCanvasToStorage(state.elements, appState, state.selectedIds);
     };
-
-    const handleVisibilityOrBlur = () => {
-      if (document.hidden) flushToStorage();
-    };
     const handleBeforeUnload = () => flushToStorage();
-
-    const handleStorage = (event: StorageEvent) => {
-      if (
-        !event.key ||
-        (event.key !== LOCAL_CANVAS_STORAGE_KEYS.CANVAS &&
-          event.key !== LOCAL_CANVAS_STORAGE_KEYS.STATE &&
-          event.key !== LOCAL_CANVAS_STORAGE_KEYS.STRUCTURED)
-      )
-        return;
-
-      const {
-        elements: savedElements,
-        appState,
-        selectedIds: savedSelectedIds,
-      } = loadLocalCanvasFromStorage();
-
-      if (savedElements && savedElements.length) {
-        setElements(savedElements, { skipHistory: true });
-      }
-      if (savedSelectedIds?.length) setSelectedIds(new Set(savedSelectedIds));
-      if (appState) {
-        if (appState.zoom) setZoom(appState.zoom);
-        if (appState.panX !== undefined && appState.panY !== undefined)
-          setPan(appState.panX, appState.panY);
-      }
-    };
-
-    window.addEventListener('blur', handleVisibilityOrBlur);
     window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityOrBlur);
-    window.addEventListener('storage', handleStorage);
     return () => {
-      window.removeEventListener('blur', handleVisibilityOrBlur);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityOrBlur);
-      window.removeEventListener('storage', handleStorage);
     };
-  }, [roomSlug, theme, setElements, setPan, setZoom]);
+  }, [roomSlug, theme]);
 
   useEffect(() => {
     const stored = getOrCreateCollaboratorName();
@@ -2050,13 +1993,15 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         />
       )}
 
-      <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-sm bg-background/80 backdrop-blur-sm border">
-        {isConnected ? (
-          <span className="text-green-600">● Connected</span>
-        ) : (
-          <span className="text-red-600">● Disconnected</span>
-        )}
-      </div>
+      {roomSlug !== null && (
+        <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-sm bg-background/80 backdrop-blur-sm border">
+          {isConnected ? (
+            <span className="text-green-600">● Connected</span>
+          ) : (
+            <span className="text-amber-600">● {connectionMessage}</span>
+          )}
+        </div>
+      )}
 
       {contextMenuState && (
         <ContextMenu

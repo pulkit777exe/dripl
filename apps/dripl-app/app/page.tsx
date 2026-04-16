@@ -22,19 +22,19 @@ import { Spinner } from '@/components/button/Spinner';
 const faqs = [
   {
     q: 'Is Dripl free to use?',
-    a: 'Yes — Dripl offers a generous free tier with unlimited canvases. Paid plans unlock real-time collaboration, team workspaces, and advanced export options.',
+    a: 'Yes. The free plan gives you the core canvas workflow. Upgrade only when you need advanced team controls.',
   },
   {
     q: 'What makes Dripl different from Excalidraw or FigJam?',
-    a: 'Dripl is purpose-built for quick visual planning: faster load times, one-click sharing, built-in AI generation, and a distraction-free interface that gets out of your way.',
+    a: 'Dripl focuses on speed, sharing, and clean collaboration defaults for small product teams.',
   },
   {
     q: 'Can I collaborate with my team in real-time?',
-    a: 'Absolutely. Invite anyone via link — they see live cursors, selections, and changes instantly. No sign-up required for viewers.',
+    a: 'Yes. Invite collaborators with a link and edits sync live with presence indicators.',
   },
   {
     q: 'How do I export my work?',
-    a: 'Export any canvas as PNG, SVG, or JSON. You can also generate shareable read-only links for stakeholders who only need to view.',
+    a: 'Export as PNG, SVG, or JSON whenever you need artifacts outside Dripl.',
   },
 ];
 
@@ -43,32 +43,32 @@ const features = [
   {
     icon: Layout,
     title: 'Infinite canvas',
-    desc: 'No edges, no limits. Pan, zoom, and arrange ideas however your brain works.',
+    desc: 'Sketch and organize ideas without page limits.',
   },
   {
     icon: MousePointerClick,
     title: 'Real-time cursors',
-    desc: 'See exactly where your teammates are working — cursors, selections, and edits, live.',
+    desc: 'Track who is editing what, in real time.',
   },
   {
     icon: Share2,
     title: 'One-click sharing',
-    desc: 'Generate a link that anyone can open. Boards, not attachments.',
+    desc: 'Share boards with a link instead of attachments.',
   },
   {
     icon: Undo2,
     title: 'Undo / Redo history',
-    desc: '100-step history. Experiment freely — you can always rewind.',
+    desc: 'Safe editing with revision history built in.',
   },
   {
     icon: Download,
     title: 'PNG, SVG & JSON export',
-    desc: 'Take your work anywhere. Production-ready output in one click.',
+    desc: 'Export into the format your workflow needs.',
   },
   {
     icon: Sparkles,
     title: 'AI generation',
-    desc: 'Describe a diagram and let Dripl draw it for you. Powered by Gemini.',
+    desc: 'Start diagrams from prompts, then edit manually.',
   },
 ];
 
@@ -140,37 +140,31 @@ export default function LandingPage() {
       </nav>
 
       {/* ═══════════  HERO  ═══════════ */}
-      <section className="mx-auto max-w-5xl px-6 pt-20 pb-16 md:px-10 md:pt-28 md:pb-24">
+      <section className="mx-auto max-w-5xl px-6 pt-20 pb-16 md:px-10 md:pt-28 md:pb-24 font-ui">
         <div className="max-w-2xl">
-          <h1 className="text-[40px] leading-[1.08] font-medium tracking-tight md:text-[56px]">
-            Plan visually{' '}
-            <span className="inline-block align-middle">
-              <PenLine className="inline h-8 w-8 text-[#E8462A] md:h-10 md:w-10" />
-            </span>
-            , and
+          <h1 className="text-[40px] leading-[1.05] font-semibold tracking-tight md:text-[56px]">
+            Save every idea that matters.
             <br />
-            ship together{' '}
-            <span className="inline-block align-middle">
-              <MousePointerClick className="inline h-8 w-8 text-[#E8462A] md:h-10 md:w-10" />
-            </span>{' '}
-            faster.
+            <span className="font-handwritten text-[#E8462A] text-[42px] md:text-[58px]">
+              Find it again, fast.
+            </span>
           </h1>
           <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-[#6B6860]">
-            Dripl gives your team an infinite collaborative canvas to sketch, organize, and present
-            ideas — without the overhead of traditional tools.
+            Dripl is a collaborative canvas for product teams. Capture ideas, shape direction, and
+            share decisions in one place.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/signup"
               className="rounded-md bg-[#E8462A] px-5 py-2.5 text-[13px] font-medium text-white transition-colors hover:bg-[#D93D22]"
             >
-              Start free workspace
+              Start for free
             </Link>
             <Link
               href="/login"
               className="rounded-md border border-[#D4D0C9] bg-transparent px-5 py-2.5 text-[13px] font-medium text-[#1A1917] transition-colors hover:bg-[#E8E5DE]"
             >
-              Open existing board
+              Open workspace
             </Link>
           </div>
         </div>
@@ -224,20 +218,19 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════════  PROBLEM STATEMENT  ═══════════ */}
-      <section id="how" className="py-20 text-center px-6">
+      <section id="how" className="py-20 text-center px-6 font-ui">
         <h2 className="text-[28px] md:text-[36px] font-medium tracking-tight leading-tight">
-          Your ideas are everywhere.
+          Your ideas are scattered.
           <br />
-          They shouldn&apos;t be.
+          They don&apos;t have to be.
         </h2>
         <p className="mx-auto mt-4 max-w-md text-[15px] text-[#6B6860] leading-relaxed">
-          Scattered notes, endless tabs, misaligned teams. Dripl replaces the chaos with a single
-          shared surface your whole team can think on.
+          Replace scattered docs and screenshots with one shared workspace that stays easy to scan.
         </p>
       </section>
 
       {/* ═══════════  FEATURES GRID  ═══════════ */}
-      <section id="features" className="mx-auto max-w-5xl px-6 py-16 md:px-10">
+      <section id="features" className="mx-auto max-w-5xl px-6 py-16 md:px-10 font-ui">
         <h2 className="text-[24px] font-medium tracking-tight mb-10">
           Built so you actually use it
         </h2>
@@ -268,27 +261,26 @@ export default function LandingPage() {
             />
           </div>
           <div className="relative z-10 flex flex-col items-center py-20 px-6 text-center">
-            <p className="text-[15px] text-[#6B6860] mb-2">
-              Save every idea that matters. Never lose one again, with
-            </p>
+            <p className="text-[15px] text-[#6B6860] mb-2">Keep every decision and draft in one place.</p>
             <div className="flex items-center gap-2 mb-6">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E8462A] text-white">
                 <PenLine className="h-4 w-4" />
               </div>
               <span className="text-3xl font-semibold tracking-tight text-[#E8462A]">Dripl</span>
             </div>
+            <p className="font-handwritten text-[#E8462A] text-[30px] mb-4">simple, clean, collaborative</p>
             <Link
               href="/signup"
               className="rounded-md bg-[#E8462A] px-6 py-2.5 text-[13px] font-medium text-white transition-colors hover:bg-[#D93D22]"
             >
-              Get started now
+              Create your workspace
             </Link>
           </div>
         </div>
       </section>
 
       {/* ═══════════  FAQ  ═══════════ */}
-      <section id="faq" className="mx-auto max-w-2xl px-6 py-16">
+      <section id="faq" className="mx-auto max-w-2xl px-6 py-16 font-ui">
         <h2 className="text-center text-[24px] font-medium tracking-tight mb-10">FAQ</h2>
         <div className="space-y-2">
           {faqs.map((faq, i) => (

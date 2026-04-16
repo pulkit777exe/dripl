@@ -65,8 +65,7 @@ export default function DashboardPage() {
   );
 
   const handleCreateFile = useCallback(async () => {
-    const file = await apiClient.createFile({ name: 'Untitled file' });
-    router.push(`/canvas/${file.id}`);
+    router.push('/canvas');
   }, [router]);
 
   const handleDeleteFile = useCallback(async (id: string) => {

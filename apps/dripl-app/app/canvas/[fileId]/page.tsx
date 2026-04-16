@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
 import { CanvasControls } from '@/components/canvas/CanvasControls';
@@ -9,10 +9,8 @@ import { TopBar } from '@/components/canvas/TopBar';
 import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
 import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { useAuth } from '@/app/context/AuthContext';
-import { useCanvasStore } from '@/lib/canvas-store';
 import { apiClient } from '@/lib/api';
 import { Spinner } from '@/components/button/Spinner';
-import type { DriplElement } from '@dripl/common';
 
 interface CanvasFilePageProps {
   params: Promise<{
@@ -21,86 +19,65 @@ interface CanvasFilePageProps {
 }
 
 export default function CanvasFilePage({ params }: CanvasFilePageProps) {
-  const { fileId } = React.use(params);
+  const { fileId: roomId } = React.use(params);
   const { effectiveTheme } = useTheme();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
-  const [isLoadingFile, setIsLoadingFile] = useState(true);
-  const skipNextSaveRef = useRef(true);
-
-  const elements = useCanvasStore(state => state.elements);
-  const setUserId = useCanvasStore(state => state.setUserId);
-  const setElements = useCanvasStore(state => state.setElements);
-  const setSelectedIds = useCanvasStore(state => state.setSelectedIds);
-  const setFileMetadata = useCanvasStore(state => state.setFileMetadata);
-  const markSaving = useCanvasStore(state => state.markSaving);
-  const markSaved = useCanvasStore(state => state.markSaved);
+  const [isLoadingRoom, setIsLoadingRoom] = useState(true);
+  const [roomMissing, setRoomMissing] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      router.replace('/login');
+      router.replace(`/login?next=${encodeURIComponent(`/canvas/${roomId}`)}`);
       return;
     }
 
     let cancelled = false;
-    setUserId(user.id);
-
-    const loadFile = async () => {
+    const checkRoom = async () => {
       try {
-        const response = await apiClient.getFile(fileId);
-        if (cancelled) return;
-        const content = Array.isArray(response.file.content)
-          ? (response.file.content as DriplElement[])
-          : [];
-        setElements(content, { skipHistory: true });
-        setSelectedIds(new Set<string>());
-        setFileMetadata(response.file.id, response.file.name);
-        skipNextSaveRef.current = true;
+        await apiClient.getCanvasRoom(roomId);
+        if (!cancelled) setRoomMissing(false);
       } catch (error) {
-        console.error('Failed to load file', error);
-        router.replace('/dashboard');
-        return;
+        console.error('Failed to load room', error);
+        if (!cancelled) setRoomMissing(true);
       } finally {
         if (!cancelled) {
-          setIsLoadingFile(false);
+          setIsLoadingRoom(false);
         }
       }
     };
 
-    void loadFile();
+    void checkRoom();
 
     return () => {
       cancelled = true;
     };
-  }, [authLoading, fileId, router, setElements, setFileMetadata, setSelectedIds, setUserId, user]);
+  }, [authLoading, roomId, router, user]);
 
-  useEffect(() => {
-    if (!user || isLoadingFile) return;
-    if (skipNextSaveRef.current) {
-      skipNextSaveRef.current = false;
-      return;
-    }
-
-    const timeout = window.setTimeout(async () => {
-      try {
-        markSaving(true);
-        await apiClient.updateFile(fileId, { content: elements });
-        markSaved();
-      } catch (error) {
-        markSaving(false);
-        console.error('Failed to auto-save file', error);
-      }
-    }, 2000);
-
-    return () => window.clearTimeout(timeout);
-  }, [elements, fileId, isLoadingFile, markSaved, markSaving, user]);
-
-  if (authLoading || isLoadingFile) {
+  if (authLoading || isLoadingRoom) {
     return (
       <div className="flex h-dvh items-center justify-center bg-[#f5f0e8]">
         <Spinner className="size-6 text-[#7a7267]" />
+      </div>
+    );
+  }
+  if (roomMissing) {
+    return (
+      <div className="flex h-dvh items-center justify-center bg-[#f5f0e8] p-6">
+        <div className="max-w-md rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] p-5">
+          <p className="text-[14px] font-medium text-[#1A1917]">
+            This collaboration session has ended or doesn&apos;t exist.
+          </p>
+          <button
+            type="button"
+            className="mt-4 rounded-md bg-[#E8462A] px-4 py-2 text-[13px] text-white"
+            onClick={() => router.push('/canvas')}
+          >
+            Go to canvas
+          </button>
+        </div>
       </div>
     );
   }
@@ -120,7 +97,7 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
       />
 
       <TopBar />
-      <CanvasBootstrap mode="room" roomSlug={fileId} theme={effectiveTheme} />
+      <CanvasBootstrap mode="room" roomSlug={roomId} theme={effectiveTheme} />
 
       <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20">
         <CanvasToolbar />

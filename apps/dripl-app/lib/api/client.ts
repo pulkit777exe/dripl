@@ -33,14 +33,14 @@ compat.signup = coreApiClient.register.bind(coreApiClient);
 compat.getProfile = coreApiClient.me.bind(coreApiClient);
 compat.getFiles = coreApiClient.listFiles.bind(coreApiClient);
 compat.createRoom = async (data?: { name?: string }) => {
-  const created = await coreApiClient.createFile({
+  const created = await coreApiClient.createCanvasRoom({
     name: data?.name,
   });
   return {
     room: {
-      id: created.id,
-      slug: created.id,
-      name: created.name,
+      id: created.roomId,
+      slug: created.roomId,
+      name: data?.name ?? 'Untitled Room',
     },
   };
 };
@@ -53,13 +53,13 @@ compat.updateRoom = async (slug: string, data: { name?: string; content?: string
   });
 };
 compat.getRoom = async (slug: string) => {
-  const result = await coreApiClient.getFile(slug);
+  const result = await coreApiClient.getCanvasRoom(slug);
   return {
     room: {
-      id: result.file.id,
-      slug: result.file.id,
-      name: result.file.name,
-      content: result.file.content,
+      id: result.room.slug,
+      slug: result.room.slug,
+      name: result.room.slug,
+      content: [],
     },
   };
 };
