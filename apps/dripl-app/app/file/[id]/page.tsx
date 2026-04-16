@@ -10,6 +10,7 @@ import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/app/context/AuthContext';
 import { useCanvasStore } from '@/lib/canvas-store';
+import { Spinner } from '@/components/button/Spinner';
 
 export default function FilePage() {
   const params = useParams<{ id: string }>();
@@ -34,8 +35,8 @@ export default function FilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-dvh bg-background">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="flex h-dvh items-center justify-center bg-background">
+        <Spinner className="size-6 text-muted-foreground" />
       </div>
     );
   }

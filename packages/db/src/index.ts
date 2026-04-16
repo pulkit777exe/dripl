@@ -6,7 +6,7 @@ import { URL } from 'url';
 
 let prismaInstance: PrismaClient | null = null;
 
-function createPrismaClient(): PrismaClient {
+async function createPrismaClient(): Promise<PrismaClient> {
   const dbUrl = process.env.DATABASE_URL || '';
 
   if (!dbUrl) {
@@ -16,8 +16,8 @@ function createPrismaClient(): PrismaClient {
   }
 
   const isLocalhost = dbUrl.includes('localhost');
-  const shouldDisableSsl = isLocalhost || process.env.NODE_ENV !== 'production';
-
+  const isNeon = dbUrl.includes('neon.tech');
+  const shouldDisableSsl = isLocalhost && !isNeon && process.env.NODE_ENV !== 'production';
 
   const url = new URL(dbUrl);
   const poolConfig = {
@@ -27,8 +27,9 @@ function createPrismaClient(): PrismaClient {
     password: url.password,
     database: url.pathname.replace('/', ''),
     ssl: shouldDisableSsl ? false : { rejectUnauthorized: false },
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
   };
-
 
   const pool = new Pool(poolConfig);
 
@@ -36,8 +37,7 @@ function createPrismaClient(): PrismaClient {
     console.error('[db] Pool error:', err);
   });
 
-  pool.on('connect', () => {
-  });
+  pool.on('connect', () => {});
 
   const adapter = new PrismaPg(pool);
   return new PrismaClient({
@@ -48,11 +48,21 @@ function createPrismaClient(): PrismaClient {
 
 export const db: PrismaClient = new Proxy({} as PrismaClient, {
   get(_target, prop) {
+    if (prop === 'then') {
+      return undefined;
+    }
     if (!prismaInstance) {
-      prismaInstance = createPrismaClient();
+      throw new Error(
+        'PrismaClient not initialized. This may be due to accessing db before dotenv is loaded or a connection issue. Make sure to load environment variables before using db operations.'
+      );
     }
     return (prismaInstance as any)[prop];
   },
 });
 
-export default db;
+export async function initializeDb(): Promise<PrismaClient> {
+  if (!prismaInstance) {
+    prismaInstance = await createPrismaClient();
+  }
+  return prismaInstance;
+}

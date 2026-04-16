@@ -152,3 +152,143 @@ Uses Conventional Commits. Run `pnpm commitlint` locally.
 | Ctrl+S       | Save                        |
 | Ctrl++/-/0   | Zoom in/out/reset           |
 | Ctrl+G       | Toggle grid                 |
+
+---
+
+## User Experience: Multiple User Types
+
+### 1. Existing User
+
+- **Session-based authentication** via cookie ensures seamless return
+- **Dashboard** displays their files/folders with quick access
+- **Canvas state persistence** allows continuation from last session
+- **Collaboration features** enable real-time co-editing with other users
+- **Undo/redo history** (100 steps) supports complex workflows
+- **Workspace preferences** (dark/light theme, grid toggle) are remembered
+- **Recent files** and quick navigation
+
+### 2. New User
+
+- **Onboarding flow** with guided shortcuts display (Ctrl+G to toggle)
+- **Template options** or blank canvas creation
+- **Real-time collaborator presence** shows who else is in the workspace
+- **Export/share links** enable easy sharing of initial creations
+- **Freehand drawing tools** for immediate creative expression
+- **Responsive grid and zoom** for precise placement
+
+### 3. Guest/Anonymous User (Limited Access)
+
+- **View-only mode** for shared links without account
+- **Restricted export** capabilities
+- **No persistent state** — session ends on close
+
+### 4. Administrator/Team Lead
+
+- **File/folder management** across team workspaces
+- **User activity monitoring** through collaboration presence
+- **Export analytics** for project usage insights
+- **Team preference synchronization** via shared settings
+
+### 5. Power User
+
+- **Keyboard shortcuts** for all tools (V, R, E, D, P, L, A, T, F, X, H)
+- **Batch operations** via selection and transform handles
+- **Advanced export options** (PNG, SVG, JSON)
+- **Custom workspace layouts** with drag-and-drop zones
+
+---
+
+## Ongoing Maintenance Recommendations
+
+### CI/CD: Add parallel test execution, artifact publishing, deployment gates
+
+### Testing: Expand unit/integration tests, implement E2E with Playwright
+
+### Performance: Add bundle analysis, runtime metrics, error tracking (Sentry)
+
+### Security: Implement npm audit, secret detection, CSP headers
+
+### Type Safety: Strict TypeScript mode, type-only imports, branded types
+
+### Workflow: Pre-commit hooks (Husky + lint-staged), conventional commits
+
+---
+
+## Success Metrics
+
+- Build success rate: >95%
+- Test coverage: >80%
+- Security vulnerabilities: 0 critical
+- Performance regression: <5%
+- Type errors in production: 0
+- Code review turnaround: <24 hours
+- Deployment frequency: Daily
+- Mean time to recovery: <1 hour
+
+---
+
+## Maintenance Schedule
+
+### Daily
+
+- Run security scans
+- Execute unit tests
+- Monitor build health
+
+### Weekly
+
+- Review performance metrics
+- Update dependencies
+- Code quality analysis
+
+### Monthly
+
+- Full security audit
+- Performance benchmark comparison
+- Technical debt review
+- Process improvement assessment
+
+### Quarterly
+
+- Architecture review
+- Tooling evaluation
+- Team skill assessment
+- Strategic planning update
+
+---
+
+## Emergency Procedures
+
+### Build/Deployment Failure
+
+1. Immediately rollback to last stable version
+2. Create incident ticket
+3. Root cause analysis
+4. Implement fix
+5. Resume deployment
+
+### Security Vulnerability
+
+1. Immediately patch critical vulnerabilities
+2. Rotate all credentials/secrets
+3. Conduct full security audit
+4. Implement preventive measures
+5. Document and report
+
+### Performance Degradation
+
+1. Activate monitoring alerts
+2. Identify bottleneck
+3. Implement quick fixes
+4. Long-term optimization plan
+5. Post-mortem analysis
+
+---
+
+## Continuous Improvement Loop
+
+1. **Measure**: Collect metrics from all tools
+2. **Analyze**: Identify trends and issues
+3. **Plan**: Prioritize improvements
+4. **Implement**: Execute changes
+5. **Review**: Assess impact and adjust

@@ -1,0 +1,153 @@
+# CI/CD Configuration Templates
+
+## GitHub Actions Workflow
+
+```yaml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  CI: true
+  NODE_ENV: test
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Security Scan
+        uses: github/codeql-action/analyze@v2
+
+  test:
+    runs-on: ubuntu-latest
+    needs: security-scan
+    strategy:
+      matrix:
+        node-version: [18.x]
+        parallel: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - run: npm ci --prefer-offline
+      - run: npm test -- --shard=${{ matrix.parallel }}/4
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+      - run: npm ci --prefer-offline
+      - run: npm run build
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: dist/
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+          path: dist/
+      - name: Deploy to Production
+        run: ./deploy.sh
+```
+
+## GitLab CI Configuration
+
+```yaml
+stages:
+  - security
+  - test
+  - build
+  - deploy
+
+variables:
+  NODE_ENV: "test"
+  CACHE_KEY: "v1-${CI_COMMIT_REF_SLUG}"
+
+cache:
+  key: ${CACHE_KEY}
+  paths:
+    - node_modules/
+    - .npm/
+
+security_scan:
+  stage: security
+  image: node:18-alpine
+  script:
+    - npm audit --audit-level=high
+    - npx codeql analyze --language=javascript
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+test_unit:
+  stage: test
+  image: node:18-alpine
+  parallel: 4
+  script:
+    - npm ci --prefer-offline
+    - npm test -- --shard=$CI_NODE_INDEX/4
+  coverage: '/All files[^|]*\|[^|]*\|(\d+%)/'
+
+build_production:
+  stage: build
+  image: node:18-alpine
+  needs:
+    - job: test_unit
+      artifacts: true
+  script:
+    - npm run build:production
+    - tar -czf artifacts.tar.gz dist/
+  artifacts:
+    paths:
+      - artifacts.tar.gz
+    expire_in: 1 week
+
+deploy_staging:
+  stage: deploy
+  image: alpine:latest
+  needs:
+    - job: build_production
+      artifacts: true
+  script:
+    - apk add --no-cache openssh-client
+    - ./deploy.sh staging
+  environment:
+    name: staging
+    url: https://staging.example.com
+
+deploy_production:
+  stage: deploy
+  image: alpine:latest
+  needs:
+    - job: build_production
+      artifacts: true
+  script:
+    - apk add --no-cache openssh-client
+    - ./deploy.sh production
+  environment:
+    name: production
+    url: https://example.com
+  when: manual
+```

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
+import { Spinner } from '@/components/button/Spinner';
 
 const fieldClassName =
   'w-full rounded-xl border border-border/70 bg-secondary/35 px-4 py-2.5 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary/45 focus:bg-card focus:ring-2 focus:ring-primary/20';
@@ -90,7 +91,13 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <AuthShell title="Set new password" subtitle="Choose a strong password for your account.">
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading...</p>}>
+      <Suspense
+        fallback={
+          <div className="flex justify-center py-4">
+            <Spinner className="size-5 text-muted-foreground" />
+          </div>
+        }
+      >
         <ResetPasswordForm />
       </Suspense>
     </AuthShell>

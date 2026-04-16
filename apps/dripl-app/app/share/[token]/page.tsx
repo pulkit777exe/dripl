@@ -10,6 +10,7 @@ import { CanvasControls } from '@/components/canvas/CanvasControls';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
 import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { TopBar } from '@/components/canvas/TopBar';
+import { Spinner } from '@/components/button/Spinner';
 
 interface SharePageProps {
   params: Promise<{
@@ -93,7 +94,7 @@ export default function SharedCanvasPage({ params }: SharePageProps) {
   if (loading) {
     return (
       <div className="flex h-dvh items-center justify-center bg-[#f5f0e8]">
-        <p className="text-[#7a7267]">Loading shared canvas...</p>
+        <Spinner className="size-6 text-[#7a7267]" />
       </div>
     );
   }

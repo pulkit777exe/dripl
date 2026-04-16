@@ -11,6 +11,7 @@ import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { useAuth } from '@/app/context/AuthContext';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { apiClient } from '@/lib/api';
+import { Spinner } from '@/components/button/Spinner';
 import type { DriplElement } from '@dripl/common';
 
 interface CanvasFilePageProps {
@@ -99,7 +100,7 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
   if (authLoading || isLoadingFile) {
     return (
       <div className="flex h-dvh items-center justify-center bg-[#f5f0e8]">
-        <p className="text-[#7a7267]">Loading canvas...</p>
+        <Spinner className="size-6 text-[#7a7267]" />
       </div>
     );
   }

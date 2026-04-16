@@ -16,6 +16,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
+import { Spinner } from '@/components/button/Spinner';
 
 /* ----------  FAQ data  ---------- */
 const faqs = [
@@ -82,6 +83,14 @@ export default function LandingPage() {
     }
   }, [loading, router, user]);
 
+  if (loading) {
+    return (
+      <main className="min-h-dvh flex items-center justify-center bg-[#F0EDE6]">
+        <Spinner className="size-8 text-[#E8462A]" />
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-dvh bg-[#F0EDE6] text-[#1A1917] font-sans selection:bg-[#FAE8E5]">
       {/* ═══════════  NAVBAR  ═══════════ */}
@@ -94,13 +103,31 @@ export default function LandingPage() {
         </Link>
 
         <div className="hidden md:flex items-center gap-6">
-          <a href="#features" className="text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors">Features</a>
-          <a href="#how" className="text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors">How it works</a>
-          <a href="#faq" className="text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors">FAQ</a>
+          <a
+            href="#features"
+            className="text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors"
+          >
+            Features
+          </a>
+          <a
+            href="#how"
+            className="text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors"
+          >
+            How it works
+          </a>
+          <a
+            href="#faq"
+            className="text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors"
+          >
+            FAQ
+          </a>
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/login" className="text-[13px] font-medium text-[#6B6860] hover:text-[#1A1917] transition-colors hidden sm:inline">
+          <Link
+            href="/login"
+            className="text-[13px] font-medium text-[#6B6860] hover:text-[#1A1917] transition-colors hidden sm:inline"
+          >
             Sign in
           </Link>
           <Link
@@ -120,7 +147,8 @@ export default function LandingPage() {
             <span className="inline-block align-middle">
               <PenLine className="inline h-8 w-8 text-[#E8462A] md:h-10 md:w-10" />
             </span>
-            , and<br />
+            , and
+            <br />
             ship together{' '}
             <span className="inline-block align-middle">
               <MousePointerClick className="inline h-8 w-8 text-[#E8462A] md:h-10 md:w-10" />
@@ -128,7 +156,8 @@ export default function LandingPage() {
             faster.
           </h1>
           <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-[#6B6860]">
-            Dripl gives your team an infinite collaborative canvas to sketch, organize, and present ideas — without the overhead of traditional tools.
+            Dripl gives your team an infinite collaborative canvas to sketch, organize, and present
+            ideas — without the overhead of traditional tools.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
@@ -158,10 +187,14 @@ export default function LandingPage() {
           </div>
           <div className="relative h-[320px] md:h-[420px] bg-[#FAFAF7] flex items-center justify-center">
             {/* Skeleton grid lines */}
-            <div className="absolute inset-0 opacity-[0.08]" style={{
-              backgroundImage: 'linear-gradient(to right, #D4D0C9 1px, transparent 1px), linear-gradient(to bottom, #D4D0C9 1px, transparent 1px)',
-              backgroundSize: '32px 32px',
-            }} />
+            <div
+              className="absolute inset-0 opacity-[0.08]"
+              style={{
+                backgroundImage:
+                  'linear-gradient(to right, #D4D0C9 1px, transparent 1px), linear-gradient(to bottom, #D4D0C9 1px, transparent 1px)',
+                backgroundSize: '32px 32px',
+              }}
+            />
 
             {/* Floating cards */}
             <div className="absolute top-8 left-8 md:top-12 md:left-16 w-56 rounded-lg border border-[#E4E0D9] bg-white p-4 shadow-sm -rotate-1">
@@ -193,10 +226,13 @@ export default function LandingPage() {
       {/* ═══════════  PROBLEM STATEMENT  ═══════════ */}
       <section id="how" className="py-20 text-center px-6">
         <h2 className="text-[28px] md:text-[36px] font-medium tracking-tight leading-tight">
-          Your ideas are everywhere.<br />They shouldn&apos;t be.
+          Your ideas are everywhere.
+          <br />
+          They shouldn&apos;t be.
         </h2>
         <p className="mx-auto mt-4 max-w-md text-[15px] text-[#6B6860] leading-relaxed">
-          Scattered notes, endless tabs, misaligned teams. Dripl replaces the chaos with a single shared surface your whole team can think on.
+          Scattered notes, endless tabs, misaligned teams. Dripl replaces the chaos with a single
+          shared surface your whole team can think on.
         </p>
       </section>
 
@@ -206,7 +242,7 @@ export default function LandingPage() {
           Built so you actually use it
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((f) => (
+          {features.map(f => (
             <article
               key={f.title}
               className="group rounded-lg border border-[#E4E0D9] bg-[#FAFAF7] p-5 transition-colors hover:bg-white"
@@ -256,18 +292,21 @@ export default function LandingPage() {
         <h2 className="text-center text-[24px] font-medium tracking-tight mb-10">FAQ</h2>
         <div className="space-y-2">
           {faqs.map((faq, i) => (
-            <div key={i} className="border border-[#E4E0D9] rounded-lg bg-[#FAFAF7] overflow-hidden">
+            <div
+              key={i}
+              className="border border-[#E4E0D9] rounded-lg bg-[#FAFAF7] overflow-hidden"
+            >
               <button
                 onClick={() => setOpenFaq(openFaq === i ? null : i)}
                 className="flex w-full items-center justify-between px-5 py-4 text-left text-[14px] font-medium hover:bg-white transition-colors"
               >
                 {faq.q}
-                <ChevronDown className={`h-4 w-4 text-[#9B9890] transition-transform ${openFaq === i ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  className={`h-4 w-4 text-[#9B9890] transition-transform ${openFaq === i ? 'rotate-180' : ''}`}
+                />
               </button>
               {openFaq === i && (
-                <div className="px-5 pb-4 text-[13px] leading-relaxed text-[#6B6860]">
-                  {faq.a}
-                </div>
+                <div className="px-5 pb-4 text-[13px] leading-relaxed text-[#6B6860]">{faq.a}</div>
               )}
             </div>
           ))}
@@ -284,13 +323,25 @@ export default function LandingPage() {
             <span className="text-sm font-semibold tracking-tight text-[#E8462A]">Dripl</span>
           </div>
           <div className="flex gap-6 text-[12px] text-[#9B9890]">
-            <a href="#" className="hover:text-[#1A1917] transition-colors">Product</a>
-            <a href="#" className="hover:text-[#1A1917] transition-colors">Changelog</a>
-            <a href="#" className="hover:text-[#1A1917] transition-colors">Careers</a>
-            <a href="#" className="hover:text-[#1A1917] transition-colors">Twitter</a>
-            <a href="#" className="hover:text-[#1A1917] transition-colors">GitHub</a>
+            <a href="#" className="hover:text-[#1A1917] transition-colors">
+              Product
+            </a>
+            <a href="#" className="hover:text-[#1A1917] transition-colors">
+              Changelog
+            </a>
+            <a href="#" className="hover:text-[#1A1917] transition-colors">
+              Careers
+            </a>
+            <a href="#" className="hover:text-[#1A1917] transition-colors">
+              Twitter
+            </a>
+            <a href="#" className="hover:text-[#1A1917] transition-colors">
+              GitHub
+            </a>
           </div>
-          <p className="text-[11px] text-[#9B9890]">© {new Date().getFullYear()} Dripl. All rights reserved.</p>
+          <p className="text-[11px] text-[#9B9890]">
+            © {new Date().getFullYear()} Dripl. All rights reserved.
+          </p>
         </div>
       </footer>
     </main>

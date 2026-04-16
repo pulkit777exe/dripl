@@ -11,7 +11,10 @@ export interface AuthRequest extends Request {
 
 export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction): void => {
   try {
-    const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
+    const token =
+      req.cookies?.token ||
+      req.cookies?.['dripl-session'] ||
+      req.headers.authorization?.split(' ')[1];
 
     if (!token) {
       res.status(401).json({ error: 'Authentication required' });

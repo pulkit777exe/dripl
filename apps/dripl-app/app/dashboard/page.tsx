@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileBrowser } from '@/components/dashboard/FileBrowser';
-import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { useAuth } from '@/app/context/AuthContext';
 import { apiClient, type FileSummary, type FolderSummary } from '@/lib/api';
+import { Spinner } from '@/components/button/Spinner';
 
 const PAGE_SIZE = 20;
 
@@ -94,10 +94,7 @@ export default function DashboardPage() {
   if (authLoading || loading) {
     return (
       <div className="flex h-dvh items-center justify-center bg-[#F0EDE6]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-7 h-7 border-2 border-[#E8462A] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[13px] text-[#6B6860]">Loading...</p>
-        </div>
+        <Spinner className="size-7 text-[#E8462A]" />
       </div>
     );
   }
@@ -108,7 +105,6 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-dvh w-full bg-[#F0EDE6]">
-      <DashboardSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <header className="flex items-center justify-between border-b border-[#E4E0D9] bg-[#FAFAF7] px-6 py-3">

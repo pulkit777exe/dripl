@@ -13,8 +13,13 @@ import jwt from 'jsonwebtoken';
 import type { DriplElement } from '@dripl/common';
 import { pickUserColor } from '@dripl/common';
 import { requiredEnv } from '@dripl/utils';
-import { db } from '@dripl/db';
+import { db, initializeDb } from '@dripl/db';
 import { messageSchema } from './validation';
+
+initializeDb().catch(err => {
+  console.error('[ws-server] Failed to initialize database:', err);
+  process.exit(1);
+});
 
 function toDriplElement(el: unknown): DriplElement {
   const e = el as DriplElement;
