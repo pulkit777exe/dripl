@@ -9,6 +9,7 @@ import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { initializeDb } from '@dripl/db';
 import { authMiddleware } from './middlewares/authMiddleware';
 import { authRouter } from './routes/auth';
 import { filesRouter } from './routes/files';
@@ -63,5 +64,14 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 app.listen(port, () => {
+  initializeDb()
+    .then(() => {
+      console.log(JSON.stringify({ level: 'info', event: 'db_connected' }));
+    })
+    .catch(err => {
+      console.error(
+        JSON.stringify({ level: 'error', event: 'db_connection_failed', error: err.message })
+      );
+    });
   console.log(JSON.stringify({ level: 'info', event: 'http_server_started', port }));
 });
