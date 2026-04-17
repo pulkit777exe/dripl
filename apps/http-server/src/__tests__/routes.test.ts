@@ -1,14 +1,30 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
-import express, { Express, type Request, type Response } from 'express';
+import express, { Express, type Request, type Response, type NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { authRouter } from '../routes/auth';
 import { filesRouter } from '../routes/files';
 import { foldersRouter } from '../routes/folders';
+import roomRoutes from '../routes/roomRoutes';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
+
+const testAuthMiddleware = (req: Request, res: Response, next: NextFunction): void => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    (req as any).userId = decoded.userId;
+    next();
+  } catch {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+};
 
 function createTestApp(): Express {
   const app: Express = express();
@@ -22,8 +38,9 @@ function createTestApp(): Express {
     })
   );
   app.use('/api/auth', authRouter);
-  app.use('/api/files', filesRouter);
-  app.use('/api/folders', foldersRouter);
+  app.use('/api/files', testAuthMiddleware, filesRouter);
+  app.use('/api/folders', testAuthMiddleware, foldersRouter);
+  app.use('/api/rooms', testAuthMiddleware, roomRoutes);
   app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
   });
@@ -104,6 +121,27 @@ describe('HTTP Server Routes', () => {
   describe('POST /api/folders', () => {
     it('should return 401 without auth token', async () => {
       const res = await request(app).post('/api/folders').send({ name: 'Test' });
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('GET /api/rooms', () => {
+    it('should return 401 without auth token', async () => {
+      const res = await request(app).get('/api/rooms');
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('GET /api/rooms/:slug', () => {
+    it('should return 401 without auth token', async () => {
+      const res = await request(app).get('/api/rooms/testslug');
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('POST /api/rooms', () => {
+    it('should return 401 without auth token', async () => {
+      const res = await request(app).post('/api/rooms').send({ name: 'Test Room' });
       expect(res.status).toBe(401);
     });
   });
