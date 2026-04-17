@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Check, HelpCircle } from 'lucide-react';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
 import { CanvasControls } from '@/components/canvas/CanvasControls';
@@ -14,7 +14,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { saveLocalCanvasToStorage, type LocalCanvasState } from '@/utils/localCanvasStorage';
 
-export default function CanvasPage() {
+function CanvasContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { effectiveTheme } = useTheme();
@@ -98,11 +98,7 @@ export default function CanvasPage() {
       {showStorageWarning && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-210 pointer-events-auto bg-[#FEF3F2] border border-[#FECACA] rounded-md px-3 py-2 text-[12px] text-[#B42318] flex items-center gap-2">
           <span>Canvas won&apos;t be saved in this browser session.</span>
-          <button
-            type="button"
-            className="underline"
-            onClick={() => setShowStorageWarning(false)}
-          >
+          <button type="button" className="underline" onClick={() => setShowStorageWarning(false)}>
             Dismiss
           </button>
         </div>
@@ -235,5 +231,19 @@ export default function CanvasPage() {
       <CommandPalette />
       {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)} />}
     </div>
+  );
+}
+
+export default function CanvasPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-dvh items-center justify-center bg-canvas-bg">
+          <div className="size-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+        </div>
+      }
+    >
+      <CanvasContent />
+    </Suspense>
   );
 }

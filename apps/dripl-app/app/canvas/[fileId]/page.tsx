@@ -40,8 +40,13 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
         await apiClient.getCanvasRoom(roomId);
         if (!cancelled) setRoomMissing(false);
       } catch (error) {
-        console.error('Failed to load room', error);
-        if (!cancelled) setRoomMissing(true);
+        const err = error as { status?: number };
+        if (err.status === 404) {
+          if (!cancelled) setRoomMissing(true);
+        } else {
+          console.error('Failed to load room', error);
+          if (!cancelled) setRoomMissing(true);
+        }
       } finally {
         if (!cancelled) {
           setIsLoadingRoom(false);
