@@ -3,6 +3,7 @@ import { Caveat, Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import CookieConsent from '@/components/CookieConsent';
 
 export const metadata: Metadata = {
   title: 'Dripl — Think in public',
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${caveat.variable}`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>{children}</AuthProvider>
+          <CookieConsent />
         </ThemeProvider>
       </body>
     </html>
