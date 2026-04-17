@@ -463,4 +463,83 @@ authRouter.post('/resend-verification', async (req, res) => {
   }
 });
 
+authRouter.put('/profile', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  const { name, image } = req.body;
+  
+  try {
+    const updatedUser = await db.user.update({
+      where: { id: req.userId },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(image !== undefined && { image }),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        image: true,
+      },
+    });
+
+    res.json({ user: updatedUser });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'update_profile_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+authRouter.post('/change-password', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  const { currentPassword, newPassword } = req.body;
+  
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: 'Current and new password are required' });
+    return;
+  }
+
+  if (newPassword.length < 8) {
+    res.status(400).json({ error: 'New password must be at least 8 characters' });
+    return;
+  }
+
+  try {
+    const user = await db.user.findUnique({
+      where: { id: req.userId },
+    });
+
+    if (!user || !user.password) {
+      res.status(400).json({ error: 'Cannot change password for this account' });
+      return;
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid) {
+      res.status(401).json({ error: 'Current password is incorrect' });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db.user.update({
+      where: { id: req.userId },
+      data: { password: hashedPassword },
+    });
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'change_password_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
 export { authRouter };

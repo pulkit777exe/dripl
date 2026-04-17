@@ -146,6 +146,20 @@ class ApiClient {
     });
   }
 
+  async updateProfile(payload: { name?: string; image?: string }): Promise<{ user: AuthUser }> {
+    return this.request('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async changePassword(payload: { currentPassword: string; newPassword: string }): Promise<{ ok: boolean }> {
+    return this.request('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   async me(): Promise<{ user: AuthUser }> {
     return this.request('/auth/me');
   }

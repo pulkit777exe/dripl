@@ -31,6 +31,8 @@ type AuthContextType = {
   resetPassword: (token: string, password: string) => Promise<void>;
   verifyEmail: (token: string) => Promise<void>;
   resendVerification: (email: string) => Promise<void>;
+  updateProfile: (name?: string, image?: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   refreshUser: () => Promise<void>;
   generateToken: () => Promise<string>;
   validateToken: (_token: string) => Promise<boolean>;
@@ -102,6 +104,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await apiClient.resendVerification({ email });
   }, []);
 
+  const updateProfile = useCallback(async (name?: string, image?: string) => {
+    const response = await apiClient.updateProfile({ name, image });
+    setUser(response.user);
+  }, []);
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    await apiClient.changePassword({ currentPassword, newPassword });
+  }, []);
+
   const value = useMemo<AuthContextType>(
     () => ({
       user,
@@ -115,11 +126,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPassword,
       verifyEmail,
       resendVerification,
+      updateProfile,
+      changePassword,
       refreshUser,
       generateToken: async () => '',
       validateToken: async () => false,
     }),
-    [loading, login, logout, googleLogin, forgotPassword, resetPassword, verifyEmail, resendVerification, refreshUser, signup, user]
+    [loading, login, logout, googleLogin, forgotPassword, resetPassword, verifyEmail, resendVerification, updateProfile, changePassword, refreshUser, signup, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
