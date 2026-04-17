@@ -132,7 +132,7 @@ export default function LandingPage() {
           </Link>
           <Link
             href="/signup"
-            className="rounded-md bg-[#E8462A] px-4 py-[7px] text-[13px] font-medium text-white transition-colors hover:bg-[#D93D22]"
+            className="rounded-md bg-[#E8462A] px-4 py-1.75 text-[13px] font-medium text-white transition-colors hover:bg-[#D93D22]"
           >
             Get started free
           </Link>
@@ -179,7 +179,7 @@ export default function LandingPage() {
             </div>
             <span className="ml-2 text-[11px] text-[#9B9890]">dripl.app/canvas/q2-board</span>
           </div>
-          <div className="relative h-[320px] md:h-[420px] bg-[#FAFAF7] flex items-center justify-center">
+          <div className="relative h-80 md:h-105 bg-[#FAFAF7] flex items-center justify-center">
             {/* Skeleton grid lines */}
             <div
               className="absolute inset-0 opacity-[0.08]"
@@ -257,18 +257,23 @@ export default function LandingPage() {
               src="/maple.png"
               alt=""
               fill
+              sizes="100vw"
               className="object-cover opacity-30 mix-blend-multiply pointer-events-none"
             />
           </div>
           <div className="relative z-10 flex flex-col items-center py-20 px-6 text-center">
-            <p className="text-[15px] text-[#6B6860] mb-2">Keep every decision and draft in one place.</p>
+            <p className="text-[15px] text-[#6B6860] mb-2">
+              Keep every decision and draft in one place.
+            </p>
             <div className="flex items-center gap-2 mb-6">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E8462A] text-white">
                 <PenLine className="h-4 w-4" />
               </div>
               <span className="text-3xl font-semibold tracking-tight text-[#E8462A]">Dripl</span>
             </div>
-            <p className="font-handwritten text-[#E8462A] text-[30px] mb-4">simple, clean, collaborative</p>
+            <p className="font-handwritten text-[#E8462A] text-[30px] mb-4">
+              simple, clean, collaborative
+            </p>
             <Link
               href="/signup"
               className="rounded-md bg-[#E8462A] px-6 py-2.5 text-[13px] font-medium text-white transition-colors hover:bg-[#D93D22]"

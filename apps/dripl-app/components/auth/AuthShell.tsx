@@ -19,6 +19,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
           src="/maple.png"
           alt=""
           fill
+          sizes="52vw"
           className="object-cover pointer-events-none"
           priority
         />
@@ -26,7 +27,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
 
       {/* Right — Form panel */}
       <div className="flex w-full flex-col items-center justify-center bg-[#F5F3EE] px-6 py-10 sm:px-12 lg:w-[48%]">
-        <div className="w-full max-w-[380px]">
+        <div className="w-full max-w-95">
           {/* Logo */}
           <div className="mb-8 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8462A] text-white">
