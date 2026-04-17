@@ -24,11 +24,13 @@ type AuthContextType = {
   loading: boolean;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name?: string) => Promise<void>;
+  signup: (email: string, password: string, name?: string) => Promise<{ pendingVerification?: boolean }>;
   logout: () => Promise<void>;
   googleLogin: (token: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
+  verifyEmail: (token: string) => Promise<void>;
+  resendVerification: (email: string) => Promise<void>;
   refreshUser: () => Promise<void>;
   generateToken: () => Promise<string>;
   validateToken: (_token: string) => Promise<boolean>;
@@ -64,7 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = useCallback(async (email: string, password: string, name?: string) => {
     const response = await apiClient.register({ email, password, name });
-    setUser(response.user);
+    if (response.user) {
+      setUser(response.user);
+    }
+    return { pendingVerification: response.pendingVerification };
   }, []);
 
   const logout = useCallback(async () => {
@@ -89,6 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await apiClient.resetPassword({ token, password });
   }, []);
 
+  const verifyEmail = useCallback(async (token: string) => {
+    await apiClient.verifyEmail({ token });
+  }, []);
+
+  const resendVerification = useCallback(async (email: string) => {
+    await apiClient.resendVerification({ email });
+  }, []);
+
   const value = useMemo<AuthContextType>(
     () => ({
       user,
@@ -100,11 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       googleLogin,
       forgotPassword,
       resetPassword,
+      verifyEmail,
+      resendVerification,
       refreshUser,
       generateToken: async () => '',
       validateToken: async () => false,
     }),
-    [loading, login, logout, googleLogin, forgotPassword, resetPassword, refreshUser, signup, user]
+    [loading, login, logout, googleLogin, forgotPassword, resetPassword, verifyEmail, resendVerification, refreshUser, signup, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

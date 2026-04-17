@@ -91,7 +91,7 @@ class ApiClient {
     email: string;
     password: string;
     name?: string;
-  }): Promise<{ user: AuthUser }> {
+  }): Promise<{ user?: AuthUser; message?: string; pendingVerification?: boolean }> {
     return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -127,6 +127,20 @@ class ApiClient {
 
   async resetPassword(payload: { token: string; password: string }): Promise<{ ok: boolean }> {
     return this.request('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async verifyEmail(payload: { token: string }): Promise<{ message: string }> {
+    return this.request('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async resendVerification(payload: { email: string }): Promise<{ ok: boolean }> {
+    return this.request('/auth/resend-verification', {
       method: 'POST',
       body: JSON.stringify(payload),
     });

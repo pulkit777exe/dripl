@@ -6,6 +6,16 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Email Verification**: Add email verification for account registration
+  - New `emailVerified` field on User model
+  - New `EmailVerificationToken` model for verification tokens
+  - `/api/auth/verify-email` endpoint to verify email
+  - `/api/auth/resend-verification` endpoint to resend verification email
+  - Login checks email verification before allowing access
+  - Frontend: `/verify-email` and `/verify-pending` pages
+- **Cookie Consent**: Add cookie consent banner with localStorage
+- **Analytics**: Add analytics utility with event tracking (canvas, auth, export, etc.)
+- **Tests**: Add CookieConsent and analytics unit tests (16 new tests)
 - **Tests**: Add canvas coordinates unit tests (10 tests for viewport transformations)
 - **Tests**: Add WebSocket integration tests (26 tests for element CRUD, cursor, room management)
 - **Database**: Add indexes on File, Folder, CanvasRoom, CanvasRoomMember for query optimization

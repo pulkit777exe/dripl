@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { GoogleOAuthProvider, GoogleLogin, type CredentialResponse } from '@react-oauth/google';
@@ -14,7 +14,7 @@ export default function SignupPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ReactNode>('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { signup, googleLogin } = useAuth();
@@ -25,10 +25,28 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      await signup(email, password, name);
-      router.push('/dashboard');
+      const result = await signup(email, password, name);
+      if (result.pendingVerification) {
+        router.push('/verify-pending?email=' + encodeURIComponent(email));
+      } else {
+        router.push('/dashboard');
+      }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to sign up');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to sign up';
+      
+      // Check if it's a verification resend
+      if (errorMessage.includes('already verified')) {
+        setError(
+          <span>
+            {errorMessage}{' '}
+            <Link href="/login" className="underline hover:text-[#E8462A]">
+              Sign in
+            </Link>
+          </span>
+        );
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

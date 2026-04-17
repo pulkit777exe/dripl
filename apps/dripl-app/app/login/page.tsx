@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { GoogleOAuthProvider, GoogleLogin, type CredentialResponse } from '@react-oauth/google';
@@ -13,7 +13,7 @@ const fieldClassName =
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ReactNode>('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { login, googleLogin } = useAuth();
@@ -27,7 +27,21 @@ export default function LoginPage() {
       await login(email, password);
       router.push('/dashboard');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to login');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to login';
+      
+      // Check if it's a verification error
+      if (errorMessage.includes('verify your email')) {
+        setError(
+          <span>
+            {errorMessage}{' '}
+            <Link href={'/verify-pending?email=' + encodeURIComponent(email)} className="underline hover:text-[#E8462A]">
+              Resend verification
+            </Link>
+          </span>
+        );
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
