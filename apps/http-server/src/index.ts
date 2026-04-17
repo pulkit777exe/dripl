@@ -15,6 +15,7 @@ import { authRouter } from './routes/auth';
 import { filesRouter } from './routes/files';
 import { foldersRouter } from './routes/folders';
 import { shareRouter } from './routes/share';
+import roomRoutes from './routes/roomRoutes';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3002);
@@ -48,6 +49,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/share', shareRouter);
 app.use('/api/files', authMiddleware, filesRouter);
 app.use('/api/folders', authMiddleware, foldersRouter);
+app.use('/api/rooms', authMiddleware, roomRoutes);
 
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(

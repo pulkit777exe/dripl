@@ -59,6 +59,21 @@ export class RoomController {
     const { name, isPublic = false } = req.body;
 
     try {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const roomCount = await prisma.canvasRoom.count({
+        where: {
+          ownerId: req.userId!,
+          createdAt: { gte: twentyFourHoursAgo },
+        },
+      });
+
+      if (roomCount >= 10) {
+        res
+          .status(429)
+          .json({ error: 'Room creation limit reached. You can create up to 10 rooms per day.' });
+        return;
+      }
+
       let slug = generateSlug();
       let attempts = 0;
       while (attempts < 5) {
@@ -100,7 +115,7 @@ export class RoomController {
     const { slug } = req.params as { slug: string };
 
     try {
-      const room = await prisma.canvasRoom.findUnique({
+      let room = await prisma.canvasRoom.findUnique({
         where: { slug },
         include: {
           owner: {
@@ -127,8 +142,37 @@ export class RoomController {
       });
 
       if (!room) {
-        res.status(404).json({ error: 'Room not found' });
-        return;
+        room = await prisma.canvasRoom.create({
+          data: {
+            slug,
+            name: 'Untitled Room',
+            ownerId: req.userId!,
+            isPublic: false,
+            content: '[]',
+          },
+          include: {
+            owner: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+            members: {
+              select: {
+                userId: true,
+                role: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    image: true,
+                  },
+                },
+              },
+            },
+          },
+        });
       }
 
       const isOwner = room.ownerId === req.userId;
