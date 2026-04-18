@@ -10,7 +10,7 @@ Comprehensive documentation of files and their functions.
 
 | File | Function |
 | ---- | -------- |
-| app/layout.tsx | Root layout with AuthProvider, ThemeProvider, CookieConsent |
+| app/layout.tsx | Root layout with AuthProvider, ThemeProvider, CookieConsent |  
 | app/page.tsx | Landing page |
 | app/canvas/page.tsx | Local canvas (no auth required) |
 | app/canvas/[fileId]/page.tsx | Canvas file editor with WebSocket for collaboration |

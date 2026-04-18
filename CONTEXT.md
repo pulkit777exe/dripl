@@ -4,7 +4,7 @@
 
 Real-time collaborative whiteboard (Excalidraw-like) with hand-drawn rendering, live cursors, and shareable links.
 
-**Stack**: Next.js 16, Express 5, WebSocket, Prisma 7, PostgreSQL, React 19, TypeScript, Tailwind CSS, roughjs, Zustand.
+**Stack**: Next.js 16, Express 5, WebSocket, Prisma 7, PostgreSQL, React 19, TypeScript, Tailwind CSS 4, roughjs.
 
 ## Structure
 
@@ -21,6 +21,10 @@ packages/
 ├── math/          # Geometry & collision
 ├── utils/         # Storage, encryption
 └── dripl/        # React components
+
+tooling/
+├── eslint-config  # Shared ESLint config
+└── typescript-config # Shared TS config
 ```
 
 ## Key Files
@@ -28,14 +32,15 @@ packages/
 | File                                               | Purpose              |
 | -------------------------------------------------- | -------------------- |
 | `apps/dripl-app/app/canvas/[fileId]/page.tsx`      | Collaborative canvas |
-| `apps/dripl-app/components/canvas/RoughCanvas.tsx` | Main renderer        |
+| `apps/dripl-app/components/canvas/InteractiveCanvas.tsx` | Interactive drawing |
 | `apps/dripl-app/lib/canvas-store.ts`               | Canvas state         |
-| `apps/ws-server/src/index.ts`                      | Room management      |
-| `packages/db/prisma/schema.prisma`                 | 8 database models    |
+| `apps/ws-server/src/index.ts`                    | Room management     |
+| `apps/ws-server/src/validation.ts`               | Message validation  |
+| `packages/db/prisma/schema.prisma`               | 11 database models  |
 
 ## Database
 
-8 models: User, Team, TeamMember, Folder, File, SharedFile, CanvasRoom, ShareLink.
+11 models: User, Team, TeamMember, Folder, File, SharedFile, CanvasRoom, CanvasRoomMember, ShareLink, PasswordResetToken, EmailVerificationToken.
 
 ## Setup
 
@@ -45,6 +50,18 @@ pnpm db:generate
 pnpm db:migrate
 pnpm dev
 ```
+
+## Scripts
+
+| Script | Purpose |
+| ------ | ------- |
+| `pnpm build` | Build all packages |
+| `pnpm dev` | Run all services |
+| `pnpm lint` | Lint all packages |
+| `pnpm check-types` | TypeScript check |
+| `pnpm test` | Run tests |
+| `pnpm db:generate` | Generate Prisma client |
+| `pnpm db:migrate` | Run migrations |
 
 ## WebSocket Protocol
 
@@ -61,7 +78,7 @@ pnpm dev
 - **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS 4
 - **Backend**: Express 5, ws (WebSocket)
 - **Database**: PostgreSQL (Neon), Prisma 7
-- **State**: Zustand (client), TanStack Store (runtime)
+- **State**: Zustand, TanStack Store, framer-motion
 - **Rendering**: roughjs (hand-drawn), HTML5 Canvas
 
 ## Services
