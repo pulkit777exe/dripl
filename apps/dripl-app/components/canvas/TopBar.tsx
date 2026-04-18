@@ -68,6 +68,17 @@ export const TopBar: React.FC = () => {
     if (fileName) setRoomName(fileName);
   }, [fileName]);
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '?' || (e.ctrlKey && e.key === '/')) {
+        e.preventDefault();
+        setIsHelpOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleSaveRoomName = useCallback(async () => {
     if (!fileId || !roomName.trim()) return;
     try {

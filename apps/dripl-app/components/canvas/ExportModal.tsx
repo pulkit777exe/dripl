@@ -7,9 +7,11 @@ import {
   Image as ImageIcon,
   FileCode,
   FileJson,
+  FileText,
   Clipboard,
   Square,
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { exportCanvas, downloadBlob, importFromJson } from '@/utils/export';
 import Image from 'next/image';
@@ -19,7 +21,7 @@ interface ExportModalProps {
   onClose: () => void;
 }
 
-type ExportFormat = 'png' | 'svg' | 'json';
+type ExportFormat = 'png' | 'svg' | 'json' | 'pdf';
 type ExportScale = 1 | 2 | 3 | 4;
 
 export function ExportModal({ isOpen, onClose }: ExportModalProps) {
@@ -57,6 +59,26 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
 
       if (exportElements.length === 0) {
         alert('No elements to export');
+        return;
+      }
+
+      if (format === 'pdf') {
+        const pngBlob = await Promise.resolve(
+          exportCanvas('png', exportElements, { scale: 2, background: '#ffffff', padding: 16 })
+        );
+        const img = new Image();
+        const url = URL.createObjectURL(pngBlob);
+        img.src = url;
+        await new Promise(resolve => { img.onload = resolve; });
+        
+        const pdf = new jsPDF({
+          orientation: img.width > img.height ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [img.width, img.height],
+        });
+        pdf.addImage(pngBlob, 'PNG', 0, 0, img.width, img.height);
+        pdf.save(`canvas-${Date.now()}.pdf`);
+        URL.revokeObjectURL(url);
         return;
       }
 
@@ -123,6 +145,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       case 'png': return <ImageIcon className="w-4 h-4" />;
       case 'svg': return <FileCode className="w-4 h-4" />;
       case 'json': return <FileJson className="w-4 h-4" />;
+      case 'pdf': return <FileText className="w-4 h-4" />;
     }
   };
 
@@ -149,8 +172,8 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           {/* Format Selection */}
           <div>
             <label className="text-[12px] font-medium text-[#6B6860] mb-2 block">Format</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['png', 'svg', 'json'] as ExportFormat[]).map(format => (
+            <div className="grid grid-cols-4 gap-2">
+              {(['png', 'svg', 'json', 'pdf'] as ExportFormat[]).map(format => (
                 <button
                   key={format}
                   onClick={() => setSelectedFormat(format)}
@@ -168,7 +191,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           </div>
 
           {/* Scale */}
-          {selectedFormat !== 'json' && (
+          {selectedFormat !== 'json' && selectedFormat !== 'pdf' && (
             <div>
               <label className="text-[12px] font-medium text-[#6B6860] mb-2 block">Scale</label>
               <div className="space-y-2">
@@ -256,6 +279,18 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
               <div className="text-left">
                 <div className="text-[13px] font-medium text-[#1A1917]">{exporting ? 'Exporting...' : 'Export as SVG'}</div>
                 <div className="text-[11px] text-[#9B9890]">Vector graphics (scalable)</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleExport('pdf')}
+              disabled={exporting}
+              className="w-full flex items-center gap-3 px-3 py-2.5 border border-[#E4E0D9] rounded-md bg-white hover:bg-[#E8E5DE] transition-colors disabled:opacity-50"
+            >
+              <FileText className="w-4 h-4 text-[#E8462A]" />
+              <div className="text-left">
+                <div className="text-[13px] font-medium text-[#1A1917]">{exporting ? 'Exporting...' : 'Export as PDF'}</div>
+                <div className="text-[11px] text-[#9B9890]">Document format</div>
               </div>
             </button>
 

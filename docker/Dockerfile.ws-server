@@ -43,5 +43,10 @@ COPY --from=deps /app/package.json        ./package.json
 COPY --from=deps /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 
 WORKDIR /app/apps/ws-server
+
+RUN chown -R node:node /app
+
+USER node
+
 EXPOSE 3001
 CMD pnpm run dev

@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@opensourceframework/next-pwa": "^5.6.3",
     "eslint": "latest",
     "prettier": "latest",
     "prisma": "^7.2.0",

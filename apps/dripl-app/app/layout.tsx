@@ -8,6 +8,11 @@ import CookieConsent from '@/components/CookieConsent';
 export const metadata: Metadata = {
   title: 'Dripl — Think in public',
   description: 'A collaborative canvas for drawing, designing, and sharing ideas',
+  manifest: '/manifest.json',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 const inter = Inter({

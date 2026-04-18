@@ -46,6 +46,17 @@ function CanvasContent() {
   }, [user, token, setUserId]);
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '?' || (e.ctrlKey && e.key === '/')) {
+        e.preventDefault();
+        setIsHelpOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
     if (hasResolvedSnapshotRef.current) return;
     if (!snapshotId) {
       hasResolvedSnapshotRef.current = true;

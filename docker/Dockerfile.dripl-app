@@ -44,5 +44,10 @@ COPY --from=deps /app/package.json        ./package.json
 COPY --from=deps /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 
 WORKDIR /app/apps/dripl-app
+
+RUN chown -R node:node /app
+
+USER node
+
 EXPOSE 3000
 CMD pnpm run dev
