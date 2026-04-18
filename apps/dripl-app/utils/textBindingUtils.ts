@@ -1,5 +1,6 @@
 import type { DriplElement, TextElement } from '@dripl/common';
 import { getBounds } from '@dripl/math';
+import { getDefaultFontFamily } from './fontPreferences';
 
 export const TEXT_ALIGN = {
   LEFT: 'left',
@@ -14,15 +15,18 @@ export const VERTICAL_ALIGN = {
 } as const;
 
 const DEFAULT_FONT_SIZE = 20;
-const DEFAULT_FONT_FAMILY =
-  '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
+
+function getFontFamily(): string {
+  if (typeof window === 'undefined') return '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
+  return getDefaultFontFamily();
+}
 
 function measureText(text: string, fontSize: number): { width: number; height: number } {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) return { width: 0, height: 0 };
 
-  ctx.font = `${fontSize}px ${DEFAULT_FONT_FAMILY}, cursive`;
+  ctx.font = `${fontSize}px ${getFontFamily()}, cursive`;
   const metrics = ctx.measureText(text);
 
   return {
@@ -83,7 +87,7 @@ export function createBoundText(
   ]);
 
   const fontSize = baseProps.fontSize ?? DEFAULT_FONT_SIZE;
-  const fontFamily = baseProps.fontFamily ?? DEFAULT_FONT_FAMILY;
+  const fontFamily = baseProps.fontFamily ?? getFontFamily();
 
   const wrappedText = wrapText(text, fontSize, bounds.width - 10);
   const textHeight = wrappedText.length * measureText('A', fontSize).height;
@@ -207,7 +211,7 @@ export function createTextElement(
     type: 'text',
     text,
     fontSize: baseProps.fontSize ?? 16,
-    fontFamily: baseProps.fontFamily ?? DEFAULT_FONT_FAMILY,
+    fontFamily: baseProps.fontFamily ?? getFontFamily(),
     textAlign: baseProps.textAlign ?? 'left',
     verticalAlign: baseProps.verticalAlign ?? 'top',
     strokeColor: baseProps.strokeColor ?? '#000000',

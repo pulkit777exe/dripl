@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ChevronLeft, Settings, User, Lock, CreditCard, LogOut, Loader2, Check
+  ChevronLeft, Settings, User, Lock, CreditCard, LogOut, Loader2, Check, Type
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 
@@ -233,6 +233,72 @@ function AccountSettings() {
   );
 }
 
+const FONT_OPTIONS = [
+  { id: 'handwritten', name: 'Caveat (Handwritten)', preview: 'Aa Bb Cc', family: 'Caveat, cursive' },
+  { id: 'sans', name: 'Inter (Clean)', preview: 'Aa Bb Cc', family: 'Inter, sans-serif' },
+  { id: 'serif', name: 'Georgia (Classic)', preview: 'Aa Bb Cc', family: 'Georgia, serif' },
+  { id: 'mono', name: 'Monospace (Code)', preview: 'Aa Bb Cc', family: 'monospace' },
+];
+
+function FontPreferencesSettings() {
+  const [selectedFont, setSelectedFont] = useState('handwritten');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSave = async () => {
+    setLoading(true);
+    setSuccess(false);
+    try {
+      localStorage.setItem('dripl_canvas_font', selectedFont);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const currentFont = FONT_OPTIONS.find(f => f.id === selectedFont);
+
+  return (
+    <SettingSection title="Font Preferences" description="Choose your preferred font for canvas text">
+      <div className="space-y-4">
+        <p className="text-[12px] text-[#6B6860]">
+          Select the default font used for text elements on your canvas.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          {FONT_OPTIONS.map(font => (
+            <button
+              key={font.id}
+              onClick={() => setSelectedFont(font.id)}
+              className={`p-4 rounded-lg border text-left transition-all ${
+                selectedFont === font.id
+                  ? 'border-[#E8462A] bg-[#FAE8E5]'
+                  : 'border-[#E4E0D9] hover:border-[#D4D0C9]'
+              }`}
+            >
+              <p className="text-[14px] font-medium text-[#1A1917] mb-1">{font.name}</p>
+              <p className="text-[18px] text-[#6B6860]" style={{ fontFamily: font.family }}>
+                {font.preview}
+              </p>
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 pt-2">
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-[#E8462A] text-white text-[13px] font-medium hover:bg-[#D6302A] transition-colors disabled:opacity-50"
+          >
+            {loading && <Loader2 className="size-3.5 animate-spin" />}
+            {success && <Check className="size-3.5" />}
+            {success ? 'Saved' : 'Save preferences'}
+          </button>
+        </div>
+      </div>
+    </SettingSection>
+  );
+}
+
 function SettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -244,6 +310,8 @@ function SettingsContent() {
         return <ProfileSettings />;
       case 'password':
         return <PasswordSettings />;
+      case 'font':
+        return <FontPreferencesSettings />;
       case 'plan':
         return <PlanSettings />;
       case 'account':
@@ -256,6 +324,7 @@ function SettingsContent() {
   const navItems = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'password', label: 'Password', icon: Lock },
+    { id: 'font', label: 'Font', icon: Type },
     { id: 'plan', label: 'Plan', icon: CreditCard },
     { id: 'account', label: 'Account', icon: User },
   ];
