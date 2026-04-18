@@ -1,21 +1,203 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ChevronLeft, ChevronRight, Settings, Download, Trash2, PenLine, LogOut
+  ChevronLeft, Settings, User, Lock, CreditCard, LogOut, Loader2, Check
 } from 'lucide-react';
-import Link from 'next/link';
 import { useAuth } from '@/app/context/AuthContext';
-import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 
-export default function SettingsPage() {
+interface SettingSectionProps {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}
+
+function SettingSection({ title, description, children }: SettingSectionProps) {
+  return (
+    <div className="mb-8">
+      <div className="mb-3">
+        <p className="text-[12px] font-semibold text-[#6B6860] uppercase tracking-wide">{title}</p>
+        <p className="text-[12px] text-[#9B988F]">{description}</p>
+      </div>
+      <div className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl p-5 shadow-sm">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ProfileSettings() {
+  const { user, updateProfile, refreshUser } = useAuth();
+  const [name, setName] = useState(user?.name || '');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSave = async () => {
+    setLoading(true);
+    setSuccess(false);
+    try {
+      await updateProfile(name || undefined);
+      await refreshUser();
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SettingSection title="Profile" description="Your public profile information">
+      <div className="flex items-start gap-5">
+        <div className="relative size-14 rounded-full bg-[#E8E5DE] flex items-center justify-center text-[#6B6860] font-semibold text-xl">
+          {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+        </div>
+        <div className="flex-1 space-y-4">
+          <div>
+            <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">Display name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Your name"
+              className="w-full h-9 rounded-md border border-[#E4E0D9] bg-white px-3 text-[13px] text-[#1A1917] placeholder:text-[#9B988F] focus:outline-none focus:border-[#E8462A]"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              disabled={loading || name === (user?.name || '')}
+              className="flex items-center gap-2 px-4 py-2 rounded-md bg-[#E8462A] text-white text-[13px] font-medium hover:bg-[#D6302A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading && <Loader2 className="size-3.5 animate-spin" />}
+              {success && <Check className="size-3.5" />}
+              {success ? 'Saved' : 'Save changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </SettingSection>
+  );
+}
+
+function PasswordSettings() {
+  const { changePassword } = useAuth();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const handleChange = async () => {
+    setError('');
+    
+    if (newPassword.length < 8) {
+      setError('New password must be at least 8 characters');
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to change password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SettingSection title="Password" description="Change your account password">
+      <div className="space-y-4 max-w-sm">
+        <div>
+          <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">Current password</label>
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={e => setCurrentPassword(e.target.value)}
+            placeholder="Enter current password"
+            className="w-full h-9 rounded-md border border-[#E4E0D9] bg-white px-3 text-[13px] text-[#1A1917] placeholder:text-[#9B988F] focus:outline-none focus:border-[#E8462A]"
+          />
+        </div>
+        <div>
+          <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">New password</label>
+          <input
+            type="password"
+            value={newPassword}
+            onChange={e => setNewPassword(e.target.value)}
+            placeholder="Min 8 characters"
+            className="w-full h-9 rounded-md border border-[#E4E0D9] bg-white px-3 text-[13px] text-[#1A1917] placeholder:text-[#9B988F] focus:outline-none focus:border-[#E8462A]"
+          />
+        </div>
+        <div>
+          <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">Confirm new password</label>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={e => setConfirmPassword(e.target.value)}
+            placeholder="Confirm new password"
+            className="w-full h-9 rounded-md border border-[#E4E0D9] bg-white px-3 text-[13px] text-[#1A1917] placeholder:text-[#9B988F] focus:outline-none focus:border-[#E8462A]"
+          />
+        </div>
+        {error && (
+          <p className="text-[12px] text-[#E8462A]">{error}</p>
+        )}
+        {success && (
+          <p className="text-[12px] text-[#2F9E44]">Password changed successfully</p>
+        )}
+        <button
+          onClick={handleChange}
+          disabled={loading || !currentPassword || !newPassword || !confirmPassword}
+          className="flex items-center gap-2 px-4 py-2 rounded-md bg-[#E8462A] text-white text-[13px] font-medium hover:bg-[#D6302A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading && <Loader2 className="size-3.5 animate-spin" />}
+          {success && <Check className="size-3.5" />}
+          {success ? 'Changed' : 'Change password'}
+        </button>
+      </div>
+    </SettingSection>
+  );
+}
+
+function PlanSettings() {
+  const [plan] = useState('free');
+
+  return (
+    <SettingSection title="Plan" description="Manage your subscription plan">
+      <div className="flex items-start gap-5">
+        <div className="flex-1">
+          <div className="flex items-center gap-3 mb-4">
+            <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide ${plan === 'pro' ? 'bg-[#E8462A] text-white' : 'bg-[#E8E5DE] text-[#6B6860]'}`}>
+              {plan === 'pro' ? 'Pro' : 'Free'}
+            </span>
+            <span className="text-[13px] text-[#1A1917] font-medium">Free Plan</span>
+          </div>
+          <p className="text-[12px] text-[#6B6860] mb-4">
+            You are currently on the free plan. Upgrade to Pro for unlimited canvases, custom branding, and more.
+          </p>
+          <button className="px-4 py-2 rounded-md bg-[#1A1917] text-white text-[13px] font-medium hover:bg-[#3A3937] transition-colors">
+            Upgrade to Pro
+          </button>
+        </div>
+      </div>
+    </SettingSection>
+  );
+}
+
+function AccountSettings() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>('system');
-  const [layout, setLayout] = useState<'grid' | 'list'>('grid');
-  const [columns, setColumns] = useState(4);
-  const [scale, setScale] = useState(100);
 
   const handleLogout = async () => {
     await logout();
@@ -23,182 +205,119 @@ export default function SettingsPage() {
   };
 
   return (
+    <SettingSection title="Account" description="Manage your account">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-[13px] text-[#1A1917] font-medium">Email</p>
+            <p className="text-[12px] text-[#6B6860]">{user?.email}</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between py-2 border-t border-[#E4E0D9]">
+          <div>
+            <p className="text-[13px] text-[#1A1917] font-medium">Account type</p>
+            <p className="text-[12px] text-[#6B6860]">Email / Google</p>
+          </div>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 rounded-md text-[13px] font-medium text-[#E8462A] bg-[#FAE8E5] hover:bg-[#E8462A] hover:text-white transition-colors"
+          >
+            <LogOut className="size-4" />
+            Log out
+          </button>
+        </div>
+      </div>
+    </SettingSection>
+  );
+}
+
+function SettingsContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const section = searchParams.get('section') || 'profile';
+
+  const renderSection = () => {
+    switch (section) {
+      case 'profile':
+        return <ProfileSettings />;
+      case 'password':
+        return <PasswordSettings />;
+      case 'plan':
+        return <PlanSettings />;
+      case 'account':
+        return <AccountSettings />;
+      default:
+        return <ProfileSettings />;
+    }
+  };
+
+  const navItems = [
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'password', label: 'Password', icon: Lock },
+    { id: 'plan', label: 'Plan', icon: CreditCard },
+    { id: 'account', label: 'Account', icon: User },
+  ];
+
+  return (
     <div className="flex h-dvh bg-[#F0EDE6] overflow-hidden">
-      {/* Re-use the exact same DashboardSidebar */}
-      <DashboardSidebar />
+      {/* Sidebar */}
+      <aside className="w-56 bg-[#FAFAF7] border-r border-[#E4E0D9] flex flex-col">
+        <div className="p-4 border-b border-[#E4E0D9]">
+          <div className="flex items-center gap-2 text-[#1A1917]">
+            <Settings className="size-4" />
+            <span className="text-[14px] font-semibold">Settings</span>
+          </div>
+        </div>
+        <nav className="flex-1 p-2 space-y-0.5">
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              onClick={() => router.push('/settings/' + item.id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors ${
+                section === item.id
+                  ? 'bg-[#E8E5DE] text-[#1A1917]'
+                  : 'text-[#6B6860] hover:bg-[#F0EDE6] hover:text-[#1A1917]'
+              }`}
+            >
+              <item.icon className="size-4" />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      </aside>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col overflow-auto bg-[#F0EDE6]">
-        {/* Top Header Placeholder to match Dashboard (optional, or just settings header) */}
-        <div className="flex items-center gap-4 border-b border-[#E4E0D9] bg-[#FAFAF7] px-6 py-3 sticky top-0 z-10">
-          <div className="flex items-center gap-1">
-            <button onClick={() => router.back()} className="p-1 rounded-md text-[#6B6860] hover:text-[#1A1917] hover:bg-[#E8E5DE] transition-colors">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button className="p-1 rounded-md text-[#D4D0C9] transition-colors cursor-not-allowed">
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+      <main className="flex-1 flex flex-col overflow-auto">
+        <div className="flex items-center gap-4 border-b border-[#E4E0D9] bg-[#FAFAF7] px-6 py-3">
+          <button onClick={() => router.back()} className="p-1 rounded-md text-[#6B6860] hover:text-[#1A1917] hover:bg-[#E8E5DE] transition-colors">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
           <div className="flex items-center gap-2">
             <Settings className="h-4 w-4 text-[#6B6860]" />
-            <h1 className="text-[14px] font-semibold text-[#1A1917]">Settings</h1>
+            <h1 className="text-[14px] font-semibold text-[#1A1917]">
+              {navItems.find(s => s.id === section)?.label || 'Settings'}
+            </h1>
           </div>
         </div>
 
         <div className="max-w-2xl px-10 py-8 mx-auto w-full">
-          <p className="text-[13px] text-[#6B6860] mb-8">
-            Defaults for canvases, appearance, and data. You can still change the canvas layout from the header on any list.
-          </p>
-
-          {/* Appearance section */}
-          <div className="mb-10">
-            <p className="text-[12px] font-semibold text-[#6B6860] mb-3">Appearance</p>
-            <div className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl p-5 space-y-6 shadow-sm">
-              {/* Theme */}
-              <div className="flex items-center justify-between">
-                <span className="text-[13px] font-medium text-[#1A1917] flex items-center gap-2">Theme <span className="bg-[#E8E5DE] text-[#6B6860] text-[10px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide">Coming Soon</span></span>
-                <div className="flex items-center gap-1 rounded-md border border-[#E4E0D9] bg-white p-0.5">
-                  <button
-                    disabled
-                    className={`px-3 py-1.5 text-[12px] font-medium rounded transition-colors bg-[#E8462A] text-white opacity-50 cursor-not-allowed`}
-                  >
-                    System
-                  </button>
-                </div>
-              </div>
-
-              {/* Interface scale */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <span className="text-[13px] font-medium text-[#1A1917]">Interface scale</span>
-                    <p className="text-[12px] text-[#6B6860] mt-0.5">Matches the control in the floating menu.</p>
-                  </div>
-                  <Settings className="h-4 w-4 text-[#C2BEB6]" />
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 relative flex items-center">
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 px-3 py-1 bg-[#6B6860] text-white text-[12px] rounded-md font-medium z-10 pointer-events-none shadow-md">
-                      Scale
-                    </div>
-                    <input
-                      type="range"
-                      min={75}
-                      max={150}
-                      value={scale}
-                      onChange={e => setScale(Number(e.target.value))}
-                      className="w-full h-8 rounded-lg appearance-none bg-[#FAFAF7] border border-[#E4E0D9] cursor-pointer pl-16 outline-none"
-                      style={{
-                        background: `linear-gradient(to right, #E8E5DE ${((scale - 75) / 75) * 100}%, #FAFAF7 ${((scale - 75) / 75) * 100}%)`,
-                      }}
-                    />
-                  </div>
-                  <span className="text-[13px] text-[#6B6860] font-medium w-12 text-right">{scale}%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Canvas (Bookmarks equivalent) section */}
-          <div className="mb-10">
-            <p className="text-[12px] font-semibold text-[#6B6860] mb-3">Canvases</p>
-            <div className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl p-5 space-y-6 shadow-sm">
-              {/* Default layout */}
-              <div>
-                <span className="text-[13px] font-medium text-[#1A1917]">Default layout</span>
-                <p className="text-[12px] text-[#6B6860] mt-0.5 mb-3">Starting view for All Files, collections, and Trash.</p>
-                <div className="flex items-center gap-1.5 rounded-lg border border-[#E4E0D9] bg-white p-1 w-max">
-                  <button
-                    onClick={() => setLayout('grid')}
-                    className={`flex items-center gap-2 px-3 py-1.5 text-[13px] font-medium rounded-md transition-colors ${layout === 'grid' ? 'bg-[#F0EDE6] text-[#1A1917]' : 'text-[#6B6860] hover:text-[#1A1917]'}`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
-                    Grid
-                  </button>
-                  <button
-                    onClick={() => setLayout('list')}
-                    className={`flex items-center gap-2 px-3 py-1.5 text-[13px] font-medium rounded-md transition-colors ${layout === 'list' ? 'bg-[#F0EDE6] text-[#1A1917]' : 'text-[#6B6860] hover:text-[#1A1917]'}`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                    List
-                  </button>
-                </div>
-              </div>
-
-              {/* Grid columns */}
-              <div>
-                <span className="text-[13px] font-medium text-[#1A1917]">Grid columns</span>
-                <p className="text-[12px] text-[#6B6860] mt-0.5 mb-3">Used when layout is grid on large screens.</p>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1 rounded-lg border border-[#E4E0D9] bg-white p-1">
-                    {[3, 4, 5].map(col => (
-                      <button
-                        key={col}
-                        onClick={() => setColumns(col)}
-                        className={`p-1.5 rounded-md transition-colors ${columns === col ? 'bg-[#F0EDE6] text-[#1A1917]' : 'text-[#6B6860] hover:text-[#1A1917]'}`}
-                      >
-                         <div className="flex flex-wrap w-4 h-4 gap-0.5">
-                           {Array.from({ length: 4 }).map((_, i) => (
-                             <div key={i} className={`w-1.5 h-1.5 rounded-[1px] border border-current opacity-50`}></div>
-                           ))}
-                         </div>
-                      </button>
-                    ))}
-                  </div>
-                  <span className="text-[13px] text-[#6B6860] font-medium">{columns} columns</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Data section */}
-          <div className="mb-10">
-            <p className="text-[12px] font-semibold text-[#6B6860] mb-3">Data</p>
-            <div className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl flex flex-col shadow-sm">
-              <button className="w-full flex items-start gap-4 p-5 hover:bg-[#F0EDE6] transition-colors text-left border-b border-[#E4E0D9] last:border-b-0 rounded-t-xl">
-                <Download className="w-4 h-4 mt-0.5 text-[#9B9890]" />
-                <div>
-                  <p className="text-[13px] font-medium text-[#1A1917]">Import drawing</p>
-                  <p className="text-[12px] text-[#6B6860] mt-0.5">Upload a JSON export from Dripl or Excalidraw.</p>
-                </div>
-              </button>
-              <button className="w-full flex items-start gap-4 p-5 hover:bg-[#F0EDE6] transition-colors text-left border-b border-[#E4E0D9] last:border-b-0">
-                <Trash2 className="w-4 h-4 mt-0.5 text-[#9B9890]" />
-                <div>
-                  <p className="text-[13px] font-medium text-[#1A1917]">Trash</p>
-                  <p className="text-[12px] text-[#6B6860] mt-0.5">Review and restore or delete forever.</p>
-                </div>
-              </button>
-              <button className="w-full flex items-start gap-4 p-5 hover:bg-[#F0EDE6] transition-colors text-left rounded-b-xl border-b border-[#E4E0D9] last:border-b-0">
-                <PenLine className="w-4 h-4 mt-0.5 text-[#9B9890]" />
-                <div>
-                  <p className="text-[13px] font-medium text-[#1A1917]">Canvas</p>
-                  <p className="text-[12px] text-[#6B6860] mt-0.5">Open your board to arrange saved links visually.</p>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Account section */}
-          <div className="mb-10">
-            <p className="text-[12px] font-semibold text-[#6B6860] mb-3">Account</p>
-            <div className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-[13px] text-[#6B6860]">
-                  Signed in as <span className="text-[#1A1917] font-medium">{user?.email || 'user@email.com'}</span>
-                </p>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] font-medium text-[#E8462A] bg-[#FAE8E5] hover:bg-[#E8462A] hover:text-white transition-colors"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Log out
-                </button>
-              </div>
-            </div>
-          </div>
+          {renderSection()}
         </div>
       </main>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-dvh items-center justify-center bg-[#F0EDE6]">
+        <Loader2 className="size-6 animate-spin text-[#E8462A]" />
+      </div>
+    }>
+      <SettingsContent />
+    </Suspense>
   );
 }
