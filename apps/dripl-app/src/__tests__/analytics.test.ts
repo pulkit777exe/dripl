@@ -46,9 +46,7 @@ describe('analytics', () => {
     });
 
     it('does not log when consent is false', () => {
-      localStorageMock.getItem.mockReturnValue(
-        JSON.stringify({ accepted: false })
-      );
+      localStorageMock.getItem.mockReturnValue(JSON.stringify({ accepted: false }));
       trackEvent('canvas', 'test-action');
       expect(consoleLogSpy).not.toHaveBeenCalled();
     });
@@ -64,19 +62,13 @@ describe('analytics', () => {
         JSON.stringify({ accepted: true, timestamp: Date.now() })
       );
       trackEvent('canvas', 'element-created', { label: 'rectangle' });
-      
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"type":"analytics"')
-      );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"category":"canvas"')
-      );
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"type":"analytics"'));
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"category":"canvas"'));
       expect(consoleLogSpy).toHaveBeenCalledWith(
         expect.stringContaining('"action":"element-created"')
       );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"label":"rectangle"')
-      );
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"label":"rectangle"'));
     });
 
     it('logs event with optional value', () => {
@@ -84,10 +76,8 @@ describe('analytics', () => {
         JSON.stringify({ accepted: true, timestamp: Date.now() })
       );
       trackEvent('export', 'export-png', { value: 2 });
-      
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"value":2')
-      );
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"value":2'));
     });
   });
 
@@ -97,10 +87,8 @@ describe('analytics', () => {
         JSON.stringify({ accepted: true, timestamp: Date.now() })
       );
       trackCanvasEvent('element-created', { label: 'rectangle' });
-      
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"category":"canvas"')
-      );
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"category":"canvas"'));
     });
   });
 
@@ -110,10 +98,8 @@ describe('analytics', () => {
         JSON.stringify({ accepted: true, timestamp: Date.now() })
       );
       trackAuthEvent('login-success');
-      
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"category":"auth"')
-      );
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"category":"auth"'));
     });
   });
 

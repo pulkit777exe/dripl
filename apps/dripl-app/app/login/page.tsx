@@ -28,13 +28,16 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to login';
-      
+
       // Check if it's a verification error
       if (errorMessage.includes('verify your email')) {
         setError(
           <span>
             {errorMessage}{' '}
-            <Link href={'/verify-pending?email=' + encodeURIComponent(email)} className="underline hover:text-[#E8462A]">
+            <Link
+              href={'/verify-pending?email=' + encodeURIComponent(email)}
+              className="underline hover:text-[#E8462A]"
+            >
               Resend verification
             </Link>
           </span>
@@ -116,7 +119,10 @@ export default function LoginPage() {
 
         <p className="mt-6 text-center text-[13px] text-[#6B6860]">
           Don&apos;t have an account?{' '}
-          <Link href="/signup" className="font-medium text-[#1A1917] underline underline-offset-2 hover:text-[#E8462A]">
+          <Link
+            href="/signup"
+            className="font-medium text-[#1A1917] underline underline-offset-2 hover:text-[#E8462A]"
+          >
             Sign up
           </Link>
         </p>

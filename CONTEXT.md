@@ -29,14 +29,14 @@ tooling/
 
 ## Key Files
 
-| File                                               | Purpose              |
-| -------------------------------------------------- | -------------------- |
-| `apps/dripl-app/app/canvas/[fileId]/page.tsx`      | Collaborative canvas |
-| `apps/dripl-app/components/canvas/InteractiveCanvas.tsx` | Interactive drawing |
-| `apps/dripl-app/lib/canvas-store.ts`               | Canvas state         |
-| `apps/ws-server/src/index.ts`                    | Room management     |
-| `apps/ws-server/src/validation.ts`               | Message validation  |
-| `packages/db/prisma/schema.prisma`               | 11 database models  |
+| File                                                     | Purpose              |
+| -------------------------------------------------------- | -------------------- |
+| `apps/dripl-app/app/canvas/[fileId]/page.tsx`            | Collaborative canvas |
+| `apps/dripl-app/components/canvas/InteractiveCanvas.tsx` | Interactive drawing  |
+| `apps/dripl-app/lib/canvas-store.ts`                     | Canvas state         |
+| `apps/ws-server/src/index.ts`                            | Room management      |
+| `apps/ws-server/src/validation.ts`                       | Message validation   |
+| `packages/db/prisma/schema.prisma`                       | 11 database models   |
 
 ## Database
 
@@ -53,15 +53,15 @@ pnpm dev
 
 ## Scripts
 
-| Script | Purpose |
-| ------ | ------- |
-| `pnpm build` | Build all packages |
-| `pnpm dev` | Run all services |
-| `pnpm lint` | Lint all packages |
-| `pnpm check-types` | TypeScript check |
-| `pnpm test` | Run tests |
+| Script             | Purpose                |
+| ------------------ | ---------------------- |
+| `pnpm build`       | Build all packages     |
+| `pnpm dev`         | Run all services       |
+| `pnpm lint`        | Lint all packages      |
+| `pnpm check-types` | TypeScript check       |
+| `pnpm test`        | Run tests              |
 | `pnpm db:generate` | Generate Prisma client |
-| `pnpm db:migrate` | Run migrations |
+| `pnpm db:migrate`  | Run migrations         |
 
 ## WebSocket Protocol
 

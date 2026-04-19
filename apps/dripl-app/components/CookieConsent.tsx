@@ -58,15 +58,15 @@ export default function CookieConsent() {
                   <X size={14} />
                 </button>
               </div>
-              
+
               <p className="mt-2 text-[13px] leading-relaxed text-[#6B6860]">
-                We use cookies to ensure the best experience on our website.{" "}
+                We use cookies to ensure the best experience on our website.{' '}
                 <a href="#" className="text-[#E8462A] hover:underline">
                   Read cookie policies
                 </a>
                 .
               </p>
-              
+
               <div className="mt-4 flex items-center justify-between gap-3">
                 <button
                   onClick={handleDismiss}

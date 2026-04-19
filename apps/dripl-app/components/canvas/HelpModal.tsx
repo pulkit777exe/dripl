@@ -74,7 +74,9 @@ export default function HelpModal({ onClose }: HelpModalProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-0 text-sm">
             <div>
-              <h4 className="text-[11px] font-semibold text-[#9B9890] uppercase tracking-wider mb-2 mt-3">Tools</h4>
+              <h4 className="text-[11px] font-semibold text-[#9B9890] uppercase tracking-wider mb-2 mt-3">
+                Tools
+              </h4>
               <ShortcutItem toolName="Hand (panning tool)" shortcut="H" />
               <ShortcutItem toolName="Selection" shortcut="V or 1" />
               <ShortcutItem toolName="Rectangle" shortcut="R or 2" />
@@ -90,7 +92,9 @@ export default function HelpModal({ onClose }: HelpModalProps) {
             </div>
 
             <div>
-              <h4 className="text-[11px] font-semibold text-[#9B9890] uppercase tracking-wider mb-2 mt-3">Editor</h4>
+              <h4 className="text-[11px] font-semibold text-[#9B9890] uppercase tracking-wider mb-2 mt-3">
+                Editor
+              </h4>
               <ShortcutItem toolName="Move canvas" shortcut="Space + Drag" />
               <ShortcutItem toolName="Delete" shortcut="Delete" />
               <ShortcutItem toolName="Cut" shortcut="Ctrl+X" />

@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 
 declare global {
-  var __driplCanvasSnapshots:
-    | Map<string, { data: string; createdAt: number }>
-    | undefined;
+  var __driplCanvasSnapshots: Map<string, { data: string; createdAt: number }> | undefined;
 }
 
 interface RouteContext {

@@ -1,6 +1,6 @@
 const ANALYTICS_KEY = 'dripl-analytics-enabled';
 
-type EventCategory = 
+type EventCategory =
   | 'canvas'
   | 'actions'
   | 'auth'
@@ -21,10 +21,10 @@ interface AnalyticsEvent {
 
 function isAnalyticsEnabled(): boolean {
   if (typeof window === 'undefined') return false;
-  
+
   const consent = localStorage.getItem('dripl-cookie-consent');
   if (!consent) return false;
-  
+
   try {
     const parsed = JSON.parse(consent);
     return parsed.accepted === true;
@@ -62,7 +62,10 @@ export function trackEvent(
   );
 }
 
-export function trackCanvasEvent(action: string, options?: { label?: string; value?: number }): void {
+export function trackCanvasEvent(
+  action: string,
+  options?: { label?: string; value?: number }
+): void {
   trackEvent('canvas', action, options);
 }
 
@@ -70,15 +73,24 @@ export function trackAuthEvent(action: string, options?: { label?: string; value
   trackEvent('auth', action, options);
 }
 
-export function trackExportEvent(action: string, options?: { label?: string; value?: number }): void {
+export function trackExportEvent(
+  action: string,
+  options?: { label?: string; value?: number }
+): void {
   trackEvent('export', action, options);
 }
 
-export function trackNavigationEvent(action: string, options?: { label?: string; value?: number }): void {
+export function trackNavigationEvent(
+  action: string,
+  options?: { label?: string; value?: number }
+): void {
   trackEvent('navigation', action, options);
 }
 
-export function trackCollaborationEvent(action: string, options?: { label?: string; value?: number }): void {
+export function trackCollaborationEvent(
+  action: string,
+  options?: { label?: string; value?: number }
+): void {
   trackEvent('collaboration', action, options);
 }
 

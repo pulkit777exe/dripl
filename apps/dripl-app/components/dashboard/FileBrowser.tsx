@@ -126,8 +126,20 @@ export function FileBrowser({
           <div className="w-32 h-32 mb-6 opacity-20">
             <svg viewBox="0 0 120 120" fill="none" className="w-full h-full">
               <rect x="20" y="10" width="80" height="100" rx="8" stroke="#9B9890" strokeWidth="2" />
-              <path d="M60 10v60l25-25" stroke="#9B9890" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M60 70L35 45" stroke="#9B9890" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M60 10v60l25-25"
+                stroke="#9B9890"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M60 70L35 45"
+                stroke="#9B9890"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </div>
           <h3 className="text-[15px] font-semibold text-[#1A1917] mb-1">No files yet</h3>

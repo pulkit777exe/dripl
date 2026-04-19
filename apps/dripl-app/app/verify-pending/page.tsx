@@ -11,7 +11,7 @@ function VerifyPendingContent() {
   const router = useRouter();
   const email = searchParams.get('email') || '';
   const { resendVerification } = useAuth();
-  
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -21,11 +21,11 @@ function VerifyPendingContent() {
       setError('Email is required');
       return;
     }
-    
+
     setLoading(true);
     setError('');
     setMessage('');
-    
+
     try {
       await resendVerification(email);
       setMessage('Verification email sent! Please check your inbox.');
@@ -37,22 +37,19 @@ function VerifyPendingContent() {
   };
 
   return (
-    <AuthShell
-      title="Verify your email"
-      subtitle="We've sent a verification email to your inbox."
-    >
+    <AuthShell title="Verify your email" subtitle="We've sent a verification email to your inbox.">
       {error && (
         <div className="mb-4 rounded-md border border-[#E8462A]/20 bg-[#FAE8E5] px-3 py-2.5 text-[13px] text-[#C0392B]">
           {error}
         </div>
       )}
-      
+
       {message && (
         <div className="mb-4 rounded-md border border-[#2F9E44]/20 bg-[#E8F5E9] px-3 py-2.5 text-[13px] text-[#2F9E44]">
           {message}
         </div>
       )}
-      
+
       {email && (
         <div className="mb-6 text-center">
           <p className="text-[14px] text-[#6B6860]">
@@ -60,7 +57,7 @@ function VerifyPendingContent() {
           </p>
         </div>
       )}
-      
+
       <button
         onClick={handleResend}
         disabled={loading || !email}
@@ -68,10 +65,13 @@ function VerifyPendingContent() {
       >
         {loading ? 'Sending...' : 'Resend verification email'}
       </button>
-      
+
       <p className="mt-6 text-center text-[13px] text-[#6B6860]">
         Already verified?{' '}
-        <Link href="/login" className="font-medium text-[#1A1917] underline underline-offset-2 hover:text-[#E8462A]">
+        <Link
+          href="/login"
+          className="font-medium text-[#1A1917] underline underline-offset-2 hover:text-[#E8462A]"
+        >
           Sign in
         </Link>
       </p>
@@ -81,11 +81,13 @@ function VerifyPendingContent() {
 
 export default function VerifyPendingPage() {
   return (
-    <Suspense fallback={
-      <div className="flex h-dvh items-center justify-center bg-[#F0EDE6]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E4E0D9] border-t-[#E8462A]" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex h-dvh items-center justify-center bg-[#F0EDE6]">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E4E0D9] border-t-[#E8462A]" />
+        </div>
+      }
+    >
       <VerifyPendingContent />
     </Suspense>
   );

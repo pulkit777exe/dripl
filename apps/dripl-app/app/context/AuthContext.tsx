@@ -24,7 +24,11 @@ type AuthContextType = {
   loading: boolean;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name?: string) => Promise<{ pendingVerification?: boolean }>;
+  signup: (
+    email: string,
+    password: string,
+    name?: string
+  ) => Promise<{ pendingVerification?: boolean }>;
   logout: () => Promise<void>;
   googleLogin: (token: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
@@ -132,7 +136,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       generateToken: async () => '',
       validateToken: async () => false,
     }),
-    [loading, login, logout, googleLogin, forgotPassword, resetPassword, verifyEmail, resendVerification, updateProfile, changePassword, refreshUser, signup, user]
+    [
+      loading,
+      login,
+      logout,
+      googleLogin,
+      forgotPassword,
+      resetPassword,
+      verifyEmail,
+      resendVerification,
+      updateProfile,
+      changePassword,
+      refreshUser,
+      signup,
+      user,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

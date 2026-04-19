@@ -11,7 +11,7 @@ function VerifyEmailContent() {
   const router = useRouter();
   const token = searchParams.get('token') || '';
   const { verifyEmail } = useAuth();
-  
+
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
 
@@ -38,7 +38,13 @@ function VerifyEmailContent() {
 
   return (
     <AuthShell
-      title={status === 'success' ? 'Email verified!' : status === 'error' ? 'Verification failed' : 'Verifying...'}
+      title={
+        status === 'success'
+          ? 'Email verified!'
+          : status === 'error'
+            ? 'Verification failed'
+            : 'Verifying...'
+      }
       subtitle={status === 'loading' ? 'Please wait while we verify your email.' : ''}
     >
       {status === 'loading' && (
@@ -46,7 +52,7 @@ function VerifyEmailContent() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E4E0D9] border-t-[#E8462A]"></div>
         </div>
       )}
-      
+
       {status === 'success' && (
         <>
           <div className="mb-4 rounded-md border border-[#2F9E44]/20 bg-[#E8F5E9] px-3 py-2.5 text-[13px] text-[#2F9E44]">
@@ -60,7 +66,7 @@ function VerifyEmailContent() {
           </Link>
         </>
       )}
-      
+
       {status === 'error' && (
         <>
           <div className="mb-4 rounded-md border border-[#E8462A]/20 bg-[#FAE8E5] px-3 py-2.5 text-[13px] text-[#C0392B]">
@@ -80,11 +86,13 @@ function VerifyEmailContent() {
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={
-      <div className="flex h-dvh items-center justify-center bg-[#F0EDE6]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E4E0D9] border-t-[#E8462A]" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex h-dvh items-center justify-center bg-[#F0EDE6]">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E4E0D9] border-t-[#E8462A]" />
+        </div>
+      }
+    >
       <VerifyEmailContent />
     </Suspense>
   );

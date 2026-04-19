@@ -3,7 +3,15 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ChevronLeft, Settings, User, Lock, CreditCard, LogOut, Loader2, Check, Type
+  ChevronLeft,
+  Settings,
+  User,
+  Lock,
+  CreditCard,
+  LogOut,
+  Loader2,
+  Check,
+  Type,
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 
@@ -54,7 +62,9 @@ function ProfileSettings() {
         </div>
         <div className="flex-1 space-y-4">
           <div>
-            <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">Display name</label>
+            <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">
+              Display name
+            </label>
             <input
               type="text"
               value={name}
@@ -91,12 +101,12 @@ function PasswordSettings() {
 
   const handleChange = async () => {
     setError('');
-    
+
     if (newPassword.length < 8) {
       setError('New password must be at least 8 characters');
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -121,7 +131,9 @@ function PasswordSettings() {
     <SettingSection title="Password" description="Change your account password">
       <div className="space-y-4 max-w-sm">
         <div>
-          <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">Current password</label>
+          <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">
+            Current password
+          </label>
           <input
             type="password"
             value={currentPassword}
@@ -131,7 +143,9 @@ function PasswordSettings() {
           />
         </div>
         <div>
-          <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">New password</label>
+          <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">
+            New password
+          </label>
           <input
             type="password"
             value={newPassword}
@@ -141,7 +155,9 @@ function PasswordSettings() {
           />
         </div>
         <div>
-          <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">Confirm new password</label>
+          <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">
+            Confirm new password
+          </label>
           <input
             type="password"
             value={confirmPassword}
@@ -150,12 +166,8 @@ function PasswordSettings() {
             className="w-full h-9 rounded-md border border-[#E4E0D9] bg-white px-3 text-[13px] text-[#1A1917] placeholder:text-[#9B988F] focus:outline-none focus:border-[#E8462A]"
           />
         </div>
-        {error && (
-          <p className="text-[12px] text-[#E8462A]">{error}</p>
-        )}
-        {success && (
-          <p className="text-[12px] text-[#2F9E44]">Password changed successfully</p>
-        )}
+        {error && <p className="text-[12px] text-[#E8462A]">{error}</p>}
+        {success && <p className="text-[12px] text-[#2F9E44]">Password changed successfully</p>}
         <button
           onClick={handleChange}
           disabled={loading || !currentPassword || !newPassword || !confirmPassword}
@@ -178,13 +190,16 @@ function PlanSettings() {
       <div className="flex items-start gap-5">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-4">
-            <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide ${plan === 'pro' ? 'bg-[#E8462A] text-white' : 'bg-[#E8E5DE] text-[#6B6860]'}`}>
+            <span
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide ${plan === 'pro' ? 'bg-[#E8462A] text-white' : 'bg-[#E8E5DE] text-[#6B6860]'}`}
+            >
               {plan === 'pro' ? 'Pro' : 'Free'}
             </span>
             <span className="text-[13px] text-[#1A1917] font-medium">Free Plan</span>
           </div>
           <p className="text-[12px] text-[#6B6860] mb-4">
-            You are currently on the free plan. Upgrade to Pro for unlimited canvases, custom branding, and more.
+            You are currently on the free plan. Upgrade to Pro for unlimited canvases, custom
+            branding, and more.
           </p>
           <button className="px-4 py-2 rounded-md bg-[#1A1917] text-white text-[13px] font-medium hover:bg-[#3A3937] transition-colors">
             Upgrade to Pro
@@ -234,7 +249,12 @@ function AccountSettings() {
 }
 
 const FONT_OPTIONS = [
-  { id: 'handwritten', name: 'Caveat (Handwritten)', preview: 'Aa Bb Cc', family: 'Caveat, cursive' },
+  {
+    id: 'handwritten',
+    name: 'Caveat (Handwritten)',
+    preview: 'Aa Bb Cc',
+    family: 'Caveat, cursive',
+  },
   { id: 'sans', name: 'Inter (Clean)', preview: 'Aa Bb Cc', family: 'Inter, sans-serif' },
   { id: 'serif', name: 'Georgia (Classic)', preview: 'Aa Bb Cc', family: 'Georgia, serif' },
   { id: 'mono', name: 'Monospace (Code)', preview: 'Aa Bb Cc', family: 'monospace' },
@@ -260,7 +280,10 @@ function FontPreferencesSettings() {
   const currentFont = FONT_OPTIONS.find(f => f.id === selectedFont);
 
   return (
-    <SettingSection title="Font Preferences" description="Choose your preferred font for canvas text">
+    <SettingSection
+      title="Font Preferences"
+      description="Choose your preferred font for canvas text"
+    >
       <div className="space-y-4">
         <p className="text-[12px] text-[#6B6860]">
           Select the default font used for text elements on your canvas.
@@ -360,7 +383,10 @@ function SettingsContent() {
       {/* Main content */}
       <main className="flex-1 flex flex-col overflow-auto">
         <div className="flex items-center gap-4 border-b border-[#E4E0D9] bg-[#FAFAF7] px-6 py-3">
-          <button onClick={() => router.back()} className="p-1 rounded-md text-[#6B6860] hover:text-[#1A1917] hover:bg-[#E8E5DE] transition-colors">
+          <button
+            onClick={() => router.back()}
+            className="p-1 rounded-md text-[#6B6860] hover:text-[#1A1917] hover:bg-[#E8E5DE] transition-colors"
+          >
             <ChevronLeft className="h-4 w-4" />
           </button>
           <div className="flex items-center gap-2">
@@ -371,9 +397,7 @@ function SettingsContent() {
           </div>
         </div>
 
-        <div className="max-w-2xl px-10 py-8 mx-auto w-full">
-          {renderSection()}
-        </div>
+        <div className="max-w-2xl px-10 py-8 mx-auto w-full">{renderSection()}</div>
       </main>
     </div>
   );
@@ -381,11 +405,13 @@ function SettingsContent() {
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={
-      <div className="flex h-dvh items-center justify-center bg-[#F0EDE6]">
-        <Loader2 className="size-6 animate-spin text-[#E8462A]" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex h-dvh items-center justify-center bg-[#F0EDE6]">
+          <Loader2 className="size-6 animate-spin text-[#E8462A]" />
+        </div>
+      }
+    >
       <SettingsContent />
     </Suspense>
   );

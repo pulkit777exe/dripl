@@ -32,12 +32,12 @@ describe('CookieConsent', () => {
 
   it('shows consent banner when no stored consent', async () => {
     localStorageMock.getItem.mockReturnValue(null);
-    
+
     await act(async () => {
       render(<CookieConsent />);
       await new Promise(r => setTimeout(r, 0));
     });
-    
+
     expect(screen.getByText('Cookie Notice')).toBeInTheDocument();
   });
 
@@ -45,26 +45,26 @@ describe('CookieConsent', () => {
     localStorageMock.getItem.mockReturnValue(
       JSON.stringify({ accepted: true, timestamp: Date.now() })
     );
-    
+
     await act(async () => {
       render(<CookieConsent />);
       await new Promise(r => setTimeout(r, 0));
     });
-    
+
     expect(screen.queryByText('Cookie Notice')).not.toBeInTheDocument();
   });
 
   it('stores consent in localStorage when accept is clicked', async () => {
     localStorageMock.getItem.mockReturnValue(null);
-    
+
     await act(async () => {
       render(<CookieConsent />);
       await new Promise(r => setTimeout(r, 0));
     });
-    
+
     const acceptButton = screen.getByText('Accept');
     fireEvent.click(acceptButton);
-    
+
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
       COOKIE_CONSENT_KEY,
       expect.stringContaining('"accepted":true')
@@ -73,26 +73,26 @@ describe('CookieConsent', () => {
 
   it('hides banner when dismiss is clicked without storing consent', async () => {
     localStorageMock.getItem.mockReturnValue(null);
-    
+
     await act(async () => {
       render(<CookieConsent />);
       await new Promise(r => setTimeout(r, 0));
     });
-    
+
     const dismissButton = screen.getByText('Manage your preferences');
     fireEvent.click(dismissButton);
-    
+
     expect(localStorageMock.setItem).not.toHaveBeenCalled();
   });
 
   it('renders cookie notice text correctly', async () => {
     localStorageMock.getItem.mockReturnValue(null);
-    
+
     await act(async () => {
       render(<CookieConsent />);
       await new Promise(r => setTimeout(r, 0));
     });
-    
+
     expect(screen.getByText(/We use cookies/i)).toBeInTheDocument();
   });
 });

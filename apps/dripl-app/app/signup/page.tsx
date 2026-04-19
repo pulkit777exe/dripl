@@ -33,7 +33,7 @@ export default function SignupPage() {
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to sign up';
-      
+
       // Check if it's a verification resend
       if (errorMessage.includes('already verified')) {
         setError(
@@ -64,10 +64,7 @@ export default function SignupPage() {
 
   return (
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}>
-      <AuthShell
-        title="Create your account"
-        subtitle="Set up your workspace in under a minute."
-      >
+      <AuthShell title="Create your account" subtitle="Set up your workspace in under a minute.">
         {error && (
           <div className="mb-4 rounded-md border border-[#E8462A]/20 bg-[#FAE8E5] px-3 py-2.5 text-[13px] text-[#C0392B]">
             {error}
@@ -128,7 +125,10 @@ export default function SignupPage() {
 
         <p className="mt-6 text-center text-[13px] text-[#6B6860]">
           Already have an account?{' '}
-          <Link href="/login" className="font-medium text-[#1A1917] underline underline-offset-2 hover:text-[#E8462A]">
+          <Link
+            href="/login"
+            className="font-medium text-[#1A1917] underline underline-offset-2 hover:text-[#E8462A]"
+          >
             Sign in
           </Link>
         </p>

@@ -25,8 +25,12 @@ export function NameInputModal({ onSubmit }: NameInputModalProps) {
             <PenLine className="h-4 w-4" />
           </div>
         </div>
-        <h2 className="text-[17px] font-semibold text-[#1A1917] text-center mb-1">Join the Canvas</h2>
-        <p className="text-[13px] text-[#6B6860] text-center mb-5">Enter your name to start collaborating</p>
+        <h2 className="text-[17px] font-semibold text-[#1A1917] text-center mb-1">
+          Join the Canvas
+        </h2>
+        <p className="text-[13px] text-[#6B6860] text-center mb-5">
+          Enter your name to start collaborating
+        </p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <input

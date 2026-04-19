@@ -153,7 +153,10 @@ class ApiClient {
     });
   }
 
-  async changePassword(payload: { currentPassword: string; newPassword: string }): Promise<{ ok: boolean }> {
+  async changePassword(payload: {
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<{ ok: boolean }> {
     return this.request('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(payload),

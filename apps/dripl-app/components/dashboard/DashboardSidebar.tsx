@@ -88,9 +88,7 @@ export function DashboardSidebar() {
                     : 'text-[#6B6860] hover:bg-[#E8E5DE] hover:text-[#1A1917]'
                 }`}
               >
-                <Icon
-                  className={`h-4.5 w-4.5 ${isActive ? 'text-[#1A1917]' : 'text-[#6B6860]'}`}
-                />
+                <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-[#1A1917]' : 'text-[#6B6860]'}`} />
                 <span className="flex-1">{item.label}</span>
                 {item.count !== undefined && (
                   <span

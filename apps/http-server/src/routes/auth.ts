@@ -52,19 +52,22 @@ authRouter.post('/register', async (req, res) => {
         const existingToken = await db.emailVerificationToken.findFirst({
           where: { email: parsed.data.email },
         });
-        
+
         if (existingToken && existingToken.expiresAt > new Date()) {
           // Token exists and valid, just inform user
-          res.json({ message: 'Verification email already sent. Please check your inbox.', pendingVerification: true });
+          res.json({
+            message: 'Verification email already sent. Please check your inbox.',
+            pendingVerification: true,
+          });
         } else {
           // Create new token
           await db.emailVerificationToken.deleteMany({
             where: { email: parsed.data.email },
           });
-          
+
           const verifyToken = randomUUID();
           const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24 hours
-          
+
           await db.emailVerificationToken.create({
             data: {
               token: verifyToken,
@@ -72,9 +75,12 @@ authRouter.post('/register', async (req, res) => {
               expiresAt,
             },
           });
-          
+
           await sendVerificationEmail(parsed.data.email, verifyToken);
-          res.json({ message: 'Verification email sent. Please check your inbox.', pendingVerification: true });
+          res.json({
+            message: 'Verification email sent. Please check your inbox.',
+            pendingVerification: true,
+          });
         }
       }
       return;
@@ -113,9 +119,9 @@ authRouter.post('/register', async (req, res) => {
     await sendVerificationEmail(parsed.data.email, verifyToken);
 
     // Don't create session - require email verification first
-    res.status(201).json({ 
+    res.status(201).json({
       message: 'Registration successful. Please verify your email to login.',
-      pendingVerification: true 
+      pendingVerification: true,
     });
   } catch (error) {
     console.error(
@@ -151,7 +157,7 @@ authRouter.post('/login', async (req, res) => {
 
     // Check if email is verified (except for Google OAuth users who have no password)
     if (!user.emailVerified && user.password) {
-      res.status(401).json({ 
+      res.status(401).json({
         error: 'Please verify your email before logging in',
         needsVerification: true,
       });
@@ -465,7 +471,7 @@ authRouter.post('/resend-verification', async (req, res) => {
 
 authRouter.put('/profile', authMiddleware, async (req: AuthenticatedRequest, res) => {
   const { name, image } = req.body;
-  
+
   try {
     const updatedUser = await db.user.update({
       where: { id: req.userId },
@@ -496,7 +502,7 @@ authRouter.put('/profile', authMiddleware, async (req: AuthenticatedRequest, res
 
 authRouter.post('/change-password', authMiddleware, async (req: AuthenticatedRequest, res) => {
   const { currentPassword, newPassword } = req.body;
-  
+
   if (!currentPassword || !newPassword) {
     res.status(400).json({ error: 'Current and new password are required' });
     return;
