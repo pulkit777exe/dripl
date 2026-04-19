@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm run build",
+  "buildCommand": "pnpm -r --filter=@dripl/common --filter=@dripl/db --filter=@dripl/utils build && pnpm run build",
   "installCommand": "pnpm install",
   "outputDirectory": "dist",
   "framework": "express"
