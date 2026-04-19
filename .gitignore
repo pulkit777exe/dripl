@@ -49,3 +49,4 @@ skills
 dev-docs
 .kilo
 docs
+.env*.local
