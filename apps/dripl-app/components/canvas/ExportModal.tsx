@@ -66,16 +66,18 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           exportCanvas('png', exportElements, { scale: 2, background: '#ffffff', padding: 16 })
         );
         const url = URL.createObjectURL(pngBlob);
-        const img = new (window.Image)();
+        const img = new window.Image();
         img.src = url;
-        await new Promise(resolve => { img.onload = resolve; });
-        
+        await new Promise(resolve => {
+          img.onload = resolve;
+        });
+
         const pdf = new jsPDF({
           orientation: img.width > img.height ? 'landscape' : 'portrait',
           unit: 'px',
           format: [img.width, img.height],
         });
-        pdf.addImage(pngBlob, 'PNG', 0, 0, img.width, img.height);
+        pdf.addImage(url, 'PNG', 0, 0, img.width, img.height);
         pdf.save(`canvas-${Date.now()}.pdf`);
         URL.revokeObjectURL(url);
         return;
@@ -141,10 +143,14 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
 
   const getFormatIcon = (format: ExportFormat) => {
     switch (format) {
-      case 'png': return <ImageIcon className="w-4 h-4" />;
-      case 'svg': return <FileCode className="w-4 h-4" />;
-      case 'json': return <FileJson className="w-4 h-4" />;
-      case 'pdf': return <FileText className="w-4 h-4" />;
+      case 'png':
+        return <ImageIcon className="w-4 h-4" />;
+      case 'svg':
+        return <FileCode className="w-4 h-4" />;
+      case 'json':
+        return <FileJson className="w-4 h-4" />;
+      case 'pdf':
+        return <FileText className="w-4 h-4" />;
     }
   };
 
@@ -162,7 +168,10 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       >
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-[15px] font-semibold text-[#1A1917]">Export Canvas</h2>
-          <button onClick={onClose} className="p-1 hover:bg-[#E8E5DE] rounded-md transition-colors text-[#9B9890] hover:text-[#1A1917]">
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-[#E8E5DE] rounded-md transition-colors text-[#9B9890] hover:text-[#1A1917]"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -198,7 +207,10 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                   {([1, 2, 3, 4] as ExportScale[]).map(s => (
                     <button
                       key={s}
-                      onClick={() => { setScale(s); setUseCustomSize(false); }}
+                      onClick={() => {
+                        setScale(s);
+                        setUseCustomSize(false);
+                      }}
                       className={`flex-1 py-1.5 rounded-md border text-[12px] font-medium transition-colors ${
                         scale === s && !useCustomSize
                           ? 'bg-[#FAE8E5] border-[#E8462A] text-[#E8462A]'
@@ -220,9 +232,25 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                 </label>
                 {useCustomSize && (
                   <div className="flex gap-2 items-center">
-                    <input type="number" placeholder="Width" value={customWidth} onChange={e => setCustomWidth(e.target.value)} className={inputClass} min={100} max={10000} />
+                    <input
+                      type="number"
+                      placeholder="Width"
+                      value={customWidth}
+                      onChange={e => setCustomWidth(e.target.value)}
+                      className={inputClass}
+                      min={100}
+                      max={10000}
+                    />
                     <span className="text-[#9B9890]">×</span>
-                    <input type="number" placeholder="Height" value={customHeight} onChange={e => setCustomHeight(e.target.value)} className={inputClass} min={100} max={10000} />
+                    <input
+                      type="number"
+                      placeholder="Height"
+                      value={customHeight}
+                      onChange={e => setCustomHeight(e.target.value)}
+                      className={inputClass}
+                      min={100}
+                      max={10000}
+                    />
                     <span className="text-[11px] text-[#9B9890]">px</span>
                   </div>
                 )}
@@ -262,9 +290,13 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             >
               <ImageIcon className="w-4 h-4 text-[#E8462A]" />
               <div className="text-left">
-                <div className="text-[13px] font-medium text-[#1A1917]">{exporting ? 'Exporting...' : 'Export as PNG'}</div>
+                <div className="text-[13px] font-medium text-[#1A1917]">
+                  {exporting ? 'Exporting...' : 'Export as PNG'}
+                </div>
                 <div className="text-[11px] text-[#9B9890]">
-                  {useCustomSize ? `${customWidth || '?'} × ${customHeight || '?'} px` : `${scale}x scale`}
+                  {useCustomSize
+                    ? `${customWidth || '?'} × ${customHeight || '?'} px`
+                    : `${scale}x scale`}
                 </div>
               </div>
             </button>
@@ -276,7 +308,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             >
               <FileCode className="w-4 h-4 text-[#E8462A]" />
               <div className="text-left">
-                <div className="text-[13px] font-medium text-[#1A1917]">{exporting ? 'Exporting...' : 'Export as SVG'}</div>
+                <div className="text-[13px] font-medium text-[#1A1917]">
+                  {exporting ? 'Exporting...' : 'Export as SVG'}
+                </div>
                 <div className="text-[11px] text-[#9B9890]">Vector graphics (scalable)</div>
               </div>
             </button>
@@ -288,7 +322,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             >
               <FileText className="w-4 h-4 text-[#E8462A]" />
               <div className="text-left">
-                <div className="text-[13px] font-medium text-[#1A1917]">{exporting ? 'Exporting...' : 'Export as PDF'}</div>
+                <div className="text-[13px] font-medium text-[#1A1917]">
+                  {exporting ? 'Exporting...' : 'Export as PDF'}
+                </div>
                 <div className="text-[11px] text-[#9B9890]">Document format</div>
               </div>
             </button>
@@ -300,7 +336,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             >
               <Clipboard className="w-4 h-4 text-[#E8462A]" />
               <div className="text-left">
-                <div className="text-[13px] font-medium text-[#1A1917]">{exporting ? 'Copying...' : 'Copy to Clipboard'}</div>
+                <div className="text-[13px] font-medium text-[#1A1917]">
+                  {exporting ? 'Copying...' : 'Copy to Clipboard'}
+                </div>
                 <div className="text-[11px] text-[#9B9890]">Copy as PNG image</div>
               </div>
             </button>
@@ -312,7 +350,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
               <Download className="w-4 h-4 text-[#E8462A]" />
               <div className="text-left">
                 <div className="text-[13px] font-medium text-[#1A1917]">Import JSON</div>
-                <div className="text-[11px] text-[#9B9890]">Merge or replace from exported JSON</div>
+                <div className="text-[11px] text-[#9B9890]">
+                  Merge or replace from exported JSON
+                </div>
               </div>
             </button>
           </div>
