@@ -14,7 +14,6 @@ import {
 import { jsPDF } from 'jspdf';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { exportCanvas, downloadBlob, importFromJson } from '@/utils/export';
-import Image from 'next/image';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -66,8 +65,8 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         const pngBlob = await Promise.resolve(
           exportCanvas('png', exportElements, { scale: 2, background: '#ffffff', padding: 16 })
         );
-        const img = new Image();
         const url = URL.createObjectURL(pngBlob);
+        const img = new (window.Image)();
         img.src = url;
         await new Promise(resolve => { img.onload = resolve; });
         

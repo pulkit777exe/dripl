@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import CookieConsent from '@/components/CookieConsent';
+import { SWRegistration } from '@/components/SWRegistration';
 
 export const metadata: Metadata = {
   title: 'Dripl — Think in public',
@@ -38,6 +39,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>{children}</AuthProvider>
           <CookieConsent />
+          <SWRegistration />
         </ThemeProvider>
       </body>
     </html>
