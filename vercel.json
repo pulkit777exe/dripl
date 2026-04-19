@@ -1,5 +1,11 @@
 {
-  "buildCommand": "pnpm -r --filter=@dripl/common build && pnpm -r --filter=@dripl/db build && pnpm -r --filter=@dripl/math build && pnpm -r --filter=@dripl/utils build && pnpm -r --filter=@dripl/element build && pnpm build",
+  "builds": [
+    {
+      "src": "apps/dripl-app/**",
+      "use": "@vercel/next"
+    }
+  ],
+  "buildCommand": "pnpm -r build",
   "installCommand": "pnpm install",
   "framework": "nextjs"
 }
