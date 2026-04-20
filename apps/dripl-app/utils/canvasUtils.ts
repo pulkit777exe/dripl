@@ -308,8 +308,7 @@ function drawText(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   if (!element.text) return;
 
   const fontSize = element.fontSize || 20;
-  const fontFamily =
-    element.fontFamily || '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
+  const fontFamily = element.fontFamily || getDefaultFontFamily();
 
   ctx.font = `${fontSize}px ${fontFamily}, cursive`;
   ctx.fillStyle = element.strokeColor ?? '#000000';
