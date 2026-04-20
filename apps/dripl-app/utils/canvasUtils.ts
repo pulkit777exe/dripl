@@ -1,6 +1,7 @@
 import type { DriplElement, Point } from '@dripl/common';
 import type { Bounds, AppState } from '@/types/canvas';
 import { getElementBounds, isPointInElement } from '@dripl/math';
+import { getDefaultFontFamily } from './fontPreferences';
 export type { Point, Bounds, AppState };
 export type { DriplElement };
 
@@ -59,9 +60,7 @@ export function normalizeElement(element: DriplElement): DriplElement {
   if (normalized.type === 'text' && !normalized.text) {
     normalized.text = '';
     normalized.fontSize = normalized.fontSize || 20;
-    normalized.fontFamily =
-      normalized.fontFamily ||
-      '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
+    normalized.fontFamily = normalized.fontFamily || getDefaultFontFamily();
   }
 
   // For image elements, ensure src property exists

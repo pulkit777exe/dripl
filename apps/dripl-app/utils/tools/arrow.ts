@@ -1,5 +1,6 @@
 import type { DriplElement, Point, LinearElement, TextElement } from '@dripl/common';
 import { v4 as uuidv4 } from 'uuid';
+import { getDefaultFontFamily } from '@/utils/fontPreferences';
 
 export interface ArrowToolState {
   points: Point[];
@@ -56,7 +57,7 @@ export function createArrowElement(
       height: 24,
       text: state.label,
       fontSize: 14,
-      fontFamily: '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
+      fontFamily: getDefaultFontFamily(),
       strokeColor: 'transparent',
       backgroundColor: 'transparent',
       strokeWidth: 0,

@@ -118,7 +118,7 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
         const props = propsRef.current;
         renderStaticScene(
           canvas,
-          props.elements.filter(element => !props.selectedIds.has(element.id)),
+          props.elements,
           {
             x: props.viewport.x,
             y: props.viewport.y,

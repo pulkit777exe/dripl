@@ -6,8 +6,8 @@ import { createArrowElement, ArrowToolState } from '@/utils/tools/arrow';
 import { createLineElement, LineToolState } from '@/utils/tools/line';
 import { createFreedrawElement, FreedrawToolState } from '@/utils/tools/freedraw';
 import { createTextElement, TextToolState } from '@/utils/tools/text';
-import { createImageElement, ImageToolState } from '@/utils/tools/image';
 import { createFrameElement, FrameToolState } from '@/utils/tools/frame';
+import { getDefaultFontFamily } from '@/utils/fontPreferences';
 
 // Rectangle shape definition
 export const rectangleShape: ShapeDefinition = {
@@ -390,7 +390,7 @@ export const textShape: ShapeDefinition = {
       fillStyle: 'hachure',
       text: 'Text',
       fontSize: 20,
-      fontFamily: '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
+      fontFamily: getDefaultFontFamily(),
       ...props,
     }) as DriplElement,
   validate: (element: any) => {

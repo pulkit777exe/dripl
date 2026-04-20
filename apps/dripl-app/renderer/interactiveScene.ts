@@ -1,5 +1,6 @@
 import type { DriplElement, Point } from '@dripl/common';
 import { getElementBounds } from '@dripl/math';
+import { getDefaultFontFamily } from '@/utils/fontPreferences';
 
 export interface SceneViewport {
   x: number;
@@ -278,9 +279,9 @@ function renderText(ctx: CanvasRenderingContext2D, element: DriplElement) {
   const fontSize =
     'fontSize' in element && typeof element.fontSize === 'number' ? element.fontSize : 20;
   const fontFamily =
-    'fontFamily' in element && typeof element.fontFamily === 'string'
+    'fontFamily' in element && typeof element.fontFamily === 'string' && element.fontFamily
       ? element.fontFamily
-      : '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
+      : getDefaultFontFamily();
   const textAlign =
     'textAlign' in element &&
     (element.textAlign === 'left' ||

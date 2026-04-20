@@ -1,4 +1,4 @@
-const DEFAULT_FONT = '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
+const DEFAULT_FONT = '"Caveat", cursive';
 
 const FONT_PREFERENCES: Record<string, string> = {
   handwritten: DEFAULT_FONT,

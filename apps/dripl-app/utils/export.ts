@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ElementSchema, type DriplElement } from '@dripl/common';
 import { getElementBounds } from '@dripl/math';
 import { renderInteractiveScene } from '@/renderer/interactiveScene';
+import { getDefaultFontFamily } from '@/utils/fontPreferences';
 
 const ElementsSchema = z.array(ElementSchema);
 
@@ -162,9 +163,7 @@ export function exportToSvg(elements: DriplElement[], options: { padding?: numbe
       }
       if (type === 'text' && 'text' in element) {
         const fontSize = element.fontSize || 20;
-        const fontFamily =
-          element.fontFamily ||
-          '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
+        const fontFamily = element.fontFamily || getDefaultFontFamily();
         const textAlign = 'textAlign' in element && element.textAlign ? element.textAlign : 'left';
         const anchor = textAlign === 'center' ? 'middle' : textAlign === 'right' ? 'end' : 'start';
         const anchorX =

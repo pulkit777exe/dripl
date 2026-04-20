@@ -17,8 +17,6 @@ export const VERTICAL_ALIGN = {
 const DEFAULT_FONT_SIZE = 20;
 
 function getFontFamily(): string {
-  if (typeof window === 'undefined')
-    return '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
   return getDefaultFontFamily();
 }
 

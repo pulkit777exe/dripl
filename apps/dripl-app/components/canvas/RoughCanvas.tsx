@@ -7,6 +7,7 @@ import { saveLocalCanvasToStorage, LocalCanvasState } from '@/utils/localCanvasS
 import { getElementBounds, isPointInElement } from '@dripl/math';
 import { ActionCreator, CanvasContentSchema, type DriplElement } from '@dripl/common';
 import { getOrCreateCollaboratorName } from '@/utils/username';
+import { getDefaultFontFamily } from '@/utils/fontPreferences';
 import { v4 as uuidv4 } from 'uuid';
 import RBush from 'rbush';
 import { SelectionOverlay, ResizeHandle } from './SelectionOverlay';
@@ -981,6 +982,16 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         height: newHeight,
       };
 
+      // Scale fontSize for text elements
+      if (el.type === 'text') {
+        const originalFontSize = el.fontSize ?? 20;
+        const scaleX = newWidth / el.width;
+        const scaleY = newHeight / el.height;
+        const scale = Math.sqrt(scaleX * scaleY);
+        const newFontSize = Math.max(6, Math.round(originalFontSize * scale));
+        updatedElement.fontSize = newFontSize;
+      }
+
       // Scale points for line/arrow/freedraw
       if (
         (el.type === 'arrow' || el.type === 'line' || el.type === 'freedraw') &&
@@ -1262,16 +1273,24 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     const lines = text.split('\n');
-    const fontSize = 20;
-    const lineHeight = fontSize * 1.25;
-    const measuredWidth = Math.max(40, ...lines.map(line => line.length * (fontSize * 0.55)));
+    const lineHeightFactor = 1.25;
+    // Use a base fontSize for measurement; actual fontSize comes from element (if editing) or default
+    const baseFontSize = textInput.existingElementId
+      ? (elements.find(el => el.id === textInput.existingElementId)?.fontSize ?? 20)
+      : 20;
+    const lineHeight = baseFontSize * lineHeightFactor;
+    const measuredWidth = Math.max(40, ...lines.map(line => line.length * (baseFontSize * 0.55)));
     const measuredHeight = Math.max(lineHeight, lines.length * lineHeight);
 
     if (textInput.existingElementId) {
+      const existingElement = elements.find(el => el.id === textInput.existingElementId);
       updateElement(textInput.existingElementId, {
         text,
         width: measuredWidth,
         height: measuredHeight,
+        // Re-measure and update fontSize/width/height based on new content while preserving user's font
+        fontSize: existingElement?.fontSize ?? 20,
+        fontFamily: existingElement?.fontFamily ?? getDefaultFontFamily(),
       } as Partial<DriplElement>);
       setTextInput(null);
       return;
@@ -1289,8 +1308,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       strokeWidth: 1,
       opacity: 1,
       text,
-      fontSize,
-      fontFamily: '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
+      fontSize: baseFontSize,
+      fontFamily: getDefaultFontFamily(),
     };
 
     addElement(textElement);
