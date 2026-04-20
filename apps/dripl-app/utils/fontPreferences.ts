@@ -1,6 +1,6 @@
 const DEFAULT_FONT = '"Caveat", cursive';
 
-const FONT_PREFERENCES: Record<string, string> = {
+export const FONT_PREFERENCES: Record<string, string> = {
   handwritten: DEFAULT_FONT,
   sans: 'Inter, ui-sans-serif, system-ui, sans-serif',
   serif: 'Georgia, serif',

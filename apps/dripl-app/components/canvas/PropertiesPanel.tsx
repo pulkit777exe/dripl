@@ -17,6 +17,7 @@ import {
 import { useState } from 'react';
 import { ExportModal } from './ExportModal';
 import type { DriplElement } from '@dripl/common';
+import { FONT_PREFERENCES, getDefaultFontFamily } from '@/utils/fontPreferences';
 
 interface ElementPropertiesProps {
   selectedElement: DriplElement | null;
@@ -306,6 +307,51 @@ export function PropertiesPanel({
         {/* Divider when both stroke and bg are visible */}
         {showProp('strokeColor') && showProp('background') && (
           <div className="h-px" style={{ backgroundColor: 'var(--color-panel-divider)' }} />
+        )}
+
+        {/* ── Font Size ───────────────────────────────────────────────── */}
+        {showProp('fontSize') && (
+          <div className="space-y-1.5">
+            <SectionLabel>Font size</SectionLabel>
+            <div className="flex gap-1">
+              {[12, 16, 20, 24, 32, 48].map(size => (
+                <button
+                  key={size}
+                  onClick={() => updateProp('fontSize', size)}
+                  className={`flex-1 py-1 rounded text-[11px] transition-colors ${
+                    selectedElement?.fontSize === size
+                      ? 'bg-[var(--color-panel-btn-active)] text-[var(--color-panel-btn-active-text)]'
+                      : 'bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]'
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Font Family ──────────────────────────────────────────────── */}
+        {showProp('fontFamily') && (
+          <div className="space-y-1.5">
+            <SectionLabel>Font</SectionLabel>
+            <div className="flex gap-1 flex-wrap">
+              {Object.entries(FONT_PREFERENCES).map(([key, value]) => (
+                <button
+                  key={key}
+                  onClick={() => updateProp('fontFamily', value)}
+                  className={`px-2 py-1 rounded text-[10px] transition-colors ${
+                    selectedElement?.fontFamily === value
+                      ? 'bg-[var(--color-panel-btn-active)] text-[var(--color-panel-btn-active-text)]'
+                      : 'bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]'
+                  }`}
+                  style={{ fontFamily: value }}
+                >
+                  {key}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* ── Stroke width ──────────────────────────────────────────────── */}
