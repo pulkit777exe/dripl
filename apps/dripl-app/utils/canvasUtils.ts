@@ -357,7 +357,7 @@ function drawFrame(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   // Draw title
   if (frameElement.title) {
     ctx.fillStyle = element.strokeColor ?? '#000000';
-    ctx.font = '14px "Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
+    ctx.font = `14px ${getDefaultFontFamily()}, cursive`;
     ctx.fillText(frameElement.title, element.x + 10, element.y - 10);
   }
 }
