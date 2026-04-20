@@ -56,6 +56,7 @@ import {
   saveToLocalStorage,
   loadFromLocalStorage,
 } from '@/utils/canvasUtils';
+import { getDefaultFontFamily } from '@/utils/fontPreferences';
 import { CanvasHistory } from '@/utils/canvasHistory';
 import { EraserTrail } from '../../eraser/EraserTrail';
 import { ColorSwatch } from './ColorSwatch';
@@ -414,7 +415,7 @@ export default function App() {
         points: ['arrow', 'line', 'freedraw'].includes(toolToUse) ? [canvasPoint] : undefined,
         text: toolToUse === 'text' ? 'Text' : undefined,
         fontSize: 20,
-        fontFamily: '"Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive',
+        fontFamily: getDefaultFontFamily(),
       } as unknown as DriplElement;
 
       setCurrentElement(newElement);
