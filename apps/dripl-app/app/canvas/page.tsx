@@ -193,16 +193,8 @@ function CanvasContent() {
 
       <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1">
         <CanvasToolbar />
-        <p className="text-xs text-hint-text text-pretty text-center max-w-md px-2">
-          To move canvas, hold{' '}
-          <kbd className="px-1.5 py-0.5 rounded bg-hint-bg border border-toolbar-border text-hint-text font-mono text-[10px]">
-            Scroll wheel
-          </kbd>{' '}
-          or{' '}
-          <kbd className="px-1.5 py-0.5 rounded bg-hint-bg border border-toolbar-border text-hint-text font-mono text-[10px]">
-            Space
-          </kbd>{' '}
-          while dragging, or use the hand tool.
+        <p className="text-[10px] text-[#9B9890] text-center px-2">
+          Hold <kbd className="px-1 py-0.5 rounded bg-[#E8E5DE] border border-[#D4D0C9] font-mono text-[9px]">Space</kbd> to pan
         </p>
       </div>
 

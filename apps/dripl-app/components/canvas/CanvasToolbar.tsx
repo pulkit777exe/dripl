@@ -23,61 +23,25 @@ import { ExtraToolsDropdown } from './ExtraToolsDropdown';
 
 interface Tool {
   id: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number; className?: string }> | null;
   label: string;
   shortcuts: string[];
   numericShortcut?: string;
 }
 
 const tools: Tool[] = [
-  {
-    id: 'hand',
-    icon: Hand,
-    label: 'Hand',
-    shortcuts: ['h'],
-  },
-  {
-    id: 'select',
-    icon: MousePointer2,
-    label: 'Selection',
-    shortcuts: ['v', '1'],
-    numericShortcut: '1',
-  },
-  {
-    id: 'rectangle',
-    icon: Square,
-    label: 'Rectangle',
-    shortcuts: ['r', '2'],
-    numericShortcut: '2',
-  },
-  {
-    id: 'diamond',
-    icon: Diamond,
-    label: 'Diamond',
-    shortcuts: ['d', '3'],
-    numericShortcut: '3',
-  },
-  {
-    id: 'ellipse',
-    icon: Circle,
-    label: 'Ellipse',
-    shortcuts: ['o', '4'],
-    numericShortcut: '4',
-  },
-  {
-    id: 'arrow',
-    icon: ArrowRight,
-    label: 'Arrow',
-    shortcuts: ['a', '5'],
-    numericShortcut: '5',
-  },
-  {
-    id: 'line',
-    icon: Minus,
-    label: 'Line',
-    shortcuts: ['l', '6'],
-    numericShortcut: '6',
-  },
+  { id: 'hand', icon: Hand, label: 'Hand', shortcuts: ['h'] },
+  { id: 'select', icon: MousePointer2, label: 'Selection', shortcuts: ['v', '1'], numericShortcut: '1' },
+  { id: 'separator-1', icon: null, label: '', shortcuts: [] },
+  { id: 'rectangle', icon: Square, label: 'Rectangle', shortcuts: ['r', '2'], numericShortcut: '2' },
+  { id: 'diamond', icon: Diamond, label: 'Diamond', shortcuts: ['d', '3'], numericShortcut: '3' },
+  { id: 'ellipse', icon: Circle, label: 'Ellipse', shortcuts: ['o', '4'], numericShortcut: '4' },
+  { id: 'arrow', icon: ArrowRight, label: 'Arrow', shortcuts: ['a', '5'], numericShortcut: '5' },
+  { id: 'line', icon: Minus, label: 'Line', shortcuts: ['l', '6'], numericShortcut: '6' },
+  { id: 'freedraw', icon: Pencil, label: 'Freedraw', shortcuts: ['p', '7'], numericShortcut: '7' },
+  { id: 'frame', icon: Frame, label: 'Frame', shortcuts: ['f'] },
+  { id: 'text', icon: Type, label: 'Text', shortcuts: ['t', '8'], numericShortcut: '8' },
+  { id: 'separator-2', icon: null, label: '', shortcuts: [] },
   {
     id: 'freedraw',
     icon: Pencil,
@@ -165,12 +129,11 @@ export function CanvasToolbar() {
 
   return (
     <div
-      className="absolute top-6 left-1/2 -translate-x-1/2 px-1.5 py-1.5 rounded-xl border shadow-lg flex items-center gap-0.5 z-50 pointer-events-auto"
+      className="absolute top-6 left-1/2 -translate-x-1/2 px-2 py-1.5 rounded-xl border flex items-center gap-0.5 z-50 pointer-events-auto"
       style={{
         backgroundColor: 'var(--color-toolbar-bg)',
         borderColor: 'var(--color-toolbar-border)',
-        boxShadow:
-          '0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
       }}
     >
       {/* Lock button */}
@@ -198,6 +161,11 @@ export function CanvasToolbar() {
 
       {/* Tool buttons */}
       {tools.map(tool => {
+        if (tool.id.startsWith('separator-')) {
+          return (
+            <div key={tool.id} className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--color-toolbar-divider)' }} />
+          );
+        }
         const Icon = tool.icon;
         const isActive = activeTool === tool.id;
 
@@ -238,7 +206,7 @@ export function CanvasToolbar() {
             aria-label={`${tool.label} tool`}
             aria-pressed={isActive}
           >
-            <Icon size={18} />
+            {Icon && <Icon size={18} />}
             {tool.numericShortcut && (
               <span
                 className="absolute -bottom-0.5 -right-0.5 text-[9px] font-mono leading-none opacity-60 select-none"

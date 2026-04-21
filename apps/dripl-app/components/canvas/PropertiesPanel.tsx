@@ -103,7 +103,7 @@ const SHAPE_PROPERTIES: Record<string, string[]> = {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <label
-      className="text-xs font-medium select-none"
+      className="text-[11px] font-semibold uppercase tracking-wider select-none"
       style={{ color: 'var(--color-panel-label)' }}
     >
       {children}
@@ -268,6 +268,11 @@ export function PropertiesPanel({
           </div>
         )}
 
+        {/* Section divider */}
+        {showProp('strokeColor') && showProp('background') && (
+          <div className="h-px my-2" style={{ backgroundColor: 'var(--color-panel-divider)' }} />
+        )}
+
         {/* ── Background colour ─────────────────────────────────────────── */}
         {showProp('background') && (
           <div className="space-y-1.5">
@@ -311,47 +316,53 @@ export function PropertiesPanel({
 
         {/* ── Font Size ───────────────────────────────────────────────── */}
         {showProp('fontSize') && (
-          <div className="space-y-1.5">
-            <SectionLabel>Font size</SectionLabel>
-            <div className="flex gap-1">
-              {[12, 16, 20, 24, 32, 48].map(size => (
-                <button
-                  key={size}
-                  onClick={() => updateProp('fontSize', size)}
-                  className={`flex-1 py-1 rounded text-[11px] transition-colors ${
-                    selectedElement?.fontSize === size
-                      ? 'bg-[var(--color-panel-btn-active)] text-[var(--color-panel-btn-active-text)]'
-                      : 'bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]'
-                  }`}
-                >
-                  {size}
-                </button>
-              ))}
+          <>
+            <div className="h-px my-2" style={{ backgroundColor: 'var(--color-panel-divider)' }} />
+            <div className="space-y-1.5">
+              <SectionLabel>Font size</SectionLabel>
+              <div className="flex gap-1">
+                {[12, 16, 20, 24, 32, 48].map(size => (
+                  <button
+                    key={size}
+                    onClick={() => updateProp('fontSize', size)}
+                    className={`flex-1 py-1.5 rounded-md text-[11px] font-medium transition-all duration-150 ${
+                      selectedElement?.fontSize === size
+                        ? 'bg-[#E8462A] text-white shadow-sm'
+                        : 'bg-[#E8E5DE] text-[#6B6860] hover:bg-[#D4D0C9]'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* ── Font Family ──────────────────────────────────────────────── */}
         {showProp('fontFamily') && (
-          <div className="space-y-1.5">
-            <SectionLabel>Font</SectionLabel>
-            <div className="flex gap-1 flex-wrap">
-              {Object.entries(FONT_PREFERENCES).map(([key, value]) => (
-                <button
-                  key={key}
-                  onClick={() => updateProp('fontFamily', value)}
-                  className={`px-2 py-1 rounded text-[10px] transition-colors ${
-                    selectedElement?.fontFamily === value
-                      ? 'bg-[var(--color-panel-btn-active)] text-[var(--color-panel-btn-active-text)]'
-                      : 'bg-[var(--color-panel-btn-bg)] hover:bg-[var(--color-panel-btn-hover)]'
-                  }`}
-                  style={{ fontFamily: value }}
-                >
-                  {key}
-                </button>
-              ))}
+          <>
+            <div className="h-px my-2" style={{ backgroundColor: 'var(--color-panel-divider)' }} />
+            <div className="space-y-1.5">
+              <SectionLabel>Font</SectionLabel>
+              <div className="flex gap-1 flex-wrap">
+                {Object.entries(FONT_PREFERENCES).map(([key, value]) => (
+                  <button
+                    key={key}
+                    onClick={() => updateProp('fontFamily', value)}
+                    className={`px-2.5 py-1.5 rounded-md text-[10px] font-medium transition-all duration-150 ${
+                      selectedElement?.fontFamily === value
+                        ? 'bg-[#E8462A] text-white shadow-sm'
+                        : 'bg-[#E8E5DE] text-[#6B6860] hover:bg-[#D4D0C9]'
+                    }`}
+                    style={{ fontFamily: value }}
+                  >
+                    {key}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* ── Stroke width ──────────────────────────────────────────────── */}
