@@ -7,6 +7,7 @@ import type { DriplElement } from '@dripl/common';
 import RoughCanvas from '@/components/canvas/RoughCanvas';
 import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
 import { useCanvasStore } from '@/lib/canvas-store';
+import { saveCanvasToIndexedDB, loadCanvasFromIndexedDB } from '@/lib/canvas-db';
 import { type LocalCanvasState, loadLocalCanvasFromStorage } from '@/utils/localCanvasStorage';
 import { loadInitialScene } from '@/lib/scene-loader';
 import type { ActiveTool, Theme } from '@/lib/canvas-store';
@@ -118,6 +119,15 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
     let cancelled = false;
     const bootstrap = async () => {
       if (mode === 'local') {
+        const LOCAL_ROOM_ID = 'local-canvas';
+        const indexedElements = await loadCanvasFromIndexedDB(LOCAL_ROOM_ID);
+        
+        if (indexedElements && indexedElements.length > 0) {
+          setElements(indexedElements, { skipHistory: true });
+          if (!cancelled) setIsInitialized(true);
+          return;
+        }
+        
         const { elements, appState, selectedIds: loadedSelectedIds } = loadLocalCanvasFromStorage();
         const initialElements = elements as DriplElement[] | null;
         if (initialElements && initialElements.length > 0) {
@@ -182,6 +192,16 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
       cancelled = true;
     };
   }, [mode, roomSlug, props, setElements, setSelectedIds]);
+
+  const elements = useCanvasStore(state => state.elements);
+  useEffect(() => {
+    if (!isInitialized || mode !== 'local') return;
+    const LOCAL_ROOM_ID = 'local-canvas';
+    const timeoutId = setTimeout(() => {
+      saveCanvasToIndexedDB(LOCAL_ROOM_ID, elements).catch(console.error);
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [elements, isInitialized, mode]);
 
   if (!isInitialized) {
     return (
