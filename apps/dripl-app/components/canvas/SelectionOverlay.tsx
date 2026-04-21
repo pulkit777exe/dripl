@@ -16,7 +16,7 @@ interface SelectionOverlayProps {
 
 export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
-const H = 12;
+const H = 14;
 
 const CORNER_HANDLES: { id: ResizeHandle; css: React.CSSProperties }[] = [
   { id: 'nw', css: { top: -H / 2, left: -H / 2, cursor: 'nw-resize' } },
@@ -67,12 +67,13 @@ const EDGE_HANDLES: { id: ResizeHandle; css: React.CSSProperties }[] = [
 const baseHandle: React.CSSProperties = {
   width: H,
   height: H,
-  backgroundColor: 'transparent',
-  border: 'none',
+  backgroundColor: 'var(--color-panel-bg)',
+  border: '2px solid var(--color-primary)',
   position: 'absolute',
   pointerEvents: 'auto',
   zIndex: 20,
   boxSizing: 'border-box',
+  borderRadius: '3px',
 };
 
 export function SelectionOverlay({
@@ -129,6 +130,7 @@ export function SelectionOverlay({
             <div
               key={id}
               className="resize-handle"
+              data-handle={id}
               style={{ ...baseHandle, ...css }}
               onPointerDown={e => onResizeStart(id, e)}
             />
@@ -138,6 +140,7 @@ export function SelectionOverlay({
             <div
               key={id}
               className="resize-handle"
+              data-handle={id}
               style={{
                 ...baseHandle,
                 ...css,

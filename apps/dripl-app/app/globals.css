@@ -240,13 +240,24 @@ html.dark {
   transition:
     transform 0.1s ease-out,
     box-shadow 0.1s ease-out;
-  border-radius: 2px;
+  border-radius: 3px;
+  z-index: 20;
 }
 
 .resize-handle:hover {
-  transform: scale(1.35) !important;
+  transform: scale(1.2) !important;
   box-shadow: 0 0 0 3px var(--color-tool-active-shadow);
   z-index: 30 !important;
+}
+
+.resize-handle[data-handle="nw"],
+.resize-handle[data-handle="se"] {
+  cursor: nwse-resize;
+}
+
+.resize-handle[data-handle="ne"],
+.resize-handle[data-handle="sw"] {
+  cursor: nesw-resize;
 }
 
 .rotate-handle {
