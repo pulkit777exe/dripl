@@ -99,13 +99,11 @@ export function ExtraToolsDropdown() {
 
   const isButtonActive = isOpen || activeTool === 'frame' || activeTool === 'laser';
   
-  const getActiveIcon = () => {
-    if (activeTool === 'frame') return Frame;
-    if (activeTool === 'laser') return Zap;
-    return Library;
+  const renderActiveIcon = () => {
+    if (activeTool === 'frame') return <Frame size={18} />;
+    if (activeTool === 'laser') return <Zap size={18} />;
+    return <Library size={18} />;
   };
-  
-  const ActiveIcon = getActiveIcon();
 
   return (
     <>
@@ -123,7 +121,7 @@ export function ExtraToolsDropdown() {
           aria-haspopup="true"
           title="Frame / Library"
         >
-          <ActiveIcon size={18} />
+          {renderActiveIcon()}
           <ChevronDown
             size={11}
             className={`absolute -bottom-0.5 -right-0.5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
@@ -132,7 +130,7 @@ export function ExtraToolsDropdown() {
 
         {isOpen && (
           <div 
-            className="absolute top-full right-0 mt-2 w-72 rounded-xl border shadow-2xl z-[60] py-1.5"
+            className="absolute top-full right-0 mt-2 w-72 rounded-xl border shadow-2xl z-60 py-1.5"
             style={{ backgroundColor: 'var(--color-panel-bg)', borderColor: 'var(--color-panel-border)' }}
           >
             <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase" style={{ color: 'var(--color-panel-label)' }}>
