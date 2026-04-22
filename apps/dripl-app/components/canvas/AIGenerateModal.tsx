@@ -72,11 +72,11 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-300 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-[400] flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-[480px] max-h-[80vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-[480px] max-h-[80vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 mx-4"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E4E0D9]">
