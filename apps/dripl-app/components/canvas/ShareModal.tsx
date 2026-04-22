@@ -8,8 +8,10 @@ interface ShareModalProps {
   onClose: () => void;
   onShareCanvas: () => Promise<void>;
   onCollaborate: () => Promise<void>;
+  onStopCollaboration?: () => void;
   feedbackMessage?: string | null;
   errorMessage?: string | null;
+  isCollaborating?: boolean;
 }
 
 export function ShareModal({
@@ -17,8 +19,10 @@ export function ShareModal({
   onClose,
   onShareCanvas,
   onCollaborate,
+  onStopCollaboration,
   feedbackMessage,
   errorMessage,
+  isCollaborating = false,
 }: ShareModalProps) {
   const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
   const [isStartingCollab, setIsStartingCollab] = useState(false);
@@ -59,29 +63,47 @@ export function ShareModal({
           <X size={18} />
         </button>
         <h2 className="text-[15px] font-semibold text-[#1A1917] mb-1">Share</h2>
-        <p className="text-[13px] text-[#6B6860] mb-4">Choose how you want to share this canvas.</p>
+        <p className="text-[13px] text-[#6B6860] mb-4">
+          {isCollaborating
+            ? 'Collaboration is active. Stop it anytime.'
+            : 'Choose how you want to share this canvas.'}
+        </p>
 
         <div className="space-y-2">
-          <button
-            onClick={handleShareCanvas}
-            disabled={isSharingSnapshot || isStartingCollab}
-            className="w-full py-2 bg-[#E8462A] text-white text-[13px] font-medium rounded-md hover:bg-[#D93D22] transition-colors disabled:opacity-50"
-          >
-            {isSharingSnapshot ? 'Sharing...' : 'Share Canvas'}
-          </button>
-          <button
-            onClick={handleCollaborate}
-            disabled={isStartingCollab || isSharingSnapshot}
-            className="w-full py-2 border border-[#D4D0C9] bg-white text-[#1A1917] text-[13px] font-medium rounded-md hover:bg-[#E8E5DE] transition-colors disabled:opacity-50"
-          >
-            {isStartingCollab ? 'Starting...' : 'Collaborate'}
-          </button>
+          {isCollaborating ? (
+            <button
+              onClick={() => {
+                onStopCollaboration?.();
+                onClose();
+              }}
+              className="w-full py-2 bg-[#E8462A] text-white text-[13px] font-medium rounded-md hover:bg-[#D93D22] transition-colors"
+            >
+              Stop Collaboration
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={handleShareCanvas}
+                disabled={isSharingSnapshot || isStartingCollab}
+                className="w-full py-2 bg-[#E8462A] text-white text-[13px] font-medium rounded-md hover:bg-[#D93D22] transition-colors disabled:opacity-50"
+              >
+                {isSharingSnapshot ? 'Sharing...' : 'Share Canvas'}
+              </button>
+              <button
+                onClick={handleCollaborate}
+                disabled={isStartingCollab || isSharingSnapshot}
+                className="w-full py-2 border border-[#D4D0C9] bg-white text-[#1A1917] text-[13px] font-medium rounded-md hover:bg-[#E8E5DE] transition-colors disabled:opacity-50"
+              >
+                {isStartingCollab ? 'Starting...' : 'Collaborate'}
+              </button>
+            </>
+          )}
           <button
             onClick={onClose}
             disabled={isStartingCollab || isSharingSnapshot}
             className="w-full py-2 border border-[#D4D0C9] bg-[#FAFAF7] text-[#6B6860] text-[13px] font-medium rounded-md hover:bg-[#F0EDE6] transition-colors disabled:opacity-50"
           >
-            Cancel
+            {isCollaborating ? 'Close' : 'Cancel'}
           </button>
         </div>
 

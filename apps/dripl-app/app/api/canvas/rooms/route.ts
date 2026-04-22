@@ -7,6 +7,13 @@ const API_BASE_URL =
 
 export async function POST(request: NextRequest) {
   const cookie = request.headers.get('cookie') ?? '';
+  let content = '[]';
+  try {
+    const body = await request.json();
+    if (body.content && typeof body.content === 'string') {
+      content = body.content;
+    }
+  } catch {}
   try {
     const response = await fetch(`${API_BASE_URL}/rooms`, {
       method: 'POST',
@@ -14,7 +21,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         cookie,
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ content }),
     });
 
     if (response.status === 401) {

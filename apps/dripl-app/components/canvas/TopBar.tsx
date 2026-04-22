@@ -33,6 +33,12 @@ export const TopBar: React.FC = () => {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const isConnected = useCanvasStore(state => state.isConnected);
+
+  const handleLeaveSession = useCallback(() => {
+    useCanvasStore.getState().setShouldLeaveRoom(true);
+    router.push('/canvas');
+  }, [router]);
   const [shareFeedbackMessage, setShareFeedbackMessage] = useState<string | null>(null);
   const [shareErrorMessage, setShareErrorMessage] = useState<string | null>(null);
   const [activeLanguage, setActiveLanguage] = useState('en');
@@ -84,7 +90,12 @@ export const TopBar: React.FC = () => {
   const handleCollaborate = useCallback(async () => {
     clearShareMessages();
     try {
-      const response = await fetch('/api/canvas/rooms', { method: 'POST' });
+      const elementsJson = JSON.stringify(elements);
+      const response = await fetch('/api/canvas/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: elementsJson }),
+      });
       if (response.status === 401) {
         const next = encodeURIComponent(window.location.pathname + window.location.search);
         router.push(`/login?next=${next}`);
@@ -101,7 +112,7 @@ export const TopBar: React.FC = () => {
       console.error('Failed to start collaboration:', error);
       setShareErrorMessage('Failed to start collaboration. Please try again.');
     }
-  }, [clearShareMessages, router]);
+  }, [clearShareMessages, elements, router]);
 
   const handleResetCanvas = () => {
     if (confirm('Are you sure you want to reset the canvas? This cannot be undone.')) {
@@ -355,8 +366,10 @@ export const TopBar: React.FC = () => {
         }}
         onShareCanvas={handleShareCanvas}
         onCollaborate={handleCollaborate}
+        onStopCollaboration={handleLeaveSession}
         feedbackMessage={shareFeedbackMessage}
         errorMessage={shareErrorMessage}
+        isCollaborating={isConnected}
       />
     </>
   );
