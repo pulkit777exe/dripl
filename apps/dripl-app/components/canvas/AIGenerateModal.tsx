@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { useAuth } from '@/app/context/AuthContext';
@@ -68,15 +69,21 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
     setError(null);
   };
 
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
 
-  return (
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !mounted) return null;
+
+  const modal = (
     <div
-      className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-[400] flex items-center justify-center p-4 box-content bg-black/30 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-full max-w-[460px] max-h-[85vh] overflow-y-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 my-auto"
+        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-full max-w-[460px] max-h-[85vh] overflow-y-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E4E0D9]">
@@ -161,4 +168,6 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
