@@ -8,11 +8,17 @@ import { AIGenerateModal } from './AIGenerateModal';
 interface ExtraTool {
   id: string;
   label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon?: React.ComponentType<{ size?: number; className?: string }>;
   shortcut?: string;
   perform?: () => void;
   disabled?: boolean;
   helperLabel?: string;
+}
+
+function ToolIcon({ icon, size = 16, className }: { icon?: React.ComponentType<{ size?: number; className?: string }>; size?: number; className?: string }) {
+  if (!icon) return null;
+  const Icon = icon;
+  return <Icon size={size} className={className} />;
 }
 
 export function ExtraToolsDropdown() {
@@ -98,10 +104,11 @@ export function ExtraToolsDropdown() {
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className={
+          className="relative p-2 rounded-md transition-colors"
+          style={
             isButtonActive
-              ? 'relative p-2 rounded-md bg-tool-active-bg text-tool-active-text transition-colors'
-              : 'relative p-2 rounded-md text-tool-inactive-text hover:bg-tool-hover-bg hover:text-tool-hover-text transition-colors'
+              ? { backgroundColor: 'var(--color-tool-active-bg)', color: 'var(--color-tool-active-text)' }
+              : { backgroundColor: 'transparent', color: 'var(--color-tool-inactive-text)' }
           }
           aria-label="Frame and library tools"
           aria-expanded={isOpen}
@@ -116,25 +123,28 @@ export function ExtraToolsDropdown() {
         </button>
 
         {isOpen && (
-          <div className="absolute top-full right-0 mt-2 w-72 bg-panel-bg rounded-xl border border-panel-border shadow-2xl z-[60] py-1.5">
-            <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-panel-label">
+          <div 
+            className="absolute top-full right-0 mt-2 w-72 rounded-xl border shadow-2xl z-[60] py-1.5"
+            style={{ backgroundColor: 'var(--color-panel-bg)', borderColor: 'var(--color-panel-border)' }}
+          >
+            <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase" style={{ color: 'var(--color-panel-label)' }}>
               Extended Tools
             </div>
 
             {extendedTools.map(tool => {
-              const Icon = tool.icon;
               return (
                 <button
                   key={tool.id}
                   onClick={tool.perform}
-                  className="w-full flex items-center justify-between px-3 py-2 text-sm text-panel-text hover:bg-panel-btn-hover transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:opacity-80"
+                  style={{ color: 'var(--color-panel-text)', backgroundColor: 'transparent' }}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon size={16} className="text-panel-label" />
+                    <ToolIcon icon={tool.icon} size={16} className="text-[#6B6860]" />
                     <span>{tool.label}</span>
                   </div>
                   {tool.shortcut && (
-                    <span className="text-[11px] text-panel-label font-mono px-1.5 py-0.5 rounded bg-panel-btn-bg">
+                    <span className="text-[11px] font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--color-panel-btn-bg)', color: 'var(--color-panel-label)' }}>
                       {tool.shortcut}
                     </span>
                   )}
@@ -142,15 +152,14 @@ export function ExtraToolsDropdown() {
               );
             })}
 
-            <div className="my-1.5 h-px bg-panel-divider" />
+            <div className="my-1.5 h-px" style={{ backgroundColor: 'var(--color-panel-divider)' }} />
 
-            <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-panel-label flex items-center gap-1.5">
-              <Sparkles size={12} className="text-primary" />
+            <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase flex items-center gap-1.5" style={{ color: 'var(--color-panel-label)' }}>
+              <Sparkles size={12} style={{ color: '#E8462A' }} />
               Generate
             </div>
 
             {generateTools.map(tool => {
-              const Icon = tool.icon;
               const isDisabled = Boolean(tool.disabled);
 
               return (
@@ -161,16 +170,21 @@ export function ExtraToolsDropdown() {
                   title={isDisabled ? 'Coming Soon' : tool.label}
                   className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
                     isDisabled
-                      ? 'text-panel-label opacity-55 cursor-not-allowed bg-transparent'
-                      : 'text-panel-text hover:bg-panel-btn-hover'
+                      ? 'opacity-55 cursor-not-allowed bg-transparent'
+                      : 'hover:opacity-80'
                   }`}
+                  style={{ color: isDisabled ? 'var(--color-panel-label)' : 'var(--color-panel-text)' }}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon size={16} className={isDisabled ? 'text-panel-label' : 'text-primary'} />
+                    <ToolIcon 
+                      icon={tool.icon} 
+                      size={16} 
+                      className={isDisabled ? 'text-[#6B6860]' : 'text-[#E8462A]'} 
+                    />
                     <span>{tool.label}</span>
                   </div>
                   {tool.helperLabel && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-panel-btn-bg text-panel-label border border-panel-border">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded border" style={{ backgroundColor: 'var(--color-panel-btn-bg)', borderColor: 'var(--color-panel-border)', color: 'var(--color-panel-label)' }}>
                       {tool.helperLabel}
                     </span>
                   )}
