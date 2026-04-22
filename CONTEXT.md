@@ -2,7 +2,7 @@
 
 ## Project
 
-Real-time collaborative whiteboard (Excalidraw-like) with hand-drawn rendering, live cursors, and shareable links.
+Real-time collaborative whiteboard with hand-drawn rendering, live cursors, and shareable links.
 
 **Stack**: Next.js 16, Express 5, WebSocket, Prisma 7, PostgreSQL, React 19, TypeScript, Tailwind CSS 4, roughjs.
 

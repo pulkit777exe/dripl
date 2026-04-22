@@ -41,7 +41,10 @@ function SectionCard({ title, description, children }: SectionCardProps) {
   return (
     <section className="rounded-2xl border border-[#E4E0D9] bg-[#FAFAF7] p-6 shadow-sm">
       <header className="mb-5">
-        <h2 className="text-[24px] leading-tight text-[#10332B]" style={{ fontFamily: 'Georgia, serif' }}>
+        <h2
+          className="text-[24px] leading-tight text-[#10332B]"
+          style={{ fontFamily: 'Georgia, serif' }}
+        >
           {title}
         </h2>
         <p className="mt-1 text-[13px] text-[#6B6860]">{description}</p>
@@ -74,7 +77,9 @@ function ProfileSettings() {
     <SectionCard title="Account" description="Manage how your name appears across Dripl.">
       <div className="space-y-4">
         <div>
-          <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">What should Dripl call you?</label>
+          <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">
+            What should Dripl call you?
+          </label>
           <input
             type="text"
             value={name}
@@ -141,7 +146,9 @@ function PasswordSettings() {
     <SectionCard title="Password" description="Update your password to keep your account secure.">
       <div className="grid gap-4 max-w-lg">
         <div>
-          <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">Current password</label>
+          <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">
+            Current password
+          </label>
           <input
             type="password"
             value={currentPassword}
@@ -152,7 +159,9 @@ function PasswordSettings() {
         </div>
 
         <div>
-          <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">New password</label>
+          <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">
+            New password
+          </label>
           <input
             type="password"
             value={newPassword}
@@ -163,7 +172,9 @@ function PasswordSettings() {
         </div>
 
         <div>
-          <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">Confirm new password</label>
+          <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">
+            Confirm new password
+          </label>
           <input
             type="password"
             value={confirmPassword}
@@ -342,7 +353,7 @@ export default function SettingsPage() {
     return 'profile';
   }, [params?.section]);
 
-  const activeNav = SECTION_NAV.find(item => item.id === section) ?? SECTION_NAV[0];
+  const activeNav = SECTION_NAV.find(item => item.id === section) ?? SECTION_NAV[0] ?? { id: 'profile', label: 'Profile', icon: User };
 
   if (loading) {
     return (
@@ -371,13 +382,21 @@ export default function SettingsPage() {
         </div>
 
         <div className="px-5 pt-7 pb-5 border-b border-[#D8D2C8]">
-          <h2 className="text-[42px] leading-none text-[#10332B]" style={{ fontFamily: 'Georgia, serif' }}>
+          <h2
+            className="text-[42px] leading-none text-[#10332B]"
+            style={{ fontFamily: 'Georgia, serif' }}
+          >
             {user?.name || 'Account'}
           </h2>
-          <p className="mt-3 text-[22px] leading-none text-[#A7A195]" style={{ fontFamily: 'Georgia, serif' }}>
+          <p
+            className="mt-3 text-[22px] leading-none text-[#A7A195]"
+            style={{ fontFamily: 'Georgia, serif' }}
+          >
             Settings
           </p>
-          <p className="mt-4 text-[15px] text-[#6B6860] break-all">{user?.email ?? 'No email connected'}</p>
+          <p className="mt-4 text-[15px] text-[#6B6860] break-all">
+            {user?.email ?? 'No email connected'}
+          </p>
           <p className="mt-1 text-[13px] text-[#9B9890]">Workspace preferences</p>
         </div>
 

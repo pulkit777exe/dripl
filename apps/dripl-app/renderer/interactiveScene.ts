@@ -229,9 +229,55 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
   if (points.length === 0) return;
   const fillColor = getFillColor(element);
 
+  const drawSmoothFreedrawPath = (offsetX: number, offsetY: number) => {
+    const first = points[0];
+    if (!first) return;
+
+    if (points.length === 1) {
+      ctx.moveTo(first.x + offsetX, first.y + offsetY);
+      ctx.lineTo(first.x + offsetX + 0.01, first.y + offsetY + 0.01);
+      return;
+    }
+
+    if (points.length === 2) {
+      const second = points[1];
+      if (!second) return;
+      ctx.moveTo(first.x + offsetX, first.y + offsetY);
+      ctx.lineTo(second.x + offsetX, second.y + offsetY);
+      return;
+    }
+
+    ctx.moveTo(first.x + offsetX, first.y + offsetY);
+    for (let i = 1; i < points.length - 1; i += 1) {
+      const current = points[i];
+      const next = points[i + 1];
+      if (!current || !next) continue;
+
+      const midX = (current.x + next.x) / 2;
+      const midY = (current.y + next.y) / 2;
+      ctx.quadraticCurveTo(
+        current.x + offsetX,
+        current.y + offsetY,
+        midX + offsetX,
+        midY + offsetY
+      );
+    }
+
+    const last = points[points.length - 1];
+    if (last) {
+      ctx.lineTo(last.x + offsetX, last.y + offsetY);
+    }
+  };
+
   const drawPath = (offsetX: number, offsetY: number) => {
     const first = points[0];
     if (!first) return;
+
+    if (element.type === 'freedraw') {
+      drawSmoothFreedrawPath(offsetX, offsetY);
+      return;
+    }
+
     ctx.moveTo(first.x + offsetX, first.y + offsetY);
     for (let i = 1; i < points.length; i += 1) {
       const point = points[i];

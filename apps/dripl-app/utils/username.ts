@@ -1,5 +1,5 @@
 /**
- * Excalidraw-style random username: "Adjective Noun" (e.g., "Adorable Aardvark").
+ * Dripl-style random username: "Adjective Noun" (e.g., "Adorable Aardvark").
  * Uses a seeded random based on a stable client ID so the same browser gets the same
  * name until the user changes it.
  */
@@ -56,7 +56,7 @@ const NOUNS = [
 ];
 
 const DRIPL_USERNAME_KEY = 'dripl_username';
-const EXCALIDRAW_COLLAB_KEY = 'excalidraw-collab';
+const DRIPL_COLLAB_KEY = 'dripl-collab';
 
 /**
  * Seeded random number generator (mulberry32) for deterministic results.
@@ -98,7 +98,7 @@ export function generateRandomUsername(): string {
 }
 
 /**
- * Get the collaborator username: dripl_username > excalidraw-collab > generated.
+ * Get the collaborator username: dripl_username > dripl-collab > generated.
  * Persists the generated name to both keys if used.
  */
 export function getOrCreateCollaboratorName(): string {
@@ -108,7 +108,7 @@ export function getOrCreateCollaboratorName(): string {
   if (dripl && dripl.trim()) return dripl.trim();
 
   try {
-    const collab = localStorage.getItem(EXCALIDRAW_COLLAB_KEY);
+    const collab = localStorage.getItem(DRIPL_COLLAB_KEY);
     if (collab) {
       const parsed = JSON.parse(collab) as { username?: string };
       if (parsed?.username?.trim()) {
@@ -122,6 +122,6 @@ export function getOrCreateCollaboratorName(): string {
 
   const generated = generateRandomUsername();
   localStorage.setItem(DRIPL_USERNAME_KEY, generated);
-  localStorage.setItem(EXCALIDRAW_COLLAB_KEY, JSON.stringify({ username: generated }));
+  localStorage.setItem(DRIPL_COLLAB_KEY, JSON.stringify({ username: generated }));
   return generated;
 }

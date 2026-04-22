@@ -37,7 +37,8 @@ export type ActiveTool =
   | 'text'
   | 'image'
   | 'frame'
-  | 'eraser';
+  | 'eraser'
+  | 'laser';
 
 type FillStyle = 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
 

@@ -116,6 +116,9 @@ h6 {
   --shadow-button: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-button-hover: 0 1px 3px rgba(0, 0, 0, 0.06);
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-canvas-chrome:
+    0 8px 22px rgba(22, 18, 12, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58);
 
   --radius: 0.5rem;
 }
@@ -180,6 +183,9 @@ html.dark {
   --shadow-button: 0 1px 2px rgba(0, 0, 0, 0.15);
   --shadow-button-hover: 0 1px 3px rgba(0, 0, 0, 0.2);
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.15);
+  --shadow-canvas-chrome:
+    0 10px 28px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .tool-btn-active {
@@ -309,6 +315,58 @@ html.dark {
 
 .shadow-card {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.canvas-toolbar-shell {
+  background-color: var(--color-toolbar-bg);
+  border-color: var(--color-toolbar-border);
+  box-shadow: var(--shadow-canvas-chrome);
+  backdrop-filter: blur(8px);
+}
+
+.canvas-chrome-group {
+  background-color: var(--color-toolbar-bg);
+  border: 1px solid var(--color-toolbar-border);
+  box-shadow: var(--shadow-canvas-chrome);
+  backdrop-filter: blur(8px);
+}
+
+.canvas-chrome-btn {
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-toolbar-border);
+  background-color: var(--color-toolbar-bg);
+  color: var(--color-foreground);
+  box-shadow: var(--shadow-canvas-chrome);
+  backdrop-filter: blur(8px);
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.canvas-chrome-btn:hover {
+  background-color: var(--color-tool-hover-bg);
+}
+
+.canvas-chrome-btn-primary {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(232, 70, 42, 0.5);
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  box-shadow:
+    0 10px 22px rgba(232, 70, 42, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition:
+    filter 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.canvas-chrome-btn-primary:hover {
+  filter: brightness(0.98);
+  box-shadow:
+    0 12px 24px rgba(232, 70, 42, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
 .dark .shadow-button,

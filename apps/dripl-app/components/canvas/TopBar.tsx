@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Menu as MenuIcon, PanelRight } from 'lucide-react';
+import { Menu as MenuIcon } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useCanvasStore } from '@/lib/canvas-store';
@@ -9,8 +9,6 @@ import { Menu } from './Menu';
 import { ShareModal } from './ShareModal';
 import { CanvasContentSchema, type DriplElement } from '@dripl/common';
 import { downloadBlob, exportCanvas } from '@/utils/export';
-
-const SIDEBAR_TOGGLE_EVENT = 'dripl:properties-panel-visibility';
 
 export const TopBar: React.FC = () => {
   const { user } = useAuth();
@@ -38,7 +36,6 @@ export const TopBar: React.FC = () => {
   const [shareFeedbackMessage, setShareFeedbackMessage] = useState<string | null>(null);
   const [shareErrorMessage, setShareErrorMessage] = useState<string | null>(null);
   const [activeLanguage, setActiveLanguage] = useState('en');
-  const [isPropertiesSidebarVisible, setIsPropertiesSidebarVisible] = useState(true);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -46,14 +43,6 @@ export const TopBar: React.FC = () => {
     setActiveLanguage(stored);
     document.documentElement.lang = stored;
   }, []);
-
-  useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent(SIDEBAR_TOGGLE_EVENT, {
-        detail: { visible: isPropertiesSidebarVisible },
-      })
-    );
-  }, [isPropertiesSidebarVisible]);
 
   const handleDriplPlusClick = () => {
     if (!user) {
@@ -306,7 +295,7 @@ export const TopBar: React.FC = () => {
     <>
       <div className="absolute top-4 left-4 z-40 flex gap-2 pointer-events-auto">
         <button
-          className="p-2.5 rounded-xl border border-toolbar-border bg-toolbar-bg hover:bg-tool-hover-bg text-foreground transition-colors duration-150"
+          className="canvas-chrome-btn p-2.5"
           onClick={e => {
             e.stopPropagation();
             setIsMenuOpen(!isMenuOpen);
@@ -318,17 +307,17 @@ export const TopBar: React.FC = () => {
         </button>
       </div>
 
-      <div className="absolute top-4 right-4 z-40 flex items-center gap-2 pointer-events-auto">
+      <div className="absolute top-4 right-4 z-40 flex items-center gap-2.5 pointer-events-auto">
         <button
-          className="px-4 py-2 bg-toolbar-bg border border-toolbar-border text-foreground text-sm font-medium hover:bg-tool-hover-bg rounded-xl transition-colors duration-150"
+          className="canvas-chrome-btn px-4 py-2 text-sm font-medium"
           onClick={handleDriplPlusClick}
-          aria-label="Excalidraw plus"
+          aria-label="Dripl plus"
         >
-          Excalidraw+
+          Dripl+
         </button>
 
         <button
-          className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 rounded-xl transition-opacity duration-150"
+          className="canvas-chrome-btn-primary px-4 py-2 text-sm font-medium"
           onClick={e => {
             e.stopPropagation();
             setIsShareModalOpen(true);
@@ -337,20 +326,6 @@ export const TopBar: React.FC = () => {
           aria-label="Share"
         >
           Share
-        </button>
-
-        <button
-          className={`p-2.5 rounded-xl border transition-colors duration-150 ${
-            isPropertiesSidebarVisible
-              ? 'border-toolbar-border bg-toolbar-bg text-foreground hover:bg-tool-hover-bg'
-              : 'border-tool-active-shadow bg-tool-active-bg text-tool-active-text'
-          }`}
-          onClick={() => setIsPropertiesSidebarVisible(prev => !prev)}
-          aria-label="Toggle properties sidebar"
-          aria-pressed={isPropertiesSidebarVisible}
-          title="Toggle properties sidebar"
-        >
-          <PanelRight size={18} />
         </button>
       </div>
 

@@ -367,7 +367,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     if (toolState.type === 'freedraw') {
       toolState.state = {
         ...toolState.state,
-        points: simplifyRdp(toolState.state.points, 2),
+        points: simplifyRdp(toolState.state.points, 0.8),
       };
     }
 

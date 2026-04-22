@@ -28,8 +28,20 @@ interface Tool {
 
 const tools: Tool[] = [
   { id: 'hand', icon: Hand, label: 'Hand', shortcuts: ['h'] },
-  { id: 'select', icon: MousePointer2, label: 'Selection', shortcuts: ['v', '1'], numericShortcut: '1' },
-  { id: 'rectangle', icon: Square, label: 'Rectangle', shortcuts: ['r', '2'], numericShortcut: '2' },
+  {
+    id: 'select',
+    icon: MousePointer2,
+    label: 'Selection',
+    shortcuts: ['v', '1'],
+    numericShortcut: '1',
+  },
+  {
+    id: 'rectangle',
+    icon: Square,
+    label: 'Rectangle',
+    shortcuts: ['r', '2'],
+    numericShortcut: '2',
+  },
   { id: 'diamond', icon: Diamond, label: 'Diamond', shortcuts: ['d', '3'], numericShortcut: '3' },
   { id: 'ellipse', icon: Circle, label: 'Ellipse', shortcuts: ['o', '4'], numericShortcut: '4' },
   { id: 'arrow', icon: ArrowRight, label: 'Arrow', shortcuts: ['a', '5'], numericShortcut: '5' },
@@ -107,12 +119,7 @@ export function CanvasToolbar() {
 
   return (
     <div
-      className="px-2 py-1.5 rounded-xl border flex items-center gap-0.5 z-50 pointer-events-auto"
-      style={{
-        backgroundColor: 'var(--color-toolbar-bg)',
-        borderColor: 'var(--color-toolbar-border)',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-      }}
+      className="canvas-toolbar-shell px-2 py-1.5 rounded-xl border flex items-center gap-0.5 z-50 pointer-events-auto"
     >
       {/* Lock button */}
       <button
@@ -182,8 +189,8 @@ export function CanvasToolbar() {
             {Icon && <Icon size={18} />}
             {tool.numericShortcut && (
               <span
-                className="absolute -bottom-0.5 -right-0.5 text-[9px] font-mono leading-none opacity-60 select-none"
-                style={{ color: 'var(--color-tool-inactive-text)' }}
+                className="absolute bottom-[2px] right-[2px] min-w-[10px] text-center text-[9px] font-mono leading-none opacity-75 select-none"
+                style={{ color: isActive ? 'var(--color-tool-active-text)' : 'var(--color-tool-inactive-text)' }}
               >
                 {tool.numericShortcut}
               </span>

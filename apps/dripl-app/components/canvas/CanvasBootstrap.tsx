@@ -41,6 +41,7 @@ const VALID_TOOLS = new Set<ActiveTool>([
   'image',
   'frame',
   'eraser',
+  'laser',
 ]);
 
 function isActiveTool(value: string): value is ActiveTool {
@@ -121,13 +122,13 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
       if (mode === 'local') {
         const LOCAL_ROOM_ID = 'local-canvas';
         const indexedElements = await loadCanvasFromIndexedDB(LOCAL_ROOM_ID);
-        
+
         if (indexedElements && indexedElements.length > 0) {
           setElements(indexedElements, { skipHistory: true });
           if (!cancelled) setIsInitialized(true);
           return;
         }
-        
+
         const { elements, appState, selectedIds: loadedSelectedIds } = loadLocalCanvasFromStorage();
         const initialElements = elements as DriplElement[] | null;
         if (initialElements && initialElements.length > 0) {

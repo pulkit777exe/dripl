@@ -8,28 +8,6 @@ export interface FreedrawToolState {
   pressureValues?: number[];
 }
 
-function smoothPath(points: Point[], tension: number = 0.5): Point[] {
-  if (points.length < 3) return points;
-
-  const smoothed: Point[] = [points[0]!];
-
-  for (let i = 1; i < points.length - 1; i++) {
-    const p0 = points[i - 1]!;
-    const p1 = points[i]!;
-    const p2 = points[i + 1]!;
-
-    // Catmull-Rom interpolation
-    const t = tension;
-    smoothed.push({
-      x: p1.x + (t * (p2.x - p0.x)) / 2,
-      y: p1.y + (t * (p2.y - p0.y)) / 2,
-    });
-  }
-
-  smoothed.push(points[points.length - 1]!);
-  return smoothed;
-}
-
 function optimizePoints(points: Point[], threshold: number = 2): Point[] {
   if (points.length < 3) return points;
 
@@ -104,8 +82,7 @@ export function createFreedrawElement(
 
   let processedPoints = state.points;
   if (processedPoints.length > 2) {
-    processedPoints = smoothPath(processedPoints);
-    processedPoints = optimizePoints(processedPoints);
+    processedPoints = optimizePoints(processedPoints, 0.85);
   }
 
   const minX = Math.min(...processedPoints.map(p => p.x));

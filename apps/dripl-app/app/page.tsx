@@ -25,7 +25,7 @@ const faqs = [
     a: 'Yes. The free plan gives you the core canvas workflow. Upgrade only when you need advanced team controls.',
   },
   {
-    q: 'What makes Dripl different from Excalidraw or FigJam?',
+    q: 'What makes Dripl different from other whiteboard tools?',
     a: 'Dripl focuses on speed, sharing, and clean collaboration defaults for small product teams.',
   },
   {

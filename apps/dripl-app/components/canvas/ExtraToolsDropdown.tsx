@@ -59,6 +59,7 @@ export function ExtraToolsDropdown() {
       label: 'Laser Pointer',
       icon: Zap,
       perform: () => {
+        setActiveTool('laser');
         setIsOpen(false);
       },
     },
@@ -76,7 +77,7 @@ export function ExtraToolsDropdown() {
     },
     {
       id: 'mermaid',
-      label: 'Mermaid to Excalidraw',
+      label: 'Mermaid to Dripl',
       icon: Sparkles,
       disabled: true,
       helperLabel: 'Coming Soon',

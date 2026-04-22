@@ -16,7 +16,7 @@ export function CanvasControls() {
 
   return (
     <div className="flex items-center gap-2 z-100">
-      <div className="flex items-center bg-toolbar-bg border border-toolbar-border rounded-lg shadow-lg overflow-hidden">
+      <div className="canvas-chrome-group flex items-center overflow-hidden">
         <button
           onClick={handleZoomOut}
           className="p-2.5 hover:bg-tool-hover-bg transition-colors text-tool-inactive-text hover:text-tool-hover-text"
@@ -38,7 +38,7 @@ export function CanvasControls() {
         </button>
       </div>
 
-      <div className="flex items-center bg-toolbar-bg border border-toolbar-border rounded-lg shadow-lg overflow-hidden">
+      <div className="canvas-chrome-group flex items-center overflow-hidden">
         <button
           onClick={undo}
           disabled={!canUndo}

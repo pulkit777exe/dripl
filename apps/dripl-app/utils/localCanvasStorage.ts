@@ -36,8 +36,8 @@ export interface ElementStates {
 
 export type LocalCanvasState = UserPreferences;
 
-// Interface to match Excalidraw's state format for compatibility
-export interface ExcalidrawState {
+// Interface to match Dripl legacy state format for compatibility
+export interface DriplLegacyState {
   showWelcomeScreen: boolean;
   theme: 'dark' | 'light';
   currentChartType: string;

@@ -125,14 +125,14 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
         <button
           type="button"
           onClick={() => setIsHelpOpen(true)}
-          className="size-10 rounded-xl bg-toolbar-bg border border-toolbar-border text-foreground flex items-center justify-center shadow-md hover:bg-tool-hover-bg transition-colors duration-150"
+          className="canvas-chrome-btn size-10"
           aria-label="Help"
         >
           <HelpCircle className="size-5" />
         </button>
         <button
           type="button"
-          className="size-10 rounded-xl bg-tool-active-bg border border-tool-active-shadow text-tool-active-text flex items-center justify-center shadow-md"
+          className="canvas-chrome-btn size-10"
           aria-label="Verification status"
           title="Verified"
         >

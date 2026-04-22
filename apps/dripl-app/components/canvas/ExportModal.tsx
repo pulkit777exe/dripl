@@ -61,15 +61,17 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         return;
       }
 
-if (format === 'pdf') {
+      if (format === 'pdf') {
         const pngBlob = await Promise.resolve(
           exportCanvas('png', exportElements, { scale: 2, background: '#ffffff', padding: 16 })
         );
         const url = URL.createObjectURL(pngBlob);
-        const img = new (window.Image)();
+        const img = new window.Image();
         img.src = url;
-        await new Promise(resolve => { img.onload = resolve; });
-        
+        await new Promise(resolve => {
+          img.onload = resolve;
+        });
+
         const pdf = new jsPDF({
           orientation: img.width > img.height ? 'landscape' : 'portrait',
           unit: 'px',

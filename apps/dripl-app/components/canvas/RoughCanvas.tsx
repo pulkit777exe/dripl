@@ -12,7 +12,6 @@ import { v4 as uuidv4 } from 'uuid';
 import RBush from 'rbush';
 import { SelectionOverlay, ResizeHandle } from './SelectionOverlay';
 import { NameInputModal } from './NameInputModal';
-import { CollaboratorsList } from './CollaboratorsList';
 import { RemoteCursors } from './RemoteCursors';
 import { PropertiesPanel } from './PropertiesPanel';
 import { ContextMenu } from './ContextMenu';
@@ -39,7 +38,13 @@ interface SpatialItem {
   id: string;
 }
 
-const SIDEBAR_TOGGLE_EVENT = 'dripl:properties-panel-visibility';
+interface LaserTrailPoint {
+  x: number;
+  y: number;
+  createdAt: number;
+}
+
+const LASER_FADE_MS = 1200;
 
 export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -77,7 +82,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     y: number;
     elementId: string;
   } | null>(null);
-  const [isPropertiesSidebarVisible, setIsPropertiesSidebarVisible] = useState(true);
+  const [laserTrailPoints, setLaserTrailPoints] = useState<LaserTrailPoint[]>([]);
   const eraserHitIdsRef = useRef<Set<string>>(new Set());
   const lastToolBeforeSpaceRef = useRef<ActiveTool | null>(null);
   const activeGestureLocksRef = useRef<Set<string>>(new Set());
@@ -160,7 +165,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const updateElementTransient = useCanvasStore(state => state.updateElementTransient);
   const deleteElements = useCanvasStore(state => state.deleteElements);
   const setSelectedIds = useCanvasStore(state => state.setSelectedIds);
-  const selectElement = useCanvasStore(state => state.selectElement);
   const clearSelection = useCanvasStore(state => state.clearSelection);
   const setEditingElementId = useCanvasStore(state => state.setEditingElementId);
   const setActiveTool = useCanvasStore(state => state.setActiveTool);
@@ -184,8 +188,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const suppressRemoteBroadcastRef = useRef(false);
   const prevElementsRef = useRef<DriplElement[]>([]);
   const {
-    isConnected,
-    connectionMessage,
     collaborators,
     broadcastElements,
     broadcastCursor,
@@ -307,18 +309,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     setUserName(name);
     localStorage.setItem('dripl_username', name);
   };
-
-  useEffect(() => {
-    const handleSidebarVisibility = (event: Event) => {
-      const customEvent = event as CustomEvent<{ visible?: boolean }>;
-      if (typeof customEvent.detail?.visible === 'boolean') {
-        setIsPropertiesSidebarVisible(customEvent.detail.visible);
-      }
-    };
-
-    window.addEventListener(SIDEBAR_TOGGLE_EVENT, handleSidebarVisibility);
-    return () => window.removeEventListener(SIDEBAR_TOGGLE_EVENT, handleSidebarVisibility);
-  }, []);
 
   // ── Viewport ─────────────────────────────────────────────────────────────
   const viewport: Viewport = {
@@ -496,6 +486,78 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     return { minX, minY, maxX, maxY };
   }, []);
 
+  const maybeRevertToSelectTool = useCallback(
+    (completedTool: ActiveTool) => {
+      if (toolLocked || completedTool === 'laser') return;
+      // RULE: Tool Reversion
+      setActiveTool('select');
+    },
+    [setActiveTool, toolLocked]
+  );
+
+  const expandSelectionWithGroups = useCallback(
+    (ids: Set<string>, sceneElements: DriplElement[]): Set<string> => {
+      const expanded = new Set(ids);
+      if (ids.size === 0) return expanded;
+
+      const groupIds = new Set<string>();
+      sceneElements.forEach(element => {
+        if (ids.has(element.id) && element.groupId) {
+          groupIds.add(element.groupId);
+        }
+      });
+
+      if (groupIds.size === 0) return expanded;
+
+      sceneElements.forEach(element => {
+        if (element.groupId && groupIds.has(element.groupId)) {
+          expanded.add(element.id);
+        }
+      });
+
+      return expanded;
+    },
+    []
+  );
+
+  const applyFrameGrouping = useCallback(
+    (frameElement: DriplElement) => {
+      if (frameElement.type !== 'frame') return;
+
+      const state = useCanvasStore.getState();
+      const frameBounds = getElementBounds(frameElement);
+      const frameRight = frameBounds.x + frameBounds.width;
+      const frameBottom = frameBounds.y + frameBounds.height;
+
+      const groupedIds = state.elements
+        .filter(element => element.id !== frameElement.id)
+        .filter(element => {
+          const bounds = getElementBounds(element);
+          return (
+            bounds.x >= frameBounds.x &&
+            bounds.y >= frameBounds.y &&
+            bounds.x + bounds.width <= frameRight &&
+            bounds.y + bounds.height <= frameBottom
+          );
+        })
+        .map(element => element.id);
+
+      if (groupedIds.length === 0) return;
+
+      const frameGroupId = `frame-${frameElement.id}`;
+      const idsToGroup = new Set([frameElement.id, ...groupedIds]);
+
+      const nextElements = state.elements.map(element => {
+        if (!idsToGroup.has(element.id)) return element;
+        return { ...element, groupId: frameGroupId } as DriplElement;
+      });
+
+      state.setElements(nextElements);
+      setSelectedIds(new Set([frameElement.id, ...groupedIds]));
+    },
+    [setSelectedIds]
+  );
+
   // Legacy createElement is removed — all element creation goes through
   // useDrawingTools (startDrawing → updateDrawing → finishDrawing → commitDraft).
 
@@ -672,6 +734,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
+    if (activeTool === 'laser') {
+      setIsDrawing(true);
+      setLaserTrailPoints([{ x, y, createdAt: Date.now() }]);
+      return;
+    }
+
     if (readOnly) {
       return;
     }
@@ -694,23 +762,19 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       const element = getElementAtPosition(x, y);
       if (element && element.id) {
-        if (e.shiftKey) {
-          selectElement(element.id, true);
-        } else {
-          const state = useCanvasStore.getState();
-          if (!state.selectedIds.has(element.id)) {
-            setSelectedIds(new Set([element.id]));
-          }
-        }
+        const state = useCanvasStore.getState();
+        const clickedSet = expandSelectionWithGroups(new Set([element.id]), state.elements);
+        const nextSelection = e.shiftKey
+          ? expandSelectionWithGroups(
+              new Set([...state.selectedIds, ...clickedSet]),
+              state.elements
+            )
+          : clickedSet;
+        setSelectedIds(nextSelection);
 
         // Snapshot ALL currently-selected elements (after selection update)
         // Use a microtask delay so the selection state has settled
-        const state = useCanvasStore.getState();
-        const idsToTrack = e.shiftKey
-          ? new Set([...state.selectedIds, element.id])
-          : state.selectedIds.has(element.id)
-            ? state.selectedIds
-            : new Set([element.id]);
+        const idsToTrack = nextSelection;
 
         const snapshot = new Map<string, DriplElement>();
         state.elements.forEach(el => {
@@ -804,6 +868,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
                   src: e.target!.result as string,
                 };
                 addElement(element);
+                if (useCanvasStore.getState().activeTool === 'image') {
+                  maybeRevertToSelectTool('image'); // RULE: Tool Reversion
+                }
               };
               img.src = e.target.result as string;
             }
@@ -828,7 +895,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       activeTool === 'diamond' ||
       activeTool === 'arrow' ||
       activeTool === 'line' ||
-      activeTool === 'freedraw'
+      activeTool === 'freedraw' ||
+      activeTool === 'frame'
     ) {
       startDrawing(
         { x, y },
@@ -906,6 +974,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     // ── Marquee selection ──────────────────────────────────────────────────
     if (marqueeSelection?.active) {
       setMarqueeSelection({ ...marqueeSelection, end: { x, y } });
+      return;
+    }
+
+    if (activeTool === 'laser' && isDrawing) {
+      const now = Date.now();
+      setLaserTrailPoints(prev => [...prev.slice(-160), { x, y, createdAt: now }]);
       return;
     }
 
@@ -1112,7 +1186,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       activeTool === 'diamond' ||
       activeTool === 'arrow' ||
       activeTool === 'line' ||
-      activeTool === 'freedraw'
+      activeTool === 'freedraw' ||
+      activeTool === 'frame'
     ) {
       const snapped = snapPointToGrid({ x, y });
       updateDrawing(
@@ -1186,11 +1261,14 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         // Intersecting: element overlaps with marquee (default)
         hitIds = new Set(candidates.map(candidate => candidate.id));
       }
+      const expandedHitIds = expandSelectionWithGroups(hitIds, elements);
 
       if (e?.shiftKey) {
-        setSelectedIds(new Set([...selectedIds, ...hitIds]));
+        setSelectedIds(
+          expandSelectionWithGroups(new Set([...selectedIds, ...expandedHitIds]), elements)
+        );
       } else {
-        setSelectedIds(hitIds);
+        setSelectedIds(expandedHitIds);
       }
       setMarqueeSelection(null);
       return;
@@ -1240,6 +1318,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
     // ── End drawing ────────────────────────────────────────────────────────
     if (isDrawing) {
+      if (activeTool === 'laser') {
+        setIsDrawing(false);
+        return;
+      }
+
       if (activeTool === 'eraser') {
         const elementsToErase = collectCascadeDeleteIds(eraserHitIdsRef.current);
 
@@ -1250,6 +1333,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         setEraserPath([]);
         eraserHitIdsRef.current.clear();
         setIsDrawing(false);
+        maybeRevertToSelectTool('eraser'); // RULE: Tool Reversion
         return;
       }
 
@@ -1259,15 +1343,17 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         activeTool === 'diamond' ||
         activeTool === 'arrow' ||
         activeTool === 'line' ||
-        activeTool === 'freedraw'
+        activeTool === 'freedraw' ||
+        activeTool === 'frame'
       ) {
         const finishedElement = finishDrawing();
         if (finishedElement) {
-          if (!toolLocked) {
-            setActiveTool('select');
+          if (finishedElement.type === 'frame') {
+            applyFrameGrouping(finishedElement);
           }
         }
         setIsDrawing(false);
+        maybeRevertToSelectTool(activeTool); // RULE: Tool Reversion
         return;
       }
       // All drawing tools go through useDrawingTools — no legacy fallback.
@@ -1281,9 +1367,21 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     };
   }, [unlockGestureElements]);
 
+  useEffect(() => {
+    if (laserTrailPoints.length === 0) return;
+    const interval = window.setInterval(() => {
+      const cutoff = Date.now() - LASER_FADE_MS;
+      setLaserTrailPoints(prev => prev.filter(point => point.createdAt >= cutoff));
+    }, 60);
+    return () => window.clearInterval(interval);
+  }, [laserTrailPoints.length]);
+
   const handleTextSubmit = (text: string) => {
     if (!textInput || !text.trim()) {
       setTextInput(null);
+      if (activeTool === 'text') {
+        maybeRevertToSelectTool('text'); // RULE: Tool Reversion
+      }
       return;
     }
 
@@ -1308,6 +1406,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         fontFamily: existingElement?.fontFamily ?? getDefaultFontFamily(),
       } as Partial<DriplElement>);
       setTextInput(null);
+      if (activeTool === 'text') {
+        maybeRevertToSelectTool('text'); // RULE: Tool Reversion
+      }
       return;
     }
 
@@ -1329,6 +1430,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
     addElement(textElement);
     setTextInput(null);
+    if (activeTool === 'text') {
+      maybeRevertToSelectTool('text'); // RULE: Tool Reversion
+    }
   };
 
   const fitAllToScreen = useCallback(() => {
@@ -1835,7 +1939,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         }, 150);
       }
 
-      // Two-finger trackpad pan (like Excalidraw)
+      // Two-finger trackpad pan (Dripl behavior)
       if (!isCtrlOrMeta && (absDx > 2 || absDy > 2)) {
         e.preventDefault();
         const state = useCanvasStore.getState();
@@ -1871,7 +1975,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         return;
       }
 
-      // Ctrl/Cmd + scroll = zoom (like Excalidraw)
+      // Ctrl/Cmd + scroll = zoom (Dripl behavior)
       if (isCtrlOrMeta) {
         e.preventDefault();
         const rect = container.getBoundingClientRect();
@@ -1907,10 +2011,27 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   }, [containerReady, setPan, setZoom, applyMomentum, stopMomentum]);
 
   const collaboratorCursors = collaborators;
-  const shouldShowPropertiesPanel =
-    isPropertiesSidebarVisible && activeTool === 'select' && selectedIds.size > 0;
+  const shouldShowPropertiesPanel = activeTool === 'select' && selectedIds.size > 0; // RULE: Sidebar Visibility
   const primarySelectedElement =
-    selectedIds.size > 0 ? elements.find(element => selectedIds.has(element.id)) ?? null : null;
+    selectedIds.size > 0 ? (elements.find(element => selectedIds.has(element.id)) ?? null) : null;
+  const latestLaserPoint = laserTrailPoints[laserTrailPoints.length - 1] ?? null;
+  const laserNow = Date.now();
+  const laserOpacity = latestLaserPoint
+    ? Math.max(0, 1 - (laserNow - latestLaserPoint.createdAt) / LASER_FADE_MS)
+    : 0;
+  const laserRenderablePoints = laserTrailPoints
+    .map(point => {
+      const opacity = Math.max(0, 1 - (laserNow - point.createdAt) / LASER_FADE_MS);
+      return {
+        x: point.x * zoom + panX,
+        y: point.y * zoom + panY,
+        opacity,
+      };
+    })
+    .filter(point => point.opacity > 0);
+  const laserPolylinePoints = laserTrailPoints
+    .map(point => `${point.x * zoom + panX},${point.y * zoom + panY}`)
+    .join(' ');
 
   return (
     <div
@@ -1946,6 +2067,41 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         />
       )}
 
+      {laserTrailPoints.length > 0 && (
+        <svg className="absolute inset-0 z-30 pointer-events-none overflow-visible">
+          {laserTrailPoints.length > 1 ? (
+            <polyline
+              points={laserPolylinePoints}
+              fill="none"
+              stroke="rgba(255, 94, 0, 0.95)"
+              strokeWidth={5.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={laserOpacity}
+              filter="drop-shadow(0 0 6px rgba(255, 94, 0, 0.65))"
+            />
+          ) : latestLaserPoint ? (
+            <circle
+              cx={latestLaserPoint.x * zoom + panX}
+              cy={latestLaserPoint.y * zoom + panY}
+              r={4}
+              fill="rgba(255, 89, 45, 0.95)"
+              opacity={laserOpacity}
+            />
+          ) : null}
+          {laserRenderablePoints.map((point, index) => (
+            <circle
+              key={`laser-dot-${index}`}
+              cx={point.x}
+              cy={point.y}
+              r={2.2 + point.opacity * 1.8}
+              fill="rgba(255, 132, 66, 0.95)"
+              opacity={point.opacity}
+            />
+          ))}
+        </svg>
+      )}
+
       {!readOnly && (
         <SelectionOverlay
           zoom={zoom}
@@ -1959,7 +2115,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         />
       )}
 
-      <CollaboratorsList roomSlug={roomSlug} />
       <RemoteCursors />
 
       {roomSlug === null && elements.length === 0 && !welcomeScreenDismissed && (
@@ -2027,16 +2182,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
             zIndex: 40,
           }}
         />
-      )}
-
-      {roomSlug !== null && (
-        <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-sm bg-background/80 backdrop-blur-sm border">
-          {isConnected ? (
-            <span className="text-green-600">● Connected</span>
-          ) : (
-            <span className="text-amber-600">● {connectionMessage}</span>
-          )}
-        </div>
       )}
 
       {contextMenuState && (

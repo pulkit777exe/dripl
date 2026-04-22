@@ -101,7 +101,10 @@ export default function CookieConsent() {
 
                 <p className="mt-2 text-[13px] leading-relaxed text-[#6B6860]">
                   We use cookies to enhance your experience.{' '}
-                  <button onClick={handleOpenPreferences} className="text-[#E8462A] hover:underline">
+                  <button
+                    onClick={handleOpenPreferences}
+                    className="text-[#E8462A] hover:underline"
+                  >
                     Manage preferences
                   </button>
                   .
@@ -145,14 +148,27 @@ export default function CookieConsent() {
             </div>
 
             <p className="mb-4 text-[13px] text-[#6B6860]">
-              Manage your cookie preferences. Necessary cookies are required for the site to function.
+              Manage your cookie preferences. Necessary cookies are required for the site to
+              function.
             </p>
 
             <div className="space-y-3">
               {[
-                { key: 'necessary' as const, label: 'Necessary', description: 'Required for the website to function' },
-                { key: 'analytics' as const, label: 'Analytics', description: 'Help us understand how visitors interact' },
-                { key: 'marketing' as const, label: 'Marketing', description: 'Used to track visitors across websites' },
+                {
+                  key: 'necessary' as const,
+                  label: 'Necessary',
+                  description: 'Required for the website to function',
+                },
+                {
+                  key: 'analytics' as const,
+                  label: 'Analytics',
+                  description: 'Help us understand how visitors interact',
+                },
+                {
+                  key: 'marketing' as const,
+                  label: 'Marketing',
+                  description: 'Used to track visitors across websites',
+                },
               ].map(({ key, label, description }) => (
                 <div
                   key={key}
@@ -171,7 +187,7 @@ export default function CookieConsent() {
                   >
                     <span
                       className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                        preferences[key] ? 'translate-x-0.1' : '-translate-x-4' 
+                        preferences[key] ? 'translate-x-0.1' : '-translate-x-4'
                       }`}
                     />
                   </button>

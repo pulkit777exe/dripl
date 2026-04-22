@@ -209,7 +209,7 @@ function CanvasContent() {
         <button
           type="button"
           onClick={scrollBackToContent}
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-lg bg-toolbar-bg border border-toolbar-border text-foreground text-sm font-medium shadow-lg hover:bg-tool-hover-bg transition-colors duration-150 pointer-events-auto"
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 canvas-chrome-btn px-4 py-2 text-sm font-medium pointer-events-auto"
           aria-label="Scroll back to content"
         >
           Scroll back to content
@@ -220,14 +220,14 @@ function CanvasContent() {
         <button
           type="button"
           onClick={() => setIsHelpOpen(true)}
-          className="size-10 rounded-xl bg-toolbar-bg border border-toolbar-border text-foreground flex items-center justify-center shadow-md hover:bg-tool-hover-bg transition-colors duration-150"
+          className="canvas-chrome-btn size-10"
           aria-label="Help"
         >
           <HelpCircle className="size-5" />
         </button>
         <button
           type="button"
-          className="size-10 rounded-xl bg-tool-active-bg border border-tool-active-shadow text-tool-active-text flex items-center justify-center shadow-md"
+          className="canvas-chrome-btn size-10"
           aria-label="Verification status"
           title="Verified"
         >

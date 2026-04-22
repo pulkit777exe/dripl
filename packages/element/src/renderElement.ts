@@ -13,7 +13,7 @@ export interface StaticCanvasRenderConfig extends RenderConfig {
   shouldCacheIgnoreZoom?: boolean;
 }
 
-export interface ExcalidrawElementWithCanvas {
+export interface DriplElementWithCanvas {
   element: DriplElement;
   canvas: HTMLCanvasElement;
   boundTextCanvas: HTMLCanvasElement;
@@ -25,7 +25,7 @@ export interface ExcalidrawElementWithCanvas {
   containingFrameOpacity: number;
 }
 
-const elementWithCanvasCache = new Map<DriplElement, ExcalidrawElementWithCanvas>();
+const elementWithCanvasCache = new Map<DriplElement, DriplElementWithCanvas>();
 
 export const generateElementCanvas = (
   element: DriplElement,
@@ -33,7 +33,7 @@ export const generateElementCanvas = (
   zoom: { value: number },
   renderConfig: StaticCanvasRenderConfig,
   appState: any
-): ExcalidrawElementWithCanvas | null => {
+): DriplElementWithCanvas | null => {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
@@ -77,7 +77,7 @@ export const generateElementWithCanvas = (
   elementsMap: Map<string, DriplElement>,
   renderConfig: StaticCanvasRenderConfig,
   appState: any
-): ExcalidrawElementWithCanvas | null => {
+): DriplElementWithCanvas | null => {
   const zoom: { value: number } = renderConfig
     ? appState.zoom
     : {
@@ -111,7 +111,7 @@ export const generateElementWithCanvas = (
 };
 
 export const drawElementFromCanvas = (
-  elementWithCanvas: ExcalidrawElementWithCanvas,
+  elementWithCanvas: DriplElementWithCanvas,
   context: CanvasRenderingContext2D,
   renderConfig: StaticCanvasRenderConfig,
   appState: any,
