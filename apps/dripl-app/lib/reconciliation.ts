@@ -90,19 +90,7 @@ export const shouldDiscardRemoteElement = (
   remote: DriplElement,
   options: ReconcileOptions = {}
 ): boolean => {
-  const discard = getDiscardReason(local, remote, options) !== 'accept';
-
-  console.log('[RECONCILE] shouldDiscardRemoteElement', {
-    id: remote.id,
-    localVersion: local?.version,
-    remoteVersion: remote.version,
-    localNonce: local?.versionNonce,
-    remoteNonce: remote.versionNonce,
-    discard,
-    reason: getDiscardReason(local, remote, options),
-  });
-
-  return discard;
+  return getDiscardReason(local, remote, options) !== 'accept';
 };
 
 // ---------------------------------------------------------------------------
@@ -156,14 +144,6 @@ export function reconcileElements(
       }
     }
   }
-
-  console.log('[RECONCILE] reconcileElements', {
-    localCount: localElements.length,
-    incomingCount: incomingElements.length,
-    acceptedCount: accepted.length,
-    rejectedCount: rejected.length,
-    needsRender: needsRender,
-  });
 
   return { accepted, rejected, needsRender };
 }

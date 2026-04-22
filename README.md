@@ -41,9 +41,9 @@ Open `http://localhost:3000`
 
 ```
 ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│  dripl-app   │  │http-server   │  │ ws-server    │
-│  Next.js 16  │  │  Express 5   │  │    ws        │
-│  Port 3000   │  │  Port 3002   │  │ Port 3001    │
+│  dripl-app   │  │http-server  │  │ ws-server   │
+│  Next.js 16  │  │  Express 5   │  │    ws      │
+│  Port 3000   │  │  Port 3002   │  │ Port 3001   │
 └──────────────┘  └──────────────┘  └──────────────┘
        │                │                │
        └────────────────┼────────────────┘
@@ -66,13 +66,76 @@ Open `http://localhost:3000`
 
 ## Features
 
-- **Canvas Tools**: Rectangle, ellipse, diamond, arrow, line, text, frame, freedraw, eraser
+### Canvas Tools
+
+- **Shapes**: Rectangle, ellipse, diamond, arrow, line, text, frame, freedraw, eraser
 - **Editing**: Selection, resize, rotate, undo/redo (100 steps)
-- **Collaboration**: Remote cursors, element sync, presence
-- **Sharing**: Public links, view/edit permissions
+- **View**: Zoom (+/-), grid toggle, dark/light theme
+
+### Collaboration
+
+- **Real-time sync**: Multiple users can draw simultaneously
+- **Remote cursors**: See where others are pointing
+- **Presence**: Who's in the room
+- **Message subtypes**:
+  - `scene-update` with `subtype: 'init'` — Full sync on join
+  - `scene-update` with `subtype: 'update'` — Live element changes
+  - `cursor-move` — Real-time cursor positions
+  - `user-join` / `user-leave` — Presence updates
+
+### Sharing
+
+- **Public links**: Share canvas via URL
+- **Permissions**: View/edit access
 - **Export**: PNG, SVG, JSON
-- **Theme**: Dark/light mode
-- **Keyboard Shortcuts**: V, R, E, D, P, L, A, T, F, X, H + Ctrl combinations
+
+### Keyboard Shortcuts
+
+| Key          | Action                      |
+| ------------ | --------------------------- |
+| V            | Select                      |
+| R            | Rectangle                   |
+| E/O          | Ellipse                     |
+| D            | Diamond                     |
+| P            | Freehand draw               |
+| L            | Line                        |
+| A            | Arrow                       |
+| T            | Text                        |
+| F            | Frame                       |
+| X            | Eraser                      |
+| H            | Hand (pan)                  |
+| Ctrl+Z       | Undo                        |
+| Ctrl+Shift+Z | Redo                        |
+| Ctrl+G       | Toggle grid                 |
+
+---
+
+## Collaboration Flow
+
+```
+User A draws element
+        │
+        ▼
+broadcastElements(prev, next)
+        │
+        ▼
+send({ type: 'scene-update', subtype: 'update', elements: [...] })
+        │
+        ▼
+ws-server receives → broadcasts to all clients (except sender)
+        │
+        ▼
+Client B receives → onRemoteElements() → updates canvas
+```
+
+**Key Components:**
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `useCollaboration` | `hooks/useCollaboration.ts` | WebSocket client |
+| `index.ts` | `ws-server/src/index.ts` | Message handling |
+| `validation.ts` | `ws-server/src/validation.ts` | Schema validation |
+| `CollaboratorsList` | `components/canvas/CollaboratorsList.tsx` | User presence UI |
 
 ---
 
@@ -81,7 +144,7 @@ Open `http://localhost:3000`
 ```bash
 pnpm dev          # Start all services
 pnpm build        # Build for production
-pnpm test         # Run tests
+pnpm test         # Run tests (42 passing)
 pnpm lint         # Lint code
 pnpm format       # Format with Prettier
 pnpm db:migrate   # Database migrations
@@ -104,9 +167,6 @@ cd apps/ws-server && pnpm dev     # Port 3001
 ```bash
 # Start all services with Docker Compose
 docker-compose up --build
-
-# Or for development
-docker-compose up
 ```
 
 Dockerfiles are located in `docker/` directory.
@@ -116,6 +176,27 @@ Dockerfiles are located in `docker/` directory.
 ## Database
 
 8 models: User, Team, TeamMember, Folder, File, SharedFile, CanvasRoom, ShareLink.
+
+---
+
+## Project Structure
+
+```
+dripl/
+├── apps/
+│   ├── dripl-app/       # Next.js frontend (Port 3000)
+│   ├── http-server/     # Express REST API (Port 3002)
+│   └── ws-server/      # WebSocket server (Port 3001)
+├── packages/
+│   ├── common/         # Shared types
+│   ├── db/             # Prisma schema
+│   ├── dripl/          # UI components
+│   ├── element/        # Element utilities
+│   ├── math/           # Geometry utilities
+│   └── utils/          # Shared utilities
+├── docker/             # Dockerfiles
+└── docker-compose.yml  # Local development
+```
 
 ---
 
@@ -142,34 +223,6 @@ pnpm build    # Regenerates all packages
 ```
 
 ---
-
-## Project Structure
-
-```
-dripl/
-├── apps/
-│   ├── dripl-app/       # Next.js frontend
-│   ├── http-server/     # Express REST API
-│   └── ws-server/       # WebSocket server
-├── packages/
-│   ├── common/          # Shared types
-│   ├── db/              # Prisma schema
-│   ├── dripl/           # UI components
-│   ├── element/         # Element utilities
-│   ├── math/            # Geometry utilities
-│   └── utils/           # Shared utilities
-├── docker/              # Dockerfiles
-└── docker-compose.yml   # Local development
-```
-
----
-
-## Support
-
-For issues and questions:
-
-- Open an [Issue](https://github.com/pulkit777exe/dripl/issues)
-- Check [Discussions](https://github.com/pulkit777exe/dripl/discussions)
 
 ## License
 

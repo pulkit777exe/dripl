@@ -477,6 +477,33 @@ wss.on('connection', (ws, req) => {
         break;
       }
 
+      case 'scene-update': {
+        if (!currentRoomId) break;
+        const room = rooms.get(currentRoomId);
+        if (!room) break;
+        if (!Array.isArray(message.elements)) break;
+
+        const merged = new Map(room.elements.map(element => [element.id, element]));
+        for (const rawEl of message.elements) {
+          try {
+            const element = toDriplElement(rawEl);
+            merged.set(element.id, element);
+          } catch {
+            // Skip invalid elements
+          }
+        }
+        room.elements = Array.from(merged.values());
+
+        const broadcastMessage = {
+          type: 'scene-update',
+          subtype: message.subtype,
+          elements: room.elements,
+        };
+        broadcast(room, broadcastMessage, currentUserId ?? undefined);
+        scheduleSave(currentRoomId, room.elements);
+        break;
+      }
+
       case 'element-update': {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);

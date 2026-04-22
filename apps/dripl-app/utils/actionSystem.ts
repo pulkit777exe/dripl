@@ -110,8 +110,6 @@ export class ActionManager {
         typeof actionInstance.trackEvent === 'object'
           ? actionInstance.trackEvent.action || actionInstance.name
           : actionInstance.name;
-
-      console.log(`[Analytics] Tracked action: ${actionName} (${category}) from ${source}`);
     }
 
     // Perform action
@@ -175,7 +173,5 @@ export function trackAction(
     const category = typeof action.trackEvent === 'object' ? action.trackEvent.category : 'actions';
     const actionName =
       typeof action.trackEvent === 'object' ? action.trackEvent.action || action.name : action.name;
-
-    console.log(`[Analytics] Tracked action: ${actionName} (${category}) from ${source}`);
   }
 }

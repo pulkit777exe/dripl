@@ -151,6 +151,12 @@ export const elementUpdateSchema = z.object({
   element: driplElementSchema.optional(),
 });
 
+export const sceneUpdateSchema = z.object({
+  type: z.literal('scene-update'),
+  subtype: z.enum(['init', 'update']),
+  elements: z.array(driplElementSchema),
+});
+
 export const messageSchema = z.discriminatedUnion('type', [
   joinRoomSchema,
   joinSchema,
@@ -160,6 +166,7 @@ export const messageSchema = z.discriminatedUnion('type', [
   cursorMoveSchema,
   cursorMoveKebabSchema,
   elementUpdateSchema,
+  sceneUpdateSchema,
   z.object({ type: z.literal('leave_room') }),
   z.object({ type: z.literal('leave') }),
   z.object({ type: z.literal('ping') }),

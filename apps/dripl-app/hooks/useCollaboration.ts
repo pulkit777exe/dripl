@@ -27,9 +27,9 @@ type ServerMessage =
       yourUserId?: string;
     }
   | {
-      type: 'element-update';
-      elements?: DriplElement[];
-      element?: DriplElement;
+      type: 'scene-update';
+      subtype: 'init' | 'update';
+      elements: DriplElement[];
     }
   | { type: 'add_element'; element: DriplElement }
   | { type: 'update_element'; element: DriplElement }
@@ -63,7 +63,7 @@ type ClientMessage =
       color: string;
     }
   | { type: 'leave' }
-  | { type: 'element-update'; elements: DriplElement[] }
+  | { type: 'scene-update'; subtype: 'init' | 'update'; elements: DriplElement[] }
   | {
       type: 'cursor-move';
       x: number;
@@ -95,6 +95,7 @@ export function useCollaboration(
   const heartbeatTimerRef = useRef<number | null>(null);
   const broadcastTimerRef = useRef<number | null>(null);
   const pendingElementsRef = useRef<DriplElement[] | null>(null);
+  const isFirstSyncRef = useRef(true);
   const shouldReconnectRef = useRef(true);
   const reconnectAttemptRef = useRef(0);
   const lastCursorSentAtRef = useRef(0);
@@ -135,13 +136,13 @@ export function useCollaboration(
 
   const flushElementBroadcast = useCallback(() => {
     const pending = pendingElementsRef.current;
-    console.log('[Collab] flushElementBroadcast: sending', pending?.length, 'elements immediately');
     if (!pending || !roomId) return;
-    if (wsRef.current?.readyState !== WebSocket.OPEN) {
-      console.log('[Collab] Cannot send elements, WebSocket not open');
-      return;
-    }
-    send({ type: 'element-update', elements: pending });
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+
+    const subtype = isFirstSyncRef.current ? 'init' : 'update';
+    if (isFirstSyncRef.current) isFirstSyncRef.current = false;
+
+    send({ type: 'scene-update', subtype, elements: pending });
     pendingElementsRef.current = null;
   }, [roomId, send]);
 
@@ -223,7 +224,7 @@ export function useCollaboration(
         }, 15_000);
       };
 
-      ws.onmessage = event => {
+ws.onmessage = event => {
         let message: ServerMessage | null = null;
         try {
           message = JSON.parse(event.data) as ServerMessage;
@@ -232,51 +233,12 @@ export function useCollaboration(
         }
         if (!message) return;
 
-        if (message.type === 'room-state' || message.type === 'sync_room_state') {
-          onFullSyncRef.current?.(message.elements);
-          const users = new Map<string, { userId: string; userName: string; color: string }>();
-          const nextCollaborators = new Map<string, CollabUser>();
-          for (const remote of message.users) {
-            if (remote.userId === userId) continue;
-            const remoteName = remote.displayName ?? remote.userName ?? 'Guest';
-            users.set(remote.userId, {
-              userId: remote.userId,
-              userName: remoteName,
-              color: remote.color,
-            });
-            nextCollaborators.set(remote.userId, {
-              userId: remote.userId,
-              displayName: remoteName,
-              color: remote.color,
-              x: 0,
-              y: 0,
-              updatedAt: Date.now(),
-            });
-          }
-          setRemoteUsers(users);
-          setCollaboratorsMap(nextCollaborators);
-          return;
-        }
-
-        if (message.type === 'element-update') {
-          if (Array.isArray(message.elements)) {
+        if (message.type === 'scene-update') {
+          if (message.subtype === 'init') {
             onFullSyncRef.current?.(message.elements);
-          } else if (message.element) {
-            onRemoteElementsRef.current?.([], [message.element], []);
+          } else {
+            onRemoteElementsRef.current?.(message.elements, [], []);
           }
-          return;
-        }
-
-        if (message.type === 'add_element') {
-          onRemoteElementsRef.current?.([message.element], [], []);
-          return;
-        }
-        if (message.type === 'update_element') {
-          onRemoteElementsRef.current?.([], [message.element], []);
-          return;
-        }
-        if (message.type === 'delete_element') {
-          onRemoteElementsRef.current?.([], [], [message.elementId]);
           return;
         }
 

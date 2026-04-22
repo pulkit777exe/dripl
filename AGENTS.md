@@ -32,6 +32,8 @@ All critical issues have been resolved. The following are either fixed or known 
 | 22  | ws-server — No rate limiting                                          | Fixed  |
 | 23  | Database — Missing query indexes                                      | Fixed  |
 | 24  | http-server — Test imports don't match route files                    | Fixed  |
+| 25  | Collaboration — Elements not syncing between users                  | Fixed  |
+| 26  | Collaboration — No message subtypes for init/update                 | Fixed  |
 
 ### ⚠️ Known Limitations
 
@@ -60,6 +62,7 @@ All critical issues have been resolved. The following are either fixed or known 
 | ESLint               | ✅ Shared config        |
 | Package Metadata     | ✅ Description, license |
 | React Error Boundary | ✅ `app/error.tsx`      |
+| Unit Tests           | ✅ 42+ passing tests    |
 
 ### Security
 
@@ -91,6 +94,28 @@ All critical issues have been resolved. The following are either fixed or known 
 - Share links
 - Dark/light theme
 - Element locking
+- AI Text to Diagram generation
+
+### Collaboration (Real-time Sync)
+
+```
+┌──────────────┐          ┌──────────────┐
+│  User A      │◄────────►│  ws-server   │
+│  (Canvas)    │          │  (Broadcast) │
+└──────────────┘          └──────┬───────┘
+       │                          │
+       │                          ▼
+┌──────────────┐          ┌──────────────┐
+│  User B      │◄────────►│  Elements   │
+│  (Canvas)    │          │  Synced     │
+└──────────────┘          └──────────────┘
+```
+
+**Message Protocol:**
+- `scene-update` with `subtype: 'init'` — Full scene sync (on join)
+- `scene-update` with `subtype: 'update'` — Incremental element updates
+- `cursor-move` — Real-time cursor positions (~30fps)
+- `user-join` / `user-leave` — Presence updates
 
 ### Auth & Routing
 
@@ -126,6 +151,52 @@ pnpm db:migrate
 ### Commit Messages
 
 Uses Conventional Commits. Run `pnpm commitlint` locally.
+
+---
+
+## Collaboration Architecture
+
+### Message Flow
+
+```
+Client A draws element
+        │
+        ▼
+broadcastElements(prev, next)
+        │
+        ▼
+flushElementBroadcast()
+        │
+        ▼
+send({ type: 'scene-update', subtype: 'update', elements: [...] })
+        │
+        ▼
+ws-server receives
+        │
+        ▼
+broadcast to all clients (except sender)
+        │
+        ▼
+Client B receives → onRemoteElements() → updates canvas
+```
+
+### Key Files
+
+| File | Purpose |
+| ---- | ------- |
+| `hooks/useCollaboration.ts` | WebSocket client, element broadcasting |
+| `ws-server/src/index.ts` | Message handling, room state |
+| `ws-server/src/validation.ts` | Message schema validation |
+| `components/canvas/CollaboratorsList.tsx` | User presence UI |
+
+### Creating a Collaboration Room
+
+1. User clicks "Collaborate" in Share modal
+2. Backend creates room: `POST /api/canvas/rooms`
+3. User receives shareable URL: `/canvas/{roomId}`
+4. Others join via URL → `useCollaboration` hook connects
+5. Server sends `sync_room_state` with current elements
+6. Real-time sync via `scene-update` messages
 
 ---
 
