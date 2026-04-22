@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { HelpCircle, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
@@ -13,6 +13,8 @@ import { useAuth } from '@/app/context/AuthContext';
 import { apiClient } from '@/lib/api';
 import { Spinner } from '@/components/button/Spinner';
 import HelpModal from '@/components/canvas/HelpModal';
+import { CollaboratorsList } from '@/components/canvas/CollaboratorsList';
+import { useCanvasStore } from '@/lib/canvas-store';
 
 interface CanvasFilePageProps {
   params: Promise<{
@@ -70,6 +72,11 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
     return () => window.removeEventListener('dripl:open-help', handleOpenHelp as EventListener);
   }, []);
 
+  const handleLeaveSession = useCallback(() => {
+    useCanvasStore.getState().setShouldLeaveRoom(true);
+    router.push('/canvas');
+  }, [router]);
+
   if (authLoading || isLoadingRoom) {
     return (
       <div className="flex h-dvh items-center justify-center bg-[#f5f0e8]">
@@ -111,6 +118,7 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
       />
 
       <TopBar />
+      <CollaboratorsList roomSlug={roomId} onLeaveRoom={handleLeaveSession} />
       <CanvasBootstrap mode="room" roomSlug={roomId} theme={effectiveTheme} />
 
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">

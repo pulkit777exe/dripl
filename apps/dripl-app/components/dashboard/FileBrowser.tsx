@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, createPortal } from 'react';
 import {
   File,
   MoreHorizontal,
@@ -14,6 +14,8 @@ import {
   SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
+  X,
+  AlertTriangle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
@@ -53,6 +55,7 @@ export function FileBrowser({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const startRename = (file: FileItem) => {
     setEditingId(file.id);
@@ -69,9 +72,14 @@ export function FileBrowser({
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this canvas?')) {
-      onDeleteFile?.(id);
-      setOpenMenuId(null);
+    setDeleteConfirmId(id);
+    setOpenMenuId(null);
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirmId) {
+      onDeleteFile?.(deleteConfirmId);
+      setDeleteConfirmId(null);
     }
   };
 
@@ -174,7 +182,7 @@ export function FileBrowser({
                       if (e.key === 'Enter') commitRename();
                       if (e.key === 'Escape') setEditingId(null);
                     }}
-                    className="w-full text-sm font-medium bg-secondary/40 border border-border rounded-md px-2 py-1"
+                    className="w-full text-[13px] font-medium bg-white border border-[#D4D0C9] rounded-md px-2 py-1 text-[#1A1917] outline-none focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20"
                     autoFocus
                   />
                 ) : (
@@ -193,21 +201,23 @@ export function FileBrowser({
                     e.stopPropagation();
                     setOpenMenuId(openMenuId === file.id ? null : file.id);
                   }}
-                  className="p-1.5 rounded-lg bg-background/90 hover:bg-background shadow-sm border border-border/50"
+                  className="p-1.5 rounded-lg bg-[#FAFAF7]/90 hover:bg-[#FAFAF7] shadow-sm border border-[#E4E0D9]/50"
                 >
-                  <MoreHorizontal className="h-4 w-4" />
+                  <MoreHorizontal className="h-4 w-4" style={{ color: '#6B6860' }} />
                 </button>
                 {openMenuId === file.id && (
-                  <div className="absolute right-0 top-9 w-36 bg-popover border border-border rounded-xl shadow-xl py-1 z-10">
+                  <div
+                    className="absolute right-0 top-9 w-40 rounded-xl shadow-lg py-1.5 z-50 bg-[#FAFAF7] border border-[#E4E0D9]"
+                  >
                     <button
                       onClick={e => {
                         e.preventDefault();
                         e.stopPropagation();
                         startRename(file);
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent rounded-lg"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:opacity-80 text-[#1A1917]"
                     >
-                      <Pencil className="h-3.5 w-3.5" />
+                      <Pencil size={14} className="text-[#6B6860]" />
                       Rename
                     </button>
                     <button
@@ -216,9 +226,10 @@ export function FileBrowser({
                         e.stopPropagation();
                         handleDelete(file.id);
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:opacity-80"
+                      style={{ color: '#e03131' }}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 size={14} />
                       Delete
                     </button>
                   </div>
@@ -255,7 +266,7 @@ export function FileBrowser({
                         if (e.key === 'Enter') commitRename();
                         if (e.key === 'Escape') setEditingId(null);
                       }}
-                      className="text-sm font-medium bg-secondary/40 border border-border rounded-md px-2 py-1"
+                      className="text-sm font-medium bg-white border border-[#D4D0C9] rounded-md px-2 py-1 text-[#1A1917] outline-none focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20"
                       autoFocus
                     />
                   ) : (
@@ -279,21 +290,23 @@ export function FileBrowser({
                       e.stopPropagation();
                       setOpenMenuId(openMenuId === file.id ? null : file.id);
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-secondary rounded-lg transition-all"
+                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-[#E8E5DE] rounded-lg transition-all"
                   >
-                    <MoreHorizontal className="h-4 w-4" />
+                    <MoreHorizontal className="h-4 w-4" style={{ color: '#6B6860' }} />
                   </button>
                   {openMenuId === file.id && (
-                    <div className="absolute right-16 top-12 w-36 bg-popover border border-border rounded-xl shadow-xl py-1 z-10">
+                    <div
+                      className="absolute right-16 top-12 w-40 rounded-xl shadow-lg py-1.5 z-50 bg-[#FAFAF7] border border-[#E4E0D9]"
+                    >
                       <button
                         onClick={e => {
                           e.preventDefault();
                           e.stopPropagation();
                           startRename(file);
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent rounded-lg"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:opacity-80 text-[#1A1917]"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil size={14} className="text-[#6B6860]" />
                         Rename
                       </button>
                       <button
@@ -302,9 +315,10 @@ export function FileBrowser({
                           e.stopPropagation();
                           handleDelete(file.id);
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:opacity-80"
+                        style={{ color: '#e03131' }}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 size={14} />
                         Delete
                       </button>
                     </div>
@@ -336,6 +350,48 @@ export function FileBrowser({
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
+      )}
+
+      {deleteConfirmId && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+          onClick={() => setDeleteConfirmId(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl shadow-lg overflow-hidden animate-in zoom-in-95 bg-[#FAFAF7] border border-[#E4E0D9]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#FAE8E5]">
+                  <AlertTriangle size={20} className="text-[#e03131]" />
+                </div>
+                <div>
+                  <h3 className="text-[15px] font-semibold text-[#1A1917]">Delete Canvas</h3>
+                  <p className="text-[12px] text-[#6B6860]">This action cannot be undone</p>
+                </div>
+              </div>
+              <p className="text-[13px] text-[#6B6860] mb-5">
+                Are you sure you want to delete this canvas? This will permanently remove the file and all its content.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="px-3 py-1.5 text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="px-3 py-1.5 bg-[#e03131] text-white text-[13px] font-medium rounded-md hover:bg-[#c2252d] transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

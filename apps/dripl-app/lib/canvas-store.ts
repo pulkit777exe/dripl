@@ -106,6 +106,7 @@ export interface CanvasState {
   roomId: string | null;
   roomSlug: string | null;
   isConnected: boolean;
+  shouldLeaveRoom: boolean;
   readOnly: boolean;
   userId: string | null;
   fileId: string | null;
@@ -156,6 +157,7 @@ export interface CanvasState {
   setRoomId: (roomId: string | null) => void;
   setRoomSlug: (roomSlug: string | null) => void;
   setIsConnected: (isConnected: boolean) => void;
+  setShouldLeaveRoom: (should: boolean) => void;
   setReadOnly: (readOnly: boolean) => void;
   setUserId: (userId: string | null) => void;
   setFileMetadata: (fileId: string | null, fileName: string) => void;
@@ -224,6 +226,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   roomId: null,
   roomSlug: null,
   isConnected: false,
+  shouldLeaveRoom: false,
   readOnly: false,
   userId: null,
   fileId: null,
@@ -270,6 +273,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setRoomId: roomId => set({ roomId }),
   setRoomSlug: roomSlug => set({ roomSlug }),
   setIsConnected: isConnected => set({ isConnected }),
+  setShouldLeaveRoom: should => set({ shouldLeaveRoom: should }),
   setReadOnly: readOnly => set({ readOnly }),
   setUserId: userId => set({ userId }),
   setFileMetadata: (fileId, fileName) => set({ fileId, fileName }),

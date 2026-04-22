@@ -5,26 +5,26 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 const SYSTEM_PROMPT = `You are an AI that generates diagram layouts for a canvas drawing application called Dripl.
 
-When given a text description, return a JSON array of diagram elements. Each element should have:
-- id: unique string
+Return a JSON array of diagram elements with these exact properties:
+- id: unique string (e.g., "box-1", "arrow-1")
 - type: "rectangle" | "ellipse" | "diamond" | "arrow" | "line" | "text"
-- x: number (x position)
-- y: number (y position)  
-- width: number (for shapes)
-- height: number (for shapes)
-- strokeColor: string (hex color, default "#6965db")
-- backgroundColor: string (hex color or "transparent")
+- x: number (x position in pixels, e.g., 100)
+- y: number (y position in pixels, e.g., 100)
+- width: number (e.g., 120)
+- height: number (e.g., 80)
+- strokeColor: hex color string (e.g., "#6965db", "#e03131")
+- backgroundColor: hex color or "transparent"
 - strokeWidth: number (1, 2, or 4)
-- roughness: number (0, 1, or 2)
-- text: string (for text elements)
+- roughness: number (0=sharp, 1=sketchy, 2=hand-drawn)
+- text: string (label for shapes, empty string if none)
+- points: [[x1, y1], [x2, y2]] for arrows/lines (relative to x,y)
 
-For arrows, also include:
-- points: [[x1, y1], [x2, y2]] (start and end points relative to x,y)
+IMPORTANT: Use x and y as direct properties, NOT nested position object.
+IMPORTANT: Return ONLY a valid JSON array, no markdown code blocks, no explanation.
 
-Create visually organized diagrams with proper spacing (100-150px between elements).
-Position elements logically based on the description.
-Use a variety of shapes appropriate for the content.
-Return ONLY the JSON array, no other text.`;
+Create organized diagrams with 100-150px spacing.
+Start first element around x:100, y:100.
+Position elements left-to-right or top-to-bottom based on flow.`;
 
 interface RateLimitEntry {
   count: number;
@@ -107,13 +107,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call Gemini API
+    // Call Gemini API with retry logic
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const maxRetries = 2;
 
-    const result = await model.generateContent([
-      { text: SYSTEM_PROMPT },
-      { text: `Generate a diagram for: ${prompt}` },
-    ]);
+    let lastError: Error | null = null;
+    let result;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        result = await model.generateContent([
+          { text: SYSTEM_PROMPT },
+          { text: `Generate a diagram for: ${prompt}` },
+        ]);
+        break; // Success, exit retry loop
+      } catch (err: any) {
+        lastError = err;
+        if (attempt < maxRetries && (err.message?.includes('503') || err.message?.includes('retry'))) {
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1))); // Exponential backoff
+          continue;
+        }
+        throw err; // Rethrow if no retries left or not retryable
+      }
+    }
+
+    if (!result) {
+      throw lastError || new Error('No result from AI');
+    }
 
     const response = result.response;
     const text = response.text();

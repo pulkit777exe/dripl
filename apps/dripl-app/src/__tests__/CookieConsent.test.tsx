@@ -62,7 +62,7 @@ describe('CookieConsent', () => {
       await new Promise(r => setTimeout(r, 0));
     });
 
-    const acceptButton = screen.getByText('Accept');
+    const acceptButton = screen.getByText('Accept All');
     fireEvent.click(acceptButton);
 
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
@@ -79,7 +79,7 @@ describe('CookieConsent', () => {
       await new Promise(r => setTimeout(r, 0));
     });
 
-    const dismissButton = screen.getByText('Manage your preferences');
+    const dismissButton = screen.getByText('Manage preferences');
     fireEvent.click(dismissButton);
 
     expect(localStorageMock.setItem).not.toHaveBeenCalled();

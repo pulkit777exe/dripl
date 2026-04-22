@@ -1,10 +1,13 @@
 'use client';
 
+import { useState } from 'react';
+import { X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { getOrCreateCollaboratorName } from '@/utils/username';
 
 interface CollaboratorsListProps {
   roomSlug: string | null;
+  onLeaveRoom?: () => void;
 }
 
 const AVATAR_COLORS = [
@@ -26,96 +29,92 @@ function getAvatarColor(userId: string): AvatarColor {
     hash = userId.charCodeAt(i) + ((hash << 5) - hash);
   }
   const colorIndex = Math.abs(hash) % AVATAR_COLORS.length;
-  const color = AVATAR_COLORS[colorIndex];
-  return color ?? AVATAR_COLORS[0];
+  return AVATAR_COLORS[colorIndex] ?? AVATAR_COLORS[0];
 }
 
 function getInitials(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return '??';
-
   const firstChar = trimmed[0];
   if (!firstChar) return '??';
-
   const spaceIndex = trimmed.indexOf(' ');
-
   if (spaceIndex > 0 && spaceIndex < trimmed.length - 1) {
     const secondChar = trimmed[spaceIndex + 1];
-    if (secondChar) {
-      return (firstChar + secondChar).toUpperCase();
-    }
+    if (secondChar) return (firstChar + secondChar).toUpperCase();
   }
-
   const secondChar = trimmed[1];
   return (firstChar + (secondChar ?? '')).toUpperCase();
 }
 
-export function CollaboratorsList({ roomSlug }: CollaboratorsListProps) {
+export function CollaboratorsList({ roomSlug, onLeaveRoom }: CollaboratorsListProps) {
   const remoteUsers = useCanvasStore(state => state.remoteUsers);
   const isConnected = useCanvasStore(state => state.isConnected);
   const userId = useCanvasStore(state => state.userId);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   if (roomSlug === null) return null;
-
   if (!isConnected && remoteUsers.size === 0) return null;
 
   const currentUserName = getOrCreateCollaboratorName();
   const currentUserColor = userId ? getAvatarColor(userId) : getAvatarColor('local-user');
 
-  const allUsers = [
-    ...Array.from(remoteUsers.values()).map(user => ({
-      userId: user.userId,
-      userName: user.userName,
-      color: user.color,
-      isCurrentUser: user.userId === userId,
-    })),
-  ];
+  const allUsers = Array.from(remoteUsers.values()).map(user => ({
+    userId: user.userId,
+    userName: user.userName,
+    color: user.color,
+  }));
+
+  const hasCollaborators = allUsers.length > 0;
 
   return (
-    <div className="fixed top-4 right-4 flex items-center gap-2 pointer-events-auto">
-      <div className="flex -space-x-2 overflow-hidden bg-background/80 backdrop-blur-sm p-1.5 rounded-full border shadow-lg">
-        {/* Current user first */}
-        <div
-          className="relative w-8 h-8 rounded-full ring-2 ring-white flex items-center justify-center text-xs font-semibold select-none"
-          style={{
-            backgroundColor: currentUserColor + '30',
-            borderColor: currentUserColor,
-          }}
-          title={`You (${currentUserName})`}
-        >
-          <span style={{ color: currentUserColor }}>{getInitials(currentUserName)}</span>
-          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
+    <div className="fixed right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 pointer-events-auto z-50">
+      {isExpanded && hasCollaborators && (
+        <div className="flex flex-col items-center gap-2">
+          {allUsers.map(user => (
+            <div
+              key={user.userId}
+              className="relative w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold shadow-md"
+              style={{
+                backgroundColor: user.color + '30',
+                border: `2px solid ${user.color}`,
+              }}
+              title={user.userName}
+            >
+              <span style={{ color: user.color }}>{getInitials(user.userName)}</span>
+            </div>
+          ))}
         </div>
+      )}
 
-        {allUsers.map(user => (
-          <div
-            key={user.userId}
-            className="relative w-8 h-8 rounded-full ring-2 ring-white flex items-center justify-center text-xs font-semibold select-none"
-            style={{
-              backgroundColor: user.color + '30',
-              borderColor: user.color,
-            }}
-            title={user.userName}
-          >
-            <span style={{ color: user.color }}>{getInitials(user.userName)}</span>
-          </div>
-        ))}
-      </div>
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="p-2 rounded-full bg-[#FAFAF7] border border-[#E4E0D9] text-[#6B6860] hover:bg-[#E8E5DE] transition-colors shadow-sm"
+        title={isExpanded ? 'Collapse' : 'Expand'}
+      >
+        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
 
       <div
-        className={`px-2.5 py-1.5 rounded-full text-xs font-medium border ${
-          isConnected
-            ? 'bg-green-500/10 text-green-600 border-green-500/20'
-            : 'bg-red-500/10 text-red-600 border-red-500/20'
-        }`}
+        className="relative w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold shadow-md"
+        style={{
+          backgroundColor: currentUserColor + '30',
+          border: `2px solid ${currentUserColor}`,
+        }}
+        title={`You (${currentUserName})`}
       >
-        <div className="flex items-center gap-1.5">
-          <div
-            className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}
-          />
-          {isConnected ? 'Online' : 'Offline'}
-        </div>
+        <span style={{ color: currentUserColor }}>{getInitials(currentUserName)}</span>
+        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
       </div>
+
+      {hasCollaborators && onLeaveRoom && (
+        <button
+          onClick={onLeaveRoom}
+          className="p-2 rounded-full bg-[#FAFAF7] border border-[#E4E0D9] text-[#6B6860] hover:bg-[#FAE8E5] hover:border-[#E8462A] hover:text-[#E8462A] transition-colors shadow-sm"
+          title="Stop Session"
+        >
+          <X size={14} />
+        </button>
+      )}
     </div>
   );
 }

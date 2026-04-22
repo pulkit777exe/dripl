@@ -134,14 +134,15 @@ export function useCollaboration(
   }, []);
 
   const flushElementBroadcast = useCallback(() => {
-    if (broadcastTimerRef.current !== null) return;
-    broadcastTimerRef.current = window.setTimeout(() => {
-      broadcastTimerRef.current = null;
-      const pending = pendingElementsRef.current;
-      if (!pending || !roomId) return;
-      send({ type: 'element-update', elements: pending });
-      pendingElementsRef.current = null;
-    }, 100);
+    const pending = pendingElementsRef.current;
+    console.log('[Collab] flushElementBroadcast: sending', pending?.length, 'elements immediately');
+    if (!pending || !roomId) return;
+    if (wsRef.current?.readyState !== WebSocket.OPEN) {
+      console.log('[Collab] Cannot send elements, WebSocket not open');
+      return;
+    }
+    send({ type: 'element-update', elements: pending });
+    pendingElementsRef.current = null;
   }, [roomId, send]);
 
   const broadcastElements = useCallback(
@@ -395,6 +396,27 @@ export function useCollaboration(
 
   const collaborators = useMemo(() => Array.from(collaboratorsMap.values()), [collaboratorsMap]);
 
+  const disconnect = useCallback(() => {
+    shouldReconnectRef.current = false;
+    if (reconnectTimerRef.current) {
+      window.clearTimeout(reconnectTimerRef.current);
+    }
+    if (heartbeatTimerRef.current) {
+      window.clearInterval(heartbeatTimerRef.current);
+    }
+    if (broadcastTimerRef.current) {
+      window.clearTimeout(broadcastTimerRef.current);
+    }
+    if (wsRef.current) {
+      send({ type: 'leave' });
+      wsRef.current.close();
+    }
+    setIsStoreConnected(false);
+    setConnectionMessage('Disconnected');
+    setRemoteUsers(new Map());
+    setCollaboratorsMap(new Map());
+  }, []);
+
   return {
     isConnected,
     connectionMessage,
@@ -403,5 +425,6 @@ export function useCollaboration(
     broadcastCursor,
     lockElement,
     unlockElement,
+    disconnect,
   };
 }
