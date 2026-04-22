@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Layout, Code, Zap, Scissors, Sparkles, ChevronDown, Wand2 } from 'lucide-react';
+import { Frame, Globe, Zap, Sparkles, ChevronDown, Wand2, Library } from 'lucide-react';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { AIGenerateModal } from './AIGenerateModal';
 
@@ -10,8 +10,9 @@ interface ExtraTool {
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   shortcut?: string;
-  perform: () => void;
+  perform?: () => void;
   disabled?: boolean;
+  helperLabel?: string;
 }
 
 export function ExtraToolsDropdown() {
@@ -19,6 +20,7 @@ export function ExtraToolsDropdown() {
   const [showAIModal, setShowAIModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const setActiveTool = useCanvasStore(state => state.setActiveTool);
+  const activeTool = useCanvasStore(state => state.activeTool);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -33,54 +35,39 @@ export function ExtraToolsDropdown() {
     }
   }, [isOpen]);
 
-  const extraTools: ExtraTool[] = [
+  const extendedTools: ExtraTool[] = [
     {
-      id: 'frame',
-      label: 'Frame',
-      icon: Layout,
+      id: 'frame-tool',
+      label: 'Frame Tool',
+      icon: Frame,
       shortcut: 'F',
       perform: () => {
-        console.log('Frame tool selected');
+        setActiveTool('frame');
         setIsOpen(false);
       },
     },
     {
-      id: 'embeddable',
-      label: 'Embeddable',
-      icon: Code,
+      id: 'web-embed',
+      label: 'Web Embed',
+      icon: Globe,
       perform: () => {
-        console.log('Embeddable tool selected');
         setIsOpen(false);
       },
-      disabled: true,
     },
     {
-      id: 'laser',
-      label: 'Laser',
+      id: 'laser-pointer',
+      label: 'Laser Pointer',
       icon: Zap,
-      shortcut: 'K',
       perform: () => {
-        console.log('Laser tool selected');
         setIsOpen(false);
       },
-      disabled: true,
-    },
-    {
-      id: 'lasso',
-      label: 'Lasso',
-      icon: Scissors,
-      perform: () => {
-        console.log('Lasso tool selected');
-        setIsOpen(false);
-      },
-      disabled: true,
     },
   ];
 
   const generateTools: ExtraTool[] = [
     {
-      id: 'ai-diagram',
-      label: 'AI Diagram',
+      id: 'text-to-diagram',
+      label: 'Text to Diagram (AI)',
       icon: Wand2,
       perform: () => {
         setShowAIModal(true);
@@ -88,83 +75,65 @@ export function ExtraToolsDropdown() {
       },
     },
     {
-      id: 'text-to-diagram',
-      label: 'Text to Diagram',
+      id: 'mermaid',
+      label: 'Mermaid to Excalidraw',
       icon: Sparkles,
-      perform: () => {
-        setShowAIModal(true);
-        setIsOpen(false);
-      },
+      disabled: true,
+      helperLabel: 'Coming Soon',
     },
     {
-      id: 'mermaid',
-      label: 'Mermaid to Dripl',
+      id: 'wireframe',
+      label: 'Wireframe to Code (AI)',
       icon: Sparkles,
-      perform: () => {
-        setShowAIModal(true);
-        setIsOpen(false);
-      },
+      disabled: true,
+      helperLabel: 'Coming Soon',
     },
   ];
+
+  const isButtonActive = isOpen || activeTool === 'frame';
 
   return (
     <>
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className={`
-            relative p-2 rounded-lg transition-colors
-            ${
-              isOpen
-                ? 'bg-tool-active-bg text-tool-active-text '
-                : 'text-tool-inactive-text hover:bg-tool-hover-bg '
-            }
-          `}
-          aria-label="Extra tools"
+          className={
+            isButtonActive
+              ? 'relative p-2 rounded-md bg-tool-active-bg text-tool-active-text transition-colors'
+              : 'relative p-2 rounded-md text-tool-inactive-text hover:bg-tool-hover-bg hover:text-tool-hover-text transition-colors'
+          }
+          aria-label="Frame and library tools"
           aria-expanded={isOpen}
           aria-haspopup="true"
+          title="Frame / Library"
         >
-          <div className="w-5 h-5 grid grid-cols-2 gap-0.5">
-            <div className="w-full h-full bg-current rounded-sm" />
-            <div className="w-full h-full bg-current rounded-sm" />
-            <div className="w-full h-full bg-current rounded-sm" />
-            <div className="w-full h-full bg-current rounded-sm" />
-          </div>
+          <Library size={18} />
           <ChevronDown
-            size={12}
-            className={`absolute -bottom-1 -right-1 transition-transform ${
-              isOpen ? 'rotate-180' : ''
-            }`}
+            size={11}
+            className={`absolute -bottom-0.5 -right-0.5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           />
         </button>
 
         {isOpen && (
-          <div className="absolute top-full left-0 mt-1 w-56 bg-panel-bg rounded-lg border border-panel-border shadow-2xl z-50 py-1 ">
-            <div className="px-2 py-1.5 text-[11px] font-medium text-panel-label uppercase ">
-              Tools
+          <div className="absolute top-full right-0 mt-2 w-72 bg-panel-bg rounded-xl border border-panel-border shadow-2xl z-[60] py-1.5">
+            <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-panel-label">
+              Extended Tools
             </div>
-            {extraTools.map(tool => {
+
+            {extendedTools.map(tool => {
               const Icon = tool.icon;
               return (
                 <button
                   key={tool.id}
                   onClick={tool.perform}
-                  disabled={tool.disabled}
-                  className={`
-                    w-full flex items-center justify-between px-3 py-2 text-sm transition-colors
-                    ${
-                      tool.disabled
-                        ? 'text-panel-label opacity-50 cursor-not-allowed '
-                        : 'text-panel-text hover:bg-panel-btn-hover '
-                    }
-                  `}
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm text-panel-text hover:bg-panel-btn-hover transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon size={18} className="text-panel-label " />
+                  <div className="flex items-center gap-2.5">
+                    <Icon size={16} className="text-panel-label" />
                     <span>{tool.label}</span>
                   </div>
                   {tool.shortcut && (
-                    <span className="text-xs text-panel-label font-mono bg-panel-btn-bg px-1.5 py-0.5 rounded  dark:bg-dark-panel-btn-bg">
+                    <span className="text-[11px] text-panel-label font-mono px-1.5 py-0.5 rounded bg-panel-btn-bg">
                       {tool.shortcut}
                     </span>
                   )}
@@ -172,32 +141,38 @@ export function ExtraToolsDropdown() {
               );
             })}
 
-            <div className="w-full h-px bg-panel-divider my-2 " />
+            <div className="my-1.5 h-px bg-panel-divider" />
 
-            <div className="px-2 py-1.5 text-[11px] font-medium text-panel-label uppercase flex items-center gap-1 ">
+            <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-panel-label flex items-center gap-1.5">
               <Sparkles size={12} className="text-primary" />
-              AI Generate
+              Generate
             </div>
+
             {generateTools.map(tool => {
               const Icon = tool.icon;
+              const isDisabled = Boolean(tool.disabled);
+
               return (
                 <button
                   key={tool.id}
-                  onClick={tool.perform}
-                  disabled={tool.disabled}
-                  className={`
-                    w-full flex items-center justify-between px-3 py-2 text-sm transition-colors
-                    ${
-                      tool.disabled
-                        ? 'text-panel-label opacity-50 cursor-not-allowed '
-                        : 'text-panel-text hover:bg-panel-btn-hover '
-                    }
-                  `}
+                  onClick={isDisabled ? undefined : tool.perform}
+                  disabled={isDisabled}
+                  title={isDisabled ? 'Coming Soon' : tool.label}
+                  className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                    isDisabled
+                      ? 'text-panel-label opacity-55 cursor-not-allowed bg-transparent'
+                      : 'text-panel-text hover:bg-panel-btn-hover'
+                  }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon size={18} className="text-primary" />
+                  <div className="flex items-center gap-2.5">
+                    <Icon size={16} className={isDisabled ? 'text-panel-label' : 'text-primary'} />
                     <span>{tool.label}</span>
                   </div>
+                  {tool.helperLabel && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-panel-btn-bg text-panel-label border border-panel-border">
+                      {tool.helperLabel}
+                    </span>
+                  )}
                 </button>
               );
             })}

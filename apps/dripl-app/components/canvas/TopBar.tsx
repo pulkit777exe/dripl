@@ -1,36 +1,22 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import {
-  Menu as MenuIcon,
-  Library,
-  Share2,
-  MoreHorizontal,
-  ArrowLeft,
-  Check,
-  X,
-  Users,
-} from 'lucide-react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Menu as MenuIcon, PanelRight } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api/client';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { Menu } from './Menu';
 import { ShareModal } from './ShareModal';
 import { CanvasContentSchema, type DriplElement } from '@dripl/common';
 import { downloadBlob, exportCanvas } from '@/utils/export';
-import HelpModal from './HelpModal';
+
+const SIDEBAR_TOGGLE_EVENT = 'dripl:properties-panel-visibility';
 
 export const TopBar: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const elements = useCanvasStore(state => state.elements);
   const fileId = useCanvasStore(state => state.fileId);
-  const isConnected = useCanvasStore(state => state.isConnected);
-  const roomSlug = useCanvasStore(state => state.roomSlug);
-  const isSaving = useCanvasStore(state => state.isSaving);
-  const lastSaved = useCanvasStore(state => state.lastSaved);
-  const remoteUsers = useCanvasStore(state => state.remoteUsers);
   const zoom = useCanvasStore(state => state.zoom);
   const panX = useCanvasStore(state => state.panX);
   const panY = useCanvasStore(state => state.panY);
@@ -51,66 +37,31 @@ export const TopBar: React.FC = () => {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareFeedbackMessage, setShareFeedbackMessage] = useState<string | null>(null);
   const [shareErrorMessage, setShareErrorMessage] = useState<string | null>(null);
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [activeLanguage, setActiveLanguage] = useState('en');
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [roomName, setRoomName] = useState(fileName || 'Untitled Canvas');
-  const [showCollaborators, setShowCollaborators] = useState(false);
+  const [isPropertiesSidebarVisible, setIsPropertiesSidebarVisible] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     const stored = localStorage.getItem('dripl-language') || 'en';
     setActiveLanguage(stored);
     document.documentElement.lang = stored;
   }, []);
 
-  React.useEffect(() => {
-    if (fileName) setRoomName(fileName);
-  }, [fileName]);
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent(SIDEBAR_TOGGLE_EVENT, {
+        detail: { visible: isPropertiesSidebarVisible },
+      })
+    );
+  }, [isPropertiesSidebarVisible]);
 
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '?' || (e.ctrlKey && e.key === '/')) {
-        e.preventDefault();
-        setIsHelpOpen(true);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  const handleSaveRoomName = useCallback(async () => {
-    if (!fileId || !roomName.trim()) return;
-    try {
-      await apiClient.updateFile(fileId, { name: roomName.trim() });
-      setFileMetadata(fileId, roomName.trim());
-    } catch (error) {
-      console.error('Failed to update file name:', error);
-    }
-    setIsEditingName(false);
-  }, [fileId, roomName, setFileMetadata]);
-
-  const handleCancelEditName = useCallback(() => {
-    setRoomName(fileName || 'Untitled Canvas');
-    setIsEditingName(false);
-  }, [fileName]);
-
-  const handleDriplPlusClick = async () => {
+  const handleDriplPlusClick = () => {
     if (!user) {
-      router.push('/auth/login');
+      router.push('/login?next=/settings/plan');
       return;
     }
 
-    try {
-      const response = await apiClient.createFile({
-        name: 'Untitled file',
-        content: elements,
-      });
-      router.push(`/canvas/${response.id}`);
-    } catch (error) {
-      console.error('Failed to create file:', error);
-      alert('Failed to create file. Please try again.');
-    }
+    router.push('/settings/plan');
   };
 
   const clearShareMessages = useCallback(() => {
@@ -257,7 +208,7 @@ export const TopBar: React.FC = () => {
             setTheme(importedAppState.theme);
           }
         }
-        setFileMetadata(null, file.name.replace(/\.dripl$/i, ''));
+        setFileMetadata(fileId, file.name.replace(/\.dripl$/i, ''));
       } catch (error) {
         console.error('Failed to open .dripl file:', error);
         alert('Could not open this file. Please choose a valid .dripl file.');
@@ -302,7 +253,7 @@ export const TopBar: React.FC = () => {
   };
 
   const handleOpenHelp = () => {
-    setIsHelpOpen(true);
+    window.dispatchEvent(new CustomEvent('dripl:open-help'));
     setIsMenuOpen(false);
   };
 
@@ -312,7 +263,7 @@ export const TopBar: React.FC = () => {
     document.documentElement.lang = languageCode;
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
@@ -351,122 +302,33 @@ export const TopBar: React.FC = () => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleExportImage, handleOpenCommandPalette, handleOpenFile, handleSaveToFile]);
 
-  const saveStatusText = isSaving
-    ? 'Saving...'
-    : lastSaved
-      ? `Saved ${new Date(lastSaved).toLocaleTimeString()}`
-      : fileId
-        ? 'Saved'
-        : 'Unsaved changes';
-
-  const collaboratorList = Array.from(remoteUsers.values());
-
   return (
     <>
-      <div className="absolute top-4 left-4 z-100 flex gap-2 pointer-events-auto">
+      <div className="absolute top-4 left-4 z-40 flex gap-2 pointer-events-auto">
         <button
-          className="p-2 rounded-md border border-toolbar-border bg-toolbar-bg hover:bg-tool-hover-bg text-foreground transition-colors duration-150"
-          onClick={() => router.push('/dashboard')}
-          onMouseDown={e => e.stopPropagation()}
-          aria-label="Back to dashboard"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <button
-          className="p-2 rounded-md border border-toolbar-border bg-toolbar-bg hover:bg-tool-hover-bg text-foreground transition-colors duration-150"
+          className="p-2.5 rounded-xl border border-toolbar-border bg-toolbar-bg hover:bg-tool-hover-bg text-foreground transition-colors duration-150"
           onClick={e => {
             e.stopPropagation();
             setIsMenuOpen(!isMenuOpen);
           }}
           onMouseDown={e => e.stopPropagation()}
-          aria-label="Open menu"
+          aria-label="Open settings and options"
         >
           <MenuIcon size={20} />
         </button>
+      </div>
 
+      <div className="absolute top-4 right-4 z-40 flex items-center gap-2 pointer-events-auto">
         <button
-          className="p-2 rounded-md border border-toolbar-border bg-toolbar-bg hover:bg-tool-hover-bg text-foreground transition-colors duration-150"
-          onClick={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
-          aria-label="Library"
+          className="px-4 py-2 bg-toolbar-bg border border-toolbar-border text-foreground text-sm font-medium hover:bg-tool-hover-bg rounded-xl transition-colors duration-150"
+          onClick={handleDriplPlusClick}
+          aria-label="Excalidraw plus"
         >
-          <Library size={20} />
+          Excalidraw+
         </button>
-      </div>
 
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-100 flex items-center gap-2 pointer-events-auto">
-        {isEditingName ? (
-          <div className="flex items-center gap-1 bg-toolbar-bg border border-toolbar-border rounded-lg px-2 py-1">
-            <input
-              value={roomName}
-              onChange={e => setRoomName(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleSaveRoomName();
-                if (e.key === 'Escape') handleCancelEditName();
-              }}
-              className="text-sm bg-transparent border-none outline-none text-foreground w-40"
-              autoFocus
-            />
-            <button onClick={handleSaveRoomName} className="p-0.5 hover:bg-tool-hover-bg rounded">
-              <Check className="h-3.5 w-3.5 text-green-500" />
-            </button>
-            <button onClick={handleCancelEditName} className="p-0.5 hover:bg-tool-hover-bg rounded">
-              <X className="h-3.5 w-3.5 text-red-500" />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setIsEditingName(true)}
-            className="text-sm font-medium text-foreground px-3 py-1.5 rounded-lg hover:bg-toolbar-bg/80 transition-colors"
-          >
-            {roomName}
-          </button>
-        )}
-        <span className="text-xs text-muted-foreground">{saveStatusText}</span>
-      </div>
-
-      <div className="absolute top-4 right-4 z-100 flex items-center gap-2 pointer-events-auto">
-        {collaboratorList.length > 0 && (
-          <div className="relative">
-            <button
-              onClick={() => setShowCollaborators(!showCollaborators)}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-toolbar-bg border border-toolbar-border text-sm text-foreground hover:bg-tool-hover-bg transition-colors"
-            >
-              <Users className="h-3.5 w-3.5" />
-              <span>{collaboratorList.length + 1}</span>
-            </button>
-            {showCollaborators && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-popover border border-border rounded-lg shadow-lg py-1 z-10">
-                <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border-b border-border">
-                  Collaborators
-                </div>
-                <div className="px-3 py-1.5 text-sm text-foreground flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  You
-                </div>
-                {collaboratorList.map(u => (
-                  <div
-                    key={u.userId}
-                    className="px-3 py-1.5 text-sm text-foreground flex items-center gap-2"
-                  >
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: u.color }} />
-                    {u.userName}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        {roomSlug !== null && (
-          <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-500/10 text-green-500 text-xs">
-            <div
-              className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-amber-500'}`}
-            />
-            {isConnected ? 'Live' : 'Reconnecting...'}
-          </div>
-        )}
         <button
-          className="px-4 py-1.5 bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 rounded-lg flex items-center gap-1.5 transition-opacity duration-150"
+          className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 rounded-xl transition-opacity duration-150"
           onClick={e => {
             e.stopPropagation();
             setIsShareModalOpen(true);
@@ -474,16 +336,21 @@ export const TopBar: React.FC = () => {
           onMouseDown={e => e.stopPropagation()}
           aria-label="Share"
         >
-          <Share2 size={14} />
           Share
         </button>
+
         <button
-          className="p-2 rounded-md bg-toolbar-bg hover:bg-tool-hover-bg border border-toolbar-border text-foreground transition-colors duration-150"
-          onClick={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
-          aria-label="Document options"
+          className={`p-2.5 rounded-xl border transition-colors duration-150 ${
+            isPropertiesSidebarVisible
+              ? 'border-toolbar-border bg-toolbar-bg text-foreground hover:bg-tool-hover-bg'
+              : 'border-tool-active-shadow bg-tool-active-bg text-tool-active-text'
+          }`}
+          onClick={() => setIsPropertiesSidebarVisible(prev => !prev)}
+          aria-label="Toggle properties sidebar"
+          aria-pressed={isPropertiesSidebarVisible}
+          title="Toggle properties sidebar"
         >
-          <MoreHorizontal size={18} />
+          <PanelRight size={18} />
         </button>
       </div>
 
@@ -516,7 +383,6 @@ export const TopBar: React.FC = () => {
         feedbackMessage={shareFeedbackMessage}
         errorMessage={shareErrorMessage}
       />
-      {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)} />}
     </>
   );
 };

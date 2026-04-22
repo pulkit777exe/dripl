@@ -221,9 +221,9 @@ html.dark {
 }
 
 .properties-panel.no-selection {
-  transform: translateX(0);
-  opacity: 1;
-  pointer-events: auto;
+  transform: translateX(-12px);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .selection-box {
@@ -374,4 +374,3 @@ input[type='range']::-moz-range-thumb {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-muted-foreground);
 }
-

@@ -39,6 +39,8 @@ interface SpatialItem {
   id: string;
 }
 
+const SIDEBAR_TOGGLE_EVENT = 'dripl:properties-panel-visibility';
+
 export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerReady, setContainerReady] = useState(false);
@@ -75,6 +77,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     y: number;
     elementId: string;
   } | null>(null);
+  const [isPropertiesSidebarVisible, setIsPropertiesSidebarVisible] = useState(true);
   const eraserHitIdsRef = useRef<Set<string>>(new Set());
   const lastToolBeforeSpaceRef = useRef<ActiveTool | null>(null);
   const activeGestureLocksRef = useRef<Set<string>>(new Set());
@@ -304,6 +307,18 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     setUserName(name);
     localStorage.setItem('dripl_username', name);
   };
+
+  useEffect(() => {
+    const handleSidebarVisibility = (event: Event) => {
+      const customEvent = event as CustomEvent<{ visible?: boolean }>;
+      if (typeof customEvent.detail?.visible === 'boolean') {
+        setIsPropertiesSidebarVisible(customEvent.detail.visible);
+      }
+    };
+
+    window.addEventListener(SIDEBAR_TOGGLE_EVENT, handleSidebarVisibility);
+    return () => window.removeEventListener(SIDEBAR_TOGGLE_EVENT, handleSidebarVisibility);
+  }, []);
 
   // ── Viewport ─────────────────────────────────────────────────────────────
   const viewport: Viewport = {
@@ -1892,6 +1907,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   }, [containerReady, setPan, setZoom, applyMomentum, stopMomentum]);
 
   const collaboratorCursors = collaborators;
+  const shouldShowPropertiesPanel =
+    isPropertiesSidebarVisible && activeTool === 'select' && selectedIds.size > 0;
+  const primarySelectedElement =
+    selectedIds.size > 0 ? elements.find(element => selectedIds.has(element.id)) ?? null : null;
 
   return (
     <div
@@ -1949,20 +1968,18 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
       {!userName && roomSlug !== null && <NameInputModal onSubmit={handleNameSubmit} />}
 
-      <div className="absolute top-6 left-6 z-20">
-        <PropertiesPanel
-          selectedElement={
-            selectedIds.size === 1
-              ? elements.find(el => el.id === Array.from(selectedIds)[0]) || null
-              : null
-          }
-          onUpdateElement={updatedElement => {
-            if (updatedElement.id) {
-              updateElement(updatedElement.id, updatedElement);
-            }
-          }}
-        />
-      </div>
+      {shouldShowPropertiesPanel && (
+        <div className="absolute top-20 left-4 z-20">
+          <PropertiesPanel
+            selectedElement={primarySelectedElement}
+            onUpdateElement={updatedElement => {
+              if (updatedElement.id) {
+                updateElement(updatedElement.id, updatedElement);
+              }
+            }}
+          />
+        </div>
+      )}
 
       {textInput && (
         <textarea

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { HelpCircle, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
 import { CanvasControls } from '@/components/canvas/CanvasControls';
@@ -11,6 +12,7 @@ import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { useAuth } from '@/app/context/AuthContext';
 import { apiClient } from '@/lib/api';
 import { Spinner } from '@/components/button/Spinner';
+import HelpModal from '@/components/canvas/HelpModal';
 
 interface CanvasFilePageProps {
   params: Promise<{
@@ -26,6 +28,7 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
 
   const [isLoadingRoom, setIsLoadingRoom] = useState(true);
   const [roomMissing, setRoomMissing] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -60,6 +63,12 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
       cancelled = true;
     };
   }, [authLoading, roomId, router, user]);
+
+  useEffect(() => {
+    const handleOpenHelp = () => setIsHelpOpen(true);
+    window.addEventListener('dripl:open-help', handleOpenHelp as EventListener);
+    return () => window.removeEventListener('dripl:open-help', handleOpenHelp as EventListener);
+  }, []);
 
   if (authLoading || isLoadingRoom) {
     return (
@@ -104,7 +113,7 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
       <TopBar />
       <CanvasBootstrap mode="room" roomSlug={roomId} theme={effectiveTheme} />
 
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
         <CanvasToolbar />
       </div>
 
@@ -112,7 +121,27 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
         <CanvasControls />
       </div>
 
+      <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2 pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => setIsHelpOpen(true)}
+          className="size-10 rounded-xl bg-toolbar-bg border border-toolbar-border text-foreground flex items-center justify-center shadow-md hover:bg-tool-hover-bg transition-colors duration-150"
+          aria-label="Help"
+        >
+          <HelpCircle className="size-5" />
+        </button>
+        <button
+          type="button"
+          className="size-10 rounded-xl bg-tool-active-bg border border-tool-active-shadow text-tool-active-text flex items-center justify-center shadow-md"
+          aria-label="Verification status"
+          title="Verified"
+        >
+          <ShieldCheck className="size-5" />
+        </button>
+      </div>
+
       <CommandPalette />
+      {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)} />}
     </div>
   );
 }

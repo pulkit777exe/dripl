@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { Check, HelpCircle } from 'lucide-react';
+import { HelpCircle, ShieldCheck } from 'lucide-react';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
 import { CanvasControls } from '@/components/canvas/CanvasControls';
 import { useTheme } from '@/hooks/useTheme';
@@ -54,6 +54,12 @@ function CanvasContent() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const handleOpenHelp = () => setIsHelpOpen(true);
+    window.addEventListener('dripl:open-help', handleOpenHelp as EventListener);
+    return () => window.removeEventListener('dripl:open-help', handleOpenHelp as EventListener);
   }, []);
 
   useEffect(() => {
@@ -191,11 +197,8 @@ function CanvasContent() {
       <TopBar />
       <CanvasBootstrap mode="local" theme={effectiveTheme} />
 
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
         <CanvasToolbar />
-        <p className="text-[10px] text-[#9B9890] text-center px-2">
-          Hold <kbd className="px-1 py-0.5 rounded bg-[#E8E5DE] border border-[#D4D0C9] font-mono text-[9px]">Space</kbd> to pan
-        </p>
       </div>
 
       <div className="absolute bottom-6 left-6 z-20">
@@ -216,18 +219,19 @@ function CanvasContent() {
       <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2 pointer-events-auto">
         <button
           type="button"
-          className="size-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:opacity-90 transition-opacity"
-          aria-label="Status"
-        >
-          <Check className="size-5" />
-        </button>
-        <button
-          type="button"
           onClick={() => setIsHelpOpen(true)}
-          className="size-10 rounded-full bg-toolbar-bg border border-toolbar-border text-foreground flex items-center justify-center shadow-md hover:bg-tool-hover-bg transition-colors duration-150"
+          className="size-10 rounded-xl bg-toolbar-bg border border-toolbar-border text-foreground flex items-center justify-center shadow-md hover:bg-tool-hover-bg transition-colors duration-150"
           aria-label="Help"
         >
           <HelpCircle className="size-5" />
+        </button>
+        <button
+          type="button"
+          className="size-10 rounded-xl bg-tool-active-bg border border-tool-active-shadow text-tool-active-text flex items-center justify-center shadow-md"
+          aria-label="Verification status"
+          title="Verified"
+        >
+          <ShieldCheck className="size-5" />
         </button>
       </div>
 

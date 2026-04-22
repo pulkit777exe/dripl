@@ -12,12 +12,9 @@ import {
   ArrowRight,
   Minus,
   Pencil,
-  Frame,
   Type,
   Image,
   Eraser,
-  Group,
-  Ungroup,
 } from 'lucide-react';
 import { ExtraToolsDropdown } from './ExtraToolsDropdown';
 
@@ -32,29 +29,12 @@ interface Tool {
 const tools: Tool[] = [
   { id: 'hand', icon: Hand, label: 'Hand', shortcuts: ['h'] },
   { id: 'select', icon: MousePointer2, label: 'Selection', shortcuts: ['v', '1'], numericShortcut: '1' },
-  { id: 'separator-1', icon: null, label: '', shortcuts: [] },
   { id: 'rectangle', icon: Square, label: 'Rectangle', shortcuts: ['r', '2'], numericShortcut: '2' },
   { id: 'diamond', icon: Diamond, label: 'Diamond', shortcuts: ['d', '3'], numericShortcut: '3' },
   { id: 'ellipse', icon: Circle, label: 'Ellipse', shortcuts: ['o', '4'], numericShortcut: '4' },
   { id: 'arrow', icon: ArrowRight, label: 'Arrow', shortcuts: ['a', '5'], numericShortcut: '5' },
   { id: 'line', icon: Minus, label: 'Line', shortcuts: ['l', '6'], numericShortcut: '6' },
-  { id: 'freedraw', icon: Pencil, label: 'Freedraw', shortcuts: ['p', '7'], numericShortcut: '7' },
-  { id: 'frame', icon: Frame, label: 'Frame', shortcuts: ['f'] },
-  { id: 'text', icon: Type, label: 'Text', shortcuts: ['t', '8'], numericShortcut: '8' },
-  { id: 'separator-2', icon: null, label: '', shortcuts: [] },
-  {
-    id: 'freedraw',
-    icon: Pencil,
-    label: 'Freedraw',
-    shortcuts: ['p', '7'],
-    numericShortcut: '7',
-  },
-  {
-    id: 'frame',
-    icon: Frame,
-    label: 'Frame',
-    shortcuts: ['f'],
-  },
+  { id: 'freedraw', icon: Pencil, label: 'Freehand', shortcuts: ['p', '7'], numericShortcut: '7' },
   {
     id: 'text',
     icon: Type,
@@ -65,7 +45,7 @@ const tools: Tool[] = [
   {
     id: 'image',
     icon: Image,
-    label: 'Image',
+    label: 'Insert Image',
     shortcuts: ['9'],
     numericShortcut: '9',
   },
@@ -85,13 +65,6 @@ export function CanvasToolbar() {
   const setToolLocked = useCanvasStore(state => state.setToolLocked);
   const undo = useCanvasStore(state => state.undo);
   const redo = useCanvasStore(state => state.redo);
-  const selectedIds = useCanvasStore(state => state.selectedIds);
-  const groupElements = useCanvasStore(state => state.groupElements);
-  const ungroupElements = useCanvasStore(state => state.ungroupElements);
-  const elements = useCanvasStore(state => state.elements);
-
-  const hasSelection = selectedIds.size >= 2;
-  const hasGroupedElements = elements.some(el => selectedIds.has(el.id) && el.groupId);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -113,6 +86,11 @@ export function CanvasToolbar() {
       }
 
       const key = e.key.toLowerCase();
+      if (key === 'f') {
+        e.preventDefault();
+        setActiveTool('frame');
+        return;
+      }
 
       for (const tool of tools) {
         if (tool.shortcuts.includes(key)) {
@@ -129,7 +107,7 @@ export function CanvasToolbar() {
 
   return (
     <div
-      className="absolute top-6 left-1/2 -translate-x-1/2 px-2 py-1.5 rounded-xl border flex items-center gap-0.5 z-50 pointer-events-auto"
+      className="px-2 py-1.5 rounded-xl border flex items-center gap-0.5 z-50 pointer-events-auto"
       style={{
         backgroundColor: 'var(--color-toolbar-bg)',
         borderColor: 'var(--color-toolbar-border)',
@@ -161,11 +139,6 @@ export function CanvasToolbar() {
 
       {/* Tool buttons */}
       {tools.map(tool => {
-        if (tool.id.startsWith('separator-')) {
-          return (
-            <div key={tool.id} className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--color-toolbar-divider)' }} />
-          );
-        }
         const Icon = tool.icon;
         const isActive = activeTool === tool.id;
 
@@ -220,31 +193,6 @@ export function CanvasToolbar() {
       })}
 
       <ExtraToolsDropdown />
-
-      {/* Separator */}
-      <div className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--color-toolbar-divider)' }} />
-
-      {/* Group buttons */}
-      <button
-        className="p-2 rounded-md transition-all duration-150 disabled:opacity-30"
-        style={{ color: 'var(--color-tool-inactive-text)' }}
-        onClick={() => groupElements(Array.from(selectedIds))}
-        disabled={!hasSelection}
-        title="Group selected (Ctrl+G)"
-        aria-label="Group selected elements"
-      >
-        <Group size={17} />
-      </button>
-      <button
-        className="p-2 rounded-md transition-all duration-150 disabled:opacity-30"
-        style={{ color: 'var(--color-tool-inactive-text)' }}
-        onClick={() => ungroupElements(Array.from(selectedIds))}
-        disabled={!hasGroupedElements}
-        title="Ungroup selected (Ctrl+Shift+G)"
-        aria-label="Ungroup selected elements"
-      >
-        <Ungroup size={17} />
-      </button>
     </div>
   );
 }

@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import {
   ChevronLeft,
-  Settings,
   User,
   Lock,
   CreditCard,
@@ -12,26 +11,43 @@ import {
   Loader2,
   Check,
   Type,
+  Settings,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 
-interface SettingSectionProps {
+type SectionId = 'profile' | 'password' | 'font' | 'plan' | 'account';
+
+const SECTION_NAV: Array<{
+  id: SectionId;
+  label: string;
+  helper: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { id: 'profile', label: 'Account', helper: 'Profile and identity', icon: User },
+  { id: 'password', label: 'Password', helper: 'Security settings', icon: Lock },
+  { id: 'font', label: 'Font', helper: 'Canvas typography', icon: Type },
+  { id: 'plan', label: 'Billing', helper: 'Plans and upgrade', icon: CreditCard },
+  { id: 'account', label: 'Notifications', helper: 'Email and account', icon: Bell },
+];
+
+interface SectionCardProps {
   title: string;
   description: string;
   children: React.ReactNode;
 }
 
-function SettingSection({ title, description, children }: SettingSectionProps) {
+function SectionCard({ title, description, children }: SectionCardProps) {
   return (
-    <div className="mb-8">
-      <div className="mb-3">
-        <p className="text-[12px] font-semibold text-[#6B6860] uppercase tracking-wide">{title}</p>
-        <p className="text-[12px] text-[#9B988F]">{description}</p>
-      </div>
-      <div className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl p-5 shadow-sm">
-        {children}
-      </div>
-    </div>
+    <section className="rounded-2xl border border-[#E4E0D9] bg-[#FAFAF7] p-6 shadow-sm">
+      <header className="mb-5">
+        <h2 className="text-[24px] leading-tight text-[#10332B]" style={{ fontFamily: 'Georgia, serif' }}>
+          {title}
+        </h2>
+        <p className="mt-1 text-[13px] text-[#6B6860]">{description}</p>
+      </header>
+      {children}
+    </section>
   );
 }
 
@@ -48,45 +64,39 @@ function ProfileSettings() {
       await updateProfile(name || undefined);
       await refreshUser();
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 2000);
+      setTimeout(() => setSuccess(false), 1800);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SettingSection title="Profile" description="Your public profile information">
-      <div className="flex items-start gap-5">
-        <div className="relative size-14 rounded-full bg-[#E8E5DE] flex items-center justify-center text-[#6B6860] font-semibold text-xl">
-          {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+    <SectionCard title="Account" description="Manage how your name appears across Dripl.">
+      <div className="space-y-4">
+        <div>
+          <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">What should Dripl call you?</label>
+          <input
+            type="text"
+            value={name}
+            onChange={event => setName(event.target.value)}
+            placeholder="Your name"
+            className="w-full max-w-md rounded-xl border border-[#D4D0C9] bg-white px-4 py-2.5 text-[18px] text-[#10332B] focus:outline-none focus:border-[#0E6655]"
+          />
         </div>
-        <div className="flex-1 space-y-4">
-          <div>
-            <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">
-              Display name
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Your name"
-              className="w-full h-9 rounded-md border border-[#E4E0D9] bg-white px-3 text-[13px] text-[#1A1917] placeholder:text-[#9B988F] focus:outline-none focus:border-[#E8462A]"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSave}
-              disabled={loading || name === (user?.name || '')}
-              className="flex items-center gap-2 px-4 py-2 rounded-md bg-[#E8462A] text-white text-[13px] font-medium hover:bg-[#D6302A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading && <Loader2 className="size-3.5 animate-spin" />}
-              {success && <Check className="size-3.5" />}
-              {success ? 'Saved' : 'Save changes'}
-            </button>
-          </div>
-        </div>
+
+        <p className="text-[12px] text-[#9B9890]">{user?.email ?? 'No email available'}</p>
+
+        <button
+          onClick={handleSave}
+          disabled={loading || name === (user?.name || '')}
+          className="inline-flex items-center gap-2 rounded-xl border border-[#D4D0C9] bg-[#FAFAF7] px-4 py-2 text-[13px] font-medium text-[#1A1917] hover:bg-[#E8E5DE] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading && <Loader2 className="size-4 animate-spin" />}
+          {success && <Check className="size-4 text-[#0E6655]" />}
+          {success ? 'Saved' : 'Save changes'}
+        </button>
       </div>
-    </SettingSection>
+    </SectionCard>
   );
 }
 
@@ -103,12 +113,12 @@ function PasswordSettings() {
     setError('');
 
     if (newPassword.length < 8) {
-      setError('New password must be at least 8 characters');
+      setError('New password must be at least 8 characters.');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('Passwords do not match.');
       return;
     }
 
@@ -119,132 +129,64 @@ function PasswordSettings() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setTimeout(() => setSuccess(false), 2000);
+      setTimeout(() => setSuccess(false), 1800);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to change password');
+      setError(err instanceof Error ? err.message : 'Failed to change password.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SettingSection title="Password" description="Change your account password">
-      <div className="space-y-4 max-w-sm">
+    <SectionCard title="Password" description="Update your password to keep your account secure.">
+      <div className="grid gap-4 max-w-lg">
         <div>
-          <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">
-            Current password
-          </label>
+          <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">Current password</label>
           <input
             type="password"
             value={currentPassword}
-            onChange={e => setCurrentPassword(e.target.value)}
+            onChange={event => setCurrentPassword(event.target.value)}
             placeholder="Enter current password"
-            className="w-full h-9 rounded-md border border-[#E4E0D9] bg-white px-3 text-[13px] text-[#1A1917] placeholder:text-[#9B988F] focus:outline-none focus:border-[#E8462A]"
+            className="w-full rounded-xl border border-[#D4D0C9] bg-white px-3 py-2 text-[13px] text-[#1A1917] focus:outline-none focus:border-[#0E6655]"
           />
         </div>
+
         <div>
-          <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">
-            New password
-          </label>
+          <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">New password</label>
           <input
             type="password"
             value={newPassword}
-            onChange={e => setNewPassword(e.target.value)}
-            placeholder="Min 8 characters"
-            className="w-full h-9 rounded-md border border-[#E4E0D9] bg-white px-3 text-[13px] text-[#1A1917] placeholder:text-[#9B988F] focus:outline-none focus:border-[#E8462A]"
+            onChange={event => setNewPassword(event.target.value)}
+            placeholder="Minimum 8 characters"
+            className="w-full rounded-xl border border-[#D4D0C9] bg-white px-3 py-2 text-[13px] text-[#1A1917] focus:outline-none focus:border-[#0E6655]"
           />
         </div>
+
         <div>
-          <label className="text-[12px] font-medium text-[#6B6860] block mb-1.5">
-            Confirm new password
-          </label>
+          <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">Confirm new password</label>
           <input
             type="password"
             value={confirmPassword}
-            onChange={e => setConfirmPassword(e.target.value)}
-            placeholder="Confirm new password"
-            className="w-full h-9 rounded-md border border-[#E4E0D9] bg-white px-3 text-[13px] text-[#1A1917] placeholder:text-[#9B988F] focus:outline-none focus:border-[#E8462A]"
+            onChange={event => setConfirmPassword(event.target.value)}
+            placeholder="Confirm password"
+            className="w-full rounded-xl border border-[#D4D0C9] bg-white px-3 py-2 text-[13px] text-[#1A1917] focus:outline-none focus:border-[#0E6655]"
           />
         </div>
-        {error && <p className="text-[12px] text-[#E8462A]">{error}</p>}
-        {success && <p className="text-[12px] text-[#2F9E44]">Password changed successfully</p>}
+
+        {error && <p className="text-[12px] text-[#C0392B]">{error}</p>}
+        {success && <p className="text-[12px] text-[#0E6655]">Password changed successfully.</p>}
+
         <button
           onClick={handleChange}
           disabled={loading || !currentPassword || !newPassword || !confirmPassword}
-          className="flex items-center gap-2 px-4 py-2 rounded-md bg-[#E8462A] text-white text-[13px] font-medium hover:bg-[#D6302A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#10332B] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0C2821] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading && <Loader2 className="size-3.5 animate-spin" />}
-          {success && <Check className="size-3.5" />}
+          {loading && <Loader2 className="size-4 animate-spin" />}
+          {success && <Check className="size-4" />}
           {success ? 'Changed' : 'Change password'}
         </button>
       </div>
-    </SettingSection>
-  );
-}
-
-function PlanSettings() {
-  const [plan] = useState('free');
-
-  return (
-    <SettingSection title="Plan" description="Manage your subscription plan">
-      <div className="flex items-start gap-5">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-4">
-            <span
-              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide ${plan === 'pro' ? 'bg-[#E8462A] text-white' : 'bg-[#E8E5DE] text-[#6B6860]'}`}
-            >
-              {plan === 'pro' ? 'Pro' : 'Free'}
-            </span>
-            <span className="text-[13px] text-[#1A1917] font-medium">Free Plan</span>
-          </div>
-          <p className="text-[12px] text-[#6B6860] mb-4">
-            You are currently on the free plan. Upgrade to Pro for unlimited canvases, custom
-            branding, and more.
-          </p>
-          <button className="px-4 py-2 rounded-md bg-[#1A1917] text-white text-[13px] font-medium hover:bg-[#3A3937] transition-colors">
-            Upgrade to Pro
-          </button>
-        </div>
-      </div>
-    </SettingSection>
-  );
-}
-
-function AccountSettings() {
-  const router = useRouter();
-  const { user, logout } = useAuth();
-
-  const handleLogout = async () => {
-    await logout();
-    router.push('/login');
-  };
-
-  return (
-    <SettingSection title="Account" description="Manage your account">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between py-2">
-          <div>
-            <p className="text-[13px] text-[#1A1917] font-medium">Email</p>
-            <p className="text-[12px] text-[#6B6860]">{user?.email}</p>
-          </div>
-        </div>
-        <div className="flex items-center justify-between py-2 border-t border-[#E4E0D9]">
-          <div>
-            <p className="text-[13px] text-[#1A1917] font-medium">Account type</p>
-            <p className="text-[12px] text-[#6B6860]">Email / Google</p>
-          </div>
-        </div>
-        <div className="pt-2">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 rounded-md text-[13px] font-medium text-[#E8462A] bg-[#FAE8E5] hover:bg-[#E8462A] hover:text-white transition-colors"
-          >
-            <LogOut className="size-4" />
-            Log out
-          </button>
-        </div>
-      </div>
-    </SettingSection>
+    </SectionCard>
   );
 }
 
@@ -261,7 +203,11 @@ const FONT_OPTIONS = [
 ];
 
 function FontPreferencesSettings() {
-  const [selectedFont, setSelectedFont] = useState('handwritten');
+  const [selectedFont, setSelectedFont] = useState(
+    () =>
+      (typeof window !== 'undefined' ? window.localStorage.getItem('dripl_canvas_font') : null) ||
+      'handwritten'
+  );
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -271,148 +217,218 @@ function FontPreferencesSettings() {
     try {
       localStorage.setItem('dripl_canvas_font', selectedFont);
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 2000);
+      setTimeout(() => setSuccess(false), 1800);
     } finally {
       setLoading(false);
     }
   };
 
-  const currentFont = FONT_OPTIONS.find(f => f.id === selectedFont);
-
   return (
-    <SettingSection
-      title="Font Preferences"
-      description="Choose your preferred font for canvas text"
-    >
-      <div className="space-y-4">
-        <p className="text-[12px] text-[#6B6860]">
-          Select the default font used for text elements on your canvas.
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          {FONT_OPTIONS.map(font => (
-            <button
-              key={font.id}
-              onClick={() => setSelectedFont(font.id)}
-              className={`p-4 rounded-lg border text-left transition-all ${
-                selectedFont === font.id
-                  ? 'border-[#E8462A] bg-[#FAE8E5]'
-                  : 'border-[#E4E0D9] hover:border-[#D4D0C9]'
-              }`}
-            >
-              <p className="text-[14px] font-medium text-[#1A1917] mb-1">{font.name}</p>
-              <p className="text-[18px] text-[#6B6860]" style={{ fontFamily: font.family }}>
-                {font.preview}
-              </p>
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2 pt-2">
+    <SectionCard title="Font Preferences" description="Pick your default canvas text style.">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {FONT_OPTIONS.map(font => (
           <button
-            onClick={handleSave}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-md bg-[#E8462A] text-white text-[13px] font-medium hover:bg-[#D6302A] transition-colors disabled:opacity-50"
+            key={font.id}
+            onClick={() => setSelectedFont(font.id)}
+            className={`rounded-xl border p-3 text-left transition-colors ${
+              selectedFont === font.id
+                ? 'border-[#0E6655] bg-[#E6F2EF]'
+                : 'border-[#E4E0D9] bg-white hover:border-[#D4D0C9]'
+            }`}
           >
-            {loading && <Loader2 className="size-3.5 animate-spin" />}
-            {success && <Check className="size-3.5" />}
-            {success ? 'Saved' : 'Save preferences'}
+            <p className="text-[14px] font-medium text-[#1A1917]">{font.name}</p>
+            <p className="mt-1 text-[20px] text-[#6B6860]" style={{ fontFamily: font.family }}>
+              {font.preview}
+            </p>
           </button>
-        </div>
+        ))}
       </div>
-    </SettingSection>
+
+      <button
+        onClick={handleSave}
+        disabled={loading}
+        className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#10332B] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0C2821] transition-colors disabled:opacity-50"
+      >
+        {loading && <Loader2 className="size-4 animate-spin" />}
+        {success && <Check className="size-4" />}
+        {success ? 'Saved' : 'Save preferences'}
+      </button>
+    </SectionCard>
   );
 }
 
-function SettingsContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const section = searchParams.get('section') || 'profile';
+function PlanSettings() {
+  return (
+    <SectionCard title="Billing" description="Manage your current plan and upgrades.">
+      <div className="space-y-4">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#D4D0C9] bg-[#E8E5DE] px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#6B6860]">
+          Free plan
+        </div>
+        <p className="text-[13px] text-[#6B6860] max-w-xl">
+          You are currently on the free plan. Upgrade to unlock team workspaces, unlimited canvases,
+          and advanced collaboration controls.
+        </p>
+        <button className="rounded-xl bg-[#E8462A] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#D93D22] transition-colors">
+          Upgrade to Pro
+        </button>
+      </div>
+    </SectionCard>
+  );
+}
 
-  const renderSection = () => {
-    switch (section) {
-      case 'profile':
-        return <ProfileSettings />;
-      case 'password':
-        return <PasswordSettings />;
-      case 'font':
-        return <FontPreferencesSettings />;
-      case 'plan':
-        return <PlanSettings />;
-      case 'account':
-        return <AccountSettings />;
-      default:
-        return <ProfileSettings />;
-    }
+function AccountSettings() {
+  const router = useRouter();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
   };
 
-  const navItems = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'password', label: 'Password', icon: Lock },
-    { id: 'font', label: 'Font', icon: Type },
-    { id: 'plan', label: 'Plan', icon: CreditCard },
-    { id: 'account', label: 'Account', icon: User },
-  ];
-
   return (
-    <div className="flex h-dvh bg-[#F0EDE6] overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-56 bg-[#FAFAF7] border-r border-[#E4E0D9] flex flex-col">
-        <div className="p-4 border-b border-[#E4E0D9]">
-          <div className="flex items-center gap-2 text-[#1A1917]">
-            <Settings className="size-4" />
-            <span className="text-[14px] font-semibold">Settings</span>
-          </div>
-        </div>
-        <nav className="flex-1 p-2 space-y-0.5">
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => router.push('/settings/' + item.id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors ${
-                section === item.id
-                  ? 'bg-[#E8E5DE] text-[#1A1917]'
-                  : 'text-[#6B6860] hover:bg-[#F0EDE6] hover:text-[#1A1917]'
-              }`}
-            >
-              <item.icon className="size-4" />
-              {item.label}
-            </button>
-          ))}
-        </nav>
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 flex flex-col overflow-auto">
-        <div className="flex items-center gap-4 border-b border-[#E4E0D9] bg-[#FAFAF7] px-6 py-3">
-          <button
-            onClick={() => router.back()}
-            className="p-1 rounded-md text-[#6B6860] hover:text-[#1A1917] hover:bg-[#E8E5DE] transition-colors"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <div className="flex items-center gap-2">
-            <Settings className="h-4 w-4 text-[#6B6860]" />
-            <h1 className="text-[14px] font-semibold text-[#1A1917]">
-              {navItems.find(s => s.id === section)?.label || 'Settings'}
-            </h1>
-          </div>
+    <SectionCard title="Notifications" description="Account identity and session controls.">
+      <div className="space-y-4">
+        <div className="rounded-xl border border-[#E4E0D9] bg-white p-4">
+          <p className="text-[12px] font-medium text-[#6B6860]">Email</p>
+          <p className="mt-1 text-[14px] text-[#1A1917]">{user?.email ?? 'No email available'}</p>
         </div>
 
-        <div className="max-w-2xl px-10 py-8 mx-auto w-full">{renderSection()}</div>
-      </main>
-    </div>
+        <div className="rounded-xl border border-[#E4E0D9] bg-white p-4">
+          <p className="text-[12px] font-medium text-[#6B6860]">Account type</p>
+          <p className="mt-1 text-[14px] text-[#1A1917]">Email / Google</p>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          className="inline-flex items-center gap-2 rounded-xl border border-[#F0B7A9] bg-[#FAE8E5] px-4 py-2 text-[13px] font-medium text-[#C0392B] hover:bg-[#F6D8D2] transition-colors"
+        >
+          <LogOut className="size-4" />
+          Log out
+        </button>
+      </div>
+    </SectionCard>
   );
+}
+
+function renderSection(section: SectionId) {
+  switch (section) {
+    case 'profile':
+      return <ProfileSettings />;
+    case 'password':
+      return <PasswordSettings />;
+    case 'font':
+      return <FontPreferencesSettings />;
+    case 'plan':
+      return <PlanSettings />;
+    case 'account':
+      return <AccountSettings />;
+    default:
+      return <ProfileSettings />;
+  }
 }
 
 export default function SettingsPage() {
+  const router = useRouter();
+  const params = useParams<{ section?: string }>();
+  const { user, loading, logout } = useAuth();
+
+  const section = useMemo<SectionId>(() => {
+    const candidate = params?.section;
+    if (candidate === 'profile') return 'profile';
+    if (candidate === 'password') return 'password';
+    if (candidate === 'font') return 'font';
+    if (candidate === 'plan' || candidate === 'billing') return 'plan';
+    if (candidate === 'account' || candidate === 'notifications') return 'account';
+    return 'profile';
+  }, [params?.section]);
+
+  const activeNav = SECTION_NAV.find(item => item.id === section) ?? SECTION_NAV[0];
+
+  if (loading) {
+    return (
+      <div className="flex h-dvh items-center justify-center bg-[#F0EDE6]">
+        <Loader2 className="size-6 animate-spin text-[#0E6655]" />
+      </div>
+    );
+  }
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
+
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-dvh items-center justify-center bg-[#F0EDE6]">
-          <Loader2 className="size-6 animate-spin text-[#E8462A]" />
+    <div className="flex h-dvh bg-[#F0EDE6] overflow-hidden">
+      <aside className="w-[280px] border-r border-[#E4E0D9] bg-[#EDE9DF] flex flex-col">
+        <div className="px-5 pt-5">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="inline-flex items-center gap-2 text-[14px] font-medium text-[#0E6655] hover:text-[#0A4A3D] transition-colors"
+          >
+            <ChevronLeft className="size-4" />
+            Back to dashboard
+          </button>
         </div>
-      }
-    >
-      <SettingsContent />
-    </Suspense>
+
+        <div className="px-5 pt-7 pb-5 border-b border-[#D8D2C8]">
+          <h2 className="text-[42px] leading-none text-[#10332B]" style={{ fontFamily: 'Georgia, serif' }}>
+            {user?.name || 'Account'}
+          </h2>
+          <p className="mt-3 text-[22px] leading-none text-[#A7A195]" style={{ fontFamily: 'Georgia, serif' }}>
+            Settings
+          </p>
+          <p className="mt-4 text-[15px] text-[#6B6860] break-all">{user?.email ?? 'No email connected'}</p>
+          <p className="mt-1 text-[13px] text-[#9B9890]">Workspace preferences</p>
+        </div>
+
+        <nav className="px-3 py-4 space-y-1.5">
+          {SECTION_NAV.map(item => {
+            const isActive = item.id === section;
+            const Icon = item.icon;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => router.push(`/settings/${item.id}`)}
+                className={`w-full rounded-xl px-3 py-2.5 text-left transition-colors ${
+                  isActive ? 'bg-[#DCD5C8] text-[#1A1917]' : 'text-[#6B6860] hover:bg-[#E6DFD3]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Icon className="size-4" />
+                  <span className="text-[14px] font-medium">{item.label}</span>
+                </div>
+                <p className={`mt-1 text-[11px] ${isActive ? 'text-[#4A4741]' : 'text-[#9B9890]'}`}>
+                  {item.helper}
+                </p>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="mt-auto px-3 pb-4">
+          <button
+            onClick={handleLogout}
+            className="w-full rounded-xl border border-[#F0B7A9] bg-[#FAE8E5] px-3 py-2.5 text-[13px] font-medium text-[#C0392B] hover:bg-[#F6D8D2] transition-colors inline-flex items-center gap-2"
+          >
+            <LogOut className="size-4" />
+            Log out
+          </button>
+        </div>
+      </aside>
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-3xl px-8 py-10 sm:px-12">
+          <header className="mb-7">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#D4D0C9] bg-[#FAFAF7] px-3 py-1 text-[12px] text-[#6B6860]">
+              <Settings className="size-3.5" />
+              {activeNav.label}
+            </div>
+          </header>
+
+          {renderSection(section)}
+        </div>
+      </main>
+    </div>
   );
 }
