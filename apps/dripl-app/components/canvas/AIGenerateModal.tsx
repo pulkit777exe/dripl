@@ -76,7 +76,7 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
       onClick={onClose}
     >
       <div
-        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-[90vw] max-w-[460px] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-[90vw] max-w-[460px] max-h-[85vh] overflow-y-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E4E0D9]">
