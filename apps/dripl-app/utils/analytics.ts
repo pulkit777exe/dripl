@@ -27,7 +27,7 @@ function isAnalyticsEnabled(): boolean {
 
   try {
     const parsed = JSON.parse(consent);
-    return parsed.accepted === true;
+    return !!parsed.accepted;
   } catch {
     return false;
   }

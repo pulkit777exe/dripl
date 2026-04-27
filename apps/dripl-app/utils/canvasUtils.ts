@@ -426,7 +426,7 @@ export function importFromJSON(file: File): Promise<DriplElement[]> {
 }
 
 export function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
 export const saveToLocalStorage = (elements: DriplElement[], appState: Partial<AppState>) => {
   try {

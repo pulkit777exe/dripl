@@ -8,7 +8,7 @@ function viewportCacheKey(viewport: Viewport): string {
 }
 
 function elementsCacheKey(elements: DriplElement[], sceneVersion?: number): string {
-  if (sceneVersion != null) return `v${sceneVersion}`;
+  if (sceneVersion !== undefined) return `v${sceneVersion}`;
   const n = elements.length;
   const first = elements[0];
   const last = n > 1 ? elements[n - 1] : first;

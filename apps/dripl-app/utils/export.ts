@@ -165,7 +165,17 @@ export function exportToSvg(elements: DriplElement[], options: { padding?: numbe
         const fontSize = element.fontSize || 20;
         const fontFamily = element.fontFamily || getDefaultFontFamily();
         const textAlign = 'textAlign' in element && element.textAlign ? element.textAlign : 'left';
-        const anchor = textAlign === 'center' ? 'middle' : textAlign === 'right' ? 'end' : 'start';
+        let anchor: string;
+        switch (textAlign) {
+          case 'center':
+            anchor = 'middle';
+            break;
+          case 'right':
+            anchor = 'end';
+            break;
+          default:
+            anchor = 'start';
+        }
         const anchorX =
           textAlign === 'left'
             ? element.x

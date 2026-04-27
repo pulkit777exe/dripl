@@ -13,7 +13,7 @@ export function createRectangleElement(
     id: string;
   }
 ): DriplElement {
-  const fromCenter = state.altKey === true;
+  const fromCenter = !!state.altKey;
   const startPoint = fromCenter
     ? {
         x: state.startPoint.x * 2 - state.currentPoint.x,

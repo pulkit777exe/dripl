@@ -13,7 +13,9 @@ export async function POST(request: NextRequest) {
     if (body.content && typeof body.content === 'string') {
       content = body.content;
     }
-  } catch {}
+  } catch {
+    // Invalid JSON - use default empty content
+  }
   try {
     const response = await fetch(`${API_BASE_URL}/rooms`, {
       method: 'POST',

@@ -5,8 +5,6 @@ export function initializeShapeRegistry() {
   defaultShapes.forEach(shape => {
     shapeRegistry.register(shape);
   });
-
-  console.log(`Shape registry initialized with ${defaultShapes.length} default shapes`);
 }
 
 export function getRegisteredShapes() {

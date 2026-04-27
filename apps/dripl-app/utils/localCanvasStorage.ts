@@ -168,5 +168,7 @@ export const loadLocalCanvasFromStorage = (): {
 export const clearLocalCanvasStorage = () => {
   try {
     localStorage.removeItem(STORAGE_KEY);
-  } catch {}
+  } catch {
+    // localStorage unavailable (private browsing, etc.)
+  }
 };

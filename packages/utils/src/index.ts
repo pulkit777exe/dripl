@@ -3,7 +3,7 @@
  * Uses `Math.random` and base‑36 conversion to create a 9‑character identifier.
  */
 export function generateId(): string {
-  return Math.random().toString(36).substr(2, 9);
+  return Math.random().toString(36).substring(2, 11);
 }
 
 /**

@@ -77,7 +77,7 @@ function getClientId(): string {
   if (typeof window === 'undefined') return 'default';
   let id = localStorage.getItem('dripl_client_id');
   if (!id) {
-    id = `dripl-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    id = `dripl-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     localStorage.setItem('dripl_client_id', id);
   }
   return id;
