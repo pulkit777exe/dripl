@@ -41,6 +41,6 @@
     "@tanstack/store": "^0.8.0",
     "@tanstack/react-store": "^0.8.0",
     "zod": "^4.3.6",
-    "uuid": "^13.0.0"
+    "uuid": "^14.0.0"
   }
 }

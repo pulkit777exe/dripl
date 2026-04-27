@@ -15,7 +15,7 @@
     "@dripl/utils": "workspace:*",
     "dotenv": "^17.2.4",
     "jsonwebtoken": "^9.0.2",
-    "uuid": "^13.0.0",
+    "uuid": "^14.0.0",
     "ws": "^8.18.3",
     "zod": "^4.3.6"
   },
