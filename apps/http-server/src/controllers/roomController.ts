@@ -2,14 +2,11 @@ import { Response } from 'express';
 import { db as prisma } from '@dripl/db';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import crypto from 'crypto';
+import { z } from 'zod';
 
 function generateSlug(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let slug = '';
-  for (let i = 0; i < 8; i++) {
-    slug += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return slug;
+  // Use CSPRNG: 6 random bytes → base36 → take first 8 chars
+  return crypto.randomBytes(6).toString('hex').slice(0, 8);
 }
 
 export class RoomController {
@@ -115,64 +112,25 @@ export class RoomController {
     const { slug } = req.params as { slug: string };
 
     try {
-      let room = await prisma.canvasRoom.findUnique({
+      const room = await prisma.canvasRoom.findUnique({
         where: { slug },
         include: {
           owner: {
-            select: {
-              id: true,
-              name: true,
-              image: true,
-            },
+            select: { id: true, name: true, image: true },
           },
           members: {
             select: {
               userId: true,
               role: true,
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  image: true,
-                },
-              },
+              user: { select: { id: true, name: true, image: true } },
             },
           },
         },
       });
 
       if (!room) {
-        room = await prisma.canvasRoom.create({
-          data: {
-            slug,
-            name: 'Untitled Room',
-            ownerId: req.userId!,
-            isPublic: false,
-            content: '[]',
-          },
-          include: {
-            owner: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
-            },
-            members: {
-              select: {
-                userId: true,
-                role: true,
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    image: true,
-                  },
-                },
-              },
-            },
-          },
-        });
+        res.status(404).json({ error: 'Room not found' });
+        return;
       }
 
       const isOwner = room.ownerId === req.userId;
@@ -198,7 +156,20 @@ export class RoomController {
 
   static async updateRoom(req: AuthRequest, res: Response): Promise<void> {
     const { slug } = req.params as { slug: string };
-    const { name, isPublic, content } = req.body;
+
+    const updateRoomSchema = z.object({
+      name: z.string().trim().min(1).max(200).optional(),
+      isPublic: z.boolean().optional(),
+      content: z.string().optional(),
+    });
+
+    const parsed = updateRoomSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid update payload', details: parsed.error.flatten() });
+      return;
+    }
+
+    const { name, isPublic, content } = parsed.data;
 
     try {
       const room = await prisma.canvasRoom.findUnique({ where: { slug } });
@@ -401,7 +372,7 @@ export class RoomController {
         return;
       }
 
-      const token = `${slug}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      const token = crypto.randomBytes(24).toString('base64url');
       const expiresAt = new Date(Date.now() + expiresIn * 60 * 60 * 1000);
 
       const shareLink = await prisma.shareLink.create({

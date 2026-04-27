@@ -4,6 +4,10 @@ import { authMiddleware } from '../middlewares/authMiddleware';
 
 const router: Router = Router();
 
+// Public share route — no auth required. Must be mounted BEFORE router.use(authMiddleware)
+router.get('/share/:token', RoomController.getShareLink);
+
+// All routes below this point require authentication
 router.use(authMiddleware);
 
 router.get('/', RoomController.getRooms);
