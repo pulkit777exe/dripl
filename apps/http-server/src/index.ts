@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
+import { setInterval } from 'timers';
 
 config({ path: resolve(process.cwd(), '../../.env') });
 config({ path: resolve(process.cwd(), '../../.env.local'), override: true });
@@ -11,6 +12,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { initializeDb } from '@dripl/db';
 import { authMiddleware } from './middlewares/authMiddleware';
+import { validateCsrfToken, generateCsrfToken } from './middlewares/csrfMiddleware';
 import { authRouter } from './routes/auth';
 import { filesRouter } from './routes/files';
 import { foldersRouter } from './routes/folders';
@@ -31,6 +33,15 @@ app.use(
     legacyHeaders: false,
   })
 );
+
+// Stricter limiter for brute-force-sensitive auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, please try again later.' },
+});
 app.use(
   cors({
     origin: frontendUrl,
@@ -45,11 +56,24 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.get('/csrf-token', (_req, res) => {
+  const token = generateCsrfToken(res);
+  res.json({ token });
+});
+
+app.use('/api/auth/login', validateCsrfToken);
+app.use('/api/auth/forgot-password', validateCsrfToken);
+app.use('/api/auth/register', validateCsrfToken);
+app.use('/api/auth/reset-password', validateCsrfToken);
+app.use('/api/auth/change-password', validateCsrfToken);
+
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/forgot-password', validateCsrfToken);
 app.use('/api/auth', authRouter);
-app.use('/api/share', shareRouter);
-app.use('/api/files', authMiddleware, filesRouter);
-app.use('/api/folders', authMiddleware, foldersRouter);
-app.use('/api/rooms', authMiddleware, roomRoutes);
+app.use('/api/share', validateCsrfToken, shareRouter);
+app.use('/api/files', validateCsrfToken, authMiddleware, filesRouter);
+app.use('/api/folders', validateCsrfToken, authMiddleware, foldersRouter);
+app.use('/api/rooms', validateCsrfToken, authMiddleware, roomRoutes);
 
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(
@@ -65,7 +89,7 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
-app.listen(port, () => {
+app.listen(port, async () => {
   initializeDb()
     .then(() => {
       console.log(JSON.stringify({ level: 'info', event: 'db_connected' }));
@@ -75,5 +99,23 @@ app.listen(port, () => {
         JSON.stringify({ level: 'error', event: 'db_connection_failed', error: err.message })
       );
     });
+
+  const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+  setInterval(async () => {
+    try {
+      const db = (await import('@dripl/db')).db;
+      const result = await db.shareLink.deleteMany({
+        where: {
+          expiresAt: { lt: new Date() },
+        },
+      });
+      console.log(JSON.stringify({ level: 'info', event: 'expired_links_cleaned', count: result.count }));
+    } catch (err) {
+      console.error(
+        JSON.stringify({ level: 'error', event: 'cleanup_failed', error: err instanceof Error ? err.message : String(err) })
+      );
+    }
+  }, CLEANUP_INTERVAL_MS);
+
   console.log(JSON.stringify({ level: 'info', event: 'http_server_started', port }));
 });

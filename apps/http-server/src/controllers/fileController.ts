@@ -1,7 +1,13 @@
 import { Response } from 'express';
 import { db as prisma } from '@dripl/db';
 import { randomUUID } from 'crypto';
+import { z } from 'zod';
 import { AuthRequest } from '../middlewares/authMiddleware';
+
+const updateFileSchema = z.object({
+  name: z.string().trim().min(1).max(255).optional(),
+  content: z.string().max(10_000_000).optional(),
+});
 
 export class FileController {
   static async getFiles(req: AuthRequest, res: Response): Promise<void> {
@@ -107,7 +113,14 @@ export class FileController {
 
   static async updateFile(req: AuthRequest, res: Response): Promise<void> {
     const { fileId } = req.params as { fileId: string };
-    const { name, content } = req.body;
+    const parsed = updateFileSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+      return;
+    }
+
+    const { name, content } = parsed.data;
 
     try {
       const file = await prisma.file.findFirst({

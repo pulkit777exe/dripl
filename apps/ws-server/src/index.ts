@@ -10,11 +10,28 @@ import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
+import { z } from 'zod';
 import type { DriplElement } from '@dripl/common';
 import { pickUserColor } from '@dripl/common';
 import { requiredEnv } from '@dripl/utils';
 import { db, initializeDb } from '@dripl/db';
 import { messageSchema } from './validation';
+
+const driplElementSchema = z.object({
+  id: z.string().min(1).max(100),
+  type: z.string(),
+  x: z.number().finite().min(-100000).max(100000),
+  y: z.number().finite().min(-100000).max(100000),
+  width: z.number().finite().min(0).max(50000),
+  height: z.number().finite().min(0).max(50000),
+  strokeColor: z.string().max(50).optional(),
+  backgroundColor: z.string().max(50).optional(),
+  strokeWidth: z.number().min(0).max(100).optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  text: z.string().max(10000).optional(),
+  fontSize: z.number().min(1).max(500).optional(),
+  points: z.array(z.tuple([z.number(), z.number()])).max(1000).optional(),
+});
 
 initializeDb().catch(err => {
   console.error('[ws-server] Failed to initialize database:', err);
@@ -22,18 +39,11 @@ initializeDb().catch(err => {
 });
 
 function toDriplElement(el: unknown): DriplElement {
-  const e = el as DriplElement;
-  if (
-    !e.id ||
-    !e.type ||
-    typeof e.x !== 'number' ||
-    typeof e.y !== 'number' ||
-    typeof e.width !== 'number' ||
-    typeof e.height !== 'number'
-  ) {
+  const parsed = driplElementSchema.safeParse(el);
+  if (!parsed.success) {
     throw new Error('Invalid element structure');
   }
-  return e;
+  return parsed.data as DriplElement;
 }
 
 const JWT_SECRET = requiredEnv('JWT_SECRET');
@@ -83,7 +93,19 @@ const server = createServer((req, res) => {
   }
 });
 
-const wss = new WebSocketServer({ server, maxPayload: 1024 * 1024 });
+const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+const wss = new WebSocketServer({
+  server,
+  maxPayload: 10 * 1024 * 1024,
+  verifyClient: ({ origin }: { origin: string }, cb: (result: boolean, code?: number, message?: string) => void) => {
+    // Allow requests with no origin (e.g. server-to-server, health checks)
+    if (!origin) return cb(true);
+    const allowed = FRONTEND_URL.replace(/\/$/, '');
+    if (origin === allowed) return cb(true);
+    console.warn(JSON.stringify({ level: 'warn', event: 'ws_origin_rejected', origin }));
+    cb(false, 403, 'Forbidden');
+  },
+});
 const rooms = new Map<string, RoomState>();
 const saveTimeouts = new Map<string, NodeJS.Timeout>();
 const userMessageCounts = new Map<string, { count: number; resetAt: number }>();
@@ -284,6 +306,13 @@ function broadcast(room: RoomState, payload: unknown, exceptUserId?: string): vo
 wss.on('connection', (ws, req) => {
   const authUserId = resolveUserFromToken(resolveTokenFromUrl(req.url, req.headers.host));
 
+  // Finding 4: Reject unauthenticated connections immediately
+  if (!authUserId) {
+    ws.close(4001, 'Authentication required');
+    console.warn(JSON.stringify({ level: 'warn', event: 'ws_auth_rejected', url: req.url }));
+    return;
+  }
+
   let currentRoomId: string | null = null;
   let currentUserId: string | null = null;
 
@@ -293,15 +322,7 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('message', async (raw: Buffer) => {
-    const MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
     const messageStr = raw.toString();
-    if (messageStr.length > MAX_MESSAGE_SIZE) {
-      console.warn(
-        JSON.stringify({ level: 'warn', event: 'message_too_large', size: messageStr.length })
-      );
-      ws.close(1009, 'Message too large');
-      return;
-    }
 
     let parsed: unknown;
     try {
@@ -357,7 +378,7 @@ wss.on('connection', (ws, req) => {
         const requestedName = message.type === 'join' ? message.displayName : message.userName;
         const requestedColor = message.type === 'join' ? message.color : undefined;
 
-        const userId = requestedUserId || authUserId || `anon_${uuidv4()}`;
+        const userId = authUserId;
         const displayName = requestedName || `User-${userId.slice(0, 4)}`;
         const color = requestedColor || pickUserColor();
 
@@ -397,7 +418,7 @@ wss.on('connection', (ws, req) => {
         send(ws, roomStatePayload);
 
         const joinPayload = {
-          type: 'user_join',
+          type: 'user-join',
           roomId,
           userId,
           userName: displayName,
@@ -406,14 +427,6 @@ wss.on('connection', (ws, req) => {
           timestamp: Date.now(),
         };
         broadcast(room, joinPayload, userId);
-        broadcast(
-          room,
-          {
-            ...joinPayload,
-            type: 'user-join',
-          },
-          userId
-        );
         break;
       }
 
@@ -427,13 +440,12 @@ wss.on('connection', (ws, req) => {
         room.cursors.delete(currentUserId);
 
         const leavePayload = {
-          type: 'user_leave',
+          type: 'user-leave',
           roomId: currentRoomId,
           userId: currentUserId,
           timestamp: Date.now(),
         };
         broadcast(room, leavePayload);
-        broadcast(room, { ...leavePayload, type: 'user-leave' });
 
         if (room.users.size === 0) {
           rooms.delete(currentRoomId);
@@ -551,7 +563,6 @@ wss.on('connection', (ws, req) => {
         };
 
         broadcast(room, cursorPayload, currentUserId);
-        broadcast(room, { ...cursorPayload, type: 'cursor-move' }, currentUserId);
         break;
       }
 
@@ -571,13 +582,12 @@ wss.on('connection', (ws, req) => {
     room.cursors.delete(currentUserId);
 
     const leavePayload = {
-      type: 'user_leave',
+      type: 'user-leave',
       roomId: currentRoomId,
       userId: currentUserId,
       timestamp: Date.now(),
     };
     broadcast(room, leavePayload);
-    broadcast(room, { ...leavePayload, type: 'user-leave' });
 
     if (room.users.size === 0) {
       rooms.delete(currentRoomId);
@@ -638,6 +648,7 @@ server.listen(WS_PORT, () => {
 async function shutdown() {
   clearInterval(heartbeat);
   clearInterval(periodicSave);
+  clearInterval(rateLimitCleanup);
   for (const [roomId, timeout] of saveTimeouts.entries()) {
     clearTimeout(timeout);
     const room = rooms.get(roomId);

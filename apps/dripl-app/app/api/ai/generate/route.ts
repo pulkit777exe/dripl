@@ -70,21 +70,21 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json().catch(() => null);
-    if (!body || !body.prompt) {
+    const prompt = body?.prompt;
+
+    // Validate prompt exists
+    if (!prompt) {
       return NextResponse.json(
         { error: 'Prompt is required', code: 'VALIDATION_ERROR' },
         { status: 400 }
       );
     }
 
-    const { prompt } = body;
-
     // Identify user by IP slightly better than just "anonymous"
-    const ip = request.headers.get('x-forwarded-for') || 'unknown';
-    const userIdentifier = body.userId && body.userId !== 'anonymous' ? body.userId : ip;
+    const userId = body.userId && body.userId !== 'anonymous' ? body.userId : 'unknown';
 
     // Rate limiting
-    const rateCheck = checkRateLimit(userIdentifier);
+    const rateCheck = checkRateLimit(userId);
     if (!rateCheck.allowed) {
       return NextResponse.json(
         {
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
           { text: `Generate a diagram for: ${prompt}` },
         ]);
         break; // Success, exit retry loop
-      } catch (err: any) {
+      } catch (err: unknown) {
         lastError = err;
         if (attempt < maxRetries && (err.message?.includes('503') || err.message?.includes('retry'))) {
           await new Promise(r => setTimeout(r, 1000 * (attempt + 1))); // Exponential backoff
@@ -162,10 +162,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Add default properties to elements
-    const processedElements = elements.map((el: any, index: number) => ({
+    const processedElements = (elements as Record<string, unknown>[]).map((el, index) => ({
       id: el.id || `ai-${Date.now()}-${index}`,
       type: el.type || 'rectangle',
-      x: el.x ?? 100 + index * 150,
+      x: (el.x ?? 100) + index * 150,
       y: el.y ?? 100,
       width: el.width ?? 120,
       height: el.height ?? 80,
@@ -185,15 +185,15 @@ export async function POST(request: NextRequest) {
       elements: processedElements,
       message: 'Diagram generated successfully',
     });
-  } catch (error: any) {
-    console.error('AI generation error:', error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(JSON.stringify({ level: 'error', event: 'ai_generation_error', error: message }));
 
-    // Handle specific Gemini errors
-    if (error.message?.includes('API_KEY')) {
+    if (message.includes('API_KEY')) {
       return NextResponse.json({ error: 'Invalid API key', code: 'AUTH_ERROR' }, { status: 401 });
     }
 
-    if (error.message?.includes('quota')) {
+    if (message.includes('quota')) {
       return NextResponse.json(
         {
           error: 'API quota exceeded. Please try again later.',
