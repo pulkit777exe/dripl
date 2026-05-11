@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
+import { EmptyFilesState, EmptySearchState } from '@/components/ui/EmptyState';
 
 type FileItem = {
   id: string;
@@ -130,37 +131,7 @@ export function FileBrowser({
       </div>
 
       {files.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-28 text-center">
-          <div className="w-32 h-32 mb-6 opacity-20">
-            <svg viewBox="0 0 120 120" fill="none" className="w-full h-full">
-              <rect x="20" y="10" width="80" height="100" rx="8" stroke="#9B9890" strokeWidth="2" />
-              <path
-                d="M60 10v60l25-25"
-                stroke="#9B9890"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M60 70L35 45"
-                stroke="#9B9890"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          <h3 className="text-[15px] font-semibold text-[#1A1917] mb-1">No files yet</h3>
-          <p className="text-[13px] text-[#9B9890] max-w-xs mb-6">
-            Create your first canvas and it will show up here.
-          </p>
-          <button
-            onClick={onStartNewCanvas}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-[#D4D0C9] bg-white text-[13px] font-medium text-[#1A1917] hover:bg-[#E8E5DE] transition-colors"
-          >
-            Add canvas
-          </button>
-        </div>
+        <EmptyFilesState onCreateCanvas={onStartNewCanvas} />
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {files.map(file => (
