@@ -10,10 +10,12 @@ import {
   FileText,
   Clipboard,
   Square,
+  Loader2,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { exportCanvas, downloadBlob, importFromJson } from '@/utils/export';
+import { InlineError, SuccessState } from '@/components/ui/ErrorState';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -28,6 +30,8 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const setElements = useCanvasStore(state => state.setElements);
   const selectedIds = useCanvasStore(state => state.selectedIds);
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('png');
   const [scale, setScale] = useState<ExportScale>(2);
   const [customWidth, setCustomWidth] = useState<string>('');
@@ -49,6 +53,8 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
 
   const handleExport = async (format: ExportFormat) => {
     setExporting(true);
+    setExportError(null);
+    setExportSuccess(null);
     try {
       const dims = calculateDimensions();
       const exportElements =
@@ -57,7 +63,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           : elements;
 
       if (exportElements.length === 0) {
-        alert('No elements to export');
+        setExportError('No elements to export');
         return;
       }
 
@@ -85,6 +91,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         pdf.addImage(base64, 'PNG', 0, 0, img.width, img.height);
         pdf.save(`canvas-${Date.now()}.pdf`);
         URL.revokeObjectURL(url);
+        setExportSuccess('PDF exported successfully');
         return;
       }
 
@@ -98,6 +105,10 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       };
       const blob = await Promise.resolve(exportCanvas(format, exportElements, options));
       downloadBlob(blob, `canvas-${Date.now()}.${format}`);
+      setExportSuccess(`${format.toUpperCase()} exported successfully`);
+    } catch (err) {
+      console.error('Export failed:', err);
+      setExportError('Export failed. Please try again.');
     } finally {
       setExporting(false);
     }
@@ -110,20 +121,21 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         : elements;
 
     if (exportElements.length === 0) {
-      alert('No elements to copy');
+      setExportError('No elements to copy');
       return;
     }
 
     setExporting(true);
+    setExportError(null);
     try {
       const blob = await Promise.resolve(
         exportCanvas('png', exportElements, { scale: 2, background: '#ffffff', padding: 16 })
       );
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      alert('Copied to clipboard!');
+      setExportSuccess('Copied to clipboard');
     } catch (err) {
       console.error('Failed to copy to clipboard:', err);
-      alert('Failed to copy to clipboard. Try downloading instead.');
+      setExportError('Failed to copy to clipboard. Try downloading instead.');
     } finally {
       setExporting(false);
     }
@@ -136,12 +148,18 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     input.onchange = async event => {
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
-      const raw = await file.text();
-      const replace = window.confirm(
-        'Replace current canvas?\nPress Cancel to merge imported elements.'
-      );
-      const imported = importFromJson(raw, elements, replace ? 'replace' : 'merge');
-      setElements(imported);
+      try {
+        const raw = await file.text();
+        const replace = window.confirm(
+          'Replace current canvas?\nPress Cancel to merge imported elements.'
+        );
+        const imported = importFromJson(raw, elements, replace ? 'replace' : 'merge');
+        setElements(imported);
+        setExportSuccess('Canvas imported successfully');
+      } catch (err) {
+        console.error('Import failed:', err);
+        setExportError('Failed to import canvas. Please check the file format.');
+      }
     };
     input.click();
   };
@@ -291,12 +309,19 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             <button
               onClick={() => handleExport('png')}
               disabled={exporting}
-              className="w-full flex items-center gap-3 px-3 py-2.5 border border-[#E4E0D9] rounded-md bg-white hover:bg-[#E8E5DE] transition-colors disabled:opacity-50"
+              className="w-full flex items-center gap-3 px-3 py-2.5 border border-[#E4E0D9] rounded-md bg-white hover:bg-[#E8E5DE] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ImageIcon className="w-4 h-4 text-[#E8462A]" />
               <div className="text-left">
                 <div className="text-[13px] font-medium text-[#1A1917]">
-                  {exporting ? 'Exporting...' : 'Export as PNG'}
+                  {exporting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Exporting...
+                    </span>
+                  ) : (
+                    'Export as PNG'
+                  )}
                 </div>
                 <div className="text-[11px] text-[#9B9890]">
                   {useCustomSize
@@ -309,12 +334,19 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             <button
               onClick={() => handleExport('svg')}
               disabled={exporting}
-              className="w-full flex items-center gap-3 px-3 py-2.5 border border-[#E4E0D9] rounded-md bg-white hover:bg-[#E8E5DE] transition-colors disabled:opacity-50"
+              className="w-full flex items-center gap-3 px-3 py-2.5 border border-[#E4E0D9] rounded-md bg-white hover:bg-[#E8E5DE] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FileCode className="w-4 h-4 text-[#E8462A]" />
               <div className="text-left">
                 <div className="text-[13px] font-medium text-[#1A1917]">
-                  {exporting ? 'Exporting...' : 'Export as SVG'}
+                  {exporting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Exporting...
+                    </span>
+                  ) : (
+                    'Export as SVG'
+                  )}
                 </div>
                 <div className="text-[11px] text-[#9B9890]">Vector graphics (scalable)</div>
               </div>
@@ -323,12 +355,19 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             <button
               onClick={() => handleExport('pdf')}
               disabled={exporting}
-              className="w-full flex items-center gap-3 px-3 py-2.5 border border-[#E4E0D9] rounded-md bg-white hover:bg-[#E8E5DE] transition-colors disabled:opacity-50"
+              className="w-full flex items-center gap-3 px-3 py-2.5 border border-[#E4E0D9] rounded-md bg-white hover:bg-[#E8E5DE] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FileText className="w-4 h-4 text-[#E8462A]" />
               <div className="text-left">
                 <div className="text-[13px] font-medium text-[#1A1917]">
-                  {exporting ? 'Exporting...' : 'Export as PDF'}
+                  {exporting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Exporting...
+                    </span>
+                  ) : (
+                    'Export as PDF'
+                  )}
                 </div>
                 <div className="text-[11px] text-[#9B9890]">Document format</div>
               </div>
@@ -337,12 +376,19 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             <button
               onClick={handleCopyToClipboard}
               disabled={exporting}
-              className="w-full flex items-center gap-3 px-3 py-2.5 border border-[#E4E0D9] rounded-md bg-white hover:bg-[#E8E5DE] transition-colors disabled:opacity-50"
+              className="w-full flex items-center gap-3 px-3 py-2.5 border border-[#E4E0D9] rounded-md bg-white hover:bg-[#E8E5DE] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Clipboard className="w-4 h-4 text-[#E8462A]" />
               <div className="text-left">
                 <div className="text-[13px] font-medium text-[#1A1917]">
-                  {exporting ? 'Copying...' : 'Copy to Clipboard'}
+                  {exporting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Copying...
+                    </span>
+                  ) : (
+                    'Copy to Clipboard'
+                  )}
                 </div>
                 <div className="text-[11px] text-[#9B9890]">Copy as PNG image</div>
               </div>
@@ -362,6 +408,22 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             </button>
           </div>
         </div>
+
+        {exportError && (
+          <InlineError
+            message={exportError}
+            onRetry={() => setExportError(null)}
+            className="mt-4"
+          />
+        )}
+
+        {exportSuccess && (
+          <SuccessState
+            title={exportSuccess}
+            onDismiss={() => setExportSuccess(null)}
+            className="mt-4"
+          />
+        )}
       </div>
     </div>
   );

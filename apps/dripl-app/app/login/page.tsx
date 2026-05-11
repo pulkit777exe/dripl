@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { GoogleOAuthProvider, GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
+import { InlineError } from '@/components/ui/ErrorState';
 
 const fieldClassName =
   'w-full rounded-md border border-[#D4D0C9] bg-white px-3 py-2 text-[14px] text-[#1A1917] outline-none transition-all placeholder:text-[#9B9890] focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20';
@@ -67,9 +68,14 @@ export default function LoginPage() {
         subtitle="Continue organizing your thoughts, wireframes, and collections in one calm workspace."
       >
         {error && (
-          <div className="mb-4 rounded-md border border-[#E8462A]/20 bg-[#FAE8E5] px-3 py-2.5 text-[13px] text-[#C0392B]">
-            {error}
-          </div>
+          <InlineError
+            message={typeof error === 'string' ? error : 'An error occurred'}
+            onRetry={() => {
+              setError('');
+              handleSubmit(event);
+            }}
+            className="mb-4"
+          />
         )}
 
         {/* Google button first */}
@@ -111,9 +117,16 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md border border-[#D4D0C9] bg-white px-4 py-2 text-[14px] font-medium text-[#1A1917] transition-colors hover:bg-[#E8E5DE] disabled:opacity-50"
+            className="w-full rounded-md border border-[#D4D0C9] bg-white px-4 py-2 text-[14px] font-medium text-[#1A1917] transition-colors hover:bg-[#E8E5DE] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {loading ? 'Signing in...' : 'Sign in with email'}
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-[#6B6860] border-t-transparent rounded-full animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              'Sign in with email'
+            )}
           </button>
         </form>
 
