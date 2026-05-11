@@ -19,13 +19,19 @@ export function deepClone<T>(obj: T): T {
  * The returned function will invoke `func` at most once per `limit` ms.
  * Subsequent calls within the limit are ignored.
  */
-export function throttle(func: (...args: any[]) => void, limit: number) {
-  let inThrottle: boolean;
-  return function (this: any, ...args: any[]) {
+export function throttle<T extends (...args: any[]) => void>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle = false;
+  
+  return function (this: unknown, ...args: Parameters<T>): void {
     if (!inThrottle) {
       func.apply(this, args);
       inThrottle = true;
-      setTimeout(() => (inThrottle = false), limit);
+      setTimeout(() => {
+        inThrottle = false;
+      }, limit);
     }
   };
 }
