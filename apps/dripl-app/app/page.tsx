@@ -16,7 +16,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
-import { Spinner } from '@/components/button/Spinner';
+import { LoadingState } from '@/components/ui/LoadingState';
 
 /* ----------  FAQ data  ---------- */
 const faqs = [
@@ -84,11 +84,7 @@ export default function LandingPage() {
   }, [loading, router, user]);
 
   if (loading) {
-    return (
-      <main className="min-h-dvh flex items-center justify-center bg-[#F0EDE6]">
-        <Spinner className="size-8 text-[#E8462A]" />
-      </main>
-    );
+    return <LoadingState message="Loading..." className="min-h-dvh bg-[#F0EDE6]" />;
   }
 
   return (

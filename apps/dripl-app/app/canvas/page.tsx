@@ -13,6 +13,7 @@ import { useCanvasStore } from '@/lib/canvas-store';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { saveLocalCanvasToStorage, type LocalCanvasState } from '@/utils/localCanvasStorage';
+import { LoadingState, WarningBanner, ErrorState } from '@/components/ui/ErrorState';
 
 function CanvasContent() {
   const router = useRouter();
@@ -113,11 +114,31 @@ function CanvasContent() {
   return (
     <div className="w-screen h-dvh relative overflow-hidden bg-canvas-bg">
       {showStorageWarning && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-210 pointer-events-auto bg-[#FEF3F2] border border-[#FECACA] rounded-md px-3 py-2 text-[12px] text-[#B42318] flex items-center gap-2">
-          <span>Canvas won&apos;t be saved in this browser session.</span>
-          <button type="button" className="underline" onClick={() => setShowStorageWarning(false)}>
-            Dismiss
-          </button>
+        <WarningBanner
+          message="Canvas won't be saved in this browser session. Local storage is unavailable."
+          onDismiss={() => setShowStorageWarning(false)}
+          action={{
+            label: 'Learn more',
+            onClick: () => window.open('https://support.google.com/chrome/answer/95647', '_blank'),
+          }}
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-210 pointer-events-auto"
+        />
+      )}
+      {snapshotError && (
+        <div className="absolute inset-0 z-220 flex items-center justify-center bg-black/30">
+          <ErrorState
+            title="Unable to load shared canvas"
+            message={snapshotError}
+            onRetry={() => {
+              setSnapshotError(null);
+              window.location.reload();
+            }}
+            onDismiss={() => {
+              setSnapshotError(null);
+              router.replace('/canvas');
+            }}
+            className="w-full max-w-md mx-4"
+          />
         </div>
       )}
       {snapshotError && (
@@ -245,9 +266,7 @@ export default function CanvasPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-dvh items-center justify-center bg-canvas-bg">
-          <div className="size-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
-        </div>
+        <LoadingState message="Loading canvas..." className="h-dvh bg-canvas-bg" />
       }
     >
       <CanvasContent />

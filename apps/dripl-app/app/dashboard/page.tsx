@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FileBrowser } from '@/components/dashboard/FileBrowser';
 import { useAuth } from '@/app/context/AuthContext';
 import { apiClient, type FileSummary, type FolderSummary } from '@/lib/api';
-import { Spinner } from '@/components/button/Spinner';
+import { PageSkeleton } from '@/components/ui/LoadingState';
 
 const PAGE_SIZE = 20;
 
@@ -91,11 +91,7 @@ export default function DashboardPage() {
   );
 
   if (authLoading || loading) {
-    return (
-      <div className="flex h-dvh items-center justify-center bg-[#F0EDE6]">
-        <Spinner className="size-7 text-[#E8462A]" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!user) {
