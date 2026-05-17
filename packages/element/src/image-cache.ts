@@ -21,7 +21,8 @@ class ImageCacheImpl {
   private maxSize: number;
   private preloadTimeout: number;
   private loadingPromises = new Map<string, Promise<CachedImage>>();
-  private accessOrder: string[] = [];
+  private accessOrder = new Map<string, number>();
+  private accessCounter = 0;
 
   constructor(options: ImageCacheOptions = {}) {
     this.maxSize = options.maxSize ?? DEFAULT_OPTIONS.maxSize;
@@ -83,7 +84,7 @@ class ImageCacheImpl {
         cached.width = img.width;
         cached.height = img.height;
         this.cache.set(src, cached);
-        this.accessOrder.push(src);
+        this.updateAccessOrder(src);
         resolve(cached);
       };
 
@@ -91,7 +92,7 @@ class ImageCacheImpl {
         clearTimeout(timeout);
         cached.error = true;
         this.cache.set(src, cached);
-        this.accessOrder.push(src);
+        this.updateAccessOrder(src);
         resolve(cached);
       };
 
@@ -100,18 +101,22 @@ class ImageCacheImpl {
   }
 
   private updateAccessOrder(src: string): void {
-    const index = this.accessOrder.indexOf(src);
-    if (index > -1) {
-      this.accessOrder.splice(index, 1);
-    }
-    this.accessOrder.push(src);
+    this.accessOrder.set(src, ++this.accessCounter);
   }
 
   private evictIfNeeded(): void {
-    while (this.cache.size > this.maxSize && this.accessOrder.length > 0) {
-      const oldest = this.accessOrder.shift();
-      if (oldest) {
-        this.cache.delete(oldest);
+    while (this.cache.size > this.maxSize && this.accessOrder.size > 0) {
+      let oldestKey: string | undefined;
+      let oldestValue = Infinity;
+      for (const [key, value] of this.accessOrder) {
+        if (value < oldestValue) {
+          oldestValue = value;
+          oldestKey = key;
+        }
+      }
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+        this.accessOrder.delete(oldestKey);
       }
     }
   }
@@ -142,7 +147,8 @@ class ImageCacheImpl {
 
   clear(): void {
     this.cache.clear();
-    this.accessOrder = [];
+    this.accessOrder.clear();
+    this.accessCounter = 0;
     this.loadingPromises.clear();
   }
 
@@ -155,10 +161,7 @@ class ImageCacheImpl {
 
   remove(src: string): void {
     this.cache.delete(src);
-    const index = this.accessOrder.indexOf(src);
-    if (index > -1) {
-      this.accessOrder.splice(index, 1);
-    }
+    this.accessOrder.delete(src);
   }
 }
 

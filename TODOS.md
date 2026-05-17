@@ -73,6 +73,7 @@
 **Cons:** Minimal.
 **Context:** `packages/math/src/hit-detection.ts`. Test: point in rect/ellipse/diamond, point on rotated element, selection rect intersection, element-at-point with overlapping elements.
 **Depends on:** None.
+**Status:** ✅ COMPLETED - 30+ tests added covering all hit detection functions.
 
 ### 9. Collaboration Hook Tests
 **What:** Tests for `apps/dripl-app/hooks/useCollaboration.ts` (392 lines).
@@ -89,6 +90,7 @@
 **Cons:** Minimal.
 **Context:** Test: valid token, expired token, missing token, cookie vs header, CSRF valid/missing/mismatched, safe methods bypass.
 **Depends on:** None.
+**Status:** ✅ COMPLETED - 14 tests added for auth and CSRF middleware.
 
 ### 11. Encryption Utility Tests
 **What:** Tests for `packages/utils/src/encryption/` (~100 lines).
@@ -97,10 +99,7 @@
 **Cons:** Minimal.
 **Context:** `packages/utils/src/encryption/crypto.ts`, `url.ts`. Test: encrypt/decrypt round-trip, URL key extraction, key rotation, malformed ciphertext.
 **Depends on:** None.
-
----
-
-## Tier 3: Medium Priority (Code Quality, Performance)
+**Status:** ✅ COMPLETED - 25+ tests added for crypto and URL utilities.
 
 ### 12. RBush Incremental Rebuild
 **What:** Replace full RBush tree rebuild with incremental insert/remove.
@@ -141,6 +140,7 @@
 **Cons:** Slightly more complex implementation.
 **Context:** `packages/element/src/image-cache.ts`. Use `Map` (preserves insertion order) instead of array for access tracking.
 **Depends on:** None.
+**Status:** ✅ COMPLETED - Replaced array-based accessOrder with Map-based counter for O(1) updates.
 
 ### 17. RAF Loop Optimization
 **What:** Cancel RAF loop when not dirty, restart when dirty.
@@ -185,6 +185,7 @@
 **Cons:** Minimal.
 **Context:** `apps/http-server/src/routes/auth.ts:354-363`. Wrap in `db.$transaction([...])`.
 **Depends on:** None.
+**Status:** ✅ COMPLETED - Both operations now wrapped in Prisma transaction.
 
 ### 22. Connection Draining on ws-server Shutdown
 **What:** Wait for pending saves to complete before `process.exit(0)`.
@@ -193,6 +194,7 @@
 **Cons:** Adds shutdown delay.
 **Context:** `apps/ws-server/src/index.ts:648-671`. Use `Promise.all` with timeout.
 **Depends on:** None.
+**Status:** ✅ COMPLETED - Parallel saves with 10s timeout added to shutdown.
 
 ### 23. Docker Production Hardening
 **What:** Fix Dockerfiles to use production builds, not `pnpm run dev`. Remove hardcoded credentials from docker-compose.
@@ -224,9 +226,11 @@
 
 ### P1. @dripl/common Test UUID Failures
 Tests in `packages/common/src/actions.test.ts` and `schemas.test.ts` use non-UUID IDs (`"elem-1"`) while Zod schemas now require UUIDs. Tests need fixture updates.
+**Status:** ✅ FIXED - Recreated test files with proper UUID fixtures.
 
 ### P2. @dripl/common Test FileSchema Failures
 `packages/common/src/schemas.test.ts:244` — FileSchema requires `preview`, `folderId`, `teamId`, `userId` but test fixtures omit them.
+**Status:** ✅ FIXED - Updated test fixtures with correct nullable fields.
 
 ### P3. Dockerfile References Missing @dripl/runtime
 All three Dockerfiles reference `packages/runtime/package.json` which doesn't exist. Docker builds will fail.

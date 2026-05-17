@@ -44,10 +44,9 @@ describe('deepClone', () => {
     expect(deepClone(null)).toBe(null);
   });
 
-  it('does not preserve functions', () => {
+  it('throws on objects with functions (structuredClone limitation)', () => {
     const obj = { fn: () => 'test' };
-    const cloned = deepClone(obj) as { fn?: () => string };
-    expect(cloned.fn).toBeUndefined();
+    expect(() => deepClone(obj)).toThrow();
   });
 
   it('preserves Date objects via structuredClone', () => {

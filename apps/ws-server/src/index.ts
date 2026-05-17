@@ -687,23 +687,44 @@ async function shutdown() {
   clearInterval(heartbeat);
   clearInterval(periodicSave);
   clearInterval(rateLimitCleanup);
+
+  const savePromises: Promise<void>[] = [];
   for (const [roomId, timeout] of saveTimeouts.entries()) {
     clearTimeout(timeout);
     const room = rooms.get(roomId);
     if (room) {
-      const success = await saveRoomElements(roomId, room.elements);
-      if (!success) {
-        console.error(
-          JSON.stringify({
-            level: 'error',
-            event: 'shutdown_save_failure',
-            roomId,
-            timestamp: Date.now(),
-          })
-        );
-      }
+      savePromises.push(
+        saveRoomElements(roomId, room.elements).then(success => {
+          if (!success) {
+            console.error(
+              JSON.stringify({
+                level: 'error',
+                event: 'shutdown_save_failure',
+                roomId,
+                timestamp: Date.now(),
+              })
+            );
+          }
+        })
+      );
     }
   }
+
+  const SHUTDOWN_TIMEOUT_MS = 10_000;
+  const timeout = new Promise<void>(resolve => {
+    setTimeout(() => {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'shutdown_timeout',
+          timestamp: Date.now(),
+        })
+      );
+      resolve();
+    }, SHUTDOWN_TIMEOUT_MS);
+  });
+
+  await Promise.race([Promise.all(savePromises), timeout]);
   await db.$disconnect();
   process.exit(0);
 }

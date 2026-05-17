@@ -353,14 +353,15 @@ authRouter.post('/reset-password', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await db.user.update({
-      where: { email: resetEntry.email },
-      data: { password: hashedPassword },
-    });
-
-    await db.passwordResetToken.delete({
-      where: { id: resetEntry.id },
-    });
+    await db.$transaction([
+      db.user.update({
+        where: { email: resetEntry.email },
+        data: { password: hashedPassword },
+      }),
+      db.passwordResetToken.delete({
+        where: { id: resetEntry.id },
+      }),
+    ]);
 
     res.json({ ok: true });
   } catch (error) {
