@@ -51,12 +51,13 @@
 ## Tier 2: High Priority (Core UX Features)
 
 ### 6. Test Infrastructure: @dripl/test-utils Package
-**What:** Shared test utilities package with element factories, user factories, mock Canvas 2D, mock WebSocket.
+**What:** Shared test utilities package with element factories, user factories, mock Canvas 2D.
 **Why:** Every test creates 60-line inline element objects. No shared fixtures, no mock utilities.
 **Pros:** Faster test writing, consistent fixtures, less boilerplate.
 **Cons:** New package to maintain.
 **Context:** Need: `createTestElement({ type: 'rectangle', x: 0, y: 0 })`, `createTestUser()`, `createTestFile()`, `mockCanvasContext()`, `mockWebSocketServer()`.
 **Depends on:** None.
+**Status:** ✅ COMPLETED - Package created with 21 tests covering all factories.
 
 ### 7. Element Resize Tests
 **What:** Tests for `packages/element/src/resizeElements.ts` (457 lines).
@@ -65,6 +66,7 @@
 **Cons:** Requires Canvas 2D mock for text measurement.
 **Context:** `packages/element/src/resizeElements.ts`. Test all handle directions, rotation, aspect ratio lock, text auto-resize.
 **Depends on:** Item 6 (test utils).
+**Status:** ✅ COMPLETED - 48 tests added covering all resize functions, element types, and edge cases.
 
 ### 8. Hit Detection Tests
 **What:** Tests for `packages/math/src/hit-detection.ts` (158 lines).

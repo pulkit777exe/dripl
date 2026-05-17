@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Test Infrastructure**: Created `@dripl/test-utils` package with element factories (all 9 types), user/presence factories, and mock Canvas 2D context
+- **Element Resize Tests**: 48 comprehensive tests for `packages/element/src/resizeElements.ts` covering all element types, handle directions, aspect ratio, rotation, and edge cases
 - **Engineering Review**: Comprehensive codebase review (architecture, code quality, tests, performance)
   - Created `TODOS.md` with 25 prioritized items + 15 pre-existing issues documented
 - **WebSocket Security**: JWT auth via `Sec-WebSocket-Protocol` header instead of URL query parameter

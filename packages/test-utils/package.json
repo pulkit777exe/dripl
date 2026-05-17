@@ -1,10 +1,11 @@
 {
-  "name": "@dripl/element",
+  "name": "@dripl/test-utils",
   "version": "0.0.0",
-  "description": "Element factory and rendering for Dripl canvas",
+  "description": "Shared test utilities for Dripl monorepo",
   "license": "MIT",
-  "main": "./dist/index",
+  "private": true,
   "type": "module",
+  "main": "./dist/index",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -17,16 +18,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dripl/common": "workspace:*",
-    "@dripl/math": "workspace:*",
-    "@dripl/utils": "workspace:*",
-    "roughjs": "^4.6.6"
+    "@dripl/common": "workspace:*"
   },
   "devDependencies": {
-    "@dripl/eslint-config": "workspace:*",
-    "@dripl/test-utils": "workspace:*",
-    "@dripl/typescript-config": "workspace:*",
     "@eslint/js": "^10.0.1",
+    "@dripl/eslint-config": "workspace:*",
+    "@dripl/typescript-config": "workspace:*",
     "eslint": "latest",
     "typescript": "latest",
     "typescript-eslint": "^8.58.2",
