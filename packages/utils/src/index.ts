@@ -7,11 +7,11 @@ export function generateId(): string {
 }
 
 /**
- * Deep‑clone a JSON‑serializable value.
- * Note: Functions, Dates and other non‑JSON types are not preserved.
+ * Deep‑clone a value.
+ * Uses native structuredClone for correctness (preserves Dates, Maps, Sets, etc.).
  */
 export function deepClone<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj));
+  return structuredClone(obj);
 }
 
 /**

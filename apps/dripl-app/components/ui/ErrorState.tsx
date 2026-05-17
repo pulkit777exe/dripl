@@ -176,3 +176,12 @@ export function WarningBanner({ message, onDismiss, action, className }: Warning
     </div>
   );
 }
+
+export function LoadingState({ message = 'Loading...', className }: { message?: string; className?: string }) {
+  return (
+    <div className={cn('flex items-center justify-center gap-3 px-4 py-3', className)}>
+      <div className="w-4 h-4 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+      <p className="text-[13px] text-[#6B6860]">{message}</p>
+    </div>
+  );
+}

@@ -50,12 +50,19 @@ describe('deepClone', () => {
     expect(cloned.fn).toBeUndefined();
   });
 
-  it('converts Date to ISO string', () => {
+  it('preserves Date objects via structuredClone', () => {
     const date = new Date('2024-01-01');
     const cloned = deepClone(date);
     expect(cloned).not.toBe(date);
-    // deepClone converts Date to ISO string via JSON serialization
-    expect(typeof cloned).toBe('string');
+    expect(cloned).toBeInstanceOf(Date);
+    expect(cloned.getTime()).toBe(date.getTime());
+  });
+
+  it('preserves Map and Set via structuredClone', () => {
+    const map = new Map([['a', 1]]);
+    const set = new Set([1, 2, 3]);
+    expect(deepClone(map)).toBeInstanceOf(Map);
+    expect(deepClone(set)).toBeInstanceOf(Set);
   });
 
   it('handles empty objects and arrays', () => {

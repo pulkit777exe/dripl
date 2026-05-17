@@ -6,6 +6,7 @@ config({ path: resolve(process.cwd(), '../../.env') });
 config({ path: resolve(process.cwd(), '../../.env.local'), override: true });
 
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
@@ -25,6 +26,7 @@ const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
 app.set('trust proxy', 1);
 app.use(helmet());
+app.use(compression());
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,

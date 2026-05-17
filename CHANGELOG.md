@@ -6,33 +6,58 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- **Email Verification**: Add email verification for account registration
-  - New `emailVerified` field on User model
-  - New `EmailVerificationToken` model for verification tokens
-  - `/api/auth/verify-email` endpoint to verify email
-  - `/api/auth/resend-verification` endpoint to resend verification email
-  - Login checks email verification before allowing access
-  - Frontend: `/verify-email` and `/verify-pending` pages
-- **Cookie Consent**: Add cookie consent banner with localStorage
-- **Analytics**: Add analytics utility with event tracking (canvas, auth, export, etc.)
-- **Tests**: Add CookieConsent and analytics unit tests (16 new tests)
-- **Tests**: Add canvas coordinates unit tests (10 tests for viewport transformations)
-- **Tests**: Add WebSocket integration tests (26 tests for element CRUD, cursor, room management)
-- **Database**: Add indexes on File, Folder, CanvasRoom, CanvasRoomMember for query optimization
-- **WebSocket**: Add rate limiting (30 msgs/sec per connection)
+- **Engineering Review**: Comprehensive codebase review (architecture, code quality, tests, performance)
+  - Created `TODOS.md` with 25 prioritized items + 15 pre-existing issues documented
+- **WebSocket Security**: JWT auth via `Sec-WebSocket-Protocol` header instead of URL query parameter
+- **Rate Limiting**: Added per-IP rate limiting (30 req/15min) to public share endpoint
+- **Scene Validation**: Added `MAX_ELEMENTS_PER_SCENE = 5000` limit to prevent OOM attacks
+- **Empty Room TTL**: 5-minute grace period before evicting empty rooms from memory
+- **Heartbeat Cleanup**: Dead connections now properly clean up room state and cursors
+- **Shape Cache Pruning**: Periodic cache cleanup every 1000 operations to prevent memory leaks
+- **Compression**: Added gzip compression middleware to http-server
+- **Test Infrastructure**: Added `vitest.config.ts` for ws-server
+- **Tests**: 65 validation tests for ws-server Zod schemas (join, element CRUD, cursor, scene-update)
+- **Handle Utilities**: Extracted shared `HandlePosition` type and `getCursorForHandle()` helper
+- **LoadingState Component**: Added missing `LoadingState` export to ErrorState component
+- **Database**: Parallelized `loadRoomElements` queries using `Promise.all`
 
 ### Fixed
 
-- **Code Quality**: Consolidate auth middleware to single source of truth
-- **Tests**: Fix http-server routes test imports
-- **WebSocket**: Add element coordinate bounds validation (width/height 0-50000, coords -100000 to 100000)
-- **WebSocket**: Reduce periodic save interval from 60s to 15s
-- **Security - IDOR**: Fix IDOR vulnerability in fileController.ts (updateFile, deleteFile methods)
-- **Dead Code**: Remove unused packages/runtime (store refactored to dripl-app)
-- **Orphaned Code**: Remove duplicate websocket-server.ts from http-server
-- **Code Quality**: Standardize console logging to JSON format across http-server and ws-server
-- **Tests**: Add 5 edge case tests to ws-server validation.test.ts
-- **Duplicate Store**: Remove TanStack store, keep only Zustand in canvas-store.ts
+- **Security - Cookie Mismatch**: Standardized cookie name to `dripl-session` across auth middleware
+- **Security - Auth URL**: Moved JWT from URL query (`?token=`) to WebSocket headers (prevents logging in access logs)
+- **Security - Share Endpoint**: Added rate limiting to prevent token brute-force attacks
+- **Security - Scene Update**: Added element count limit to prevent OOM from malicious payloads
+- **Data Integrity - Race Condition**: Fixed `loadedFromDb` flag set BEFORE await (was after, causing duplicate DB loads)
+- **Data Integrity - Stale Save**: Fixed `scheduleSave` to read from `room.elements` at execution time instead of capturing stale reference
+- **Data Integrity - History**: Replaced `JSON.parse(JSON.stringify())` with `structuredClone()` (preserves Sets/Maps/Dates)
+- **Bug - SelectionBox**: Fixed `height={width}` typo → `height={height}`
+- **Bug - UseCollaborationReturn**: Added missing `disconnect` method to interface
+- **Bug - createPortal**: Fixed import from `'react'` → `'react-dom'`
+- **Bug - handleSubmit**: Made `React.FormEvent` parameter optional for retry callbacks
+- **Bug - AI Route**: Added `Number()` casts for unknown-type arithmetic operations
+- **Performance - DB Queries**: Parallelized sequential `findUnique` calls in `loadRoomElements`
+- **Performance - Room Eviction**: Added TTL-based eviction for empty rooms instead of immediate deletion
+- **Performance - Heartbeat**: Clean up room state when terminating dead connections
+- **Performance - Shape Cache**: Added periodic `pruneShapeCache()` calls
+- **Performance - Compression**: Added gzip compression to http-server responses
+- **Dead Code**: Removed `fileController.ts` (superseded by `files.ts` routes)
+- **Dead Code**: Removed `userController.ts` (superseded by `auth.ts` routes)
+- **Dead Code**: Removed `packages/element/src/intersection.ts` (useless re-export barrel)
+- **Dead Code**: Removed `packages/math/src/collision.ts` (6-line passthrough)
+- **Dead Code**: Removed scaffold files (`button.tsx`, `card.tsx`, `code.tsx`)
+- **Dead Code**: Removed empty `middleware/` directory and stray `package-lock.json`
+- **Code Quality - Duplicate Types**: Replaced duplicate `DriplElement`/`Point`/`Bounds` in `@dripl/dripl` with re-exports from `@dripl/common`
+- **Code Quality - Index Files**: Fixed broken exports in `@dripl/math` and `@dripl/element` after deleting useless files
+- **Code Quality - Commented Code**: Removed commented-out import in `@dripl/common`
+- **Code Quality - Duplicate Route**: Removed duplicate `/share/:token` registration in `roomRoutes.ts`
+- **Code Quality - Find-then-Act**: Fixed `updateRoom`, `deleteRoom`, `addMember`, `removeMember` to use combined `where: { slug, ownerId }` queries
+- **Code Quality - deepClone**: Updated test expectations for `structuredClone` behavior (preserves Date/Map/Set)
+
+### Changed
+
+- **WebSocket Auth**: Clients must now pass JWT via `Sec-WebSocket-Protocol` header or `Authorization: Bearer` header
+- **History System**: Uses native `structuredClone` instead of JSON round-trip (correctness improvement)
+- **Auth Forms**: `handleSubmit` accepts optional event parameter for programmatic calls
 
 ---
 

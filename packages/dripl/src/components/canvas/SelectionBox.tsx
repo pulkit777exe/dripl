@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { useCanvasColors } from '../../theme';
+import type { HandlePosition } from '../../lib/handle-utils';
+import { getCursorForHandle } from '../../lib/handle-utils';
 
 export interface SelectionBoxProps {
   x: number;
@@ -72,8 +74,6 @@ export interface SelectionBoxWithHandlesProps extends SelectionBoxProps {
   onHandleMouseDown?: (handle: HandlePosition, e: React.MouseEvent) => void;
 }
 
-export type HandlePosition = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rotation';
-
 export function SelectionBoxWithHandles({
   x,
   y,
@@ -141,7 +141,7 @@ export function SelectionBoxWithHandles({
 
   return (
     <g>
-      <SelectionBox x={x} y={y} width={width} height={width} rotation={rotation} {...props} />
+      <SelectionBox x={x} y={y} width={width} height={height} rotation={rotation} {...props} />
       {handles.map(handle => (
         <rect
           key={handle.position}
@@ -152,7 +152,7 @@ export function SelectionBoxWithHandles({
           fill={handleFillColor}
           stroke={handleStrokeColor}
           strokeWidth={1}
-          style={{ cursor: getCursorForHandle(handle.position, rotation) }}
+          style={{ cursor: getCursorForHandle(handle.position) }}
           onMouseDown={e => {
             e.stopPropagation();
             onHandleMouseDown?.(handle.position, e);
@@ -161,24 +161,6 @@ export function SelectionBoxWithHandles({
       ))}
     </g>
   );
-}
-
-function getCursorForHandle(position: HandlePosition, rotation: number): string {
-  const normalizedRotation = ((rotation % 360) + 360) % 360;
-
-  const cursors: Record<HandlePosition, string> = {
-    nw: 'nwse-resize',
-    se: 'nwse-resize',
-    ne: 'nesw-resize',
-    sw: 'nesw-resize',
-    n: 'ns-resize',
-    s: 'ns-resize',
-    e: 'ew-resize',
-    w: 'ew-resize',
-    rotation: 'grab',
-  };
-
-  return cursors[position];
 }
 
 export default SelectionBox;

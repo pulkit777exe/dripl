@@ -106,9 +106,12 @@ const wss = new WebSocketServer({
     cb(false, 403, 'Forbidden');
   },
 });
+const MAX_ELEMENTS_PER_SCENE = 5000;
+const MAX_EMPTY_ROOM_TTL_MS = 5 * 60 * 1000;
 const rooms = new Map<string, RoomState>();
 const saveTimeouts = new Map<string, NodeJS.Timeout>();
-const userMessageCounts = new Map<string, { count: number; resetAt: number }>();
+const userMessageCounts = new Map<WebSocket, { count: number; resetAt: number }>();
+const roomLastEmptyAt = new Map<string, number>();
 
 function parseStoredElements(raw: string | null | undefined): DriplElement[] {
   if (!raw) return [];
@@ -244,13 +247,18 @@ async function saveRoomElements(roomId: string, elements: DriplElement[]): Promi
   }
 }
 
-function scheduleSave(roomId: string, elements: DriplElement[]): void {
+function scheduleSave(roomId: string): void {
   const existing = saveTimeouts.get(roomId);
   if (existing) clearTimeout(existing);
   saveTimeouts.set(
     roomId,
     setTimeout(async () => {
-      const success = await saveRoomElements(roomId, elements);
+      const room = rooms.get(roomId);
+      if (!room) {
+        saveTimeouts.delete(roomId);
+        return;
+      }
+      const success = await saveRoomElements(roomId, room.elements);
       if (!success) {
         console.error(
           JSON.stringify({
@@ -336,11 +344,7 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
-    const wsKey =
-      (ws as unknown as { __wsKey?: string }).__wsKey ||
-      (ws as WebSocket & { __user?: UserConnection }).__user?.userId ||
-      req.url ||
-      '';
+    const wsKey = ws as unknown as WebSocket;
     const now = Date.now();
     const rateInfo = userMessageCounts.get(wsKey);
     if (rateInfo && rateInfo.resetAt > now) {
@@ -464,7 +468,7 @@ wss.on('connection', (ws, req) => {
         room.elements = room.elements.filter(el => el.id !== element.id);
         room.elements.push(element);
         broadcast(room, message, currentUserId ?? undefined);
-        scheduleSave(currentRoomId, room.elements);
+        scheduleSave(currentRoomId);
         break;
       }
 
@@ -475,7 +479,7 @@ wss.on('connection', (ws, req) => {
         const element = toDriplElement(message.element);
         room.elements = room.elements.map(e => (e.id === element.id ? element : e));
         broadcast(room, message, currentUserId ?? undefined);
-        scheduleSave(currentRoomId, room.elements);
+        scheduleSave(currentRoomId);
         break;
       }
 
@@ -485,7 +489,7 @@ wss.on('connection', (ws, req) => {
         if (!room) break;
         room.elements = room.elements.filter(element => element.id !== message.elementId);
         broadcast(room, message, currentUserId ?? undefined);
-        scheduleSave(currentRoomId, room.elements);
+        scheduleSave(currentRoomId);
         break;
       }
 
@@ -494,6 +498,10 @@ wss.on('connection', (ws, req) => {
         const room = rooms.get(currentRoomId);
         if (!room) break;
         if (!Array.isArray(message.elements)) break;
+        if (message.elements.length > MAX_ELEMENTS_PER_SCENE) {
+          send(ws, { type: 'error', message: `Too many elements (max ${MAX_ELEMENTS_PER_SCENE})` });
+          break;
+        }
 
         const merged = new Map(room.elements.map(element => [element.id, element]));
         for (const rawEl of message.elements) {
@@ -512,7 +520,7 @@ wss.on('connection', (ws, req) => {
           elements: room.elements,
         };
         broadcast(room, broadcastMessage, currentUserId ?? undefined);
-        scheduleSave(currentRoomId, room.elements);
+        scheduleSave(currentRoomId);
         break;
       }
 
@@ -537,7 +545,7 @@ wss.on('connection', (ws, req) => {
         }
 
         broadcast(room, message, currentUserId ?? undefined);
-        scheduleSave(currentRoomId, room.elements);
+        scheduleSave(currentRoomId);
         break;
       }
 
@@ -590,7 +598,7 @@ wss.on('connection', (ws, req) => {
     broadcast(room, leavePayload);
 
     if (room.users.size === 0) {
-      rooms.delete(currentRoomId);
+      roomLastEmptyAt.set(currentRoomId, Date.now());
     }
   });
 });
@@ -600,6 +608,17 @@ const heartbeat = setInterval(() => {
     const user = (ws as WebSocket & { __user?: UserConnection }).__user;
     if (!user) return;
     if (!user.isAlive) {
+      const roomId = currentRoomIdForWs(ws);
+      if (roomId) {
+        const room = rooms.get(roomId);
+        if (room) {
+          room.users.delete(user.userId);
+          room.cursors.delete(user.userId);
+          if (room.users.size === 0) {
+            roomLastEmptyAt.set(roomId, Date.now());
+          }
+        }
+      }
       ws.terminate();
       return;
     }
@@ -607,6 +626,15 @@ const heartbeat = setInterval(() => {
     ws.ping();
   });
 }, HEARTBEAT_INTERVAL_MS);
+
+function currentRoomIdForWs(targetWs: WebSocket): string | null {
+  for (const [roomId, room] of rooms.entries()) {
+    if (room.users.has((targetWs as WebSocket & { __user?: UserConnection }).__user?.userId ?? '')) {
+      return roomId;
+    }
+  }
+  return null;
+}
 
 const rateLimitCleanup = setInterval(() => {
   const now = Date.now();
@@ -619,8 +647,10 @@ const rateLimitCleanup = setInterval(() => {
 
 const periodicSave = setInterval(async () => {
   const activeRooms = Array.from(rooms.entries());
+  const now = Date.now();
   for (const [roomId, room] of activeRooms) {
     if (room.users.size > 0) {
+      roomLastEmptyAt.delete(roomId);
       const success = await saveRoomElements(roomId, room.elements);
       if (!success) {
         console.error(
@@ -632,10 +662,18 @@ const periodicSave = setInterval(async () => {
           })
         );
       }
-    } else if (room.elements.length > 0) {
-      const success = await saveRoomElements(roomId, room.elements);
-      if (success) {
+    } else {
+      const emptySince = roomLastEmptyAt.get(roomId);
+      if (!emptySince) {
+        roomLastEmptyAt.set(roomId, now);
+        continue;
+      }
+      if (now - emptySince > MAX_EMPTY_ROOM_TTL_MS) {
+        if (room.elements.length > 0) {
+          await saveRoomElements(roomId, room.elements);
+        }
         rooms.delete(roomId);
+        roomLastEmptyAt.delete(roomId);
       }
     }
   }

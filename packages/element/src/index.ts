@@ -1,5 +1,4 @@
 export * from './factory';
-export * from './intersection';
 export * from './renderer';
 export * from './resizeElements';
 export * from './renderElement';

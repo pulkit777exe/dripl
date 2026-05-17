@@ -82,6 +82,7 @@ export interface UseCollaborationReturn {
   broadcastCursor: (x: number, y: number) => void;
   lockElement: (_elementId: string) => void;
   unlockElement: (_elementId: string) => void;
+  disconnect: () => void;
 }
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001';

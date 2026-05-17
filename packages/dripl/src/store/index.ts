@@ -234,7 +234,7 @@ export const actions = {
       const newPast = state.history.past.slice(0, -1);
 
       const currentEntry: HistoryEntry = {
-        elements: JSON.parse(JSON.stringify(state.elements)),
+        elements: structuredClone(state.elements),
         timestamp: Date.now(),
       };
 
@@ -257,7 +257,7 @@ export const actions = {
       const newFuture = state.history.future.slice(1);
 
       const currentEntry: HistoryEntry = {
-        elements: JSON.parse(JSON.stringify(state.elements)),
+        elements: structuredClone(state.elements),
         timestamp: Date.now(),
       };
 

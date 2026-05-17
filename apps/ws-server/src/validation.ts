@@ -154,7 +154,7 @@ export const elementUpdateSchema = z.object({
 export const sceneUpdateSchema = z.object({
   type: z.literal('scene-update'),
   subtype: z.enum(['init', 'update']),
-  elements: z.array(driplElementSchema),
+  elements: z.array(driplElementSchema).max(5000),
 });
 
 export const messageSchema = z.discriminatedUnion('type', [

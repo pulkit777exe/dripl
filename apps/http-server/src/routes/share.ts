@@ -1,10 +1,19 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { db } from '@dripl/db';
 import { parseStoredFileContent } from '../lib/encrypt';
 
 const shareRouter: Router = Router();
 
-shareRouter.get('/:token', async (req, res) => {
+const shareLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+
+shareRouter.get('/:token', shareLimiter, async (req, res) => {
   const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
   if (!token) {
     res.status(400).json({ error: 'Share token is required' });

@@ -172,20 +172,8 @@ export class RoomController {
     const { name, isPublic, content } = parsed.data;
 
     try {
-      const room = await prisma.canvasRoom.findUnique({ where: { slug } });
-
-      if (!room) {
-        res.status(404).json({ error: 'Room not found' });
-        return;
-      }
-
-      if (room.ownerId !== req.userId) {
-        res.status(403).json({ error: 'Only the owner can update this room' });
-        return;
-      }
-
       const updatedRoom = await prisma.canvasRoom.update({
-        where: { slug },
+        where: { slug, ownerId: req.userId },
         data: {
           ...(name !== undefined && { name }),
           ...(isPublic !== undefined && { isPublic }),
@@ -198,6 +186,11 @@ export class RoomController {
         room: updatedRoom,
       });
     } catch (error) {
+      const err = error as { code?: string };
+      if (err.code === 'P2025') {
+        res.status(404).json({ error: 'Room not found or you do not have permission' });
+        return;
+      }
       console.error(
         JSON.stringify({
           level: 'error',
@@ -213,15 +206,13 @@ export class RoomController {
     const { slug } = req.params as { slug: string };
 
     try {
-      const room = await prisma.canvasRoom.findUnique({ where: { slug } });
+      const room = await prisma.canvasRoom.findUnique({
+        where: { slug, ownerId: req.userId },
+        select: { id: true },
+      });
 
       if (!room) {
-        res.status(404).json({ error: 'Room not found' });
-        return;
-      }
-
-      if (room.ownerId !== req.userId) {
-        res.status(403).json({ error: 'Only the owner can delete this room' });
+        res.status(404).json({ error: 'Room not found or you do not have permission' });
         return;
       }
 
@@ -259,15 +250,13 @@ export class RoomController {
     }
 
     try {
-      const room = await prisma.canvasRoom.findUnique({ where: { slug } });
+      const room = await prisma.canvasRoom.findUnique({
+        where: { slug, ownerId: req.userId },
+        select: { id: true },
+      });
 
       if (!room) {
-        res.status(404).json({ error: 'Room not found' });
-        return;
-      }
-
-      if (room.ownerId !== req.userId) {
-        res.status(403).json({ error: 'Only the owner can add members' });
+        res.status(404).json({ error: 'Room not found or you do not have permission' });
         return;
       }
 
@@ -313,15 +302,13 @@ export class RoomController {
     const { slug, userId } = req.params as { slug: string; userId: string };
 
     try {
-      const room = await prisma.canvasRoom.findUnique({ where: { slug } });
+      const room = await prisma.canvasRoom.findUnique({
+        where: { slug, ownerId: req.userId },
+        select: { id: true, ownerId: true },
+      });
 
       if (!room) {
-        res.status(404).json({ error: 'Room not found' });
-        return;
-      }
-
-      if (room.ownerId !== req.userId) {
-        res.status(403).json({ error: 'Only the owner can remove members' });
+        res.status(404).json({ error: 'Room not found or you do not have permission' });
         return;
       }
 

@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { useCanvasColors } from '../../theme';
+import type { HandlePosition } from '../../lib/handle-utils';
+import { getCursorForHandle } from '../../lib/handle-utils';
 
 export interface ElementBoundsProps {
   x: number;
@@ -15,8 +17,6 @@ export interface ElementBoundsProps {
   strokeStyle?: 'solid' | 'dashed';
   onHandleMouseDown?: (handle: HandlePosition, e: React.MouseEvent) => void;
 }
-
-export type HandlePosition = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rotation';
 
 export function ElementBounds({
   x,
@@ -126,7 +126,7 @@ export function ElementBounds({
           stroke={handleStrokeColor}
           strokeWidth={1}
           style={{
-            cursor: getCursorForHandle(handle.position, rotation),
+            cursor: getCursorForHandle(handle.position),
             pointerEvents: 'auto',
           }}
           onMouseDown={e => {
@@ -137,22 +137,6 @@ export function ElementBounds({
       ))}
     </g>
   );
-}
-
-function getCursorForHandle(position: HandlePosition, rotation: number): string {
-  const cursors: Record<HandlePosition, string> = {
-    nw: 'nwse-resize',
-    se: 'nwse-resize',
-    ne: 'nesw-resize',
-    sw: 'nesw-resize',
-    n: 'ns-resize',
-    s: 'ns-resize',
-    e: 'ew-resize',
-    w: 'ew-resize',
-    rotation: 'grab',
-  };
-
-  return cursors[position];
 }
 
 export function useElementBounds(

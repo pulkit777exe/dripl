@@ -1,6 +1,6 @@
 import rough from 'roughjs';
 import type { DriplElement } from '@dripl/common';
-import { getShapeFromCache, setShapeInCache } from './shape-cache';
+import { getShapeFromCache, setShapeInCache, pruneShapeCache } from './shape-cache';
 import type { RoughCanvas as _RoughCanvas } from 'roughjs/bin/canvas';
 import type { Drawable as _Drawable } from 'roughjs/bin/core';
 export type { RoughCanvas } from 'roughjs/bin/canvas';
@@ -11,6 +11,7 @@ const generator = rough.generator();
 let offscreenCanvas: HTMLCanvasElement | null = null;
 let offscreenContext: CanvasRenderingContext2D | null = null;
 let offscreenRoughCanvas: _RoughCanvas | null = null;
+let cacheOperationCount = 0;
 
 export function createRoughCanvas(canvas: HTMLCanvasElement): _RoughCanvas | null {
   try {
@@ -174,6 +175,10 @@ export function renderRoughElement(
   if (!shape) {
     shape = generateShape(element);
     setShapeInCache(element as any, shape);
+    cacheOperationCount++;
+    if (cacheOperationCount % 1000 === 0) {
+      pruneShapeCache();
+    }
   }
 
   const isLinear =

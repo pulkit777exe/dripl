@@ -121,8 +121,8 @@ export async function POST(request: NextRequest) {
         ]);
         break; // Success, exit retry loop
       } catch (err: unknown) {
-        lastError = err;
-        if (attempt < maxRetries && (err.message?.includes('503') || err.message?.includes('retry'))) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        if (attempt < maxRetries && (lastError.message?.includes('503') || lastError.message?.includes('retry'))) {
           await new Promise(r => setTimeout(r, 1000 * (attempt + 1))); // Exponential backoff
           continue;
         }
@@ -165,18 +165,18 @@ export async function POST(request: NextRequest) {
     const processedElements = (elements as Record<string, unknown>[]).map((el, index) => ({
       id: el.id || `ai-${Date.now()}-${index}`,
       type: el.type || 'rectangle',
-      x: (el.x ?? 100) + index * 150,
-      y: el.y ?? 100,
-      width: el.width ?? 120,
-      height: el.height ?? 80,
+      x: (Number(el.x) ?? 100) + index * 150,
+      y: Number(el.y) ?? 100,
+      width: Number(el.width) ?? 120,
+      height: Number(el.height) ?? 80,
       strokeColor: el.strokeColor || '#6965db',
       backgroundColor: el.backgroundColor || 'transparent',
-      strokeWidth: el.strokeWidth || 2,
+      strokeWidth: Number(el.strokeWidth) || 2,
       strokeStyle: el.strokeStyle || 'solid',
-      roughness: el.roughness ?? 1,
-      opacity: el.opacity ?? 1,
+      roughness: Number(el.roughness) ?? 1,
+      opacity: Number(el.opacity) ?? 1,
       text: el.text || '',
-      fontSize: el.fontSize || 16,
+      fontSize: Number(el.fontSize) || 16,
       points: el.points || [],
       angle: 0,
     }));

@@ -19,8 +19,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { login, googleLogin } = useAuth();
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleSubmit = async (event?: React.FormEvent) => {
+    if (event) event.preventDefault();
     setError('');
     setLoading(true);
 
@@ -70,9 +70,9 @@ export default function LoginPage() {
         {error && (
           <InlineError
             message={typeof error === 'string' ? error : 'An error occurred'}
-            onRetry={() => {
+            onRetry={async () => {
               setError('');
-              handleSubmit(event);
+              await handleSubmit();
             }}
             className="mb-4"
           />
