@@ -23,6 +23,7 @@ export function useInterpolatedCursors(
   );
   const cursorsRef = useRef<Map<string, InterpolatedCursor>>(new Map());
   const animationFrameRef = useRef<number | null>(null);
+  const cursorCountRef = useRef(0);
 
   useEffect(() => {
     remoteCursors.forEach((cursor, userId) => {
@@ -52,6 +53,8 @@ export function useInterpolatedCursors(
         cursorsRef.current.delete(userId);
       }
     });
+
+    cursorCountRef.current = remoteCursors.size;
   }, [remoteCursors]);
 
   useEffect(() => {
@@ -62,7 +65,7 @@ export function useInterpolatedCursors(
 
       let hasChanges = false;
 
-      cursorsRef.current.forEach((cursor, userId) => {
+      cursorsRef.current.forEach((cursor) => {
         const dx = cursor.targetX - cursor.x;
         const dy = cursor.targetY - cursor.y;
 
@@ -77,7 +80,7 @@ export function useInterpolatedCursors(
       });
 
       if (hasChanges) {
-        setInterpolatedCursors(new Map(cursorsRef.current));
+        setInterpolatedCursors(cursorsRef.current);
       }
 
       animationFrameRef.current = requestAnimationFrame(animate);

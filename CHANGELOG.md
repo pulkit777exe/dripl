@@ -9,6 +9,12 @@ All notable changes to this project will be documented in this file.
 - **Test Infrastructure**: Created `@dripl/test-utils` package with element factories (all 9 types), user/presence factories, and mock Canvas 2D context
 - **Element Resize Tests**: 48 comprehensive tests for `packages/element/src/resizeElements.ts` covering all element types, handle directions, aspect ratio, rotation, and edge cases
 - **Engineering Review**: Comprehensive codebase review (architecture, code quality, tests, performance)
+
+### Fixed
+
+- **Performance - RAF Loop**: `StaticCanvas` now only schedules `requestAnimationFrame` when dirty, cancels when idle (was 60fps continuous)
+- **Performance - RBush**: Replaced full spatial index rebuild with incremental insert/remove in `RoughCanvas` (falls back to full rebuild when >40% elements changed)
+- **Performance - Cursor Interpolation**: Eliminated per-frame `new Map()` allocation in `useInterpolatedCursors` by passing same ref to setState
   - Created `TODOS.md` with 25 prioritized items + 15 pre-existing issues documented
 - **WebSocket Security**: JWT auth via `Sec-WebSocket-Protocol` header instead of URL query parameter
 - **Rate Limiting**: Added per-IP rate limiting (30 req/15min) to public share endpoint

@@ -110,6 +110,7 @@
 **Cons:** More complex state management, need to track element diffs.
 **Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:322-339`. Current: `useMemo(() => { tree.load(items) }, [elements])`.
 **Depends on:** None.
+**Status:** ✅ COMPLETED - Incremental insert/remove with full rebuild threshold at 40% changes.
 
 ### 13. Zustand Store Split
 **What:** Split 782-line monolith store into focused stores (canvas, history, collab, UI).
@@ -151,6 +152,7 @@
 **Cons:** Need to track dirty state transitions carefully.
 **Context:** `apps/dripl-app/components/canvas/StaticCanvas.tsx:113-147`.
 **Depends on:** None.
+**Status:** ✅ COMPLETED - RAF loop now only schedules when `isDirtyRef` is true, cancels when idle.
 
 ### 18. Cursor Interpolation Optimization
 **What:** Use ref-based approach instead of creating new Map every animation frame.
@@ -159,6 +161,7 @@
 **Cons:** More complex state management.
 **Context:** `apps/dripl-app/hooks/useInterpolatedCursors.ts`.
 **Depends on:** None.
+**Status:** ✅ COMPLETED - Pass same Map ref to setState, eliminating per-frame allocation.
 
 ---
 

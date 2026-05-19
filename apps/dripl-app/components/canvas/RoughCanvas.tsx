@@ -319,23 +319,124 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     zoom,
   };
 
+  // ── Spatial index (incremental rebuild) ────────────────────────────────────
+  const spatialIndexRef = useRef<{
+    tree: RBush<SpatialItem>;
+    byId: Map<string, DriplElement>;
+    elementIds: Set<string>;
+  } | null>(null);
+
   const spatialIndex = useMemo(() => {
-    const tree = new RBush<SpatialItem>();
-    const byId = new Map<string, DriplElement>();
-    const items: SpatialItem[] = [];
-    elements.forEach(element => {
-      const bounds = getElementBounds(element);
-      items.push({
-        minX: bounds.x,
-        minY: bounds.y,
-        maxX: bounds.x + bounds.width,
-        maxY: bounds.y + bounds.height,
-        id: element.id,
+    const prev = spatialIndexRef.current;
+
+    if (!prev) {
+      const tree = new RBush<SpatialItem>();
+      const byId = new Map<string, DriplElement>();
+      const elementIds = new Set<string>();
+      elements.forEach(element => {
+        const bounds = getElementBounds(element);
+        tree.insert({
+          minX: bounds.x,
+          minY: bounds.y,
+          maxX: bounds.x + bounds.width,
+          maxY: bounds.y + bounds.height,
+          id: element.id,
+        });
+        byId.set(element.id, element);
+        elementIds.add(element.id);
       });
-      byId.set(element.id, element);
+      spatialIndexRef.current = { tree, byId, elementIds };
+      return spatialIndexRef.current;
+    }
+
+    const prevIds = prev.elementIds;
+    const currentIds = new Set(elements.map(e => e.id));
+
+    const added = elements.filter(e => !prevIds.has(e.id));
+    const removed = [...prevIds].filter(id => !currentIds.has(id));
+    const updated = elements.filter(e => {
+      if (!prevIds.has(e.id)) return false;
+      const prevEl = prev.byId.get(e.id);
+      if (!prevEl) return true;
+      return (
+        prevEl.x !== e.x ||
+        prevEl.y !== e.y ||
+        prevEl.width !== e.width ||
+        prevEl.height !== e.height ||
+        prevEl.angle !== e.angle
+      );
     });
-    tree.load(items);
-    return { tree, byId };
+
+    if (added.length + removed.length + updated.length > elements.length * 0.4) {
+      const tree = new RBush<SpatialItem>();
+      const byId = new Map<string, DriplElement>();
+      const elementIds = new Set<string>();
+      elements.forEach(element => {
+        const bounds = getElementBounds(element);
+        tree.insert({
+          minX: bounds.x,
+          minY: bounds.y,
+          maxX: bounds.x + bounds.width,
+          maxY: bounds.y + bounds.height,
+          id: element.id,
+        });
+        byId.set(element.id, element);
+        elementIds.add(element.id);
+      });
+      spatialIndexRef.current = { tree, byId, elementIds };
+    } else {
+      for (const id of removed) {
+        const prevEl = prev.byId.get(id);
+        if (prevEl) {
+          const bounds = getElementBounds(prevEl);
+          prev.tree.remove({
+            minX: bounds.x,
+            minY: bounds.y,
+            maxX: bounds.x + bounds.width,
+            maxY: bounds.y + bounds.height,
+            id,
+          });
+          prev.byId.delete(id);
+          prevIds.delete(id);
+        }
+      }
+      for (const el of added) {
+        const bounds = getElementBounds(el);
+        prev.tree.insert({
+          minX: bounds.x,
+          minY: bounds.y,
+          maxX: bounds.x + bounds.width,
+          maxY: bounds.y + bounds.height,
+          id: el.id,
+        });
+        prev.byId.set(el.id, el);
+        prevIds.add(el.id);
+      }
+      for (const el of updated) {
+        const prevEl = prev.byId.get(el.id);
+        if (prevEl) {
+          const prevBounds = getElementBounds(prevEl);
+          prev.tree.remove({
+            minX: prevBounds.x,
+            minY: prevBounds.y,
+            maxX: prevBounds.x + prevBounds.width,
+            maxY: prevBounds.y + prevBounds.height,
+            id: el.id,
+          });
+        }
+        const bounds = getElementBounds(el);
+        prev.tree.insert({
+          minX: bounds.x,
+          minY: bounds.y,
+          maxX: bounds.x + bounds.width,
+          maxY: bounds.y + bounds.height,
+          id: el.id,
+        });
+        prev.byId.set(el.id, el);
+      }
+    }
+
+    return spatialIndexRef.current;
   }, [elements]);
 
   // ── Coordinate helpers ────────────────────────────────────────────────────
