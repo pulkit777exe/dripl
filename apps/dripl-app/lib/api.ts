@@ -64,17 +64,96 @@ async function parseError(response: Response): Promise<string> {
 }
 
 class ApiClient {
+  private csrfToken: string | null = null;
+  private csrfTokenPromise: Promise<string> | null = null;
+
   constructor(private readonly baseUrl: string) {}
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+  private isSafeMethod(method: string): boolean {
+    return method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+  }
+
+  private resolveCsrfUrl(): string {
+    try {
+      return new URL('/csrf-token', this.baseUrl).toString();
+    } catch {
+      return '/csrf-token';
+    }
+  }
+
+  private async fetchCsrfToken(): Promise<string> {
+    const response = await fetch(this.resolveCsrfUrl(), {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to initialize security token');
+    }
+
+    const payload = (await response.json()) as { token?: string };
+    if (!payload.token) {
+      throw new Error('Failed to initialize security token');
+    }
+
+    this.csrfToken = payload.token;
+    return payload.token;
+  }
+
+  private async getCsrfToken(forceRefresh = false): Promise<string> {
+    if (forceRefresh) {
+      this.csrfToken = null;
+    }
+
+    if (this.csrfToken) {
+      return this.csrfToken;
+    }
+
+    if (!this.csrfTokenPromise) {
+      this.csrfTokenPromise = this.fetchCsrfToken().finally(() => {
+        this.csrfTokenPromise = null;
+      });
+    }
+
+    return this.csrfTokenPromise;
+  }
+
+  private async sendRequest(path: string, init?: RequestInit, retryOnCsrfFailure = true): Promise<Response> {
+    const method = (init?.method ?? 'GET').toUpperCase();
+    const headers = new Headers(init?.headers);
+
+    if (init?.body && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+    if (!this.isSafeMethod(method)) {
+      const csrfToken = await this.getCsrfToken();
+      headers.set('x-csrf-token', csrfToken);
+    }
+
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(init?.headers ?? {}),
-      },
+      headers,
     });
+
+    if (response.status === 403 && retryOnCsrfFailure && !this.isSafeMethod(method)) {
+      const errorMessage = await parseError(response.clone());
+      if (errorMessage === 'CSRF token missing' || errorMessage === 'CSRF token invalid') {
+        const csrfToken = await this.getCsrfToken(true);
+        headers.set('x-csrf-token', csrfToken);
+        return fetch(`${this.baseUrl}${path}`, {
+          ...init,
+          credentials: 'include',
+          headers,
+        });
+      }
+    }
+
+    return response;
+  }
+
+  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+    const response = await this.sendRequest(path, init);
 
     if (!response.ok) {
       throw new Error(await parseError(response));
