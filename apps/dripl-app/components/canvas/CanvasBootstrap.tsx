@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
 import type { DriplElement } from '@dripl/common';
 
@@ -97,10 +97,6 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
   const setReadOnly = useCanvasStore(state => state.setReadOnly);
 
   useEffect(() => {
-    setRoomSlug(mode === 'room' ? (props as RoomModeProps).roomSlug : null);
-  }, [mode, props, setRoomSlug]);
-
-  useEffect(() => {
     setReadOnly(readOnly);
     return () => setReadOnly(false);
   }, [readOnly, setReadOnly]);
@@ -111,10 +107,12 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
     initialElementsRef.current = existingElements;
   }
 
-  const roomSlug = useMemo(
-    () => (mode === 'room' ? (props as RoomModeProps).roomSlug : null),
-    [mode, props]
-  );
+  const roomSlug = mode === 'room' ? (props as RoomModeProps).roomSlug : null;
+  const fileInitialData = mode === 'file' ? (props as FileModeProps).initialData : null;
+
+  useEffect(() => {
+    setRoomSlug(roomSlug);
+  }, [roomSlug, setRoomSlug]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,7 +144,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
       if (mode === 'file') {
         const scene = await loadInitialScene({
           source: 'file',
-          initialData: (props as FileModeProps).initialData,
+          initialData: fileInitialData,
         });
         if (cancelled || !scene) {
           setIsInitialized(true);
@@ -181,9 +179,9 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
             return;
           }
         }
-        if (scene.elements.length > 0) {
-          setElements(scene.elements, { skipHistory: true });
-        }
+        // Always load the file scene, even when it's empty, so we don't
+        // keep stale elements from a previously opened canvas.
+        setElements(scene.elements, { skipHistory: true });
         applyAppStateToStore((scene.appState || null) as Partial<LocalCanvasState> | null);
         if (!cancelled) setIsInitialized(true);
       }
@@ -192,7 +190,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
     return () => {
       cancelled = true;
     };
-  }, [mode, roomSlug, props, setElements, setSelectedIds]);
+  }, [fileInitialData, mode, roomSlug, setElements, setSelectedIds]);
 
   const elements = useCanvasStore(state => state.elements);
   useEffect(() => {
