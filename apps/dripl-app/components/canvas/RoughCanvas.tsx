@@ -1,10 +1,11 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { saveLocalCanvasToStorage, LocalCanvasState } from '@/utils/localCanvasStorage';
-import { getElementBounds, isPointInElement } from '@dripl/math';
+import { getElementBounds, isPointInElement, inverseRotatePoint } from '@dripl/math';
 import { ActionCreator, CanvasContentSchema, type DriplElement } from '@dripl/common';
 import { getOrCreateCollaboratorName } from '@/utils/username';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
@@ -153,7 +154,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   const { startDrawing, updateDrawing, finishDrawing, cancelDrawing } = useDrawingTools();
 
-  const elements = useCanvasStore(state => state.elements);
+  const elements = useCanvasStore(useShallow(state => state.elements));
   // draftElement lives in Zustand — the single source of truth for the in-progress shape.
   const draftElement = useCanvasStore(state => state.draftElement);
   const activeTool = useCanvasStore(state => state.activeTool);
@@ -1094,6 +1095,42 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       if (!interactionRef.current.historyPushed && (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5)) {
         pushHistory();
         interactionRef.current.historyPushed = true;
+      }
+
+      // ── Arrow endpoint dragging ─────────────────────────────────────
+      if (handle === 'arrow-start' || handle === 'arrow-end') {
+        if (!('points' in el) || !el.points || el.points.length < 2) return;
+        const pts = el.points as Point[];
+        const absPts = pts.map((p: Point) => ({ x: el.x + p.x, y: el.y + p.y }));
+        const idx = handle === 'arrow-start' ? 0 : pts.length - 1;
+        const target = absPts[idx];
+        if (!target) return;
+        const angle = el.angle ?? 0;
+        if (angle) {
+          const localDelta = inverseRotatePoint({ x: dx, y: dy }, 0, 0, angle);
+          target.x += localDelta.x;
+          target.y += localDelta.y;
+        } else {
+          target.x += dx;
+          target.y += dy;
+        }
+        const allX = absPts.map(p => p.x);
+        const allY = absPts.map(p => p.y);
+        const newMinX = Math.min(...allX);
+        const newMinY = Math.min(...allY);
+        const newMaxX = Math.max(...allX);
+        const newMaxY = Math.max(...allY);
+        const relPts = absPts.map(p => ({ x: p.x - newMinX, y: p.y - newMinY }));
+        const updatedElement: DriplElement = {
+          ...el,
+          x: newMinX,
+          y: newMinY,
+          width: Math.max(4, newMaxX - newMinX),
+          height: Math.max(4, newMaxY - newMinY),
+          points: relPts,
+        };
+        if (el.id) updateElementTransient(el.id, updatedElement);
+        return;
       }
 
       let newX = el.x;

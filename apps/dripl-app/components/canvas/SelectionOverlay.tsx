@@ -1,7 +1,7 @@
 'use client';
 
 import { DriplElement, Point } from '@dripl/common';
-import { getElementBounds } from '@dripl/math';
+import { getElementBounds, elementLocalPointToWorld } from '@dripl/math';
 
 interface SelectionOverlayProps {
   zoom: number;
@@ -14,7 +14,7 @@ interface SelectionOverlayProps {
   marqueeSelection?: { start: Point; end: Point; active: boolean } | null;
 }
 
-export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'arrow-start' | 'arrow-end';
 
 const H = 14;
 
@@ -114,6 +114,31 @@ export function SelectionOverlay({
 
   const showHandles = selected.length === 1;
 
+  const arrowEndpoints = (() => {
+    if (selected.length !== 1) return [];
+    const el = selected[0];
+    if (!el || !('points' in el) || !el.points || el.points.length < 2) return [];
+    if (el.type !== 'arrow' && el.type !== 'line') return [];
+    const points = el.points as Point[];
+    const firstPt = points[0];
+    const lastPt = points[points.length - 1];
+    if (!firstPt || !lastPt) return [];
+    const startPt = elementLocalPointToWorld(el, firstPt);
+    const endPt = elementLocalPointToWorld(el, lastPt);
+    return [
+      {
+        id: 'arrow-start' as const,
+        left: (startPt.x - minX) * zoom + PAD,
+        top: (startPt.y - minY) * zoom + PAD,
+      },
+      {
+        id: 'arrow-end' as const,
+        left: (endPt.x - minX) * zoom + PAD,
+        top: (endPt.y - minY) * zoom + PAD,
+      },
+    ];
+  })();
+
   return (
     <div
       className="absolute top-0 left-0 pointer-events-none"
@@ -144,6 +169,22 @@ export function SelectionOverlay({
               style={{
                 ...baseHandle,
                 ...css,
+              }}
+              onPointerDown={e => onResizeStart(id, e)}
+            />
+          ))}
+
+          {arrowEndpoints.map(({ id, left, top }) => (
+            <div
+              key={id}
+              className="resize-handle"
+              data-handle={id}
+              style={{
+                ...baseHandle,
+                left: left - H / 2,
+                top: top - H / 2,
+                cursor: 'move',
+                borderRadius: '50%',
               }}
               onPointerDown={e => onResizeStart(id, e)}
             />

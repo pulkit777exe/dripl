@@ -1,5 +1,5 @@
 import type { DriplElement, Point } from '@dripl/common';
-import { getElementBounds } from '@dripl/math';
+import { getElementBounds, elementLocalPointToWorld } from '@dripl/math';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
 
 export interface SceneViewport {
@@ -512,6 +512,25 @@ function drawSelection(
     );
     ctx.fill();
     ctx.stroke();
+  }
+
+  if (selected.length === 1) {
+    const el = selected[0];
+    if (el && ('points' in el) && el.points && el.points.length >= 2 && (el.type === 'arrow' || el.type === 'line')) {
+      const pts = el.points as Point[];
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#6965db';
+      ctx.lineWidth = 1.5;
+      for (const pt of [pts[0], pts[pts.length - 1]]) {
+        if (!pt) continue;
+        const worldPt = elementLocalPointToWorld(el, pt);
+        const screen = worldToScreen(worldPt, viewport);
+        ctx.beginPath();
+        ctx.arc(screen.x, screen.y, HANDLE_SIZE_PX / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
   }
 
   ctx.restore();
