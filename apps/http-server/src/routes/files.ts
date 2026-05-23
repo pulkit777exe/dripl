@@ -42,6 +42,7 @@ const createShareSchema = z.object({
 });
 
 const filesRouter: Router = Router();
+const FREE_PLAN_FILE_LIMIT = 3;
 
 function getSingleParam(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) {
@@ -166,6 +167,16 @@ filesRouter.post('/', async (req: AuthenticatedRequest, res) => {
   const payload = parsedBody.data;
 
   try {
+    const ownedFileCount = await db.file.count({
+      where: { userId: req.userId },
+    });
+    if (ownedFileCount >= FREE_PLAN_FILE_LIMIT) {
+      res.status(403).json({
+        error: `Free plan limit reached (${FREE_PLAN_FILE_LIMIT} canvases). Delete one or upgrade to Premium.`,
+      });
+      return;
+    }
+
     const folderId = payload.folderId ?? null;
     const hasFolderAccess = await ensureFolderOwnership(req.userId, folderId);
     if (!hasFolderAccess) {
