@@ -38,6 +38,12 @@ interface SpatialItem {
   id: string;
 }
 
+interface SpatialIndexState {
+  tree: RBush<SpatialItem>;
+  byId: Map<string, DriplElement>;
+  elementIds: Set<string>;
+}
+
 interface LaserTrailPoint {
   x: number;
   y: number;
@@ -58,6 +64,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const [userName, setUserName] = useState<string | null>(() => getOrCreateCollaboratorName());
 
   const [isDrawing, setIsDrawing] = useState(false);
+  const isDrawingRef = useRef(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -83,6 +90,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     elementId: string;
   } | null>(null);
   const [laserTrailPoints, setLaserTrailPoints] = useState<LaserTrailPoint[]>([]);
+
+  const setDrawingState = useCallback((next: boolean) => {
+    isDrawingRef.current = next;
+    setIsDrawing(next);
+  }, []);
+
   const eraserHitIdsRef = useRef<Set<string>>(new Set());
   const lastToolBeforeSpaceRef = useRef<ActiveTool | null>(null);
   const activeGestureLocksRef = useRef<Set<string>>(new Set());
@@ -320,34 +333,14 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   };
 
   // ── Spatial index (incremental rebuild) ────────────────────────────────────
-  const spatialIndexRef = useRef<{
-    tree: RBush<SpatialItem>;
-    byId: Map<string, DriplElement>;
-    elementIds: Set<string>;
-  } | null>(null);
+  const spatialIndexRef = useRef<SpatialIndexState>({
+    tree: new RBush<SpatialItem>(),
+    byId: new Map<string, DriplElement>(),
+    elementIds: new Set<string>(),
+  });
 
-  const spatialIndex = useMemo(() => {
+  const spatialIndex = useMemo<SpatialIndexState>(() => {
     const prev = spatialIndexRef.current;
-
-    if (!prev) {
-      const tree = new RBush<SpatialItem>();
-      const byId = new Map<string, DriplElement>();
-      const elementIds = new Set<string>();
-      elements.forEach(element => {
-        const bounds = getElementBounds(element);
-        tree.insert({
-          minX: bounds.x,
-          minY: bounds.y,
-          maxX: bounds.x + bounds.width,
-          maxY: bounds.y + bounds.height,
-          id: element.id,
-        });
-        byId.set(element.id, element);
-        elementIds.add(element.id);
-      });
-      spatialIndexRef.current = { tree, byId, elementIds };
-      return spatialIndexRef.current;
-    }
 
     const prevIds = prev.elementIds;
     const currentIds = new Set(elements.map(e => e.id));
@@ -820,14 +813,15 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     const rawPoint = getCanvasCoordinates(e);
     const point = snapPointToGrid(rawPoint);
     const { x, y } = point;
+    const currentTool = useCanvasStore.getState().activeTool;
 
     broadcastCursor(x, y);
 
     const isTemporaryPan = interactionRef.current.isSpacePressed || e.button === 1;
-    if (activeTool === 'hand' || isTemporaryPan) {
+    if (currentTool === 'hand' || isTemporaryPan) {
       e.preventDefault();
-      if (isTemporaryPan && activeTool !== 'hand') {
-        lastToolBeforeSpaceRef.current = activeTool;
+      if (isTemporaryPan && currentTool !== 'hand') {
+        lastToolBeforeSpaceRef.current = currentTool;
       }
       interactionRef.current.panning = true;
       interactionRef.current.panStartClient = { x: e.clientX, y: e.clientY };
@@ -835,8 +829,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (activeTool === 'laser') {
-      setIsDrawing(true);
+    if (currentTool === 'laser') {
+      setDrawingState(true);
       setLaserTrailPoints([{ x, y, createdAt: Date.now() }]);
       return;
     }
@@ -845,7 +839,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (activeTool === 'select') {
+    if (currentTool === 'select') {
       if (e.detail === 2) {
         const doubleClicked = getElementAtPosition(x, y);
         if (doubleClicked?.type === 'text') {
@@ -930,12 +924,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (activeTool === 'text') {
+    if (currentTool === 'text') {
       setTextInput({ x, y, id: uuidv4(), value: '' });
       return;
     }
 
-    if (activeTool === 'image') {
+    if (currentTool === 'image') {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
@@ -983,25 +977,25 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (activeTool === 'eraser') {
-      setIsDrawing(true);
+    if (currentTool === 'eraser') {
+      setDrawingState(true);
       eraserHitIdsRef.current.clear();
       setEraserPath([{ x, y }]);
       return;
     }
 
     if (
-      activeTool === 'rectangle' ||
-      activeTool === 'ellipse' ||
-      activeTool === 'diamond' ||
-      activeTool === 'arrow' ||
-      activeTool === 'line' ||
-      activeTool === 'freedraw' ||
-      activeTool === 'frame'
+      currentTool === 'rectangle' ||
+      currentTool === 'ellipse' ||
+      currentTool === 'diamond' ||
+      currentTool === 'arrow' ||
+      currentTool === 'line' ||
+      currentTool === 'freedraw' ||
+      currentTool === 'frame'
     ) {
       startDrawing(
         { x, y },
-        activeTool,
+        currentTool,
         { shiftKey: e.shiftKey, altKey: e.altKey },
         {
           strokeColor: currentStrokeColor,
@@ -1014,7 +1008,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         },
         elements
       );
-      setIsDrawing(true);
+      setDrawingState(true);
       return;
     }
   };
@@ -1022,6 +1016,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   // ── Pointer move ──────────────────────────────────────────────────────────
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const { x, y } = getCanvasCoordinates(e);
+    const currentTool = useCanvasStore.getState().activeTool;
 
     if (e.pointerType === 'touch' && interactionRef.current.touchPointers.has(e.pointerId)) {
       interactionRef.current.touchPointers.set(e.pointerId, {
@@ -1078,7 +1073,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (activeTool === 'laser' && isDrawing) {
+    if (currentTool === 'laser' && isDrawingRef.current) {
       const now = Date.now();
       setLaserTrailPoints(prev => [...prev.slice(-160), { x, y, createdAt: now }]);
       return;
@@ -1230,7 +1225,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     // ── Drag selected elements ─────────────────────────────────────────────
     if (
       interactionRef.current.dragging &&
-      activeTool === 'select' &&
+      currentTool === 'select' &&
       interactionRef.current.dragStartCanvasPos &&
       interactionRef.current.dragInitialElements
     ) {
@@ -1258,9 +1253,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       return;
     }
 
-    if (!isDrawing) return;
+    if (!isDrawingRef.current) return;
 
-    if (activeTool === 'eraser') {
+    if (currentTool === 'eraser') {
       setEraserPath(prev => [...prev, { x, y }]);
       const state = useCanvasStore.getState();
       const candidates = spatialIndex.tree.search({
@@ -1282,13 +1277,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     if (
-      activeTool === 'rectangle' ||
-      activeTool === 'ellipse' ||
-      activeTool === 'diamond' ||
-      activeTool === 'arrow' ||
-      activeTool === 'line' ||
-      activeTool === 'freedraw' ||
-      activeTool === 'frame'
+      currentTool === 'rectangle' ||
+      currentTool === 'ellipse' ||
+      currentTool === 'diamond' ||
+      currentTool === 'arrow' ||
+      currentTool === 'line' ||
+      currentTool === 'freedraw' ||
+      currentTool === 'frame'
     ) {
       const snapped = snapPointToGrid({ x, y });
       updateDrawing(
@@ -1306,6 +1301,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   // ── Pointer up ────────────────────────────────────────────────────────────
   const handlePointerUp = (e?: React.PointerEvent) => {
+    const currentTool = useCanvasStore.getState().activeTool;
     if (e?.pointerType === 'touch') {
       interactionRef.current.touchPointers.delete(e.pointerId);
       if (interactionRef.current.touchPointers.size < 2) {
@@ -1322,7 +1318,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       setIsPanning(false);
       if (
         !interactionRef.current.isSpacePressed &&
-        activeTool === 'hand' &&
+        currentTool === 'hand' &&
         lastToolBeforeSpaceRef.current &&
         lastToolBeforeSpaceRef.current !== 'hand'
       ) {
@@ -1418,13 +1414,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     // ── End drawing ────────────────────────────────────────────────────────
-    if (isDrawing) {
-      if (activeTool === 'laser') {
-        setIsDrawing(false);
+    if (isDrawingRef.current) {
+      if (currentTool === 'laser') {
+        setDrawingState(false);
         return;
       }
 
-      if (activeTool === 'eraser') {
+      if (currentTool === 'eraser') {
         const elementsToErase = collectCascadeDeleteIds(eraserHitIdsRef.current);
 
         if (elementsToErase.length > 0) {
@@ -1433,19 +1429,19 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
         setEraserPath([]);
         eraserHitIdsRef.current.clear();
-        setIsDrawing(false);
-        maybeRevertToSelectTool('eraser'); // RULE: Tool Reversion
+        setDrawingState(false);
+        maybeRevertToSelectTool('eraser');
         return;
       }
 
       if (
-        activeTool === 'rectangle' ||
-        activeTool === 'ellipse' ||
-        activeTool === 'diamond' ||
-        activeTool === 'arrow' ||
-        activeTool === 'line' ||
-        activeTool === 'freedraw' ||
-        activeTool === 'frame'
+        currentTool === 'rectangle' ||
+        currentTool === 'ellipse' ||
+        currentTool === 'diamond' ||
+        currentTool === 'arrow' ||
+        currentTool === 'line' ||
+        currentTool === 'freedraw' ||
+        currentTool === 'frame'
       ) {
         const finishedElement = finishDrawing();
         if (finishedElement) {
@@ -1453,12 +1449,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
             applyFrameGrouping(finishedElement);
           }
         }
-        setIsDrawing(false);
-        maybeRevertToSelectTool(activeTool); // RULE: Tool Reversion
+        setDrawingState(false);
+        maybeRevertToSelectTool(currentTool); // RULE: Tool Reversion
         return;
       }
       // All drawing tools go through useDrawingTools — no legacy fallback.
-      setIsDrawing(false);
+      setDrawingState(false);
     }
   };
 
@@ -1926,6 +1922,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         clearSelection();
         setTextInput(null);
         cancelDrawing();
+        setDrawingState(false);
       }
     };
 
