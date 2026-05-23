@@ -67,8 +67,9 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
     roundness,
   };
 
-  if (backgroundColor !== 'transparent') {
-    options.fill = backgroundColor;
+  const fillColor = backgroundColor ?? 'transparent';
+  if (fillColor !== 'transparent') {
+    options.fill = fillColor;
   }
   if (strokeStyle === 'dashed') {
     options.strokeLineDash = [10, 5];

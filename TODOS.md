@@ -145,14 +145,11 @@
 **Depends on:** None.
 **Status:** ✅ COMPLETED - Replaced array-based accessOrder with Map-based counter for O(1) updates.
 
-### 17. RAF Loop Optimization
-**What:** Cancel RAF loop when not dirty, restart when dirty.
-**Why:** `StaticCanvas.tsx:113-147` fires `requestAnimationFrame` 60fps even when nothing changes.
-**Pros:** Better battery life, lower CPU usage.
-**Cons:** Need to track dirty state transitions carefully.
-**Context:** `apps/dripl-app/components/canvas/StaticCanvas.tsx:113-147`.
-**Depends on:** None.
-**Status:** ✅ COMPLETED - RAF loop now only schedules when `isDirtyRef` is true, cancels when idle.
+### 17. RAF Loop — One-Shot Bug (Fixed)
+**What:** The one-shot RAF loop optimization caused committed elements to never render on StaticCanvas. Reverted to continuous loop matching InteractiveCanvas.
+**Why:** StaticCanvas's RAF loop ran once on mount, set `rafRef.current = null`, and stopped. When elements changed later via `commitDraft()`, the other effect set `isDirtyRef.current = true` but no `requestAnimationFrame` was ever scheduled — the re-scheduling mechanism was never implemented. Fix: use continuous RAF (unconditional `requestAnimationFrame(loop)` at end of every frame, same pattern as InteractiveCanvas).
+**Context:** `apps/dripl-app/components/canvas/StaticCanvas.tsx:113-150`. Also fixed `packages/element/src/rough-renderer.ts:70-73` — `undefined` backgroundColor passed `fill: undefined` to Rough.js (guard with `backgroundColor ?? 'transparent'`).
+**Status:** ✅ FIXED - Continuous RAF loop + undefined backgroundColor guard.
 
 ### 18. Cursor Interpolation Optimization
 **What:** Use ref-based approach instead of creating new Map every animation frame.
@@ -224,6 +221,15 @@
 **Cons:** Heavy infrastructure, slow CI.
 **Context:** Flows: auth, canvas creation, drawing, collaboration, share links, export.
 **Depends on:** Items 3, 4 (unit test foundation).
+
+---
+
+### 26. StaticCanvas RAF Loop Regression Test
+**What:** Vitest test verifying StaticCanvas re-renders (via RAF) when elements prop changes from `[]` to `[element]`.
+**Why:** This is the exact regression vector behind the invisible-shapes bug. A test would catch future RAF-loop breakage (one-shot vs continuous, missed re-scheduling, etc.).
+**Context:** Test should mount `StaticCanvas` (or test `renderStaticScene` call scheduling), simulate elements update, and assert `renderStaticScene` was called via RAF callback.
+**Depends on:** This fix (item 17) being in place first.
+**Status:** 🔲 TODO
 
 ---
 

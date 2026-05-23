@@ -111,7 +111,7 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
   }, [containerRef, viewport.width, viewport.height]);
 
   useEffect(() => {
-    const render = () => {
+    const loop = () => {
       const canvas = canvasRef.current;
       if (canvas && isDirtyRef.current) {
         isDirtyRef.current = false;
@@ -136,20 +136,10 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
         );
       }
 
-      if (isDirtyRef.current) {
-        rafRef.current = requestAnimationFrame(render);
-      } else {
-        rafRef.current = null;
-      }
+      rafRef.current = requestAnimationFrame(loop);
     };
 
-    const scheduleRender = () => {
-      if (rafRef.current === null) {
-        rafRef.current = requestAnimationFrame(render);
-      }
-    };
-
-    scheduleRender();
+    rafRef.current = requestAnimationFrame(loop);
 
     return () => {
       if (rafRef.current !== null) {
