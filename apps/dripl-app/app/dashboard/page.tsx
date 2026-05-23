@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileBrowser } from '@/components/dashboard/FileBrowser';
 import { useAuth } from '@/app/context/AuthContext';
-import { apiClient, type FileSummary, type FolderSummary } from '@/lib/api';
+import { apiClient, type FileSummary } from '@/lib/api';
 import { PageSkeleton } from '@/components/ui/LoadingState';
 
 const PAGE_SIZE = 20;
@@ -13,27 +13,23 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [files, setFiles] = useState<FileSummary[]>([]);
-  const [folders, setFolders] = useState<FolderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const loadData = useCallback(async (searchValue: string, pageNum: number) => {
     setLoading(true);
     try {
-      const [filesResponse, foldersResponse] = await Promise.all([
-        apiClient.listFiles({
-          search: searchValue || undefined,
-          page: pageNum,
-          limit: PAGE_SIZE,
-        }),
-        apiClient.listFolders(),
-      ]);
+      const filesResponse = await apiClient.listFiles({
+        search: searchValue || undefined,
+        page: pageNum,
+        limit: PAGE_SIZE,
+      });
       setFiles(filesResponse.files);
       setTotal(filesResponse.total);
       setPage(filesResponse.page);
-      setFolders(foldersResponse.folders);
     } finally {
       setLoading(false);
     }
@@ -65,12 +61,29 @@ export default function DashboardPage() {
   );
 
   const handleCreateFile = useCallback(async () => {
+    setCreateError(null);
+    try {
+      const file = await apiClient.createFile({
+        name: 'Untitled canvas',
+        content: [],
+      });
+      window.dispatchEvent(new CustomEvent('dripl:files-changed'));
+      router.push(`/file/${file.id}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create canvas';
+      setCreateError(message);
+    }
+  }, [router]);
+
+  const handleOpenLocalCanvas = useCallback(() => {
     router.push('/canvas');
   }, [router]);
 
   const handleDeleteFile = useCallback(async (id: string) => {
     await apiClient.deleteFile(id);
     setFiles(prev => prev.filter(file => file.id !== id));
+    setTotal(prev => Math.max(0, prev - 1));
+    window.dispatchEvent(new CustomEvent('dripl:files-changed'));
   }, []);
 
   const handleRenameFile = useCallback(async (id: string, name: string) => {
@@ -130,6 +143,11 @@ export default function DashboardPage() {
             </div>
           </div>
         </header>
+        {createError && (
+          <div className="mx-6 mt-4 rounded-md border border-[#F5C2B8] bg-[#FDF2F0] px-3 py-2 text-[13px] text-[#8B2A1A]">
+            {createError}
+          </div>
+        )}
         <FileBrowser
           files={fileItems}
           total={total}
@@ -138,6 +156,7 @@ export default function DashboardPage() {
           onPageChange={handlePageChange}
           onCreateFile={handleCreateFile}
           onStartNewCanvas={handleCreateFile}
+          onOpenLocalCanvas={handleOpenLocalCanvas}
           onDeleteFile={handleDeleteFile}
           onRenameFile={handleRenameFile}
         />
