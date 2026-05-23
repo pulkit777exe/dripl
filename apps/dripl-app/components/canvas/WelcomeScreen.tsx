@@ -48,10 +48,10 @@ const tips = [
 ];
 
 export function WelcomeScreen({ onClose }: WelcomeScreenProps) {
-  const elements = useCanvasStore(state => state.elements);
+  const hasElements = useCanvasStore(state => state.elements.length > 0);
   const setActiveTool = useCanvasStore(state => state.setActiveTool);
 
-  if (elements.length > 0) return null;
+  if (hasElements) return null;
 
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">

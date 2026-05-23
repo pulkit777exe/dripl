@@ -6,6 +6,7 @@ import type { DriplElement } from '@dripl/common';
 
 import RoughCanvas from '@/components/canvas/RoughCanvas';
 import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
+import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { saveCanvasToIndexedDB, loadCanvasFromIndexedDB } from '@/lib/canvas-db';
 import { type LocalCanvasState, loadLocalCanvasFromStorage } from '@/utils/localCanvasStorage';
@@ -93,7 +94,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
   const setElements = useCanvasStore(state => state.setElements);
   const setSelectedIds = useCanvasStore(state => state.setSelectedIds);
   const setRoomSlug = useCanvasStore(state => state.setRoomSlug);
-  const existingElements = useCanvasStore(state => state.elements);
+  const existingElements = useCanvasStore(useShallow(state => state.elements));
   const setReadOnly = useCanvasStore(state => state.setReadOnly);
 
   useEffect(() => {
@@ -192,7 +193,8 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
     };
   }, [fileInitialData, mode, roomSlug, setElements, setSelectedIds]);
 
-  const elements = useCanvasStore(state => state.elements);
+  const elements = useCanvasStore(useShallow(state => state.elements));
+
   useEffect(() => {
     if (!isInitialized || mode !== 'local') return;
     const LOCAL_ROOM_ID = 'local-canvas';

@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Menu as MenuIcon } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { Menu } from './Menu';
 import { ShareModal } from './ShareModal';
@@ -13,7 +14,7 @@ import { downloadBlob, exportCanvas } from '@/utils/export';
 export const TopBar: React.FC = () => {
   const { user } = useAuth();
   const router = useRouter();
-  const elements = useCanvasStore(state => state.elements);
+  const elements = useCanvasStore(useShallow(state => state.elements));
   const fileId = useCanvasStore(state => state.fileId);
   const zoom = useCanvasStore(state => state.zoom);
   const panX = useCanvasStore(state => state.panX);

@@ -13,6 +13,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
+import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { exportCanvas, downloadBlob, importFromJson } from '@/utils/export';
 import { InlineError, SuccessState } from '@/components/ui/ErrorState';
@@ -26,7 +27,7 @@ type ExportFormat = 'png' | 'svg' | 'json' | 'pdf';
 type ExportScale = 1 | 2 | 3 | 4;
 
 export function ExportModal({ isOpen, onClose }: ExportModalProps) {
-  const elements = useCanvasStore(state => state.elements);
+  const elements = useCanvasStore(useShallow(state => state.elements));
   const setElements = useCanvasStore(state => state.setElements);
   const selectedIds = useCanvasStore(state => state.selectedIds);
   const [exporting, setExporting] = useState(false);
