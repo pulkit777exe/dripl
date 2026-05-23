@@ -10,6 +10,7 @@ import { TopBar } from '@/components/canvas/TopBar';
 import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/app/context/AuthContext';
+import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { apiClient } from '@/lib/api';
 import { Spinner } from '@/components/button/Spinner';
@@ -22,7 +23,8 @@ export default function FilePage() {
   const router = useRouter();
   const setUserId = useCanvasStore(state => state.setUserId);
   const setFileMetadata = useCanvasStore(state => state.setFileMetadata);
-  const elements = useCanvasStore(state => state.elements);
+  const elements = useCanvasStore(useShallow(state => state.elements));
+  const storeFileId = useCanvasStore(state => state.fileId);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -32,6 +34,16 @@ export default function FilePage() {
   const autosaveEnabledRef = useRef(false);
   const lastSavedContentRef = useRef<string | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const store = useCanvasStore.getState();
+    store.setElements([], { skipHistory: true });
+    store.clearHistory();
+    store.clearSelection();
+    store.setClipboard([]);
+    autosaveEnabledRef.current = false;
+    lastSavedContentRef.current = null;
+  }, [fileId]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -78,6 +90,8 @@ export default function FilePage() {
   useEffect(() => {
     if (loading || loadError || !user || !initialData) return;
 
+    if (storeFileId !== fileId) return;
+
     const currentContent = JSON.stringify(elements);
     const savedContent = lastSavedContentRef.current;
 
@@ -114,7 +128,7 @@ export default function FilePage() {
         window.clearTimeout(autosaveTimerRef.current);
       }
     };
-  }, [elements, fileId, initialData, loadError, loading, user]);
+  }, [elements, fileId, initialData, loadError, loading, storeFileId, user]);
 
   useEffect(() => {
     return () => {
