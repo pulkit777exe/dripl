@@ -9,7 +9,7 @@ import {
   distance,
 } from './geometry';
 
-function rotatePoint(p: Point, cx: number, cy: number, angleRad: number): Point {
+export function rotatePoint(p: Point, cx: number, cy: number, angleRad: number): Point {
   const dx = p.x - cx;
   const dy = p.y - cy;
   const cos = Math.cos(angleRad);
@@ -20,11 +20,11 @@ function rotatePoint(p: Point, cx: number, cy: number, angleRad: number): Point 
   };
 }
 
-function inverseRotatePoint(p: Point, cx: number, cy: number, angleRad: number): Point {
+export function inverseRotatePoint(p: Point, cx: number, cy: number, angleRad: number): Point {
   return rotatePoint(p, cx, cy, -angleRad);
 }
 
-function elementLocalPointToWorld(el: DriplElement, pt: Point): Point {
+export function elementLocalPointToWorld(el: DriplElement, pt: Point): Point {
   const world = { x: el.x + pt.x, y: el.y + pt.y };
   const angle = (el.angle || 0) as number;
   if (!angle) return world;
