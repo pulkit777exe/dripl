@@ -229,7 +229,33 @@
 **Why:** This is the exact regression vector behind the invisible-shapes bug. A test would catch future RAF-loop breakage (one-shot vs continuous, missed re-scheduling, etc.).
 **Context:** Test should mount `StaticCanvas` (or test `renderStaticScene` call scheduling), simulate elements update, and assert `renderStaticScene` was called via RAF callback.
 **Depends on:** This fix (item 17) being in place first.
-**Status:** 🔲 TODO
+**Status:** ✅ COMPLETED — Vitest test mounts StaticCanvas with mock renderStaticScene + fake timers, simulates elements change, asserts re-render via RAF callback. See `apps/dripl-app/src/__tests__/StaticCanvas.test.tsx`.
+
+### 27. Same Content Across Files Bug (Fixed)
+**What:** Fix stale Zustand store contamination when navigating between different canvas files in the `/file/[id]` page.
+**Why:** The auto-save `useEffect` could capture stale elements from the previous file when `fileId` changes, before React flushes batched state updates (`setLoading(true)`). Additionally, the store retained the previous file's elements, causing a visual flash and potential data bleed.
+**Context:** `apps/dripl-app/app/file/[id]/page.tsx`. Two fixes applied:
+- Added a `useEffect` that resets store (elements, history, selection, clipboard) and auto-save refs on `fileId` change, preventing stale data from persisting between navigations.
+- Added `storeFileId !== fileId` guard to the auto-save effect, preventing saves when the store's fileId doesn't match the URL's fileId (e.g., during the fetch window before `setFileMetadata` is called).
+**Depends on:** None.
+**Status:** ✅ FIXED
+
+### 28. Arrow Endpoint Handle Rotation (Fixed)
+**What:** Apply rotation transforms to arrow/line endpoint handles so they appear at correct visual positions for rotated arrows.
+**Why:** SelectionOverlay, interactiveScene, and RoughCanvas all computed arrow endpoint positions without accounting for `el.angle`, causing handles to render at wrong positions and dragging to apply deltas in wrong coordinate space.
+**Context:** Three files modified:
+- `SelectionOverlay.tsx` — uses `elementLocalPointToWorld` (from `@dripl/math`) to compute handle positions
+- `interactiveScene.ts` — uses `elementLocalPointToWorld` for canvas-based handle rendering
+- `RoughCanvas.tsx` — uses `inverseRotatePoint` to convert world-space drag delta to local-space delta
+**Depends on:** `elementLocalPointToWorld`, `inverseRotatePoint`, `rotatePoint` being exported from `@dripl/math` (item from previous session).
+**Status:** ✅ FIXED
+
+---
+
+### 27. error.tsx Tailwind v4 Syntax — Review Notes
+**What:** The file `apps/dripl-app/app/error.tsx` uses `bg-(--color-primary)` and `text-(--color-primary-foreground)` syntax.
+**Note:** This is valid Tailwind v4 arbitrary value syntax for referencing CSS custom properties. The project uses Tailwind CSS v4 per CLAUDE.md. However, the CSS variables `--color-primary` and `--color-primary-foreground` should be verified to exist in the project's CSS; if undefined, the button renders transparent/invisible. No syntax change needed — this is a design-system consistency concern.
+**Status:** ✅ REVIEWED — No change required.
 
 ---
 
