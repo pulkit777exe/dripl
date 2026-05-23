@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Caveat, Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from '@/components/ThemeProvider';
@@ -16,18 +15,6 @@ export const metadata: Metadata = {
   },
 };
 
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-ui',
-});
-
-const caveat = Caveat({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-handwritten',
-});
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -35,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${caveat.variable}`}>
+      <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>{children}</AuthProvider>
           <CookieConsent />

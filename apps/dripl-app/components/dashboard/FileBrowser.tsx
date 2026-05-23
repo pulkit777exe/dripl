@@ -38,6 +38,7 @@ interface FileBrowserProps {
   onPageChange?: (page: number) => void;
   onCreateFile?: () => void;
   onStartNewCanvas?: () => void;
+  onOpenLocalCanvas?: () => void;
   onDeleteFile?: (id: string) => void;
   onRenameFile?: (id: string, name: string) => void;
 }
@@ -50,6 +51,7 @@ export function FileBrowser({
   onPageChange,
   onCreateFile,
   onStartNewCanvas,
+  onOpenLocalCanvas,
   onDeleteFile,
   onRenameFile,
 }: FileBrowserProps) {
@@ -128,6 +130,13 @@ export function FileBrowser({
             <Plus className="h-3.5 w-3.5" />
             New Canvas
           </button>
+
+          <button
+            onClick={onOpenLocalCanvas}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#D4D0C9] bg-white text-[#1A1917] text-[13px] font-medium hover:bg-[#E8E5DE] transition-colors"
+          >
+            Local Canvas
+          </button>
         </div>
       </div>
 
@@ -138,7 +147,7 @@ export function FileBrowser({
           {files.map(file => (
             <Link
               key={file.id}
-              href={`/canvas/${file.id}`}
+              href={`/file/${file.id}`}
               className="group relative rounded-lg border border-[#E4E0D9] bg-[#FAFAF7] hover:border-[#D4D0C9] hover:shadow-sm transition-all"
             >
               <div className="aspect-square bg-[#E8E5DE]/40 flex items-center justify-center rounded-t-lg">
@@ -222,7 +231,7 @@ export function FileBrowser({
             {files.map(file => (
               <Link
                 key={file.id}
-                href={`/canvas/${file.id}`}
+                href={`/file/${file.id}`}
                 className="grid grid-cols-12 gap-4 px-5 py-3 items-center hover:bg-secondary/30 transition-colors group"
               >
                 <div className="col-span-6 flex items-center gap-3">

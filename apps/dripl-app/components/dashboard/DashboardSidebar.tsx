@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import Image from 'next/image';
+import { apiClient } from '@/lib/api';
 
 const navItems = [
   { label: 'All Files', icon: Bookmark, href: '/dashboard', count: 0 },
@@ -31,11 +32,48 @@ export function DashboardSidebar() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [usedCanvases, setUsedCanvases] = useState(0);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const FREE_PLAN_LIMIT = 3;
 
   const handleLogout = async () => {
     await logout();
     router.push('/login');
   };
+
+  const loadPlanUsage = useCallback(async () => {
+    if (!user) {
+      setUsedCanvases(0);
+      return;
+    }
+    setUsageLoading(true);
+    try {
+      const response = await apiClient.listFiles({ page: 1, limit: 1 });
+      setUsedCanvases(response.total);
+    } catch {
+      // Keep previous count on transient failures.
+    } finally {
+      setUsageLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    void loadPlanUsage();
+    const handleFocus = () => {
+      void loadPlanUsage();
+    };
+    const handleFilesChanged = () => {
+      void loadPlanUsage();
+    };
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('dripl:files-changed', handleFilesChanged as EventListener);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('dripl:files-changed', handleFilesChanged as EventListener);
+    };
+  }, [loadPlanUsage, pathname, user?.id]);
+
+  const usagePercent = Math.min(100, Math.round((usedCanvases / FREE_PLAN_LIMIT) * 100));
 
   return (
     <aside className="w-60 flex flex-col h-full bg-[#F0EDE6] border-r border-[#E4E0D9]">
@@ -69,6 +107,24 @@ export function DashboardSidebar() {
           </div>
           New canvas
         </button>
+
+        <div className="mt-3 rounded-lg border border-[#E4E0D9] bg-[#FAFAF7] px-3 py-2 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-[12px] font-medium text-[#1A1917]">Free plan usage</p>
+            <span className="text-[11px] text-[#6B6860]">
+              {usageLoading ? '...' : `${usedCanvases}/${FREE_PLAN_LIMIT}`}
+            </span>
+          </div>
+          <div className="mt-2 h-1.5 w-full rounded-full bg-[#E8E5DE]">
+            <div
+              className="h-full rounded-full bg-[#E8462A] transition-all"
+              style={{ width: `${usagePercent}%` }}
+            />
+          </div>
+          <p className="mt-1 text-[11px] text-[#6B6860]">
+            Need more? Delete one canvas or upgrade.
+          </p>
+        </div>
       </div>
 
       {/* Navigation */}

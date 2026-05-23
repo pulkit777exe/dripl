@@ -84,7 +84,7 @@ export function WelcomeScreen({ onClose }: WelcomeScreenProps) {
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md transition-colors hover:bg-[#E8E5DE]"
+            className="p-2 rounded-md transition-colors hover:bg-[#E8E5DE]"
             style={{ color: 'var(--color-panel-label)' }}
           >
             ✕
