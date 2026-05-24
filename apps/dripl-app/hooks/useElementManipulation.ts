@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import type { DriplElement, Point } from '@dripl/common';
 import { v4 as uuidv4 } from 'uuid';
-import { resizeSingleElement } from '@dripl/element';
+import { resizeSingleElement } from '@dripl/element/resizeElements';
 
 export interface UseElementManipulationProps {
   elements: DriplElement[];

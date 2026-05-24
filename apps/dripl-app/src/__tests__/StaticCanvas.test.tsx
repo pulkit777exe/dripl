@@ -2,12 +2,12 @@ import { render } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { DriplElement } from '@dripl/common';
 
-vi.mock('@dripl/element', () => ({
+vi.mock('@dripl/element/staticScene', () => ({
   renderStaticScene: vi.fn(),
 }));
 
 import StaticCanvas from '@/components/canvas/StaticCanvas';
-import { renderStaticScene } from '@dripl/element';
+import { renderStaticScene } from '@dripl/element/staticScene';
 
 function createElement(id: string): DriplElement {
   return {
@@ -79,6 +79,6 @@ describe('StaticCanvas RAF loop', () => {
 
     // Verify the last call received the updated elements
     const lastCall = (renderStaticScene as ReturnType<typeof vi.fn>).mock.lastCall;
-    expect(lastCall[1]).toHaveLength(2);
+    expect(lastCall?.[1]).toHaveLength(2);
   });
 });

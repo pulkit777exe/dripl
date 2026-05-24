@@ -307,3 +307,106 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 
 ### P15. Missing LoadingState Export
 `apps/dripl-app/components/ui/ErrorState.tsx` — `LoadingState` component imported by `canvas/page.tsx` but never exported. Added component. Fixed.
+
+---
+
+## Tier 5: Architecture Gaps — Excalidraw Parity (Canvas Internals)
+
+> These issues were identified by comparing Dripl's rendering, caching, selection, and z-ordering systems against Excalidraw's proven dual-canvas architecture. Each gap represents a real correctness or performance problem.
+
+---
+
+### 29. ShapeCache Uses Plain `Map` — Unbounded Memory Leak
+**What:** `packages/element/src/shape-cache.ts` uses a `Map<string, Drawable>` keyed by `${id}:${version}`. Old entries from previous versions of the *same element* are never evicted — they accumulate indefinitely. The `pruneShapeCache(5000)` runs only every 1000 insertions and evicts by insertion order, not by staleness.
+**Why:** Excalidraw uses a `WeakMap<ExcalidrawElement, shape>` keyed on the element *object reference*. When an element is replaced (immutable update), the old object is GC'd and the cache entry disappears automatically. No pruning needed.
+**Problem in Dripl:** After 100 undo/redo operations on a 200-element canvas, the cache holds ~20,000 dead entries. Each Rough.js `Drawable` retains its full path data (several KB). This silently grows memory until the tab crashes.
+**Fix:** Replace `Map<string, Drawable>` with a version-checked `Map<string, { shape, version }>` keyed by element ID only. On cache lookup, compare `element.version` — if stale, delete and regenerate. Alternatively, adopt `WeakMap` if element object identity is stable enough (it is for committed elements).
+**Context:** `packages/element/src/shape-cache.ts:14`, `rough-renderer.ts:179-186`.
+**Depends on:** None.
+
+### 30. No Theme-Aware Shape Cache Invalidation
+**What:** Shape cache (`shape-cache.ts`) does not store or check the `theme` that was active when the shape was generated. When the user toggles dark/light mode, cached shapes still use the old theme's colors (especially dark-mode filter adjustments for stroke colors).
+**Why:** Excalidraw stores `{ shape, theme }` in `ShapeCache.cache` and returns a cache miss if `theme !== cachedTheme` (shape.ts:91-97). This guarantees shapes are regenerated after a theme switch.
+**Fix:** Add `theme` to the cache value and to the cache-hit check. Call `clearAllShapeCache()` on theme change as a fallback.
+**Context:** `packages/element/src/shape-cache.ts:28-30` (no theme parameter), `rough-renderer.ts:131` (theme parameter exists but is never used for cache keying).
+**Depends on:** None.
+
+### 31. Element Canvas Cache Uses String `versionKey` — O(n) Serialization Per Element Per Frame
+**What:** `packages/element/src/staticScene.ts:37-72` builds a `versionKey` string by concatenating ~18 properties (including `JSON.stringify(points)` for linear elements). This runs for every visible element on every frame that could potentially be dirty.
+**Why:** Excalidraw uses a `WeakMap<ExcalidrawElement, canvas>` for element-canvas caching. Cache validity is checked via object identity — since elements are immutably replaced on mutation, a new object reference = cache miss. No serialization needed.
+**Fix:** Replace the string-based `makeVersionKey` with a version-number check: store `{ canvas, version: element.version }` in the cache. On lookup, compare `element.version` to the cached version. If the element object reference changed AND version bumped, regenerate. This is O(1) per element instead of O(properties + points).
+**Context:** `packages/element/src/staticScene.ts:37-72, 259-276`.
+**Depends on:** Item 29 (consistent version semantics).
+
+### 32. No `isExporting` Bypass for Shape Cache
+**What:** During export (PNG/SVG), shapes must be regenerated with export-specific settings (e.g., guaranteed latest state, potentially different background color). Dripl's `renderRoughElement` always uses the cache and provides no mechanism to bypass it.
+**Why:** Excalidraw's `ShapeCache.generateElementShape` accepts `isExporting: true` which forces cache bypass (shape.ts:129-132), guaranteeing export output always reflects the latest state.
+**Fix:** Add an `isExporting` flag to `renderRoughElement()` and `getShapeFromCache()`. When true, skip cache lookup and do not write back to cache.
+**Context:** `packages/element/src/rough-renderer.ts:179-186`, `apps/dripl-app/components/canvas/ExportModal.tsx`.
+**Depends on:** None.
+
+### 33. Hit Detection Ignores `shouldTestInside` — Transparent Elements Unclickable or Over-selectable
+**What:** `packages/math/src/intersection.ts:84-176` (`isPointInElement`) always tests whether the point is *inside* the element's filled area. There is no concept of "only test the outline" for transparent/unfilled elements.
+**Why:** Excalidraw separates `shouldTestInside` from `isPointOnElementOutline`. For a transparent rectangle (no background fill, no bound text), only the stroke is clickable — clicking the interior does nothing. For arrows, only the line itself is clickable, never the bounding area. This prevents users from accidentally selecting invisible background areas.
+**Problem in Dripl:** A transparent rectangle with no fill is selectable by clicking anywhere inside it, which feels wrong. Conversely, thin arrows/lines are hard to select because the hit test checks the full bounding region rather than using a zoom-aware stroke tolerance.
+**Fix:** Implement `shouldTestInside(element)` logic:
+- Arrows: always test outline only.
+- Rectangles/ellipses/diamonds: test inside only if `backgroundColor !== 'transparent'` OR has bound text OR is an image.
+- Lines/freedraw: test inside only if filled AND forms a closed loop.
+Add `isPointOnElementOutline(point, element, threshold)` that uses distance-to-shape (already partially implemented via `distanceToSegment`).
+**Context:** `packages/math/src/intersection.ts:84-176`, `packages/math/src/hit-detection.ts:141-149`.
+**Depends on:** None.
+
+### 34. Hit Threshold Is Not Zoom-Aware
+**What:** `getElementAtPosition` in `RoughCanvas.tsx:482-524` uses a hardcoded tolerance of `8` (pixels?) for both spatial-index query and `isPointNearElement`. This doesn't scale with zoom level.
+**Why:** Excalidraw computes threshold as `max(strokeWidth/2 + 0.1, 0.85 * DEFAULT_COLLISION_THRESHOLD / zoom)`. At high zoom, thinner thresholds prevent accidental selections. At low zoom, wider thresholds keep small elements selectable.
+**Fix:** Replace the hardcoded `8` with `Math.max(element.strokeWidth / 2 + 0.1, 8 / zoom)`. Pass `zoom` into `getElementAtPosition`.
+**Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:485-503`.
+**Depends on:** None.
+
+### 35. Selection Box Doesn't Account for Element Rotation
+**What:** `SelectionOverlay.tsx:96-113` computes selection bounds using `getElementBounds()` (which does handle rotation via AABB expansion), but the selection box itself is always axis-aligned — it doesn't visually rotate with the element. Additionally, `drawSelectionBox` in `interactiveScene.ts:454-489` also draws an axis-aligned rectangle.
+**Why:** Excalidraw renders per-element selection borders with rotation: `getElementAbsoluteCoords` returns center coords, and the selection border is drawn with `context.rotate(element.angle)` at the element's center. This means a rotated rectangle's selection border is also rotated, matching the visual element exactly.
+**Problem in Dripl:** A 45°-rotated rectangle gets a much larger selection box (the AABB of the rotated rectangle), causing confusing visual feedback. Users can't tell which element is actually selected when rotated elements overlap.
+**Fix:** For single-element selection, render the selection box at the element's rotation angle, not axis-aligned. Use `ctx.translate(cx, cy) → ctx.rotate(angle) → draw rect → ctx.restore()`.
+**Context:** `apps/dripl-app/components/canvas/SelectionOverlay.tsx:96-113`, `renderer/interactiveScene.ts:454-489`.
+**Depends on:** None.
+
+### 36. No Fractional Index for Z-Ordering — Collaboration Z-Order Conflicts
+**What:** Z-ordering in Dripl is purely array-position based (`bringForward`/`sendBackward` swap array indices). There is no `index` property on elements.
+**Why:** Excalidraw assigns a `FractionalIndex` (base-62 string like `"a1V"`) to each element. During collaboration, fractional indices are the *source of truth* for ordering — not array position. This allows two users to independently reorder elements without conflicting: user A moves element X to index `"a2"`, user B moves element Y to index `"a3"`, and reconciliation sorts by these strings. Array-index-based reordering would require a full re-index on every remote update.
+**Problem in Dripl:** When two collaborators both use "bring to front" on different elements simultaneously, their local arrays diverge. The next `broadcastElements` call sends the full array, and the conflict resolution (last-write-wins) discards one user's reorder.
+**Fix:** Add `index: string | null` to `DriplElement`. Use `fractional-indexing` (vendored, CC0 license) to generate keys. On `bringForward`/`sendBackward`, compute new fractional indices. On multiplayer reconciliation, sort by `index` instead of array position.
+**Context:** `apps/dripl-app/lib/canvas-store.ts:479-585`, `@dripl/common` element type definition.
+**Depends on:** Diff-based element broadcasting (Item 2).
+
+### 37. `elementCanvasCache` Never Evicted — Orphaned Canvases Accumulate
+**What:** `packages/element/src/staticScene.ts:31` uses `Map<string, CacheEntry>` for offscreen element canvases. When an element is deleted, its cached `<canvas>` DOM node is never removed from the map. Each cached canvas allocates GPU-backed memory.
+**Why:** Excalidraw uses `WeakMap<ExcalidrawElement, canvas>` — deleted elements are GC'd, and their canvas entries disappear automatically. Additionally, `elementWithCanvasCache.delete(element)` is called on any shape cache miss.
+**Fix:** In `deleteElements`, call `invalidateElementCache(id)` for each deleted element (already done). But also need to periodically prune the `elementCanvasCache` — or switch to a `WeakMap`/`WeakRef`-based approach. As a simpler fix: in `invalidateElementCache`, also delete the offscreen canvas from `elementCanvasCache`.
+**Context:** `packages/element/src/staticScene.ts:31,104-106`, `canvas-store.ts:453-477`.
+**Depends on:** None.
+**Status:** Partially mitigated — `invalidateElementCache` does delete entries, but only when explicitly called. Undo/redo creates new element objects without cleaning up old canvas entries.
+
+### 38. Interactive Canvas Duplicates Full Element Rendering
+**What:** `renderer/interactiveScene.ts:644-651` re-renders *all committed elements* with its own Canvas 2D path-based renderer (manual roughness simulation via multi-pass jitter) when `renderCommittedElements` is true. Currently it's passed `false` from `InteractiveCanvas.tsx:173`, but the code exists and the rendering path is fundamentally different from `StaticCanvas` (which uses Rough.js).
+**Why:** Excalidraw has a clear separation: `renderStaticScene` handles element rendering exclusively; `renderInteractiveScene` only draws selection boxes, handles, cursors, snap lines, and other UI overlays. No element rendering code exists in the interactive scene.
+**Problem in Dripl:** Having two independent element renderers (one in `interactiveScene.ts` using manual multi-pass jitter, one in `rough-renderer.ts` using Rough.js) means: (a) visual inconsistency if both are ever enabled, (b) maintenance burden — element rendering bugs must be fixed in two places, (c) ~400 lines of dead/redundant code in `interactiveScene.ts`.
+**Fix:** Remove all element rendering functions from `interactiveScene.ts` (lines 127-414). The interactive canvas should only render overlays. Remove the `renderCommittedElements` parameter.
+**Context:** `renderer/interactiveScene.ts:127-414,644-651`, `InteractiveCanvas.tsx:173`.
+**Depends on:** None.
+
+### 39. No `mutateElement` Centralization — Shape Cache Invalidation Is Ad-Hoc
+**What:** Element mutations happen in three places: `updateElement` (canvas-store.ts:398), `updateElementTransient` (canvas-store.ts:430), and `commitDraft` (canvas-store.ts:297). Each must manually call `invalidateElementCache(id)`. There's no centralized mutation function that automatically invalidates caches.
+**Why:** Excalidraw's `mutateElement()` is the single mutation point. It automatically calls `ShapeCache.delete(element)` whenever geometry-affecting properties change (width, height, points, fileId). This makes it impossible to forget cache invalidation.
+**Problem in Dripl:** `commitDraft` (line 297-330) does NOT call `invalidateElementCache`. If a draft element had a cached shape from a preview render, the committed element may display a stale shape. Also, `setElements` (line 335-353) — used for full remote syncs — doesn't invalidate any caches, meaning remotely-changed elements may show stale offscreen canvases.
+**Fix:** Create a centralized `mutateElement(element, updates)` utility that: (a) bumps version/versionNonce, (b) calls `invalidateElementCache(id)` and `clearShapeFromCache(element)`, (c) returns the new element. Use this in all store actions.
+**Context:** `canvas-store.ts:297-330,335-353,398-428,430-451`.
+**Depends on:** None.
+
+### 40. Box Selection (Marquee) Doesn't Support "Contain" vs "Overlap" Correctly
+**What:** `packages/math/src/hit-detection.ts:151-158` (`getElementsInSelectionRect`) uses `elementIntersectsSelectionRect` which checks if *any part* of the element touches the selection rect. The store has `marqueeSelectionMode: 'intersecting' | 'contained'`, but the `contained` mode is never implemented — both modes use intersection logic.
+**Why:** Excalidraw's `getElementsWithinSelection` supports both `BoxSelectionMode: "contain" | "overlap"`. In "contain" mode, the element must be fully inside the selection box. In "overlap" mode, any intersection counts.
+**Fix:** Implement the `contained` mode: check if the selection AABB fully contains the element AABB using `boundsContainBounds(selectionBounds, elementBounds)`.
+**Context:** `packages/math/src/hit-detection.ts:151-158`, `canvas-store.ts:255` (mode state exists), `RoughCanvas.tsx` (where marquee selection is evaluated).
+**Depends on:** None.

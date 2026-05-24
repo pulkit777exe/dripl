@@ -11,8 +11,7 @@
     { "path": "./packages/element" },
     { "path": "./packages/math" },
     { "path": "./packages/utils" },
-    { "path": "./packages/test-utils" },
-    { "path": "./tooling/typescript-config" }
+    { "path": "./packages/test-utils" }
   ],
   "compilerOptions": {
     "incremental": true,
