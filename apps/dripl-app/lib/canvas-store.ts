@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { DriplElement } from '@dripl/common';
 import { invalidateElementCache } from '@dripl/element/staticScene';
+import { clearShapeFromCache, clearAllShapeCache } from '@dripl/element/shape-cache';
 import { initializeShapeRegistry } from '@/utils/shapes/shapeInitializer';
 
 initializeShapeRegistry();
@@ -314,6 +315,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       versionNonce: Math.floor(Math.random() * 2_147_483_647),
       updated: Date.now(),
     };
+    // Evict any preview shape that was cached for this draft (TODO #39)
+    clearShapeFromCache(committed);
+    invalidateElementCache(committed.id);
     const elements = [...state.elements, committed];
     const historyPayload = commitPresentFromHistory(history.past, history.future, elements);
 
@@ -335,8 +339,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setElements: (elements, options) =>
     set(state => {
       if (options?.skipHistory) {
+        // Clear all shape + offscreen caches for remotely-changed elements (TODO #39)
+        elements.forEach(el => {
+          const prev = state.elements.find(e => e.id === el.id);
+          if (prev && prev.version !== (el.version ?? 0)) {
+            invalidateElementCache(el.id);
+          }
+        });
         return { elements: cloneElements(elements) };
       }
+      // Full shape cache clear when replacing the whole scene
+      clearAllShapeCache();
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
@@ -403,6 +416,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       invalidateElementCache(id);
       const previous = state.elements[index];
       if (!previous) return state;
+      // Evict stale shape from Rough.js cache (TODO #39)
+      clearShapeFromCache(previous);
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
@@ -435,6 +450,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       invalidateElementCache(id);
       const previous = state.elements[index];
       if (!previous) return state;
+      // Evict stale shape from Rough.js cache (TODO #39)
+      clearShapeFromCache(previous);
 
       const nextElements = [...state.elements];
       nextElements[index] = {
@@ -639,7 +656,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setZoom: zoom => set({ zoom: Math.max(0.1, Math.min(20, zoom)) }),
   setPan: (panX, panY) => set({ panX, panY }),
-  setTheme: theme => set({ theme }),
+  setTheme: theme => {
+    // Flush shape cache so all shapes re-render with the correct theme colors (TODO #30)
+    clearAllShapeCache();
+    set({ theme });
+  },
   setGridEnabled: gridEnabled => set({ gridEnabled }),
   setGridSize: gridSize => set({ gridSize: Math.max(4, gridSize) }),
   setMarqueeSelectionMode: mode => set({ marqueeSelectionMode: mode }),

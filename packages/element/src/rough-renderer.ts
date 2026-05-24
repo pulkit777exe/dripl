@@ -128,7 +128,8 @@ export function renderRoughElement(
   ctx: CanvasRenderingContext2D,
   element: DriplElement,
   elements?: DriplElement[],
-  theme: 'light' | 'dark' = 'dark'
+  theme: 'light' | 'dark' = 'dark',
+  isExporting: boolean = false
 ): void {
   if (element.isDeleted) return;
 
@@ -176,13 +177,18 @@ export function renderRoughElement(
     return;
   }
 
-  let shape = getShapeFromCache(element as any);
+  // isExporting bypasses the cache to guarantee latest state on export (TODO #32)
+  let shape: ReturnType<typeof generateShape> | undefined = isExporting
+    ? undefined
+    : getShapeFromCache(element as any, theme);
   if (!shape) {
     shape = generateShape(element);
-    setShapeInCache(element as any, shape);
-    cacheOperationCount++;
-    if (cacheOperationCount % 1000 === 0) {
-      pruneShapeCache();
+    if (!isExporting) {
+      setShapeInCache(element as any, shape, theme);
+      cacheOperationCount++;
+      if (cacheOperationCount % 1000 === 0) {
+        pruneShapeCache();
+      }
     }
   }
 

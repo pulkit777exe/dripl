@@ -1,6 +1,7 @@
 import type { DriplElement } from '@dripl/common';
 import { createRoughCanvas, renderRoughElement, type RoughCanvas } from './rough-renderer';
 import { imageCache } from './image-cache';
+import { clearShapeFromCache } from './shape-cache';
 
 export interface StaticSceneViewport {
   x: number;
@@ -20,55 +21,23 @@ export interface StaticSceneConfig {
 
 // ─── Element canvas cache ────────────────────────────────────────────────────
 // Each cached entry stores:
-//   canvas     – the offscreen canvas with the rendered element
-//   versionKey – a hash of the properties that affect rendering.
-//                If the key changes the canvas is regenerated.
+//   canvas  – the offscreen canvas with the rendered element
+//   version – element.version at the time of rendering.
+//             If element.version changes, the entry is regenerated in O(1).
 interface CacheEntry {
   canvas: HTMLCanvasElement;
-  versionKey: string;
+  version: number;
 }
 
 const elementCanvasCache = new Map<string, CacheEntry>();
 
 /**
- * Build a cheap version key from every property that visually affects an element.
- * When any of these change the element must be re-rendered into a fresh offscreen canvas.
+ * Return the element's version number for cache invalidation.
+ * Falls back to 0 for legacy elements that don't have a version yet.
+ * O(1) — no serialization required (TODO #31).
  */
-function makeVersionKey(el: DriplElement): string {
-  // Include all properties that affect visual rendering
-  const keyParts = [
-    el.type,
-    el.width,
-    el.height,
-    el.x,
-    el.y,
-    el.angle,
-    el.strokeColor,
-    el.backgroundColor,
-    el.strokeWidth,
-    el.strokeStyle,
-    el.fillStyle,
-    el.roughness,
-    el.opacity,
-    el.seed,
-    // text-specific
-    (el as any).text,
-    (el as any).fontSize,
-    (el as any).fontFamily,
-    (el as any).textAlign,
-    // image-specific – include only the first 32 chars of src to avoid a
-    // very long key while still detecting changes
-    (el as any).src?.slice(0, 32) ?? '',
-    // points – serialise compactly
-    (el as any).points ? JSON.stringify((el as any).points) : '',
-    // arrow-specific
-    (el as any).startArrowhead,
-    (el as any).endArrowhead,
-    // frame-specific
-    (el as any).padding,
-  ];
-
-  return keyParts.filter(part => part !== undefined && part !== null).join('|');
+function getElementVersion(el: DriplElement): number {
+  return (el as any).version ?? 0;
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -260,10 +229,11 @@ function getOrCreateElementCanvas(
   element: DriplElement,
   config: StaticSceneConfig
 ): HTMLCanvasElement | null {
-  const key = makeVersionKey(element);
+  const version = getElementVersion(element);
   const cached = elementCanvasCache.get(element.id);
 
-  if (cached && cached.versionKey === key) {
+  // O(1) version-number comparison instead of O(n) string serialization (TODO #31)
+  if (cached && cached.version === version) {
     return cached.canvas;
   }
 
@@ -271,7 +241,7 @@ function getOrCreateElementCanvas(
   const canvas = generateElementCanvas(element, config);
   if (!canvas) return null;
 
-  elementCanvasCache.set(element.id, { canvas, versionKey: key });
+  elementCanvasCache.set(element.id, { canvas, version });
   return canvas;
 }
 

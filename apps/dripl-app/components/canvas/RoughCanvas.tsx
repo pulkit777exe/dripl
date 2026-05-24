@@ -482,11 +482,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const getElementAtPosition = useCallback(
     (x: number, y: number): DriplElement | null => {
       const state = useCanvasStore.getState();
+      // Zoom-aware hit threshold: wider tolerance at low zoom, narrower at high zoom (TODO #34)
+      const hitThreshold = Math.max(2, 8 / state.zoom);
       const candidates = spatialIndex.tree.search({
-        minX: x - 8,
-        minY: y - 8,
-        maxX: x + 8,
-        maxY: y + 8,
+        minX: x - hitThreshold,
+        minY: y - hitThreshold,
+        maxX: x + hitThreshold,
+        maxY: y + hitThreshold,
       });
       const candidateIds = new Set(candidates.map(candidate => candidate.id));
       for (let i = state.elements.length - 1; i >= 0; i -= 1) {
@@ -499,8 +501,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         ) {
           continue;
         }
-
-        if (!isPointNearElement({ x, y }, element, 8)) continue;
+        // Per-element zoom-aware tolerance: thin elements get extra slack at low zoom
+        const elThreshold = Math.max((element.strokeWidth ?? 2) / 2 + 0.1, 8 / state.zoom);
+        if (!isPointNearElement({ x, y }, element, elThreshold)) continue;
         if (element.type === 'text' && ('boundElementId' in element || 'containerId' in element)) {
           const containerId =
             ('boundElementId' in element ? element.boundElementId : undefined) ??

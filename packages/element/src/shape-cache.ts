@@ -3,51 +3,71 @@ import type { DriplElement } from '@dripl/common';
 export type Drawable = any;
 
 /**
- * Shape cache keyed by a *stable* identifier: `${element.id}:${element.version}`.
+ * Shape cache keyed by `${element.id}:${theme}`.
  *
- * Why this design:
- * - Survives immutable updates
- * - Survives undo/redo (history snapshots)
- * - Safe for collaboration / remote merges
- * - Avoids WeakMap pitfalls (object identity instability)
+ * Design rationale:
+ * - Keyed by element ID only (not version) so that a single lookup replaces
+ *   the stale entry on version change instead of accumulating infinite entries.
+ * - Stores `{ shape, version, theme }` so we can detect both version changes
+ *   and theme changes and regenerate accordingly. (Fixes TODO #29 + #30)
+ * - `isExporting` callers bypass the cache entirely (TODO #32 handled in
+ *   rough-renderer.ts).
  */
-const shapeCache = new Map<string, Drawable | Drawable[]>();
+interface CacheEntry {
+  shape: Drawable | Drawable[];
+  version: number;
+  theme: 'light' | 'dark';
+}
+
+const shapeCache = new Map<string, CacheEntry>();
+
+// ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Build a stable cache key for an element.
- * Element must have `id` and `version`.
+ * Get cached Rough.js shape for an element.
+ * Returns `undefined` on a cache miss OR when the cached entry is stale
+ * (version bumped or theme changed).
  */
-export function getShapeCacheKey(element: DriplElement): string {
+export function getShapeFromCache(
+  element: DriplElement,
+  theme: 'light' | 'dark' = 'light'
+): Drawable | Drawable[] | undefined {
+  const entry = shapeCache.get(element.id);
+  if (!entry) return undefined;
   const version = (element as any).version ?? 0;
-  return `${element.id}:${version}`;
+  // Stale if version changed OR theme changed – evict and return miss.
+  if (entry.version !== version || entry.theme !== theme) {
+    shapeCache.delete(element.id);
+    return undefined;
+  }
+  return entry.shape;
 }
 
 /**
- * Get cached Rough.js shape for an element
+ * Store Rough.js shape in cache.
  */
-export function getShapeFromCache(element: DriplElement): Drawable | Drawable[] | undefined {
-  return shapeCache.get(getShapeCacheKey(element));
+export function setShapeInCache(
+  element: DriplElement,
+  shape: Drawable | Drawable[],
+  theme: 'light' | 'dark' = 'light'
+): void {
+  const version = (element as any).version ?? 0;
+  shapeCache.set(element.id, { shape, version, theme });
 }
 
 /**
- * Store Rough.js shape in cache
- */
-export function setShapeInCache(element: DriplElement, shape: Drawable | Drawable[]): void {
-  shapeCache.set(getShapeCacheKey(element), shape);
-}
-
-/**
- * Remove a single element from cache
- * (useful if you mutate in place, or during manual invalidation)
+ * Remove a single element from cache.
+ * Call this whenever an element is mutated in-place.
  */
 export function clearShapeFromCache(element: DriplElement): void {
-  shapeCache.delete(getShapeCacheKey(element));
+  shapeCache.delete(element.id);
 }
 
 /**
  * Clear all cached shapes.
  * Useful when:
- * - Theme changes
+ * - Theme changes (theme-key in entry already handles gradual eviction, but
+ *   bulk clear is faster if many elements are visible)
  * - Rough.js config changes
  * - Major canvas reset
  */
@@ -56,31 +76,24 @@ export function clearAllShapeCache(): void {
 }
 
 /**
- * Optional: limit cache size (safety valve for very large canvases)
- * Uses LRU (Least Recently Used) eviction for better performance
+ * Optional: limit cache size (safety valve for very large canvases).
+ * Evicts oldest entries (Map insertion order).
  */
 export function pruneShapeCache(maxSize: number = 5000): void {
   if (shapeCache.size <= maxSize) return;
-
   const extra = shapeCache.size - maxSize;
   const keys = Array.from(shapeCache.keys());
-
-  // Delete oldest entries (first in Map iteration order)
   for (let i = 0; i < extra; i++) {
     shapeCache.delete(keys[i]!);
   }
 }
 
 /**
- * Get cache statistics for monitoring
+ * Get cache statistics for monitoring.
  */
-export function getShapeCacheStats(): {
-  size: number;
-  maxSize: number;
-  hitRate?: number;
-} {
+export function getShapeCacheStats(): { size: number; maxSize: number } {
   return {
     size: shapeCache.size,
-    maxSize: 5000, // Default max size
+    maxSize: 5000,
   };
 }

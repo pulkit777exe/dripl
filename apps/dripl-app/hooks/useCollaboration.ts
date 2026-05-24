@@ -324,10 +324,26 @@ ws.onmessage = event => {
       };
     };
 
+    const cursorCleanupTimer = window.setInterval(() => {
+      const state = useCanvasStore.getState();
+      const now = Date.now();
+      state.remoteCursors.forEach((cursor, uid) => {
+        if (now - (cursor as any).updatedAt > 5000) {
+          state.removeRemoteCursor(uid);
+          setCollaboratorsMap(prev => {
+            const next = new Map(prev);
+            next.delete(uid);
+            return next;
+          });
+        }
+      });
+    }, 5000);
+
     connect();
 
     return () => {
       shouldReconnectRef.current = false;
+      window.clearInterval(cursorCleanupTimer);
       if (reconnectTimerRef.current) {
         window.clearTimeout(reconnectTimerRef.current);
       }
