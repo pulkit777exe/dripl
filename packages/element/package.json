@@ -9,6 +9,22 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index"
+    },
+    "./staticScene": {
+      "types": "./dist/staticScene.d.ts",
+      "default": "./dist/staticScene"
+    },
+    "./resizeElements": {
+      "types": "./dist/resizeElements.d.ts",
+      "default": "./dist/resizeElements"
+    },
+    "./renderElement": {
+      "types": "./dist/renderElement.d.ts",
+      "default": "./dist/renderElement"
+    },
+    "./shape-cache": {
+      "types": "./dist/shape-cache.d.ts",
+      "default": "./dist/shape-cache"
     }
   },
   "scripts": {

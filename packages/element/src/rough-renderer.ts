@@ -6,7 +6,11 @@ import type { Drawable as _Drawable } from 'roughjs/bin/core';
 export type { RoughCanvas } from 'roughjs/bin/canvas';
 export type { Drawable } from 'roughjs/bin/core';
 
-const generator = rough.generator();
+let generator: ReturnType<typeof rough.generator> | null = null;
+function getGenerator() {
+  if (!generator) generator = rough.generator();
+  return generator;
+}
 
 let offscreenCanvas: HTMLCanvasElement | null = null;
 let offscreenContext: CanvasRenderingContext2D | null = null;
@@ -79,10 +83,10 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
 
   switch (element.type) {
     case 'rectangle':
-      return generator.rectangle(0, 0, width, height, options);
+      return getGenerator().rectangle(0, 0, width, height, options);
 
     case 'ellipse':
-      return generator.ellipse(width / 2, height / 2, width, height, options);
+      return getGenerator().ellipse(width / 2, height / 2, width, height, options);
 
     case 'diamond': {
       const topX = width / 2;
@@ -93,7 +97,7 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
       const bottomY = height;
       const leftX = 0;
       const leftY = height / 2;
-      return generator.polygon(
+      return getGenerator().polygon(
         [
           [topX, topY],
           [rightX, rightY],
@@ -109,7 +113,7 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
     case 'freedraw': {
       if ('points' in element && element.points.length > 1) {
         const pts = element.points.map((p: any) => [p.x, p.y] as [number, number]);
-        return generator.linearPath(pts, options);
+        return getGenerator().linearPath(pts, options);
       }
       return [];
     }
@@ -241,7 +245,7 @@ export function renderRoughElement(
     if (element.roughness !== undefined) {
       arrowHeadOptions.roughness = element.roughness;
     }
-    const arrowHead = generator.polygon(
+    const arrowHead = getGenerator().polygon(
       [
         [endPoint.x, endPoint.y],
         [x1, y1],

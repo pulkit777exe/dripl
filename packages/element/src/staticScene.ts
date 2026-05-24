@@ -138,10 +138,10 @@ function bootstrapCanvas(
   //   2. Scale by zoom  → world-space zoom
   //   3. Translate by   → pan / scroll
   //
-  // Resulting transform: pixel = (world - pan) * zoom * dpr
+  // Resulting transform: pixel = world * zoom * dpr + pan * dpr
   ctx.scale(dpr, dpr);
   ctx.scale(config.zoom, config.zoom);
-  ctx.translate(-viewport.x / config.zoom, -viewport.y / config.zoom);
+  ctx.translate(viewport.x / config.zoom, viewport.y / config.zoom);
 }
 
 // ─── Grid ────────────────────────────────────────────────────────────────────
@@ -155,8 +155,8 @@ function drawGrid(
   const zoom = config.zoom;
 
   // World-space visible area
-  const worldLeft = viewport.x / zoom;
-  const worldTop = viewport.y / zoom;
+  const worldLeft = -viewport.x / zoom;
+  const worldTop = -viewport.y / zoom;
   const worldRight = worldLeft + viewport.width / zoom;
   const worldBottom = worldTop + viewport.height / zoom;
 
@@ -186,8 +186,8 @@ function drawGrid(
 
 function isElementVisible(el: DriplElement, viewport: StaticSceneViewport, zoom: number): boolean {
   const padding = 20; // a little slack for stroke width / shadows
-  const worldLeft = viewport.x / zoom - padding;
-  const worldTop = viewport.y / zoom - padding;
+  const worldLeft = -viewport.x / zoom - padding;
+  const worldTop = -viewport.y / zoom - padding;
   const worldRight = worldLeft + viewport.width / zoom + padding * 2;
   const worldBottom = worldTop + viewport.height / zoom + padding * 2;
 
