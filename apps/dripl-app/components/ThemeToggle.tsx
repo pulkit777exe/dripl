@@ -32,7 +32,10 @@ export function ThemeToggle() {
       className="p-2 rounded-md bg-secondary/40 hover:bg-secondary transition-colors text-foreground"
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      <div className="t-icon-swap" data-state={isDark ? 'b' : 'a'}>
+        <span className="t-icon" data-icon="a"><Sun className="h-4 w-4" /></span>
+        <span className="t-icon" data-icon="b"><Moon className="h-4 w-4" /></span>
+      </div>
     </button>
   );
 }

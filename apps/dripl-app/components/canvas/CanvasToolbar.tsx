@@ -138,7 +138,10 @@ export function CanvasToolbar() {
         aria-label={toolLocked ? 'Unlock current tool' : 'Lock current tool'}
         aria-pressed={toolLocked}
       >
-        <Lock size={17} />
+        <div className="t-icon-swap" data-state={toolLocked ? 'b' : 'a'}>
+          <span className="t-icon" data-icon="a"><Lock size={17} /></span>
+          <span className="t-icon" data-icon="b"><Lock size={17} className="text-[var(--color-tool-active-text)]" /></span>
+        </div>
       </button>
 
       {/* Separator */}

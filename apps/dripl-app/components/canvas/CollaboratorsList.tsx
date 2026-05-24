@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { getOrCreateCollaboratorName } from '@/utils/username';
@@ -51,6 +51,35 @@ export function CollaboratorsList({ roomSlug, onLeaveRoom }: CollaboratorsListPr
   const isConnected = useCanvasStore(state => state.isConnected);
   const userId = useCanvasStore(state => state.userId);
   const [isExpanded, setIsExpanded] = useState(true);
+  const avatarGroupRef = useRef<HTMLDivElement>(null);
+
+  const handleAvatarMouseEnter = (index: number) => {
+    if (!avatarGroupRef.current) return;
+    const cs = getComputedStyle(document.documentElement);
+    const lift = parseFloat(cs.getPropertyValue('--avatar-lift')) || -4;
+    const falloff = parseFloat(cs.getPropertyValue('--avatar-falloff')) || 0.45;
+    const scale = parseFloat(cs.getPropertyValue('--avatar-scale')) || 1.05;
+    const easeIn = cs.getPropertyValue('--avatar-ease-in').trim() || 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+    avatarGroupRef.current.querySelectorAll('.t-avatar').forEach((el, i) => {
+      (el as HTMLElement).style.transitionTimingFunction = easeIn;
+      const d = Math.abs(i - index);
+      (el as HTMLElement).style.setProperty('--shift', (lift * Math.pow(falloff, d)).toFixed(3) + 'px');
+      (el as HTMLElement).style.setProperty('--scale-active', i === index ? String(scale) : '1');
+    });
+  };
+
+  const handleAvatarGroupLeave = () => {
+    if (!avatarGroupRef.current) return;
+    const cs = getComputedStyle(document.documentElement);
+    const easeOut = cs.getPropertyValue('--avatar-ease-out').trim() || 'cubic-bezier(0.34, 3.85, 0.64, 1)';
+
+    avatarGroupRef.current.querySelectorAll('.t-avatar').forEach(el => {
+      (el as HTMLElement).style.transitionTimingFunction = easeOut;
+      (el as HTMLElement).style.setProperty('--shift', '0px');
+      (el as HTMLElement).style.setProperty('--scale-active', '1');
+    });
+  };
 
   if (roomSlug === null) return null;
   if (!isConnected && remoteUsers.size === 0) return null;
@@ -68,21 +97,24 @@ export function CollaboratorsList({ roomSlug, onLeaveRoom }: CollaboratorsListPr
 
   return (
     <div className="fixed right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 pointer-events-auto z-50">
-      {isExpanded && hasCollaborators && (
-        <div className="flex flex-col items-center gap-2">
-          {allUsers.map(user => (
-            <div
-              key={user.userId}
-              className="relative w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold shadow-md"
-              style={{
-                backgroundColor: user.color + '30',
-                border: `2px solid ${user.color}`,
-              }}
-              title={user.userName}
-            >
-              <span style={{ color: user.color }}>{getInitials(user.userName)}</span>
-            </div>
-          ))}
+      {hasCollaborators && (
+        <div className="t-panel-slide" data-open={isExpanded ? 'true' : 'false'} ref={avatarGroupRef} onMouseLeave={handleAvatarGroupLeave}>
+          <div className="flex flex-col items-center gap-2">
+            {allUsers.map((user, index) => (
+              <div
+                key={user.userId}
+                className="relative w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold shadow-md t-avatar"
+                style={{
+                  backgroundColor: user.color + '30',
+                  border: `2px solid ${user.color}`,
+                }}
+                title={user.userName}
+                onMouseEnter={() => handleAvatarMouseEnter(index)}
+              >
+                <span style={{ color: user.color }}>{getInitials(user.userName)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

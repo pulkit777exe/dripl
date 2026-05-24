@@ -49,7 +49,7 @@ export function ErrorState({
   const color = colors[variant];
 
   return (
-    <div className={cn('rounded-lg border p-4', color.bg, color.border, className)}>
+    <div className={cn('rounded-lg border p-4 t-error-msg', color.bg, color.border, className)}>
       <div className="flex items-start gap-3">
         <Icon className={cn('w-5 h-5 mt-0.5 flex-shrink-0', color.icon)} />
         <div className="flex-1 min-w-0">
@@ -98,7 +98,7 @@ interface InlineErrorProps {
 
 export function InlineError({ message, onRetry, className }: InlineErrorProps) {
   return (
-    <div className={cn('flex items-center gap-2 px-3 py-2 rounded-md bg-[#FEF3F2] border border-[#FECACA]', className)}>
+    <div className={cn('flex items-center gap-2 px-3 py-2 rounded-md bg-[#FEF3F2] border border-[#FECACA] t-error-msg', className)}>
       <AlertCircle className="w-4 h-4 text-[#e03131] flex-shrink-0" />
       <p className="text-[12px] text-[#B42318] flex-1">{message}</p>
       {onRetry && (

@@ -223,11 +223,10 @@ export function PropertiesPanel({
   const strokeStyle = selectedElement?.strokeStyle ?? currentStrokeStyle;
   const opacity = selectedElement?.opacity ?? 1;
 
-  // Slide-in: when an element is selected → is-visible; otherwise no-selection
-  const panelClass = `properties-panel${selectedElement ? ' is-visible' : ' no-selection'}`;
+  const panelClass = 't-panel-slide';
 
   return (
-    <div className={`flex flex-col gap-2 z-50 ${panelClass}`}>
+    <div className={`flex flex-col gap-2 z-50 ${panelClass}`} data-open={selectedElement ? 'true' : 'false'}>
       <div
         className="p-4 rounded-xl shadow-2xl w-48 space-y-3"
         style={{
