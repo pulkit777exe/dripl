@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import type { DriplElement } from '@dripl/common';
 import type { Viewport } from '@/utils/canvas-coordinates';
-import { renderStaticScene } from '@dripl/element';
+import { renderStaticScene } from '@dripl/element/staticScene';
 
 interface StaticCanvasProps {
   containerRef?: React.RefObject<HTMLDivElement>;

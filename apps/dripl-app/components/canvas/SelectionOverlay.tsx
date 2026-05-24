@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { DriplElement, Point } from '@dripl/common';
 import { getElementBounds, elementLocalPointToWorld } from '@dripl/math';
 
@@ -14,67 +15,17 @@ interface SelectionOverlayProps {
   marqueeSelection?: { start: Point; end: Point; active: boolean } | null;
 }
 
-export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'arrow-start' | 'arrow-end';
-
-const H = 14;
-
-const CORNER_HANDLES: { id: ResizeHandle; css: React.CSSProperties }[] = [
-  { id: 'nw', css: { top: -H / 2, left: -H / 2, cursor: 'nw-resize' } },
-  { id: 'ne', css: { top: -H / 2, right: -H / 2, cursor: 'ne-resize' } },
-  { id: 'se', css: { bottom: -H / 2, right: -H / 2, cursor: 'se-resize' } },
-  { id: 'sw', css: { bottom: -H / 2, left: -H / 2, cursor: 'sw-resize' } },
-];
-
-const EDGE_HANDLES: { id: ResizeHandle; css: React.CSSProperties }[] = [
-  {
-    id: 'n',
-    css: {
-      top: -H / 2,
-      left: '50%',
-      transform: 'translateX(-50%)',
-      cursor: 'n-resize',
-    },
-  },
-  {
-    id: 'e',
-    css: {
-      top: '50%',
-      right: -H / 2,
-      transform: 'translateY(-50%)',
-      cursor: 'e-resize',
-    },
-  },
-  {
-    id: 's',
-    css: {
-      bottom: -H / 2,
-      left: '50%',
-      transform: 'translateX(-50%)',
-      cursor: 's-resize',
-    },
-  },
-  {
-    id: 'w',
-    css: {
-      top: '50%',
-      left: -H / 2,
-      transform: 'translateY(-50%)',
-      cursor: 'w-resize',
-    },
-  },
-];
-
-const baseHandle: React.CSSProperties = {
-  width: H,
-  height: H,
-  backgroundColor: 'var(--color-panel-bg)',
-  border: '2px solid var(--color-primary)',
-  position: 'absolute',
-  pointerEvents: 'auto',
-  zIndex: 20,
-  boxSizing: 'border-box',
-  borderRadius: '3px',
-};
+export type ResizeHandle =
+  | 'nw'
+  | 'n'
+  | 'ne'
+  | 'e'
+  | 'se'
+  | 's'
+  | 'sw'
+  | 'w'
+  | 'arrow-start'
+  | 'arrow-end';
 
 export function SelectionOverlay({
   zoom,
@@ -93,123 +44,300 @@ export function SelectionOverlay({
   const selected = elements.filter(el => selectedIds.has(el.id));
   if (selected.length === 0) return null;
 
+  const customStyleSheet = `
+    .dripl-corner-handle {
+      width: 10px;
+      height: 10px;
+      background-color: var(--color-panel-bg, #FAFAF7);
+      border: 1.5px solid var(--color-primary, #E8462A);
+      border-radius: 3px;
+      position: absolute;
+      pointer-events: auto;
+      z-index: 20;
+      box-sizing: border-box;
+      transition: transform 0.1s cubic-bezier(0.3, 0, 0, 1), background-color 0.1s ease;
+    }
+
+    .dripl-corner-handle:hover {
+      transform: scale(1.3);
+      background-color: var(--color-primary, #E8462A);
+      border-color: var(--color-primary, #E8462A);
+    }
+
+    .dripl-corner-handle.nw-handle { top: -6px; left: -6px; cursor: nw-resize; }
+    .dripl-corner-handle.ne-handle { top: -6px; right: -6px; cursor: ne-resize; }
+    .dripl-corner-handle.se-handle { bottom: -6px; right: -6px; cursor: se-resize; }
+    .dripl-corner-handle.sw-handle { bottom: -6px; left: -6px; cursor: sw-resize; }
+
+    .dripl-rotate-handle {
+      width: 10px;
+      height: 10px;
+      background-color: var(--color-panel-bg, #FAFAF7);
+      border: 1.5px solid var(--color-primary, #E8462A);
+      border-radius: 50%;
+      position: absolute;
+      pointer-events: auto;
+      z-index: 20;
+      box-sizing: border-box;
+      cursor: grab;
+      top: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      transition: transform 0.1s cubic-bezier(0.3, 0, 0, 1), background-color 0.1s ease;
+    }
+
+    .dripl-rotate-handle:hover {
+      transform: translateX(-50%) scale(1.3);
+      background-color: var(--color-primary, #E8462A);
+      border-color: var(--color-primary, #E8462A);
+    }
+
+    .dripl-rotate-handle:active {
+      cursor: grabbing;
+    }
+
+    .dripl-linear-handle {
+      width: 12px;
+      height: 12px;
+      background-color: var(--color-tool-active-bg, rgba(232, 70, 42, 0.25));
+      border: 1.5px solid var(--color-primary, #E8462A);
+      border-radius: 50%;
+      position: absolute;
+      pointer-events: auto;
+      z-index: 20;
+      box-sizing: border-box;
+      cursor: move;
+      transition: transform 0.1s cubic-bezier(0.3, 0, 0, 1), background-color 0.1s ease;
+    }
+
+    .dripl-linear-handle:hover {
+      transform: scale(1.3);
+      background-color: var(--color-primary, #E8462A);
+    }
+
+    .dripl-linear-mid-handle {
+      width: 10px;
+      height: 10px;
+      background-color: var(--color-tool-active-bg, rgba(232, 70, 42, 0.25));
+      border: 1.5px solid var(--color-primary, #E8462A);
+      border-radius: 50%;
+      position: absolute;
+      pointer-events: none;
+      z-index: 19;
+      box-sizing: border-box;
+      opacity: 0.85;
+    }
+  `;
+
+  // Case 1: Multiple elements are selected.
+  if (selected.length > 1) {
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+
+    selected.forEach(el => {
+      const b = getElementBounds(el);
+      minX = Math.min(minX, b.x);
+      minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.width);
+      maxY = Math.max(maxY, b.y + b.height);
+    });
+
+    const sx = minX * zoom + panX;
+    const sy = minY * zoom + panY;
+    const sw = (maxX - minX) * zoom;
+    const sh = (maxY - minY) * zoom;
+
+    const containerStyle: React.CSSProperties = {
+      position: 'absolute',
+      left: sx,
+      top: sy,
+      width: sw,
+      height: sh,
+      zIndex: 10,
+      pointerEvents: 'none',
+      border: '1.5px dashed var(--color-primary, #E8462A)',
+      boxSizing: 'border-box',
+    };
+
+    return (
+      <>
+        {/* Render each individual selected element's border with no handles */}
+        {selected.map(el => {
+          const cx = el.x + el.width / 2;
+          const cy = el.y + el.height / 2;
+          const angle = el.angle || 0;
+
+          const elW = el.width * zoom;
+          const elH = el.height * zoom;
+          const elCX = cx * zoom + panX;
+          const elCY = cy * zoom + panY;
+
+          return (
+            <div
+              key={`indiv-${el.id}`}
+              style={{
+                position: 'absolute',
+                left: elCX,
+                top: elCY,
+                width: elW,
+                height: elH,
+                transform: `translate(-50%, -50%) rotate(${angle}rad)`,
+                border: '1px solid var(--color-primary, #E8462A)',
+                opacity: 0.45,
+                boxSizing: 'border-box',
+                pointerEvents: 'none',
+                zIndex: 9,
+              }}
+            />
+          );
+        })}
+
+        {/* Combined bounding box for the entire group with corner handles and a rotation handle */}
+        <div style={containerStyle}>
+          <style dangerouslySetInnerHTML={{ __html: customStyleSheet }} />
+          {/* Corner handles */}
+          <div className="dripl-corner-handle nw-handle" onPointerDown={e => onResizeStart('nw', e)} />
+          <div className="dripl-corner-handle ne-handle" onPointerDown={e => onResizeStart('ne', e)} />
+          <div className="dripl-corner-handle se-handle" onPointerDown={e => onResizeStart('se', e)} />
+          <div className="dripl-corner-handle sw-handle" onPointerDown={e => onResizeStart('sw', e)} />
+          {/* Floating Rotation Handle */}
+          <div className="dripl-rotate-handle" onPointerDown={onRotateStart} />
+        </div>
+      </>
+    );
+  }
+
+  // Case 2: Exactly one element is selected.
+  const el = selected[0]!;
+  const isLinear = el.type === 'arrow' || el.type === 'line';
+
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
     maxY = -Infinity;
 
-  selected.forEach(el => {
-    const b = getElementBounds(el);
-    minX = Math.min(minX, b.x);
-    minY = Math.min(minY, b.y);
-    maxX = Math.max(maxX, b.x + b.width);
-    maxY = Math.max(maxY, b.y + b.height);
-  });
+  const b = getElementBounds(el);
+  minX = b.x;
+  minY = b.y;
+  maxX = b.x + b.width;
+  maxY = b.y + b.height;
 
-  const PAD = 6;
-  const sx = minX * zoom + panX - PAD;
-  const sy = minY * zoom + panY - PAD;
-  const sw = (maxX - minX) * zoom + PAD * 2;
-  const sh = (maxY - minY) * zoom + PAD * 2;
+  if (isLinear) {
+    // Linear elements (arrows & lines) display custom circle handles at their endpoints
+    // and midpoints, but no bounding box rectangle.
+    const containerStyle: React.CSSProperties = {
+      position: 'absolute',
+      left: minX * zoom + panX,
+      top: minY * zoom + panY,
+      width: (maxX - minX) * zoom,
+      height: (maxY - minY) * zoom,
+      zIndex: 10,
+      pointerEvents: 'none',
+      border: 'none',
+      boxSizing: 'border-box',
+    };
 
-  const showHandles = selected.length === 1;
+    const arrowEndpoints = (() => {
+      if (!('points' in el) || !el.points || el.points.length < 2) return [];
+      const points = el.points as Point[];
+      const firstPt = points[0];
+      const lastPt = points[points.length - 1];
+      if (!firstPt || !lastPt) return [];
 
-  const arrowEndpoints = (() => {
-    if (selected.length !== 1) return [];
-    const el = selected[0];
-    if (!el || !('points' in el) || !el.points || el.points.length < 2) return [];
-    if (el.type !== 'arrow' && el.type !== 'line') return [];
-    const points = el.points as Point[];
-    const firstPt = points[0];
-    const lastPt = points[points.length - 1];
-    if (!firstPt || !lastPt) return [];
-    const startPt = elementLocalPointToWorld(el, firstPt);
-    const endPt = elementLocalPointToWorld(el, lastPt);
-    return [
-      {
-        id: 'arrow-start' as const,
-        left: (startPt.x - minX) * zoom + PAD,
-        top: (startPt.y - minY) * zoom + PAD,
-      },
-      {
-        id: 'arrow-end' as const,
-        left: (endPt.x - minX) * zoom + PAD,
-        top: (endPt.y - minY) * zoom + PAD,
-      },
-    ];
-  })();
+      const startPt = elementLocalPointToWorld(el, firstPt);
+      const endPt = elementLocalPointToWorld(el, lastPt);
+      const midPt = {
+        x: (startPt.x + endPt.x) / 2,
+        y: (startPt.y + endPt.y) / 2,
+      };
+
+      return [
+        {
+          id: 'arrow-start' as const,
+          left: (startPt.x - minX) * zoom,
+          top: (startPt.y - minY) * zoom,
+        },
+        {
+          id: 'arrow-mid' as const,
+          left: (midPt.x - minX) * zoom,
+          top: (midPt.y - minY) * zoom,
+        },
+        {
+          id: 'arrow-end' as const,
+          left: (endPt.x - minX) * zoom,
+          top: (endPt.y - minY) * zoom,
+        },
+      ];
+    })();
+
+    return (
+      <div style={containerStyle}>
+        <style dangerouslySetInnerHTML={{ __html: customStyleSheet }} />
+        {arrowEndpoints.map(({ id, left, top }) => {
+          if (id === 'arrow-mid') {
+            return (
+              <div
+                key={id}
+                className="dripl-linear-mid-handle"
+                style={{
+                  left: left - 5,
+                  top: top - 5,
+                }}
+              />
+            );
+          }
+          return (
+            <div
+              key={id}
+              className="dripl-linear-handle"
+              style={{
+                left: left - 6,
+                top: top - 6,
+              }}
+              onPointerDown={e => onResizeStart(id as ResizeHandle, e)}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Standard shapes (rectangles, diamonds, ellipses, text, images, frames)
+  // use a solid border that is perfectly rotated alongside the element.
+  const cx = el.x + el.width / 2;
+  const cy = el.y + el.height / 2;
+  const angle = el.angle || 0;
+
+  const screenCX = cx * zoom + panX;
+  const screenCY = cy * zoom + panY;
+  const screenW = el.width * zoom;
+  const screenH = el.height * zoom;
+
+  const containerStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: screenCX,
+    top: screenCY,
+    width: screenW,
+    height: screenH,
+    transform: `translate(-50%, -50%) rotate(${angle}rad)`,
+    zIndex: 10,
+    pointerEvents: 'none',
+    border: '1.5px solid var(--color-primary, #E8462A)',
+    boxSizing: 'border-box',
+  };
 
   return (
-    <div
-      className="absolute top-0 left-0 pointer-events-none"
-      style={{
-        transform: `translate(${sx}px, ${sy}px)`,
-        width: sw,
-        height: sh,
-        zIndex: 10,
-      }}
-    >
-      {showHandles && (
-        <>
-          {CORNER_HANDLES.map(({ id, css }) => (
-            <div
-              key={id}
-              className="resize-handle"
-              data-handle={id}
-              style={{ ...baseHandle, ...css }}
-              onPointerDown={e => onResizeStart(id, e)}
-            />
-          ))}
-
-          {EDGE_HANDLES.map(({ id, css }) => (
-            <div
-              key={id}
-              className="resize-handle"
-              data-handle={id}
-              style={{
-                ...baseHandle,
-                ...css,
-              }}
-              onPointerDown={e => onResizeStart(id, e)}
-            />
-          ))}
-
-          {arrowEndpoints.map(({ id, left, top }) => (
-            <div
-              key={id}
-              className="resize-handle"
-              data-handle={id}
-              style={{
-                ...baseHandle,
-                left: left - H / 2,
-                top: top - H / 2,
-                cursor: 'move',
-                borderRadius: '50%',
-              }}
-              onPointerDown={e => onResizeStart(id, e)}
-            />
-          ))}
-
-          <div
-            className="rotate-handle"
-            style={{
-              width: 18,
-              height: 18,
-              backgroundColor: 'transparent',
-              border: 'none',
-              borderRadius: 9,
-              position: 'absolute',
-              top: -30,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              cursor: 'grab',
-              pointerEvents: 'auto',
-              zIndex: 20,
-            }}
-            onPointerDown={onRotateStart}
-          />
-        </>
-      )}
+    <div style={containerStyle}>
+      <style dangerouslySetInnerHTML={{ __html: customStyleSheet }} />
+      {/* 4 Corner handles */}
+      <div className="dripl-corner-handle nw-handle" onPointerDown={e => onResizeStart('nw', e)} />
+      <div className="dripl-corner-handle ne-handle" onPointerDown={e => onResizeStart('ne', e)} />
+      <div className="dripl-corner-handle se-handle" onPointerDown={e => onResizeStart('se', e)} />
+      <div className="dripl-corner-handle sw-handle" onPointerDown={e => onResizeStart('sw', e)} />
+      {/* Floating Rotation Handle */}
+      <div className="dripl-rotate-handle" onPointerDown={onRotateStart} />
     </div>
   );
 }

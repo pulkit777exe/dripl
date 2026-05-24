@@ -1,5 +1,5 @@
 import type { DriplElement, Point } from '@dripl/common';
-import { getElementBounds, elementLocalPointToWorld } from '@dripl/math';
+import { getElementBounds } from '@dripl/math';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
 
 export interface SceneViewport {
@@ -55,7 +55,6 @@ interface TextMeasurement {
 const textMetricsCache = new Map<string, TextMeasurement>();
 const imageCache = new Map<string, HTMLImageElement>();
 
-const HANDLE_SIZE_PX = 8;
 const MARQUEE_DASH = [6, 4];
 const DEFAULT_GRID_SIZE = 20;
 const MIN_GRID_ZOOM = 0.3;
@@ -452,7 +451,7 @@ function worldToScreen(point: Point, viewport: SceneViewport): Point {
   };
 }
 
-function drawSelection(
+function drawSelectionBox(
   ctx: CanvasRenderingContext2D,
   elements: readonly DriplElement[],
   selectedIds: ReadonlySet<string>,
@@ -462,6 +461,10 @@ function drawSelection(
 
   const selected = elements.filter(element => selectedIds.has(element.id));
   if (selected.length === 0) return;
+
+  // Only draw axis-aligned selection box if multiple elements are selected.
+  // Single elements use the highly-optimized rotated HTML SelectionOverlay.
+  if (selected.length <= 1) return;
 
   let minX = Infinity;
   let minY = Infinity;
@@ -486,53 +489,6 @@ function drawSelection(
   ctx.lineWidth = 1.5;
   ctx.setLineDash(MARQUEE_DASH);
   ctx.strokeRect(topLeft.x, topLeft.y, width, height);
-  ctx.setLineDash([]);
-  ctx.fillStyle = '#ffffff';
-  ctx.strokeStyle = '#6965db';
-  ctx.lineWidth = 1.2;
-
-  const handleCoords: Point[] = [
-    { x: topLeft.x, y: topLeft.y },
-    { x: topLeft.x + width / 2, y: topLeft.y },
-    { x: topLeft.x + width, y: topLeft.y },
-    { x: topLeft.x + width, y: topLeft.y + height / 2 },
-    { x: topLeft.x + width, y: topLeft.y + height },
-    { x: topLeft.x + width / 2, y: topLeft.y + height },
-    { x: topLeft.x, y: topLeft.y + height },
-    { x: topLeft.x, y: topLeft.y + height / 2 },
-  ];
-
-  for (const handle of handleCoords) {
-    ctx.beginPath();
-    ctx.rect(
-      handle.x - HANDLE_SIZE_PX / 2,
-      handle.y - HANDLE_SIZE_PX / 2,
-      HANDLE_SIZE_PX,
-      HANDLE_SIZE_PX
-    );
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  if (selected.length === 1) {
-    const el = selected[0];
-    if (el && ('points' in el) && el.points && el.points.length >= 2 && (el.type === 'arrow' || el.type === 'line')) {
-      const pts = el.points as Point[];
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#6965db';
-      ctx.lineWidth = 1.5;
-      for (const pt of [pts[0], pts[pts.length - 1]]) {
-        if (!pt) continue;
-        const worldPt = elementLocalPointToWorld(el, pt);
-        const screen = worldToScreen(worldPt, viewport);
-        ctx.beginPath();
-        ctx.arc(screen.x, screen.y, HANDLE_SIZE_PX / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-      }
-    }
-  }
-
   ctx.restore();
 }
 
@@ -734,7 +690,7 @@ export function renderInteractiveScene({
     drawMarquee(ctx, marqueeSelection, viewport);
   }
 
-  drawSelection(ctx, elements, selectedIds, viewport);
+  drawSelectionBox(ctx, elements, selectedIds, viewport);
 
   if (collaborators.length > 0) {
     drawCollaborators(ctx, collaborators, viewport);
