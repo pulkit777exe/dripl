@@ -66,6 +66,7 @@ export default function LoginPage() {
       <AuthShell
         title="Welcome back!"
         subtitle="Continue organizing your thoughts, wireframes, and collections in one calm workspace."
+        isError={!!error}
       >
         {error && (
           <InlineError

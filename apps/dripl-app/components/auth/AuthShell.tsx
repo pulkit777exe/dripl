@@ -1,3 +1,6 @@
+'use client';
+
+import { useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { PenLine } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,9 +11,26 @@ type AuthShellProps = {
   subtitle: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  isError?: boolean;
+  onErrorShake?: () => void;
 };
 
-export function AuthShell({ title, subtitle, children, footer }: AuthShellProps) {
+export function AuthShell({ title, subtitle, children, footer, isError, onErrorShake }: AuthShellProps) {
+  const inputRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isError || !inputRef.current) return;
+    const el = inputRef.current;
+    el.classList.remove('is-shaking');
+    void el.offsetWidth;
+    el.classList.add('is-shaking');
+    const shakeMs = 80 * 2 + 60 * 2;
+    setTimeout(() => {
+      el.classList.remove('is-shaking');
+      onErrorShake?.();
+    }, shakeMs + 20);
+  }, [isError]);
+
   return (
     <div className="flex min-h-dvh w-full overflow-hidden">
       {/* Left — Maple image fills entire panel */}
@@ -41,18 +61,22 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
           <p className="text-[13px] text-[#6B6860] mb-6">{subtitle}</p>
 
           {/* Form content */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={title}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-            >
-              {children}
-              {footer && <div className="mt-6 pt-5 border-t border-[#E4E0D9]">{footer}</div>}
-            </motion.div>
-          </AnimatePresence>
+          <div className="t-input-wrap">
+            <div className={`t-input ${isError ? 'is-error' : ''}`} ref={inputRef}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={title}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                >
+                  {children}
+                  {footer && <div className="mt-6 pt-5 border-t border-[#E4E0D9]">{footer}</div>}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
         </div>
       </div>
     </div>

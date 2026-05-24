@@ -65,7 +65,7 @@ export default function SignupPage() {
 
   return (
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}>
-      <AuthShell title="Create your account" subtitle="Set up your workspace in under a minute.">
+      <AuthShell title="Create your account" subtitle="Set up your workspace in under a minute." isError={!!error}>
         {error && (
           <InlineError
             message={typeof error === 'string' ? error : 'An error occurred'}

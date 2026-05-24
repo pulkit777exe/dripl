@@ -27,7 +27,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <AuthShell title="Reset password" subtitle="We’ll email you a secure reset link.">
+    <AuthShell title="Reset password" subtitle="We’ll email you a secure reset link." isError={status === 'error'} onErrorShake={() => setStatus('idle')}>
       {status === 'success' ? (
         <div className="space-y-6 text-center">
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-700 dark:text-emerald-300">
@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
       ) : (
         <>
           {error && (
-            <div className="mb-5 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <div className="mb-5 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive t-error-msg">
               {error}
             </div>
           )}
