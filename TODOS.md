@@ -425,6 +425,7 @@ Add `isPointOnElementOutline(point, element, threshold)` that uses distance-to-s
 **Fix:** Implement a `ResizeObserver` on the canvas container that synchronizes the width and height into a local React state or canvas-store state, forcing an instant and correct re-render when bounds change.
 **Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:327-334`.
 **Depends on:** None.
+**Status:** ✅ FIXED — Added `containerSize` state and a React `useEffect` with a `ResizeObserver` attached to `containerRef.current`. Viewport now draws from this responsive local state instead of raw stale DOM values.
 
 ### 42. Laser Trail Updates Trigger Massive Redundant Component Re-renders
 **What:** Drawing with the laser tool updates a React state `laserTrailPoints` and sets up a `60ms` interval to clean up old points.
@@ -441,6 +442,7 @@ Add `isPointOnElementOutline(point, element, threshold)` that uses distance-to-s
 **Fix:** Implement a tick interval or check within the render loop that hides or fades out any remote cursor whose `updatedAt` timestamp is older than 5 seconds.
 **Context:** `apps/dripl-app/hooks/useCollaboration.ts:246-268`.
 **Depends on:** None.
+**Status:** ✅ FIXED — Implemented a `5-second` interval in `useCollaboration.ts` that compares the current timestamp with each cursor's `updatedAt` value. Idle cursors are automatically evicted and removed from both store and collaborators list.
 
 ### 44. Endpoint-Only Handles for Multi-Point Linear Paths
 **What:** For linear elements (arrows and lines) that have multiple points, the selection overlay only displays handles for the first and last points (`points[0]` and `points[points.length - 1]`).
