@@ -323,6 +323,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 **Fix:** Replace `Map<string, Drawable>` with a version-checked `Map<string, { shape, version }>` keyed by element ID only. On cache lookup, compare `element.version` — if stale, delete and regenerate. Alternatively, adopt `WeakMap` if element object identity is stable enough (it is for committed elements).
 **Context:** `packages/element/src/shape-cache.ts:14`, `rough-renderer.ts:179-186`.
 **Depends on:** None.
+**Status:** ✅ FIXED — Cache is now keyed by `element.id` (not `id:version`). Lookup compares stored `version` and `theme`; stale entries are deleted on first miss. One entry per element, no accumulation.
 
 ### 30. No Theme-Aware Shape Cache Invalidation
 **What:** Shape cache (`shape-cache.ts`) does not store or check the `theme` that was active when the shape was generated. When the user toggles dark/light mode, cached shapes still use the old theme's colors (especially dark-mode filter adjustments for stroke colors).
@@ -330,6 +331,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 **Fix:** Add `theme` to the cache value and to the cache-hit check. Call `clearAllShapeCache()` on theme change as a fallback.
 **Context:** `packages/element/src/shape-cache.ts:28-30` (no theme parameter), `rough-renderer.ts:131` (theme parameter exists but is never used for cache keying).
 **Depends on:** None.
+**Status:** ✅ FIXED — `CacheEntry` now stores `{ shape, version, theme }`. Cache hit requires both version and theme to match. `setTheme()` in `canvas-store.ts` calls `clearAllShapeCache()` for an instant full flush on theme switch.
 
 ### 31. Element Canvas Cache Uses String `versionKey` — O(n) Serialization Per Element Per Frame
 **What:** `packages/element/src/staticScene.ts:37-72` builds a `versionKey` string by concatenating ~18 properties (including `JSON.stringify(points)` for linear elements). This runs for every visible element on every frame that could potentially be dirty.
@@ -337,6 +339,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 **Fix:** Replace the string-based `makeVersionKey` with a version-number check: store `{ canvas, version: element.version }` in the cache. On lookup, compare `element.version` to the cached version. If the element object reference changed AND version bumped, regenerate. This is O(1) per element instead of O(properties + points).
 **Context:** `packages/element/src/staticScene.ts:37-72, 259-276`.
 **Depends on:** Item 29 (consistent version semantics).
+**Status:** ✅ FIXED — `makeVersionKey` (O(n) string join + JSON.stringify) replaced by `getElementVersion()` returning `element.version ?? 0`. Cache stores `{ canvas, version: number }`. Hit check is a single integer comparison.
 
 ### 32. No `isExporting` Bypass for Shape Cache
 **What:** During export (PNG/SVG), shapes must be regenerated with export-specific settings (e.g., guaranteed latest state, potentially different background color). Dripl's `renderRoughElement` always uses the cache and provides no mechanism to bypass it.
@@ -344,6 +347,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 **Fix:** Add an `isExporting` flag to `renderRoughElement()` and `getShapeFromCache()`. When true, skip cache lookup and do not write back to cache.
 **Context:** `packages/element/src/rough-renderer.ts:179-186`, `apps/dripl-app/components/canvas/ExportModal.tsx`.
 **Depends on:** None.
+**Status:** ✅ FIXED — `renderRoughElement` now accepts `isExporting: boolean = false`. When true, cache lookup is skipped and the generated shape is not written back to the cache.
 
 ### 33. Hit Detection Ignores `shouldTestInside` — Transparent Elements Unclickable or Over-selectable
 **What:** `packages/math/src/intersection.ts:84-176` (`isPointInElement`) always tests whether the point is *inside* the element's filled area. There is no concept of "only test the outline" for transparent/unfilled elements.
@@ -363,6 +367,7 @@ Add `isPointOnElementOutline(point, element, threshold)` that uses distance-to-s
 **Fix:** Replace the hardcoded `8` with `Math.max(element.strokeWidth / 2 + 0.1, 8 / zoom)`. Pass `zoom` into `getElementAtPosition`.
 **Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:485-503`.
 **Depends on:** None.
+**Status:** ✅ FIXED — Spatial-index query now uses `Math.max(2, 8 / zoom)` for the bounding box. Per-element `isPointNearElement` uses `Math.max(strokeWidth/2 + 0.1, 8/zoom)` for fine-grained tolerance.
 
 ### 35. Selection Box Doesn't Account for Element Rotation
 **What:** `SelectionOverlay.tsx:96-113` computes selection bounds using `getElementBounds()` (which does handle rotation via AABB expansion), but the selection box itself is always axis-aligned — it doesn't visually rotate with the element. Additionally, `drawSelectionBox` in `interactiveScene.ts:454-489` also draws an axis-aligned rectangle.
@@ -386,7 +391,7 @@ Add `isPointOnElementOutline(point, element, threshold)` that uses distance-to-s
 **Fix:** In `deleteElements`, call `invalidateElementCache(id)` for each deleted element (already done). But also need to periodically prune the `elementCanvasCache` — or switch to a `WeakMap`/`WeakRef`-based approach. As a simpler fix: in `invalidateElementCache`, also delete the offscreen canvas from `elementCanvasCache`.
 **Context:** `packages/element/src/staticScene.ts:31,104-106`, `canvas-store.ts:453-477`.
 **Depends on:** None.
-**Status:** Partially mitigated — `invalidateElementCache` does delete entries, but only when explicitly called. Undo/redo creates new element objects without cleaning up old canvas entries.
+**Status:** ✅ FIXED — `invalidateElementCache(id, element?)` now also calls `clearShapeFromCache(element)` when the element object is provided. `canvas-store.ts` passes the element in `commitDraft`, `updateElement`, and `updateElementTransient`. Shape + offscreen canvas are now evicted together.
 
 ### 38. Interactive Canvas Duplicates Full Element Rendering
 **What:** `renderer/interactiveScene.ts:644-651` re-renders *all committed elements* with its own Canvas 2D path-based renderer (manual roughness simulation via multi-pass jitter) when `renderCommittedElements` is true. Currently it's passed `false` from `InteractiveCanvas.tsx:173`, but the code exists and the rendering path is fundamentally different from `StaticCanvas` (which uses Rough.js).
@@ -403,6 +408,7 @@ Add `isPointOnElementOutline(point, element, threshold)` that uses distance-to-s
 **Fix:** Create a centralized `mutateElement(element, updates)` utility that: (a) bumps version/versionNonce, (b) calls `invalidateElementCache(id)` and `clearShapeFromCache(element)`, (c) returns the new element. Use this in all store actions.
 **Context:** `canvas-store.ts:297-330,335-353,398-428,430-451`.
 **Depends on:** None.
+**Status:** ✅ FIXED — `commitDraft` now calls `clearShapeFromCache` + `invalidateElementCache` after creating the committed element. `updateElement` and `updateElementTransient` call `clearShapeFromCache(previous)`. `setElements` clears the full shape cache on scene replace, and on `skipHistory` path it selectively invalidates changed elements.
 
 ### 40. Box Selection (Marquee) Doesn't Support "Contain" vs "Overlap" Correctly
 **What:** `packages/math/src/hit-detection.ts:151-158` (`getElementsInSelectionRect`) uses `elementIntersectsSelectionRect` which checks if *any part* of the element touches the selection rect. The store has `marqueeSelectionMode: 'intersecting' | 'contained'`, but the `contained` mode is never implemented — both modes use intersection logic.
@@ -410,3 +416,45 @@ Add `isPointOnElementOutline(point, element, threshold)` that uses distance-to-s
 **Fix:** Implement the `contained` mode: check if the selection AABB fully contains the element AABB using `boundsContainBounds(selectionBounds, elementBounds)`.
 **Context:** `packages/math/src/hit-detection.ts:151-158`, `canvas-store.ts:255` (mode state exists), `RoughCanvas.tsx` (where marquee selection is evaluated).
 **Depends on:** None.
+**Status:** ✅ FIXED — `contained` mode is implemented directly in the RoughCanvas.tsx pointer-up handler (lines 1378-1393). When `marqueeSelectionMode === 'contained'`, the spatial index candidates are filtered so only elements whose full AABB lies inside the marquee rect are selected.
+
+### 41. Viewport / Container Dimensions Stale on Resize
+**What:** In `RoughCanvas.tsx`, the `viewport` dimensions (`width` and `height`) are read directly from `containerRef.current?.clientWidth` and `clientHeight` during rendering.
+**Why:** React does not automatically trigger re-renders when a DOM element's width or height changes. As a result, the viewport dimensions remain completely stale (often initialized to `0` or initial load size) until a pan, zoom, or element update forces a re-render.
+**Problem in Dripl:** Resizing the window or panel layout causes rendering artifacts, incorrect mouse-to-canvas coordinate transformations on click, and breaks spatial culling.
+**Fix:** Implement a `ResizeObserver` on the canvas container that synchronizes the width and height into a local React state or canvas-store state, forcing an instant and correct re-render when bounds change.
+**Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:327-334`.
+**Depends on:** None.
+
+### 42. Laser Trail Updates Trigger Massive Redundant Component Re-renders
+**What:** Drawing with the laser tool updates a React state `laserTrailPoints` and sets up a `60ms` interval to clean up old points.
+**Why:** Because `RoughCanvas` is a massive component containing state subscriptions, toolbars, overlays, and spatial index logic, triggering state updates every few milliseconds causes the entire component tree to re-render.
+**Problem in Dripl:** Drawing with the laser tool causes high CPU/GPU overhead and perceptible frame drops, which defeats the purpose of a smooth laser pointer.
+**Fix:** Move the transient laser trail rendering out of React state and into a lightweight dedicated canvas overlay or a direct `requestAnimationFrame` loop on a separate overlay layer that doesn't trigger React tree updates.
+**Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:93, 1507-1514`.
+**Depends on:** None.
+
+### 43. No Client-Side Idle Timeout or Inactivity Expiry for Remote Cursors
+**What:** Remote cursors/collaborators are saved in state via websocket updates but are never pruned unless a explicit `user-leave` event is received.
+**Why:** If a remote collaborator loses network connection, closes their tab unexpectedly, or locks their device, their socket may drop without cleanly sending a `user-leave` message.
+**Problem in Dripl:** Idle or disconnected collaborator cursors remain frozen on screen indefinitely, cluttering the workspace.
+**Fix:** Implement a tick interval or check within the render loop that hides or fades out any remote cursor whose `updatedAt` timestamp is older than 5 seconds.
+**Context:** `apps/dripl-app/hooks/useCollaboration.ts:246-268`.
+**Depends on:** None.
+
+### 44. Endpoint-Only Handles for Multi-Point Linear Paths
+**What:** For linear elements (arrows and lines) that have multiple points, the selection overlay only displays handles for the first and last points (`points[0]` and `points[points.length - 1]`).
+**Why:** The selection overlay logic simplifies handles to start/end points and lacks any mechanism for rendering or dragging intermediate path vertices.
+**Problem in Dripl:** Users cannot edit, add, or move intermediate points of multi-point lines, making detailed diagramming extremely difficult.
+**Fix:** Map over the entire `points` array of selected linear elements to render intermediate handle markers, updating the target point's local offset in `updateElementTransient` when dragged.
+**Context:** `apps/dripl-app/components/canvas/SelectionOverlay.tsx:242-250`.
+**Depends on:** None.
+
+### 45. No Client-Side Throttling or Debouncing on Canvas Storage Serialization
+**What:** Canvas state persistence to `localStorage` is debounced inside a simple React effect whenever `elements` change.
+**Why:** Large canvases with hundreds of complex elements (or high-point freedraw lines) translate to massive JSON strings.
+**Problem in Dripl:** Serializing the entire scene on every mouse release or zoom change blocks the main thread, causing minor but noticeable frame freezes (jank) on low-end devices.
+**Fix:** Offload serialization to a Web Worker, or use a throttling strategy that only writes when the user has been completely inactive for several seconds.
+**Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:269-289`.
+**Depends on:** None.
+
