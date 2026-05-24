@@ -14,6 +14,8 @@ import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { apiClient } from '@/lib/api';
 import { Spinner } from '@/components/button/Spinner';
+import { HelpCircle, ShieldCheck } from 'lucide-react';
+import HelpModal from '@/components/canvas/HelpModal';
 
 export default function FilePage() {
   const params = useParams<{ id: string }>();
@@ -31,9 +33,12 @@ export default function FilePage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [initialData, setInitialData] = useState<unknown>(null);
 
-  const autosaveEnabledRef = useRef(false);
+  const initialSyncDoneRef = useRef(false);
   const lastSavedContentRef = useRef<string | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
+  const pendingSaveRef = useRef(false);
+  const latestElementsRef = useRef<DriplElement[]>([]);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   useEffect(() => {
     const store = useCanvasStore.getState();
@@ -41,7 +46,7 @@ export default function FilePage() {
     store.clearHistory();
     store.clearSelection();
     store.setClipboard([]);
-    autosaveEnabledRef.current = false;
+    initialSyncDoneRef.current = false;
     lastSavedContentRef.current = null;
   }, [fileId]);
 
@@ -69,7 +74,7 @@ export default function FilePage() {
         setInitialData(nextInitialData);
         setFileMetadata(response.file.id, response.file.name);
         lastSavedContentRef.current = JSON.stringify(fileElements);
-        autosaveEnabledRef.current = false;
+        initialSyncDoneRef.current = false;
       } catch (error) {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : 'Failed to load canvas file';
@@ -92,19 +97,23 @@ export default function FilePage() {
 
     if (storeFileId !== fileId) return;
 
+    latestElementsRef.current = elements;
+
+    if (!initialSyncDoneRef.current) {
+      initialSyncDoneRef.current = true;
+      lastSavedContentRef.current = JSON.stringify(elements);
+      return;
+    }
+
     const currentContent = JSON.stringify(elements);
     const savedContent = lastSavedContentRef.current;
 
-    if (!autosaveEnabledRef.current) {
-      if (savedContent !== null && currentContent === savedContent) {
-        autosaveEnabledRef.current = true;
-      }
+    if (savedContent !== null && currentContent === savedContent) {
+      pendingSaveRef.current = false;
       return;
     }
 
-    if (savedContent !== null && currentContent === savedContent) {
-      return;
-    }
+    pendingSaveRef.current = true;
 
     if (autosaveTimerRef.current !== null) {
       window.clearTimeout(autosaveTimerRef.current);
@@ -113,8 +122,9 @@ export default function FilePage() {
     autosaveTimerRef.current = window.setTimeout(() => {
       void (async () => {
         try {
-          await apiClient.updateFile(fileId, { content: elements });
-          lastSavedContentRef.current = JSON.stringify(elements);
+          await apiClient.updateFile(fileId, { content: latestElementsRef.current });
+          lastSavedContentRef.current = JSON.stringify(latestElementsRef.current);
+          pendingSaveRef.current = false;
           setSaveError(null);
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Failed to save canvas';
@@ -135,8 +145,12 @@ export default function FilePage() {
       if (autosaveTimerRef.current !== null) {
         window.clearTimeout(autosaveTimerRef.current);
       }
+      if (pendingSaveRef.current) {
+        apiClient.updateFile(fileId, { content: latestElementsRef.current }).catch(() => {});
+      }
+      initialSyncDoneRef.current = false;
     };
-  }, []);
+  }, [fileId]);
 
   if (authLoading || loading) {
     return (
@@ -186,7 +200,28 @@ export default function FilePage() {
       <div className="absolute bottom-6 left-6 z-20">
         <CanvasControls />
       </div>
+
+      <div className="absolute bottom-6 right-6 z-20 flex gap-2 pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => setIsHelpOpen(true)}
+          className="canvas-chrome-btn size-10"
+          aria-label="Help"
+        >
+          <HelpCircle className="mx-2" />
+        </button>
+        <button
+          type="button"
+          className="canvas-chrome-btn size-10"
+          aria-label="Verification status"
+          title="Verified"
+        >
+          <ShieldCheck className="mx-2" />
+        </button>
+      </div>
+
       <CommandPalette />
+      {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)}/>}
     </div>
   );
 }
