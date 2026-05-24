@@ -106,7 +106,7 @@ export const store = new Store<StoreState>({
 
 const MAX_HISTORY_SIZE = 50;
 const HISTORY_THROTTLE_MS = 300;
-let historyThrottleTimeout: NodeJS.Timeout | null = null;
+let historyThrottleTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export const actions = {
   setAppState: (updater: Partial<AppState> | ((prev: AppState) => Partial<AppState>)) => {

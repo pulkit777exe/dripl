@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { DriplElement } from '@dripl/common';
+import { invalidateElementCache } from '@dripl/element/staticScene';
 import { initializeShapeRegistry } from '@/utils/shapes/shapeInitializer';
-import { invalidateElementCache } from '@dripl/element';
 
 initializeShapeRegistry();
 
