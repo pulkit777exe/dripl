@@ -25,7 +25,8 @@ export type ResizeHandle =
   | 'sw'
   | 'w'
   | 'arrow-start'
-  | 'arrow-end';
+  | 'arrow-end'
+  | `arrow-point-${number}`;
 
 export function SelectionOverlay({
   zoom,
@@ -242,64 +243,37 @@ export function SelectionOverlay({
     const arrowEndpoints = (() => {
       if (!('points' in el) || !el.points || el.points.length < 2) return [];
       const points = el.points as Point[];
-      const firstPt = points[0];
-      const lastPt = points[points.length - 1];
-      if (!firstPt || !lastPt) return [];
 
-      const startPt = elementLocalPointToWorld(el, firstPt);
-      const endPt = elementLocalPointToWorld(el, lastPt);
-      const midPt = {
-        x: (startPt.x + endPt.x) / 2,
-        y: (startPt.y + endPt.y) / 2,
-      };
-
-      return [
-        {
-          id: 'arrow-start' as const,
-          left: (startPt.x - minX) * zoom,
-          top: (startPt.y - minY) * zoom,
-        },
-        {
-          id: 'arrow-mid' as const,
-          left: (midPt.x - minX) * zoom,
-          top: (midPt.y - minY) * zoom,
-        },
-        {
-          id: 'arrow-end' as const,
-          left: (endPt.x - minX) * zoom,
-          top: (endPt.y - minY) * zoom,
-        },
-      ];
+      return points.map((pt, i) => {
+        const worldPt = elementLocalPointToWorld(el, pt);
+        const isEndpoint = i === 0 || i === points.length - 1;
+        const handleId: ResizeHandle =
+          i === 0 ? 'arrow-start' : i === points.length - 1 ? 'arrow-end' : `arrow-point-${i}`;
+        return {
+          id: handleId,
+          left: (worldPt.x - minX) * zoom,
+          top: (worldPt.y - minY) * zoom,
+          isEndpoint,
+        };
+      });
     })();
 
     return (
       <div style={containerStyle}>
         <style dangerouslySetInnerHTML={{ __html: customStyleSheet }} />
-        {arrowEndpoints.map(({ id, left, top }) => {
-          if (id === 'arrow-mid') {
-            return (
-              <div
-                key={id}
-                className="dripl-linear-mid-handle"
-                style={{
-                  left: left - 5,
-                  top: top - 5,
-                }}
-              />
-            );
-          }
-          return (
-            <div
-              key={id}
-              className="dripl-linear-handle"
-              style={{
-                left: left - 6,
-                top: top - 6,
-              }}
-              onPointerDown={e => onResizeStart(id as ResizeHandle, e)}
-            />
-          );
-        })}
+        {arrowEndpoints.map(({ id, left, top, isEndpoint }) => (
+          <div
+            key={id}
+            className={isEndpoint ? 'dripl-linear-handle' : 'dripl-linear-mid-handle'}
+            style={{
+              left: isEndpoint ? left - 6 : left - 5,
+              top: isEndpoint ? top - 6 : top - 5,
+              pointerEvents: 'auto',
+              cursor: 'move',
+            }}
+            onPointerDown={e => onResizeStart(id, e)}
+          />
+        ))}
       </div>
     );
   }

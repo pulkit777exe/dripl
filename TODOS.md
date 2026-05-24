@@ -434,6 +434,7 @@ Add `isPointOnElementOutline(point, element, threshold)` that uses distance-to-s
 **Fix:** Move the transient laser trail rendering out of React state and into a lightweight dedicated canvas overlay or a direct `requestAnimationFrame` loop on a separate overlay layer that doesn't trigger React tree updates.
 **Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:93, 1507-1514`.
 **Depends on:** None.
+**Status:** ✅ FIXED — Created `LaserCanvas.tsx`: a dedicated `<canvas>` component that listens to `dripl:laser-start/move/end` custom events and renders the trail via `requestAnimationFrame`. Removed all `laserTrailPoints` React state, the 60ms cleanup interval, the SVG rendering block, `LaserTrailPoint` interface, and `LASER_FADE_MS` constant from `RoughCanvas`. The main component tree no longer re-renders during laser drawing.
 
 ### 43. No Client-Side Idle Timeout or Inactivity Expiry for Remote Cursors
 **What:** Remote cursors/collaborators are saved in state via websocket updates but are never pruned unless a explicit `user-leave` event is received.
@@ -451,6 +452,7 @@ Add `isPointOnElementOutline(point, element, threshold)` that uses distance-to-s
 **Fix:** Map over the entire `points` array of selected linear elements to render intermediate handle markers, updating the target point's local offset in `updateElementTransient` when dragged.
 **Context:** `apps/dripl-app/components/canvas/SelectionOverlay.tsx:242-250`.
 **Depends on:** None.
+**Status:** ✅ FIXED — `ResizeHandle` union type extended with `arrow-point-${number}` template literal. `SelectionOverlay.tsx` now maps all `points` to handles, rendering endpoints as large draggable circles and intermediate vertices as smaller draggable markers. The `pointermove` resize handler in `RoughCanvas.tsx` now detects `arrow-point-N` and moves the corresponding point at index N.
 
 ### 45. No Client-Side Throttling or Debouncing on Canvas Storage Serialization
 **What:** Canvas state persistence to `localStorage` is debounced inside a simple React effect whenever `elements` change.
@@ -459,4 +461,5 @@ Add `isPointOnElementOutline(point, element, threshold)` that uses distance-to-s
 **Fix:** Offload serialization to a Web Worker, or use a throttling strategy that only writes when the user has been completely inactive for several seconds.
 **Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:269-289`.
 **Depends on:** None.
+**Status:** ✅ FIXED — Replaced the 800ms blind debounce with an activity-gated 2500ms schedule. At fire time it reads `isDrawingRef.current`; if the user is still drawing, it re-schedules itself for another 2s rather than serializing mid-stroke. Deduplicated `flushToStorage` into a stable `flushToStorageRef` shared by both the debounce and the `beforeunload` handler. The `beforeunload` effect no longer depends on `theme` as a dep to prevent stale-closure re-registration.
 

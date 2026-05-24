@@ -14,6 +14,7 @@ import RBush from 'rbush';
 import { SelectionOverlay, ResizeHandle } from './SelectionOverlay';
 import { NameInputModal } from './NameInputModal';
 import { RemoteCursors } from './RemoteCursors';
+import { LaserCanvas } from './LaserCanvas';
 import { PropertiesPanel } from './PropertiesPanel';
 import { ContextMenu } from './ContextMenu';
 import { DualCanvas } from './DualCanvas';
@@ -45,22 +46,44 @@ interface SpatialIndexState {
   elementIds: Set<string>;
 }
 
-interface LaserTrailPoint {
-  x: number;
-  y: number;
-  createdAt: number;
-}
 
-const LASER_FADE_MS = 1200;
 
 export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerReady, setContainerReady] = useState(false);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   const setContainerRef = useCallback((el: HTMLDivElement | null) => {
     (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
     setContainerReady(!!el);
   }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(entries => {
+      if (!entries || entries.length === 0) return;
+      const entry = entries[0];
+      if (!entry) return;
+      const rect = entry.contentRect;
+      setContainerSize({
+        width: rect.width || container.clientWidth,
+        height: rect.height || container.clientHeight,
+      });
+    });
+
+    observer.observe(container);
+
+    setContainerSize({
+      width: container.clientWidth,
+      height: container.clientHeight,
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [containerReady]);
 
   const [userName, setUserName] = useState<string | null>(() => getOrCreateCollaboratorName());
 
@@ -90,7 +113,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     y: number;
     elementId: string;
   } | null>(null);
-  const [laserTrailPoints, setLaserTrailPoints] = useState<LaserTrailPoint[]>([]);
+
 
   const setDrawingState = useCallback((next: boolean) => {
     isDrawingRef.current = next;
@@ -266,53 +289,60 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   }, [broadcastElements, elements, roomSlug]);
 
   // ── Persist local canvas ─────────────────────────────────────────────────
+  // Shared serializer — called both by the idle debounce and beforeunload.
+  const flushToStorageRef = useRef<(() => void) | null>(null);
+  flushToStorageRef.current = () => {
+    if (roomSlug !== null) return;
+    const state = useCanvasStore.getState();
+    const appState: LocalCanvasState = {
+      theme,
+      zoom: state.zoom,
+      panX: state.panX,
+      panY: state.panY,
+      currentStrokeColor: state.currentStrokeColor,
+      currentBackgroundColor: state.currentBackgroundColor,
+      currentStrokeWidth: state.currentStrokeWidth,
+      currentRoughness: state.currentRoughness,
+      currentStrokeStyle: state.currentStrokeStyle,
+      currentFillStyle: state.currentFillStyle,
+      activeTool: state.activeTool,
+    };
+    saveLocalCanvasToStorage(state.elements, appState, state.selectedIds);
+  };
+
+  // Activity-gated debounce: only serialize when the user is idle.
+  // Re-schedules itself for 2s if the user is still drawing, preventing
+  // main-thread jank during rapid freedraw / drag sessions. (Item 45)
   useEffect(() => {
     if (roomSlug !== null) return;
-    const timeoutId = setTimeout(() => {
-      const state = useCanvasStore.getState();
-      const appState: LocalCanvasState = {
-        theme,
-        zoom: state.zoom,
-        panX: state.panX,
-        panY: state.panY,
-        currentStrokeColor: state.currentStrokeColor,
-        currentBackgroundColor: state.currentBackgroundColor,
-        currentStrokeWidth: state.currentStrokeWidth,
-        currentRoughness: state.currentRoughness,
-        currentStrokeStyle: state.currentStrokeStyle,
-        currentFillStyle: state.currentFillStyle,
-        activeTool: state.activeTool,
-      };
-      saveLocalCanvasToStorage(elements, appState, selectedIds);
-    }, 800);
+    const IDLE_DELAY = 2500;
+    const RETRY_DELAY = 2000;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const schedule = () => {
+      timeoutId = setTimeout(() => {
+        if (isDrawingRef.current) {
+          // User is still drawing — wait a bit longer before writing.
+          schedule();
+        } else {
+          flushToStorageRef.current?.();
+        }
+      }, isDrawingRef.current ? RETRY_DELAY : IDLE_DELAY);
+    };
+
+    schedule();
     return () => clearTimeout(timeoutId);
   }, [elements, roomSlug, selectedIds, theme]);
 
+  // Flush immediately on tab close / navigation.
   useEffect(() => {
     if (roomSlug !== null) return;
-    const flushToStorage = () => {
-      const state = useCanvasStore.getState();
-      const appState: LocalCanvasState = {
-        theme,
-        zoom: state.zoom,
-        panX: state.panX,
-        panY: state.panY,
-        currentStrokeColor: state.currentStrokeColor,
-        currentBackgroundColor: state.currentBackgroundColor,
-        currentStrokeWidth: state.currentStrokeWidth,
-        currentRoughness: state.currentRoughness,
-        currentStrokeStyle: state.currentStrokeStyle,
-        currentFillStyle: state.currentFillStyle,
-        activeTool: state.activeTool,
-      };
-      saveLocalCanvasToStorage(state.elements, appState, state.selectedIds);
-    };
-    const handleBeforeUnload = () => flushToStorage();
+    const handleBeforeUnload = () => flushToStorageRef.current?.();
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [roomSlug, theme]);
+  }, [roomSlug]);
 
   useEffect(() => {
     const stored = getOrCreateCollaboratorName();
@@ -328,8 +358,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const viewport: Viewport = {
     x: panX,
     y: panY,
-    width: containerRef.current?.clientWidth || 0,
-    height: containerRef.current?.clientHeight || 0,
+    width: containerSize.width,
+    height: containerSize.height,
     zoom,
   };
 
@@ -835,7 +865,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
     if (currentTool === 'laser') {
       setDrawingState(true);
-      setLaserTrailPoints([{ x, y, createdAt: Date.now() }]);
+      window.dispatchEvent(new CustomEvent('dripl:laser-start', { detail: { x, y } }));
       return;
     }
 
@@ -1078,8 +1108,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     if (currentTool === 'laser' && isDrawingRef.current) {
-      const now = Date.now();
-      setLaserTrailPoints(prev => [...prev.slice(-160), { x, y, createdAt: now }]);
+      window.dispatchEvent(new CustomEvent('dripl:laser-move', { detail: { x, y } }));
       return;
     }
 
@@ -1100,12 +1129,19 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         interactionRef.current.historyPushed = true;
       }
 
-      // ── Arrow endpoint dragging ─────────────────────────────────────
-      if (handle === 'arrow-start' || handle === 'arrow-end') {
+      // ── Arrow endpoint / vertex dragging ─────────────────────────────────
+      const isArrowEndpoint = handle === 'arrow-start' || handle === 'arrow-end';
+      const arrowPointMatch = typeof handle === 'string' && handle.startsWith('arrow-point-')
+        ? parseInt(handle.slice('arrow-point-'.length), 10)
+        : -1;
+
+      if (isArrowEndpoint || arrowPointMatch >= 0) {
         if (!('points' in el) || !el.points || el.points.length < 2) return;
         const pts = el.points as Point[];
         const absPts = pts.map((p: Point) => ({ x: el.x + p.x, y: el.y + p.y }));
-        const idx = handle === 'arrow-start' ? 0 : pts.length - 1;
+        const idx = handle === 'arrow-start' ? 0
+          : handle === 'arrow-end' ? pts.length - 1
+          : arrowPointMatch;
         const target = absPts[idx];
         if (!target) return;
         const angle = el.angle ?? 0;
@@ -1457,6 +1493,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     if (isDrawingRef.current) {
       if (currentTool === 'laser') {
         setDrawingState(false);
+        window.dispatchEvent(new CustomEvent('dripl:laser-end'));
         return;
       }
 
@@ -1503,15 +1540,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       unlockGestureElements();
     };
   }, [unlockGestureElements]);
-
-  useEffect(() => {
-    if (laserTrailPoints.length === 0) return;
-    const interval = window.setInterval(() => {
-      const cutoff = Date.now() - LASER_FADE_MS;
-      setLaserTrailPoints(prev => prev.filter(point => point.createdAt >= cutoff));
-    }, 60);
-    return () => window.clearInterval(interval);
-  }, [laserTrailPoints.length]);
 
   const handleTextSubmit = (text: string) => {
     if (!textInput || !text.trim()) {
@@ -2152,24 +2180,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const shouldShowPropertiesPanel = activeTool === 'select' && selectedIds.size > 0; // RULE: Sidebar Visibility
   const primarySelectedElement =
     selectedIds.size > 0 ? (elements.find(element => selectedIds.has(element.id)) ?? null) : null;
-  const latestLaserPoint = laserTrailPoints[laserTrailPoints.length - 1] ?? null;
-  const laserNow = Date.now();
-  const laserOpacity = latestLaserPoint
-    ? Math.max(0, 1 - (laserNow - latestLaserPoint.createdAt) / LASER_FADE_MS)
-    : 0;
-  const laserRenderablePoints = laserTrailPoints
-    .map(point => {
-      const opacity = Math.max(0, 1 - (laserNow - point.createdAt) / LASER_FADE_MS);
-      return {
-        x: point.x * zoom + panX,
-        y: point.y * zoom + panY,
-        opacity,
-      };
-    })
-    .filter(point => point.opacity > 0);
-  const laserPolylinePoints = laserTrailPoints
-    .map(point => `${point.x * zoom + panX},${point.y * zoom + panY}`)
-    .join(' ');
 
   return (
     <div
@@ -2205,40 +2215,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         />
       )}
 
-      {laserTrailPoints.length > 0 && (
-        <svg className="absolute inset-0 z-30 pointer-events-none overflow-visible">
-          {laserTrailPoints.length > 1 ? (
-            <polyline
-              points={laserPolylinePoints}
-              fill="none"
-              stroke="rgba(255, 94, 0, 0.95)"
-              strokeWidth={5.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={laserOpacity}
-              filter="drop-shadow(0 0 6px rgba(255, 94, 0, 0.65))"
-            />
-          ) : latestLaserPoint ? (
-            <circle
-              cx={latestLaserPoint.x * zoom + panX}
-              cy={latestLaserPoint.y * zoom + panY}
-              r={4}
-              fill="rgba(255, 89, 45, 0.95)"
-              opacity={laserOpacity}
-            />
-          ) : null}
-          {laserRenderablePoints.map((point, index) => (
-            <circle
-              key={`laser-dot-${index}`}
-              cx={point.x}
-              cy={point.y}
-              r={2.2 + point.opacity * 1.8}
-              fill="rgba(255, 132, 66, 0.95)"
-              opacity={point.opacity}
-            />
-          ))}
-        </svg>
-      )}
+      <LaserCanvas />
 
       {!readOnly && (
         <SelectionOverlay
