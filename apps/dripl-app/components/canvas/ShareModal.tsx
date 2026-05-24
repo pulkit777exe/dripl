@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 
 interface ShareModalProps {
@@ -27,7 +27,36 @@ export function ShareModal({
   const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
   const [isStartingCollab, setIsStartingCollab] = useState(false);
 
-  if (!isOpen) return null;
+  const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
+  const prevOpen = useRef(false);
+
+  useEffect(() => {
+    if (isOpen && !prevOpen.current) {
+      prevOpen.current = true;
+      setAnimState('opening');
+    } else if (!isOpen && prevOpen.current) {
+      prevOpen.current = false;
+      setAnimState('closing');
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (animState === 'opening') {
+      const raf = requestAnimationFrame(() => setAnimState('open'));
+      return () => cancelAnimationFrame(raf);
+    }
+    if (animState === 'closing') {
+      const ms = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
+      ) || 150;
+      const timer = setTimeout(() => setAnimState('closed'), ms);
+      return () => clearTimeout(timer);
+    }
+  }, [animState]);
+
+  if (animState === 'closed') return null;
+
+  const modalState = animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : '';
 
   const handleShareCanvas = async () => {
     setIsSharingSnapshot(true);
@@ -49,11 +78,11 @@ export function ShareModal({
 
   return (
     <div
-      className="fixed inset-0 z-300 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-300 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto t-modal ${modalState}"
       onClick={onClose}
     >
       <div
-        className="relative bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-[440px] p-5 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+        className="relative bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-[440px] p-5"
         onClick={e => e.stopPropagation()}
       >
         <button

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Cookie, Settings, Check } from 'lucide-react';
 
 const COOKIE_CONSENT_KEY = 'dripl-cookie-consent';
@@ -27,6 +27,9 @@ export default function CookieConsent() {
   const [isMounted, setIsMounted] = useState(false);
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
 
+  const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
+  const prevOpen = useRef(false);
+
   useEffect(() => {
     setIsMounted(true);
     const stored = localStorage.getItem(COOKIE_CONSENT_KEY);
@@ -39,6 +42,32 @@ export default function CookieConsent() {
       setShowConsent(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (showPreferences && !prevOpen.current) {
+      prevOpen.current = true;
+      setAnimState('opening');
+    }
+  }, [showPreferences]);
+
+  useEffect(() => {
+    if (animState === 'opening') {
+      const raf = requestAnimationFrame(() => setAnimState('open'));
+      return () => cancelAnimationFrame(raf);
+    }
+    if (animState === 'closing') {
+      const ms = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
+      ) || 150;
+      const timer = setTimeout(() => {
+        setAnimState('closed');
+        setShowPreferences(false);
+      }, ms);
+      return () => clearTimeout(timer);
+    }
+  }, [animState]);
+
+  const modalState = animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : '';
 
   const handleAccept = () => {
     const consentState: CookieConsentState = {
@@ -58,6 +87,10 @@ export default function CookieConsent() {
     setShowPreferences(true);
   };
 
+  const handleClosePreferences = () => {
+    setAnimState('closing');
+  };
+
   const handleSavePreferences = () => {
     const consentState: CookieConsentState = {
       accepted: preferences.analytics || preferences.marketing,
@@ -65,8 +98,8 @@ export default function CookieConsent() {
       preferences,
     };
     localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(consentState));
-    setShowPreferences(false);
     setShowConsent(false);
+    setAnimState('closing');
   };
 
   const handleTogglePreference = (key: keyof typeof preferences) => {
@@ -125,13 +158,13 @@ export default function CookieConsent() {
         </div>
       )}
 
-      {showPreferences && (
+      {animState !== 'closed' && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-          onClick={() => setShowPreferences(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm t-modal ${modalState}"
+          onClick={handleClosePreferences}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] p-5 shadow-lg animate-in zoom-in-95 slide-in-from-bottom-4"
+            className="w-full max-w-md rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] p-5 shadow-lg"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-5">
@@ -140,7 +173,7 @@ export default function CookieConsent() {
                 <h3 className="text-[15px] font-semibold text-[#1A1917]">Cookie Preferences</h3>
               </div>
               <button
-                onClick={() => setShowPreferences(false)}
+                onClick={handleClosePreferences}
                 className="rounded-md p-1 text-[#9B9890] hover:bg-[#E8E5DE] hover:text-[#6B6860] transition-colors"
               >
                 <X size={14} />
@@ -197,7 +230,7 @@ export default function CookieConsent() {
 
             <div className="mt-5 flex justify-end gap-3">
               <button
-                onClick={() => setShowPreferences(false)}
+                onClick={handleClosePreferences}
                 className="rounded-md border border-[#D4D0C9] px-4 py-2 text-[13px] font-medium text-[#6B6860] hover:bg-[#E8E5DE] transition-colors"
               >
                 Cancel

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowRight, PenLine } from 'lucide-react';
 
 interface NameInputModalProps {
@@ -8,6 +8,12 @@ interface NameInputModalProps {
 }
 
 export function NameInputModal({ onSubmit }: NameInputModalProps) {
+  const [animState, setAnimState] = useState<'opening' | 'open'>('opening');
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setAnimState('open'));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   const [name, setName] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -18,8 +24,8 @@ export function NameInputModal({ onSubmit }: NameInputModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg p-7 w-full max-w-sm mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm t-modal ${animState === 'open' ? 'is-open' : ''}">
+      <div className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg p-7 w-full max-w-sm mx-4">
         <div className="flex items-center gap-2 mb-4 justify-center">
           <div className="h-8 w-8 rounded-lg bg-[#E8462A] flex items-center justify-center text-white">
             <PenLine className="h-4 w-4" />

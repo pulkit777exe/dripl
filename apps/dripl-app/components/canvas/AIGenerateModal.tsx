@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { useCanvasStore } from '@/lib/canvas-store';
@@ -23,9 +23,21 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [generateSuccess, setGenerateSuccess] = useState(false);
 
   const addElements = useCanvasStore(state => state.addElements);
   const { user } = useAuth();
+  const successRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!generateSuccess || !successRef.current) return;
+    const path = successRef.current.querySelector<SVGPathElement>('svg path');
+    if (path) {
+      const len = Math.ceil(path.getTotalLength());
+      path.style.strokeDasharray = String(len);
+      path.style.strokeDashoffset = String(len);
+    }
+  }, [generateSuccess]);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -54,8 +66,12 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
       if (data.elements && Array.isArray(data.elements)) {
         addElements(data.elements);
-        onClose();
-        setPrompt('');
+        setGenerateSuccess(true);
+        setTimeout(() => {
+          setGenerateSuccess(false);
+          onClose();
+          setPrompt('');
+        }, 1200);
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred');
@@ -70,20 +86,65 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
   };
 
   const [mounted, setMounted] = useState(false);
+  const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
+  const prevOpen = useRef(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!isOpen || !mounted) return null;
+  useEffect(() => {
+    if (isOpen && !prevOpen.current) {
+      prevOpen.current = true;
+      setAnimState('opening');
+    } else if (!isOpen && prevOpen.current) {
+      prevOpen.current = false;
+      setAnimState('closing');
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (animState === 'opening') {
+      const raf = requestAnimationFrame(() => setAnimState('open'));
+      return () => cancelAnimationFrame(raf);
+    }
+    if (animState === 'closing') {
+      const ms = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
+      ) || 150;
+      const timer = setTimeout(() => setAnimState('closed'), ms);
+      return () => clearTimeout(timer);
+    }
+  }, [animState]);
+
+  if (generateSuccess) {
+    return createPortal(
+      <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/30 backdrop-blur-sm t-modal is-open">
+        <div className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg p-8 flex flex-col items-center gap-3">
+          <span className="t-success-check" data-state="in" aria-hidden="true" ref={successRef}>
+            <svg viewBox="0 0 48 48" fill="none" width="48" height="48">
+              <circle cx="24" cy="24" r="22" stroke="#22c55e" strokeWidth="4" />
+              <path d="M16 24l6 6 10-10" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <p className="text-[15px] font-semibold text-[#1A1917]">Diagram Generated!</p>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  if (!mounted || animState === 'closed') return null;
+
+  const modalState = animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : '';
 
   const modal = (
     <div
-      className="fixed inset-0 z-[400] flex items-center justify-center p-4 box-content bg-black/30 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200"
+      className={`fixed inset-0 z-[400] flex items-center justify-center p-4 box-content bg-black/30 backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
       onClick={onClose}
     >
       <div
-        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-full max-w-[460px] max-h-[85vh] overflow-y-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-full max-w-[460px] max-h-[85vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E4E0D9]">

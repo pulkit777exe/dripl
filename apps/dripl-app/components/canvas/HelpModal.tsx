@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { HelpCircle, X, BookOpen, ExternalLink, Github, Youtube, Keyboard } from 'lucide-react';
 
 interface HelpModalProps {
@@ -15,7 +16,7 @@ function ShortcutItem({ toolName, shortcut }: ShortcutItemProps) {
   return (
     <div className="flex justify-between items-center py-1.5 border-b border-[#E4E0D9] last:border-b-0">
       <div className="text-[13px] text-[#6B6860] flex-1">{toolName}</div>
-      <div className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#E8E5DE] text-[#6B6860] border border-[#D4D0C9] min-w-[48px] text-center">
+      <div className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#E8E5DE] text-[#6B6860] border border-[#D4D0C9] min-w-12 text-center">
         {shortcut}
       </div>
     </div>
@@ -37,13 +38,27 @@ function HeaderButton({ icon, label }: HeaderButtonProps) {
 }
 
 export default function HelpModal({ onClose }: HelpModalProps) {
+  const [animState, setAnimState] = useState<'opening' | 'open' | 'closing'>('opening');
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setAnimState('open'));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setAnimState('closing');
+    const ms = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
+    ) || 150;
+    setTimeout(() => onClose(), ms);
+  }, [onClose]);
+
   return (
     <div
-      className="fixed inset-0 bg-black/30 backdrop-blur-sm z-100 flex items-center justify-center p-4 animate-in fade-in duration-200"
-      onClick={onClose}
+      className={`fixed inset-0 bg-black/30 backdrop-blur-sm z-100 flex items-center justify-center p-4 t-modal ${animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : ''}`}
+      onClick={handleClose}
     >
       <div
-        className="w-full max-w-4xl bg-[#FAFAF7] rounded-xl border border-[#E4E0D9] shadow-lg max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+        className="w-full max-w-4xl bg-[#FAFAF7] rounded-xl border border-[#E4E0D9] shadow-lg max-h-[90vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-between items-center px-5 py-3.5 border-b border-[#E4E0D9]">
@@ -52,7 +67,7 @@ export default function HelpModal({ onClose }: HelpModalProps) {
             Help
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 text-[#9B9890] hover:text-[#1A1917] hover:bg-[#E8E5DE] rounded-md transition-colors"
           >
             <X size={18} />

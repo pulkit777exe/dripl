@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Download,
   X,
@@ -16,7 +16,7 @@ import { jsPDF } from 'jspdf';
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { exportCanvas, downloadBlob, importFromJson } from '@/utils/export';
-import { InlineError, SuccessState } from '@/components/ui/ErrorState';
+import { InlineError } from '@/components/ui/ErrorState';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -40,7 +40,47 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const [useCustomSize, setUseCustomSize] = useState(false);
   const [exportSelectionOnly, setExportSelectionOnly] = useState(false);
 
-  if (!isOpen) return null;
+  const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
+  const prevOpen = useRef(false);
+  const successRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && !prevOpen.current) {
+      prevOpen.current = true;
+      setAnimState('opening');
+    } else if (!isOpen && prevOpen.current) {
+      prevOpen.current = false;
+      setAnimState('closing');
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (animState === 'opening') {
+      const raf = requestAnimationFrame(() => setAnimState('open'));
+      return () => cancelAnimationFrame(raf);
+    }
+    if (animState === 'closing') {
+      const ms = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
+      ) || 150;
+      const timer = setTimeout(() => setAnimState('closed'), ms);
+      return () => clearTimeout(timer);
+    }
+  }, [animState]);
+
+  useEffect(() => {
+    if (!exportSuccess || !successRef.current) return;
+    const path = successRef.current.querySelector<SVGPathElement>('svg path');
+    if (path) {
+      const len = Math.ceil(path.getTotalLength());
+      path.style.strokeDasharray = String(len);
+      path.style.strokeDashoffset = String(len);
+    }
+  }, [exportSuccess]);
+
+  if (animState === 'closed') return null;
+
+  const modalState = animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : '';
 
   const calculateDimensions = () => {
     if (!useCustomSize || !customWidth || !customHeight) {
@@ -183,11 +223,11 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto t-modal ${modalState}"
       onClick={onClose}
     >
       <div
-        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg p-5 w-[440px] animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg p-5 w-[440px]"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
@@ -419,11 +459,15 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         )}
 
         {exportSuccess && (
-          <SuccessState
-            title={exportSuccess}
-            onDismiss={() => setExportSuccess(null)}
-            className="mt-4"
-          />
+          <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-green-50 border border-green-200 rounded-md">
+            <span className="t-success-check" data-state="in" aria-hidden="true" ref={successRef}>
+              <svg viewBox="0 0 48 48" fill="none" width="20" height="20">
+                <circle cx="24" cy="24" r="22" stroke="#22c55e" strokeWidth="4" />
+                <path d="M16 24l6 6 10-10" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <span className="text-[13px] text-green-700 font-medium">{exportSuccess}</span>
+          </div>
         )}
       </div>
     </div>
