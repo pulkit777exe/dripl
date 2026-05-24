@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DriplElement } from '@dripl/common';
 import { Copy, Trash2, Layers, RotateCcw } from 'lucide-react';
 
@@ -30,17 +30,35 @@ export function ContextMenu({
   onPaste,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [show, setShow] = useState(false);
+  const [closing, setClosing] = useState(false);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setShow(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setClosing(true);
+    const ms = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--dropdown-close-dur')
+    ) || 150;
+    setTimeout(() => {
+      setClosing(false);
+      onClose();
+    }, ms);
+  }, [onClose]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
+        handleClose();
       }
     };
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        handleClose();
       }
     };
 
@@ -51,14 +69,14 @@ export function ContextMenu({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [onClose]);
+  }, [handleClose]);
 
-  if (!element) return null;
+  if (!element && !closing) return null;
 
   return (
     <div
       ref={menuRef}
-      className="absolute z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-50 text-foreground"
+      className={`t-dropdown absolute z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-50 text-foreground ${show && !closing ? 'is-open' : closing ? 'is-closing' : ''}`}
       style={{ left: `${x}px`, top: `${y}px` }}
       role="menu"
       aria-label="Element context menu"
@@ -68,7 +86,7 @@ export function ContextMenu({
           className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-2 text-foreground"
           onClick={() => {
             onCopy();
-            onClose();
+            handleClose();
           }}
           role="menuitem"
         >
@@ -81,7 +99,7 @@ export function ContextMenu({
           className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-2 text-foreground"
           onClick={() => {
             onPaste();
-            onClose();
+            handleClose();
           }}
           role="menuitem"
         >
@@ -93,7 +111,7 @@ export function ContextMenu({
         className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-2 text-foreground"
         onClick={() => {
           onDuplicate();
-          onClose();
+          handleClose();
         }}
         role="menuitem"
       >
@@ -105,7 +123,7 @@ export function ContextMenu({
         className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-2 text-foreground"
         onClick={() => {
           onBringToFront();
-          onClose();
+          handleClose();
         }}
         role="menuitem"
       >
@@ -116,7 +134,7 @@ export function ContextMenu({
         className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-2 text-foreground"
         onClick={() => {
           onSendToBack();
-          onClose();
+          handleClose();
         }}
         role="menuitem"
       >
@@ -128,7 +146,7 @@ export function ContextMenu({
         className="w-full px-4 py-2 text-left hover:bg-red-500/20 text-red-500 flex items-center gap-2"
         onClick={() => {
           onDelete();
-          onClose();
+          handleClose();
         }}
         role="menuitem"
       >

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   File,
@@ -43,6 +43,19 @@ interface FileBrowserProps {
   onRenameFile?: (id: string, name: string) => void;
 }
 
+function DropdownMenu({ className, children }: { className?: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setOpen(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return (
+    <div className={`t-dropdown ${open ? 'is-open' : ''} ${className ?? ''}`}>
+      {children}
+    </div>
+  );
+}
+
 export function FileBrowser({
   files,
   total = 0,
@@ -60,6 +73,39 @@ export function FileBrowser({
   const [editName, setEditName] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteAnimState, setDeleteAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
+  const [localDeleteId, setLocalDeleteId] = useState<string | null>(null);
+  const prevDeleteRef = useRef<string | null>(null);
+  const closingRef = useRef(false);
+
+  useEffect(() => {
+    if (deleteConfirmId && !prevDeleteRef.current && !closingRef.current) {
+      prevDeleteRef.current = deleteConfirmId;
+      setLocalDeleteId(deleteConfirmId);
+      setDeleteAnimState('opening');
+    } else if (!deleteConfirmId && prevDeleteRef.current) {
+      prevDeleteRef.current = null;
+      setDeleteAnimState('closing');
+    }
+  }, [deleteConfirmId]);
+
+  useEffect(() => {
+    if (deleteAnimState === 'opening') {
+      const raf = requestAnimationFrame(() => setDeleteAnimState('open'));
+      return () => cancelAnimationFrame(raf);
+    }
+    if (deleteAnimState === 'closing') {
+      const ms = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
+      ) || 150;
+      const timer = setTimeout(() => {
+        setDeleteAnimState('closed');
+        setLocalDeleteId(null);
+        closingRef.current = false;
+      }, ms);
+      return () => clearTimeout(timer);
+    }
+  }, [deleteAnimState]);
 
   const startRename = (file: FileItem) => {
     setEditingId(file.id);
@@ -81,11 +127,21 @@ export function FileBrowser({
   };
 
   const confirmDelete = () => {
-    if (deleteConfirmId) {
-      onDeleteFile?.(deleteConfirmId);
-      setDeleteConfirmId(null);
+    if (localDeleteId) {
+      onDeleteFile?.(localDeleteId);
+      setDeleteAnimState('closing');
+      closingRef.current = true;
     }
   };
+
+  const handleCloseDelete = () => {
+    if (deleteAnimState === 'open') {
+      setDeleteAnimState('closing');
+      closingRef.current = true;
+    }
+  };
+
+  const deleteModalState = deleteAnimState === 'open' ? 'is-open' : deleteAnimState === 'closing' ? 'is-closing' : '';
 
   return (
     <div className="flex-1 p-6 overflow-auto bg-[#F0EDE6]">
@@ -187,9 +243,7 @@ export function FileBrowser({
                   <MoreHorizontal className="h-4 w-4" style={{ color: '#6B6860' }} />
                 </button>
                 {openMenuId === file.id && (
-                  <div
-                    className="absolute right-0 top-9 w-40 rounded-xl shadow-lg py-1.5 z-50 bg-[#FAFAF7] border border-[#E4E0D9]"
-                  >
+                  <DropdownMenu className="absolute right-0 top-9 w-40 rounded-xl shadow-lg py-1.5 z-50 bg-[#FAFAF7] border border-[#E4E0D9]">
                     <button
                       onClick={e => {
                         e.preventDefault();
@@ -213,7 +267,7 @@ export function FileBrowser({
                       <Trash2 size={14} />
                       Delete
                     </button>
-                  </div>
+                  </DropdownMenu>
                 )}
               </div>
             </Link>
@@ -276,9 +330,7 @@ export function FileBrowser({
                     <MoreHorizontal className="h-4 w-4" style={{ color: '#6B6860' }} />
                   </button>
                   {openMenuId === file.id && (
-                    <div
-                      className="absolute right-16 top-12 w-40 rounded-xl shadow-lg py-1.5 z-50 bg-[#FAFAF7] border border-[#E4E0D9]"
-                    >
+                    <DropdownMenu className="absolute right-16 top-12 w-40 rounded-xl shadow-lg py-1.5 z-50 bg-[#FAFAF7] border border-[#E4E0D9]">
                       <button
                         onClick={e => {
                           e.preventDefault();
@@ -302,7 +354,7 @@ export function FileBrowser({
                         <Trash2 size={14} />
                         Delete
                       </button>
-                    </div>
+                    </DropdownMenu>
                   )}
                 </div>
               </Link>
@@ -333,13 +385,13 @@ export function FileBrowser({
         </div>
       )}
 
-      {deleteConfirmId && typeof document !== 'undefined' && createPortal(
+      {deleteAnimState !== 'closed' && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-          onClick={() => setDeleteConfirmId(null)}
+          className={`fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm t-modal ${deleteModalState}`}
+          onClick={handleCloseDelete}
         >
           <div
-            className="w-full max-w-sm rounded-xl shadow-lg overflow-hidden animate-in zoom-in-95 bg-[#FAFAF7] border border-[#E4E0D9]"
+            className="w-full max-w-sm rounded-xl shadow-lg overflow-hidden bg-[#FAFAF7] border border-[#E4E0D9]"
             onClick={e => e.stopPropagation()}
           >
             <div className="p-5">
@@ -357,7 +409,7 @@ export function FileBrowser({
               </p>
               <div className="flex gap-2 justify-end">
                 <button
-                  onClick={() => setDeleteConfirmId(null)}
+                  onClick={handleCloseDelete}
                   className="px-3 py-1.5 text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors"
                 >
                   Cancel

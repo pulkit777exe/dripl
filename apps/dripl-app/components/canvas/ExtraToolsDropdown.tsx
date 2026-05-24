@@ -24,9 +24,28 @@ function ToolIcon({ icon, size = 16, className }: { icon?: React.ComponentType<{
 export function ExtraToolsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const prevOpen = useRef(isOpen);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const setActiveTool = useCanvasStore(state => state.setActiveTool);
   const activeTool = useCanvasStore(state => state.activeTool);
+
+  useEffect(() => {
+    if (!isOpen && prevOpen.current) {
+      prevOpen.current = false;
+      setClosing(true);
+    } else if (isOpen) {
+      setClosing(false);
+      prevOpen.current = true;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!closing) return;
+    const ms = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dropdown-close-dur')) || 150;
+    const timer = setTimeout(() => setClosing(false), ms);
+    return () => clearTimeout(timer);
+  }, [closing]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -128,9 +147,10 @@ export function ExtraToolsDropdown() {
           />
         </button>
 
-        {isOpen && (
+        {(isOpen || closing) && (
           <div 
-            className="absolute top-full right-0 mt-2 w-72 rounded-xl border shadow-2xl z-60 py-1.5"
+            className={`t-dropdown absolute top-full right-0 mt-2 w-72 rounded-xl border shadow-2xl z-60 py-1.5 ${isOpen ? 'is-open' : closing ? 'is-closing' : ''}`}
+            data-origin="top-right"
             style={{ backgroundColor: 'var(--color-panel-bg)', borderColor: 'var(--color-panel-border)' }}
           >
             <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase" style={{ color: 'var(--color-panel-label)' }}>

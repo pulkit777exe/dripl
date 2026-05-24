@@ -73,6 +73,28 @@ export function Menu({
   const { theme, setTheme, resolvedTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
   const mounted = useIsMounted();
+  const [closing, setClosing] = useState(false);
+  const prevOpen = useRef(isOpen);
+
+  useEffect(() => {
+    if (!isOpen && prevOpen.current) {
+      prevOpen.current = false;
+      setClosing(true);
+    } else if (isOpen) {
+      setClosing(false);
+      prevOpen.current = true;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!closing) return;
+    const ms =
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--dropdown-close-dur'),
+      ) || 150;
+    const timer = setTimeout(() => setClosing(false), ms);
+    return () => clearTimeout(timer);
+  }, [closing]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -155,11 +177,12 @@ export function Menu({
   return (
     <div
       ref={menuRef}
-      className={`sidebar-panel absolute top-14 left-4 z-200 rounded-xl shadow-2xl w-64 py-2 overflow-hidden pointer-events-auto${isOpen ? ' is-open' : ''}`}
+      className={`t-dropdown absolute top-14 left-4 z-200 rounded-xl shadow-2xl w-64 py-2 overflow-hidden pointer-events-auto ${isOpen ? 'is-open' : closing ? 'is-closing' : ''}`}
       style={{
         backgroundColor: 'var(--color-panel-bg)',
         border: '1px solid var(--color-panel-border)',
       }}
+      data-origin="top-left"
       onClick={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}
     >

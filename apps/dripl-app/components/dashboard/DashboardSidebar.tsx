@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -34,7 +34,29 @@ export function DashboardSidebar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [usedCanvases, setUsedCanvases] = useState(0);
   const [usageLoading, setUsageLoading] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const prevOpen = useRef(userMenuOpen);
   const FREE_PLAN_LIMIT = 3;
+
+  useEffect(() => {
+    if (!userMenuOpen && prevOpen.current) {
+      prevOpen.current = false;
+      setClosing(true);
+    } else if (userMenuOpen) {
+      setClosing(false);
+      prevOpen.current = true;
+    }
+  }, [userMenuOpen]);
+
+  useEffect(() => {
+    if (!closing) return;
+    const ms =
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--dropdown-close-dur'),
+      ) || 150;
+    const timer = setTimeout(() => setClosing(false), ms);
+    return () => clearTimeout(timer);
+  }, [closing]);
 
   const handleLogout = async () => {
     await logout();
@@ -168,8 +190,11 @@ export function DashboardSidebar() {
             className={`p-1.5 flex flex-col gap-1 rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] shadow-sm transition-all`}
           >
             {/* Expanded Menu */}
-            {userMenuOpen && (
-              <div className="px-1.5 pt-1.5 pb-1 space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            {(userMenuOpen || closing) && (
+              <div
+                className={`t-dropdown px-1.5 pt-1.5 pb-1 space-y-0.5 ${userMenuOpen ? 'is-open' : closing ? 'is-closing' : ''}`}
+                data-origin="bottom-center"
+              >
                 <Link
                   href="/settings/billing"
                   className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] font-medium text-[#6B6860] hover:bg-[#E8E5DE] transition-colors"
