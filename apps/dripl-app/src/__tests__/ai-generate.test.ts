@@ -2,12 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const mockGenerateContent = vi.fn();
 
+let mockModel: { generateContent: typeof mockGenerateContent } | null = null;
 vi.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
-    getGenerativeModel: vi.fn().mockReturnValue({
-      generateContent: mockGenerateContent,
-    }),
-  })),
+  GoogleGenerativeAI: class {
+    getGenerativeModel() {
+      if (!mockModel) mockModel = { generateContent: mockGenerateContent };
+      return mockModel;
+    }
+  },
 }));
 
 vi.stubEnv('GEMINI_API_KEY', 'test-api-key');

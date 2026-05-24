@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+let genAI: GoogleGenerativeAI | null = null;
+function getGenAI() {
+  if (!genAI) genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+  return genAI;
+}
 
 const SYSTEM_PROMPT = `You are an AI that generates diagram layouts for a canvas drawing application called Dripl.
 
@@ -108,7 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call Gemini API with retry logic
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = getGenAI().getGenerativeModel({ model: 'gemini-2.5-flash' });
     const maxRetries = 2;
 
     let lastError: Error | null = null;
