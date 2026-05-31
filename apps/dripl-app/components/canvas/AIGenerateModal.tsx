@@ -119,15 +119,15 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
   if (generateSuccess) {
     return createPortal(
-      <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/30 backdrop-blur-sm t-modal is-open">
-        <div className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg p-8 flex flex-col items-center gap-3">
+      <div className="fixed inset-0 z-400 flex items-center justify-center bg-overlay backdrop-blur-sm t-modal is-open">
+        <div className="bg-card border border-panel-border rounded-xl shadow-lg p-8 flex flex-col items-center gap-3">
           <span className="t-success-check" data-state="in" aria-hidden="true" ref={successRef}>
             <svg viewBox="0 0 48 48" fill="none" width="48" height="48">
               <circle cx="24" cy="24" r="22" stroke="#22c55e" strokeWidth="4" />
               <path d="M16 24l6 6 10-10" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>
-          <p className="text-[15px] font-semibold text-[#1A1917]">Diagram Generated!</p>
+          <p className="text-[15px] font-semibold text-foreground">Diagram Generated!</p>
         </div>
       </div>,
       document.body
@@ -140,21 +140,21 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
   const modal = (
     <div
-      className={`fixed inset-0 z-[400] flex items-center justify-center p-4 box-content bg-black/30 backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
+      className={`fixed inset-0 z-400 flex items-center justify-center p-4 box-content bg-overlay backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
       onClick={onClose}
     >
       <div
-        className="bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-lg w-full max-w-[460px] max-h-[85vh] overflow-y-auto"
+        className="bg-card border border-panel-border rounded-xl shadow-lg w-full max-w-115 max-h-[85vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E4E0D9]">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-panel-border">
           <div className="flex items-center gap-2">
-            <Sparkles size={18} className="text-[#E8462A]" />
-            <h2 className="text-[15px] font-semibold text-[#1A1917]">AI Diagram Generator</h2>
+            <Sparkles size={18} className="text-primary" />
+            <h2 className="text-[15px] font-semibold text-foreground">AI Diagram Generator</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-[#9B9890] hover:text-[#1A1917] hover:bg-[#E8E5DE] rounded-md transition-colors"
+            className="p-1 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-md transition-colors"
           >
             <X size={18} />
           </button>
@@ -162,7 +162,7 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
         <div className="p-5 space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[12px] font-medium text-[#6B6860]">Describe your diagram</label>
+            <label className="text-[12px] font-medium text-muted-foreground">Describe your diagram</label>
             <textarea
               value={prompt}
               onChange={e => {
@@ -170,20 +170,20 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
                 setError(null);
               }}
               placeholder="e.g., A flowchart showing the checkout process for an e-commerce site"
-              className="w-full h-28 px-3 py-2 bg-white border border-[#D4D0C9] rounded-md text-[13px] text-[#1A1917] placeholder-[#9B9890] resize-none outline-none focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20"
+              className="w-full h-28 px-3 py-2 bg-card border border-border rounded-md text-[13px] text-foreground placeholder:text-muted-foreground resize-none outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
               disabled={isLoading}
             />
-            <div className="text-[11px] text-[#9B9890]">{prompt.length}/2000</div>
+            <div className="text-[11px] text-muted-foreground">{prompt.length}/2000</div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[12px] font-medium text-[#6B6860]">Try an example</label>
+            <label className="text-[12px] font-medium text-muted-foreground">Try an example</label>
             <div className="flex flex-wrap gap-1.5">
               {EXAMPLE_PROMPTS.map((example, index) => (
                 <button
                   key={index}
                   onClick={() => handleExampleClick(example)}
-                  className="px-2.5 py-1 text-[11px] bg-white border border-[#D4D0C9] rounded-full text-[#6B6860] hover:bg-[#E8E5DE] hover:border-[#E8462A] transition-colors"
+                  className="px-2.5 py-1 text-[11px] bg-card border border-border rounded-full text-muted-foreground hover:bg-secondary hover:border-primary transition-colors"
                   disabled={isLoading}
                 >
                   {example.length > 40 ? example.slice(0, 40) + '...' : example}
@@ -193,17 +193,17 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-[#FAE8E5] border border-[#E8462A]/20 rounded-md text-[#C0392B] text-[13px]">
+            <div className="flex items-center gap-2 px-3 py-2 bg-error-bg border border-error-border rounded-md text-error text-[13px]">
               <AlertCircle size={14} />
               {error}
             </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-[#E4E0D9]">
+        <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-panel-border">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors"
+            className="px-3 py-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors"
             disabled={isLoading}
           >
             Cancel
@@ -211,7 +211,7 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
           <button
             onClick={handleGenerate}
             disabled={isLoading || !prompt.trim()}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#E8462A] text-white text-[13px] font-medium rounded-md hover:bg-[#D93D22] disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground text-[13px] font-medium rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
             {isLoading ? (
               <>

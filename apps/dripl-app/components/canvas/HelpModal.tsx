@@ -14,9 +14,9 @@ interface ShortcutItemProps {
 
 function ShortcutItem({ toolName, shortcut }: ShortcutItemProps) {
   return (
-    <div className="flex justify-between items-center py-1.5 border-b border-[#E4E0D9] last:border-b-0">
-      <div className="text-[13px] text-[#6B6860] flex-1">{toolName}</div>
-      <div className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#E8E5DE] text-[#6B6860] border border-[#D4D0C9] min-w-12 text-center">
+    <div className="flex justify-between items-center py-1.5 border-b border-panel-border last:border-b-0">
+      <div className="text-[13px] text-muted-foreground flex-1">{toolName}</div>
+      <div className="text-[11px] font-mono px-2 py-0.5 rounded bg-secondary text-muted-foreground border border-border min-w-12 text-center">
         {shortcut}
       </div>
     </div>
@@ -30,7 +30,7 @@ interface HeaderButtonProps {
 
 function HeaderButton({ icon, label }: HeaderButtonProps) {
   return (
-    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[#E8E5DE] rounded-md text-[12px] text-[#6B6860] border border-[#D4D0C9] transition-colors">
+    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-card hover:bg-secondary rounded-md text-[12px] text-muted-foreground border border-border transition-colors">
       {icon}
       {label}
     </button>
@@ -54,27 +54,27 @@ export default function HelpModal({ onClose }: HelpModalProps) {
 
   return (
     <div
-      className={`fixed inset-0 bg-black/30 backdrop-blur-sm z-100 flex items-center justify-center p-4 t-modal ${animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : ''}`}
+      className={`fixed inset-0 bg-overlay backdrop-blur-sm z-100 flex items-center justify-center p-4 t-modal ${animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : ''}`}
       onClick={handleClose}
     >
       <div
-        className="w-full max-w-4xl bg-[#FAFAF7] rounded-xl border border-[#E4E0D9] shadow-lg max-h-[90vh] overflow-hidden flex flex-col"
+        className="w-full max-w-4xl bg-card rounded-xl border border-panel-border shadow-lg max-h-[90vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center px-5 py-3.5 border-b border-[#E4E0D9]">
-          <h2 className="text-[15px] font-semibold text-[#1A1917] flex items-center gap-2">
-            <HelpCircle size={18} className="text-[#E8462A]" />
+        <div className="flex justify-between items-center px-5 py-3.5 border-b border-panel-border">
+          <h2 className="text-[15px] font-semibold text-foreground flex items-center gap-2">
+            <HelpCircle size={18} className="text-primary" />
             Help
           </h2>
           <button
             onClick={handleClose}
-            className="p-1 text-[#9B9890] hover:text-[#1A1917] hover:bg-[#E8E5DE] rounded-md transition-colors"
+            className="p-1 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-md transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="px-5 py-3 flex gap-2 border-b border-[#E4E0D9] flex-wrap">
+        <div className="px-5 py-3 flex gap-2 border-b border-panel-border flex-wrap">
           <HeaderButton icon={<BookOpen size={14} />} label="Documentation" />
           <HeaderButton icon={<ExternalLink size={14} />} label="Blog" />
           <HeaderButton icon={<Github size={14} />} label="GitHub" />
@@ -82,14 +82,14 @@ export default function HelpModal({ onClose }: HelpModalProps) {
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
-          <h3 className="text-[14px] font-semibold text-[#1A1917] mb-3 flex items-center gap-2">
-            <Keyboard size={16} className="text-[#6B6860]" />
+          <h3 className="text-[14px] font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Keyboard size={16} className="text-muted-foreground" />
             Keyboard shortcuts
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-0 text-sm">
             <div>
-              <h4 className="text-[11px] font-semibold text-[#9B9890] uppercase tracking-wider mb-2 mt-3">
+              <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 mt-3">
                 Tools
               </h4>
               <ShortcutItem toolName="Hand (panning tool)" shortcut="H" />
@@ -107,7 +107,7 @@ export default function HelpModal({ onClose }: HelpModalProps) {
             </div>
 
             <div>
-              <h4 className="text-[11px] font-semibold text-[#9B9890] uppercase tracking-wider mb-2 mt-3">
+              <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 mt-3">
                 Editor
               </h4>
               <ShortcutItem toolName="Move canvas" shortcut="Space + Drag" />

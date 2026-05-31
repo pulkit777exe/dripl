@@ -115,28 +115,28 @@ export default function CookieConsent() {
     <>
       {showConsent && (
         <div className="fixed bottom-5 left-5 z-50 w-full max-w-sm">
-          <div className="rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] p-4 shadow-lg">
+          <div className="rounded-xl border border-panel-border bg-card p-4 shadow-lg">
             <div className="flex items-start gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#E8E5DE]">
-                <Cookie className="size-5 text-[#6B6860]" />
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
+                <Cookie className="size-5 text-muted-foreground" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-[14px] font-semibold text-[#1A1917]">Cookie Notice</h4>
+                  <h4 className="text-[14px] font-semibold text-foreground">Cookie Notice</h4>
                   <button
                     onClick={handleDismiss}
-                    className="rounded-md p-1 text-[#9B9890] hover:bg-[#E8E5DE] hover:text-[#6B6860] transition-colors"
+                    className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-muted-foreground transition-colors"
                     aria-label="Dismiss cookie notice"
                   >
                     <X size={14} />
                   </button>
                 </div>
 
-                <p className="mt-2 text-[13px] leading-relaxed text-[#6B6860]">
+                <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
                   We use cookies to enhance your experience.{' '}
                   <button
                     onClick={handleOpenPreferences}
-                    className="text-[#E8462A] hover:underline"
+                    className="text-primary hover:underline"
                   >
                     Manage preferences
                   </button>
@@ -146,7 +146,7 @@ export default function CookieConsent() {
                 <div className="mt-4 flex items-center justify-end gap-3">
                   <button
                     onClick={handleAccept}
-                    className="rounded-md bg-[#E8462A] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#D6302A] transition-colors"
+                    className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                     aria-label="Accept cookies"
                   >
                     Accept All
@@ -160,27 +160,27 @@ export default function CookieConsent() {
 
       {animState !== 'closed' && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm t-modal ${modalState}"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-overlay backdrop-blur-sm t-modal ${modalState}"
           onClick={handleClosePreferences}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] p-5 shadow-lg"
+            className="w-full max-w-md rounded-xl border border-panel-border bg-card p-5 shadow-lg"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
-                <Settings className="size-5 text-[#E8462A]" />
-                <h3 className="text-[15px] font-semibold text-[#1A1917]">Cookie Preferences</h3>
+                <Settings className="size-5 text-primary" />
+                <h3 className="text-[15px] font-semibold text-foreground">Cookie Preferences</h3>
               </div>
               <button
                 onClick={handleClosePreferences}
-                className="rounded-md p-1 text-[#9B9890] hover:bg-[#E8E5DE] hover:text-[#6B6860] transition-colors"
+                className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-muted-foreground transition-colors"
               >
                 <X size={14} />
               </button>
             </div>
 
-            <p className="mb-4 text-[13px] text-[#6B6860]">
+            <p className="mb-4 text-[13px] text-muted-foreground">
               Manage your cookie preferences. Necessary cookies are required for the site to
               function.
             </p>
@@ -205,21 +205,21 @@ export default function CookieConsent() {
               ].map(({ key, label, description }) => (
                 <div
                   key={key}
-                  className="flex items-center justify-between rounded-lg border border-[#E4E0D9] p-3"
+                  className="flex items-center justify-between rounded-lg border border-panel-border p-3"
                 >
                   <div>
-                    <div className="text-[13px] font-medium text-[#1A1917]">{label}</div>
-                    <div className="text-[11px] text-[#9B9890]">{description}</div>
+                    <div className="text-[13px] font-medium text-foreground">{label}</div>
+                    <div className="text-[11px] text-muted-foreground">{description}</div>
                   </div>
                   <button
                     onClick={() => handleTogglePreference(key)}
                     disabled={key === 'necessary'}
                     className={`relative h-5 w-9 rounded-full transition-colors ${
-                      preferences[key] ? 'bg-[#E8462A]' : 'bg-[#D4D0C9]'
+                      preferences[key] ? 'bg-primary' : 'bg-border'
                     } ${key === 'necessary' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                   >
                     <span
-                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-primary-foreground shadow transition-transform ${
                         preferences[key] ? 'translate-x-0.1' : '-translate-x-4'
                       }`}
                     />
@@ -231,13 +231,13 @@ export default function CookieConsent() {
             <div className="mt-5 flex justify-end gap-3">
               <button
                 onClick={handleClosePreferences}
-                className="rounded-md border border-[#D4D0C9] px-4 py-2 text-[13px] font-medium text-[#6B6860] hover:bg-[#E8E5DE] transition-colors"
+                className="rounded-md border border-border px-4 py-2 text-[13px] font-medium text-muted-foreground hover:bg-secondary transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSavePreferences}
-                className="rounded-md bg-[#E8462A] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#D6302A] transition-colors"
+                className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 Save Preferences
               </button>
