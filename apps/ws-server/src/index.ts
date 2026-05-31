@@ -73,6 +73,7 @@ interface RoomState {
   users: Map<string, UserConnection>;
   cursors: Map<string, Cursor>;
   loadedFromDb: boolean;
+  saving: boolean;
 }
 
 const server = createServer((req, res) => {
@@ -163,6 +164,7 @@ function getOrCreateRoom(roomId: string): RoomState {
       users: new Map(),
       cursors: new Map(),
       loadedFromDb: false,
+      saving: false,
     };
     rooms.set(roomId, room);
   }
@@ -258,7 +260,13 @@ function scheduleSave(roomId: string): void {
         saveTimeouts.delete(roomId);
         return;
       }
+      if (room.saving) {
+        saveTimeouts.delete(roomId);
+        return;
+      }
+      room.saving = true;
       const success = await saveRoomElements(roomId, room.elements);
+      room.saving = false;
       if (!success) {
         console.error(
           JSON.stringify({
@@ -524,6 +532,52 @@ wss.on('connection', (ws, req) => {
         break;
       }
 
+      case 'scene-delta': {
+        if (!currentRoomId) break;
+        const room = rooms.get(currentRoomId);
+        if (!room) break;
+
+        const elementMap = new Map(room.elements.map(el => [el.id, el]));
+
+        // Apply added elements
+        if (message.added && Array.isArray(message.added)) {
+          for (const rawEl of message.added) {
+            try {
+              const element = toDriplElement(rawEl);
+              elementMap.set(element.id, element);
+            } catch {
+              // Skip invalid elements
+            }
+          }
+        }
+
+        // Apply updated elements
+        if (message.updated && Array.isArray(message.updated)) {
+          for (const rawEl of message.updated) {
+            try {
+              const element = toDriplElement(rawEl);
+              elementMap.set(element.id, element);
+            } catch {
+              // Skip invalid elements
+            }
+          }
+        }
+
+        // Apply deleted elements
+        if (message.deleted && Array.isArray(message.deleted)) {
+          for (const id of message.deleted) {
+            elementMap.delete(id);
+          }
+        }
+
+        room.elements = Array.from(elementMap.values());
+
+        // Broadcast the delta to other clients
+        broadcast(room, message, currentUserId ?? undefined);
+        scheduleSave(currentRoomId);
+        break;
+      }
+
       case 'element-update': {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
@@ -648,17 +702,17 @@ const rateLimitCleanup = setInterval(() => {
 const periodicSave = setInterval(async () => {
   const activeRooms = Array.from(rooms.entries());
   const now = Date.now();
+  const savePromises: Promise<{ roomId: string; success: boolean }>[] = [];
+
   for (const [roomId, room] of activeRooms) {
     if (room.users.size > 0) {
       roomLastEmptyAt.delete(roomId);
-      const success = await saveRoomElements(roomId, room.elements);
-      if (!success) {
-        console.error(
-          JSON.stringify({
-            level: 'error',
-            event: 'periodic_save_failure',
-            roomId,
-            timestamp: Date.now(),
+      if (!room.saving) {
+        room.saving = true;
+        savePromises.push(
+          saveRoomElements(roomId, room.elements).then(success => {
+            room.saving = false;
+            return { roomId, success };
           })
         );
       }
@@ -669,11 +723,35 @@ const periodicSave = setInterval(async () => {
         continue;
       }
       if (now - emptySince > MAX_EMPTY_ROOM_TTL_MS) {
-        if (room.elements.length > 0) {
-          await saveRoomElements(roomId, room.elements);
+        if (!room.saving && room.elements.length > 0) {
+          room.saving = true;
+          savePromises.push(
+            saveRoomElements(roomId, room.elements).then(success => {
+              room.saving = false;
+              return { roomId, success };
+            })
+          );
         }
-        rooms.delete(roomId);
-        roomLastEmptyAt.delete(roomId);
+        if (room.users.size === 0) {
+          rooms.delete(roomId);
+          roomLastEmptyAt.delete(roomId);
+        }
+      }
+    }
+  }
+
+  if (savePromises.length > 0) {
+    const results = await Promise.allSettled(savePromises);
+    for (const result of results) {
+      if (result.status === 'fulfilled' && !result.value.success) {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            event: 'periodic_save_failure',
+            roomId: result.value.roomId,
+            timestamp: Date.now(),
+          })
+        );
       }
     }
   }

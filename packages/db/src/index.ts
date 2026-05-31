@@ -29,6 +29,7 @@ async function createPrismaClient(): Promise<PrismaClient> {
     ssl: shouldDisableSsl ? false : { rejectUnauthorized: false },
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 30000,
+    max: parseInt(process.env.DB_POOL_SIZE || '20'),
   };
 
   const pool = new Pool(poolConfig);

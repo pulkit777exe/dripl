@@ -68,6 +68,7 @@ app.use('/api/auth/forgot-password', validateCsrfToken);
 app.use('/api/auth/register', validateCsrfToken);
 app.use('/api/auth/reset-password', validateCsrfToken);
 app.use('/api/auth/change-password', validateCsrfToken);
+app.use('/api/auth/logout', validateCsrfToken);
 
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/forgot-password', validateCsrfToken);
@@ -91,16 +92,16 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
-app.listen(port, async () => {
-  initializeDb()
-    .then(() => {
-      console.log(JSON.stringify({ level: 'info', event: 'db_connected' }));
-    })
-    .catch(err => {
-      console.error(
-        JSON.stringify({ level: 'error', event: 'db_connection_failed', error: err.message })
-      );
-    });
+async function start() {
+  try {
+    await initializeDb();
+    console.log(JSON.stringify({ level: 'info', event: 'db_connected' }));
+  } catch (err: unknown) {
+    console.error(
+      JSON.stringify({ level: 'error', event: 'db_connection_failed', error: err instanceof Error ? err.message : String(err) })
+    );
+    process.exit(1);
+  }
 
   const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
   setInterval(async () => {
@@ -119,5 +120,9 @@ app.listen(port, async () => {
     }
   }, CLEANUP_INTERVAL_MS);
 
-  console.log(JSON.stringify({ level: 'info', event: 'http_server_started', port }));
-});
+  app.listen(port, () => {
+    console.log(JSON.stringify({ level: 'info', event: 'http_server_started', port }));
+  });
+}
+
+start();

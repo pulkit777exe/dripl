@@ -53,7 +53,18 @@ export class RoomController {
   }
 
   static async createRoom(req: AuthRequest, res: Response): Promise<void> {
-    const { name, isPublic = false } = req.body;
+    const createRoomSchema = z.object({
+      name: z.string().trim().min(1).max(200).optional(),
+      isPublic: z.boolean().optional(),
+    });
+
+    const parsed = createRoomSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+      return;
+    }
+
+    const { name, isPublic = false } = parsed.data;
 
     try {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -237,17 +248,19 @@ export class RoomController {
 
   static async addMember(req: AuthRequest, res: Response): Promise<void> {
     const { slug } = req.params as { slug: string };
-    const { userId, role = 'EDITOR' } = req.body;
 
-    if (!userId) {
-      res.status(400).json({ error: 'User ID is required' });
+    const addMemberSchema = z.object({
+      userId: z.string().min(1).max(100),
+      role: z.enum(['EDITOR', 'VIEWER']).default('EDITOR'),
+    });
+
+    const parsed = addMemberSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
       return;
     }
 
-    if (!['EDITOR', 'VIEWER'].includes(role)) {
-      res.status(400).json({ error: "Invalid role. Must be 'EDITOR' or 'VIEWER'" });
-      return;
-    }
+    const { userId, role } = parsed.data;
 
     try {
       const room = await prisma.canvasRoom.findUnique({
@@ -339,12 +352,19 @@ export class RoomController {
 
   static async shareRoom(req: AuthRequest, res: Response): Promise<void> {
     const { slug } = req.params as { slug: string };
-    const { permission = 'view', expiresIn = 24 } = req.body;
 
-    if (!['view', 'edit'].includes(permission)) {
-      res.status(400).json({ error: "Invalid permission. Must be 'view' or 'edit'" });
+    const shareRoomSchema = z.object({
+      permission: z.enum(['view', 'edit']).default('view'),
+      expiresIn: z.number().min(1).max(720).default(24),
+    });
+
+    const parsed = shareRoomSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
       return;
     }
+
+    const { permission, expiresIn } = parsed.data;
 
     try {
       const room = await prisma.canvasRoom.findUnique({ where: { slug } });
