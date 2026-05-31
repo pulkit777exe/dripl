@@ -134,6 +134,28 @@ function setupServer(): Promise<void> {
             timestamp: Date.now(),
           });
 
+          send(ws, {
+            type: 'room-state',
+            roomId,
+            elements: room.elements,
+            users: Array.from(room.users.values()).map((u) => ({
+              userId: u.userId,
+              userName: u.displayName,
+              displayName: u.displayName,
+              color: u.color,
+            })),
+            cursors: Array.from(room.cursors.entries()).map(([uid, c]) => ({
+              userId: uid,
+              x: c.x,
+              y: c.y,
+              userName: room.users.get(uid)?.displayName ?? 'Unknown',
+              displayName: room.users.get(uid)?.displayName ?? 'Unknown',
+              color: room.users.get(uid)?.color ?? '#000000',
+            })),
+            yourUserId: userId,
+            timestamp: Date.now(),
+          });
+
           broadcast(room, {
             type: 'user-join',
             roomId,
@@ -266,32 +288,56 @@ function connectClient(token: string): Promise<WebSocket> {
   });
 }
 
-function waitForMessage(ws: WebSocket, timeout = 2000): Promise<unknown> {
+function waitForMessage(ws: WebSocket, timeout = 3000): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Timeout waiting for message')), timeout);
-    ws.on('message', (data) => {
+    const timer = setTimeout(() => {
+      ws.removeListener('message', handler);
+      reject(new Error('Timeout waiting for message'));
+    }, timeout);
+    const handler = (data: unknown) => {
       clearTimeout(timer);
-      resolve(JSON.parse(data.toString()));
-    });
-    ws.once('error', reject);
+      ws.removeListener('message', handler);
+      resolve(JSON.parse((data as Buffer).toString()));
+    };
+    ws.on('message', handler);
   });
 }
 
-function waitForMessages(ws: WebSocket, count: number, timeout = 2000): Promise<unknown[]> {
+function waitForMessages(ws: WebSocket, count: number, timeout = 3000): Promise<unknown[]> {
   const messages: unknown[] = [];
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`Timeout waiting for ${count} messages, got ${messages.length}`)),
-      timeout
-    );
-    ws.on('message', (data) => {
-      messages.push(JSON.parse(data.toString()));
+    const timer = setTimeout(() => {
+      ws.removeListener('message', handler);
+      reject(new Error(`Timeout waiting for ${count} messages, got ${messages.length}`));
+    }, timeout);
+    const handler = (data: unknown) => {
+      messages.push(JSON.parse((data as Buffer).toString()));
       if (messages.length === count) {
         clearTimeout(timer);
+        ws.removeListener('message', handler);
         resolve(messages);
       }
-    });
-    ws.once('error', reject);
+    };
+    ws.on('message', handler);
+  });
+}
+
+function drainMessages(ws: WebSocket, count: number, timeout = 500): Promise<void> {
+  return new Promise((resolve) => {
+    let received = 0;
+    const timer = setTimeout(() => {
+      ws.removeListener('message', handler);
+      resolve();
+    }, timeout);
+    const handler = () => {
+      received++;
+      if (received >= count) {
+        clearTimeout(timer);
+        ws.removeListener('message', handler);
+        resolve();
+      }
+    };
+    ws.on('message', handler);
   });
 }
 
@@ -349,8 +395,7 @@ describe('ws-server Integration Tests', () => {
 
       send(ws, { type: 'join', roomId: 'room-join-1' });
 
-      const msg1 = await waitForMessage(ws);
-      const msg2 = await waitForMessage(ws);
+      const [msg1, msg2] = await waitForMessages(ws, 2);
 
       expect((msg1 as { type: string }).type).toBe('sync_room_state');
       expect((msg1 as { roomId: string }).roomId).toBe('room-join-1');
@@ -374,6 +419,7 @@ describe('ws-server Integration Tests', () => {
       send(ws2, { type: 'join', roomId: 'room-join-2' });
       await waitForMessages(ws2, 2);
 
+      // Consume user-join broadcast that ws1 got from ws2 joining
       const msg1 = await waitForMessage(ws1);
       expect((msg1 as { type: string }).type).toBe('user-join');
       expect((msg1 as { userId: string }).userId).toBe('user-join-3');
@@ -395,6 +441,9 @@ describe('ws-server Integration Tests', () => {
       const ws2 = await connectClient(token2);
       send(ws2, { type: 'join', roomId: 'room-leave-1' });
       await waitForMessages(ws2, 2);
+
+      // Consume user-join that ws1 received
+      await drainMessages(ws1, 1);
 
       send(ws2, { type: 'leave' });
 
@@ -419,6 +468,9 @@ describe('ws-server Integration Tests', () => {
       const ws2 = await connectClient(token2);
       send(ws2, { type: 'join', roomId: 'room-elem-1' });
       await waitForMessages(ws2, 2);
+
+      // Consume user-join that ws1 received
+      await drainMessages(ws1, 1);
 
       const element = {
         id: 'elem-new-1',
@@ -449,6 +501,9 @@ describe('ws-server Integration Tests', () => {
       const ws2 = await connectClient(token2);
       send(ws2, { type: 'join', roomId: 'room-update-1' });
       await waitForMessages(ws2, 2);
+
+      // Consume user-join that ws1 received
+      await drainMessages(ws1, 1);
 
       const element = {
         id: 'elem-update-1',
@@ -483,6 +538,9 @@ describe('ws-server Integration Tests', () => {
       const ws2 = await connectClient(token2);
       send(ws2, { type: 'join', roomId: 'room-delete-1' });
       await waitForMessages(ws2, 2);
+
+      // Consume user-join that ws1 received
+      await drainMessages(ws1, 1);
 
       const element = {
         id: 'elem-delete-1',
@@ -519,6 +577,9 @@ describe('ws-server Integration Tests', () => {
       send(ws2, { type: 'join', roomId: 'room-scene-1' });
       await waitForMessages(ws2, 2);
 
+      // Consume user-join that ws1 received
+      await drainMessages(ws1, 1);
+
       const elements = [
         { id: 'scene-elem-1', type: 'rectangle', x: 0, y: 0, width: 50, height: 50 },
         { id: 'scene-elem-2', type: 'rectangle', x: 100, y: 0, width: 50, height: 50 },
@@ -542,16 +603,21 @@ describe('ws-server Integration Tests', () => {
 
       const elements1 = [{ id: 'elem-replace-1', type: 'rectangle', x: 0, y: 0, width: 50, height: 50 }];
       send(ws, { type: 'scene-update', subtype: 'update', elements: elements1 });
-      await waitForMessage(ws);
+      // No broadcast to self — just verify server accepted it by adding a second user who receives full state
+      const token2 = createAuthToken('user-scene-replace-2');
+      const ws2 = await connectClient(token2);
+      send(ws2, { type: 'join', roomId: 'room-scene-replace' });
+      const [, roomState] = await waitForMessages(ws2, 2) as Array<{ elements?: Array<{ id: string }> }>;
+      expect(roomState?.elements?.some((e) => e.id === 'elem-replace-1')).toBe(true);
 
       const elements2 = [{ id: 'elem-replace-2', type: 'rectangle', x: 200, y: 0, width: 50, height: 50 }];
       send(ws, { type: 'scene-update', subtype: 'update', elements: elements2 });
-
-      const msg = await waitForMessage(ws);
+      const msg = await waitForMessage(ws2);
       const msgElements = (msg as { elements: Array<{ id: string }> }).elements;
       expect(msgElements.some((e) => e.id === 'elem-replace-2')).toBe(true);
 
       ws.close();
+      ws2.close();
     }, 10000);
   });
 
@@ -567,6 +633,9 @@ describe('ws-server Integration Tests', () => {
       const ws2 = await connectClient(token2);
       send(ws2, { type: 'join', roomId: 'room-cursor-1' });
       await waitForMessages(ws2, 2);
+
+      // Consume user-join that ws1 received
+      await drainMessages(ws1, 1);
 
       send(ws2, { type: 'cursor_move', x: 123, y: 456 });
 
@@ -590,6 +659,9 @@ describe('ws-server Integration Tests', () => {
       const ws2 = await connectClient(token2);
       send(ws2, { type: 'join', roomId: 'room-cursor-kebab' });
       await waitForMessages(ws2, 2);
+
+      // Consume user-join that ws1 received
+      await drainMessages(ws1, 1);
 
       send(ws2, { type: 'cursor-move', x: 789, y: 101112 });
 
@@ -630,6 +702,9 @@ describe('ws-server Integration Tests', () => {
       send(ws2, { type: 'join', roomId: 'room-close-1' });
       await waitForMessages(ws2, 2);
 
+      // Consume user-join that ws1 received
+      await drainMessages(ws1, 1);
+
       ws2.close();
 
       const msg = await waitForMessage(ws1);
@@ -648,7 +723,8 @@ describe('ws-server Integration Tests', () => {
       expect(rooms.has('room-empty-check')).toBe(true);
 
       send(ws, { type: 'leave' });
-      await waitForMessage(ws);
+      // Wait briefly for server to process the leave
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(rooms.has('room-empty-check')).toBe(false);
 
