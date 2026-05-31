@@ -14,6 +14,7 @@ const listFilesQuerySchema = z.object({
   folderId: z.string().trim().min(1).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
+  cursor: z.string().optional(),
 });
 
 const createFileSchema = z.object({
@@ -88,28 +89,34 @@ filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  const { search, folderId, page, limit } = parsedQuery.data;
-  const skip = (page - 1) * limit;
+  const { search, folderId, page, limit, cursor } = parsedQuery.data;
+  const isCursorBased = typeof cursor === 'string' && cursor.length > 0;
+  const skip = isCursorBased ? 0 : (page - 1) * limit;
 
   try {
+    const where = {
+      userId: req.userId,
+      ...(typeof folderId === 'string' ? { folderId } : {}),
+      ...(typeof search === 'string'
+        ? {
+            name: {
+              contains: search,
+              mode: 'insensitive' as const,
+            },
+          }
+        : {}),
+      ...(isCursorBased
+        ? { updatedAt: { lt: new Date(cursor) } }
+        : {}),
+    };
+
     const [files, total] = await Promise.all([
       db.file.findMany({
-        where: {
-          userId: req.userId,
-          ...(typeof folderId === 'string' ? { folderId } : {}),
-          ...(typeof search === 'string'
-            ? {
-                name: {
-                  contains: search,
-                  mode: 'insensitive',
-                },
-              }
-            : {}),
-        },
+        where,
         orderBy: {
           updatedAt: 'desc',
         },
-        skip,
+        skip: isCursorBased ? 0 : skip,
         take: limit,
         select: {
           id: true,
@@ -128,7 +135,7 @@ filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
             ? {
                 name: {
                   contains: search,
-                  mode: 'insensitive',
+                  mode: 'insensitive' as const,
                 },
               }
             : {}),
@@ -136,7 +143,17 @@ filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
       }),
     ]);
 
-    res.json({ files, total, page, limit });
+    const nextCursor = files.length === limit
+      ? files[files.length - 1]?.updatedAt?.toISOString() ?? null
+      : null;
+
+    res.json({
+      files,
+      total: isCursorBased ? undefined : total,
+      page: isCursorBased ? undefined : page,
+      limit,
+      nextCursor,
+    });
   } catch (error) {
     console.error(
       JSON.stringify({

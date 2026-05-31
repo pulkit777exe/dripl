@@ -97,6 +97,7 @@ model File {
   @@index([teamId])
   @@index([userId])
   @@index([updatedAt])
+  @@index([userId, updatedAt])
 }
 
 model SharedFile {
@@ -158,6 +159,9 @@ model ShareLink {
 
   room    CanvasRoom @relation(fields: [roomId], references: [id])
   createdBy User     @relation(fields: [createdById], references: [id])
+
+  @@index([roomId])
+  @@index([expiresAt])
 }
 
 model PasswordResetToken {
@@ -166,6 +170,8 @@ model PasswordResetToken {
   email     String
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([email])
 }
 
 model EmailVerificationToken {
