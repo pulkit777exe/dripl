@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
 import { useCollaboration } from '@/hooks/useCollaboration';
@@ -12,15 +12,16 @@ import { getDefaultFontFamily } from '@/utils/fontPreferences';
 import { v4 as uuidv4 } from 'uuid';
 import RBush from 'rbush';
 import { SelectionOverlay, ResizeHandle } from './SelectionOverlay';
-import { NameInputModal } from './NameInputModal';
 import { RemoteCursors } from './RemoteCursors';
 import { LaserCanvas } from './LaserCanvas';
-import { PropertiesPanel } from './PropertiesPanel';
-import { ContextMenu } from './ContextMenu';
 import { DualCanvas } from './DualCanvas';
 import { screenToCanvas, Viewport } from '@/utils/canvas-coordinates';
 import { useDrawingTools } from '@/hooks/useDrawingTools';
-import { WelcomeScreen } from './WelcomeScreen';
+
+const PropertiesPanel = lazy(() => import('./PropertiesPanel').then(m => ({ default: m.PropertiesPanel })));
+const ContextMenu = lazy(() => import('./ContextMenu').then(m => ({ default: m.ContextMenu })));
+const NameInputModal = lazy(() => import('./NameInputModal').then(m => ({ default: m.NameInputModal })));
+const WelcomeScreen = lazy(() => import('./WelcomeScreen').then(m => ({ default: m.WelcomeScreen })));
 
 interface Point {
   x: number;
@@ -2233,21 +2234,29 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       <RemoteCursors />
 
       {roomSlug === null && elements.length === 0 && !welcomeScreenDismissed && (
-        <WelcomeScreen onClose={() => setWelcomeScreenDismissed(true)} />
+        <Suspense fallback={null}>
+          <WelcomeScreen onClose={() => setWelcomeScreenDismissed(true)} />
+        </Suspense>
       )}
 
-      {!userName && roomSlug !== null && <NameInputModal onSubmit={handleNameSubmit} />}
+      {!userName && roomSlug !== null && (
+        <Suspense fallback={null}>
+          <NameInputModal onSubmit={handleNameSubmit} />
+        </Suspense>
+      )}
 
       {shouldShowPropertiesPanel && (
         <div className="absolute top-20 left-4 z-20">
-          <PropertiesPanel
-            selectedElement={primarySelectedElement}
-            onUpdateElement={updatedElement => {
-              if (updatedElement.id) {
-                updateElement(updatedElement.id, updatedElement);
-              }
-            }}
-          />
+          <Suspense fallback={null}>
+            <PropertiesPanel
+              selectedElement={primarySelectedElement}
+              onUpdateElement={updatedElement => {
+                if (updatedElement.id) {
+                  updateElement(updatedElement.id, updatedElement);
+                }
+              }}
+            />
+          </Suspense>
         </div>
       )}
 
@@ -2300,32 +2309,34 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       )}
 
       {contextMenuState && (
-        <ContextMenu
-          x={contextMenuState.x}
-          y={contextMenuState.y}
-          element={elements.find(element => element.id === contextMenuState.elementId) ?? null}
-          onClose={() => setContextMenuState(null)}
-          onDuplicate={duplicateSelection}
-          onDelete={() => {
-            const ids = Array.from(useCanvasStore.getState().selectedIds);
-            deleteElements(collectCascadeDeleteIds(ids));
-            clearSelection();
-          }}
-          onBringToFront={() => {
-            const ids = Array.from(useCanvasStore.getState().selectedIds);
-            bringToFront(ids);
-          }}
-          onSendToBack={() => {
-            const ids = Array.from(useCanvasStore.getState().selectedIds);
-            sendToBack(ids);
-          }}
-          onCopy={() => {
-            void copySelectedToClipboard();
-          }}
-          onPaste={() => {
-            void pasteFromClipboard();
-          }}
-        />
+        <Suspense fallback={null}>
+          <ContextMenu
+            x={contextMenuState.x}
+            y={contextMenuState.y}
+            element={elements.find(element => element.id === contextMenuState.elementId) ?? null}
+            onClose={() => setContextMenuState(null)}
+            onDuplicate={duplicateSelection}
+            onDelete={() => {
+              const ids = Array.from(useCanvasStore.getState().selectedIds);
+              deleteElements(collectCascadeDeleteIds(ids));
+              clearSelection();
+            }}
+            onBringToFront={() => {
+              const ids = Array.from(useCanvasStore.getState().selectedIds);
+              bringToFront(ids);
+            }}
+            onSendToBack={() => {
+              const ids = Array.from(useCanvasStore.getState().selectedIds);
+              sendToBack(ids);
+            }}
+            onCopy={() => {
+              void copySelectedToClipboard();
+            }}
+            onPaste={() => {
+              void pasteFromClipboard();
+            }}
+          />
+        </Suspense>
       )}
     </div>
   );

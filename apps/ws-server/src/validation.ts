@@ -157,6 +157,13 @@ export const sceneUpdateSchema = z.object({
   elements: z.array(driplElementSchema).max(5000),
 });
 
+export const sceneDeltaSchema = z.object({
+  type: z.literal('scene-delta'),
+  added: z.array(driplElementSchema).optional(),
+  updated: z.array(driplElementSchema).optional(),
+  deleted: z.array(z.string()).optional(),
+});
+
 export const messageSchema = z.discriminatedUnion('type', [
   joinRoomSchema,
   joinSchema,
@@ -167,6 +174,7 @@ export const messageSchema = z.discriminatedUnion('type', [
   cursorMoveKebabSchema,
   elementUpdateSchema,
   sceneUpdateSchema,
+  sceneDeltaSchema,
   z.object({ type: z.literal('leave_room') }),
   z.object({ type: z.literal('leave') }),
   z.object({ type: z.literal('ping') }),

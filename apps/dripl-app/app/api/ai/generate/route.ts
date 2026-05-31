@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { DriplElementSchema } from '@dripl/common';
 
 let genAI: GoogleGenerativeAI | null = null;
 function getGenAI() {
@@ -165,25 +166,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Add default properties to elements
-    const processedElements = (elements as Record<string, unknown>[]).map((el, index) => ({
-      id: el.id || `ai-${Date.now()}-${index}`,
-      type: el.type || 'rectangle',
-      x: (Number(el.x) || 100) + index * 150,
-      y: Number(el.y) || 100,
-      width: Number(el.width) || 120,
-      height: Number(el.height) || 80,
-      strokeColor: el.strokeColor || '#6965db',
-      backgroundColor: el.backgroundColor || 'transparent',
-      strokeWidth: Number(el.strokeWidth) || 2,
-      strokeStyle: el.strokeStyle || 'solid',
-      roughness: Number(el.roughness) || 1,
-      opacity: Number(el.opacity) || 1,
-      text: el.text || '',
-      fontSize: Number(el.fontSize) || 16,
-      points: el.points || [],
-      angle: 0,
-    }));
+    // Add default properties to elements and validate
+    const processedElements = (elements as Record<string, unknown>[])
+      .map((el, index) => {
+        const now = Date.now();
+        return {
+          id: typeof el.id === 'string' && el.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+            ? el.id
+            : crypto.randomUUID(),
+          type: el.type || 'rectangle',
+          x: (Number(el.x) || 100) + index * 150,
+          y: Number(el.y) || 100,
+          width: Number(el.width) || 120,
+          height: Number(el.height) || 80,
+          strokeColor: el.strokeColor || '#6965db',
+          backgroundColor: el.backgroundColor || 'transparent',
+          strokeWidth: Number(el.strokeWidth) || 2,
+          strokeStyle: el.strokeStyle || 'solid',
+          roughness: Number(el.roughness) || 1,
+          opacity: Number(el.opacity) || 1,
+          text: el.text || '',
+          fontSize: Number(el.fontSize) || 16,
+          points: el.points || [],
+          angle: 0,
+          locked: false,
+          createdAt: now,
+          updatedAt: now,
+        };
+      })
+      .filter(el => {
+        const result = DriplElementSchema.safeParse(el);
+        return result.success;
+      })
+      .slice(0, 100); // Limit to 100 elements
 
     return NextResponse.json({
       elements: processedElements,

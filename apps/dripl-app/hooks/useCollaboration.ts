@@ -31,6 +31,12 @@ type ServerMessage =
       subtype: 'init' | 'update';
       elements: DriplElement[];
     }
+  | {
+      type: 'scene-delta';
+      added?: DriplElement[];
+      updated?: DriplElement[];
+      deleted?: string[];
+    }
   | { type: 'add_element'; element: DriplElement }
   | { type: 'update_element'; element: DriplElement }
   | { type: 'delete_element'; elementId: string }
@@ -65,6 +71,12 @@ type ClientMessage =
   | { type: 'leave' }
   | { type: 'scene-update'; subtype: 'init' | 'update'; elements: DriplElement[] }
   | {
+      type: 'scene-delta';
+      added?: DriplElement[];
+      updated?: DriplElement[];
+      deleted?: string[];
+    }
+  | {
       type: 'cursor-move';
       x: number;
       y: number;
@@ -96,6 +108,7 @@ export function useCollaboration(
   const heartbeatTimerRef = useRef<number | null>(null);
   const broadcastTimerRef = useRef<number | null>(null);
   const pendingElementsRef = useRef<DriplElement[] | null>(null);
+  const prevElementsRef = useRef<DriplElement[]>([]);
   const isFirstSyncRef = useRef(true);
   const shouldReconnectRef = useRef(true);
   const reconnectAttemptRef = useRef(0);
@@ -140,10 +153,49 @@ export function useCollaboration(
     if (!pending || !roomId) return;
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
 
-    const subtype = isFirstSyncRef.current ? 'init' : 'update';
-    if (isFirstSyncRef.current) isFirstSyncRef.current = false;
+    if (isFirstSyncRef.current) {
+      // First sync: send full state
+      send({ type: 'scene-update', subtype: 'init', elements: pending });
+      isFirstSyncRef.current = false;
+    } else {
+      // Subsequent syncs: compute and send delta
+      const prev = prevElementsRef.current;
+      const prevMap = new Map(prev.map(el => [el.id, el]));
+      const nextMap = new Map(pending.map(el => [el.id, el]));
 
-    send({ type: 'scene-update', subtype, elements: pending });
+      const added: DriplElement[] = [];
+      const updated: DriplElement[] = [];
+      const deleted: string[] = [];
+
+      // Find added and updated elements
+      for (const el of pending) {
+        const prevEl = prevMap.get(el.id);
+        if (!prevEl) {
+          added.push(el);
+        } else if (prevEl.version !== el.version) {
+          updated.push(el);
+        }
+      }
+
+      // Find deleted elements
+      for (const el of prev) {
+        if (!nextMap.has(el.id)) {
+          deleted.push(el.id);
+        }
+      }
+
+      // Only send if there are actual changes
+      if (added.length > 0 || updated.length > 0 || deleted.length > 0) {
+        send({
+          type: 'scene-delta',
+          added: added.length > 0 ? added : undefined,
+          updated: updated.length > 0 ? updated : undefined,
+          deleted: deleted.length > 0 ? deleted : undefined,
+        });
+      }
+    }
+
+    prevElementsRef.current = pending;
     pendingElementsRef.current = null;
   }, [roomId, send]);
 
@@ -237,8 +289,20 @@ ws.onmessage = event => {
         if (message.type === 'scene-update') {
           if (message.subtype === 'init') {
             onFullSyncRef.current?.(message.elements);
+            prevElementsRef.current = message.elements;
           } else {
             onRemoteElementsRef.current?.(message.elements, [], []);
+            prevElementsRef.current = message.elements;
+          }
+          return;
+        }
+
+        if (message.type === 'scene-delta') {
+          const added = message.added || [];
+          const updated = message.updated || [];
+          const deleted = message.deleted || [];
+          if (added.length > 0 || updated.length > 0 || deleted.length > 0) {
+            onRemoteElementsRef.current?.(added, updated, deleted);
           }
           return;
         }
