@@ -44,13 +44,13 @@ Open `http://localhost:3000`
 │  dripl-app   │  │http-server  │  │ ws-server   │
 │  Next.js 16  │  │  Express 5   │  │    ws      │
 │  Port 3000   │  │  Port 3002   │  │ Port 3001   │
-└──────────────┘  └──────────────┘  └──────────────┘
-       │                │                │
-       └────────────────┼────────────────┘
-                        ▼
-                 ┌──────────────┐
-                 │ PostgreSQL   │
-                 └──────────────┘
+└──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+       │  REST (cookie)  │                 │  WebSocket (JWT)
+       └─────────────────┼─────────────────┘
+                         ▼
+                  ┌──────────────┐
+                  │ PostgreSQL   │
+                  └──────────────┘
 ```
 
 ### Tech Stack
@@ -58,9 +58,30 @@ Open `http://localhost:3000`
 | Layer     | Technology                                    |
 | --------- | --------------------------------------------- |
 | Frontend  | Next.js 16, React 19, Tailwind CSS 4, Zustand |
-| Rendering | roughjs, HTML5 Canvas                         |
+| Rendering | RoughJS, HTML5 Canvas, RBush (spatial index)  |
 | Backend   | Express 5, WebSocket (ws), Prisma 7           |
 | Database  | PostgreSQL                                    |
+| Testing   | Vitest + Supertest + Testing Library           |
+
+### Shared Packages
+
+| Package | Purpose |
+|---------|---------|
+| `@dripl/common` | Shared types, Zod schemas |
+| `@dripl/db` | Prisma ORM client + migrations |
+| `@dripl/dripl` | Core canvas lib, hooks, state |
+| `@dripl/element` | Element factory & rendering |
+| `@dripl/math` | Geometry & intersection utils |
+| `@dripl/utils` | Encryption, storage, throttle |
+| `@dripl/test-utils` | Shared test factories |
+
+### Dependency Graph
+
+```
+dripl-app ──► @dripl/common, @dripl/db, @dripl/element, @dripl/math, @dripl/utils
+http-server ──► @dripl/common, @dripl/db, @dripl/utils
+ws-server   ──► @dripl/common, @dripl/db, @dripl/utils
+```
 
 ---
 
@@ -144,7 +165,7 @@ Client B receives → onRemoteElements() → updates canvas
 ```bash
 pnpm dev          # Start all services
 pnpm build        # Build for production
-pnpm test         # Run tests (42 passing)
+pnpm test         # Run tests (200+ passing)
 pnpm lint         # Lint code
 pnpm format       # Format with Prettier
 pnpm db:migrate   # Database migrations
@@ -175,7 +196,7 @@ Dockerfiles are located in `docker/` directory.
 
 ## Database
 
-8 models: User, Team, TeamMember, Folder, File, SharedFile, CanvasRoom, ShareLink.
+11 models: User, Team, TeamMember, Folder, File, SharedFile, CanvasRoom, CanvasRoomMember, ShareLink, PasswordResetToken, EmailVerificationToken.
 
 ---
 
@@ -183,20 +204,43 @@ Dockerfiles are located in `docker/` directory.
 
 ```
 dripl/
+├── CLAUDE.md                    # Root monorepo guide
+├── AGENTS.md                    # Agent configuration
+├── TODOS.md                     # Engineering roadmap
+├── Problems.md                  # Security audit report
+├── DESIGN.md                    # Visual design system
+├── PRODUCT.md                   # Product definition
+├── CONTRIBUTING.md              # Contributor guidelines
 ├── apps/
 │   ├── dripl-app/       # Next.js frontend (Port 3000)
 │   ├── http-server/     # Express REST API (Port 3002)
 │   └── ws-server/      # WebSocket server (Port 3001)
 ├── packages/
-│   ├── common/         # Shared types
-│   ├── db/             # Prisma schema
-│   ├── dripl/          # UI components
-│   ├── element/        # Element utilities
+│   ├── common/         # Shared types & schemas
+│   ├── db/             # Prisma schema & client
+│   ├── dripl/          # Core canvas library
+│   ├── element/        # Element factory & rendering
 │   ├── math/           # Geometry utilities
-│   └── utils/          # Shared utilities
+│   ├── utils/          # Shared utilities
+│   └── test-utils/     # Shared test factories
+├── tooling/
+│   ├── eslint-config/       # Shared ESLint rules
+│   └── typescript-config/   # Shared tsconfigs
 ├── docker/             # Dockerfiles
 └── docker-compose.yml  # Local development
 ```
+
+---
+
+## Known Limitations
+
+See `TODOS.md` for the full engineering roadmap. Key current limitations:
+
+- **Single-process WebSocket server** — room state is in-memory, no horizontal scaling yet
+- **Full-state broadcast** — every element change sends the entire array to all clients
+- **Base64 images in DB** — images stored as data URLs in JSON text columns
+- **No cursor-based pagination** — offset-based pagination only
+- **Docker runs dev mode** — Dockerfiles use `pnpm run dev` instead of production builds
 
 ---
 

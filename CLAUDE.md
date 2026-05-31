@@ -12,15 +12,15 @@ Dripl is a real-time collaborative canvas application (think Excalidraw/Figma). 
 
 ## Package Manager
 
-> **Use `bun` for all package management operations.**
+> **Use `pnpm` for all package management operations.**
 
 ```bash
-bun install                          # Install all workspace deps
-bun add <pkg> --filter=<workspace>   # Add dep to a specific package
-bun run <script>                     # Run a root script
+pnpm install                         # Install all workspace deps
+pnpm add <pkg> --filter=<workspace>  # Add dep to a specific package
+pnpm run <script>                    # Run a root script
 ```
 
-The workspace is declared in `pnpm-workspace.yaml` (Turborepo still reads this for graph resolution). Lock file: `bun.lockb` (if migrated) or `pnpm-lock.yaml` (current).
+The workspace is declared in `pnpm-workspace.yaml`. Lock file: `pnpm-lock.yaml`. A legacy `bun.lock` may exist but is not actively used.
 
 ---
 
@@ -28,6 +28,14 @@ The workspace is declared in `pnpm-workspace.yaml` (Turborepo still reads this f
 
 ```
 dripl/
+├── CLAUDE.md                    # Root monorepo guide (read first)
+├── AGENTS.md                    # Agent configuration & domain terminology
+├── TODOS.md                     # Engineering roadmap (36 items)
+├── Problems.md                  # Security audit report (23 findings)
+├── DESIGN.md                    # Visual design system
+├── PRODUCT.md                   # Product definition
+├── CHANGELOG.md                 # Version history
+├── CONTRIBUTING.md              # Contributor guidelines
 ├── apps/
 │   ├── dripl-app/        # Next.js 16 frontend (port 3000)
 │   ├── http-server/      # Express 5 REST API (port 3002)
@@ -38,13 +46,13 @@ dripl/
 │   ├── dripl/            # @dripl/dripl   — core canvas lib, hooks, state
 │   ├── element/          # @dripl/element — element factory & rendering
 │   ├── math/             # @dripl/math    — geometry & intersection utils
-│   └── utils/            # @dripl/utils   — encryption, storage, throttle
+│   ├── utils/            # @dripl/utils   — encryption, storage, throttle
+│   └── test-utils/       # @dripl/test-utils — shared test factories
 ├── tooling/
 │   ├── eslint-config/    # @dripl/eslint-config  — shared ESLint rules
 │   └── typescript-config/# @dripl/typescript-config — shared tsconfigs
 ├── turbo.json            # Turborepo task pipeline
-├── pnpm-workspace.yaml   # Workspace glob patterns
-└── AGENTS.md             # Critical project rules (read before any PR)
+└── pnpm-workspace.yaml   # Workspace glob patterns
 ```
 
 ### Dependency Graph (simplified)
@@ -59,6 +67,8 @@ dripl-app ──► @dripl/common
 
 http-server ──► @dripl/common, @dripl/db, @dripl/utils
 ws-server   ──► @dripl/common, @dripl/db, @dripl/utils
+
+@test-utils ──► @dripl/common (dev: @dripl/eslint-config, @dripl/typescript-config)
 ```
 
 **No circular dependencies.** Apps never depend on other apps.
@@ -178,7 +188,7 @@ See `.env.example` for the full list with descriptions.
 3. Add `tsconfig.json` extending `@dripl/typescript-config/base.json`
 4. Add the package to root `tsconfig.json` `references`
 5. Add the workspace dep to consuming packages: `"@dripl/<name>": "workspace:*"`
-6. Run `bun install` to update the lockfile
+6. Run `pnpm install` to update the lockfile
 
 ---
 
@@ -197,7 +207,7 @@ See `.env.example` for the full list with descriptions.
 - **`workspace:*`** for all internal package deps (pnpm protocol)
 - **Conventional Commits** enforced by `commitlint.config.js` — run `pnpm commitlint` locally before pushing
 - **`private: true`** on every package/app — nothing in this repo is published to npm
-- **No barrel files** in packages — use granular `exports` in `package.json` instead
+- **No barrel files** in packages — use granular `exports` in `package.json` instead (note: currently violated by all 7 packages — see TODOS #18)
 - **All console output must be structured JSON** — no plain `console.log` in server code
 
 ---
@@ -209,7 +219,7 @@ See `.env.example` for the full list with descriptions.
 cp .env.example .env && vi .env   # fill in real values
 
 # 2. Install
-bun install
+pnpm install
 
 # 3. Migrate DB
 pnpm db:migrate
@@ -259,3 +269,18 @@ Turbo remote caching is configured via `TURBO_TOKEN` + `TURBO_TEAM` env vars in 
 - ❌ Do NOT add TypeScript `paths` in package `tsconfig.json` — use Node.js `imports` subpath field instead
 - ❌ Do NOT create nested packages (`packages/foo/packages/bar`)
 - ❌ Do NOT import across package boundaries via relative paths (`../../packages/common/src/...`)
+
+---
+
+## Known Gaps & Active Work
+
+For the full engineering roadmap, see `TODOS.md`. Key active items:
+
+- **ws-server is a 737-line monolith** — documented module structure in `ws-server/CLAUDE.md` doesn't match reality (files like `rooms.ts`, `handlers.ts` don't exist yet)
+- **Redis is declared but unused** — `REDIS_URL` in `.env.example` but no Redis client imports anywhere
+- **Barrel files in all 7 packages** — violates the "no barrel files" rule above
+- **Duplicate `.env` files** — app-level `.env` files exist and may contain real credentials
+- **TypeScript version mismatch** — root at `^6.0.3`, apps at `^5.x`, some packages at `latest`
+- **Docker runs dev in production** — all Dockerfiles use `CMD pnpm run dev`
+
+See `Problems.md` for the full security audit (23 findings, 19 fixed).

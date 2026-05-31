@@ -41,25 +41,23 @@ Runs on **port 3002** in development.
 apps/http-server/
 ├── src/
 │   ├── index.ts              # Entry point — creates Express app, mounts routers
-│   ├── middleware/
-│   │   ├── auth.ts           # JWT verification middleware
-│   │   ├── rateLimiter.ts    # Per-user rate limiting
-│   │   └── errorHandler.ts   # Global error handler
+│   ├── middlewares/
+│   │   ├── authMiddleware.ts  # JWT verification middleware
+│   │   ├── csrfMiddleware.ts  # CSRF token generation/validation
+│   │   └── (rate limiter inline in index.ts)
 │   ├── routes/
 │   │   ├── auth.ts           # POST /api/auth/login, /register, /logout, /google
-│   │   ├── files.ts          # CRUD /api/files, /api/folders
-│   │   ├── canvas.ts         # GET/POST /api/canvas/rooms
-│   │   └── share.ts          # POST/GET /api/share
+│   │   ├── files.ts          # CRUD /api/files
+│   │   ├── folders.ts        # CRUD /api/folders
+│   │   ├── share.ts          # POST/GET /api/share
+│   │   └── roomRoutes.ts     # CRUD /api/rooms
 │   ├── controllers/
-│   │   ├── authController.ts
-│   │   ├── fileController.ts
-│   │   └── shareController.ts
+│   │   └── roomController.ts # Room business logic
 │   └── lib/
-│       ├── jwt.ts            # Token sign/verify helpers
 │       └── mailer.ts         # Nodemailer wrapper
 ├── tests/                    # Vitest + Supertest integration tests
 ├── tsconfig.json
-└── turbo.json (if present)
+└── package.json
 ```
 
 ---
@@ -158,13 +156,14 @@ Protected routes use the `auth` middleware which:
 
 ```
 Helmet (security headers)
-  └─► CORS (allow FRONTEND_URL origin + credentials)
-        └─► Cookie parser
-              └─► JSON body parser (10mb limit)
-                    └─► CSRF protection (on mutation endpoints)
-                          └─► Rate limiter (per user/IP)
-                                └─► Routes
-                                      └─► Global error handler
+  └─► Compression (gzip)
+        └─► CORS (allow FRONTEND_URL origin + credentials)
+              └─► Cookie parser
+                    └─► JSON body parser (5mb limit)
+                          └─► CSRF protection (on mutation endpoints)
+                                └─► Rate limiter (per user/IP)
+                                      └─► Routes
+                                            └─► Global error handler
 ```
 
 ---
@@ -187,7 +186,7 @@ if (!parsed.success) {
 ## Error Handling
 
 - All controllers use `try/catch` and pass errors to `next(err)`
-- The global error handler in `middleware/errorHandler.ts` formats all errors as JSON
+- The global error handler in `src/index.ts` formats all errors as JSON
 - **No empty catch blocks** — every caught error must be logged or rethrown
 - Use structured JSON logging (no plain `console.log`)
 

@@ -39,18 +39,15 @@ Runs on **port 3001** in development.
 ```
 apps/ws-server/
 ├── src/
-│   ├── index.ts           # Entry point — HTTP upgrade → WebSocket server
-│   ├── rooms.ts           # Room state management (Map of roomId → RoomState)
-│   ├── handlers.ts        # Message dispatch — routes by message type
-│   ├── broadcast.ts       # Room-level broadcast helpers
-│   ├── validation.ts      # Zod schemas for all incoming messages
-│   ├── rateLimiter.ts     # Per-connection token-bucket rate limiter
-│   └── auth.ts            # JWT verification on WebSocket upgrade
+│   ├── index.ts           # Monolith entry point (737 lines) — all logic lives here
+│   └── validation.ts      # Zod schemas for all incoming messages
 ├── tests/
 │   └── validation.test.ts # Zod schema unit tests
 ├── tsconfig.json
 └── package.json
 ```
+
+> **Architecture Note:** The CLAUDE.md previously documented separate `rooms.ts`, `handlers.ts`, `broadcast.ts`, `rateLimiter.ts`, and `auth.ts` files. These do not exist yet — all logic is in `index.ts`. See TODOS #20 for the planned refactor.
 
 ---
 
@@ -170,19 +167,19 @@ const SceneUpdateSchema = z.object({
 
 **Element bounds are validated** — coordinates must be finite numbers within canvas bounds. Invalid messages are silently dropped with an error response to the sender.
 
-**Max message size**: 10 MB (enforced by the `ws` server options).
+**Max message size**: 1 MB (enforced by `ws` server `maxPayload` option). The application-level `MAX_ELEMENTS_PER_SCENE` limit is 5,000 elements.
 
 ---
 
 ## Rate Limiting
 
-Each WebSocket connection has its own **token-bucket** rate limiter:
+Each WebSocket connection has a **simple counter** rate limiter:
 
-- Refill rate: configurable tokens/second
-- Burst capacity: configurable max tokens
-- Exceeded connections receive an `error` message and may be disconnected
+- Window: 1 second
+- Max: 30 messages per window
+- Exceeded connections are closed with code 4000
 
-This prevents a single client from flooding the room with updates.
+The rate limit state is stored in a `Map<WebSocket, { count, resetAt }>`. Stale entries are cleaned up every 60 seconds.
 
 ---
 
@@ -238,11 +235,11 @@ describe('SceneUpdateSchema', () => {
 ## Adding a New Message Type
 
 1. Add a Zod schema to `src/validation.ts`
-2. Add a handler function in `src/handlers.ts`
-3. Register the handler in the main dispatch `switch` in `src/index.ts`
-4. Add broadcast helper in `src/broadcast.ts` if needed
-5. Write Vitest tests for the new schema in `tests/validation.test.ts`
-6. Update the message protocol table in this file
+2. Add a handler `case` in the main `switch` statement in `src/index.ts`
+3. Write Vitest tests for the new schema in `tests/validation.test.ts`
+4. Update the message protocol table in this file
+
+> **Note:** All handler logic currently lives in `src/index.ts`. When the planned module refactor (TODOS #20) is complete, handler functions will move to `src/handlers.ts`.
 
 ---
 
@@ -252,6 +249,7 @@ describe('SceneUpdateSchema', () => {
 - **No `tsx watch`** — the dev server does not auto-reload. Restart it manually after code changes or add `watch` to the dev script.
 - **Stale user cleanup** — ungraceful disconnects (network drop) are handled via the `ws` `close` event. The dedup logic runs once; do not add a second cleanup call.
 - **Room memory** — rooms live entirely in process memory. Restarting the server clears all rooms. If persistent room state is needed, it must be saved to DB via `@dripl/db`.
-- **No Redis pub/sub** — currently single-process only. For horizontal scaling, add Redis pub/sub in `broadcast.ts`.
+- **No Redis pub/sub** — currently single-process only. For horizontal scaling, add Redis pub/sub (see TODOS #9).
 - **Coordinate validation** — element `x`, `y`, `width`, `height` must all be finite and within the defined canvas bounds. The Zod schemas enforce this; do not skip validation.
 - **Type mismatch guard** — `currentRoomId` and `currentUserId` stored on the socket are strings. Compare with strict equality (`===`), never loose (`==`).
+- **Monolith structure** — all logic is in `index.ts` (737 lines). When adding new features, keep related code together and add comments marking logical sections.

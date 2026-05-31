@@ -1,465 +1,430 @@
-# Dripl — Engineering TODOs
+# Dripl — Engineering Roadmap
 
-> Generated from comprehensive engineering review (May 2026). Items are prioritized by impact and effort.
-
----
-
-## Tier 1: Critical (Security, Data Loss, Core Functionality)
-
-### 1. Horizontal Scaling for ws-server
-**What:** Add Redis pub/sub for multi-instance WebSocket server support.
-**Why:** `rooms` Map is in-process memory. Cannot scale beyond 1 server. Two users on different instances can't collaborate.
-**Pros:** Enables production-scale deployment, load balancing, zero-downtime deploys.
-**Cons:** Adds Redis dependency, significant architectural change (~500+ lines).
-**Context:** Current: `const rooms = new Map<string, RoomState>()` in `ws-server/src/index.ts:109`. Need Redis pub/sub for cross-instance broadcast + Redis for shared room state.
-**Depends on:** Infrastructure decision (Redis vs alternative).
-
-### 2. Diff-based Element Broadcasting
-**What:** Replace full element array broadcast with operational delta (added/updated/deleted).
-**Why:** `broadcastElements` sends ALL elements on every change. For 1000-element canvas, every stroke transmits 1000 elements over WebSocket.
-**Pros:** 90%+ bandwidth reduction, faster collaboration, lower server CPU.
-**Cons:** Requires conflict resolution strategy, adds complexity to element tracking.
-**Context:** `apps/dripl-app/hooks/useCollaboration.ts:149-155`. Current: `pendingElementsRef.current = nextElements` → full array send.
-**Depends on:** None.
-
-### 3. Comprehensive Test Coverage for ws-server
-**What:** Integration tests for WebSocket message handling, room lifecycle, auth, rate limiting, shutdown.
-**Why:** 678-line server had ZERO tests before this review. Only validation schemas are now tested (65 tests).
-**Pros:** Catches data loss bugs, race conditions, auth bypasses before production.
-**Cons:** Requires WebSocket test harness setup, mock DB.
-**Context:** `apps/ws-server/src/index.ts`. Needs: join/leave flow, element CRUD, scene-update, rate limiting, heartbeat, graceful shutdown, concurrent joins.
-**Depends on:** `ws-server/vitest.config.ts` (created).
-
-### 4. Test Coverage for http-server Auth & File Routes
-**What:** Integration tests for auth.ts (551 lines) and files.ts (502 lines) using Supertest.
-**Why:** Security-critical endpoints (login, register, password reset, file CRUD, encryption) have zero happy-path tests.
-**Pros:** Prevents auth bypass, data loss, IDOR vulnerabilities.
-**Cons:** Requires test DB setup, Prisma test instance.
-**Context:** `apps/http-server/src/routes/auth.ts`, `apps/http-server/src/routes/files.ts`. Current test only validates Zod schemas, not actual DB operations.
-**Depends on:** Test DB infrastructure.
-
-### 5. Canvas Renderer Tests
-**What:** Unit tests for `apps/dripl-app/renderer/interactiveScene.ts` (724 lines).
-**Why:** Entire canvas render engine is untested. 12 render functions, visibility culling, selection, marquee, collaborator cursors.
-**Pros:** Catches rendering regressions, broken culling, selection bugs.
-**Cons:** Requires Canvas 2D context mocking, complex test fixtures.
-**Context:** `apps/dripl-app/renderer/interactiveScene.ts`. Each render function (rectangle, ellipse, diamond, path, text, image, grid, selection, marquee, collaborators, locks) needs at least one test.
-**Depends on:** Canvas mock utility.
+> Comprehensive roadmap generated from code quality, security, scalability, and architecture audits. Items are prioritized by impact and effort. Last updated: 2026-05-31.
 
 ---
 
-## Tier 2: High Priority (Core UX Features)
+## Tier 1: Critical (P0) — Security, Data Loss, Core Functionality
 
-### 6. Test Infrastructure: @dripl/test-utils Package
-**What:** Shared test utilities package with element factories, user factories, mock Canvas 2D.
-**Why:** Every test creates 60-line inline element objects. No shared fixtures, no mock utilities.
-**Pros:** Faster test writing, consistent fixtures, less boilerplate.
-**Cons:** New package to maintain.
-**Context:** Need: `createTestElement({ type: 'rectangle', x: 0, y: 0 })`, `createTestUser()`, `createTestFile()`, `mockCanvasContext()`, `mockWebSocketServer()`.
-**Depends on:** None.
-**Status:** ✅ COMPLETED - Package created with 21 tests covering all factories.
+### 1. Remove Duplicate `.env` Files with Real Credentials
+**What:** Delete `apps/{dripl-app,http-server,ws-server}/.env` files. Add `apps/**/.env` to root `.gitignore`.
+**Why:** These files contain real database URLs with passwords, Gemini API keys, and SMTP credentials. They are not gitignored by the root config. Risk of accidental commit.
+**Where:** `apps/dripl-app/.env`, `apps/http-server/.env`, `apps/ws-server/.env`
+**Effort:** 10 min
+**Depends on:** None
+**Status:** OPEN
 
-### 7. Element Resize Tests
-**What:** Tests for `packages/element/src/resizeElements.ts` (457 lines).
-**Why:** Complex resize logic with rotation, aspect ratio, text wrapping — zero tests.
-**Pros:** Catches broken resize behavior, text sizing bugs.
-**Cons:** Requires Canvas 2D mock for text measurement.
-**Context:** `packages/element/src/resizeElements.ts`. Test all handle directions, rotation, aspect ratio lock, text auto-resize.
-**Depends on:** Item 6 (test utils).
-**Status:** ✅ COMPLETED - 48 tests added covering all resize functions, element types, and edge cases.
+### 2. Fix http-server Race Condition — DB Init Before Listen
+**What:** Move `app.listen()` inside `initializeDb().then()` so the server only starts after DB is ready.
+**Why:** Currently `app.listen()` starts accepting requests while `initializeDb()` is still async. Requests arrive before DB is connected, causing "PrismaClient not initialized" errors.
+**Where:** `apps/http-server/src/index.ts:94-103`
+**Effort:** 15 min
+**Depends on:** None
+**Status:** OPEN
 
-### 8. Hit Detection Tests
-**What:** Tests for `packages/math/src/hit-detection.ts` (158 lines).
-**Why:** Point-in-element, selection rect, element-at-point logic — zero tests.
-**Pros:** Catches broken selection, hit testing bugs.
-**Cons:** Minimal.
-**Context:** `packages/math/src/hit-detection.ts`. Test: point in rect/ellipse/diamond, point on rotated element, selection rect intersection, element-at-point with overlapping elements.
-**Depends on:** None.
-**Status:** ✅ COMPLETED - 30+ tests added covering all hit detection functions.
+### 3. Fix ws-server Periodic Save Race Condition
+**What:** Add a `saving` flag per room to skip overlapping saves. Replace `setInterval` with recursive `setTimeout` that waits for the previous save to complete.
+**Why:** `setInterval(async ...)` with sequential awaits can cause overlapping writes if `saveRoomElements` takes longer than the interval. No mutex exists.
+**Where:** `apps/ws-server/src/index.ts:648-680`
+**Effort:** 1 hr
+**Depends on:** None
+**Status:** OPEN
 
-### 9. Collaboration Hook Tests
-**What:** Tests for `apps/dripl-app/hooks/useCollaboration.ts` (392 lines).
-**Why:** WebSocket client: reconnection, heartbeat, element broadcasting, cursor sync — zero tests.
-**Pros:** Catches broken collaboration, reconnection bugs, race conditions.
-**Cons:** Requires WebSocket mock, Zustand store mock.
-**Context:** `apps/dripl-app/hooks/useCollaboration.ts`. Test: join room, receive elements, broadcast changes, reconnect, cursor throttling, room ID changes.
-**Depends on:** Item 6 (test utils).
+### 4. Fix `pg.Pool` Connection Limit
+**What:** Add `max: 20` (or configurable via `DB_POOL_SIZE` env var) to the pool config in `packages/db/src/index.ts`.
+**Why:** Default `pg.Pool` is 10 connections shared across all services. With ws-server periodically saving rooms, the pool can be saturated.
+**Where:** `packages/db/src/index.ts:23-34`
+**Effort:** 30 min
+**Depends on:** None
+**Status:** OPEN
 
-### 10. Auth Middleware Tests
-**What:** Tests for `apps/http-server/src/middlewares/authMiddleware.ts` and `csrfMiddleware.ts`.
-**Why:** JWT verification, cookie handling, CSRF protection — zero tests.
-**Pros:** Catches auth bypass, CSRF vulnerabilities.
-**Cons:** Minimal.
-**Context:** Test: valid token, expired token, missing token, cookie vs header, CSRF valid/missing/mismatched, safe methods bypass.
-**Depends on:** None.
-**Status:** ✅ COMPLETED - 14 tests added for auth and CSRF middleware.
+### 5. Add CSRF Protection to `/api/auth/logout`
+**What:** Add `validateCsrfToken` middleware to the logout endpoint.
+**Why:** Logout CSRF attacks are real. The endpoint is currently unprotected.
+**Where:** `apps/http-server/src/index.ts` (mount point)
+**Effort:** 15 min
+**Depends on:** None
+**Status:** OPEN
 
-### 11. Encryption Utility Tests
-**What:** Tests for `packages/utils/src/encryption/` (~100 lines).
-**Why:** AES-GCM encryption/decryption for share links — zero tests. If broken, share links leak data or fail to decrypt.
-**Pros:** Critical security validation.
-**Cons:** Minimal.
-**Context:** `packages/utils/src/encryption/crypto.ts`, `url.ts`. Test: encrypt/decrypt round-trip, URL key extraction, key rotation, malformed ciphertext.
-**Depends on:** None.
-**Status:** ✅ COMPLETED - 25+ tests added for crypto and URL utilities.
+### 6. Add Zod Validation to Unprotected Routes
+**What:** Add Zod schemas to `createRoom`, `addMember`, `shareRoom`, and `PUT /profile` endpoints.
+**Why:** These routes use manual validation (`if (!userId)`) instead of Zod. An attacker can send malformed data (e.g., objects for `name`, very large `expiresIn` values).
+**Where:** `apps/http-server/src/controllers/roomController.ts`, `apps/http-server/src/routes/auth.ts`
+**Effort:** 2 hrs
+**Depends on:** None
+**Status:** OPEN
 
-### 12. RBush Incremental Rebuild
-**What:** Replace full RBush tree rebuild with incremental insert/remove.
-**Why:** `RoughCanvas.tsx:322-339` rebuilds entire spatial index on every elements change. O(n log n) per update.
-**Pros:** Faster renders for large canvases.
-**Cons:** More complex state management, need to track element diffs.
-**Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:322-339`. Current: `useMemo(() => { tree.load(items) }, [elements])`.
-**Depends on:** None.
-**Status:** ✅ COMPLETED - Incremental insert/remove with full rebuild threshold at 40% changes.
+### 7. Implement Diff-based Element Broadcasting
+**What:** Replace full element array broadcast with operational delta: `{ added: DriplElement[], updated: DriplElement[], deleted: string[] }`.
+**Why:** Current `scene-update` broadcasts the entire element array (potentially 1.5MB+) to all users on every change. With 5K elements × 20 users, that's 30MB/s of redundant WebSocket traffic.
+**Where:** `apps/ws-server/src/index.ts:517-522`, `apps/dripl-app/hooks/useCollaboration.ts:138-155`
+**Effort:** 5 hrs
+**Depends on:** None
+**Status:** OPEN
 
-### 13. Zustand Store Split
-**What:** Split 782-line monolith store into focused stores (canvas, history, collab, UI).
-**Why:** Single store holds everything: elements, selection, tools, theme, zoom/pan, history, clipboard, remote users, cursors, locks, grid, file metadata, room state.
-**Pros:** Better performance (fewer re-renders), testable in isolation, clearer boundaries.
-**Cons:** Breaking change for all consumers, migration effort.
-**Context:** `apps/dripl-app/lib/canvas-store.ts`. Split into: `canvas-store` (elements, selection, tools, zoom/pan), `history-store` (undo/redo), `collab-store` (remote users, cursors, locks), `ui-store` (theme, grid, modals).
-**Depends on:** None.
+### 8. Validate AI Response Elements Against Schema
+**What:** Parse AI-generated elements through `DriplElementSchema` before returning to clients.
+**Why:** The `/api/ai/generate` route casts unvalidated AI output as `Record<string, unknown>[]`. Malformed data from Gemini flows directly to the client.
+**Where:** `apps/dripl-app/app/api/ai/generate/route.ts:169`
+**Effort:** 1 hr
+**Depends on:** None
+**Status:** OPEN
 
-### 14. Service Layer for http-server
+---
+
+## Tier 2: High (P1) — Performance & Scalability
+
+### 9. Implement Redis Pub/Sub for WS Horizontal Scaling
+**What:** Add Redis pub/sub for multi-instance WebSocket server support. Room state stays in-memory per instance, broadcasts forwarded via Redis channel per room.
+**Why:** All room state is in `Map` objects in process memory. Cannot run multiple instances. Two users on different servers can't collaborate. `REDIS_URL` is declared but unused.
+**Where:** `apps/ws-server/src/index.ts:111-114`, new `src/pubsub.ts`
+**Effort:** 2-3 days
+**Depends on:** Infrastructure decision (Redis available?)
+**Status:** OPEN
+
+### 10. Optimize Canvas Rendering Pipeline — Spatial Index Culling
+**What:** Use RBush spatial index for viewport culling instead of linear scan of all elements.
+**Why:** `interactiveScene.ts:648-654` iterates all elements for visibility check on every frame. With 5K elements at 60fps, that's 300K bounding box calculations/second. The spatial index already exists but isn't used for culling.
+**Where:** `apps/dripl-app/renderer/interactiveScene.ts:648-654`
+**Effort:** 3 hrs
+**Depends on:** None
+**Status:** OPEN
+
+### 11. Optimize Zustand Store — Map-based Element Storage
+**What:** Replace `elements: DriplElement[]` with `elementsById: Map<string, DriplElement>` + `elementOrder: string[]` for O(1) lookups.
+**Why:** Every `updateElement` call does `findIndex` (O(n)) + array spread (O(n)). With 5K elements, each update creates a new 5K-element array.
+**Where:** `apps/dripl-app/lib/canvas-store.ts:411-443`
+**Effort:** 1 day
+**Depends on:** None
+**Status:** OPEN
+
+### 12. Optimize History — Command Pattern Instead of Snapshots
+**What:** Replace full snapshot history with command-based diffs: store `{ type, elementId, before, after }` instead of full arrays.
+**Why:** History stores 100 full snapshots. `deriveHistory` deep-clones all snapshots on every state change. With 5K elements, that's 100 × 1.5MB = 150MB of history.
+**Where:** `apps/dripl-app/lib/canvas-store.ts:9,70-80`
+**Effort:** 1 day
+**Depends on:** None
+**Status:** OPEN
+
+### 13. Add Web Workers for Heavy Computations
+**What:** Move hit testing, bounding box calculations, and element serialization to a Web Worker.
+**Why:** These CPU-intensive operations run on the main thread, causing jank during rapid interactions.
+**Where:** New `packages/dripl/worker/`, `apps/dripl-app/renderer/interactiveScene.ts`
+**Effort:** 2 days
+**Depends on:** Item 10 (spatial index optimization)
+**Status:** OPEN
+
+### 14. Lazy Load Canvas Components
+**What:** Use `next/dynamic` for non-critical components: `PropertiesPanel`, `ContextMenu`, `NameInputModal`, `ExportModal`.
+**Why:** `RoughCanvas.tsx` (2,332 lines) eagerly imports 15+ components. All are loaded on initial page load.
+**Where:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:14-23`
+**Effort:** 2 hrs
+**Depends on:** None
+**Status:** OPEN
+
+### 15. Fix Image Handling — Move Base64 to Blob Storage
+**What:** Store images as IndexedDB blobs (client) or S3 (server). Reference by ID in element `src` field.
+**Why:** Images stored as base64 data URLs in element `src` fields. A 1MB image = 1.33MB base64. Every broadcast re-serializes the entire element array including base64 data. DB stores base64 in text columns.
+**Where:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:769-810`, `packages/db/prisma/schema.prisma:79,120`
+**Effort:** 3 days
+**Depends on:** None
+**Status:** OPEN
+
+### 16. Add Cursor-Based Pagination
+**What:** Replace offset-based pagination with cursor-based: `?cursor=<updatedAt>&limit=20`.
+**Why:** Current offset pagination (`skip`/`take`) is slow at high page numbers. PostgreSQL must scan and discard all preceding rows.
+**Where:** `apps/http-server/src/routes/files.ts:91-92`
+**Effort:** 3 hrs
+**Depends on:** None
+**Status:** OPEN
+
+### 17. Optimize WS Server Room State Operations
+**What:** Change `RoomState.elements` from `DriplElement[]` to `Map<string, DriplElement>`. Add reverse index `userId → roomId`.
+**Why:** Current `filter`/`map` on full element array for every mutation. `currentRoomIdForWs` does O(rooms × users) scan.
+**Where:** `apps/ws-server/src/index.ts:468-490,630-637`
+**Effort:** 4 hrs
+**Depends on:** None
+**Status:** OPEN
+
+---
+
+## Tier 3: Medium (P2) — Code Quality & Architecture
+
+### 18. Remove Barrel Files from All Packages
+**What:** Remove `index.ts` barrel files from all 7 packages. Use granular `exports` in `package.json` instead.
+**Why:** Every package uses `index.ts` with `export *`, violating the CLAUDE.md rule. Causes larger bundle sizes, slower TypeScript type-checking, and reduced tree-shaking.
+**Where:** `packages/{common,db,dripl,element,math,utils,test-utils}/src/index.ts`
+**Effort:** 3 hrs
+**Depends on:** None
+**Status:** OPEN
+
+### 19. Unify Dependency Versions
+**What:** Pin all `latest` versions to caret ranges. Align TypeScript to `^5.9.3`. Align Prisma to `^7.2.0`. Align Zod to `^4.3.6`.
+**Why:** Root has `typescript ^6.0.3`, apps have `^5.x`, 5 packages use `latest` (unpredictable). Prisma CLI at `^7.8.0`, client at `^7.2.0`. Zod at `^4.1.13` in common, `^4.3.6` elsewhere.
+**Where:** Multiple `package.json` files
+**Effort:** 1 hr
+**Depends on:** None
+**Status:** OPEN
+
+### 20. Refactor ws-server into Modules
+**What:** Split 737-line monolith `index.ts` into: `rooms.ts`, `handlers.ts`, `broadcast.ts`, `rateLimiter.ts`, `auth.ts`.
+**Why:** CLAUDE.md documents these separate files but none exist. All concerns live in one file: HTTP server, JWT auth, room state, message dispatch, broadcast, rate limiting, heartbeat, DB saves, shutdown.
+**Where:** `apps/ws-server/src/index.ts`
+**Effort:** 1 day
+**Depends on:** None
+**Status:** OPEN
+
+### 21. Make `@dripl/eslint-config` Actually Used
+**What:** Update all packages to import the shared ESLint config instead of defining their own. Update peer deps to match `typescript-eslint`.
+**Why:** Shared config exists at `tooling/eslint-config/index.js` but most packages define independent configs. `http-server` and `ws-server` have lint scripts but no eslint config.
+**Where:** `tooling/eslint-config/index.js`, all `eslint.config.*` files
+**Effort:** 2 hrs
+**Depends on:** None
+**Status:** OPEN
+
+### 22. Fix `@dripl/dripl` Package Dependencies
+**What:** Move `@dripl/common` and `@dripl/math` from `devDependencies` to `dependencies`.
+**Why:** These are used at runtime (re-exported in store/types) but listed as dev deps.
+**Where:** `packages/dripl/package.json`
+**Effort:** 10 min
+**Depends on:** None
+**Status:** OPEN
+
+### 23. Implement Fractional Index for Z-Ordering
+**What:** Add `index: string | null` to `DriplElement`. Use `fractional-indexing` library for z-order keys.
+**Why:** Z-ordering is array-position based. During collaboration, two users reordering simultaneously causes conflicts (last-write-wins discards one user's reorder).
+**Where:** `apps/dripl-app/lib/canvas-store.ts:496-602`, `packages/common` element type
+**Effort:** 1 day
+**Depends on:** Item 7 (diff-based broadcasting)
+**Status:** OPEN
+
+### 24. Single History System
+**What:** Pick one history implementation and remove the other two.
+**Why:** Three separate history systems exist: `@dripl/common` (SceneHistory + DeltaManager), `@dripl/dripl` store history, `@dripl/dripl/src/utils/history.ts` (CanvasHistory).
+**Where:** Multiple files
+**Effort:** 1 day
+**Depends on:** Decision on which system to keep
+**Status:** OPEN (pre-existing P8)
+
+### 25. Service Layer for http-server
 **What:** Extract business logic into service classes (FileService, AuthService, RoomService).
 **Why:** Controllers talk directly to Prisma. Business logic like "create file with folder ownership check" lives in route files.
-**Pros:** Testable business logic, reusable across routes, cleaner controllers.
-**Cons:** More files, indirection.
-**Context:** `apps/http-server/src/routes/files.ts` has `ensureFolderOwnership`, `parseStoredFileContent`, `serializeStoredFileContent` inline. Move to `FileService`.
-**Depends on:** None.
+**Where:** `apps/http-server/src/routes/files.ts`, `auth.ts`
+**Effort:** 1 day
+**Depends on:** None
+**Status:** OPEN
 
-### 15. WebSocket Protocol Abstraction
-**What:** Replace giant switch statement with handler registry pattern + middleware chain.
-**Why:** `ws-server/src/index.ts:366-573` handles all message types inline. No middleware chain (auth → rate limit → validate → handle).
-**Pros:** Easier to add new message types, testable handlers, consistent validation.
-**Cons:** Architectural change, refactoring effort.
-**Context:** `apps/ws-server/src/index.ts`. Create: `MessageHandler` interface, `HandlerRegistry`, middleware chain for WS messages.
-**Depends on:** None.
-
-### 16. Image Cache LRU Optimization
-**What:** Replace O(n) `indexOf`/`splice` with Map-based LRU.
-**Why:** `packages/element/src/image-cache.ts:102-108` uses array operations for access order tracking.
-**Pros:** O(1) LRU operations, faster cache hits.
-**Cons:** Slightly more complex implementation.
-**Context:** `packages/element/src/image-cache.ts`. Use `Map` (preserves insertion order) instead of array for access tracking.
-**Depends on:** None.
-**Status:** ✅ COMPLETED - Replaced array-based accessOrder with Map-based counter for O(1) updates.
-
-### 17. RAF Loop — One-Shot Bug (Fixed)
-**What:** The one-shot RAF loop optimization caused committed elements to never render on StaticCanvas. Reverted to continuous loop matching InteractiveCanvas.
-**Why:** StaticCanvas's RAF loop ran once on mount, set `rafRef.current = null`, and stopped. When elements changed later via `commitDraft()`, the other effect set `isDirtyRef.current = true` but no `requestAnimationFrame` was ever scheduled — the re-scheduling mechanism was never implemented. Fix: use continuous RAF (unconditional `requestAnimationFrame(loop)` at end of every frame, same pattern as InteractiveCanvas).
-**Context:** `apps/dripl-app/components/canvas/StaticCanvas.tsx:113-150`. Also fixed `packages/element/src/rough-renderer.ts:70-73` — `undefined` backgroundColor passed `fill: undefined` to Rough.js (guard with `backgroundColor ?? 'transparent'`).
-**Status:** ✅ FIXED - Continuous RAF loop + undefined backgroundColor guard.
-
-### 18. Cursor Interpolation Optimization
-**What:** Use ref-based approach instead of creating new Map every animation frame.
-**Why:** `useInterpolatedCursors.ts:79-81` creates new Map every frame when cursors move.
-**Pros:** Less GC pressure, smoother cursor rendering.
-**Cons:** More complex state management.
-**Context:** `apps/dripl-app/hooks/useInterpolatedCursors.ts`.
-**Depends on:** None.
-**Status:** ✅ COMPLETED - Pass same Map ref to setState, eliminating per-frame allocation.
+### 26. Add Missing Database Indexes
+**What:** Add indexes: `ShareLink @@index([roomId])`, `ShareLink @@index([expiresAt])`, `PasswordResetToken @@index([email])`, `SharedFile @@index([userId])`.
+**Why:** Several queries lack index support. Cleanup queries scan full tables.
+**Where:** `packages/db/prisma/schema.prisma`
+**Effort:** 30 min
+**Depends on:** None
+**Status:** OPEN
 
 ---
 
-## Tier 4: Low Priority (Cleanup, Polish)
+## Tier 4: Low (P3) — Polish, DX & Production Readiness
 
-### 19. Remove Legacy Canvas Implementation
-**What:** Delete `apps/dripl-app/hooks/useCanvas.ts` if it's superseded by RoughCanvas architecture.
-**Why:** Dual canvas implementations exist. Legacy `useCanvas` renders ALL elements every change with no viewport culling.
-**Pros:** Less confusion, smaller bundle.
-**Cons:** Risk of breaking something if it's still referenced.
-**Context:** Verify `useCanvas` is not used anywhere before deleting.
-**Depends on:** Code audit.
+### 27. Fix Dockerfiles for Production
+**What:** Change `CMD pnpm run dev` to `CMD pnpm run start`. Add multi-stage build. Add `NODE_ENV=production`. Add health checks in docker-compose.
+**Why:** All Dockerfiles run dev servers in production with hot-reload watchers active.
+**Where:** `docker/Dockerfile.*`, `docker-compose.yml`
+**Effort:** 3 hrs
+**Depends on:** None
+**Status:** OPEN
 
-### 20. Single History System
-**What:** Pick one history implementation and remove the other two.
-**Why:** Three separate history systems: `@dripl/common` (SceneHistory + DeltaManager), `@dripl/dripl` store history, `@dripl/dripl/src/utils/history.ts` (CanvasHistory).
-**Pros:** Less confusion, consistent undo/redo behavior.
-**Cons:** Migration effort, need to pick the right one.
-**Context:** Evaluate which system is most complete and migrate to it.
-**Depends on:** Decision on which system to keep.
+### 28. Add HTTP Caching Headers
+**What:** Add `Cache-Control`, `ETag` headers based on `updatedAt` for GET endpoints.
+**Why:** No caching headers on any endpoint. Every request hits the database.
+**Where:** `apps/http-server/src/routes/files.ts`, `share.ts`
+**Effort:** 2 hrs
+**Depends on:** None
+**Status:** OPEN
 
-### 21. Password Reset Token Atomicity
-**What:** Use Prisma transaction to delete token and update password atomically.
-**Why:** `auth.ts:337-376` deletes token AFTER password update. If update fails, token is gone but password unchanged.
-**Pros:** Prevents lost password reset attempts.
-**Cons:** Minimal.
-**Context:** `apps/http-server/src/routes/auth.ts:354-363`. Wrap in `db.$transaction([...])`.
-**Depends on:** None.
-**Status:** ✅ COMPLETED - Both operations now wrapped in Prisma transaction.
+### 29. Enable Stricter TypeScript Checks
+**What:** Enable `noImplicitReturns`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`.
+**Why:** These are commented out in `tooling/typescript-config/tsconfig.json`. Would catch more bugs at compile time.
+**Where:** `tooling/typescript-config/tsconfig.json`, `tooling/typescript-config/base.json`
+**Effort:** 2 hrs (fixing resulting errors)
+**Depends on:** None
+**Status:** OPEN
 
-### 22. Connection Draining on ws-server Shutdown
-**What:** Wait for pending saves to complete before `process.exit(0)`.
-**Why:** `ws-server/src/index.ts:648-671` saves rooms fire-and-forget. If one takes 5 seconds and process exits after 2, data is lost.
-**Pros:** Prevents data loss on deploy/restart.
-**Cons:** Adds shutdown delay.
-**Context:** `apps/ws-server/src/index.ts:648-671`. Use `Promise.all` with timeout.
-**Depends on:** None.
-**Status:** ✅ COMPLETED - Parallel saves with 10s timeout added to shutdown.
+### 30. Create AGENTS.md
+**What:** Create the missing `AGENTS.md` file referenced by root `CLAUDE.md`. Include issue tracker config, domain terminology, architectural decisions.
+**Why:** File is referenced but doesn't exist.
+**Where:** `AGENTS.md` (root)
+**Effort:** 1 hr
+**Depends on:** None
+**Status:** OPEN
 
-### 23. Docker Production Hardening
-**What:** Fix Dockerfiles to use production builds, not `pnpm run dev`. Remove hardcoded credentials from docker-compose.
-**Why:** Dockerfiles use `CMD pnpm run dev` and `NODE_ENV=development`. docker-compose has hardcoded `POSTGRES_PASSWORD: dripl`.
-**Pros:** Production-ready containers, security.
-**Cons:** Separate deployment concern.
-**Context:** `docker/Dockerfile.*`, `docker-compose.yml`.
-**Depends on:** None.
+### 31. Add E2E Tests (Playwright)
+**What:** End-to-end tests for critical user flows: register → create canvas → draw → collaborate → share.
+**Why:** No E2E tests exist. Critical flows are untested end-to-end.
+**Where:** New `e2e/` directory
+**Effort:** 3 days
+**Depends on:** Items 3, 4 (unit test foundation)
+**Status:** OPEN
 
-### 24. Response Cache Headers
-**What:** Add `Cache-Control` / `ETag` headers to GET endpoints.
-**Why:** `getFiles`, `getRoom` don't set cache headers. Browser re-fetches on every navigation.
-**Pros:** Faster page loads, less server load.
-**Cons:** Cache invalidation complexity.
-**Context:** `apps/http-server/src/controllers/fileController.ts`, `roomController.ts`.
-**Depends on:** None.
+### 32. Add Automated Dependency Updates
+**What:** Add `renovate.json` or `.github/dependabot.yml` for automated dependency PRs.
+**Why:** No automated dependency management. Dependencies can drift.
+**Where:** `.github/dependabot.yml` or `renovate.json`
+**Effort:** 30 min
+**Depends on:** None
+**Status:** OPEN
 
-### 25. E2E Tests (Playwright)
-**What:** End-to-end tests for critical user flows.
-**Why:** No E2E tests exist. Critical flows (register → create canvas → draw → collaborate) are untested end-to-end.
-**Pros:** Catches integration bugs, regression safety.
-**Cons:** Heavy infrastructure, slow CI.
-**Context:** Flows: auth, canvas creation, drawing, collaboration, share links, export.
-**Depends on:** Items 3, 4 (unit test foundation).
+### 33. Add Code Coverage Reporting
+**What:** Add `vitest --coverage` with `@vitest/coverage-v8`. Add coverage thresholds in CI.
+**Why:** No visibility into test coverage. Unknown which code paths are untested.
+**Where:** `vitest.config.ts` files, `.github/workflows/ci.yml`
+**Effort:** 1 hr
+**Depends on:** None
+**Status:** OPEN
 
----
+### 34. Add Observability (Metrics + Structured Logging)
+**What:** Add Prometheus metrics endpoint (`/metrics`). Add correlation IDs to structured logs. Track: active connections, rooms, message throughput, save latency.
+**Why:** No visibility into production behavior. Cannot diagnose performance issues.
+**Where:** `apps/ws-server/src/index.ts`, `apps/http-server/src/index.ts`
+**Effort:** 1 day
+**Depends on:** None
+**Status:** OPEN
 
-### 26. StaticCanvas RAF Loop Regression Test
-**What:** Vitest test verifying StaticCanvas re-renders (via RAF) when elements prop changes from `[]` to `[element]`.
-**Why:** This is the exact regression vector behind the invisible-shapes bug. A test would catch future RAF-loop breakage (one-shot vs continuous, missed re-scheduling, etc.).
-**Context:** Test should mount `StaticCanvas` (or test `renderStaticScene` call scheduling), simulate elements update, and assert `renderStaticScene` was called via RAF callback.
-**Depends on:** This fix (item 17) being in place first.
-**Status:** ✅ COMPLETED — Vitest test mounts StaticCanvas with mock renderStaticScene + fake timers, simulates elements change, asserts re-render via RAF callback. See `apps/dripl-app/src/__tests__/StaticCanvas.test.tsx`.
+### 35. Fix `maxPayload` vs Application-Level Size Check Mismatch
+**What:** Align `maxPayload` (1MB) with `MAX_MESSAGE_SIZE` (10MB). Currently the `ws` library rejects messages >1MB before the app-level check runs.
+**Why:** Documentation claims "10MB max" but actual limit is 1MB. The 10MB check is dead code.
+**Where:** `apps/ws-server/src/index.ts:99,501`
+**Effort:** 15 min
+**Depends on:** None
+**Status:** OPEN
 
-### 27. Same Content Across Files Bug (Fixed)
-**What:** Fix stale Zustand store contamination when navigating between different canvas files in the `/file/[id]` page.
-**Why:** The auto-save `useEffect` could capture stale elements from the previous file when `fileId` changes, before React flushes batched state updates (`setLoading(true)`). Additionally, the store retained the previous file's elements, causing a visual flash and potential data bleed.
-**Context:** `apps/dripl-app/app/file/[id]/page.tsx`. Two fixes applied:
-- Added a `useEffect` that resets store (elements, history, selection, clipboard) and auto-save refs on `fileId` change, preventing stale data from persisting between navigations.
-- Added `storeFileId !== fileId` guard to the auto-save effect, preventing saves when the store's fileId doesn't match the URL's fileId (e.g., during the fetch window before `setFileMetadata` is called).
-**Depends on:** None.
-**Status:** ✅ FIXED
-
-### 28. Arrow Endpoint Handle Rotation (Fixed)
-**What:** Apply rotation transforms to arrow/line endpoint handles so they appear at correct visual positions for rotated arrows.
-**Why:** SelectionOverlay, interactiveScene, and RoughCanvas all computed arrow endpoint positions without accounting for `el.angle`, causing handles to render at wrong positions and dragging to apply deltas in wrong coordinate space.
-**Context:** Three files modified:
-- `SelectionOverlay.tsx` — uses `elementLocalPointToWorld` (from `@dripl/math`) to compute handle positions
-- `interactiveScene.ts` — uses `elementLocalPointToWorld` for canvas-based handle rendering
-- `RoughCanvas.tsx` — uses `inverseRotatePoint` to convert world-space drag delta to local-space delta
-**Depends on:** `elementLocalPointToWorld`, `inverseRotatePoint`, `rotatePoint` being exported from `@dripl/math` (item from previous session).
-**Status:** ✅ FIXED
+### 36. Remove Unused `anon_` Fallback in ws-server
+**What:** Remove the `anon_${uuidv4()}` fallback code that's now unreachable due to the auth check.
+**Why:** Dead code from before the auth check was added. Confuses readers.
+**Where:** `apps/ws-server/src/index.ts:371` (if present)
+**Effort:** 10 min
+**Depends on:** None
+**Status:** OPEN
 
 ---
 
-### 27. error.tsx Tailwind v4 Syntax — Review Notes
-**What:** The file `apps/dripl-app/app/error.tsx` uses `bg-(--color-primary)` and `text-(--color-primary-foreground)` syntax.
-**Note:** This is valid Tailwind v4 arbitrary value syntax for referencing CSS custom properties. The project uses Tailwind CSS v4 per CLAUDE.md. However, the CSS variables `--color-primary` and `--color-primary-foreground` should be verified to exist in the project's CSS; if undefined, the button renders transparent/invisible. No syntax change needed — this is a design-system consistency concern.
-**Status:** ✅ REVIEWED — No change required.
+## Completed Items (Historical)
+
+| # | Item | Status |
+|---|------|--------|
+| T2-6 | `@dripl/test-utils` package with element factories | ✅ DONE |
+| T2-7 | Element resize tests (48 tests) | ✅ DONE |
+| T2-8 | Hit detection tests (30+ tests) | ✅ DONE |
+| T2-10 | Auth + CSRF middleware tests (14 tests) | ✅ DONE |
+| T2-11 | Encryption utility tests (25+ tests) | ✅ DONE |
+| T2-12 | RBush incremental rebuild | ✅ DONE |
+| T2-16 | Image cache LRU optimization | ✅ DONE |
+| T2-17 | StaticCanvas RAF loop regression fix | ✅ DONE |
+| T2-18 | Cursor interpolation optimization | ✅ DONE |
+| T4-21 | Password reset token atomicity (Prisma transaction) | ✅ DONE |
+| T4-22 | Connection draining on ws-server shutdown | ✅ DONE |
+| T5-29 | ShapeCache version-aware eviction | ✅ DONE |
+| T5-30 | Theme-aware shape cache invalidation | ✅ DONE |
+| T5-31 | Element canvas cache version-number check | ✅ DONE |
+| T5-32 | `isExporting` bypass for shape cache | ✅ DONE |
+| T5-34 | Zoom-aware hit threshold | ✅ DONE |
+| T5-37 | Element canvas cache eviction on delete | ✅ DONE |
+| T5-39 | Centralized `mutateElement` cache invalidation | ✅ DONE |
+| T5-40 | Marquee "contain" vs "overlap" mode | ✅ DONE |
+| T5-41 | Viewport ResizeObserver | ✅ DONE |
+| T5-42 | Laser trail dedicated canvas overlay | ✅ DONE |
+| T5-43 | Remote cursor idle timeout (5s) | ✅ DONE |
+| T5-44 | Multi-point linear path handles | ✅ DONE |
+| T5-45 | Canvas storage serialization throttling | ✅ DONE |
+| P1 | @dripl/common test UUID failures | ✅ FIXED |
+| P2 | @dripl/common test FileSchema failures | ✅ FIXED |
+| P11 | UseCollaborationReturn missing disconnect | ✅ FIXED |
+| P12 | createPortal imported from wrong module | ✅ FIXED |
+| P13 | handleSubmit event type mismatch | ✅ FIXED |
+| P14 | AI route unknown type arithmetic | ✅ FIXED |
+| P15 | Missing LoadingState export | ✅ FIXED |
+| Sec-1 | Cryptographically weak room share token | ✅ RESOLVED |
+| Sec-2 | Room slug generated with Math.random | ✅ RESOLVED |
+| Sec-3 | Public room share route behind authMiddleware | ✅ RESOLVED |
+| Sec-4 | WebSocket anonymous room joins | ✅ RESOLVED |
+| Sec-6 | maxPayload vs 10MB check mismatch | ✅ FIXED |
+| Sec-7 | Auth endpoint brute-force protection | ✅ FIXED |
+| Sec-8 | WebSocket CORS origin validation | ✅ FIXED |
+| Sec-10 | postinstall --all auto-approves scripts | ✅ FIXED |
+| Sec-11 | getRoom auto-creates on GET | ✅ FIXED |
+| Sec-13 | Double-broadcast every WS event | ✅ FIXED |
+| Sec-14 | Orphaned route files | ✅ FIXED |
+| Sec-15 | updateRoom unvalidated content | ✅ FIXED |
+| Sec-16 | rateLimitCleanup not cleared on shutdown | ✅ FIXED |
+| Sec-17 | AI route any types | ✅ FIXED |
+| Sec-18 | CI missing Postgres service | ✅ FIXED |
+| Sec-19 | vercel.json on non-serverless apps | ✅ FIXED |
+| Sec-21 | WS data injection via missing schema | ✅ FIXED |
+| Sec-22 | updateFile unvalidated payload | ✅ FIXED |
+| Sec-23 | Expired share links never cleaned up | ✅ FIXED |
 
 ---
 
 ## Pre-existing Issues (Not Introduced by Review)
 
-### P1. @dripl/common Test UUID Failures
-Tests in `packages/common/src/actions.test.ts` and `schemas.test.ts` use non-UUID IDs (`"elem-1"`) while Zod schemas now require UUIDs. Tests need fixture updates.
-**Status:** ✅ FIXED - Recreated test files with proper UUID fixtures.
-
-### P2. @dripl/common Test FileSchema Failures
-`packages/common/src/schemas.test.ts:244` — FileSchema requires `preview`, `folderId`, `teamId`, `userId` but test fixtures omit them.
-**Status:** ✅ FIXED - Updated test fixtures with correct nullable fields.
-
 ### P3. Dockerfile References Missing @dripl/runtime
 All three Dockerfiles reference `packages/runtime/package.json` which doesn't exist. Docker builds will fail.
+**Status:** OPEN
 
 ### P4. Package Manager Inconsistency
 Root declares `packageManager: "pnpm@10.33.0"` but `bun.lock` file exists. CLAUDE.md says "use bun" but scripts use pnpm.
+**Status:** OPEN
 
 ### P5. TypeScript Version Mismatch
 Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some packages: `latest`.
+**Status:** OPEN
 
 ### P6. ESLint Disables Important Rules
 `apps/dripl-app/eslint.config.mjs` disables `react-hooks/exhaustive-deps`, `react-hooks/refs`, `@typescript-eslint/no-explicit-any`, `@typescript-eslint/no-unused-vars`.
+**Status:** OPEN
 
 ### P7. Canvas.tsx God Component (1568 lines)
-`apps/dripl-app/components/canvas/Canvas.tsx` contains entire canvas application logic. Partial extractions exist (`CanvasBootstrap.tsx`, `useCanvas.ts`) but main component still has duplicated logic.
+`apps/dripl-app/components/canvas/Canvas.tsx` contains entire canvas application logic. Partial extractions exist but main component still has duplicated logic.
+**Status:** OPEN
 
 ### P8. Three History Systems
 `@dripl/common` (SceneHistory + DeltaManager), `@dripl/dripl` store history, `@dripl/dripl/src/utils/history.ts` (CanvasHistory). All three exist, only one is actively used.
+**Status:** OPEN
 
 ### P9. Tunnel System Over-engineering
 `@dripl/dripl/src/tunnel/` has 10+ components for 4 tunnels. Could be simple React context.
+**Status:** OPEN
 
 ### P10. proxy.ts No-op
 `apps/dripl-app/proxy.ts` just calls `NextResponse.next()`. Either implement or remove.
-
-### P11. UseCollaborationReturn Missing disconnect
-`apps/dripl-app/hooks/useCollaboration.ts:77-85` — Interface didn't include `disconnect` method that was returned. Fixed.
-
-### P12. createPortal Imported from Wrong Module
-`apps/dripl-app/components/dashboard/FileBrowser.tsx:3` — `createPortal` imported from `'react'` instead of `'react-dom'`. Fixed.
-
-### P13. handleSubmit Event Type Mismatch
-`apps/dripl-app/app/signup/page.tsx:23`, `login/page.tsx:22` — `handleSubmit` required `React.FormEvent` but retry callback called without event. Made event optional. Fixed.
-
-### P14. AI Route Unknown Type Arithmetic
-`apps/dripl-app/app/api/ai/generate/route.ts:168` — `el.x` typed as `unknown` used in arithmetic. Added `Number()` casts. Fixed.
-
-### P15. Missing LoadingState Export
-`apps/dripl-app/components/ui/ErrorState.tsx` — `LoadingState` component imported by `canvas/page.tsx` but never exported. Added component. Fixed.
+**Status:** OPEN
 
 ---
 
-## Tier 5: Architecture Gaps — Excalidraw Parity (Canvas Internals)
+## Architecture Decisions (Reference)
 
-> These issues were identified by comparing Dripl's rendering, caching, selection, and z-ordering systems against Excalidraw's proven dual-canvas architecture. Each gap represents a real correctness or performance problem.
+| Decision | Status | Notes |
+|----------|--------|-------|
+| Redis for WS pub/sub | PENDING | `REDIS_URL` declared but unused. Needs implementation. |
+| Fractional indexing for z-order | PENDING | Needed for multiplayer reorder conflicts |
+| Image storage strategy | PENDING | Base64 in DB vs blob storage (IndexedDB/S3) |
+| History system consolidation | PENDING | 3 systems exist, need to pick 1 |
+| ws-server module split | PENDING | 737-line monolith → 5 modules |
+| Barrel file removal | PENDING | All 7 packages violate CLAUDE.md rule |
 
 ---
 
-### 29. ShapeCache Uses Plain `Map` — Unbounded Memory Leak
-**What:** `packages/element/src/shape-cache.ts` uses a `Map<string, Drawable>` keyed by `${id}:${version}`. Old entries from previous versions of the *same element* are never evicted — they accumulate indefinitely. The `pruneShapeCache(5000)` runs only every 1000 insertions and evicts by insertion order, not by staleness.
-**Why:** Excalidraw uses a `WeakMap<ExcalidrawElement, shape>` keyed on the element *object reference*. When an element is replaced (immutable update), the old object is GC'd and the cache entry disappears automatically. No pruning needed.
-**Problem in Dripl:** After 100 undo/redo operations on a 200-element canvas, the cache holds ~20,000 dead entries. Each Rough.js `Drawable` retains its full path data (several KB). This silently grows memory until the tab crashes.
-**Fix:** Replace `Map<string, Drawable>` with a version-checked `Map<string, { shape, version }>` keyed by element ID only. On cache lookup, compare `element.version` — if stale, delete and regenerate. Alternatively, adopt `WeakMap` if element object identity is stable enough (it is for committed elements).
-**Context:** `packages/element/src/shape-cache.ts:14`, `rough-renderer.ts:179-186`.
-**Depends on:** None.
-**Status:** ✅ FIXED — Cache is now keyed by `element.id` (not `id:version`). Lookup compares stored `version` and `theme`; stale entries are deleted on first miss. One entry per element, no accumulation.
+## Excalidraw Parity Checklist
 
-### 30. No Theme-Aware Shape Cache Invalidation
-**What:** Shape cache (`shape-cache.ts`) does not store or check the `theme` that was active when the shape was generated. When the user toggles dark/light mode, cached shapes still use the old theme's colors (especially dark-mode filter adjustments for stroke colors).
-**Why:** Excalidraw stores `{ shape, theme }` in `ShapeCache.cache` and returns a cache miss if `theme !== cachedTheme` (shape.ts:91-97). This guarantees shapes are regenerated after a theme switch.
-**Fix:** Add `theme` to the cache value and to the cache-hit check. Call `clearAllShapeCache()` on theme change as a fallback.
-**Context:** `packages/element/src/shape-cache.ts:28-30` (no theme parameter), `rough-renderer.ts:131` (theme parameter exists but is never used for cache keying).
-**Depends on:** None.
-**Status:** ✅ FIXED — `CacheEntry` now stores `{ shape, version, theme }`. Cache hit requires both version and theme to match. `setTheme()` in `canvas-store.ts` calls `clearAllShapeCache()` for an instant full flush on theme switch.
-
-### 31. Element Canvas Cache Uses String `versionKey` — O(n) Serialization Per Element Per Frame
-**What:** `packages/element/src/staticScene.ts:37-72` builds a `versionKey` string by concatenating ~18 properties (including `JSON.stringify(points)` for linear elements). This runs for every visible element on every frame that could potentially be dirty.
-**Why:** Excalidraw uses a `WeakMap<ExcalidrawElement, canvas>` for element-canvas caching. Cache validity is checked via object identity — since elements are immutably replaced on mutation, a new object reference = cache miss. No serialization needed.
-**Fix:** Replace the string-based `makeVersionKey` with a version-number check: store `{ canvas, version: element.version }` in the cache. On lookup, compare `element.version` to the cached version. If the element object reference changed AND version bumped, regenerate. This is O(1) per element instead of O(properties + points).
-**Context:** `packages/element/src/staticScene.ts:37-72, 259-276`.
-**Depends on:** Item 29 (consistent version semantics).
-**Status:** ✅ FIXED — `makeVersionKey` (O(n) string join + JSON.stringify) replaced by `getElementVersion()` returning `element.version ?? 0`. Cache stores `{ canvas, version: number }`. Hit check is a single integer comparison.
-
-### 32. No `isExporting` Bypass for Shape Cache
-**What:** During export (PNG/SVG), shapes must be regenerated with export-specific settings (e.g., guaranteed latest state, potentially different background color). Dripl's `renderRoughElement` always uses the cache and provides no mechanism to bypass it.
-**Why:** Excalidraw's `ShapeCache.generateElementShape` accepts `isExporting: true` which forces cache bypass (shape.ts:129-132), guaranteeing export output always reflects the latest state.
-**Fix:** Add an `isExporting` flag to `renderRoughElement()` and `getShapeFromCache()`. When true, skip cache lookup and do not write back to cache.
-**Context:** `packages/element/src/rough-renderer.ts:179-186`, `apps/dripl-app/components/canvas/ExportModal.tsx`.
-**Depends on:** None.
-**Status:** ✅ FIXED — `renderRoughElement` now accepts `isExporting: boolean = false`. When true, cache lookup is skipped and the generated shape is not written back to the cache.
-
-### 33. Hit Detection Ignores `shouldTestInside` — Transparent Elements Unclickable or Over-selectable
-**What:** `packages/math/src/intersection.ts:84-176` (`isPointInElement`) always tests whether the point is *inside* the element's filled area. There is no concept of "only test the outline" for transparent/unfilled elements.
-**Why:** Excalidraw separates `shouldTestInside` from `isPointOnElementOutline`. For a transparent rectangle (no background fill, no bound text), only the stroke is clickable — clicking the interior does nothing. For arrows, only the line itself is clickable, never the bounding area. This prevents users from accidentally selecting invisible background areas.
-**Problem in Dripl:** A transparent rectangle with no fill is selectable by clicking anywhere inside it, which feels wrong. Conversely, thin arrows/lines are hard to select because the hit test checks the full bounding region rather than using a zoom-aware stroke tolerance.
-**Fix:** Implement `shouldTestInside(element)` logic:
-- Arrows: always test outline only.
-- Rectangles/ellipses/diamonds: test inside only if `backgroundColor !== 'transparent'` OR has bound text OR is an image.
-- Lines/freedraw: test inside only if filled AND forms a closed loop.
-Add `isPointOnElementOutline(point, element, threshold)` that uses distance-to-shape (already partially implemented via `distanceToSegment`).
-**Context:** `packages/math/src/intersection.ts:84-176`, `packages/math/src/hit-detection.ts:141-149`.
-**Depends on:** None.
-
-### 34. Hit Threshold Is Not Zoom-Aware
-**What:** `getElementAtPosition` in `RoughCanvas.tsx:482-524` uses a hardcoded tolerance of `8` (pixels?) for both spatial-index query and `isPointNearElement`. This doesn't scale with zoom level.
-**Why:** Excalidraw computes threshold as `max(strokeWidth/2 + 0.1, 0.85 * DEFAULT_COLLISION_THRESHOLD / zoom)`. At high zoom, thinner thresholds prevent accidental selections. At low zoom, wider thresholds keep small elements selectable.
-**Fix:** Replace the hardcoded `8` with `Math.max(element.strokeWidth / 2 + 0.1, 8 / zoom)`. Pass `zoom` into `getElementAtPosition`.
-**Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:485-503`.
-**Depends on:** None.
-**Status:** ✅ FIXED — Spatial-index query now uses `Math.max(2, 8 / zoom)` for the bounding box. Per-element `isPointNearElement` uses `Math.max(strokeWidth/2 + 0.1, 8/zoom)` for fine-grained tolerance.
-
-### 35. Selection Box Doesn't Account for Element Rotation
-**What:** `SelectionOverlay.tsx:96-113` computes selection bounds using `getElementBounds()` (which does handle rotation via AABB expansion), but the selection box itself is always axis-aligned — it doesn't visually rotate with the element. Additionally, `drawSelectionBox` in `interactiveScene.ts:454-489` also draws an axis-aligned rectangle.
-**Why:** Excalidraw renders per-element selection borders with rotation: `getElementAbsoluteCoords` returns center coords, and the selection border is drawn with `context.rotate(element.angle)` at the element's center. This means a rotated rectangle's selection border is also rotated, matching the visual element exactly.
-**Problem in Dripl:** A 45°-rotated rectangle gets a much larger selection box (the AABB of the rotated rectangle), causing confusing visual feedback. Users can't tell which element is actually selected when rotated elements overlap.
-**Fix:** For single-element selection, render the selection box at the element's rotation angle, not axis-aligned. Use `ctx.translate(cx, cy) → ctx.rotate(angle) → draw rect → ctx.restore()`.
-**Context:** `apps/dripl-app/components/canvas/SelectionOverlay.tsx:96-113`, `renderer/interactiveScene.ts:454-489`.
-**Depends on:** None.
-
-### 36. No Fractional Index for Z-Ordering — Collaboration Z-Order Conflicts
-**What:** Z-ordering in Dripl is purely array-position based (`bringForward`/`sendBackward` swap array indices). There is no `index` property on elements.
-**Why:** Excalidraw assigns a `FractionalIndex` (base-62 string like `"a1V"`) to each element. During collaboration, fractional indices are the *source of truth* for ordering — not array position. This allows two users to independently reorder elements without conflicting: user A moves element X to index `"a2"`, user B moves element Y to index `"a3"`, and reconciliation sorts by these strings. Array-index-based reordering would require a full re-index on every remote update.
-**Problem in Dripl:** When two collaborators both use "bring to front" on different elements simultaneously, their local arrays diverge. The next `broadcastElements` call sends the full array, and the conflict resolution (last-write-wins) discards one user's reorder.
-**Fix:** Add `index: string | null` to `DriplElement`. Use `fractional-indexing` (vendored, CC0 license) to generate keys. On `bringForward`/`sendBackward`, compute new fractional indices. On multiplayer reconciliation, sort by `index` instead of array position.
-**Context:** `apps/dripl-app/lib/canvas-store.ts:479-585`, `@dripl/common` element type definition.
-**Depends on:** Diff-based element broadcasting (Item 2).
-
-### 37. `elementCanvasCache` Never Evicted — Orphaned Canvases Accumulate
-**What:** `packages/element/src/staticScene.ts:31` uses `Map<string, CacheEntry>` for offscreen element canvases. When an element is deleted, its cached `<canvas>` DOM node is never removed from the map. Each cached canvas allocates GPU-backed memory.
-**Why:** Excalidraw uses `WeakMap<ExcalidrawElement, canvas>` — deleted elements are GC'd, and their canvas entries disappear automatically. Additionally, `elementWithCanvasCache.delete(element)` is called on any shape cache miss.
-**Fix:** In `deleteElements`, call `invalidateElementCache(id)` for each deleted element (already done). But also need to periodically prune the `elementCanvasCache` — or switch to a `WeakMap`/`WeakRef`-based approach. As a simpler fix: in `invalidateElementCache`, also delete the offscreen canvas from `elementCanvasCache`.
-**Context:** `packages/element/src/staticScene.ts:31,104-106`, `canvas-store.ts:453-477`.
-**Depends on:** None.
-**Status:** ✅ FIXED — `invalidateElementCache(id, element?)` now also calls `clearShapeFromCache(element)` when the element object is provided. `canvas-store.ts` passes the element in `commitDraft`, `updateElement`, and `updateElementTransient`. Shape + offscreen canvas are now evicted together.
-
-### 38. Interactive Canvas Duplicates Full Element Rendering
-**What:** `renderer/interactiveScene.ts:644-651` re-renders *all committed elements* with its own Canvas 2D path-based renderer (manual roughness simulation via multi-pass jitter) when `renderCommittedElements` is true. Currently it's passed `false` from `InteractiveCanvas.tsx:173`, but the code exists and the rendering path is fundamentally different from `StaticCanvas` (which uses Rough.js).
-**Why:** Excalidraw has a clear separation: `renderStaticScene` handles element rendering exclusively; `renderInteractiveScene` only draws selection boxes, handles, cursors, snap lines, and other UI overlays. No element rendering code exists in the interactive scene.
-**Problem in Dripl:** Having two independent element renderers (one in `interactiveScene.ts` using manual multi-pass jitter, one in `rough-renderer.ts` using Rough.js) means: (a) visual inconsistency if both are ever enabled, (b) maintenance burden — element rendering bugs must be fixed in two places, (c) ~400 lines of dead/redundant code in `interactiveScene.ts`.
-**Fix:** Remove all element rendering functions from `interactiveScene.ts` (lines 127-414). The interactive canvas should only render overlays. Remove the `renderCommittedElements` parameter.
-**Context:** `renderer/interactiveScene.ts:127-414,644-651`, `InteractiveCanvas.tsx:173`.
-**Depends on:** None.
-
-### 39. No `mutateElement` Centralization — Shape Cache Invalidation Is Ad-Hoc
-**What:** Element mutations happen in three places: `updateElement` (canvas-store.ts:398), `updateElementTransient` (canvas-store.ts:430), and `commitDraft` (canvas-store.ts:297). Each must manually call `invalidateElementCache(id)`. There's no centralized mutation function that automatically invalidates caches.
-**Why:** Excalidraw's `mutateElement()` is the single mutation point. It automatically calls `ShapeCache.delete(element)` whenever geometry-affecting properties change (width, height, points, fileId). This makes it impossible to forget cache invalidation.
-**Problem in Dripl:** `commitDraft` (line 297-330) does NOT call `invalidateElementCache`. If a draft element had a cached shape from a preview render, the committed element may display a stale shape. Also, `setElements` (line 335-353) — used for full remote syncs — doesn't invalidate any caches, meaning remotely-changed elements may show stale offscreen canvases.
-**Fix:** Create a centralized `mutateElement(element, updates)` utility that: (a) bumps version/versionNonce, (b) calls `invalidateElementCache(id)` and `clearShapeFromCache(element)`, (c) returns the new element. Use this in all store actions.
-**Context:** `canvas-store.ts:297-330,335-353,398-428,430-451`.
-**Depends on:** None.
-**Status:** ✅ FIXED — `commitDraft` now calls `clearShapeFromCache` + `invalidateElementCache` after creating the committed element. `updateElement` and `updateElementTransient` call `clearShapeFromCache(previous)`. `setElements` clears the full shape cache on scene replace, and on `skipHistory` path it selectively invalidates changed elements.
-
-### 40. Box Selection (Marquee) Doesn't Support "Contain" vs "Overlap" Correctly
-**What:** `packages/math/src/hit-detection.ts:151-158` (`getElementsInSelectionRect`) uses `elementIntersectsSelectionRect` which checks if *any part* of the element touches the selection rect. The store has `marqueeSelectionMode: 'intersecting' | 'contained'`, but the `contained` mode is never implemented — both modes use intersection logic.
-**Why:** Excalidraw's `getElementsWithinSelection` supports both `BoxSelectionMode: "contain" | "overlap"`. In "contain" mode, the element must be fully inside the selection box. In "overlap" mode, any intersection counts.
-**Fix:** Implement the `contained` mode: check if the selection AABB fully contains the element AABB using `boundsContainBounds(selectionBounds, elementBounds)`.
-**Context:** `packages/math/src/hit-detection.ts:151-158`, `canvas-store.ts:255` (mode state exists), `RoughCanvas.tsx` (where marquee selection is evaluated).
-**Depends on:** None.
-**Status:** ✅ FIXED — `contained` mode is implemented directly in the RoughCanvas.tsx pointer-up handler (lines 1378-1393). When `marqueeSelectionMode === 'contained'`, the spatial index candidates are filtered so only elements whose full AABB lies inside the marquee rect are selected.
-
-### 41. Viewport / Container Dimensions Stale on Resize
-**What:** In `RoughCanvas.tsx`, the `viewport` dimensions (`width` and `height`) are read directly from `containerRef.current?.clientWidth` and `clientHeight` during rendering.
-**Why:** React does not automatically trigger re-renders when a DOM element's width or height changes. As a result, the viewport dimensions remain completely stale (often initialized to `0` or initial load size) until a pan, zoom, or element update forces a re-render.
-**Problem in Dripl:** Resizing the window or panel layout causes rendering artifacts, incorrect mouse-to-canvas coordinate transformations on click, and breaks spatial culling.
-**Fix:** Implement a `ResizeObserver` on the canvas container that synchronizes the width and height into a local React state or canvas-store state, forcing an instant and correct re-render when bounds change.
-**Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:327-334`.
-**Depends on:** None.
-**Status:** ✅ FIXED — Added `containerSize` state and a React `useEffect` with a `ResizeObserver` attached to `containerRef.current`. Viewport now draws from this responsive local state instead of raw stale DOM values.
-
-### 42. Laser Trail Updates Trigger Massive Redundant Component Re-renders
-**What:** Drawing with the laser tool updates a React state `laserTrailPoints` and sets up a `60ms` interval to clean up old points.
-**Why:** Because `RoughCanvas` is a massive component containing state subscriptions, toolbars, overlays, and spatial index logic, triggering state updates every few milliseconds causes the entire component tree to re-render.
-**Problem in Dripl:** Drawing with the laser tool causes high CPU/GPU overhead and perceptible frame drops, which defeats the purpose of a smooth laser pointer.
-**Fix:** Move the transient laser trail rendering out of React state and into a lightweight dedicated canvas overlay or a direct `requestAnimationFrame` loop on a separate overlay layer that doesn't trigger React tree updates.
-**Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:93, 1507-1514`.
-**Depends on:** None.
-**Status:** ✅ FIXED — Created `LaserCanvas.tsx`: a dedicated `<canvas>` component that listens to `dripl:laser-start/move/end` custom events and renders the trail via `requestAnimationFrame`. Removed all `laserTrailPoints` React state, the 60ms cleanup interval, the SVG rendering block, `LaserTrailPoint` interface, and `LASER_FADE_MS` constant from `RoughCanvas`. The main component tree no longer re-renders during laser drawing.
-
-### 43. No Client-Side Idle Timeout or Inactivity Expiry for Remote Cursors
-**What:** Remote cursors/collaborators are saved in state via websocket updates but are never pruned unless a explicit `user-leave` event is received.
-**Why:** If a remote collaborator loses network connection, closes their tab unexpectedly, or locks their device, their socket may drop without cleanly sending a `user-leave` message.
-**Problem in Dripl:** Idle or disconnected collaborator cursors remain frozen on screen indefinitely, cluttering the workspace.
-**Fix:** Implement a tick interval or check within the render loop that hides or fades out any remote cursor whose `updatedAt` timestamp is older than 5 seconds.
-**Context:** `apps/dripl-app/hooks/useCollaboration.ts:246-268`.
-**Depends on:** None.
-**Status:** ✅ FIXED — Implemented a `5-second` interval in `useCollaboration.ts` that compares the current timestamp with each cursor's `updatedAt` value. Idle cursors are automatically evicted and removed from both store and collaborators list.
-
-### 44. Endpoint-Only Handles for Multi-Point Linear Paths
-**What:** For linear elements (arrows and lines) that have multiple points, the selection overlay only displays handles for the first and last points (`points[0]` and `points[points.length - 1]`).
-**Why:** The selection overlay logic simplifies handles to start/end points and lacks any mechanism for rendering or dragging intermediate path vertices.
-**Problem in Dripl:** Users cannot edit, add, or move intermediate points of multi-point lines, making detailed diagramming extremely difficult.
-**Fix:** Map over the entire `points` array of selected linear elements to render intermediate handle markers, updating the target point's local offset in `updateElementTransient` when dragged.
-**Context:** `apps/dripl-app/components/canvas/SelectionOverlay.tsx:242-250`.
-**Depends on:** None.
-**Status:** ✅ FIXED — `ResizeHandle` union type extended with `arrow-point-${number}` template literal. `SelectionOverlay.tsx` now maps all `points` to handles, rendering endpoints as large draggable circles and intermediate vertices as smaller draggable markers. The `pointermove` resize handler in `RoughCanvas.tsx` now detects `arrow-point-N` and moves the corresponding point at index N.
-
-### 45. No Client-Side Throttling or Debouncing on Canvas Storage Serialization
-**What:** Canvas state persistence to `localStorage` is debounced inside a simple React effect whenever `elements` change.
-**Why:** Large canvases with hundreds of complex elements (or high-point freedraw lines) translate to massive JSON strings.
-**Problem in Dripl:** Serializing the entire scene on every mouse release or zoom change blocks the main thread, causing minor but noticeable frame freezes (jank) on low-end devices.
-**Fix:** Offload serialization to a Web Worker, or use a throttling strategy that only writes when the user has been completely inactive for several seconds.
-**Context:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:269-289`.
-**Depends on:** None.
-**Status:** ✅ FIXED — Replaced the 800ms blind debounce with an activity-gated 2500ms schedule. At fire time it reads `isDrawingRef.current`; if the user is still drawing, it re-schedules itself for another 2s rather than serializing mid-stroke. Deduplicated `flushToStorage` into a stable `flushToStorageRef` shared by both the debounce and the `beforeunload` handler. The `beforeunload` effect no longer depends on `theme` as a dep to prevent stale-closure re-registration.
-
+| Feature | Excalidraw | Dripl | Status |
+|---------|-----------|-------|--------|
+| CRDT-based sync (Yjs) | ✅ | ❌ Full-state broadcast | Gap — Item 7 |
+| OffscreenCanvas rendering | ✅ | ❌ Full canvas redraw | Gap — Item 10 |
+| WeakMap for shape cache | ✅ | ⚠️ Version-checked Map | Partial |
+| Command-based history | ✅ | ❌ Full snapshots | Gap — Item 12 |
+| Fractional z-ordering | ✅ | ❌ Array-position | Gap — Item 23 |
+| Web Workers for hit test | ✅ | ❌ Main thread | Gap — Item 13 |
+| Binary WS protocol | ✅ | ❌ JSON | Future consideration |
+| Spatial index for culling | ✅ | ⚠️ RBush exists, not used for culling | Gap — Item 10 |
+| Differential element sync | ✅ | ❌ Full array broadcast | Gap — Item 7 |
+| Image blob storage | ✅ | ❌ Base64 in JSON | Gap — Item 15 |

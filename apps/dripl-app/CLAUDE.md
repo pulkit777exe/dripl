@@ -114,25 +114,83 @@ This app consumes the following workspace packages via `transpilePackages` in `n
 ### Rendering Pipeline
 
 ```
-useCanvas hook
-  └─► CanvasRenderer (renderer/)
-        ├─► RoughJS  (shapes: rect, ellipse, diamond, arrow…)
-        ├─► Canvas 2D API (text, images, freehand)
-        └─► requestAnimationFrame loop
+RoughCanvas.tsx (2,332 lines — main orchestrator)
+  ├─► InteractiveCanvas.tsx ──► renderer/interactiveScene.ts (overlays only)
+  │     ├─► Selection boxes, resize handles
+  │     ├─► Marquee selection
+  │     ├─► Collaborator cursors
+  │     └─► Grid dots
+  ├─► StaticCanvas.tsx ──► renderer/staticScene.ts (element rendering)
+  │     ├─► @dripl/element/rough-renderer.ts (Rough.js shapes)
+  │     ├─► Canvas 2D API (text, images, freehand)
+  │     └─► Offscreen element canvas cache (packages/element/src/staticScene.ts)
+  └─► LaserCanvas.tsx (dedicated overlay for laser trail)
 ```
+
+### Spatial Index (RBush)
+
+The canvas uses **RBush** (R-tree) for fast spatial queries:
+
+```typescript
+// RoughCanvas.tsx:367-464
+const spatialIndex = useMemo(() => {
+  // Incremental rebuild: only updates changed elements
+  // Falls back to full rebuild when >40% elements changed
+  // Used for: hit testing, viewport culling, marquee selection
+}, [elements]);
+```
+
+- **Hit testing**: `spatialIndex.tree.search(viewportBounds)` → O(log n) instead of O(n)
+- **Viewport culling**: Only renders elements visible in the current viewport
+- **Marquee selection**: Finds elements within the selection rectangle
+
+### Zustand Store (canvas-store.ts — 803 lines)
+
+Single store managing all canvas state:
+
+```typescript
+interface CanvasStore {
+  // Elements
+  elements: DriplElement[];
+  selectedIds: Set<string>;
+  draftElement: DriplElement | null;
+  
+  // Tools
+  activeTool: ActiveTool;
+  toolLocked: boolean;
+  
+  // Viewport
+  zoom: number;
+  panX: number;
+  panY: number;
+  
+  // History (100 snapshots)
+  past: DriplElement[][];
+  future: DriplElement[][];
+  
+  // Collaboration
+  remoteUsers: Map<string, RemoteUser>;
+  remoteCursors: Map<string, RemoteCursor>;
+  elementLocks: Map<string, string>;
+}
+```
+
+> **Note:** The store is a 803-line monolith. Splitting into focused stores (canvas, history, collab, UI) is recommended — see TODOS.
 
 ### Collaboration Flow
 
 ```
 User draws element
-  └─► broadcastElements(prev, next)   [useCollaboration.ts]
-        └─► flushElementBroadcast()  (debounced, ~16ms)
-              └─► WebSocket send({ type:'scene-update', subtype:'update', elements })
-                    └─► ws-server broadcasts to room
-                          └─► Other clients: onRemoteElements() → canvas update
+  └─► commitDraft() [canvas-store.ts:298]
+        ├─► withHistoryBeforeMutation() (saves snapshot for undo)
+        ├─► invalidateElementCache() (clears offscreen canvas)
+        └─► clearShapeFromCache() (clears Rough.js drawable)
+              └─► broadcastElements(prev, next) [useCollaboration.ts:150]
+                    └─► flushElementBroadcast() (debounced, ~16ms)
+                          └─► WebSocket send({ type:'scene-update', elements })
+                                └─► ws-server broadcasts to room
+                                      └─► Other clients: onRemoteElements() → setElements()
 ```
-
-On room join the server sends `scene-update` with `subtype: 'init'` containing the full element state.
 
 ### State Management
 
