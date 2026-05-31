@@ -107,6 +107,16 @@ h6 {
   --color-hint-bg: #E8E5DE;
   --color-hint-text: #6B6860;
 
+  --color-overlay: rgba(0, 0, 0, 0.3);
+
+  --color-success: #16A34A;
+  --color-success-bg: #F0FDF4;
+  --color-success-border: #BBF7D0;
+
+  --color-error: #B42318;
+  --color-error-bg: #FEF2F2;
+  --color-error-border: #FECACA;
+
   --color-default-stroke: #1A1917;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -254,6 +264,17 @@ html.dark {
   --color-canvas-bg: #1C1A17;
   --color-hint-bg: #242219;
   --color-hint-text: #9B9890;
+
+  --color-overlay: rgba(0, 0, 0, 0.5);
+
+  --color-success: #22C55E;
+  --color-success-bg: #14532D;
+  --color-success-border: #166534;
+
+  --color-error: #F87171;
+  --color-error-bg: #450A0A;
+  --color-error-border: #991B1B;
+
   --color-default-stroke: #F0EDE6;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);

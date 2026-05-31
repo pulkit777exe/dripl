@@ -93,6 +93,18 @@ const config = {
         'canvas-bg': 'var(--color-canvas-bg)',
         'hint-bg': 'var(--color-hint-bg)',
         'hint-text': 'var(--color-hint-text)',
+
+        overlay: 'var(--color-overlay)',
+        success: {
+          DEFAULT: 'var(--color-success)',
+          bg: 'var(--color-success-bg)',
+          border: 'var(--color-success-border)',
+        },
+        error: {
+          DEFAULT: 'var(--color-error)',
+          bg: 'var(--color-error-bg)',
+          border: 'var(--color-error-border)',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
