@@ -58,6 +58,13 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.get('/metrics', (_req, res) => {
+  res.json({
+    uptime: process.uptime(),
+    memoryUsageMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+  });
+});
+
 app.get('/csrf-token', (_req, res) => {
   const token = generateCsrfToken(res);
   res.json({ token });

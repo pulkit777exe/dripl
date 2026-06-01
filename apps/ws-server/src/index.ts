@@ -74,6 +74,21 @@ const server = createServer((req, res) => {
         version: process.env.npm_package_version || '0.0.0',
       })
     );
+  } else if (req.url === '/metrics') {
+    let totalUsers = 0;
+    for (const room of rooms.values()) {
+      totalUsers += room.users.size;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        uptime: process.uptime(),
+        activeRooms: rooms.size,
+        activeConnections: wss.clients.size,
+        totalUsers,
+        memoryUsageMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      })
+    );
   } else {
     res.writeHead(404);
     res.end();

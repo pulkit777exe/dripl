@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '@dripl/db';
@@ -147,6 +147,18 @@ filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
       ? files[files.length - 1]?.updatedAt?.toISOString() ?? null
       : null;
 
+    const responseHash = createHash('md5')
+      .update(JSON.stringify({ files, total: isCursorBased ? undefined : total }))
+      .digest('hex');
+    const etag = `"${responseHash}"`;
+
+    if (req.headers['if-none-match'] === etag) {
+      res.status(304).end();
+      return;
+    }
+
+    res.set('Cache-Control', 'private, max-age=0, must-revalidate');
+    res.set('ETag', etag);
     res.json({
       files,
       total: isCursorBased ? undefined : total,
