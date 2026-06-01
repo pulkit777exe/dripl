@@ -54,6 +54,14 @@ function cloneElements(elements: readonly DriplElement[]): DriplElement[] {
   return elements.map(element => ({ ...element }));
 }
 
+function buildElementsById(elements: readonly DriplElement[]): Map<string, DriplElement> {
+  const map = new Map<string, DriplElement>();
+  for (const el of elements) {
+    map.set(el.id, el);
+  }
+  return map;
+}
+
 function pushPast(
   past: readonly DriplElement[][],
   snapshot: readonly DriplElement[]
@@ -101,6 +109,7 @@ export interface CanvasState {
   isEditingElementId: string | null;
 
   elements: DriplElement[];
+  elementsById: Map<string, DriplElement>;
   selectedIds: Set<string>;
   activeTool: ActiveTool;
   toolLocked: boolean;
@@ -219,6 +228,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   isEditingElementId: null,
 
   elements: [],
+  elementsById: new Map(),
   selectedIds: new Set<string>(),
   activeTool: 'select',
   toolLocked: false,
@@ -317,12 +327,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (options?.skipHistory) {
         // Clear all shape + offscreen caches for remotely-changed elements (TODO #39)
         elements.forEach(el => {
-          const prev = state.elements.find(e => e.id === el.id);
+          const prev = state.elementsById.get(el.id);
           if (prev && prev.version !== (el.version ?? 0)) {
             invalidateElementCache(el.id);
           }
         });
-        return { elements: cloneElements(elements) };
+        const next = cloneElements(elements);
+        return { elements: next, elementsById: buildElementsById(next) };
       }
       // Full shape cache clear when replacing the whole scene
       clearAllShapeCache();
@@ -334,6 +345,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: nextElements,
+        elementsById: buildElementsById(nextElements),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -341,7 +353,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   addElement: element =>
     set(state => {
-      if (state.elements.some(candidate => candidate.id === element.id)) {
+      if (state.elementsById.has(element.id)) {
         return state;
       }
       const history = withHistoryBeforeMutation(
@@ -352,6 +364,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: nextElements,
+        elementsById: buildElementsById(nextElements),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -360,8 +373,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   addElements: elements =>
     set(state => {
       if (elements.length === 0) return state;
-      const existingIds = new Set(state.elements.map(element => element.id));
-      const deduped = elements.filter(element => !existingIds.has(element.id));
+      const deduped = elements.filter(element => !state.elementsById.has(element.id));
       if (deduped.length === 0) return state;
 
       const history = withHistoryBeforeMutation(
@@ -373,6 +385,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       return {
         elements: nextElements,
+        elementsById: buildElementsById(nextElements),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -380,21 +393,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   updateElement: (id, updates) =>
     set(state => {
-      const index = state.elements.findIndex(element => element.id === id);
-      if (index === -1) return state;
+      const previous = state.elementsById.get(id);
+      if (!previous) return state;
 
       invalidateElementCache(id);
-      const previous = state.elements[index];
-      if (!previous) return state;
-      // Evict stale shape from Rough.js cache (TODO #39)
       clearShapeFromCache(previous);
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
       );
-      const nextElements = [...state.elements];
-      nextElements[index] = {
+      const updated: DriplElement = {
         ...previous,
         ...updates,
         version: (previous.version ?? 0) + 1,
@@ -402,9 +411,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         updated: Date.now(),
       } as DriplElement;
 
+      const nextElements = state.elements.map(e => (e.id === id ? updated : e));
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: nextElements,
+        elementsById: buildElementsById(nextElements),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -412,17 +423,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   updateElementTransient: (id, updates) =>
     set(state => {
-      const index = state.elements.findIndex(element => element.id === id);
-      if (index === -1) return state;
-
-      invalidateElementCache(id);
-      const previous = state.elements[index];
+      const previous = state.elementsById.get(id);
       if (!previous) return state;
-      // Evict stale shape from Rough.js cache (TODO #39)
-      clearShapeFromCache(previous);
 
-      const nextElements = [...state.elements];
-      nextElements[index] = {
+      const updated = {
         ...previous,
         ...updates,
         version: (previous.version ?? 0) + 1,
@@ -430,8 +434,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         updated: Date.now(),
       } as DriplElement;
 
+      const nextElements = state.elements.map(e => (e.id === id ? updated : e));
+
       return {
         elements: nextElements,
+        elementsById: buildElementsById(nextElements),
       };
     }),
 
@@ -451,6 +458,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: nextElements,
+        elementsById: buildElementsById(nextElements),
         selectedIds: new Set(
           Array.from(state.selectedIds).filter(selectedId => !idSet.has(selectedId))
         ),
@@ -483,6 +491,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: next,
+        elementsById: buildElementsById(next),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -512,6 +521,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: next,
+        elementsById: buildElementsById(next),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -533,6 +543,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: next,
+        elementsById: buildElementsById(next),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -554,6 +565,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: next,
+        elementsById: buildElementsById(next),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -715,6 +727,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       return {
         elements: nextElements,
+        elementsById: buildElementsById(nextElements),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -741,6 +754,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       return {
         elements: nextElements,
+        elementsById: buildElementsById(nextElements),
         past: historyPayload.past,
         future: historyPayload.future,
       };
