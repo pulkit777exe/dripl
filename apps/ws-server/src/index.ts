@@ -9,13 +9,32 @@ config({ path: envPath });
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
-import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import type { DriplElement } from '@dripl/common';
 import { pickUserColor } from '@dripl/common';
 import { requiredEnv } from '@dripl/utils';
 import { db, initializeDb } from '@dripl/db';
 import { messageSchema } from './validation';
+import type { UserConnection } from './types';
+import { resolveTokenFromUrl, resolveUserFromToken } from './auth';
+import { send, broadcast, roomUsersPayload, roomCursorsPayload } from './broadcast';
+import {
+  rooms,
+  saveTimeouts,
+  roomLastEmptyAt,
+  MAX_ELEMENTS_PER_SCENE,
+  MAX_EMPTY_ROOM_TTL_MS,
+  getOrCreateRoom,
+  loadRoomElements,
+  saveRoomElements,
+  scheduleSave,
+} from './rooms';
+import { checkRateLimit, startRateLimitCleanup } from './rateLimiter';
+
+initializeDb().catch(err => {
+  console.error('[ws-server] Failed to initialize database:', err);
+  process.exit(1);
+});
 
 const driplElementSchema = z.object({
   id: z.string().min(1).max(100),
@@ -33,11 +52,6 @@ const driplElementSchema = z.object({
   points: z.array(z.tuple([z.number(), z.number()])).max(1000).optional(),
 });
 
-initializeDb().catch(err => {
-  console.error('[ws-server] Failed to initialize database:', err);
-  process.exit(1);
-});
-
 function toDriplElement(el: unknown): DriplElement {
   const parsed = driplElementSchema.safeParse(el);
   if (!parsed.success) {
@@ -49,32 +63,7 @@ function toDriplElement(el: unknown): DriplElement {
 const JWT_SECRET = requiredEnv('JWT_SECRET');
 const WS_PORT = Number(process.env.WS_PORT || 3001);
 const HEARTBEAT_INTERVAL_MS = 30_000;
-const SAVE_DEBOUNCE_MS = 2_000;
 const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;
-const RATE_LIMIT_WINDOW_MS = 1_000;
-const RATE_LIMIT_MAX_MESSAGES = 30;
-
-interface UserConnection {
-  userId: string;
-  displayName: string;
-  color: string;
-  ws: WebSocket;
-  isAlive: boolean;
-}
-
-interface Cursor {
-  x: number;
-  y: number;
-}
-
-interface RoomState {
-  roomId: string;
-  elements: DriplElement[];
-  users: Map<string, UserConnection>;
-  cursors: Map<string, Cursor>;
-  loadedFromDb: boolean;
-  saving: boolean;
-}
 
 const server = createServer((req, res) => {
   if (req.url === '/health') {
@@ -99,7 +88,6 @@ const wss = new WebSocketServer({
   server,
   maxPayload: 10 * 1024 * 1024,
   verifyClient: ({ origin }: { origin: string }, cb: (result: boolean, code?: number, message?: string) => void) => {
-    // Allow requests with no origin (e.g. server-to-server, health checks)
     if (!origin) return cb(true);
     const allowed = FRONTEND_URL.replace(/\/$/, '');
     if (origin === allowed) return cb(true);
@@ -107,222 +95,12 @@ const wss = new WebSocketServer({
     cb(false, 403, 'Forbidden');
   },
 });
-const MAX_ELEMENTS_PER_SCENE = 5000;
-const MAX_EMPTY_ROOM_TTL_MS = 5 * 60 * 1000;
-const rooms = new Map<string, RoomState>();
-const saveTimeouts = new Map<string, NodeJS.Timeout>();
-const userMessageCounts = new Map<WebSocket, { count: number; resetAt: number }>();
-const roomLastEmptyAt = new Map<string, number>();
 
-function parseStoredElements(raw: string | null | undefined): DriplElement[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (Array.isArray(parsed)) return parsed as DriplElement[];
-    if (parsed && typeof parsed === 'object') {
-      const record = parsed as Record<string, unknown>;
-      if (Array.isArray(record.elements)) {
-        return record.elements as DriplElement[];
-      }
-    }
-  } catch {
-    return [];
-  }
-  return [];
-}
-
-function serializeElements(elements: DriplElement[]): string {
-  return JSON.stringify({ elements });
-}
-
-function resolveTokenFromUrl(reqUrl: string | undefined, host: string | undefined): string | null {
-  if (!reqUrl || !host) return null;
-  try {
-    const url = new URL(reqUrl, `http://${host}`);
-    return url.searchParams.get('token');
-  } catch {
-    return null;
-  }
-}
-
-function resolveUserFromToken(token: string | null): string | null {
-  if (!token) return null;
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId?: string };
-    return decoded.userId ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function getOrCreateRoom(roomId: string): RoomState {
-  let room = rooms.get(roomId);
-  if (!room) {
-    room = {
-      roomId,
-      elements: [],
-      users: new Map(),
-      cursors: new Map(),
-      loadedFromDb: false,
-      saving: false,
-    };
-    rooms.set(roomId, room);
-  }
-  return room;
-}
-
-async function loadRoomElements(roomId: string): Promise<DriplElement[]> {
-  const file = await db.file.findUnique({
-    where: { id: roomId },
-    select: { content: true },
-  });
-  if (file) {
-    return parseStoredElements(file.content);
-  }
-
-  const canvasRoom = await db.canvasRoom.findUnique({
-    where: { slug: roomId },
-    select: { content: true },
-  });
-  if (canvasRoom) {
-    return parseStoredElements(canvasRoom.content);
-  }
-
-  return [];
-}
-
-async function saveRoomElements(roomId: string, elements: DriplElement[]): Promise<boolean> {
-  const startTime = Date.now();
-  try {
-    const fileUpdate = await db.file.updateMany({
-      where: { id: roomId },
-      data: {
-        content: serializeElements(elements),
-        updatedAt: new Date(),
-      },
-    });
-
-    if (fileUpdate.count > 0) {
-      console.log(
-        JSON.stringify({
-          level: 'info',
-          event: 'save_room_success',
-          roomId,
-          durationMs: Date.now() - startTime,
-          recordType: 'file',
-        })
-      );
-      return true;
-    }
-
-    const canvasUpdate = await db.canvasRoom.updateMany({
-      where: { slug: roomId },
-      data: {
-        content: serializeElements(elements),
-        updatedAt: new Date(),
-      },
-    });
-
-    console.log(
-      JSON.stringify({
-        level: 'info',
-        event: 'save_room_success',
-        roomId,
-        durationMs: Date.now() - startTime,
-        recordType: 'canvasRoom',
-        updated: canvasUpdate.count,
-      })
-    );
-    return true;
-  } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'save_room_failure',
-        roomId,
-        durationMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      })
-    );
-    return false;
-  }
-}
-
-function scheduleSave(roomId: string): void {
-  const existing = saveTimeouts.get(roomId);
-  if (existing) clearTimeout(existing);
-  saveTimeouts.set(
-    roomId,
-    setTimeout(async () => {
-      const room = rooms.get(roomId);
-      if (!room) {
-        saveTimeouts.delete(roomId);
-        return;
-      }
-      if (room.saving) {
-        saveTimeouts.delete(roomId);
-        return;
-      }
-      room.saving = true;
-      const success = await saveRoomElements(roomId, room.elements);
-      room.saving = false;
-      if (!success) {
-        console.error(
-          JSON.stringify({
-            level: 'error',
-            event: 'save_debounced_failure',
-            roomId,
-            timestamp: Date.now(),
-          })
-        );
-      }
-      saveTimeouts.delete(roomId);
-    }, SAVE_DEBOUNCE_MS)
-  );
-}
-
-function roomUsersPayload(room: RoomState) {
-  return Array.from(room.users.values()).map(user => ({
-    userId: user.userId,
-    userName: user.displayName,
-    displayName: user.displayName,
-    color: user.color,
-  }));
-}
-
-function roomCursorsPayload(room: RoomState) {
-  return Array.from(room.cursors.entries()).map(([userId, cursor]) => {
-    const user = room.users.get(userId);
-    return {
-      userId,
-      x: cursor.x,
-      y: cursor.y,
-      userName: user?.displayName ?? 'Unknown',
-      displayName: user?.displayName ?? 'Unknown',
-      color: user?.color ?? '#000000',
-    };
-  });
-}
-
-function send(ws: WebSocket, payload: unknown): void {
-  if (ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify(payload));
-}
-
-function broadcast(room: RoomState, payload: unknown, exceptUserId?: string): void {
-  const data = JSON.stringify(payload);
-  room.users.forEach(user => {
-    if (exceptUserId && user.userId === exceptUserId) return;
-    if (user.ws.readyState !== WebSocket.OPEN) return;
-    user.ws.send(data);
-  });
-}
+const userRoomMap = new Map<WebSocket, string>();
 
 wss.on('connection', (ws, req) => {
   const authUserId = resolveUserFromToken(resolveTokenFromUrl(req.url, req.headers.host));
 
-  // Finding 4: Reject unauthenticated connections immediately
   if (!authUserId) {
     ws.close(4001, 'Authentication required');
     console.warn(JSON.stringify({ level: 'warn', event: 'ws_auth_rejected', url: req.url }));
@@ -352,25 +130,12 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
-    const wsKey = ws as unknown as WebSocket;
-    const now = Date.now();
-    const rateInfo = userMessageCounts.get(wsKey);
-    if (rateInfo && rateInfo.resetAt > now) {
-      rateInfo.count += 1;
-      if (rateInfo.count > RATE_LIMIT_MAX_MESSAGES) {
-        console.warn(
-          JSON.stringify({
-            level: 'warn',
-            event: 'rate_limit_exceeded',
-            wsKey,
-            count: rateInfo.count,
-          })
-        );
-        ws.close(4000, 'Rate limit exceeded');
-        return;
-      }
-    } else {
-      userMessageCounts.set(wsKey, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    if (!checkRateLimit(ws)) {
+      console.warn(
+        JSON.stringify({ level: 'warn', event: 'rate_limit_exceeded' })
+      );
+      ws.close(4000, 'Rate limit exceeded');
+      return;
     }
 
     const message = validation.data;
@@ -386,7 +151,6 @@ wss.on('connection', (ws, req) => {
           room.loadedFromDb = true;
         }
 
-        const requestedUserId = message.type === 'join' ? message.userId : undefined;
         const requestedName = message.type === 'join' ? message.displayName : message.userName;
         const requestedColor = message.type === 'join' ? message.color : undefined;
 
@@ -396,6 +160,7 @@ wss.on('connection', (ws, req) => {
 
         currentRoomId = roomId;
         currentUserId = userId;
+        userRoomMap.set(ws, roomId);
 
         const connection: UserConnection = {
           userId,
@@ -407,7 +172,7 @@ wss.on('connection', (ws, req) => {
         room.users.set(userId, connection);
         (ws as WebSocket & { __user?: UserConnection }).__user = connection;
 
-        const syncPayload = {
+        send(ws, {
           type: 'sync_room_state',
           roomId,
           elements: room.elements,
@@ -415,10 +180,9 @@ wss.on('connection', (ws, req) => {
           cursors: roomCursorsPayload(room),
           yourUserId: userId,
           timestamp: Date.now(),
-        };
-        send(ws, syncPayload);
+        });
 
-        const roomStatePayload = {
+        send(ws, {
           type: 'room-state',
           roomId,
           elements: room.elements,
@@ -426,10 +190,9 @@ wss.on('connection', (ws, req) => {
           cursors: roomCursorsPayload(room),
           yourUserId: userId,
           timestamp: Date.now(),
-        };
-        send(ws, roomStatePayload);
+        });
 
-        const joinPayload = {
+        broadcast(room, {
           type: 'user-join',
           roomId,
           userId,
@@ -437,8 +200,7 @@ wss.on('connection', (ws, req) => {
           displayName,
           color,
           timestamp: Date.now(),
-        };
-        broadcast(room, joinPayload, userId);
+        }, userId);
         break;
       }
 
@@ -450,14 +212,14 @@ wss.on('connection', (ws, req) => {
 
         room.users.delete(currentUserId);
         room.cursors.delete(currentUserId);
+        userRoomMap.delete(ws);
 
-        const leavePayload = {
+        broadcast(room, {
           type: 'user-leave',
           roomId: currentRoomId,
           userId: currentUserId,
           timestamp: Date.now(),
-        };
-        broadcast(room, leavePayload);
+        });
 
         if (room.users.size === 0) {
           rooms.delete(currentRoomId);
@@ -522,12 +284,11 @@ wss.on('connection', (ws, req) => {
         }
         room.elements = Array.from(merged.values());
 
-        const broadcastMessage = {
+        broadcast(room, {
           type: 'scene-update',
           subtype: message.subtype,
           elements: room.elements,
-        };
-        broadcast(room, broadcastMessage, currentUserId ?? undefined);
+        }, currentUserId ?? undefined);
         scheduleSave(currentRoomId);
         break;
       }
@@ -539,7 +300,6 @@ wss.on('connection', (ws, req) => {
 
         const elementMap = new Map(room.elements.map(el => [el.id, el]));
 
-        // Apply added elements
         if (message.added && Array.isArray(message.added)) {
           for (const rawEl of message.added) {
             try {
@@ -551,7 +311,6 @@ wss.on('connection', (ws, req) => {
           }
         }
 
-        // Apply updated elements
         if (message.updated && Array.isArray(message.updated)) {
           for (const rawEl of message.updated) {
             try {
@@ -563,7 +322,6 @@ wss.on('connection', (ws, req) => {
           }
         }
 
-        // Apply deleted elements
         if (message.deleted && Array.isArray(message.deleted)) {
           for (const id of message.deleted) {
             elementMap.delete(id);
@@ -572,7 +330,6 @@ wss.on('connection', (ws, req) => {
 
         room.elements = Array.from(elementMap.values());
 
-        // Broadcast the delta to other clients
         broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId);
         break;
@@ -612,7 +369,7 @@ wss.on('connection', (ws, req) => {
         room.cursors.set(currentUserId, { x: message.x, y: message.y });
         const user = room.users.get(currentUserId);
         const displayName = message.type === 'cursor-move' ? message.displayName : message.userName;
-        const cursorPayload = {
+        broadcast(room, {
           type: 'cursor_move',
           roomId: currentRoomId,
           userId: currentUserId,
@@ -622,9 +379,7 @@ wss.on('connection', (ws, req) => {
           displayName: displayName ?? user?.displayName ?? 'Unknown',
           color: message.color ?? user?.color ?? '#000000',
           timestamp: Date.now(),
-        };
-
-        broadcast(room, cursorPayload, currentUserId);
+        }, currentUserId);
         break;
       }
 
@@ -642,14 +397,14 @@ wss.on('connection', (ws, req) => {
 
     room.users.delete(currentUserId);
     room.cursors.delete(currentUserId);
+    userRoomMap.delete(ws);
 
-    const leavePayload = {
+    broadcast(room, {
       type: 'user-leave',
       roomId: currentRoomId,
       userId: currentUserId,
       timestamp: Date.now(),
-    };
-    broadcast(room, leavePayload);
+    });
 
     if (room.users.size === 0) {
       roomLastEmptyAt.set(currentRoomId, Date.now());
@@ -662,7 +417,7 @@ const heartbeat = setInterval(() => {
     const user = (ws as WebSocket & { __user?: UserConnection }).__user;
     if (!user) return;
     if (!user.isAlive) {
-      const roomId = currentRoomIdForWs(ws);
+      const roomId = userRoomMap.get(ws);
       if (roomId) {
         const room = rooms.get(roomId);
         if (room) {
@@ -673,6 +428,7 @@ const heartbeat = setInterval(() => {
           }
         }
       }
+      userRoomMap.delete(ws);
       ws.terminate();
       return;
     }
@@ -681,23 +437,7 @@ const heartbeat = setInterval(() => {
   });
 }, HEARTBEAT_INTERVAL_MS);
 
-function currentRoomIdForWs(targetWs: WebSocket): string | null {
-  for (const [roomId, room] of rooms.entries()) {
-    if (room.users.has((targetWs as WebSocket & { __user?: UserConnection }).__user?.userId ?? '')) {
-      return roomId;
-    }
-  }
-  return null;
-}
-
-const rateLimitCleanup = setInterval(() => {
-  const now = Date.now();
-  for (const [key, info] of userMessageCounts.entries()) {
-    if (info.resetAt < now) {
-      userMessageCounts.delete(key);
-    }
-  }
-}, 60_000);
+const rateLimitCleanup = startRateLimitCleanup();
 
 const periodicSave = setInterval(async () => {
   const activeRooms = Array.from(rooms.entries());
