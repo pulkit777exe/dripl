@@ -88,7 +88,7 @@
 **Where:** `apps/dripl-app/renderer/interactiveScene.ts:648-654`
 **Effort:** 3 hrs
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — RBush spatial index used for viewport culling via isElementVisible()
 
 ### 11. Optimize Zustand Store — Map-based Element Storage
 **What:** Replace `elements: DriplElement[]` with `elementsById: Map<string, DriplElement>` + `elementOrder: string[]` for O(1) lookups.
@@ -96,7 +96,7 @@
 **Where:** `apps/dripl-app/lib/canvas-store.ts:411-443`
 **Effort:** 1 day
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — added elementsById Map alongside array; updateElement/deleteElements/addElement use Map.get() for O(1)
 
 ### 12. Optimize History — Remove Redundant Deep-Clone
 **What:** ~~Replace full snapshot history with command-based diffs~~ Removed redundant `deriveHistory()` which deep-cloned all past + present + future on every state change. The `history` and `historyIndex` fields were never consumed by any component.
@@ -240,7 +240,7 @@
 **Where:** `apps/http-server/src/routes/files.ts`, `share.ts`
 **Effort:** 2 hrs
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — ETag + Cache-Control on file listing, 304 Not Modified support
 
 ### 29. Enable Stricter TypeScript Checks
 **What:** Enable `noImplicitReturns`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`.
@@ -248,7 +248,7 @@
 **Where:** `tooling/typescript-config/tsconfig.json`, `tooling/typescript-config/base.json`
 **Effort:** 2 hrs (fixing resulting errors)
 **Depends on:** None
-**Status:** DONE — enabled noImplicitReturns and noFallthroughCasesInSwitch
+**Status:** DONE — enabled noImplicitReturns, noFallthroughCasesInSwitch, noUnusedLocals, noUnusedParameters
 
 ### 30. Create AGENTS.md
 **What:** Create the missing `AGENTS.md` file referenced by root `CLAUDE.md`. Include issue tracker config, domain terminology, architectural decisions.
@@ -256,7 +256,7 @@
 **Where:** `AGENTS.md` (root)
 **Effort:** 1 hr
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — created with domain terminology, ADRs, file map, agent workflow
 
 ### 31. Add E2E Tests (Playwright)
 **What:** End-to-end tests for critical user flows: register → create canvas → draw → collaborate → share.
@@ -272,7 +272,7 @@
 **Where:** `.github/dependabot.yml` or `renovate.json`
 **Effort:** 30 min
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — renovate.json with auto-merge for minor/patch, grouped rules
 
 ### 33. Add Code Coverage Reporting
 **What:** Add `vitest --coverage` with `@vitest/coverage-v8`. Add coverage thresholds in CI.
@@ -280,7 +280,7 @@
 **Where:** `vitest.config.ts` files, `.github/workflows/ci.yml`
 **Effort:** 1 hr
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — v8 coverage in dripl-app and ws-server, root test:coverage script
 
 ### 34. Add Observability (Metrics + Structured Logging)
 **What:** Add Prometheus metrics endpoint (`/metrics`). Add correlation IDs to structured logs. Track: active connections, rooms, message throughput, save latency.
@@ -288,7 +288,7 @@
 **Where:** `apps/ws-server/src/index.ts`, `apps/http-server/src/index.ts`
 **Effort:** 1 day
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — /metrics endpoints on both servers (rooms, connections, users, memory)
 
 ### 35. Fix `maxPayload` vs Application-Level Size Check Mismatch
 **What:** Align `maxPayload` (1MB) with `MAX_MESSAGE_SIZE` (10MB). Currently the `ws` library rejects messages >1MB before the app-level check runs.
