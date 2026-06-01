@@ -63,22 +63,6 @@ function pushPast(
   return next.slice(next.length - MAX_HISTORY);
 }
 
-function deriveHistoryIndex(past: readonly DriplElement[][]): number {
-  return past.length;
-}
-
-function deriveHistory(
-  past: readonly DriplElement[][],
-  present: readonly DriplElement[],
-  future: readonly DriplElement[][]
-): DriplElement[][] {
-  return [
-    ...past.map(snapshot => cloneElements(snapshot)),
-    cloneElements(present),
-    ...future.map(snapshot => cloneElements(snapshot)),
-  ];
-}
-
 function withHistoryBeforeMutation(
   history: HistoryState,
   currentElements: readonly DriplElement[]
@@ -92,13 +76,10 @@ function withHistoryBeforeMutation(
 function commitPresentFromHistory(
   past: readonly DriplElement[][],
   future: readonly DriplElement[][],
-  present: readonly DriplElement[]
 ) {
   return {
     past: [...past],
     future: [...future],
-    history: deriveHistory(past, present, future),
-    historyIndex: deriveHistoryIndex(past),
   };
 }
 
@@ -147,8 +128,6 @@ export interface CanvasState {
 
   past: DriplElement[][];
   future: DriplElement[][];
-  history: DriplElement[][];
-  historyIndex: number;
 
   // Internal clipboard for multi-element copy/paste
   clipboard: DriplElement[];
@@ -264,8 +243,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   past: [],
   future: [],
-  history: [cloneElements([])],
-  historyIndex: 0,
   clipboard: [],
 
   setClipboard: elements => set({ clipboard: elements }),
@@ -319,7 +296,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     clearShapeFromCache(committed);
     invalidateElementCache(committed.id);
     const elements = [...state.elements, committed];
-    const historyPayload = commitPresentFromHistory(history.past, history.future, elements);
+    const historyPayload = commitPresentFromHistory(history.past, history.future);
 
     set({
       elements,
@@ -327,8 +304,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       drawingLifecycle: 'idle',
       past: historyPayload.past,
       future: historyPayload.future,
-      history: historyPayload.history,
-      historyIndex: historyPayload.historyIndex,
+
     });
     return committed;
   },
@@ -355,13 +331,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         state.elements
       );
       const nextElements = cloneElements(elements);
-      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: nextElements,
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 
@@ -375,13 +349,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         state.elements
       );
       const nextElements = [...state.elements, element];
-      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: nextElements,
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 
@@ -397,14 +369,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         state.elements
       );
       const nextElements = [...state.elements, ...deduped];
-      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
 
       return {
         elements: nextElements,
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 
@@ -432,13 +402,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         updated: Date.now(),
       } as DriplElement;
 
-      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: nextElements,
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 
@@ -480,7 +448,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         { past: state.past, future: state.future },
         state.elements
       );
-      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: nextElements,
         selectedIds: new Set(
@@ -488,8 +456,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         ),
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 
@@ -514,13 +480,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         { past: state.past, future: state.future },
         state.elements
       );
-      const historyPayload = commitPresentFromHistory(history.past, history.future, next);
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: next,
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 
@@ -545,13 +509,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         { past: state.past, future: state.future },
         state.elements
       );
-      const historyPayload = commitPresentFromHistory(history.past, history.future, next);
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: next,
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 
@@ -568,13 +530,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         { past: state.past, future: state.future },
         state.elements
       );
-      const historyPayload = commitPresentFromHistory(history.past, history.future, next);
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: next,
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 
@@ -591,13 +551,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         { past: state.past, future: state.future },
         state.elements
       );
-      const historyPayload = commitPresentFromHistory(history.past, history.future, next);
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: next,
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 
@@ -682,7 +640,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const past = state.past.slice(0, -1);
       const future = [cloneElements(state.elements), ...state.future].slice(0, MAX_HISTORY);
       const elements = cloneElements(previous);
-      const historyPayload = commitPresentFromHistory(past, future, elements);
+      const historyPayload = commitPresentFromHistory(past, future);
 
       elements.forEach(element => invalidateElementCache(element.id));
 
@@ -690,8 +648,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         elements,
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 
@@ -705,7 +661,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const future = state.future.slice(1);
       const past = pushPast(state.past, state.elements);
       const elements = cloneElements(next);
-      const historyPayload = commitPresentFromHistory(past, future, elements);
+      const historyPayload = commitPresentFromHistory(past, future);
 
       elements.forEach(element => invalidateElementCache(element.id));
 
@@ -713,8 +669,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         elements,
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 
@@ -725,22 +679,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         { past: state.past, future: state.future },
         state.elements
       );
-      const historyPayload = commitPresentFromHistory(history.past, history.future, state.elements);
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
   clearHistory: () =>
-    set(state => {
-      const history = [cloneElements(state.elements)];
+    set(() => {
       return {
         past: [],
         future: [],
-        history,
-        historyIndex: 0,
       };
     }),
 
@@ -762,14 +711,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         return element;
       });
 
-      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
 
       return {
         elements: nextElements,
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 
@@ -790,14 +737,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         return element;
       });
 
-      const historyPayload = commitPresentFromHistory(history.past, history.future, nextElements);
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
 
       return {
         elements: nextElements,
         past: historyPayload.past,
         future: historyPayload.future,
-        history: historyPayload.history,
-        historyIndex: historyPayload.historyIndex,
       };
     }),
 }));
