@@ -23,9 +23,9 @@
     "@eslint/js": "^10.0.1",
     "@dripl/typescript-config": "workspace:*",
     "@dripl/eslint-config": "workspace:*",
-    "typescript": "latest",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.58.2",
-    "eslint": "latest",
-    "vitest": "latest"
+    "eslint": "^9.39.1",
+    "vitest": "^4.0.14"
   }
 }
