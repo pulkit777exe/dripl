@@ -1,7 +1,6 @@
 import type { DriplElement } from '@dripl/common';
-import { createRoughCanvas, renderRoughElement, type RoughCanvas } from './rough-renderer';
+import { createRoughCanvas, renderRoughElement } from './rough-renderer';
 import { imageCache } from './image-cache';
-import { clearShapeFromCache } from './shape-cache';
 
 export interface StaticSceneViewport {
   x: number;
@@ -179,7 +178,7 @@ function isElementVisible(el: DriplElement, viewport: StaticSceneViewport, zoom:
 function drawElement(
   ctx: CanvasRenderingContext2D,
   element: DriplElement,
-  viewport: StaticSceneViewport,
+  _viewport: StaticSceneViewport,
   config: StaticSceneConfig
 ): void {
   // Image elements are drawn directly — no offscreen canvas needed.

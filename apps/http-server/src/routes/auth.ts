@@ -88,7 +88,7 @@ authRouter.post('/register', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
 
-    const user = await db.user.create({
+    await db.user.create({
       data: {
         id: randomUUID(),
         email: parsed.data.email,

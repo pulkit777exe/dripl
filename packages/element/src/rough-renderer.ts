@@ -40,10 +40,6 @@ export function createRoughCanvas(canvas: HTMLCanvasElement): _RoughCanvas | nul
   }
 }
 
-function cacheKey(element: DriplElement): string {
-  return `${element.id}:${(element as any).version ?? 0}`;
-}
-
 function generateShape(element: DriplElement): _Drawable | _Drawable[] {
   const {
     width,
@@ -191,9 +187,6 @@ export function renderRoughElement(
       }
     }
   }
-
-  const isLinear =
-    element.type === 'line' || element.type === 'arrow' || element.type === 'freedraw';
 
   ctx.translate(x, y);
 

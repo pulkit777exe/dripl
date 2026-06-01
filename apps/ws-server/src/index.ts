@@ -8,12 +8,10 @@ config({ path: envPath });
 
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import type { DriplElement } from '@dripl/common';
 import { pickUserColor } from '@dripl/common';
-import { requiredEnv } from '@dripl/utils';
-import { db, initializeDb } from '@dripl/db';
+import { initializeDb, db } from '@dripl/db';
 import { messageSchema } from './validation';
 import type { UserConnection } from './types';
 import { resolveTokenFromUrl, resolveUserFromToken } from './auth';
@@ -60,7 +58,6 @@ function toDriplElement(el: unknown): DriplElement {
   return parsed.data as DriplElement;
 }
 
-const JWT_SECRET = requiredEnv('JWT_SECRET');
 const WS_PORT = Number(process.env.WS_PORT || 3001);
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;

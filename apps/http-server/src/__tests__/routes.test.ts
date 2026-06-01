@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import express, { Express, type Request, type Response, type NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
@@ -41,14 +41,10 @@ function createTestApp(): Express {
   app.use('/api/files', testAuthMiddleware, filesRouter);
   app.use('/api/folders', testAuthMiddleware, foldersRouter);
   app.use('/api/rooms', testAuthMiddleware, roomRoutes);
-  app.get('/health', (req, res) => {
+  app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
   return app;
-}
-
-function createAuthToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '1h' });
 }
 
 const app = createTestApp();

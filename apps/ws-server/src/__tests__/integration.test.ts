@@ -8,7 +8,6 @@ const TEST_PORT = 30091;
 
 let testServer: ReturnType<typeof createServer>;
 let wss: WebSocketServer;
-let serverStarted = false;
 
 interface UserConnection {
   userId: string;
@@ -274,7 +273,6 @@ function setupServer(): Promise<void> {
     });
 
     testServer.listen(TEST_PORT, () => {
-      serverStarted = true;
       resolve();
     });
   });

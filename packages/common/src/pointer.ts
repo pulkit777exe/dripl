@@ -246,7 +246,7 @@ export class DragDetector {
   private dragEnd: Point | null = null;
   private minDragDistance: number = 5;
 
-  constructor(private pointerManager: PointerManager) {
+  constructor(pointerManager: PointerManager) {
     pointerManager.subscribe(this.handlePointerEvent.bind(this));
   }
 

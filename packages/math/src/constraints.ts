@@ -66,8 +66,7 @@ export function boundsContain(outer: Bounds, inner: Bounds): boolean {
 export function isElementInFrame(
   element: DriplElement,
   frame: DriplElement,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  elements: ReadonlyArray<DriplElement>
+  _elements: ReadonlyArray<DriplElement>
 ): boolean {
   if (frame.type !== 'frame') return false;
   const frameBounds = getElementBounds(frame);

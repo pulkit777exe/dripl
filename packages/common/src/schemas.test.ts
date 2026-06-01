@@ -3,7 +3,6 @@ import {
   PointSchema,
   ElementTypeSchema,
   BaseElementSchema,
-  RectangleElementSchema,
   DriplElementSchema,
   FileSchema,
   CreateFileSchema,

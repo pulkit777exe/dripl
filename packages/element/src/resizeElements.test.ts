@@ -5,9 +5,7 @@ import {
   resizeSingleTextElement,
   resizeSingleLinearElement,
   resizeSingleFreeDrawElement,
-  type TransformHandleDirection,
 } from './resizeElements';
-import type { DriplElement } from '@dripl/common';
 import {
   createRectangleElement,
   createEllipseElement,

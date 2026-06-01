@@ -12,7 +12,7 @@ function createTestApp(middleware: express.RequestHandler) {
   app.get('/protected', (req, res) => {
     res.json({ userId: (req as any).userId });
   });
-  app.post('/mutation', (req, res) => {
+  app.post('/mutation', (_req, res) => {
     res.json({ success: true });
   });
   return app;
@@ -112,10 +112,10 @@ describe('csrfMiddleware', () => {
     function createCsrfApp() {
       const app = express();
       app.use(cookieParser());
-      app.post('/mutation', validateCsrfToken, (req, res) => {
+      app.post('/mutation', validateCsrfToken, (_req, res) => {
         res.json({ success: true });
       });
-      app.get('/safe', validateCsrfToken, (req, res) => {
+      app.get('/safe', validateCsrfToken, (_req, res) => {
         res.json({ ok: true });
       });
       return app;
