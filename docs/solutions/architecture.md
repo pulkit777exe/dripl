@@ -44,11 +44,11 @@ The composition root (`index.ts`) imports from all modules and wires them togeth
 
 ### Problem Statement
 
-All three Dockerfiles (`Dockerfile.dripl-app`, `Dockerfile.http-server`, `Dockerfile.ws-server`) used `CMD pnpm run dev` with `NODE_ENV=development`. The builds also referenced a non-existent `packages/runtime` directory (should have been `packages/test-utils`). Running dev servers in production containers wastes resources (hot-reload watchers, source maps, verbose logging) and introduces security risks.
+All three Dockerfiles (`Dockerfile.dripl-app`, `Dockerfile.http-server`, `Dockerfile.ws-server`) used `CMD pnpm run dev` with `NODE_ENV=development`. The builds also referenced a now-deleted `packages/runtime` directory; the Dockerfiles were later updated to copy `packages/test-utils` instead. Running dev servers in production containers wastes resources (hot-reload watchers, source maps, verbose logging) and introduces security risks.
 
 ### Root Cause
 
-The Dockerfiles were written during early development and never updated for production use. The `packages/runtime` reference was a leftover from a package rename to `packages/test-utils`. The `CMD pnpm run dev` pattern was carried over from local development scripts without considering the production container context.
+The Dockerfiles were written during early development and never updated for production use. The `packages/runtime` reference came from the pre-refactor package layout and was removed after the runtime package was deleted. The `CMD pnpm run dev` pattern was carried over from local development scripts without considering the production container context.
 
 ### Solution
 

@@ -6,7 +6,7 @@ This is the **root-level guide** for the Dripl monorepo. Read this first before 
 
 ## What Is Dripl?
 
-Dripl is a real-time collaborative canvas application (think Excalidraw/Figma). It consists of three deployable apps and six shared library packages, all managed in a Turborepo monorepo.
+Dripl is a real-time collaborative canvas application (think Excalidraw/Figma). It consists of three deployable apps and seven shared library packages, all managed in a Turborepo monorepo.
 
 ---
 
@@ -68,7 +68,7 @@ dripl-app ──► @dripl/common
 http-server ──► @dripl/common, @dripl/db, @dripl/utils
 ws-server   ──► @dripl/common, @dripl/db, @dripl/utils
 
-@test-utils ──► @dripl/common (dev: @dripl/eslint-config, @dripl/typescript-config)
+@dripl/test-utils ──► @dripl/common (dev: @dripl/eslint-config, @dripl/typescript-config)
 ```
 
 **No circular dependencies.** Apps never depend on other apps.

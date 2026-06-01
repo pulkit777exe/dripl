@@ -1,6 +1,6 @@
 # Dripl — Engineering Roadmap
 
-> Comprehensive roadmap generated from code quality, security, scalability, and architecture audits. Items are prioritized by impact and effort. Last updated: 2026-05-31.
+> Comprehensive roadmap generated from code quality, security, scalability, and architecture audits. Items are prioritized by impact and effort. Last updated: 2026-06-01.
 
 ---
 
@@ -12,7 +12,7 @@
 **Where:** `apps/dripl-app/.env`, `apps/http-server/.env`, `apps/ws-server/.env`
 **Effort:** 10 min
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — no duplicate .env files found
 
 ### 2. Fix http-server Race Condition — DB Init Before Listen
 **What:** Move `app.listen()` inside `initializeDb().then()` so the server only starts after DB is ready.
@@ -20,7 +20,7 @@
 **Where:** `apps/http-server/src/index.ts:94-103`
 **Effort:** 15 min
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — app.listen() moved inside start() after await initializeDb()
 
 ### 3. Fix ws-server Periodic Save Race Condition
 **What:** Add a `saving` flag per room to skip overlapping saves. Replace `setInterval` with recursive `setTimeout` that waits for the previous save to complete.
@@ -28,7 +28,7 @@
 **Where:** `apps/ws-server/src/index.ts:648-680`
 **Effort:** 1 hr
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — saving flag + recursive setTimeout in scheduleSave()
 
 ### 4. Fix `pg.Pool` Connection Limit
 **What:** Add `max: 20` (or configurable via `DB_POOL_SIZE` env var) to the pool config in `packages/db/src/index.ts`.
@@ -36,7 +36,7 @@
 **Where:** `packages/db/src/index.ts:23-34`
 **Effort:** 30 min
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — max: parseInt(process.env.DB_POOL_SIZE || '20')
 
 ### 5. Add CSRF Protection to `/api/auth/logout`
 **What:** Add `validateCsrfToken` middleware to the logout endpoint.
@@ -44,7 +44,7 @@
 **Where:** `apps/http-server/src/index.ts` (mount point)
 **Effort:** 15 min
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — app.use('/api/auth/logout', validateCsrfToken)
 
 ### 6. Add Zod Validation to Unprotected Routes
 **What:** Add Zod schemas to `createRoom`, `addMember`, `shareRoom`, and `PUT /profile` endpoints.
@@ -52,7 +52,7 @@
 **Where:** `apps/http-server/src/controllers/roomController.ts`, `apps/http-server/src/routes/auth.ts`
 **Effort:** 2 hrs
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — Zod schemas for createRoom, addMember, shareRoom, updateRoom
 
 ### 7. Implement Diff-based Element Broadcasting
 **What:** Replace full element array broadcast with operational delta: `{ added: DriplElement[], updated: DriplElement[], deleted: string[] }`.
@@ -60,7 +60,7 @@
 **Where:** `apps/ws-server/src/index.ts:517-522`, `apps/dripl-app/hooks/useCollaboration.ts:138-155`
 **Effort:** 5 hrs
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — scene-delta with added/updated/deleted arrays
 
 ### 8. Validate AI Response Elements Against Schema
 **What:** Parse AI-generated elements through `DriplElementSchema` before returning to clients.
@@ -68,7 +68,7 @@
 **Where:** `apps/dripl-app/app/api/ai/generate/route.ts:169`
 **Effort:** 1 hr
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — DriplElementSchema.safeParse() validates each AI element
 
 ---
 
@@ -144,7 +144,7 @@
 **Where:** `apps/ws-server/src/index.ts:468-490,630-637`
 **Effort:** 4 hrs
 **Depends on:** None
-**Status:** OPEN
+**Status:** OPEN — elements still array, no reverse index
 
 ---
 
@@ -362,14 +362,22 @@
 | Sec-21 | WS data injection via missing schema | ✅ FIXED |
 | Sec-22 | updateFile unvalidated payload | ✅ FIXED |
 | Sec-23 | Expired share links never cleaned up | ✅ FIXED |
+| 1 | Remove Duplicate .env Files with Real Credentials | ✅ DONE |
+| 2 | Fix http-server Race Condition — DB Init Before Listen | ✅ DONE |
+| 3 | Fix ws-server Periodic Save Race Condition | ✅ DONE |
+| 4 | Fix pg.Pool Connection Limit | ✅ DONE |
+| 5 | Add CSRF Protection to /api/auth/logout | ✅ DONE |
+| 6 | Add Zod Validation to Unprotected Routes | ✅ DONE |
+| 7 | Implement Diff-based Element Broadcasting | ✅ DONE |
+| 8 | Validate AI Response Elements Against Schema | ✅ DONE |
 
 ---
 
 ## Pre-existing Issues (Not Introduced by Review)
 
-### P3. Dockerfile References Missing @dripl/runtime
-All three Dockerfiles reference `packages/runtime/package.json` which doesn't exist. Docker builds will fail.
-**Status:** OPEN
+### P3. Dockerfile References Updated to `@dripl/test-utils`
+All three Dockerfiles now copy `packages/test-utils/package.json`; `packages/runtime` was removed after the store refactor. Docker builds no longer fail on that path.
+**Status:** DONE — Dockerfiles now reference `packages/test-utils/package.json`
 
 ### P4. Package Manager Inconsistency
 Root declares `packageManager: "pnpm@10.33.0"` but `bun.lock` file exists. CLAUDE.md says "use bun" but scripts use pnpm.

@@ -24,7 +24,7 @@ Runs on **port 3000** in development.
 | Framework | Next.js 16 (App Router, Turbopack) |
 | Language | TypeScript 5 |
 | Styling | Tailwind CSS v4 + tw-animate-css |
-| State | Zustand (global), TanStack Store (canvas) |
+| State | Zustand (global + canvas) |
 | Canvas | Custom renderer on top of RoughJS |
 | Animation | Framer Motion / Motion |
 | UI Primitives | Radix UI |
@@ -106,6 +106,8 @@ This app consumes the following workspace packages via `transpilePackages` in `n
 | `@dripl/utils` | `packages/utils` | Encryption, throttle, storage |
 
 > `@dripl/db` and `@prisma/client` are listed in `serverExternalPackages` — they are **never bundled into the client bundle**.
+>
+> The app does not currently consume the `@dripl/dripl` TanStack store package for canvas state; it uses the local Zustand store in `apps/dripl-app/lib/canvas-store.ts`.
 
 ---
 
