@@ -1,0 +1,42 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "matchPackagePatterns": ["@prisma/*", "prisma"],
+      "groupName": "prisma",
+      "automerge": false
+    },
+    {
+      "matchPackagePatterns": ["typescript", "ts-*"],
+      "groupName": "typescript",
+      "automerge": false
+    },
+    {
+      "matchPackagePatterns": ["eslint", "@eslint/*", "typescript-eslint"],
+      "groupName": "eslint",
+      "automerge": true
+    },
+    {
+      "matchPackagePatterns": ["vitest", "@vitest/*"],
+      "groupName": "vitest",
+      "automerge": true
+    },
+    {
+      "matchPackagePatterns": ["react", "react-dom"],
+      "groupName": "react",
+      "automerge": false
+    },
+    {
+      "matchPackagePatterns": ["next"],
+      "groupName": "nextjs",
+      "automerge": false
+    }
+  ]
+}
