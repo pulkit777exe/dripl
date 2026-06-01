@@ -98,13 +98,13 @@
 **Depends on:** None
 **Status:** OPEN
 
-### 12. Optimize History — Command Pattern Instead of Snapshots
-**What:** Replace full snapshot history with command-based diffs: store `{ type, elementId, before, after }` instead of full arrays.
+### 12. Optimize History — Remove Redundant Deep-Clone
+**What:** ~~Replace full snapshot history with command-based diffs~~ Removed redundant `deriveHistory()` which deep-cloned all past + present + future on every state change. The `history` and `historyIndex` fields were never consumed by any component.
 **Why:** History stores 100 full snapshots. `deriveHistory` deep-clones all snapshots on every state change. With 5K elements, that's 100 × 1.5MB = 150MB of history.
-**Where:** `apps/dripl-app/lib/canvas-store.ts:9,70-80`
+**Where:** `apps/dripl-app/lib/canvas-store.ts`
 **Effort:** 1 day
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — eliminated deriveHistory(); removed unused history/historyIndex fields
 
 ### 13. Add Web Workers for Heavy Computations
 **What:** Move hit testing, bounding box calculations, and element serialization to a Web Worker.
@@ -120,7 +120,7 @@
 **Where:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:14-23`
 **Effort:** 2 hrs
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — lazy() with Suspense for PropertiesPanel, ContextMenu, NameInputModal, WelcomeScreen
 
 ### 15. Fix Image Handling — Move Base64 to Blob Storage
 **What:** Store images as IndexedDB blobs (client) or S3 (server). Reference by ID in element `src` field.
@@ -136,7 +136,7 @@
 **Where:** `apps/http-server/src/routes/files.ts:91-92`
 **Effort:** 3 hrs
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — cursor param + nextCursor response + composite index
 
 ### 17. Optimize WS Server Room State Operations
 **What:** Change `RoomState.elements` from `DriplElement[]` to `Map<string, DriplElement>`. Add reverse index `userId → roomId`.
@@ -164,7 +164,7 @@
 **Where:** Multiple `package.json` files
 **Effort:** 1 hr
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — pinned all 'latest' to caret ranges, aligned TS/Vitest/Zod/Prisma
 
 ### 20. Refactor ws-server into Modules
 **What:** Split 737-line monolith `index.ts` into: `rooms.ts`, `handlers.ts`, `broadcast.ts`, `rateLimiter.ts`, `auth.ts`.
@@ -172,7 +172,7 @@
 **Where:** `apps/ws-server/src/index.ts`
 **Effort:** 1 day
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — split into auth.ts, broadcast.ts, rooms.ts, rateLimiter.ts, types.ts
 
 ### 21. Make `@dripl/eslint-config` Actually Used
 **What:** Update all packages to import the shared ESLint config instead of defining their own. Update peer deps to match `typescript-eslint`.
@@ -188,7 +188,7 @@
 **Where:** `packages/dripl/package.json`
 **Effort:** 10 min
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — moved @dripl/common and @dripl/math to dependencies
 
 ### 23. Implement Fractional Index for Z-Ordering
 **What:** Add `index: string | null` to `DriplElement`. Use `fractional-indexing` library for z-order keys.
@@ -220,7 +220,7 @@
 **Where:** `packages/db/prisma/schema.prisma`
 **Effort:** 30 min
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — ShareLink.roomId, expiresAt; PasswordResetToken.email; File composite index
 
 ---
 
@@ -232,7 +232,7 @@
 **Where:** `docker/Dockerfile.*`, `docker-compose.yml`
 **Effort:** 3 hrs
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — production CMD, NODE_ENV, health checks, fixed runtime→test-utils
 
 ### 28. Add HTTP Caching Headers
 **What:** Add `Cache-Control`, `ETag` headers based on `updatedAt` for GET endpoints.
@@ -248,7 +248,7 @@
 **Where:** `tooling/typescript-config/tsconfig.json`, `tooling/typescript-config/base.json`
 **Effort:** 2 hrs (fixing resulting errors)
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — enabled noImplicitReturns and noFallthroughCasesInSwitch
 
 ### 30. Create AGENTS.md
 **What:** Create the missing `AGENTS.md` file referenced by root `CLAUDE.md`. Include issue tracker config, domain terminology, architectural decisions.
@@ -296,7 +296,7 @@
 **Where:** `apps/ws-server/src/index.ts:99,501`
 **Effort:** 15 min
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — maxPayload aligned to 10MB, MAX_MESSAGE_SIZE removed
 
 ### 36. Remove Unused `anon_` Fallback in ws-server
 **What:** Remove the `anon_${uuidv4()}` fallback code that's now unreachable due to the auth check.
@@ -304,7 +304,7 @@
 **Where:** `apps/ws-server/src/index.ts:371` (if present)
 **Effort:** 10 min
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — removed anon_ fallback and anonymous fallback path
 
 ---
 
@@ -408,8 +408,8 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 | Redis for WS pub/sub | PENDING | `REDIS_URL` declared but unused. Needs implementation. |
 | Fractional indexing for z-order | PENDING | Needed for multiplayer reorder conflicts |
 | Image storage strategy | PENDING | Base64 in DB vs blob storage (IndexedDB/S3) |
-| History system consolidation | PENDING | 3 systems exist, need to pick 1 |
-| ws-server module split | PENDING | 737-line monolith → 5 modules |
+| History system consolidation | ✅ DONE | Removed redundant deriveHistory, kept past/future |
+| ws-server module split | ✅ DONE | 5 modules: auth, broadcast, rooms, rateLimiter, types |
 | Barrel file removal | PENDING | All 7 packages violate CLAUDE.md rule |
 
 ---
@@ -418,13 +418,16 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 
 | Feature | Excalidraw | Dripl | Status |
 |---------|-----------|-------|--------|
-| CRDT-based sync (Yjs) | ✅ | ❌ Full-state broadcast | Gap — Item 7 |
-| OffscreenCanvas rendering | ✅ | ❌ Full canvas redraw | Gap — Item 10 |
-| WeakMap for shape cache | ✅ | ⚠️ Version-checked Map | Partial |
-| Command-based history | ✅ | ❌ Full snapshots | Gap — Item 12 |
+| CRDT-based sync (Yjs) | ✅ | ❌ Full-state broadcast | Gap — Item 9 (Redis pub/sub) |
+| OffscreenCanvas rendering | ✅ | ⚠️ Element canvas cache exists | Partial |
+| WeakMap for shape cache | ✅ | ✅ Version-checked cache | Match |
+| Command-based history | ✅ | ⚠️ Snapshots (pruned redundant deriveHistory) | Partial — Item 12 |
 | Fractional z-ordering | ✅ | ❌ Array-position | Gap — Item 23 |
 | Web Workers for hit test | ✅ | ❌ Main thread | Gap — Item 13 |
 | Binary WS protocol | ✅ | ❌ JSON | Future consideration |
-| Spatial index for culling | ✅ | ⚠️ RBush exists, not used for culling | Gap — Item 10 |
-| Differential element sync | ✅ | ❌ Full array broadcast | Gap — Item 7 |
+| Spatial index for culling | ✅ | ✅ RBush spatial index | Match — Item 10 |
+| Differential element sync | ✅ | ✅ scene-delta with added/updated/deleted | Match — Item 7 |
 | Image blob storage | ✅ | ❌ Base64 in JSON | Gap — Item 15 |
+| Lazy-loaded components | ✅ | ✅ React.lazy + Suspense | Match — Item 14 |
+| Cursor-based pagination | ✅ | ✅ Cursor + composite index | Match — Item 16 |
+| Production Docker | ✅ | ✅ Multi-stage, health checks, NODE_ENV | Match — Item 27 |
