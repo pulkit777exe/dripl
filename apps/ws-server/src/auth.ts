@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
+import { requiredEnv } from '@dripl/utils';
 
-const JWT_SECRET = process.env.JWT_SECRET || '';
+const JWT_SECRET = requiredEnv('JWT_SECRET');
 
 function log(level: string, event: string, data?: Record<string, unknown>) {
   console.log(JSON.stringify({ level, event, ...data }));

@@ -1,22 +1,25 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import { requiredEnv } from '@dripl/utils';
 
 dotenv.config();
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+function createTransporter() {
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: requiredEnv('SMTP_USER'),
+      pass: requiredEnv('SMTP_PASS'),
+    },
+  });
+}
 
 export const sendResetPasswordEmail = async (email: string, token: string) => {
   const resetLink = `${APP_URL}/reset-password?token=${token}`;
 
-  await transporter.sendMail({
+  await createTransporter().sendMail({
     from: `"Dripl" <${process.env.SMTP_USER}>`,
     to: email,
     subject: 'Reset your password',
@@ -31,7 +34,7 @@ export const sendResetPasswordEmail = async (email: string, token: string) => {
 export const sendVerificationEmail = async (email: string, token: string) => {
   const verifyLink = `${APP_URL}/verify-email?token=${token}`;
 
-  await transporter.sendMail({
+  await createTransporter().sendMail({
     from: `"Dripl" <${process.env.SMTP_USER}>`,
     to: email,
     subject: 'Verify your Dripl account',

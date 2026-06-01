@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { X, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { useAuth } from '@/app/context/AuthContext';
+import type { DriplElement } from '@dripl/common';
 
 interface AIGenerateModalProps {
   isOpen: boolean;
@@ -26,13 +27,15 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
   const [generateSuccess, setGenerateSuccess] = useState(false);
 
   const addElements = useCanvasStore(state => state.addElements);
+  const setSelectedIds = useCanvasStore(state => state.setSelectedIds);
+  const setActiveTool = useCanvasStore(state => state.setActiveTool);
   const { user } = useAuth();
   const successRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!generateSuccess || !successRef.current) return;
     const path = successRef.current.querySelector<SVGPathElement>('svg path');
-    if (path) {
+    if (path && typeof path.getTotalLength === 'function') {
       const len = Math.ceil(path.getTotalLength());
       path.style.strokeDasharray = String(len);
       path.style.strokeDashoffset = String(len);
@@ -65,7 +68,10 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
       }
 
       if (data.elements && Array.isArray(data.elements)) {
-        addElements(data.elements);
+        const generatedElements = data.elements as DriplElement[];
+        addElements(generatedElements);
+        setSelectedIds(new Set(generatedElements.map(element => element.id)));
+        setActiveTool('select');
         setGenerateSuccess(true);
         setTimeout(() => {
           setGenerateSuccess(false);
