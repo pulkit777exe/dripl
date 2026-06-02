@@ -1633,6 +1633,44 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     setPan(nextPanX, nextPanY);
   }, [elements, setPan, setZoom]);
 
+  const fitElementsToScreen = useCallback(
+    (elementIds: string[]) => {
+      if (!containerRef.current || elementIds.length === 0) return;
+
+      const selectedElements = elements.filter(element => elementIds.includes(element.id));
+      if (selectedElements.length === 0) return;
+
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+
+      selectedElements.forEach(element => {
+        const bounds = getElementBounds(element);
+        minX = Math.min(minX, bounds.x);
+        minY = Math.min(minY, bounds.y);
+        maxX = Math.max(maxX, bounds.x + bounds.width);
+        maxY = Math.max(maxY, bounds.y + bounds.height);
+      });
+
+      const contentWidth = Math.max(1, maxX - minX);
+      const contentHeight = Math.max(1, maxY - minY);
+      const padding = 64;
+      const viewportWidth = containerRef.current.clientWidth - padding * 2;
+      const viewportHeight = containerRef.current.clientHeight - padding * 2;
+      const nextZoom = Math.max(
+        0.1,
+        Math.min(20, Math.min(viewportWidth / contentWidth, viewportHeight / contentHeight))
+      );
+      const nextPanX = containerRef.current.clientWidth / 2 - (minX + contentWidth / 2) * nextZoom;
+      const nextPanY = containerRef.current.clientHeight / 2 - (minY + contentHeight / 2) * nextZoom;
+
+      setZoom(nextZoom);
+      setPan(nextPanX, nextPanY);
+    },
+    [elements, setPan, setZoom]
+  );
+
   const duplicateSelection = useCallback(() => {
     const selected = elements.filter(element => selectedIds.has(element.id));
     if (selected.length === 0) return;
@@ -1807,6 +1845,20 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       window.removeEventListener('dripl:find-on-canvas', handleFindOnCanvasEvent);
     };
   }, [findOnCanvas]);
+
+  useEffect(() => {
+    const handleFitElementsEvent = (event: Event) => {
+      const custom = event as CustomEvent<{ elementIds?: string[] }>;
+      const elementIds = custom.detail?.elementIds;
+      if (!Array.isArray(elementIds) || elementIds.length === 0) return;
+      fitElementsToScreen(elementIds);
+    };
+
+    window.addEventListener('dripl:fit-elements', handleFitElementsEvent);
+    return () => {
+      window.removeEventListener('dripl:fit-elements', handleFitElementsEvent);
+    };
+  }, [fitElementsToScreen]);
 
   const openContextMenu = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {

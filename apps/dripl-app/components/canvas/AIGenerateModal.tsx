@@ -72,6 +72,11 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
         addElements(generatedElements);
         setSelectedIds(new Set(generatedElements.map(element => element.id)));
         setActiveTool('select');
+        window.dispatchEvent(
+          new CustomEvent('dripl:fit-elements', {
+            detail: { elementIds: generatedElements.map(element => element.id) },
+          })
+        );
         setGenerateSuccess(true);
         setTimeout(() => {
           setGenerateSuccess(false);

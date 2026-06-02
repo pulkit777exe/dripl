@@ -47,11 +47,13 @@ describe('AIGenerateModal', () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('submits AI results into the canvas store and closes after success', async () => {
     const onClose = vi.fn();
     const fetchMock = vi.mocked(globalThis.fetch);
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
 
     render(<AIGenerateModal isOpen onClose={onClose} />);
     await act(async () => {
@@ -77,6 +79,7 @@ describe('AIGenerateModal', () => {
     ]);
     expect(setSelectedIds).toHaveBeenCalledWith(new Set(['diagram-1']));
     expect(setActiveTool).toHaveBeenCalledWith('select');
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'dripl:fit-elements' }));
 
     await act(async () => {
       vi.advanceTimersByTime(1200);
