@@ -196,7 +196,7 @@
 **Where:** `apps/dripl-app/lib/canvas-store.ts:496-602`, `packages/common` element type
 **Effort:** 1 day
 **Depends on:** Item 7 (diff-based broadcasting)
-**Status:** OPEN
+**Status:** DONE — fractionalIndex on ElementBase, canvas-store sorted by it, reordering generates fractional keys, ws-server sorts on serialize
 
 ### 24. Single History System
 **What:** Pick one history implementation and remove the other two.
@@ -370,6 +370,7 @@
 | 6 | Add Zod Validation to Unprotected Routes | ✅ DONE |
 | 7 | Implement Diff-based Element Broadcasting | ✅ DONE |
 | 8 | Validate AI Response Elements Against Schema | ✅ DONE |
+| 23 | Implement Fractional Index for Z-Ordering | ✅ DONE |
 
 ---
 
@@ -381,7 +382,7 @@ All three Dockerfiles now copy `packages/test-utils/package.json`; `packages/run
 
 ### P4. Package Manager Inconsistency
 Root declares `packageManager: "pnpm@10.33.0"` but `bun.lock` file exists. CLAUDE.md says "use bun" but scripts use pnpm.
-**Status:** OPEN
+**Status:** DONE — bun.lock removed
 
 ### P5. TypeScript Version Mismatch
 Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some packages: `latest`.
@@ -397,7 +398,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 
 ### P8. Three History Systems
 `@dripl/common` (SceneHistory + DeltaManager), `@dripl/dripl` store history, `@dripl/dripl/src/utils/history.ts` (CanvasHistory). All three exist, only one is actively used.
-**Status:** OPEN
+**Status:** DONE — dead code removed, kept canvas-store.ts inline past/future
 
 ### P9. Tunnel System Over-engineering
 `@dripl/dripl/src/tunnel/` has 10+ components for 4 tunnels. Could be simple React context.
@@ -405,7 +406,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 
 ### P10. proxy.ts No-op
 `apps/dripl-app/proxy.ts` just calls `NextResponse.next()`. Either implement or remove.
-**Status:** OPEN
+**Status:** DONE — removed (no-op, no callers)
 
 ---
 
@@ -414,7 +415,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 | Decision | Status | Notes |
 |----------|--------|-------|
 | Redis for WS pub/sub | PENDING | `REDIS_URL` declared but unused. Needs implementation. |
-| Fractional indexing for z-order | PENDING | Needed for multiplayer reorder conflicts |
+| Fractional indexing for z-order | ✅ DONE | fractional-indexing library, reordering generates keys |
 | Image storage strategy | PENDING | Base64 in DB vs blob storage (IndexedDB/S3) |
 | History system consolidation | ✅ DONE | Removed redundant deriveHistory, kept past/future |
 | ws-server module split | ✅ DONE | 5 modules: auth, broadcast, rooms, rateLimiter, types |
@@ -430,7 +431,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 | OffscreenCanvas rendering | ✅ | ⚠️ Element canvas cache exists | Partial |
 | WeakMap for shape cache | ✅ | ✅ Version-checked cache | Match |
 | Command-based history | ✅ | ⚠️ Snapshots (pruned redundant deriveHistory) | Partial — Item 12 |
-| Fractional z-ordering | ✅ | ❌ Array-position | Gap — Item 23 |
+| Fractional z-ordering | ✅ | ✅ fractional-indexing library, reordering generates keys | Match — Item 23 |
 | Web Workers for hit test | ✅ | ❌ Main thread | Gap — Item 13 |
 | Binary WS protocol | ✅ | ❌ JSON | Future consideration |
 | Spatial index for culling | ✅ | ✅ RBush spatial index | Match — Item 10 |

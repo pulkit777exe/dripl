@@ -53,7 +53,14 @@ export function elementsToMap(elements: DriplElement[]): Map<string, DriplElemen
 }
 
 export function elementsToArray(elements: Map<string, DriplElement>): DriplElement[] {
-  return Array.from(elements.values());
+  return Array.from(elements.values()).sort((a, b) => {
+    const ai = a.fractionalIndex ?? '';
+    const bi = b.fractionalIndex ?? '';
+    if (ai === bi) return 0;
+    if (ai === '') return -1;
+    if (bi === '') return 1;
+    return ai < bi ? -1 : ai > bi ? 1 : 0;
+  });
 }
 
 export function serializeElements(elements: Map<string, DriplElement>): string {

@@ -208,6 +208,11 @@ export function PropertiesPanel({
   const setCurrentRoughness = useCanvasStore(s => s.setCurrentRoughness);
   const setCurrentStrokeStyle = useCanvasStore(s => s.setCurrentStrokeStyle);
 
+  const bringForward = useCanvasStore(s => s.bringForward);
+  const sendBackward = useCanvasStore(s => s.sendBackward);
+  const bringToFront = useCanvasStore(s => s.bringToFront);
+  const sendToBack = useCanvasStore(s => s.sendToBack);
+
   const updateProp = (property: string, value: unknown) => {
     if (!selectedElement || !onUpdateElement) return;
     onUpdateElement({ ...selectedElement, [property]: value } as DriplElement);
@@ -559,25 +564,25 @@ export function PropertiesPanel({
             <SectionLabel>Layers</SectionLabel>
             <div className="flex gap-1">
               <ActionBtn
-                onClick={() => updateProp('zIndex', (selectedElement?.zIndex ?? 100) - 100)}
+                onClick={() => selectedElement && sendToBack([selectedElement.id])}
                 title="Send to back"
               >
                 <ChevronsDown size={13} />
               </ActionBtn>
               <ActionBtn
-                onClick={() => updateProp('zIndex', (selectedElement?.zIndex ?? 100) - 10)}
+                onClick={() => selectedElement && sendBackward([selectedElement.id])}
                 title="Send backward"
               >
                 <ChevronDown size={13} />
               </ActionBtn>
               <ActionBtn
-                onClick={() => updateProp('zIndex', (selectedElement?.zIndex ?? 100) + 10)}
+                onClick={() => selectedElement && bringForward([selectedElement.id])}
                 title="Bring forward"
               >
                 <ChevronUp size={13} />
               </ActionBtn>
               <ActionBtn
-                onClick={() => updateProp('zIndex', (selectedElement?.zIndex ?? 100) + 100)}
+                onClick={() => selectedElement && bringToFront([selectedElement.id])}
                 title="Bring to front"
               >
                 <ChevronsUp size={13} />

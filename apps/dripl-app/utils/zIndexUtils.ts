@@ -1,117 +1,115 @@
 import type { DriplElement } from '@dripl/common';
-
-// Default z-index values
-const DEFAULT_Z_INDEX = 100;
-const Z_INDEX_STEP = 10;
+import { generateKeyBetween } from 'fractional-indexing';
 
 /**
- * Sort elements by z-index (ascending)
+ * Sort elements by fractional index (ascending = back-to-front)
  */
 export function sortElementsByZIndex(elements: DriplElement[]): DriplElement[] {
-  return [...elements].sort(
-    (a, b) => (a.zIndex ?? DEFAULT_Z_INDEX) - (b.zIndex ?? DEFAULT_Z_INDEX)
-  );
+  return [...elements].sort((a, b) => {
+    const ai = a.fractionalIndex ?? '';
+    const bi = b.fractionalIndex ?? '';
+    if (ai === bi) return 0;
+    if (ai === '') return -1;
+    if (bi === '') return 1;
+    return ai < bi ? -1 : ai > bi ? 1 : 0;
+  });
 }
 
 /**
- * Sort elements by z-index (descending)
+ * Sort elements by fractional index (descending = front-to-back)
  */
 export function sortElementsByZIndexDescending(elements: DriplElement[]): DriplElement[] {
-  return [...elements].sort(
-    (a, b) => (b.zIndex ?? DEFAULT_Z_INDEX) - (a.zIndex ?? DEFAULT_Z_INDEX)
-  );
+  return sortElementsByZIndex(elements).reverse();
 }
 
 /**
- * Bring an element to the front
+ * Bring an element to the front (highest fractional index)
  */
 export function bringToFront(element: DriplElement, elements: DriplElement[]): DriplElement {
-  const maxZ = Math.max(...elements.map(el => el.zIndex ?? DEFAULT_Z_INDEX), DEFAULT_Z_INDEX);
-  return { ...element, zIndex: maxZ + Z_INDEX_STEP };
+  const sorted = sortElementsByZIndex(elements);
+  const last = sorted[sorted.length - 1];
+  const newIdx = generateKeyBetween(last?.fractionalIndex ?? null, null);
+  return { ...element, fractionalIndex: newIdx };
 }
 
 /**
- * Send an element to the back
+ * Send an element to the back (lowest fractional index)
  */
 export function sendToBack(element: DriplElement, elements: DriplElement[]): DriplElement {
-  const minZ = Math.min(...elements.map(el => el.zIndex ?? DEFAULT_Z_INDEX), DEFAULT_Z_INDEX);
-  return { ...element, zIndex: minZ - Z_INDEX_STEP };
+  const sorted = sortElementsByZIndex(elements);
+  const first = sorted[0];
+  const newIdx = generateKeyBetween(null, first?.fractionalIndex ?? null);
+  return { ...element, fractionalIndex: newIdx };
 }
 
 /**
- * Bring an element forward
+ * Bring an element forward by one position
  */
 export function bringForward(element: DriplElement, elements: DriplElement[]): DriplElement {
-  const sortedElements = sortElementsByZIndex(elements);
-  const currentIndex = sortedElements.findIndex(el => el.id === element.id);
+  const sorted = sortElementsByZIndex(elements);
+  const currentIndex = sorted.findIndex(el => el.id === element.id);
 
-  if (currentIndex === -1 || currentIndex === sortedElements.length - 1) {
+  if (currentIndex === -1 || currentIndex === sorted.length - 1) {
     return element;
   }
 
-  const nextElement = sortedElements[currentIndex + 1];
-  if (!nextElement) {
-    return element;
-  }
+  const nextElement = sorted[currentIndex + 1];
+  const afterNext = sorted[currentIndex + 2];
+  if (!nextElement) return element;
 
-  const nextZ = nextElement.zIndex ?? DEFAULT_Z_INDEX;
-  return { ...element, zIndex: nextZ + Z_INDEX_STEP / 2 };
+  const newIdx = generateKeyBetween(
+    nextElement.fractionalIndex ?? null,
+    afterNext?.fractionalIndex ?? null,
+  );
+  return { ...element, fractionalIndex: newIdx };
 }
 
 /**
- * Send an element backward
+ * Send an element backward by one position
  */
 export function sendBackward(element: DriplElement, elements: DriplElement[]): DriplElement {
-  const sortedElements = sortElementsByZIndex(elements);
-  const currentIndex = sortedElements.findIndex(el => el.id === element.id);
+  const sorted = sortElementsByZIndex(elements);
+  const currentIndex = sorted.findIndex(el => el.id === element.id);
 
   if (currentIndex === -1 || currentIndex === 0) {
     return element;
   }
 
-  const prevElement = sortedElements[currentIndex - 1];
-  if (!prevElement) {
-    return element;
-  }
+  const prevElement = sorted[currentIndex - 1];
+  const beforePrev = sorted[currentIndex - 2];
+  if (!prevElement) return element;
 
-  const prevZ = prevElement.zIndex ?? DEFAULT_Z_INDEX;
-  return { ...element, zIndex: prevZ - Z_INDEX_STEP / 2 };
+  const newIdx = generateKeyBetween(
+    beforePrev?.fractionalIndex ?? null,
+    prevElement.fractionalIndex ?? null,
+  );
+  return { ...element, fractionalIndex: newIdx };
 }
 
 /**
- * Update z-index for multiple elements
- */
-export function updateElementsZIndex(
-  elements: DriplElement[],
-  updates: Array<{ id: string; zIndex: number }>
-): DriplElement[] {
-  const updateMap = new Map(updates.map(update => [update.id, update.zIndex]));
-  return elements.map(element => {
-    const newZIndex = updateMap.get(element.id);
-    return newZIndex !== undefined ? { ...element, zIndex: newZIndex } : element;
-  });
-}
-
-/**
- * Get z-index range of selected elements
+ * Get z-index range of selected elements (by fractional index position)
  */
 export function getZIndexRange(selectedElements: DriplElement[]): {
   min: number;
   max: number;
 } {
-  const zIndices = selectedElements.map(el => el.zIndex ?? DEFAULT_Z_INDEX);
+  const sorted = sortElementsByZIndex(selectedElements);
   return {
-    min: Math.min(...zIndices),
-    max: Math.max(...zIndices),
+    min: 0,
+    max: sorted.length - 1,
   };
 }
 
 /**
- * Normalize z-index values to eliminate gaps and ensure consistent step
+ * Normalize fractional index values to eliminate gaps
  */
 export function normalizeZIndices(elements: DriplElement[]): DriplElement[] {
-  return sortElementsByZIndex(elements).map((element, index) => ({
+  const sorted = sortElementsByZIndex(elements);
+  return sorted.map((element, index) => ({
     ...element,
-    zIndex: DEFAULT_Z_INDEX + index * Z_INDEX_STEP,
+    fractionalIndex: generateKeyBetween(
+      index === 0 ? null : sorted[index - 1]?.fractionalIndex ?? null,
+      null,
+    ),
   }));
 }

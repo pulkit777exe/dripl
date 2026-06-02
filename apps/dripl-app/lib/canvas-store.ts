@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { DriplElement } from '@dripl/common';
+import { generateKeyBetween } from 'fractional-indexing';
 import { invalidateElementCache } from '@dripl/element/staticScene';
 import { clearShapeFromCache, clearAllShapeCache } from '@dripl/element/shape-cache';
 import { initializeShapeRegistry } from '@/utils/shapes/shapeInitializer';
@@ -52,6 +53,55 @@ interface HistoryState {
 
 function cloneElements(elements: readonly DriplElement[]): DriplElement[] {
   return elements.map(element => ({ ...element }));
+}
+
+function sortByFractionalIndex(elements: DriplElement[]): DriplElement[] {
+  return [...elements].sort((a, b) => {
+    const ai = a.fractionalIndex ?? '';
+    const bi = b.fractionalIndex ?? '';
+    if (ai === bi) return 0;
+    if (ai === '') return -1;
+    if (bi === '') return 1;
+    return ai < bi ? -1 : ai > bi ? 1 : 0;
+  });
+}
+
+function ensureFractionalIndexes(elements: DriplElement[]): DriplElement[] {
+  let needsMigration = false;
+  for (const el of elements) {
+    if (el.fractionalIndex == null) {
+      needsMigration = true;
+      break;
+    }
+  }
+  if (!needsMigration) return elements;
+
+  return sortByFractionalIndex(elements).map((el, i) => {
+    if (el.fractionalIndex != null) return el;
+    return { ...el, fractionalIndex: generateKeyBetween(null, null) };
+  });
+}
+
+function generateFractionalIndexBetween(
+  elements: readonly DriplElement[],
+  beforeId: string | null,
+  afterId: string | null,
+): string {
+  const before = beforeId ? elements.find(e => e.id === beforeId)?.fractionalIndex ?? null : null;
+  const after = afterId ? elements.find(e => e.id === afterId)?.fractionalIndex ?? null : null;
+  return generateKeyBetween(before, after);
+}
+
+function generateFractionalIndexAfterAll(elements: readonly DriplElement[]): string {
+  const sorted = sortByFractionalIndex(elements as DriplElement[]);
+  const last = sorted[sorted.length - 1];
+  return generateKeyBetween(last?.fractionalIndex ?? null, null);
+}
+
+function generateFractionalIndexBeforeAll(elements: readonly DriplElement[]): string {
+  const sorted = sortByFractionalIndex(elements as DriplElement[]);
+  const first = sorted[0];
+  return generateKeyBetween(null, first?.fractionalIndex ?? null);
 }
 
 function buildElementsById(elements: readonly DriplElement[]): Map<string, DriplElement> {
@@ -298,6 +348,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     const committed: DriplElement = {
       ...draft,
+      fractionalIndex: draft.fractionalIndex ?? generateFractionalIndexAfterAll(state.elements),
       version: (draft.version ?? 0) + 1,
       versionNonce: Math.floor(Math.random() * 2_147_483_647),
       updated: Date.now(),
@@ -305,7 +356,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     // Evict any preview shape that was cached for this draft (TODO #39)
     clearShapeFromCache(committed);
     invalidateElementCache(committed.id);
-    const elements = [...state.elements, committed];
+    const elements = sortByFractionalIndex([...state.elements, committed]);
     const historyPayload = commitPresentFromHistory(history.past, history.future);
 
     set({
@@ -325,23 +376,25 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setElements: (elements, options) =>
     set(state => {
       if (options?.skipHistory) {
-        // Clear all shape + offscreen caches for remotely-changed elements (TODO #39)
         elements.forEach(el => {
           const prev = state.elementsById.get(el.id);
           if (prev && prev.version !== (el.version ?? 0)) {
             invalidateElementCache(el.id);
           }
         });
-        const next = cloneElements(elements);
+        const withIndexes = ensureFractionalIndexes(elements);
+        const sorted = sortByFractionalIndex(withIndexes);
+        const next = cloneElements(sorted);
         return { elements: next, elementsById: buildElementsById(next) };
       }
-      // Full shape cache clear when replacing the whole scene
       clearAllShapeCache();
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
       );
-      const nextElements = cloneElements(elements);
+      const withIndexes = ensureFractionalIndexes(elements);
+      const sorted = sortByFractionalIndex(withIndexes);
+      const nextElements = cloneElements(sorted);
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: nextElements,
@@ -360,11 +413,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         { past: state.past, future: state.future },
         state.elements
       );
-      const nextElements = [...state.elements, element];
+      const withIndex = element.fractionalIndex != null
+        ? element
+        : { ...element, fractionalIndex: generateFractionalIndexAfterAll(state.elements) };
+      const nextElements = [...state.elements, withIndex];
+      const sorted = sortByFractionalIndex(nextElements);
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
-        elements: nextElements,
-        elementsById: buildElementsById(nextElements),
+        elements: sorted,
+        elementsById: buildElementsById(sorted),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -380,12 +437,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         { past: state.past, future: state.future },
         state.elements
       );
-      const nextElements = [...state.elements, ...deduped];
+      let currentElements = [...state.elements];
+      for (const el of deduped) {
+        const withIndex = el.fractionalIndex != null
+          ? el
+          : { ...el, fractionalIndex: generateFractionalIndexAfterAll(currentElements) };
+        currentElements.push(withIndex);
+      }
+      const sorted = sortByFractionalIndex(currentElements);
       const historyPayload = commitPresentFromHistory(history.past, history.future);
 
       return {
-        elements: nextElements,
-        elementsById: buildElementsById(nextElements),
+        elements: sorted,
+        elementsById: buildElementsById(sorted),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -471,27 +535,34 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set(state => {
       if (ids.length === 0) return state;
       const selected = new Set(ids);
-      const next = [...state.elements];
+      const sorted = sortByFractionalIndex(state.elements);
+      const nextElements = sorted.map(el => ({ ...el }));
       let changed = false;
 
-      for (let i = next.length - 2; i >= 0; i -= 1) {
-        if (selected.has(next[i]?.id ?? '') && !selected.has(next[i + 1]?.id ?? '')) {
-          const current = next[i];
-          next[i] = next[i + 1] as DriplElement;
-          next[i + 1] = current as DriplElement;
+      for (let i = nextElements.length - 2; i >= 0; i -= 1) {
+        const current = nextElements[i];
+        const above = nextElements[i + 1];
+        if (!current || !above) continue;
+        if (selected.has(current.id) && !selected.has(above.id)) {
+          const newIdx = generateKeyBetween(
+            above.fractionalIndex ?? null,
+            (i + 2 < nextElements.length ? nextElements[i + 2]?.fractionalIndex : null) ?? null,
+          );
+          current.fractionalIndex = newIdx;
           changed = true;
         }
       }
       if (!changed) return state;
 
+      const reordered = sortByFractionalIndex(nextElements);
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
       );
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
-        elements: next,
-        elementsById: buildElementsById(next),
+        elements: reordered,
+        elementsById: buildElementsById(reordered),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -501,27 +572,34 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set(state => {
       if (ids.length === 0) return state;
       const selected = new Set(ids);
-      const next = [...state.elements];
+      const sorted = sortByFractionalIndex(state.elements);
+      const nextElements = sorted.map(el => ({ ...el }));
       let changed = false;
 
-      for (let i = 1; i < next.length; i += 1) {
-        if (selected.has(next[i]?.id ?? '') && !selected.has(next[i - 1]?.id ?? '')) {
-          const current = next[i];
-          next[i] = next[i - 1] as DriplElement;
-          next[i - 1] = current as DriplElement;
+      for (let i = 1; i < nextElements.length; i += 1) {
+        const current = nextElements[i];
+        const below = nextElements[i - 1];
+        if (!current || !below) continue;
+        if (selected.has(current.id) && !selected.has(below.id)) {
+          const newIdx = generateKeyBetween(
+            (i - 2 >= 0 ? nextElements[i - 2]?.fractionalIndex : null) ?? null,
+            below.fractionalIndex ?? null,
+          );
+          current.fractionalIndex = newIdx;
           changed = true;
         }
       }
       if (!changed) return state;
 
+      const reordered = sortByFractionalIndex(nextElements);
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
       );
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
-        elements: next,
-        elementsById: buildElementsById(next),
+        elements: reordered,
+        elementsById: buildElementsById(reordered),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -531,19 +609,27 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set(state => {
       if (ids.length === 0) return state;
       const selected = new Set(ids);
-      const moving = state.elements.filter(element => selected.has(element.id));
+      const sorted = sortByFractionalIndex(state.elements);
+      const moving = sorted.filter(el => selected.has(el.id));
       if (moving.length === 0) return state;
-      const stay = state.elements.filter(element => !selected.has(element.id));
-      const next = [...stay, ...moving];
 
+      const newFrontier = generateFractionalIndexAfterAll(sorted);
+      const nextElements = sorted.map(el => {
+        if (selected.has(el.id)) {
+          return { ...el, fractionalIndex: generateKeyBetween(newFrontier, null) };
+        }
+        return { ...el };
+      });
+
+      const reordered = sortByFractionalIndex(nextElements);
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
       );
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
-        elements: next,
-        elementsById: buildElementsById(next),
+        elements: reordered,
+        elementsById: buildElementsById(reordered),
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -553,19 +639,27 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set(state => {
       if (ids.length === 0) return state;
       const selected = new Set(ids);
-      const moving = state.elements.filter(element => selected.has(element.id));
+      const sorted = sortByFractionalIndex(state.elements);
+      const moving = sorted.filter(el => selected.has(el.id));
       if (moving.length === 0) return state;
-      const stay = state.elements.filter(element => !selected.has(element.id));
-      const next = [...moving, ...stay];
 
+      const newBackier = generateFractionalIndexBeforeAll(sorted);
+      const nextElements = sorted.map(el => {
+        if (selected.has(el.id)) {
+          return { ...el, fractionalIndex: generateKeyBetween(null, newBackier) };
+        }
+        return { ...el };
+      });
+
+      const reordered = sortByFractionalIndex(nextElements);
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
       );
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
-        elements: next,
-        elementsById: buildElementsById(next),
+        elements: reordered,
+        elementsById: buildElementsById(reordered),
         past: historyPayload.past,
         future: historyPayload.future,
       };

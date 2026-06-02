@@ -29,7 +29,8 @@ export interface ElementBase {
   angle?: number; // Rotation in radians
   locked?: boolean; // Prevent editing
   groupId?: string; // For grouping elements together
-  zIndex?: number; // For element ordering
+  zIndex?: number; // For element ordering (legacy numeric)
+  fractionalIndex?: string; // Fractional index for conflict-free z-ordering
   rotation?: number; // Rotation in degrees
   flipHorizontal?: number; // -1 or 1
   flipVertical?: number; // -1 or 1

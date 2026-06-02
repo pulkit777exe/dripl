@@ -51,6 +51,7 @@ export const BaseElementSchema = z.object({
   seed: z.number().optional(),
   groupId: z.string().optional(),
   zIndex: z.number().optional(),
+  fractionalIndex: z.string().optional(),
 });
 
 export const RectangleElementSchema = BaseElementSchema.extend({

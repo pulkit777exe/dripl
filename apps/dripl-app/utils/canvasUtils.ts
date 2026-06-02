@@ -406,11 +406,12 @@ export function importFromJSON(file: File): Promise<DriplElement[]> {
         // Normalize all elements
         const normalizedElements = rawElements.map(normalizeElement);
 
-        // Re-sort elements by z-index or index
+        // Re-sort elements by fractional index (or y-position fallback)
         const sortedElements = [...normalizedElements].sort((a, b) => {
-          // Use zIndex if available, otherwise use index or position
-          if (a.zIndex !== undefined && b.zIndex !== undefined) {
-            return a.zIndex - b.zIndex;
+          if (a.fractionalIndex && b.fractionalIndex) {
+            if (a.fractionalIndex < b.fractionalIndex) return -1;
+            if (a.fractionalIndex > b.fractionalIndex) return 1;
+            return 0;
           }
           return (a.y || 0) - (b.y || 0);
         });

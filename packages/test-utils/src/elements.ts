@@ -26,6 +26,7 @@ export interface ElementFactoryOptions {
   seed?: number;
   locked?: boolean;
   zIndex?: number;
+  fractionalIndex?: string;
 }
 
 function baseElement(options: ElementFactoryOptions = {}): ElementFactoryOptions {
@@ -44,6 +45,7 @@ function baseElement(options: ElementFactoryOptions = {}): ElementFactoryOptions
     seed: options.seed ?? Math.random() * 1000,
     locked: options.locked ?? false,
     zIndex: options.zIndex,
+    fractionalIndex: options.fractionalIndex,
   };
 }
 

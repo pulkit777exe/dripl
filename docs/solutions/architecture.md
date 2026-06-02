@@ -207,3 +207,57 @@ Major version updates (e.g., React 19, Next.js 15) require manual review. Securi
 ### File Map
 
 - **Created:** `renovate.json`
+
+---
+
+## 9. Fractional Indexing for Conflict-Free Z-Ordering
+
+### Problem Statement
+
+Z-ordering was based on array position. During real-time collaboration, two users reordering elements simultaneously caused conflicts — last-write-wins discarded one user's reorder. The canvas had two disconnected ordering systems: array-position (used by `bringForward`/`sendBackward`/etc.) and numeric `zIndex` property (used by PropertiesPanel), but the renderer only used array position.
+
+### Root Cause
+
+The initial canvas implementation used a simple array for element storage. Z-order was implicit — elements earlier in the array rendered behind elements later in the array. This works for single-user but breaks in collaborative scenarios where concurrent reorders need to merge without conflict.
+
+### Solution
+
+Integrated the `fractional-indexing` library to generate lexicographically-sortable string keys for element ordering:
+
+1. **Type system:** Added `fractionalIndex?: string` to `ElementBase` in `@dripl/common` and `BaseElementSchema` in `@dripl/common/schemas.ts`
+2. **Canvas store:** 
+   - Added `sortByFractionalIndex()` helper that sorts elements lexicographically by their fractional index
+   - Added `ensureFractionalIndexes()` for backward-compatible migration of existing elements
+   - All element insertion (`commitDraft`, `addElement`, `addElements`) generates a fractional index via `generateKeyBetween(lastIndex, null)`
+   - `setElements` (remote sync) ensures and sorts by fractional index
+3. **Reordering functions:** Rewrote `bringForward`, `sendBackward`, `bringToFront`, `sendToBack` to generate new fractional indexes between neighbors instead of array swapping
+4. **PropertiesPanel:** Layer buttons now call store reordering functions instead of setting numeric `zIndex` directly
+5. **zIndexUtils.ts:** Rewrote all utility functions to sort by `fractionalIndex` instead of numeric `zIndex`
+6. **ws-server:** `elementsToArray()` sorts by fractional index before serialization, ensuring consistent order across all clients
+7. **Import sorting:** `canvasUtils.ts` import logic sorts by `fractionalIndex` with y-position fallback
+
+### Key Design Decisions
+
+- **Lexicographic sorting:** `fractional-indexing` generates BASE_62 strings that sort lexicographically. Keys like `"a0"`, `"a0V"`, `"a1"` sort in that order.
+- **Infinite insertability:** `generateKeyBetween(a, b)` always produces a key between `a` and `b`, no matter how many times it's called. No re-indexing needed.
+- **Backward compatibility:** `ensureFractionalIndexes()` assigns indexes to elements that lack them (legacy data). Elements without `fractionalIndex` sort first.
+- **Kept `zIndex` field:** The numeric `zIndex` property remains on `ElementBase` for backward compatibility but is no longer used for ordering.
+
+### Impact
+
+- **Excalidraw parity:** Fractional z-ordering now matches Excalidraw's approach
+- **Collaboration safety:** Two users reordering simultaneously produce deterministic, mergeable results via lexicographic key comparison
+- **No re-indexing:** Inserting between any two elements never requires updating other elements' indexes
+- **17 tests** covering sorting, reordering, key generation, and edge cases
+
+### Files Modified
+
+- `packages/common/src/types/element.ts` — Added `fractionalIndex?: string` to `ElementBase`
+- `packages/common/src/schemas.ts` — Added `fractionalIndex: z.string().optional()` to `BaseElementSchema`
+- `apps/dripl-app/lib/canvas-store.ts` — Sorting, index generation, rewritten reordering
+- `apps/dripl-app/utils/zIndexUtils.ts` — Rewrote to use fractional indexes
+- `apps/dripl-app/utils/canvasUtils.ts` — Import sorting uses fractional index
+- `apps/dripl-app/components/canvas/PropertiesPanel.tsx` — Layer buttons use store reordering
+- `apps/ws-server/src/rooms.ts` — `elementsToArray()` sorts by fractional index
+- `packages/test-utils/src/elements.ts` — Added `fractionalIndex` to factory options
+- `apps/dripl-app/src/__tests__/fractional-index.test.ts` — New test file (17 tests)
