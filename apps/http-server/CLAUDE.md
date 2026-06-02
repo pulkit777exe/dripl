@@ -51,6 +51,10 @@ apps/http-server/
 │   │   ├── folders.ts        # CRUD /api/folders
 │   │   ├── share.ts          # POST/GET /api/share
 │   │   └── roomRoutes.ts     # CRUD /api/rooms
+│   ├── services/
+│   │   ├── authService.ts    # Auth business logic (register, login, OAuth, password)
+│   │   ├── fileService.ts    # File business logic (CRUD, shares, folder ownership)
+│   │   └── shareService.ts   # Share resolution logic
 │   ├── controllers/
 │   │   └── roomController.ts # Room business logic
 │   └── lib/
@@ -180,6 +184,23 @@ if (!parsed.success) {
   return res.status(400).json({ error: parsed.error.flatten() });
 }
 ```
+
+---
+
+## Service Layer
+
+Business logic is extracted into service classes in `src/services/`. Route handlers are thin HTTP adapters that:
+1. Validate request input (Zod schemas)
+2. Delegate to service methods
+3. Map service results to HTTP responses
+
+| Service | Responsibilities |
+|---|---|
+| `AuthService` | Registration, login, Google OAuth, email verification, password reset/change, profile updates |
+| `FileService` | File CRUD, folder ownership checks, share creation/revocation, plan limits |
+| `ShareService` | Share token resolution, expiry checks |
+
+Services are static classes that import `db` from `@dripl/db` directly. They return typed result objects (discriminated unions) that routes map to HTTP status codes.
 
 ---
 
