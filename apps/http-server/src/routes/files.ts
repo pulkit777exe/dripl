@@ -1,13 +1,8 @@
 import { randomBytes, createHash } from 'crypto';
 import { Router } from 'express';
 import { z } from 'zod';
-import { db } from '@dripl/db';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware';
-import {
-  buildEncryptedShare,
-  parseStoredFileContent,
-  serializeStoredFileContent,
-} from '../lib/encrypt';
+import { FileService } from '../services/fileService';
 
 const listFilesQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
@@ -43,16 +38,8 @@ const createShareSchema = z.object({
 });
 
 const filesRouter: Router = Router();
-const FREE_PLAN_FILE_LIMIT = 3;
 
-function getSingleParam(value: string | string[] | undefined): string | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-  return typeof value === 'string' ? value : null;
-}
-
-function nanoidLike(size = 21): string {
+export function nanoidLike(size = 21): string {
   const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz-';
   const bytes = randomBytes(size);
   let token = '';
@@ -60,18 +47,6 @@ function nanoidLike(size = 21): string {
     token += alphabet[bytes[i]! & 63]!;
   }
   return token;
-}
-
-async function ensureFolderOwnership(
-  userId: string,
-  folderId: string | null | undefined
-): Promise<boolean> {
-  if (!folderId) return true;
-  const folder = await db.folder.findFirst({
-    where: { id: folderId, userId },
-    select: { id: true },
-  });
-  return Boolean(folder);
 }
 
 filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
@@ -90,65 +65,18 @@ filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
   }
 
   const { search, folderId, page, limit, cursor } = parsedQuery.data;
-  const isCursorBased = typeof cursor === 'string' && cursor.length > 0;
-  const skip = isCursorBased ? 0 : (page - 1) * limit;
 
   try {
-    const where = {
+    const result = await FileService.listFiles({
       userId: req.userId,
-      ...(typeof folderId === 'string' ? { folderId } : {}),
-      ...(typeof search === 'string'
-        ? {
-            name: {
-              contains: search,
-              mode: 'insensitive' as const,
-            },
-          }
-        : {}),
-      ...(isCursorBased
-        ? { updatedAt: { lt: new Date(cursor) } }
-        : {}),
-    };
-
-    const [files, total] = await Promise.all([
-      db.file.findMany({
-        where,
-        orderBy: {
-          updatedAt: 'desc',
-        },
-        skip: isCursorBased ? 0 : skip,
-        take: limit,
-        select: {
-          id: true,
-          name: true,
-          preview: true,
-          folderId: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      }),
-      db.file.count({
-        where: {
-          userId: req.userId,
-          ...(typeof folderId === 'string' ? { folderId } : {}),
-          ...(typeof search === 'string'
-            ? {
-                name: {
-                  contains: search,
-                  mode: 'insensitive' as const,
-                },
-              }
-            : {}),
-        },
-      }),
-    ]);
-
-    const nextCursor = files.length === limit
-      ? files[files.length - 1]?.updatedAt?.toISOString() ?? null
-      : null;
+      search,
+      folderId,
+      limit,
+      cursor,
+    });
 
     const responseHash = createHash('md5')
-      .update(JSON.stringify({ files, total: isCursorBased ? undefined : total }))
+      .update(JSON.stringify({ files: result.files, total: result.isCursorBased ? undefined : result.total }))
       .digest('hex');
     const etag = `"${responseHash}"`;
 
@@ -160,11 +88,11 @@ filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
     res.set('Cache-Control', 'private, max-age=0, must-revalidate');
     res.set('ETag', etag);
     res.json({
-      files,
-      total: isCursorBased ? undefined : total,
-      page: isCursorBased ? undefined : page,
+      files: result.files,
+      total: result.isCursorBased ? undefined : result.total,
+      page: result.isCursorBased ? undefined : page,
       limit,
-      nextCursor,
+      nextCursor: result.nextCursor,
     });
   } catch (error) {
     console.error(
@@ -196,42 +124,21 @@ filesRouter.post('/', async (req: AuthenticatedRequest, res) => {
   const payload = parsedBody.data;
 
   try {
-    const ownedFileCount = await db.file.count({
-      where: { userId: req.userId },
+    const result = await FileService.createFile({
+      userId: req.userId,
+      name: payload.name,
+      folderId: payload.folderId,
+      content: payload.content,
+      preview: payload.preview,
     });
-    if (ownedFileCount >= FREE_PLAN_FILE_LIMIT) {
-      res.status(403).json({
-        error: `Free plan limit reached (${FREE_PLAN_FILE_LIMIT} canvases). Delete one or upgrade to Premium.`,
-      });
+
+    if (result && 'error' in result) {
+      const errorMsg = result.error as string;
+      res.status(errorMsg.includes('limit') ? 403 : 404).json({ error: errorMsg });
       return;
     }
 
-    const folderId = payload.folderId ?? null;
-    const hasFolderAccess = await ensureFolderOwnership(req.userId, folderId);
-    if (!hasFolderAccess) {
-      res.status(404).json({ error: 'Folder not found' });
-      return;
-    }
-
-    const contentRecord = parseStoredFileContent(
-      JSON.stringify(payload.content !== undefined ? payload.content : [])
-    );
-
-    const file = await db.file.create({
-      data: {
-        name: payload.name ?? 'Untitled file',
-        userId: req.userId,
-        folderId,
-        preview: payload.preview ?? null,
-        content: serializeStoredFileContent(contentRecord),
-      },
-      select: {
-        id: true,
-        name: true,
-      },
-    });
-
-    res.status(201).json(file);
+    res.status(201).json(result.file);
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -250,39 +157,21 @@ filesRouter.get('/:id', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  const id = getSingleParam(req.params.id);
+  const id = typeof req.params.id === 'string' ? req.params.id : null;
   if (!id) {
     res.status(400).json({ error: 'File id is required' });
     return;
   }
 
   try {
-    const file = await db.file.findFirst({
-      where: { id, userId: req.userId },
-    });
+    const file = await FileService.getFile(req.userId, id);
 
     if (!file) {
       res.status(404).json({ error: 'File not found' });
       return;
     }
 
-    const parsedContent = parseStoredFileContent(file.content);
-
-    res.json({
-      file: {
-        id: file.id,
-        name: file.name,
-        preview: file.preview,
-        folderId: file.folderId,
-        content: parsedContent.elements,
-        encryptedPayload: parsedContent.encryptedPayload,
-        shareToken: file.shareToken,
-        sharePermission: file.sharePermission,
-        shareExpiresAt: file.shareExpiresAt,
-        createdAt: file.createdAt,
-        updatedAt: file.updatedAt,
-      },
-    });
+    res.json({ file });
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -301,7 +190,7 @@ filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  const id = getSingleParam(req.params.id);
+  const id = typeof req.params.id === 'string' ? req.params.id : null;
   if (!id) {
     res.status(400).json({ error: 'File id is required' });
     return;
@@ -319,53 +208,26 @@ filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
   const payload = parsedBody.data;
 
   try {
-    const existing = await db.file.findFirst({
-      where: { id, userId: req.userId },
+    const result = await FileService.updateFile({
+      userId: req.userId,
+      fileId: id,
+      name: payload.name,
+      content: payload.content,
+      preview: payload.preview,
+      folderId: payload.folderId,
     });
 
-    if (!existing) {
+    if (!result) {
       res.status(404).json({ error: 'File not found' });
       return;
     }
 
-    const folderId = payload.folderId ?? existing.folderId;
-    const hasFolderAccess = await ensureFolderOwnership(req.userId, folderId);
-    if (!hasFolderAccess) {
-      res.status(404).json({ error: 'Folder not found' });
+    if ('error' in result) {
+      res.status(404).json({ error: result.error });
       return;
     }
 
-    const existingContent = parseStoredFileContent(existing.content);
-    const nextContent =
-      payload.content !== undefined
-        ? parseStoredFileContent(JSON.stringify(payload.content))
-        : existingContent;
-
-    const updated = await db.file.update({
-      where: { id: existing.id },
-      data: {
-        name: payload.name,
-        preview: payload.preview,
-        folderId,
-        content:
-          payload.content !== undefined
-            ? serializeStoredFileContent({
-                elements: nextContent.elements,
-                encryptedPayload: null,
-                encryptedAt: null,
-              })
-            : undefined,
-      },
-      select: {
-        id: true,
-        name: true,
-        preview: true,
-        folderId: true,
-        updatedAt: true,
-      },
-    });
-
-    res.json({ file: updated });
+    res.json({ file: result.file });
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -384,26 +246,19 @@ filesRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  const id = getSingleParam(req.params.id);
+  const id = typeof req.params.id === 'string' ? req.params.id : null;
   if (!id) {
     res.status(400).json({ error: 'File id is required' });
     return;
   }
 
   try {
-    const file = await db.file.findFirst({
-      where: { id, userId: req.userId },
-      select: { id: true },
-    });
+    const deleted = await FileService.deleteFile(req.userId, id);
 
-    if (!file) {
+    if (!deleted) {
       res.status(404).json({ error: 'File not found' });
       return;
     }
-
-    await db.file.delete({
-      where: { id: file.id },
-    });
 
     res.status(204).send();
   } catch (error) {
@@ -424,7 +279,7 @@ filesRouter.post('/:id/share', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  const id = getSingleParam(req.params.id);
+  const id = typeof req.params.id === 'string' ? req.params.id : null;
   if (!id) {
     res.status(400).json({ error: 'File id is required' });
     return;
@@ -440,48 +295,24 @@ filesRouter.post('/:id/share', async (req: AuthenticatedRequest, res) => {
   }
 
   try {
-    const file = await db.file.findFirst({
-      where: { id, userId: req.userId },
+    const result = await FileService.createShare({
+      userId: req.userId,
+      fileId: id,
+      permission: parsedBody.data.permission,
+      expiresAt: parsedBody.data.expiresAt,
+      expiresInHours: parsedBody.data.expiresInHours,
     });
 
-    if (!file) {
+    if (!result) {
       res.status(404).json({ error: 'File not found' });
       return;
     }
 
-    const token = nanoidLike(24);
-    const baseUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
-    const baseShareUrl = `${baseUrl}/share/${token}`;
-    const parsedContent = parseStoredFileContent(file.content);
-    const { shareUrl, encryptedPayload } = await buildEncryptedShare(
-      baseShareUrl,
-      parsedContent.elements
-    );
-    const expiresAt =
-      parsedBody.data.expiresAt ??
-      (parsedBody.data.expiresInHours
-        ? new Date(Date.now() + parsedBody.data.expiresInHours * 60 * 60 * 1000)
-        : null);
-
-    await db.file.update({
-      where: { id: file.id },
-      data: {
-        shareToken: token,
-        sharePermission: parsedBody.data.permission,
-        shareExpiresAt: expiresAt,
-        content: serializeStoredFileContent({
-          elements: parsedContent.elements,
-          encryptedPayload,
-          encryptedAt: new Date().toISOString(),
-        }),
-      },
-    });
-
     res.status(201).json({
-      token,
-      permission: parsedBody.data.permission,
-      expiresAt,
-      shareUrl,
+      token: result.token,
+      permission: result.permission,
+      expiresAt: result.expiresAt,
+      shareUrl: result.shareUrl,
     });
   } catch (error) {
     console.error(
@@ -501,30 +332,19 @@ filesRouter.delete('/:id/share', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  const id = getSingleParam(req.params.id);
+  const id = typeof req.params.id === 'string' ? req.params.id : null;
   if (!id) {
     res.status(400).json({ error: 'File id is required' });
     return;
   }
 
   try {
-    const file = await db.file.findFirst({
-      where: { id, userId: req.userId },
-    });
+    const revoked = await FileService.revokeShare(req.userId, id);
 
-    if (!file) {
+    if (!revoked) {
       res.status(404).json({ error: 'File not found' });
       return;
     }
-
-    await db.file.update({
-      where: { id: file.id },
-      data: {
-        shareToken: null,
-        sharePermission: null,
-        shareExpiresAt: null,
-      },
-    });
 
     res.status(204).send();
   } catch (error) {
