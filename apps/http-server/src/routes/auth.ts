@@ -1,8 +1,5 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
 import { z } from 'zod';
-import { db } from '@dripl/db';
 import {
   authMiddleware,
   clearSessionCookie,
@@ -11,7 +8,7 @@ import {
   type AuthenticatedRequest,
 } from '../middlewares/authMiddleware';
 import { OAuth2Client } from 'google-auth-library';
-import { sendResetPasswordEmail, sendVerificationEmail } from '../lib/mailer';
+import { AuthService } from '../services/authService';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -39,90 +36,29 @@ authRouter.post('/register', async (req, res) => {
   }
 
   try {
-    const existing = await db.user.findUnique({
-      where: { email: parsed.data.email },
-      select: { id: true, emailVerified: true },
-    });
+    const result = await AuthService.register(
+      parsed.data.email,
+      parsed.data.password,
+      parsed.data.name
+    );
 
-    if (existing) {
-      if (existing.emailVerified) {
+    switch (result.type) {
+      case 'email_already_registered':
         res.status(409).json({ error: 'Email is already registered' });
-      } else {
-        // User exists but not verified - resend verification
-        const existingToken = await db.emailVerificationToken.findFirst({
-          where: { email: parsed.data.email },
+        break;
+      case 'pending_verification':
+        res.json({ message: result.message, pendingVerification: true });
+        break;
+      case 'verification_sent':
+        res.json({ message: result.message, pendingVerification: true });
+        break;
+      case 'registered':
+        res.status(201).json({
+          message: 'Registration successful. Please verify your email to login.',
+          pendingVerification: true,
         });
-
-        if (existingToken && existingToken.expiresAt > new Date()) {
-          // Token exists and valid, just inform user
-          res.json({
-            message: 'Verification email already sent. Please check your inbox.',
-            pendingVerification: true,
-          });
-        } else {
-          // Create new token
-          await db.emailVerificationToken.deleteMany({
-            where: { email: parsed.data.email },
-          });
-
-          const verifyToken = randomUUID();
-          const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24 hours
-
-          await db.emailVerificationToken.create({
-            data: {
-              token: verifyToken,
-              email: parsed.data.email,
-              expiresAt,
-            },
-          });
-
-          await sendVerificationEmail(parsed.data.email, verifyToken);
-          res.json({
-            message: 'Verification email sent. Please check your inbox.',
-            pendingVerification: true,
-          });
-        }
-      }
-      return;
+        break;
     }
-
-    const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
-
-    await db.user.create({
-      data: {
-        id: randomUUID(),
-        email: parsed.data.email,
-        name: parsed.data.name ?? null,
-        password: hashedPassword,
-        emailVerified: false,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        image: true,
-      },
-    });
-
-    // Create and send verification token
-    const verifyToken = randomUUID();
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24 hours
-
-    await db.emailVerificationToken.create({
-      data: {
-        token: verifyToken,
-        email: parsed.data.email,
-        expiresAt,
-      },
-    });
-
-    await sendVerificationEmail(parsed.data.email, verifyToken);
-
-    // Don't create session - require email verification first
-    res.status(201).json({
-      message: 'Registration successful. Please verify your email to login.',
-      pendingVerification: true,
-    });
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -146,41 +82,28 @@ authRouter.post('/login', async (req, res) => {
   }
 
   try {
-    const user = await db.user.findUnique({
-      where: { email: parsed.data.email },
-    });
+    const result = await AuthService.login(parsed.data.email, parsed.data.password);
 
-    if (!user) {
-      res.status(401).json({ error: 'Invalid email or password' });
-      return;
+    switch (result.type) {
+      case 'not_found':
+        res.status(401).json({ error: 'Invalid email or password' });
+        break;
+      case 'needs_verification':
+        res.status(401).json({
+          error: 'Please verify your email before logging in',
+          needsVerification: true,
+        });
+        break;
+      case 'invalid_password':
+        res.status(401).json({ error: 'Invalid email or password' });
+        break;
+      case 'success': {
+        const token = signSessionToken(result.user!.id);
+        setSessionCookie(res, token);
+        res.json({ user: result.user });
+        break;
+      }
     }
-
-    // Check if email is verified (except for Google OAuth users who have no password)
-    if (!user.emailVerified && user.password) {
-      res.status(401).json({
-        error: 'Please verify your email before logging in',
-        needsVerification: true,
-      });
-      return;
-    }
-
-    const isValid = user.password && (await bcrypt.compare(parsed.data.password, user.password));
-    if (!isValid) {
-      res.status(401).json({ error: 'Invalid email or password' });
-      return;
-    }
-
-    const token = signSessionToken(user.id);
-    setSessionCookie(res, token);
-
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-      },
-    });
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -205,15 +128,7 @@ authRouter.get('/me', authMiddleware, async (req: AuthenticatedRequest, res) => 
   }
 
   try {
-    const user = await db.user.findUnique({
-      where: { id: req.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        image: true,
-      },
-    });
+    const user = await AuthService.getUser(req.userId);
 
     if (!user) {
       res.status(404).json({ error: 'User not found' });
@@ -251,36 +166,16 @@ authRouter.post('/google', async (req, res) => {
       return;
     }
 
-    const email = payload.email;
-    const name = payload.name;
-    const image = payload.picture;
-
-    let user = await db.user.findUnique({
-      where: { email },
-    });
-
-    if (!user) {
-      user = await db.user.create({
-        data: {
-          id: randomUUID(),
-          email,
-          name: name ?? null,
-          image: image ?? null,
-        },
-      });
-    }
+    const user = await AuthService.googleAuth(
+      payload.email,
+      payload.name ?? null,
+      payload.picture ?? null
+    );
 
     const sessionToken = signSessionToken(user.id);
     setSessionCookie(res, sessionToken);
 
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-      },
-    });
+    res.json({ user });
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -301,26 +196,7 @@ authRouter.post('/forgot-password', async (req, res) => {
   }
 
   try {
-    const user = await db.user.findUnique({ where: { email } });
-    if (!user) {
-      // Return ok to not leak emails
-      res.json({ ok: true });
-      return;
-    }
-
-    const resetToken = randomUUID();
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
-
-    await db.passwordResetToken.create({
-      data: {
-        token: resetToken,
-        email,
-        expiresAt,
-      },
-    });
-
-    await sendResetPasswordEmail(email, resetToken);
-
+    await AuthService.forgotPassword(email);
     res.json({ ok: true });
   } catch (error) {
     console.error(
@@ -342,27 +218,11 @@ authRouter.post('/reset-password', async (req, res) => {
   }
 
   try {
-    const resetEntry = await db.passwordResetToken.findUnique({
-      where: { token },
-    });
-
-    if (!resetEntry || resetEntry.expiresAt < new Date()) {
+    const success = await AuthService.resetPassword(token, password);
+    if (!success) {
       res.status(400).json({ error: 'Invalid or expired reset token' });
       return;
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    await db.$transaction([
-      db.user.update({
-        where: { email: resetEntry.email },
-        data: { password: hashedPassword },
-      }),
-      db.passwordResetToken.delete({
-        where: { id: resetEntry.id },
-      }),
-    ]);
-
     res.json({ ok: true });
   } catch (error) {
     console.error(
@@ -384,24 +244,11 @@ authRouter.post('/verify-email', async (req, res) => {
   }
 
   try {
-    const verification = await db.emailVerificationToken.findUnique({
-      where: { token },
-    });
-
-    if (!verification || verification.expiresAt < new Date()) {
+    const success = await AuthService.verifyEmail(token);
+    if (!success) {
       res.status(400).json({ error: 'Invalid or expired verification token' });
       return;
     }
-
-    await db.user.update({
-      where: { email: verification.email },
-      data: { emailVerified: true },
-    });
-
-    await db.emailVerificationToken.delete({
-      where: { id: verification.id },
-    });
-
     res.json({ message: 'Email verified successfully. You can now log in.' });
   } catch (error) {
     console.error(
@@ -423,40 +270,11 @@ authRouter.post('/resend-verification', async (req, res) => {
   }
 
   try {
-    const user = await db.user.findUnique({
-      where: { email },
-      select: { id: true, emailVerified: true },
-    });
-
-    if (!user) {
-      // Don't leak if user exists
-      res.json({ ok: true });
-      return;
-    }
-
-    if (user.emailVerified) {
+    const result = await AuthService.resendVerification(email);
+    if (!result) {
       res.status(400).json({ error: 'Email is already verified' });
       return;
     }
-
-    // Delete any existing tokens
-    await db.emailVerificationToken.deleteMany({
-      where: { email },
-    });
-
-    const verifyToken = randomUUID();
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24 hours
-
-    await db.emailVerificationToken.create({
-      data: {
-        token: verifyToken,
-        email,
-        expiresAt,
-      },
-    });
-
-    await sendVerificationEmail(email, verifyToken);
-
     res.json({ ok: true });
   } catch (error) {
     console.error(
@@ -471,24 +289,16 @@ authRouter.post('/resend-verification', async (req, res) => {
 });
 
 authRouter.put('/profile', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  if (!req.userId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
   const { name, image } = req.body;
 
   try {
-    const updatedUser = await db.user.update({
-      where: { id: req.userId },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(image !== undefined && { image }),
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        image: true,
-      },
-    });
-
-    res.json({ user: updatedUser });
+    const user = await AuthService.updateProfile(req.userId, { name, image });
+    res.json({ user });
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -502,6 +312,11 @@ authRouter.put('/profile', authMiddleware, async (req: AuthenticatedRequest, res
 });
 
 authRouter.post('/change-password', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  if (!req.userId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
   const { currentPassword, newPassword } = req.body;
 
   if (!currentPassword || !newPassword) {
@@ -515,27 +330,11 @@ authRouter.post('/change-password', authMiddleware, async (req: AuthenticatedReq
   }
 
   try {
-    const user = await db.user.findUnique({
-      where: { id: req.userId },
-    });
-
-    if (!user || !user.password) {
+    const success = await AuthService.changePassword(req.userId, currentPassword, newPassword);
+    if (!success) {
       res.status(400).json({ error: 'Cannot change password for this account' });
       return;
     }
-
-    const isValid = await bcrypt.compare(currentPassword, user.password);
-    if (!isValid) {
-      res.status(401).json({ error: 'Current password is incorrect' });
-      return;
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await db.user.update({
-      where: { id: req.userId },
-      data: { password: hashedPassword },
-    });
-
     res.json({ ok: true });
   } catch (error) {
     console.error(
