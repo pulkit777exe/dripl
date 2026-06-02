@@ -212,7 +212,7 @@
 **Where:** `apps/http-server/src/routes/files.ts`, `auth.ts`
 **Effort:** 1 day
 **Depends on:** None
-**Status:** OPEN
+**Status:** PARTIAL — FileService extracted (list, create, get, update, delete, share, revoke). AuthService and ShareService still TODO.
 
 ### 26. Add Missing Database Indexes
 **What:** Add indexes: `ShareLink @@index([roomId])`, `ShareLink @@index([expiresAt])`, `PasswordResetToken @@index([email])`, `SharedFile @@index([userId])`.
