@@ -39,15 +39,18 @@ Runs on **port 3001** in development.
 ```
 apps/ws-server/
 ├── src/
-│   ├── index.ts           # Monolith entry point (737 lines) — all logic lives here
+│   ├── index.ts           # Entry point — WS server, message dispatch, lifecycle
+│   ├── types.ts           # Shared interfaces (RoomState, UserConnection, Cursor)
+│   ├── auth.ts            # JWT verification (resolveTokenFromUrl, resolveUserFromToken)
+│   ├── broadcast.ts       # send(), broadcast(), roomUsersPayload(), roomCursorsPayload()
+│   ├── rooms.ts           # Room state Map, element Map ops, DB load/save, scheduleSave
+│   ├── rateLimiter.ts     # Token-bucket rate limiting, cleanup interval
 │   └── validation.ts      # Zod schemas for all incoming messages
 ├── tests/
 │   └── validation.test.ts # Zod schema unit tests
 ├── tsconfig.json
 └── package.json
 ```
-
-> **Architecture Note:** The CLAUDE.md previously documented separate `rooms.ts`, `handlers.ts`, `broadcast.ts`, `rateLimiter.ts`, and `auth.ts` files. These do not exist yet — all logic is in `index.ts`. See TODOS #20 for the planned refactor.
 
 ---
 
@@ -83,34 +86,32 @@ All messages are JSON with a `type` field. The client sends; the server receives
 
 ### Client → Server
 
-| `type` | `subtype` | Payload | Description |
-|---|---|---|---|
-| `scene-update` | `update` | `{ elements: Element[] }` | Incremental element changes |
-| `cursor-move` | — | `{ x, y, roomId }` | Cursor position update |
-| `user-join` | — | `{ roomId, userId, displayName }` | Announce presence |
-| `user-leave` | — | `{ roomId, userId }` | Leave room |
+| `type` | Payload | Description |
+|---|---|---|
+| `join` / `join_room` | `{ roomId, displayName, color }` | Join a collaboration room |
+| `leave` / `leave_room` | — | Leave current room |
+| `scene-update` | `{ subtype, elements[] }` | Full element array replacement |
+| `scene-delta` | `{ added[], updated[], deleted[] }` | Differential element changes |
+| `add_element` | `{ element }` | Add a single element |
+| `update_element` | `{ element }` | Update a single element |
+| `delete_element` | `{ elementId }` | Delete a single element |
+| `element-update` | `{ element/elements[] }` | Batch or single element update |
+| `cursor-move` / `cursor_move` | `{ x, y, displayName, color }` | Cursor position update |
+| `ping` | — | Keepalive ping |
 
 ### Server → Client
 
-| `type` | `subtype` | Payload | Description |
-|---|---|---|---|
-| `scene-update` | `init` | `{ elements: Element[] }` | Full element state on join |
-| `scene-update` | `update` | `{ elements: Element[], userId }` | Broadcasted element delta |
-| `cursor-move` | — | `{ x, y, userId, displayName }` | Broadcasted cursor |
-| `user-join` | — | `{ userId, displayName, users: User[] }` | User joined room |
-| `user-leave` | — | `{ userId, users: User[] }` | User left room |
-| `error` | — | `{ code, message }` | Server-side error response |
-
-### Message Flow
-
-```
-Client A sends scene-update (subtype: update)
-  └─► ws-server validates payload (Zod)
-        └─► rate limiter check (token bucket per connection)
-              └─► update room element state in memory
-                    └─► broadcast to all clients in room (except sender)
-                          └─► Client B, C… receive scene-update (subtype: update)
-```
+| `type` | Payload | Description |
+|---|---|---|
+| `sync_room_state` | `{ roomId, elements[], users[], cursors[] }` | Full room state on join |
+| `room-state` | `{ roomId, elements[], users[], cursors[] }` | Full room state (legacy) |
+| `scene-update` | `{ subtype, elements[] }` | Broadcasted element array |
+| `scene-delta` | `{ added[], updated[], deleted[] }` | Broadcasted delta |
+| `user-join` | `{ userId, displayName, color }` | User joined room |
+| `user-leave` | `{ userId }` | User left room |
+| `cursor_move` | `{ userId, x, y, displayName, color }` | Broadcasted cursor |
+| `pong` | `{ timestamp }` | Keepalive response |
+| `error` | `{ message }` | Server-side error |
 
 ---
 
@@ -120,19 +121,33 @@ Each room is stored in a `Map<roomId, RoomState>`:
 
 ```typescript
 interface RoomState {
-  elements: Element[];         // Current canvas element snapshot
-  users: Map<userId, UserInfo>; // Connected users
+  roomId: string;
+  elements: Map<string, DriplElement>;  // O(1) element lookups by ID
+  users: Map<string, UserConnection>;    // Connected users by userId
+  cursors: Map<string, Cursor>;          // Cursor positions by userId
+  loadedFromDb: boolean;                 // Lazy DB load flag
+  saving: boolean;                       // Prevents overlapping saves
 }
 ```
 
+### Reverse Indexes
+
+Two reverse indexes avoid O(n) scans:
+
+- **`userToRoomMap: Map<userId, roomId>`** — fast room lookup for any userId (heartbeat, diagnostics)
+- **`wsToRoomMap: Map<WebSocket, roomId>`** — fast room lookup per WebSocket connection
+
+### Lifecycle
+
 When a new user joins:
-1. Server sends `scene-update` with `subtype: 'init'` containing `room.elements`
-2. Server broadcasts `user-join` to all existing room members
+1. Server loads elements from DB (lazy, once per room lifetime)
+2. Server sends `sync_room_state` + `room-state` with full element array
+3. Server broadcasts `user-join` to all existing room members
 
 When a user disconnects (clean or ungraceful):
-1. Stale user is removed from `room.users`
+1. Stale user is removed from `room.users` and reverse indexes updated
 2. `user-leave` is broadcast to remaining members
-3. Empty rooms are garbage-collected
+3. Empty rooms tracked via `roomLastEmptyAt` for TTL-based garbage collection
 
 ---
 
@@ -144,7 +159,7 @@ Authentication happens at the **WebSocket upgrade** phase (before the connection
 Client sends WS upgrade request with Authorization: Bearer <JWT>
   └─► auth.ts verifies JWT signature with JWT_SECRET
         └─► attaches userId to the socket context
-              └─► invalid token → upgrade rejected (401)
+              └─► invalid token → upgrade rejected (4001)
 ```
 
 No unauthenticated connections are allowed.
@@ -155,31 +170,46 @@ No unauthenticated connections are allowed.
 
 All incoming message payloads are validated with **Zod schemas** in `src/validation.ts` before any handler logic runs.
 
-```typescript
-// Example
-const SceneUpdateSchema = z.object({
-  type: z.literal('scene-update'),
-  subtype: z.enum(['init', 'update']),
-  elements: z.array(ElementSchema).max(10_000),
-  roomId: z.string().uuid(),
-});
-```
+**Element bounds are validated** — coordinates must be finite numbers within canvas bounds. Invalid messages are silently dropped.
 
-**Element bounds are validated** — coordinates must be finite numbers within canvas bounds. Invalid messages are silently dropped with an error response to the sender.
-
-**Max message size**: 1 MB (enforced by `ws` server `maxPayload` option). The application-level `MAX_ELEMENTS_PER_SCENE` limit is 5,000 elements.
+**Max message size**: 10 MB (enforced by `ws` server `maxPayload`). The application-level `MAX_ELEMENTS_PER_SCENE` limit is 5,000 elements.
 
 ---
 
 ## Rate Limiting
 
-Each WebSocket connection has a **simple counter** rate limiter:
+Each WebSocket connection has a **token-bucket** rate limiter:
 
 - Window: 1 second
 - Max: 30 messages per window
 - Exceeded connections are closed with code 4000
 
-The rate limit state is stored in a `Map<WebSocket, { count, resetAt }>`. Stale entries are cleaned up every 60 seconds.
+Stale rate limit entries are cleaned up every 60 seconds.
+
+---
+
+## Element Storage
+
+Elements are stored as a `Map<string, DriplElement>` for O(1) lookups:
+
+| Operation | Before (Array) | After (Map) |
+|---|---|---|
+| Add element | O(n) filter + push | O(1) set |
+| Update element | O(n) map | O(1) set |
+| Delete element | O(n) filter | O(1) delete |
+| Scene delta merge | O(n) array→Map→Array | O(k) set/delete loop |
+| Save to DB | Array spread | Array.from(map.values()) |
+
+When serialized for DB storage or client transmission, the Map is converted to an array via `Array.from(elements.values())`.
+
+---
+
+## Periodic Save
+
+Room state is persisted to DB via two mechanisms:
+
+1. **Debounced save** (`scheduleSave`): 2-second debounce after each element change. Uses recursive `setTimeout` with a `saving` flag to prevent overlapping writes.
+2. **Periodic save** (`periodicSave`): Every 15 seconds, saves all active rooms (rooms with users) and garbage-collects empty rooms after 5-minute TTL.
 
 ---
 
@@ -192,9 +222,17 @@ Loaded from the **root** `.env` via `dotenv -e ../../.env`.
 | `JWT_SECRET` | ✅ | Verify client JWTs on upgrade |
 | `WS_PORT` | ✅ | WebSocket server port (default `3001`) |
 | `FRONTEND_URL` | ✅ | CORS origin check for upgrade requests |
-| `DATABASE_URL` | Optional | Persist room state to DB (if enabled) |
+| `DATABASE_URL` | ✅ | Persist room state to DB |
+| `PERIODIC_SAVE_INTERVAL_MS` | Optional | Periodic save interval (default `15000`) |
 
 > `JWT_SECRET` **throws at startup** if missing.
+
+---
+
+## Health & Metrics
+
+- `GET /health` — uptime, version, service name
+- `GET /metrics` — active rooms, connections, total users, memory usage (MB)
 
 ---
 
@@ -204,31 +242,7 @@ Loaded from the **root** `.env` via `dotenv -e ../../.env`.
 pnpm test     # All tests (Vitest)
 ```
 
-Unit tests in `tests/validation.test.ts` cover every Zod schema with valid and invalid payloads. There are 42+ passing tests.
-
-**Pattern for adding validation tests:**
-
-```typescript
-import { describe, it, expect } from 'vitest';
-import { SceneUpdateSchema } from '../src/validation';
-
-describe('SceneUpdateSchema', () => {
-  it('accepts valid update', () => {
-    const result = SceneUpdateSchema.safeParse({
-      type: 'scene-update',
-      subtype: 'update',
-      elements: [],
-      roomId: '123e4567-e89b-12d3-a456-426614174000',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects missing subtype', () => {
-    const result = SceneUpdateSchema.safeParse({ type: 'scene-update' });
-    expect(result.success).toBe(false);
-  });
-});
-```
+Unit tests in `tests/validation.test.ts` cover every Zod schema with valid and invalid payloads.
 
 ---
 
@@ -239,17 +253,15 @@ describe('SceneUpdateSchema', () => {
 3. Write Vitest tests for the new schema in `tests/validation.test.ts`
 4. Update the message protocol table in this file
 
-> **Note:** All handler logic currently lives in `src/index.ts`. When the planned module refactor (TODOS #20) is complete, handler functions will move to `src/handlers.ts`.
-
 ---
 
 ## Common Gotchas
 
 - **ESM only** — `"type": "module"`. Never use `require()`.
-- **No `tsx watch`** — the dev server does not auto-reload. Restart it manually after code changes or add `watch` to the dev script.
-- **Stale user cleanup** — ungraceful disconnects (network drop) are handled via the `ws` `close` event. The dedup logic runs once; do not add a second cleanup call.
-- **Room memory** — rooms live entirely in process memory. Restarting the server clears all rooms. If persistent room state is needed, it must be saved to DB via `@dripl/db`.
-- **No Redis pub/sub** — currently single-process only. For horizontal scaling, add Redis pub/sub (see TODOS #9).
-- **Coordinate validation** — element `x`, `y`, `width`, `height` must all be finite and within the defined canvas bounds. The Zod schemas enforce this; do not skip validation.
-- **Type mismatch guard** — `currentRoomId` and `currentUserId` stored on the socket are strings. Compare with strict equality (`===`), never loose (`==`).
-- **Monolith structure** — all logic is in `index.ts` (737 lines). When adding new features, keep related code together and add comments marking logical sections.
+- **No `tsx watch`** — the dev server does not auto-reload. Restart it manually.
+- **Stale user cleanup** — ungraceful disconnects handled via `ws` `close` event. Heartbeat terminates unresponsive clients every 30s.
+- **Room memory** — rooms live in process memory. Restarting clears all rooms.
+- **No Redis pub/sub** — currently single-process only. See TODOS #9.
+- **Coordinate validation** — element coords must be finite and within canvas bounds. Zod enforces this.
+- **Map-based elements** — `room.elements` is a `Map<string, DriplElement>`. Always use `.set()` / `.get()` / `.delete()` instead of array operations. Convert to array for serialization.
+- **Reverse indexes** — `userToRoomMap` and `wsToRoomMap` must be kept in sync on join/leave/heartbeat-cleanup.
