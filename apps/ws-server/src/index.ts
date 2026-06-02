@@ -20,6 +20,7 @@ import {
   rooms,
   saveTimeouts,
   roomLastEmptyAt,
+  userToRoomMap,
   MAX_ELEMENTS_PER_SCENE,
   MAX_EMPTY_ROOM_TTL_MS,
   getOrCreateRoom,
@@ -108,7 +109,7 @@ const wss = new WebSocketServer({
   },
 });
 
-const userRoomMap = new Map<WebSocket, string>();
+const wsToRoomMap = new Map<WebSocket, string>();
 
 wss.on('connection', (ws, req) => {
   const authUserId = resolveUserFromToken(resolveTokenFromUrl(req.url, req.headers.host));
@@ -172,7 +173,8 @@ wss.on('connection', (ws, req) => {
 
         currentRoomId = roomId;
         currentUserId = userId;
-        userRoomMap.set(ws, roomId);
+        wsToRoomMap.set(ws, roomId);
+        userToRoomMap.set(userId, roomId);
 
         const connection: UserConnection = {
           userId,
@@ -187,7 +189,7 @@ wss.on('connection', (ws, req) => {
         send(ws, {
           type: 'sync_room_state',
           roomId,
-          elements: room.elements,
+          elements: Array.from(room.elements.values()),
           users: roomUsersPayload(room),
           cursors: roomCursorsPayload(room),
           yourUserId: userId,
@@ -197,7 +199,7 @@ wss.on('connection', (ws, req) => {
         send(ws, {
           type: 'room-state',
           roomId,
-          elements: room.elements,
+          elements: Array.from(room.elements.values()),
           users: roomUsersPayload(room),
           cursors: roomCursorsPayload(room),
           yourUserId: userId,
@@ -224,7 +226,8 @@ wss.on('connection', (ws, req) => {
 
         room.users.delete(currentUserId);
         room.cursors.delete(currentUserId);
-        userRoomMap.delete(ws);
+        wsToRoomMap.delete(ws);
+        userToRoomMap.delete(currentUserId);
 
         broadcast(room, {
           type: 'user-leave',
@@ -247,8 +250,7 @@ wss.on('connection', (ws, req) => {
         const room = rooms.get(currentRoomId);
         if (!room) break;
         const element = toDriplElement(message.element);
-        room.elements = room.elements.filter(el => el.id !== element.id);
-        room.elements.push(element);
+        room.elements.set(element.id, element);
         broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId);
         break;
@@ -259,7 +261,7 @@ wss.on('connection', (ws, req) => {
         const room = rooms.get(currentRoomId);
         if (!room) break;
         const element = toDriplElement(message.element);
-        room.elements = room.elements.map(e => (e.id === element.id ? element : e));
+        room.elements.set(element.id, element);
         broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId);
         break;
@@ -269,7 +271,7 @@ wss.on('connection', (ws, req) => {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
-        room.elements = room.elements.filter(element => element.id !== message.elementId);
+        room.elements.delete(message.elementId);
         broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId);
         break;
@@ -285,21 +287,19 @@ wss.on('connection', (ws, req) => {
           break;
         }
 
-        const merged = new Map(room.elements.map(element => [element.id, element]));
         for (const rawEl of message.elements) {
           try {
             const element = toDriplElement(rawEl);
-            merged.set(element.id, element);
+            room.elements.set(element.id, element);
           } catch {
             // Skip invalid elements
           }
         }
-        room.elements = Array.from(merged.values());
 
         broadcast(room, {
           type: 'scene-update',
           subtype: message.subtype,
-          elements: room.elements,
+          elements: Array.from(room.elements.values()),
         }, currentUserId ?? undefined);
         scheduleSave(currentRoomId);
         break;
@@ -310,13 +310,11 @@ wss.on('connection', (ws, req) => {
         const room = rooms.get(currentRoomId);
         if (!room) break;
 
-        const elementMap = new Map(room.elements.map(el => [el.id, el]));
-
         if (message.added && Array.isArray(message.added)) {
           for (const rawEl of message.added) {
             try {
               const element = toDriplElement(rawEl);
-              elementMap.set(element.id, element);
+              room.elements.set(element.id, element);
             } catch {
               // Skip invalid elements
             }
@@ -327,7 +325,7 @@ wss.on('connection', (ws, req) => {
           for (const rawEl of message.updated) {
             try {
               const element = toDriplElement(rawEl);
-              elementMap.set(element.id, element);
+              room.elements.set(element.id, element);
             } catch {
               // Skip invalid elements
             }
@@ -336,11 +334,9 @@ wss.on('connection', (ws, req) => {
 
         if (message.deleted && Array.isArray(message.deleted)) {
           for (const id of message.deleted) {
-            elementMap.delete(id);
+            room.elements.delete(id);
           }
         }
-
-        room.elements = Array.from(elementMap.values());
 
         broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId);
@@ -353,18 +349,15 @@ wss.on('connection', (ws, req) => {
         if (!room) break;
 
         if (Array.isArray(message.elements)) {
-          const merged = new Map(room.elements.map(element => [element.id, element]));
           for (const rawEl of message.elements) {
             const element = toDriplElement(rawEl);
-            merged.set(element.id, element);
+            room.elements.set(element.id, element);
           }
-          room.elements = Array.from(merged.values());
         } else {
           const rawElement = message.element;
           if (!rawElement) break;
           const element = toDriplElement(rawElement);
-          room.elements = room.elements.filter(candidate => candidate.id !== element.id);
-          room.elements.push(element);
+          room.elements.set(element.id, element);
         }
 
         broadcast(room, message, currentUserId ?? undefined);
@@ -409,7 +402,8 @@ wss.on('connection', (ws, req) => {
 
     room.users.delete(currentUserId);
     room.cursors.delete(currentUserId);
-    userRoomMap.delete(ws);
+    wsToRoomMap.delete(ws);
+    userToRoomMap.delete(currentUserId);
 
     broadcast(room, {
       type: 'user-leave',
@@ -429,7 +423,7 @@ const heartbeat = setInterval(() => {
     const user = (ws as WebSocket & { __user?: UserConnection }).__user;
     if (!user) return;
     if (!user.isAlive) {
-      const roomId = userRoomMap.get(ws);
+      const roomId = wsToRoomMap.get(ws);
       if (roomId) {
         const room = rooms.get(roomId);
         if (room) {
@@ -440,7 +434,8 @@ const heartbeat = setInterval(() => {
           }
         }
       }
-      userRoomMap.delete(ws);
+      wsToRoomMap.delete(ws);
+      userToRoomMap.delete(user.userId);
       ws.terminate();
       return;
     }
@@ -475,7 +470,7 @@ const periodicSave = setInterval(async () => {
         continue;
       }
       if (now - emptySince > MAX_EMPTY_ROOM_TTL_MS) {
-        if (!room.saving && room.elements.length > 0) {
+        if (!room.saving && room.elements.size > 0) {
           room.saving = true;
           savePromises.push(
             saveRoomElements(roomId, room.elements).then(success => {

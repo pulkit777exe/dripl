@@ -5,6 +5,7 @@ import type { RoomState } from './types';
 export const rooms = new Map<string, RoomState>();
 export const saveTimeouts = new Map<string, NodeJS.Timeout>();
 export const roomLastEmptyAt = new Map<string, number>();
+export const userToRoomMap = new Map<string, string>();
 
 export const MAX_ELEMENTS_PER_SCENE = 5000;
 export const MAX_EMPTY_ROOM_TTL_MS = 5 * 60 * 1000;
@@ -15,7 +16,7 @@ export function getOrCreateRoom(roomId: string): RoomState {
   if (!room) {
     room = {
       roomId,
-      elements: [],
+      elements: new Map(),
       users: new Map(),
       cursors: new Map(),
       loadedFromDb: false,
@@ -43,17 +44,29 @@ export function parseStoredElements(raw: string | null | undefined): DriplElemen
   return [];
 }
 
-export function serializeElements(elements: DriplElement[]): string {
-  return JSON.stringify({ elements });
+export function elementsToMap(elements: DriplElement[]): Map<string, DriplElement> {
+  const map = new Map<string, DriplElement>();
+  for (const el of elements) {
+    map.set(el.id, el);
+  }
+  return map;
 }
 
-export async function loadRoomElements(roomId: string): Promise<DriplElement[]> {
+export function elementsToArray(elements: Map<string, DriplElement>): DriplElement[] {
+  return Array.from(elements.values());
+}
+
+export function serializeElements(elements: Map<string, DriplElement>): string {
+  return JSON.stringify({ elements: elementsToArray(elements) });
+}
+
+export async function loadRoomElements(roomId: string): Promise<Map<string, DriplElement>> {
   const file = await db.file.findUnique({
     where: { id: roomId },
     select: { content: true },
   });
   if (file) {
-    return parseStoredElements(file.content);
+    return elementsToMap(parseStoredElements(file.content));
   }
 
   const canvasRoom = await db.canvasRoom.findUnique({
@@ -61,19 +74,20 @@ export async function loadRoomElements(roomId: string): Promise<DriplElement[]> 
     select: { content: true },
   });
   if (canvasRoom) {
-    return parseStoredElements(canvasRoom.content);
+    return elementsToMap(parseStoredElements(canvasRoom.content));
   }
 
-  return [];
+  return new Map();
 }
 
-export async function saveRoomElements(roomId: string, elements: DriplElement[]): Promise<boolean> {
+export async function saveRoomElements(roomId: string, elements: Map<string, DriplElement>): Promise<boolean> {
   const startTime = Date.now();
+  const serialized = serializeElements(elements);
   try {
     const fileUpdate = await db.file.updateMany({
       where: { id: roomId },
       data: {
-        content: serializeElements(elements),
+        content: serialized,
         updatedAt: new Date(),
       },
     });
@@ -94,7 +108,7 @@ export async function saveRoomElements(roomId: string, elements: DriplElement[])
     const canvasUpdate = await db.canvasRoom.updateMany({
       where: { slug: roomId },
       data: {
-        content: serializeElements(elements),
+        content: serialized,
         updatedAt: new Date(),
       },
     });

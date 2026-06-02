@@ -144,7 +144,7 @@
 **Where:** `apps/ws-server/src/index.ts:468-490,630-637`
 **Effort:** 4 hrs
 **Depends on:** None
-**Status:** OPEN — elements still array, no reverse index
+**Status:** DONE — elements is Map<string, DriplElement>, added userToRoomMap (userId→roomId) and wsToRoomMap (ws→roomId)
 
 ---
 

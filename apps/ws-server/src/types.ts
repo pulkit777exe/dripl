@@ -15,7 +15,7 @@ export interface Cursor {
 
 export interface RoomState {
   roomId: string;
-  elements: DriplElement[];
+  elements: Map<string, DriplElement>;
   users: Map<string, UserConnection>;
   cursors: Map<string, Cursor>;
   loadedFromDb: boolean;
