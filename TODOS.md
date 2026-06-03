@@ -1,6 +1,33 @@
 # Dripl — Engineering Roadmap
 
-> Comprehensive roadmap generated from code quality, security, scalability, and architecture audits. Items are prioritized by impact and effort. Last updated: 2026-06-01.
+> Comprehensive roadmap generated from code quality, security, scalability, and architecture audits. Items are prioritized by impact and effort. Last updated: 2026-06-03.
+
+---
+
+## Progress Summary
+
+| Tier | Total | Done | Open | % Complete |
+|------|-------|------|------|------------|
+| P0 — Critical | 8 | 8 | 0 | 100% |
+| P1 — Performance | 9 | 7 | 2 | 78% |
+| P2 — Code Quality | 9 | 6 | 3 | 67% |
+| P3 — Polish & DX | 10 | 8 | 2 | 80% |
+| Pre-existing | 8 | 5 | 3 | 63% |
+| **Total** | **44** | **34** | **10** | **77%** |
+
+### Remaining Open Items (10)
+
+| # | Item | Tier | Effort | Blocker |
+|---|------|------|--------|---------|
+| 9 | Redis Pub/Sub for WS Horizontal Scaling | P1 | 2-3 days | Infrastructure decision |
+| 13 | Web Workers for Heavy Computations | P1 | 2 days | None |
+| 15 | Image Blob Storage | P1 | 3 days | Architecture decision |
+| 18 | Remove Barrel Files | P2 | 3 hrs | High risk (all 7 packages) |
+| 21 | ESLint Config Unification | P2 | 2 hrs | ESLint 10 incompatible with plugins |
+| 31 | E2E Tests (Playwright) | P3 | 3 days | None |
+| P5 | TypeScript Version Mismatch | P5 | 1 hr | None |
+| P7 | Canvas.tsx God Component | P7 | 2+ days | None |
+| P9 | Tunnel System Over-engineering | P9 | 1 day | None |
 
 ---
 
@@ -204,7 +231,7 @@
 **Where:** Multiple files
 **Effort:** 1 day
 **Depends on:** Decision on which system to keep
-**Status:** OPEN (pre-existing P8)
+**Status:** DONE — removed dead code from common (delta.ts, actions.ts), dripl-app (canvasHistory.ts, useHistory.ts), dripl package (history.ts, useHistory.ts); kept canvas-store.ts inline past/future
 
 ### 25. Service Layer for http-server
 **What:** Extract business logic into service classes (FileService, AuthService, RoomService).
@@ -370,7 +397,12 @@
 | 6 | Add Zod Validation to Unprotected Routes | ✅ DONE |
 | 7 | Implement Diff-based Element Broadcasting | ✅ DONE |
 | 8 | Validate AI Response Elements Against Schema | ✅ DONE |
+| 19 | Unify Dependency Versions | ✅ DONE |
+| 20 | Refactor ws-server into Modules | ✅ DONE |
+| 22 | Fix @dripl/dripl Package Dependencies | ✅ DONE |
 | 23 | Implement Fractional Index for Z-Ordering | ✅ DONE |
+| 24 | Single History System | ✅ DONE |
+| 25 | Service Layer for http-server | ✅ DONE |
 
 ---
 
@@ -386,11 +418,11 @@ Root declares `packageManager: "pnpm@10.33.0"` but `bun.lock` file exists. CLAUD
 
 ### P5. TypeScript Version Mismatch
 Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some packages: `latest`.
-**Status:** OPEN
+**Status:** OPEN — needs alignment across all packages
 
 ### P6. ESLint Disables Important Rules
 `apps/dripl-app/eslint.config.mjs` disables `react-hooks/exhaustive-deps`, `react-hooks/refs`, `@typescript-eslint/no-explicit-any`, `@typescript-eslint/no-unused-vars`.
-**Status:** OPEN
+**Status:** BLOCKED — ESLint 10 + old plugin incompatibility (`eslint-plugin-react` fails). Can't fix until ESLint ecosystem upgrades.
 
 ### P7. Canvas.tsx God Component (1568 lines)
 `apps/dripl-app/components/canvas/Canvas.tsx` contains entire canvas application logic. Partial extractions exist but main component still has duplicated logic.
