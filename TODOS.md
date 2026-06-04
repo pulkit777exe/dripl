@@ -24,7 +24,7 @@
 | 18 | Remove Barrel Files | P2 | 3 hrs | High risk (all 7 packages) |
 | 21 | ESLint Config Unification | P2 | 2 hrs | ESLint 10 incompatible with plugins |
 | 31 | E2E Tests (Playwright) | P3 | 3 days | None |
-| P5 | TypeScript Version Mismatch | P5 | 1 hr | None |
+
 | P7 | Canvas.tsx God Component | P7 | 2+ days | None |
 | P9 | Tunnel System Over-engineering | P9 | 1 day | None |
 
@@ -418,7 +418,7 @@ Root declares `packageManager: "pnpm@10.33.0"` but `bun.lock` file exists. CLAUD
 
 ### P5. TypeScript Version Mismatch
 Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some packages: `latest`.
-**Status:** OPEN — needs alignment across all packages
+**Status:** DONE — Root TS aligned to `^5.9.3`, @prisma/client + prisma aligned to `^7.8.0`, Vitest aligned to `^4.1.5`. Also excluded test files from `@dripl/dripl` build (TS couldn't find `vitest` types). All 18/18 tasks pass.
 
 ### P6. ESLint Disables Important Rules
 `apps/dripl-app/eslint.config.mjs` disables `react-hooks/exhaustive-deps`, `react-hooks/refs`, `@typescript-eslint/no-explicit-any`, `@typescript-eslint/no-unused-vars`.
