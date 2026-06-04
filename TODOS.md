@@ -472,3 +472,39 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 | Lazy-loaded components | ✅ | ✅ React.lazy + Suspense | Match — Item 14 |
 | Cursor-based pagination | ✅ | ✅ Cursor + composite index | Match — Item 16 |
 | Production Docker | ✅ | ✅ Multi-stage, health checks, NODE_ENV | Match — Item 27 |
+
+---
+
+## Plan B — Next Session Priorities
+
+> Pick one item per category. Commit after each. Run `pnpm build` + `pnpm exec turbo run test` before committing.
+
+### Quick Wins (do first, < 2 hrs total)
+
+| Order | Item | Why First |
+|-------|------|-----------|
+| 1 | P7: Canvas.tsx God Component | Start by extracting `drawGrid` + `renderBackground` into a standalone `CanvasBackground.tsx`. Low risk, teaches the decomposition pattern for the rest. |
+| 2 | P9: Tunnel System Over-engineering | Replace `@dripl/dripl/src/tunnel/` with a simple React context. Check if tunnels are actually used in the app first. |
+
+### Medium Effort (pick one)
+
+| Order | Item | Notes |
+|-------|------|-------|
+| 3 | 18: Remove Barrel Files | Do ONE package first (`@dripl/math` — smallest, fewest consumers). Update its `package.json` exports. Run build. If it works, do the rest one by one. |
+| 4 | 31: E2E Tests (Playwright) | Start with one flow: register → login → create canvas → draw rectangle → export. Don't try to cover everything. |
+
+### Blocked / Infrastructure (need decisions)
+
+| Item | Blocker | What to Decide |
+|------|---------|----------------|
+| 9: Redis Pub/Sub | Infrastructure | Do we need multi-instance WS yet? If yes, add Redis. If no, skip. |
+| 15: Image Blob Storage | Architecture | IndexedDB (client-only, no server changes) vs S3 (server-side, more complex). IndexedDB is the faster path. |
+| 21: ESLint Unification | ESLint 10 | Wait for `eslint-plugin-react` to support ESLint 10. Don't fight it. |
+
+### Rules
+
+- **Commit style:** `feat(scope): description` or `refactor(scope): description`
+- **One logical change per commit** — don't bundle unrelated fixes
+- **Always run build + test** before committing
+- **Never touch `.env` files**
+- **Use `workspace:*` for internal deps**
