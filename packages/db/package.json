@@ -20,17 +20,17 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.0.1",
+    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
-    "dotenv": "^17.2.3",
-    "pg": "^8.16.3"
+    "dotenv": "^17.4.2",
+    "pg": "^8.21.0"
   },
   "devDependencies": {
     "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
-    "@types/node": "^25.5.2",
-    "@types/pg": "^8.11.0",
-    "eslint": "^9.39.1",
+    "@types/node": "^25.9.1",
+    "@types/pg": "^8.20.0",
+    "eslint": "^9.39.4",
     "prisma": "^7.8.0",
     "typescript": "^5.9.3"
   }

@@ -43,9 +43,9 @@
     "@dripl/test-utils": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
     "@eslint/js": "^10.0.1",
-    "eslint": "^9.39.1",
+    "eslint": "^9.39.4",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.58.2",
-    "vitest": "^4.0.14"
+    "typescript-eslint": "^8.60.1",
+    "vitest": "^4.1.8"
   }
 }

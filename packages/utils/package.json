@@ -20,13 +20,13 @@
     "@dripl/common": "workspace:*"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
-    "@types/node": "^22.0.0",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.19.19",
+    "eslint": "^9.39.4",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.58.2",
-    "eslint": "^9.39.1",
-    "vitest": "^4.0.14"
+    "typescript-eslint": "^8.60.1",
+    "vitest": "^4.1.8"
   }
 }
