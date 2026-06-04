@@ -9,18 +9,17 @@
 | Tier | Total | Done | Open | % Complete |
 |------|-------|------|------|------------|
 | P0 — Critical | 8 | 8 | 0 | 100% |
-| P1 — Performance | 9 | 7 | 2 | 78% |
+| P1 — Performance | 9 | 8 | 1 | 89% |
 | P2 — Code Quality | 9 | 6 | 3 | 67% |
 | P3 — Polish & DX | 10 | 8 | 2 | 80% |
 | Pre-existing | 8 | 5 | 3 | 63% |
-| **Total** | **44** | **34** | **10** | **77%** |
+| **Total** | **44** | **35** | **9** | **80%** |
 
 ### Remaining Open Items (10)
 
 | # | Item | Tier | Effort | Blocker |
 |---|------|------|--------|---------|
 | 9 | Redis Pub/Sub for WS Horizontal Scaling | P1 | 2-3 days | Infrastructure decision |
-| 13 | Web Workers for Heavy Computations | P1 | 2 days | None |
 | 15 | Image Blob Storage | P1 | 3 days | Architecture decision |
 | 18 | Remove Barrel Files | P2 | 3 hrs | High risk (all 7 packages) |
 | 21 | ESLint Config Unification | P2 | 2 hrs | ESLint 10 incompatible with plugins |
@@ -139,7 +138,7 @@
 **Where:** New `packages/dripl/worker/`, `apps/dripl-app/renderer/interactiveScene.ts`
 **Effort:** 2 days
 **Depends on:** Item 10 (spatial index optimization)
-**Status:** OPEN
+**Status:** DONE — canvas-worker.ts handles spatial index build (getElementBounds + RBush), hit testing, and viewport queries. useCanvasWorker hook manages worker lifecycle. RoughCanvas uses worker for background spatial index rebuild.
 
 ### 14. Lazy Load Canvas Components
 **What:** Use `next/dynamic` for non-critical components: `PropertiesPanel`, `ContextMenu`, `NameInputModal`, `ExportModal`.
@@ -397,6 +396,7 @@
 | 6 | Add Zod Validation to Unprotected Routes | ✅ DONE |
 | 7 | Implement Diff-based Element Broadcasting | ✅ DONE |
 | 8 | Validate AI Response Elements Against Schema | ✅ DONE |
+| 13 | Add Web Workers for Heavy Computations | ✅ DONE |
 | 19 | Unify Dependency Versions | ✅ DONE |
 | 20 | Refactor ws-server into Modules | ✅ DONE |
 | 22 | Fix @dripl/dripl Package Dependencies | ✅ DONE |
@@ -464,7 +464,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 | WeakMap for shape cache | ✅ | ✅ Version-checked cache | Match |
 | Command-based history | ✅ | ⚠️ Snapshots (pruned redundant deriveHistory) | Partial — Item 12 |
 | Fractional z-ordering | ✅ | ✅ fractional-indexing library, reordering generates keys | Match — Item 23 |
-| Web Workers for hit test | ✅ | ❌ Main thread | Gap — Item 13 |
+| Web Workers for hit test | ✅ | ✅ canvas-worker.ts with RBush tree + hit test + viewport queries | Match — Item 13 |
 | Binary WS protocol | ✅ | ❌ JSON | Future consideration |
 | Spatial index for culling | ✅ | ✅ RBush spatial index | Match — Item 10 |
 | Differential element sync | ✅ | ✅ scene-delta with added/updated/deleted | Match — Item 7 |

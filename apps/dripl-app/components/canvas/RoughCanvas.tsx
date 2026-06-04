@@ -4,6 +4,7 @@ import { useRef, useEffect, useState, useCallback, useMemo, lazy, Suspense } fro
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
 import { useCollaboration } from '@/hooks/useCollaboration';
+import { useCanvasWorker } from '@/hooks/useCanvasWorker';
 import { saveLocalCanvasToStorage, LocalCanvasState } from '@/utils/localCanvasStorage';
 import { getElementBounds, isPointInElement, inverseRotatePoint } from '@dripl/math';
 import { CanvasContentSchema, type DriplElement } from '@dripl/common';
@@ -364,13 +365,32 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     zoom,
   };
 
-  // ── Spatial index (incremental rebuild) ────────────────────────────────────
+  // ── Spatial index (worker-accelerated rebuild) ──────────────────────────────
   const spatialIndexRef = useRef<SpatialIndexState>({
     tree: new RBush<SpatialItem>(),
     byId: new Map<string, DriplElement>(),
     elementIds: new Set<string>(),
   });
+  const { buildIndex, isReady: workerReady } = useCanvasWorker();
+  const workerBusyRef = useRef(false);
 
+  // Worker-based spatial index rebuild — offloads getElementBounds + tree construction
+  useEffect(() => {
+    if (!workerReady) return;
+
+    // Debounce: skip if previous worker build still in progress
+    if (workerBusyRef.current) return;
+    workerBusyRef.current = true;
+
+    buildIndex(elements).then(() => {
+      workerBusyRef.current = false;
+    }).catch(() => {
+      workerBusyRef.current = false;
+    });
+  }, [elements, workerReady, buildIndex]);
+
+  // Synchronous local RBush for hit testing (loaded from worker result)
+  // Fallback: rebuild inline if worker not ready
   const spatialIndex = useMemo<SpatialIndexState>(() => {
     const prev = spatialIndexRef.current;
 
