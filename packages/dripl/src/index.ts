@@ -20,24 +20,6 @@ export { EditorLayout } from './layout/EditorLayout';
 
 export { cn } from './lib/utils';
 
-export {
-  TunnelProvider,
-  TunnelOutlet,
-  TunnelInlet,
-  useTunnel,
-  TUNNEL_NAMES,
-} from './tunnel/TunnelContext';
-export {
-  MenuInlet,
-  MenuOutlet,
-  ToolbarInlet,
-  ToolbarOutlet,
-  PropertiesInlet,
-  PropertiesOutlet,
-  StatusBarInlet,
-  StatusBarOutlet,
-} from './tunnel/index';
-
 export * from './theme/index';
 
 export * from './types/index';
