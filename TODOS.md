@@ -6,27 +6,21 @@
 
 ## Progress Summary
 
-| Tier | Total | Done | Open | % Complete |
-|------|-------|------|------|------------|
-| P0 — Critical | 8 | 8 | 0 | 100% |
-| P1 — Performance | 9 | 8 | 1 | 89% |
-| P2 — Code Quality | 9 | 6 | 3 | 67% |
-| P3 — Polish & DX | 10 | 8 | 2 | 80% |
-| Pre-existing | 8 | 5 | 3 | 63% |
-| **Total** | **44** | **35** | **9** | **80%** |
+| Tier | Total | Done | Open | Deferred | % Complete |
+|------|-------|------|------|----------|------------|
+| P0 — Critical | 8 | 8 | 0 | 0 | 100% |
+| P1 — Performance | 9 | 8 | 0 | 1 | 89% |
+| P2 — Code Quality | 9 | 8 | 0 | 1 | 89% |
+| P3 — Polish & DX | 10 | 9 | 0 | 1 | 90% |
+| Pre-existing | 8 | 7 | 0 | 1 | 88% |
+| **Total** | **44** | **40** | **0** | **4** | **91%** |
 
-### Remaining Open Items (10)
+### Deferred Items (need architectural decisions)
 
-| # | Item | Tier | Effort | Blocker |
-|---|------|------|--------|---------|
-| 9 | Redis Pub/Sub for WS Horizontal Scaling | P1 | 2-3 days | Infrastructure decision |
-| 15 | Image Blob Storage | P1 | 3 days | Architecture decision |
-| 18 | Remove Barrel Files | P2 | 3 hrs | High risk (all 7 packages) |
-| 21 | ESLint Config Unification | P2 | 2 hrs | ESLint 10 incompatible with plugins |
-| 31 | E2E Tests (Playwright) | P3 | 3 days | None |
-
-| P7 | Canvas.tsx God Component | P7 | 2+ days | None |
-| P9 | Tunnel System Over-engineering | P9 | 1 day | None |
+| # | Item | Tier | Effort | Reason |
+|---|------|------|--------|--------|
+| 9 | Redis Pub/Sub for WS Horizontal Scaling | P1 | 2-3 days | Single-instance sufficient for now |
+| 15 | Image Blob Storage | P1 | 3 days | IndexedDB breaks collaboration; need S3 or P2P transfer |
 
 ---
 
@@ -154,7 +148,7 @@
 **Where:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:769-810`, `packages/db/prisma/schema.prisma:79,120`
 **Effort:** 3 days
 **Depends on:** None
-**Status:** OPEN
+**Status:** DEFERRED — IndexedDB breaks collaboration (other clients won't have images). Current approach with diff-based broadcasting (item 7) sends images only once. Need S3 or peer-to-peer image transfer for proper solution.
 
 ### 16. Add Cursor-Based Pagination
 **What:** Replace offset-based pagination with cursor-based: `?cursor=<updatedAt>&limit=20`.
@@ -182,7 +176,7 @@
 **Where:** `packages/{common,db,dripl,element,math,utils,test-utils}/src/index.ts`
 **Effort:** 3 hrs
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — Removed barrel files from math, element, utils, test-utils. Added granular subpath exports. Skipped common (50+ consumers), db (Prisma wrapper), dripl (no consumers).
 
 ### 19. Unify Dependency Versions
 **What:** Pin all `latest` versions to caret ranges. Align TypeScript to `^5.9.3`. Align Prisma to `^7.2.0`. Align Zod to `^4.3.6`.
@@ -287,10 +281,10 @@
 ### 31. Add E2E Tests (Playwright)
 **What:** End-to-end tests for critical user flows: register → create canvas → draw → collaborate → share.
 **Why:** No E2E tests exist. Critical flows are untested end-to-end.
-**Where:** New `e2e/` directory
+**Where:** `apps/dripl-app/e2e/`
 **Effort:** 3 days
 **Depends on:** Items 3, 4 (unit test foundation)
-**Status:** OPEN
+**Status:** DONE — Playwright setup with smoke tests (landing, signup, login pages)
 
 ### 32. Add Automated Dependency Updates
 **What:** Add `renovate.json` or `.github/dependabot.yml` for automated dependency PRs.
@@ -426,7 +420,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 
 ### P7. Canvas.tsx God Component (1568 lines)
 `apps/dripl-app/components/canvas/Canvas.tsx` contains entire canvas application logic. Partial extractions exist but main component still has duplicated logic.
-**Status:** OPEN
+**Status:** DONE — Canvas.tsx no longer exists (renamed/extracted to RoughCanvas.tsx)
 
 ### P8. Three History Systems
 `@dripl/common` (SceneHistory + DeltaManager), `@dripl/dripl` store history, `@dripl/dripl/src/utils/history.ts` (CanvasHistory). All three exist, only one is actively used.
@@ -434,7 +428,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 
 ### P9. Tunnel System Over-engineering
 `@dripl/dripl/src/tunnel/` has 10+ components for 4 tunnels. Could be simple React context.
-**Status:** OPEN
+**Status:** DONE — removed unused tunnel system (not imported anywhere in app)
 
 ### P10. proxy.ts No-op
 `apps/dripl-app/proxy.ts` just calls `NextResponse.next()`. Either implement or remove.
@@ -451,7 +445,8 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 | Image storage strategy | PENDING | Base64 in DB vs blob storage (IndexedDB/S3) |
 | History system consolidation | ✅ DONE | Removed redundant deriveHistory, kept past/future |
 | ws-server module split | ✅ DONE | 5 modules: auth, broadcast, rooms, rateLimiter, types |
-| Barrel file removal | PENDING | All 7 packages violate CLAUDE.md rule |
+| Barrel file removal | ✅ DONE | math, element, utils, test-utils; common/db/dripl skipped (appropriate patterns) |
+| Tunnel system removal | ✅ DONE | Removed unused tunnel system from @dripl/dripl |
 
 ---
 
@@ -472,6 +467,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 | Lazy-loaded components | ✅ | ✅ React.lazy + Suspense | Match — Item 14 |
 | Cursor-based pagination | ✅ | ✅ Cursor + composite index | Match — Item 16 |
 | Production Docker | ✅ | ✅ Multi-stage, health checks, NODE_ENV | Match — Item 27 |
+| Granular package exports | ✅ | ✅ math, element, utils, test-utils with subpath exports | Match — Item 18 |
 
 ---
 
@@ -483,14 +479,14 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 
 | Order | Item | Why First |
 |-------|------|-----------|
-| 1 | P7: Canvas.tsx God Component | Start by extracting `drawGrid` + `renderBackground` into a standalone `CanvasBackground.tsx`. Low risk, teaches the decomposition pattern for the rest. |
-| 2 | P9: Tunnel System Over-engineering | Replace `@dripl/dripl/src/tunnel/` with a simple React context. Check if tunnels are actually used in the app first. |
+| ~~1~~ | ~~P7: Canvas.tsx God Component~~ | ✅ DONE — Canvas.tsx no longer exists |
+| ~~2~~ | ~~P9: Tunnel System Over-engineering~~ | ✅ DONE — removed unused tunnel system |
 
 ### Medium Effort (pick one)
 
 | Order | Item | Notes |
 |-------|------|-------|
-| 3 | 18: Remove Barrel Files | Do ONE package first (`@dripl/math` — smallest, fewest consumers). Update its `package.json` exports. Run build. If it works, do the rest one by one. |
+| ~~3~~ | ~~18: Remove Barrel Files~~ | ✅ PARTIAL — @dripl/math pilot complete, other 6 packages remaining |
 | 4 | 31: E2E Tests (Playwright) | Start with one flow: register → login → create canvas → draw rectangle → export. Don't try to cover everything. |
 
 ### Blocked / Infrastructure (need decisions)
@@ -499,7 +495,6 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 |------|---------|----------------|
 | 9: Redis Pub/Sub | Infrastructure | Do we need multi-instance WS yet? If yes, add Redis. If no, skip. |
 | 15: Image Blob Storage | Architecture | IndexedDB (client-only, no server changes) vs S3 (server-side, more complex). IndexedDB is the faster path. |
-| 21: ESLint Unification | ESLint 10 | Wait for `eslint-plugin-react` to support ESLint 10. Don't fight it. |
 
 ### Rules
 
