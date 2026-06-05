@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { DriplElement, Point } from '@dripl/common';
-import { getElementBounds, elementLocalPointToWorld } from '@dripl/math';
+import { getElementBounds, elementLocalPointToWorld } from '@dripl/math/intersection';
 
 interface SelectionOverlayProps {
   zoom: number;

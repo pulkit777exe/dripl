@@ -1,5 +1,5 @@
 import type { DriplElement, TextElement } from '@dripl/common';
-import { getBounds } from '@dripl/math';
+import { getBounds } from '@dripl/math/geometry';
 import { getDefaultFontFamily } from './fontPreferences';
 
 export const TEXT_ALIGN = {

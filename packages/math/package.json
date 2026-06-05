@@ -4,11 +4,26 @@
   "description": "Math utilities for geometry and intersection calculations",
   "license": "MIT",
   "type": "module",
-  "main": "./dist/index",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index"
+    "./geometry": {
+      "types": "./dist/geometry.d.ts",
+      "default": "./dist/geometry"
+    },
+    "./hit-detection": {
+      "types": "./dist/hit-detection.d.ts",
+      "default": "./dist/hit-detection"
+    },
+    "./intersection": {
+      "types": "./dist/intersection.d.ts",
+      "default": "./dist/intersection"
+    },
+    "./performance": {
+      "types": "./dist/performance.d.ts",
+      "default": "./dist/performance"
+    },
+    "./constraints": {
+      "types": "./dist/constraints.d.ts",
+      "default": "./dist/constraints"
     }
   },
   "scripts": {

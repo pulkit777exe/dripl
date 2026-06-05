@@ -1,5 +1,5 @@
 import type { DriplElement, Point } from '@dripl/common';
-import { getBounds } from '@dripl/math';
+import { getBounds } from '@dripl/math/geometry';
 
 export interface Binding {
   id: string;

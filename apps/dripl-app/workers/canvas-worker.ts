@@ -1,6 +1,6 @@
 import type { DriplElement } from '@dripl/common';
-import type { Bounds } from '@dripl/math';
-import { getElementBounds, isPointInElement } from '@dripl/math';
+import type { Bounds } from '@dripl/math/geometry';
+import { getElementBounds, isPointInElement } from '@dripl/math/intersection';
 import RBush from 'rbush';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

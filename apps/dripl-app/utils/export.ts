@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { ElementSchema, type DriplElement } from '@dripl/common';
-import { getElementBounds } from '@dripl/math';
+import { getElementBounds } from '@dripl/math/intersection';
 import { renderInteractiveScene } from '@/renderer/interactiveScene';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
 

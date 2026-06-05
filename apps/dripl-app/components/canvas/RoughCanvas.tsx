@@ -6,7 +6,7 @@ import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { useCanvasWorker } from '@/hooks/useCanvasWorker';
 import { saveLocalCanvasToStorage, LocalCanvasState } from '@/utils/localCanvasStorage';
-import { getElementBounds, isPointInElement, inverseRotatePoint } from '@dripl/math';
+import { getElementBounds, isPointInElement, inverseRotatePoint } from '@dripl/math/intersection';
 import { CanvasContentSchema, type DriplElement } from '@dripl/common';
 import { getOrCreateCollaboratorName } from '@/utils/username';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';

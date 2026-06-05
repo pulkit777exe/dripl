@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import type { DriplElement } from '@dripl/common';
-import type { Bounds } from '@dripl/math';
+import type { Bounds } from '@dripl/math/geometry';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

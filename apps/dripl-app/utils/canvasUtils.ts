@@ -1,6 +1,6 @@
 import type { DriplElement, Point } from '@dripl/common';
 import type { Bounds, AppState } from '@/types/canvas';
-import { getElementBounds, isPointInElement } from '@dripl/math';
+import { getElementBounds, isPointInElement } from '@dripl/math/intersection';
 import { getDefaultFontFamily } from './fontPreferences';
 export type { Point, Bounds, AppState };
 export type { DriplElement };

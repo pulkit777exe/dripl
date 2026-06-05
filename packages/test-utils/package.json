@@ -5,11 +5,22 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "main": "./dist/index",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index"
+    },
+    "./elements": {
+      "types": "./dist/elements.d.ts",
+      "default": "./dist/elements"
+    },
+    "./users": {
+      "types": "./dist/users.d.ts",
+      "default": "./dist/users"
+    },
+    "./mock-canvas": {
+      "types": "./dist/mock-canvas.d.ts",
+      "default": "./dist/mock-canvas"
     }
   },
   "scripts": {

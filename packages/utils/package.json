@@ -4,11 +4,18 @@
   "description": "Utility functions for Dripl (encryption, storage, throttling)",
   "license": "MIT",
   "type": "module",
-  "main": "./dist/index",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index"
+    },
+    "./encryption": {
+      "types": "./dist/encryption/index.d.ts",
+      "default": "./dist/encryption/index"
+    },
+    "./env": {
+      "types": "./dist/env.d.ts",
+      "default": "./dist/env"
     }
   },
   "scripts": {

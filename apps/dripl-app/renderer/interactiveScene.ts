@@ -1,5 +1,5 @@
 import type { DriplElement, Point } from '@dripl/common';
-import { getElementBounds } from '@dripl/math';
+import { getElementBounds } from '@dripl/math/intersection';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
 
 export interface SceneViewport {

@@ -2,8 +2,8 @@
 
 import { useCallback, useState } from 'react';
 import type { DriplElement, Point } from '@dripl/common';
-import { getElementAtPoint, getElementsInSelectionRect } from '@dripl/math';
-import { Bounds } from '@dripl/math';
+import { getElementAtPoint, getElementsInSelectionRect } from '@dripl/math/hit-detection';
+import type { Bounds } from '@dripl/math/geometry';
 
 export interface MarqueeSelection {
   start: Point;

@@ -1,6 +1,6 @@
 import type { DriplElement } from '@dripl/common';
-import { getElementBounds } from '@dripl/math';
-import { boundsIntersect, Bounds } from '@dripl/math';
+import { getElementBounds } from '@dripl/math/intersection';
+import { boundsIntersect, type Bounds } from '@dripl/math/geometry';
 import { getViewportBounds, Viewport } from './canvas-coordinates';
 
 function viewportCacheKey(viewport: Viewport): string {
