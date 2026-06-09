@@ -85,11 +85,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Identify user by IP slightly better than just "anonymous"
-    const userId = body.userId && body.userId !== 'anonymous' ? body.userId : 'unknown';
-
-    // Rate limiting
-    const rateCheck = checkRateLimit(userId);
+    // Rate limit by IP (not client-supplied userId which can be spoofed)
+    const forwarded = request.headers.get('x-forwarded-for');
+    const ip = forwarded?.split(',')[0]?.trim() ?? 'unknown';
+    const rateCheck = checkRateLimit(ip);
     if (!rateCheck.allowed) {
       return NextResponse.json(
         {
