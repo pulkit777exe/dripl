@@ -1,17 +1,12 @@
 import type { DriplElement, Point } from '@dripl/common';
 import type { Bounds, LineSegment } from './geometry';
 import { isPointInElement, getElementBounds } from './intersection';
-import { boundsIntersect } from './geometry';
+import { boundsIntersect, isPointInRect } from './geometry';
 
 export { isPointInElement, getElementBounds } from './intersection';
 
 export function isPointInSelectionRect(point: Point, selectionRect: Bounds): boolean {
-  return (
-    point.x >= selectionRect.x &&
-    point.x <= selectionRect.x + selectionRect.width &&
-    point.y >= selectionRect.y &&
-    point.y <= selectionRect.y + selectionRect.height
-  );
+  return isPointInRect(point, selectionRect);
 }
 
 export function elementIntersectsSelectionRect(

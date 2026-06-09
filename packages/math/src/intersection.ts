@@ -7,18 +7,10 @@ import {
   segmentIntersectsPolygon,
   pointInPolygon,
   distance,
+  rotatePoint,
 } from './geometry';
 
-export function rotatePoint(p: Point, cx: number, cy: number, angleRad: number): Point {
-  const dx = p.x - cx;
-  const dy = p.y - cy;
-  const cos = Math.cos(angleRad);
-  const sin = Math.sin(angleRad);
-  return {
-    x: cx + dx * cos - dy * sin,
-    y: cy + dx * sin + dy * cos,
-  };
-}
+export { rotatePoint } from './geometry';
 
 export function inverseRotatePoint(p: Point, cx: number, cy: number, angleRad: number): Point {
   return rotatePoint(p, cx, cy, -angleRad);
