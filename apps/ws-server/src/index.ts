@@ -8,9 +8,8 @@ config({ path: envPath });
 
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { z } from 'zod';
 import type { DriplElement } from '@dripl/common';
-import { pickUserColor } from '@dripl/common';
+import { pickUserColor, DriplElementSchema } from '@dripl/common';
 import { initializeDb, db } from '@dripl/db';
 import { messageSchema } from './validation';
 import type { UserConnection } from './types';
@@ -30,29 +29,24 @@ import {
 } from './rooms';
 import { checkRateLimit, startRateLimitCleanup } from './rateLimiter';
 
-initializeDb().catch(err => {
-  console.error('[ws-server] Failed to initialize database:', err);
-  process.exit(1);
-});
-
-const driplElementSchema = z.object({
-  id: z.string().min(1).max(100),
-  type: z.string(),
-  x: z.number().finite().min(-100000).max(100000),
-  y: z.number().finite().min(-100000).max(100000),
-  width: z.number().finite().min(0).max(50000),
-  height: z.number().finite().min(0).max(50000),
-  strokeColor: z.string().max(50).optional(),
-  backgroundColor: z.string().max(50).optional(),
-  strokeWidth: z.number().min(0).max(100).optional(),
-  opacity: z.number().min(0).max(1).optional(),
-  text: z.string().max(10000).optional(),
-  fontSize: z.number().min(1).max(500).optional(),
-  points: z.array(z.tuple([z.number(), z.number()])).max(1000).optional(),
-});
+async function start() {
+  try {
+    await initializeDb();
+    console.log(JSON.stringify({ level: 'info', event: 'db_connected' }));
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'db_connection_failed',
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+    process.exit(1);
+  }
+}
 
 function toDriplElement(el: unknown): DriplElement {
-  const parsed = driplElementSchema.safeParse(el);
+  const parsed = DriplElementSchema.safeParse(el);
   if (!parsed.success) {
     throw new Error('Invalid element structure');
   }
@@ -237,7 +231,26 @@ wss.on('connection', (ws, req) => {
         });
 
         if (room.users.size === 0) {
-          rooms.delete(currentRoomId);
+          if (room.elements.size > 0 && !room.saving) {
+            room.saving = true;
+            saveRoomElements(currentRoomId, room.elements)
+              .then(success => {
+                if (!success) {
+                  console.error(
+                    JSON.stringify({
+                      level: 'error',
+                      event: 'leave_save_failure',
+                      roomId: currentRoomId,
+                      timestamp: Date.now(),
+                    })
+                  );
+                }
+              })
+              .finally(() => {
+                room.saving = false;
+              });
+          }
+          roomLastEmptyAt.set(currentRoomId, Date.now());
         }
 
         currentRoomId = null;
@@ -249,10 +262,16 @@ wss.on('connection', (ws, req) => {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
-        const element = toDriplElement(message.element);
-        room.elements.set(element.id, element);
-        broadcast(room, message, currentUserId ?? undefined);
-        scheduleSave(currentRoomId);
+        try {
+          const element = toDriplElement(message.element);
+          const existing = room.elements.get(element.id);
+          if (existing && (element.version ?? 0) <= (existing.version ?? 0)) break;
+          room.elements.set(element.id, element);
+          broadcast(room, message, currentUserId ?? undefined);
+          scheduleSave(currentRoomId);
+        } catch {
+          // Skip invalid element
+        }
         break;
       }
 
@@ -260,10 +279,16 @@ wss.on('connection', (ws, req) => {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
-        const element = toDriplElement(message.element);
-        room.elements.set(element.id, element);
-        broadcast(room, message, currentUserId ?? undefined);
-        scheduleSave(currentRoomId);
+        try {
+          const element = toDriplElement(message.element);
+          const existing = room.elements.get(element.id);
+          if (existing && (element.version ?? 0) < (existing.version ?? 0)) break;
+          room.elements.set(element.id, element);
+          broadcast(room, message, currentUserId ?? undefined);
+          scheduleSave(currentRoomId);
+        } catch {
+          // Skip invalid element
+        }
         break;
       }
 
@@ -290,6 +315,10 @@ wss.on('connection', (ws, req) => {
         for (const rawEl of message.elements) {
           try {
             const element = toDriplElement(rawEl);
+            const existing = room.elements.get(element.id);
+            if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
+              continue;
+            }
             room.elements.set(element.id, element);
           } catch {
             // Skip invalid elements
@@ -310,11 +339,19 @@ wss.on('connection', (ws, req) => {
         const room = rooms.get(currentRoomId);
         if (!room) break;
 
+        const acceptedAdded: unknown[] = [];
+        const acceptedUpdated: unknown[] = [];
+
         if (message.added && Array.isArray(message.added)) {
           for (const rawEl of message.added) {
             try {
               const element = toDriplElement(rawEl);
+              const existing = room.elements.get(element.id);
+              if (existing && (element.version ?? 0) <= (existing.version ?? 0)) {
+                continue;
+              }
               room.elements.set(element.id, element);
+              acceptedAdded.push(element);
             } catch {
               // Skip invalid elements
             }
@@ -325,7 +362,12 @@ wss.on('connection', (ws, req) => {
           for (const rawEl of message.updated) {
             try {
               const element = toDriplElement(rawEl);
+              const existing = room.elements.get(element.id);
+              if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
+                continue;
+              }
               room.elements.set(element.id, element);
+              acceptedUpdated.push(element);
             } catch {
               // Skip invalid elements
             }
@@ -338,7 +380,14 @@ wss.on('connection', (ws, req) => {
           }
         }
 
-        broadcast(room, message, currentUserId ?? undefined);
+        const filteredDelta: Record<string, unknown> = { type: 'scene-delta' };
+        if (acceptedAdded.length > 0) filteredDelta.added = acceptedAdded;
+        if (acceptedUpdated.length > 0) filteredDelta.updated = acceptedUpdated;
+        if (message.deleted && Array.isArray(message.deleted) && message.deleted.length > 0) {
+          filteredDelta.deleted = message.deleted;
+        }
+
+        broadcast(room, filteredDelta, currentUserId ?? undefined);
         scheduleSave(currentRoomId);
         break;
       }
@@ -349,18 +398,39 @@ wss.on('connection', (ws, req) => {
         if (!room) break;
 
         if (Array.isArray(message.elements)) {
+          const accepted: unknown[] = [];
           for (const rawEl of message.elements) {
-            const element = toDriplElement(rawEl);
-            room.elements.set(element.id, element);
+            try {
+              const element = toDriplElement(rawEl);
+              const existing = room.elements.get(element.id);
+              if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
+                continue;
+              }
+              room.elements.set(element.id, element);
+              accepted.push(element);
+            } catch {
+              // Skip invalid elements
+            }
+          }
+          if (accepted.length > 0) {
+            broadcast(room, { type: 'element-update', elements: accepted }, currentUserId ?? undefined);
           }
         } else {
           const rawElement = message.element;
           if (!rawElement) break;
-          const element = toDriplElement(rawElement);
-          room.elements.set(element.id, element);
+          try {
+            const element = toDriplElement(rawElement);
+            const existing = room.elements.get(element.id);
+            if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
+              break;
+            }
+            room.elements.set(element.id, element);
+            broadcast(room, { type: 'element-update', element }, currentUserId ?? undefined);
+          } catch {
+            // Skip invalid element
+          }
         }
 
-        broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId);
         break;
       }
@@ -504,10 +574,6 @@ const periodicSave = setInterval(async () => {
   }
 }, PERIODIC_SAVE_INTERVAL_MS);
 
-server.listen(WS_PORT, () => {
-  console.log(JSON.stringify({ level: 'info', event: 'websocket_server_started', port: WS_PORT }));
-});
-
 async function shutdown() {
   clearInterval(heartbeat);
   clearInterval(periodicSave);
@@ -559,4 +625,10 @@ process.on('SIGINT', () => {
 });
 process.on('SIGTERM', () => {
   void shutdown();
+});
+
+start().then(() => {
+  server.listen(WS_PORT, () => {
+    console.log(JSON.stringify({ level: 'info', event: 'websocket_server_started', port: WS_PORT }));
+  });
 });
