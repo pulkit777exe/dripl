@@ -371,6 +371,14 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     byId: new Map<string, DriplElement>(),
     elementIds: new Set<string>(),
   });
+
+  // Track spatial signature to skip useMemo re-run when only non-spatial props change
+  const spatialSigRef = useRef('');
+  const spatialSig = elements
+    .map(e => `${e.id}:${e.x}:${e.y}:${e.width}:${e.height}:${e.angle ?? 0}`)
+    .join('|');
+  const spatialChanged = spatialSig !== spatialSigRef.current;
+  if (spatialChanged) spatialSigRef.current = spatialSig;
   const { buildIndex, isReady: workerReady } = useCanvasWorker();
   const workerBusyRef = useRef(false);
 
@@ -392,6 +400,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   // Synchronous local RBush for hit testing (loaded from worker result)
   // Fallback: rebuild inline if worker not ready
   const spatialIndex = useMemo<SpatialIndexState>(() => {
+    // Skip expensive diffing if only non-spatial props changed
+    if (!spatialChanged) return spatialIndexRef.current;
+
     const prev = spatialIndexRef.current;
 
     const prevIds = prev.elementIds;
