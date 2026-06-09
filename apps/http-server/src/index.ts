@@ -111,7 +111,7 @@ async function start() {
   }
 
   const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
-  setInterval(async () => {
+  const cleanupInterval = setInterval(async () => {
     try {
       const db = (await import('@dripl/db')).db;
       const result = await db.shareLink.deleteMany({
@@ -127,9 +127,20 @@ async function start() {
     }
   }, CLEANUP_INTERVAL_MS);
 
-  app.listen(port, () => {
+  const httpServer = app.listen(port, () => {
     console.log(JSON.stringify({ level: 'info', event: 'http_server_started', port }));
   });
+
+  function shutdown() {
+    clearInterval(cleanupInterval);
+    httpServer.close(() => {
+      console.log(JSON.stringify({ level: 'info', event: 'http_server_closed' }));
+      process.exit(0);
+    });
+  }
+
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
 
 start();
