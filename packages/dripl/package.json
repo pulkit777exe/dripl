@@ -7,7 +7,6 @@
   "type": "module",
   "main": "./dist/index",
   "exports": {
-    ".": "./dist/index",
     "./*": "./dist/*",
     "./styles": "./dist/styles/index.css"
   },

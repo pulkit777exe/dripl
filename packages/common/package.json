@@ -9,6 +9,30 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index"
+    },
+    "./constants": {
+      "types": "./dist/constants.d.ts",
+      "default": "./dist/constants"
+    },
+    "./types/element": {
+      "types": "./dist/types/element.d.ts",
+      "default": "./dist/types/element"
+    },
+    "./types/user": {
+      "types": "./dist/types/user.d.ts",
+      "default": "./dist/types/user"
+    },
+    "./schemas": {
+      "types": "./dist/schemas.d.ts",
+      "default": "./dist/schemas"
+    },
+    "./scene": {
+      "types": "./dist/scene.d.ts",
+      "default": "./dist/scene"
+    },
+    "./pointer": {
+      "types": "./dist/pointer.d.ts",
+      "default": "./dist/pointer"
     }
   },
   "scripts": {
