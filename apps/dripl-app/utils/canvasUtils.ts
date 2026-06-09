@@ -429,26 +429,3 @@ export function importFromJSON(file: File): Promise<DriplElement[]> {
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
-export const saveToLocalStorage = (elements: DriplElement[], appState: Partial<AppState>) => {
-  try {
-    localStorage.setItem(STORAGE_KEYS.ELEMENTS, JSON.stringify(elements));
-    localStorage.setItem(STORAGE_KEYS.STATE, JSON.stringify(appState));
-  } catch (error) {
-    console.error('Error saving to local storage:', error);
-  }
-};
-
-export const loadFromLocalStorage = () => {
-  try {
-    const elements = localStorage.getItem(STORAGE_KEYS.ELEMENTS);
-    const state = localStorage.getItem(STORAGE_KEYS.STATE);
-
-    return {
-      elements: elements ? JSON.parse(elements) : null,
-      appState: state ? JSON.parse(state) : null,
-    };
-  } catch (error) {
-    console.error('Error loading from local storage:', error);
-    return { elements: null, appState: null };
-  }
-};
