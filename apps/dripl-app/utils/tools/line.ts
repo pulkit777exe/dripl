@@ -1,4 +1,12 @@
 import type { DriplElement, Point, LinearElement } from '@dripl/common';
+import {
+  addPoint as addPointToState,
+  removePoint as removePointFromState,
+  updatePoint as updatePointInState,
+  snapPointToElements,
+  getBoundingBox,
+  toRelativePoints,
+} from './shared';
 
 export interface LineToolState {
   points: Point[];
@@ -16,15 +24,8 @@ export function createLineElement(
     throw new Error('Line must have at least one point');
   }
 
-  const minX = Math.min(...state.points.map(p => p.x));
-  const minY = Math.min(...state.points.map(p => p.y));
-  const maxX = Math.max(...state.points.map(p => p.x));
-  const maxY = Math.max(...state.points.map(p => p.y));
-
-  const relativePoints = state.points.map(p => ({
-    x: p.x - minX,
-    y: p.y - minY,
-  }));
+  const { minX, minY, maxX, maxY } = getBoundingBox(state.points);
+  const relativePoints = toRelativePoints(state.points);
 
   return {
     ...baseProps,
@@ -43,60 +44,15 @@ export function snapLineToElement(
   excludeId?: string,
   snapThreshold: number = 10
 ): Point {
-  let snappedPoint = point;
-  let minDistance = Infinity;
-
-  for (const element of elements) {
-    if (element.id === excludeId || element.isDeleted) continue;
-
-    const bounds = {
-      x: element.x,
-      y: element.y,
-      width: element.width,
-      height: element.height,
-    };
-
-    const edges = [
-      { x: bounds.x, y: bounds.y + bounds.height / 2 },
-      { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 },
-      { x: bounds.x + bounds.width / 2, y: bounds.y },
-      { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height },
-      { x: bounds.x, y: bounds.y },
-      { x: bounds.x + bounds.width, y: bounds.y },
-      { x: bounds.x, y: bounds.y + bounds.height },
-      { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
-    ];
-
-    for (const edge of edges) {
-      const distance = Math.sqrt(Math.pow(point.x - edge.x, 2) + Math.pow(point.y - edge.y, 2));
-      if (distance < snapThreshold && distance < minDistance) {
-        minDistance = distance;
-        snappedPoint = edge;
-      }
-    }
-  }
-
-  return snappedPoint;
+  return snapPointToElements(point, elements, excludeId, snapThreshold);
 }
 
 export function addPointToLine(point: Point, state: LineToolState): LineToolState {
-  return {
-    ...state,
-    points: [...state.points, point],
-  };
+  return addPointToState(point, state);
 }
 
 export function removePointFromLine(index: number, state: LineToolState): LineToolState {
-  if (state.points.length <= 2) {
-    return state;
-  }
-
-  const newPoints = [...state.points];
-  newPoints.splice(index, 1);
-  return {
-    ...state,
-    points: newPoints,
-  };
+  return removePointFromState(index, state, 2);
 }
 
 export function updatePointInLine(
@@ -104,10 +60,5 @@ export function updatePointInLine(
   point: Point,
   state: LineToolState
 ): LineToolState {
-  const newPoints = [...state.points];
-  newPoints[index] = point;
-  return {
-    ...state,
-    points: newPoints,
-  };
+  return updatePointInState(index, point, state);
 }

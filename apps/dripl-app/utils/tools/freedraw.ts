@@ -1,4 +1,11 @@
 import type { DriplElement, Point, FreeDrawElement } from '@dripl/common';
+import {
+  addPoint as addPointToState,
+  removePoint as removePointFromState,
+  updatePoint as updatePointInState,
+  getBoundingBox,
+  toRelativePoints,
+} from './shared';
 
 export interface FreedrawToolState {
   points: Point[];
@@ -85,15 +92,8 @@ export function createFreedrawElement(
     processedPoints = optimizePoints(processedPoints, 0.85);
   }
 
-  const minX = Math.min(...processedPoints.map(p => p.x));
-  const minY = Math.min(...processedPoints.map(p => p.y));
-  const maxX = Math.max(...processedPoints.map(p => p.x));
-  const maxY = Math.max(...processedPoints.map(p => p.y));
-
-  const relativePoints = processedPoints.map(p => ({
-    x: p.x - minX,
-    y: p.y - minY,
-  }));
+  const { minX, minY, maxX, maxY } = getBoundingBox(processedPoints);
+  const relativePoints = toRelativePoints(processedPoints);
 
   // Calculate pressure values for variable width
   const pressureValues =
@@ -122,9 +122,9 @@ export function createFreedrawElement(
 
 export function addPointToFreedraw(point: Point, state: FreedrawToolState): FreedrawToolState {
   const pressure = calculatePressure(point, [...state.points, point]);
+  const base = addPointToState(point, state);
   return {
-    ...state,
-    points: [...state.points, point],
+    ...base,
     pressure: pressure,
     pressureValues: [...(state.pressureValues ?? []), pressure],
   };
@@ -134,12 +134,7 @@ export function removePointFromFreedraw(
   index: number,
   state: FreedrawToolState
 ): FreedrawToolState {
-  const newPoints = [...state.points];
-  newPoints.splice(index, 1);
-  return {
-    ...state,
-    points: newPoints,
-  };
+  return removePointFromState(index, state, 0);
 }
 
 export function updatePointInFreedraw(
@@ -147,10 +142,5 @@ export function updatePointInFreedraw(
   point: Point,
   state: FreedrawToolState
 ): FreedrawToolState {
-  const newPoints = [...state.points];
-  newPoints[index] = point;
-
-  // Recalculate pressure values
-  const newState = { ...state, points: newPoints };
-  return newState;
+  return updatePointInState(index, point, state);
 }
