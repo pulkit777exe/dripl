@@ -1,7 +1,11 @@
 import { shapeRegistry } from './ShapeRegistry';
 import { defaultShapes } from './defaultShapes';
 
+let initialized = false;
+
 export function initializeShapeRegistry() {
+  if (initialized) return;
+  initialized = true;
   defaultShapes.forEach(shape => {
     shapeRegistry.register(shape);
   });
