@@ -15,14 +15,12 @@ export const DEFAULT_ZOOM_SETTINGS: ZoomSettings = {
 
 function getElementPoints(element: DriplElement): Point[] {
   if (element.points) {
-    // For linear elements (lines, arrows, freedraw)
     return element.points.map((point: Point) => ({
       x: element.x + point.x,
       y: element.y + point.y,
     }));
   }
 
-  // For rectangular elements
   return [
     { x: element.x, y: element.y },
     { x: element.x + element.width, y: element.y },
@@ -41,7 +39,6 @@ export function zoomToFit(
     return { zoom: 1, centerX: canvasWidth / 2, centerY: canvasHeight / 2 };
   }
 
-  // Calculate combined bounds of all elements
   const allPoints: Point[] = [];
   elements.forEach(element => {
     allPoints.push(...getElementPoints(element));
@@ -49,18 +46,15 @@ export function zoomToFit(
 
   const bounds = getBounds(allPoints);
 
-  // Calculate required zoom level
   const horizontalZoom = (canvasWidth - padding * 2) / bounds.width;
   const verticalZoom = (canvasHeight - padding * 2) / bounds.height;
   const fitZoom = Math.min(horizontalZoom, verticalZoom);
 
-  // Ensure zoom stays within limits
   const finalZoom = Math.min(
     Math.max(fitZoom, DEFAULT_ZOOM_SETTINGS.minZoom),
     DEFAULT_ZOOM_SETTINGS.maxZoom
   );
 
-  // Calculate center point
   const centerX = bounds.x + bounds.width / 2;
   const centerY = bounds.y + bounds.height / 2;
 
@@ -81,7 +75,6 @@ export function zoomToSelection(
     return null;
   }
 
-  // Calculate combined bounds of selected elements
   const allPoints: Point[] = [];
   selectedElements.forEach(element => {
     allPoints.push(...getElementPoints(element));
@@ -89,18 +82,15 @@ export function zoomToSelection(
 
   const bounds = getBounds(allPoints);
 
-  // Calculate required zoom level
   const horizontalZoom = (canvasWidth - padding * 2) / bounds.width;
   const verticalZoom = (canvasHeight - padding * 2) / bounds.height;
   const fitZoom = Math.min(horizontalZoom, verticalZoom);
 
-  // Ensure zoom stays within limits
   const finalZoom = Math.min(
     Math.max(fitZoom, DEFAULT_ZOOM_SETTINGS.minZoom),
     DEFAULT_ZOOM_SETTINGS.maxZoom
   );
 
-  // Calculate center point
   const centerX = bounds.x + bounds.width / 2;
   const centerY = bounds.y + bounds.height / 2;
 
@@ -121,10 +111,8 @@ export function calculateZoom(
   const direction = delta > 0 ? 1 : -1;
   let newZoom = currentZoom + direction * step;
 
-  // Ensure zoom stays within limits
   newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
 
-  // Snap to common zoom levels at higher zoom
   if (newZoom > 1) {
     const snapped = Math.round(newZoom * 2) / 2;
     if (Math.abs(newZoom - snapped) < step / 2) {
