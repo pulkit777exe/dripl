@@ -7,6 +7,34 @@ import type { DriplElement, Point } from '@dripl/common';
 import { Viewport } from '@/utils/canvas-coordinates';
 import type { CollaboratorCursor } from '@/renderer/interactiveScene';
 
+interface CanvasErrorBoundaryProps {
+  name: string;
+  children: React.ReactNode;
+}
+
+interface CanvasErrorBoundaryState {
+  hasError: boolean;
+}
+
+class CanvasErrorBoundary extends React.Component<CanvasErrorBoundaryProps, CanvasErrorBoundaryState> {
+  state: CanvasErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): CanvasErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error(`[${this.props.name}] render error:`, error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return null; // Gracefully hide the failed canvas layer
+    }
+    return this.props.children;
+  }
+}
+
 interface DualCanvasProps {
   containerRef: React.RefObject<HTMLDivElement>;
   elements: DriplElement[];
@@ -65,36 +93,40 @@ export function DualCanvas({
         pointerEvents: 'none',
       }}
     >
-      <StaticCanvas
-        containerRef={containerRef}
-        elements={elements}
-        selectedIds={selectedIds}
-        viewport={viewport}
-        gridEnabled={gridEnabled}
-        gridSize={gridSize}
-        theme={theme}
-      />
+      <CanvasErrorBoundary name="StaticCanvas">
+        <StaticCanvas
+          containerRef={containerRef}
+          elements={elements}
+          selectedIds={selectedIds}
+          viewport={viewport}
+          gridEnabled={gridEnabled}
+          gridSize={gridSize}
+          theme={theme}
+        />
+      </CanvasErrorBoundary>
 
-      <InteractiveCanvas
-        containerRef={containerRef}
-        elements={elements}
-        selectedIds={selectedIds}
-        draftElement={draftElement}
-        eraserPath={eraserPath}
-        viewport={viewport}
-        theme={theme}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        cursorPosition={cursorPosition}
-        isDragging={isDragging}
-        isResizing={isResizing}
-        isDrawing={isDrawing}
-        marqueeSelection={marqueeSelection}
-        collaborators={collaborators}
-        lockOwners={lockOwners}
-        localUserId={localUserId}
-      />
+      <CanvasErrorBoundary name="InteractiveCanvas">
+        <InteractiveCanvas
+          containerRef={containerRef}
+          elements={elements}
+          selectedIds={selectedIds}
+          draftElement={draftElement}
+          eraserPath={eraserPath}
+          viewport={viewport}
+          theme={theme}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          cursorPosition={cursorPosition}
+          isDragging={isDragging}
+          isResizing={isResizing}
+          isDrawing={isDrawing}
+          marqueeSelection={marqueeSelection}
+          collaborators={collaborators}
+          lockOwners={lockOwners}
+          localUserId={localUserId}
+        />
+      </CanvasErrorBoundary>
     </div>
   );
 }
