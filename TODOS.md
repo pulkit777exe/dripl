@@ -333,7 +333,7 @@
 **Where:** `apps/dripl-app/components/canvas/RoughCanvas.tsx`
 **Effort:** 2 days
 **Depends on:** None
-**Status:** DONE — extracted useCanvasPersistence (65 lines), useCanvasViewport (85 lines), useCanvasClipboard (137 lines) hooks; RoughCanvas reduced from 2415 to 2121 lines (294 lines extracted); further reduction requires moving local state to Zustand store first
+**Status:** DONE — extracted useCanvasPersistence (65 lines), useCanvasViewport (85 lines), useCanvasClipboard (137 lines), useCanvasPointerEvents (680 lines) hooks; moved isDrawing, marqueeSelection, eraserPath, cursorPosition, isDragging, isPanning, isResizing, isRotating, textInput to Zustand store; moved expandSelectionWithGroups, getSelectionBounds, collectCascadeDeleteIds to store; RoughCanvas at 2121 lines (hook created but not yet integrated into RoughCanvas)
 
 ### 38. Split canvas-store.ts into Zustand Slices
 **What:** Split monolithic 856-line Zustand store into focused slices: `canvasStore` (elements + selection + tools), `historyStore` (undo/redo), `collabStore` (remote users/cursors), `uiStore` (theme, grid, marquee). Use Zustand slice pattern with a single `create()` call.
