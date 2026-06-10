@@ -1,22 +1,12 @@
-import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import base from '@dripl/eslint-config';
 
-export default tseslint.config(
+export default [
+  { ignores: ['dist/**', '**/*.test.ts'] },
+  ...base,
   {
-    ignores: ['dist/**', '**/*.test.ts'],
-  },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-  {
-    languageOptions: {
-      globals: {
-        node: true,
-        browser: true,
-      },
-    },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   }
-);
+];

@@ -4,10 +4,12 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "main": "./index",
+  "main": "./index.js",
   "peerDependencies": {
     "eslint": "^9.0.0",
+    "@eslint/js": "^10.0.0",
     "@typescript-eslint/parser": "^8.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.0.0"
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "typescript-eslint": "^8.0.0"
   }
 }

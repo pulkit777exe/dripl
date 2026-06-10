@@ -28,10 +28,12 @@
   "devDependencies": {
     "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^25.9.1",
     "@types/pg": "^8.20.0",
     "eslint": "^9.39.4",
     "prisma": "^7.8.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.60.1"
   }
 }

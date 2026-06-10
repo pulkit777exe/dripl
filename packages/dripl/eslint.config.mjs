@@ -1,8 +1,8 @@
-/** @type {import("eslint").Linter.Config} */
+import base from '@dripl/eslint-config';
+
 export default [
-  {
-    ignores: ['dist/**'],
-  },
+  { ignores: ['dist/**'] },
+  ...base,
   {
     rules: {
       'no-console': 'off',

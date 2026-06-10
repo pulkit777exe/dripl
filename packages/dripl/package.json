@@ -23,13 +23,15 @@
   "devDependencies": {
     "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.19.19",
     "@types/react": "^19.2.16",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.60.1"
   },
   "dependencies": {
     "@dripl/common": "workspace:*",

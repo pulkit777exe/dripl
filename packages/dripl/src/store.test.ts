@@ -3,10 +3,6 @@ import { store, actions, selectors, defaultAppState } from './index';
 import type {
   RectangleElement,
   LinearElement,
-  FreeDrawElement,
-  TextElement,
-  ImageElement,
-  FrameElement,
 } from '@dripl/common';
 
 describe('store', () => {
