@@ -1,8 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { requiredEnv } from '@dripl/utils';
+import { verifyToken, signToken, type JwtPayload } from '@dripl/utils/auth';
 
-const JWT_SECRET = requiredEnv('JWT_SECRET');
 const SESSION_COOKIE = 'dripl-session';
 
 export interface AuthRequest extends Request {
@@ -20,7 +18,11 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
       return;
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
     req.userId = decoded.userId;
     next();
   } catch (error) {
@@ -35,20 +37,12 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
   }
 };
 
-export const generateToken = (userId: string): string => {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
-};
+export const generateToken = signToken;
 
-export interface JwtPayload {
-  userId: string;
-}
+export type { JwtPayload };
 
 export function signSessionToken(userId: string): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('JWT_SECRET is not configured');
-  }
-  return jwt.sign({ userId }, secret, { expiresIn: '7d' });
+  return signToken(userId);
 }
 
 export function setSessionCookie(res: Response, token: string): void {

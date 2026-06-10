@@ -9,6 +9,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index"
     },
+    "./auth": {
+      "types": "./dist/auth.d.ts",
+      "default": "./dist/auth"
+    },
     "./encryption": {
       "types": "./dist/encryption/index.d.ts",
       "default": "./dist/encryption/index"
@@ -24,12 +28,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dripl/common": "workspace:*"
+    "@dripl/common": "workspace:*",
+    "jsonwebtoken": "^9.0.3"
   },
   "devDependencies": {
     "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
     "@eslint/js": "^10.0.1",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.19.19",
     "eslint": "^9.39.4",
     "typescript": "^5.9.3",

@@ -1,7 +1,4 @@
-import jwt from 'jsonwebtoken';
-import { requiredEnv } from '@dripl/utils';
-
-const JWT_SECRET = requiredEnv('JWT_SECRET');
+import { verifyToken } from '@dripl/utils/auth';
 
 function log(level: string, event: string, data?: Record<string, unknown>) {
   console.log(JSON.stringify({ level, event, ...data }));
@@ -20,11 +17,10 @@ export function resolveTokenFromUrl(reqUrl: string | undefined, host: string | u
 
 export function resolveUserFromToken(token: string | null): string | null {
   if (!token) return null;
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId?: string };
-    return decoded.userId ?? null;
-  } catch {
+  const payload = verifyToken(token);
+  if (!payload) {
     log('warn', 'token_verification_failed');
     return null;
   }
+  return payload.userId;
 }
