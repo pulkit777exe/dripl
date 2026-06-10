@@ -18,6 +18,7 @@ import { authRouter } from './routes/auth';
 import { filesRouter } from './routes/files';
 import { foldersRouter } from './routes/folders';
 import { shareRouter } from './routes/share';
+import { imagesRouter } from './routes/images';
 import roomRoutes from './routes/roomRoutes';
 
 const app = express();
@@ -84,6 +85,7 @@ app.use('/api/share', validateCsrfToken, shareRouter);
 app.use('/api/files', validateCsrfToken, authMiddleware, filesRouter);
 app.use('/api/folders', validateCsrfToken, authMiddleware, foldersRouter);
 app.use('/api/rooms', validateCsrfToken, authMiddleware, roomRoutes);
+app.use('/api/images', validateCsrfToken, authMiddleware, imagesRouter);
 
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(
