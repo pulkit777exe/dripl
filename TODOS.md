@@ -9,12 +9,12 @@
 | Tier | Total | Done | Open | Deferred/Blocked | % Complete |
 |------|-------|------|------|------------------|------------|
 | P0 — Critical | 8 | 8 | 0 | 0 | 100% |
-| P1 — Performance | 9 | 7 | 1 | 1 (deferred) | 78% |
+| P1 — Performance | 9 | 8 | 0 | 1 (deferred) | 89% |
 | P2 — Code Quality | 9 | 9 | 0 | 0 | 100% |
 | P3 — Polish & DX | 10 | 10 | 0 | 0 | 100% |
-| Eng Review (37-56) | 20 | 10 | 10 | 0 | 50% |
+| Eng Review (37-56) | 20 | 11 | 9 | 0 | 55% |
 | Pre-existing | 8 | 7 | 0 | 1 (blocked) | 88% |
-| **Total** | **64** | **50** | **12** | **2** | **78%** |
+| **Total** | **64** | **51** | **11** | **2** | **80%** |
 
 ### Deferred Items (need architectural decisions)
 
@@ -357,7 +357,7 @@
 **Where:** New `apps/http-server/src/routes/images.ts`, `apps/dripl-app/components/canvas/RoughCanvas.tsx`
 **Effort:** 3 days
 **Depends on:** None
-**Status:** PARTIAL — server-side upload/download API complete; client integration pending
+**Status:** DONE — server upload/download API + client integration (drag-drop, paste, image tool all upload to server)
 
 ### 41. Shared JWT Verification in @dripl/common
 **What:** Extract JWT verification logic to `@dripl/common` (or `@dripl/utils`). Both http-server and ws-server import from there instead of independently verifying tokens.

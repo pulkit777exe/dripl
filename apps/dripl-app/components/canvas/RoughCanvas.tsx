@@ -20,6 +20,7 @@ import { useDrawingTools } from '@/hooks/useDrawingTools';
 import { useCanvasPersistence } from '@/hooks/canvas/useCanvasPersistence';
 import { useCanvasViewport } from '@/hooks/canvas/useCanvasViewport';
 import { useCanvasClipboard } from '@/hooks/canvas/useCanvasClipboard';
+import { uploadImageToServer } from '@/utils/tools/image';
 
 const PropertiesPanel = lazy(() => import('./PropertiesPanel').then(m => ({ default: m.PropertiesPanel })));
 const ContextMenu = lazy(() => import('./ContextMenu').then(m => ({ default: m.ContextMenu })));
@@ -759,38 +760,38 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
     for (const file of files) {
       if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = event => {
-          if (event.target?.result) {
-            const img = new Image();
-            img.onload = () => {
-              let width = img.width;
-              let height = img.height;
-              const maxSize = 500;
-              if (width > maxSize || height > maxSize) {
-                const ratio = Math.min(maxSize / width, maxSize / height);
-                width *= ratio;
-                height *= ratio;
-              }
-              const element: DriplElement = {
-                id: uuidv4(),
-                type: 'image',
-                x: x - width / 2,
-                y: y - height / 2,
-                width,
-                height,
-                strokeColor: 'transparent',
-                backgroundColor: 'transparent',
-                strokeWidth: 0,
-                opacity: 1,
-                src: event.target!.result as string,
-              };
-              addElement(element);
+        try {
+          // Upload to server and get URL
+          const imageUrl = await uploadImageToServer(file);
+          const img = new Image();
+          img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+            const maxSize = 500;
+            if (width > maxSize || height > maxSize) {
+              const ratio = Math.min(maxSize / width, maxSize / height);
+              width *= ratio;
+              height *= ratio;
+            }
+            const element: DriplElement = {
+              id: uuidv4(),
+              type: 'image',
+              x: x - width / 2,
+              y: y - height / 2,
+              width,
+              height,
+              strokeColor: 'transparent',
+              backgroundColor: 'transparent',
+              strokeWidth: 0,
+              opacity: 1,
+              src: imageUrl,
             };
-            img.src = event.target.result as string;
-          }
-        };
-        reader.readAsDataURL(file);
+            addElement(element);
+          };
+          img.src = imageUrl;
+        } catch (error) {
+          console.error('Failed to upload image:', error);
+        }
       }
     }
   };
@@ -953,44 +954,44 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
-      input.onchange = event => {
+      input.onchange = async event => {
         const file = (event.target as HTMLInputElement).files?.[0];
         if (file) {
-          const reader = new FileReader();
-          reader.onload = e => {
-            if (e.target?.result) {
-              const img = new Image();
-              img.onload = () => {
-                let width = img.width;
-                let height = img.height;
-                const maxSize = 500;
-                if (width > maxSize || height > maxSize) {
-                  const ratio = Math.min(maxSize / width, maxSize / height);
-                  width *= ratio;
-                  height *= ratio;
-                }
-                const element: DriplElement = {
-                  id: uuidv4(),
-                  type: 'image',
-                  x: x - width / 2,
-                  y: y - height / 2,
-                  width,
-                  height,
-                  strokeColor: 'transparent',
-                  backgroundColor: 'transparent',
-                  strokeWidth: 0,
-                  opacity: 1,
-                  src: e.target!.result as string,
-                };
-                addElement(element);
-                if (useCanvasStore.getState().activeTool === 'image') {
-                  maybeRevertToSelectTool('image'); // RULE: Tool Reversion
-                }
+          try {
+            // Upload to server and get URL
+            const imageUrl = await uploadImageToServer(file);
+            const img = new Image();
+            img.onload = () => {
+              let width = img.width;
+              let height = img.height;
+              const maxSize = 500;
+              if (width > maxSize || height > maxSize) {
+                const ratio = Math.min(maxSize / width, maxSize / height);
+                width *= ratio;
+                height *= ratio;
+              }
+              const element: DriplElement = {
+                id: uuidv4(),
+                type: 'image',
+                x: x - width / 2,
+                y: y - height / 2,
+                width,
+                height,
+                strokeColor: 'transparent',
+                backgroundColor: 'transparent',
+                strokeWidth: 0,
+                opacity: 1,
+                src: imageUrl,
               };
-              img.src = e.target.result as string;
-            }
-          };
-          reader.readAsDataURL(file);
+              addElement(element);
+              if (useCanvasStore.getState().activeTool === 'image') {
+                maybeRevertToSelectTool('image'); // RULE: Tool Reversion
+              }
+            };
+            img.src = imageUrl;
+          } catch (error) {
+            console.error('Failed to upload image:', error);
+          }
         }
       };
       input.click();

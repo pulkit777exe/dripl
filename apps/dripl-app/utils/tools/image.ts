@@ -1,4 +1,5 @@
 import type { DriplElement, ImageElement } from '@dripl/common';
+import { uploadImage, getImageUrl } from '@/utils/api/images';
 
 export interface ImageToolState {
   position: { x: number; y: number };
@@ -25,6 +26,14 @@ export function createImageElement(
     height: state.displayHeight,
     src: state.src,
   };
+}
+
+/**
+ * Upload image to server and return the image URL
+ */
+export async function uploadImageToServer(file: File): Promise<string> {
+  const result = await uploadImage(file);
+  return getImageUrl(result.id);
 }
 
 /**

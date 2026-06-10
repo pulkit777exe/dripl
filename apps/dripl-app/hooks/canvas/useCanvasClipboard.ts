@@ -2,20 +2,21 @@
 
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { DriplElement } from '@dripl/common';
 import { useCanvasStore } from '@/lib/canvas-store';
-import { loadImage } from '@/utils/tools/image';
+import type { DriplElement } from '@dripl/common';
+import { loadImage, uploadImageToServer } from '@/utils/tools/image';
 
 export function useCanvasClipboard() {
-  const elements = useCanvasStore(state => state.elements);
-  const selectedIds = useCanvasStore(state => state.selectedIds);
-  const setSelectedIds = useCanvasStore(state => state.setSelectedIds);
   const addElement = useCanvasStore(state => state.addElement);
+  const setSelectedIds = useCanvasStore(state => state.setSelectedIds);
 
   const duplicateSelection = useCallback(() => {
-    const selected = elements.filter(element => selectedIds.has(element.id));
-    if (selected.length === 0) return;
-    const copies = selected.map(element => ({
+    const state = useCanvasStore.getState();
+    const { selectedIds, elements } = state;
+    if (selectedIds.size === 0) return;
+
+    const selectedElements = elements.filter(element => selectedIds.has(element.id));
+    const copies = selectedElements.map(element => ({
       ...element,
       id: uuidv4(),
       x: element.x + 10,
@@ -23,19 +24,29 @@ export function useCanvasClipboard() {
     }));
     useCanvasStore.getState().addElements(copies);
     setSelectedIds(new Set(copies.map(element => element.id)));
-  }, [elements, selectedIds, setSelectedIds]);
+    return;
+  }, [setSelectedIds]);
 
   const copySelectedToClipboard = useCallback(async () => {
-    const selected = elements.filter(element => selectedIds.has(element.id));
-    if (selected.length === 0) return;
-    useCanvasStore.getState().setClipboard(selected);
-    await navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
-  }, [elements, selectedIds]);
+    const state = useCanvasStore.getState();
+    const { selectedIds, elements } = state;
+    if (selectedIds.size === 0) return;
+
+    const selectedElements = elements.filter(element => selectedIds.has(element.id));
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(selectedElements));
+    } catch {
+      // Clipboard API not available or denied
+    }
+  }, []);
 
   const pasteFromClipboard = useCallback(async () => {
-    const internalClipboard = useCanvasStore.getState().clipboard;
-    if (internalClipboard.length > 0) {
-      const copies = internalClipboard.map(element => ({
+    const state = useCanvasStore.getState();
+    const { selectedIds, elements } = state;
+
+    if (selectedIds.size > 0) {
+      const selectedElements = elements.filter(element => selectedIds.has(element.id));
+      const copies = selectedElements.map(element => ({
         ...element,
         id: uuidv4(),
         x: element.x + 10,
@@ -52,14 +63,12 @@ export function useCanvasClipboard() {
         for (const item of items) {
           if (item.types.includes('image/png')) {
             const blob = await item.getType('image/png');
-            const dataUrl = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result as string);
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-            });
-
-            const imageResult = await loadImage(dataUrl);
+            const file = new File([blob], 'clipboard-image.png', { type: 'image/png' });
+            
+            // Upload to server and get URL
+            const imageUrl = await uploadImageToServer(file);
+            const imageResult = await loadImage(imageUrl);
+            
             const element: DriplElement = {
               id: uuidv4(),
               type: 'image',
@@ -71,7 +80,7 @@ export function useCanvasClipboard() {
               backgroundColor: 'transparent',
               strokeWidth: 0,
               opacity: 1,
-              src: dataUrl,
+              src: imageUrl,
             };
             addElement(element);
             return;
