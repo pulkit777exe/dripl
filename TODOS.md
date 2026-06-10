@@ -12,9 +12,9 @@
 | P1 — Performance | 9 | 8 | 0 | 1 (deferred) | 89% |
 | P2 — Code Quality | 9 | 9 | 0 | 0 | 100% |
 | P3 — Polish & DX | 10 | 10 | 0 | 0 | 100% |
-| Eng Review (37-56) | 20 | 11 | 9 | 0 | 55% |
+| Eng Review (37-56) | 20 | 19 | 1 | 0 | 95% |
 | Pre-existing | 8 | 7 | 0 | 1 (blocked) | 88% |
-| **Total** | **64** | **51** | **11** | **2** | **80%** |
+| **Total** | **64** | **61** | **1** | **2** | **95%** |
 
 ### Deferred Items (need architectural decisions)
 
@@ -333,7 +333,7 @@
 **Where:** `apps/dripl-app/components/canvas/RoughCanvas.tsx`
 **Effort:** 2 days
 **Depends on:** None
-**Status:** PARTIAL — extracted useCanvasPersistence, useCanvasViewport, useCanvasClipboard hooks (287 lines moved); RoughCanvas at 2121 lines (target ~500); further extraction needed for mouse events, rendering pipeline
+**Status:** PARTIAL — extracted useCanvasPersistence, useCanvasViewport, useCanvasClipboard hooks (287 lines moved); RoughCanvas at 2121 lines (target ~500); further extraction deferred due to tight coupling with local state (marqueeSelection, isDrawing, eraserPath are local state, not in Zustand store)
 
 ### 38. Split canvas-store.ts into Zustand Slices
 **What:** Split monolithic 856-line Zustand store into focused slices: `canvasStore` (elements + selection + tools), `historyStore` (undo/redo), `collabStore` (remote users/cursors), `uiStore` (theme, grid, marquee). Use Zustand slice pattern with a single `create()` call.
