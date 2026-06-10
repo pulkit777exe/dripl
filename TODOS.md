@@ -333,7 +333,7 @@
 **Where:** `apps/dripl-app/components/canvas/RoughCanvas.tsx`
 **Effort:** 2 days
 **Depends on:** None
-**Status:** OPEN
+**Status:** PARTIAL — extracted useCanvasPersistence, useCanvasViewport, useCanvasClipboard hooks (287 lines moved); RoughCanvas at 2121 lines (target ~500); further extraction needed for mouse events, rendering pipeline
 
 ### 38. Split canvas-store.ts into Zustand Slices
 **What:** Split monolithic 856-line Zustand store into focused slices: `canvasStore` (elements + selection + tools), `historyStore` (undo/redo), `collabStore` (remote users/cursors), `uiStore` (theme, grid, marquee). Use Zustand slice pattern with a single `create()` call.
@@ -341,7 +341,7 @@
 **Where:** `apps/dripl-app/lib/canvas-store.ts`
 **Effort:** 1 day
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — canvasStore, historyStore, collabStore, uiStore in apps/dripl-app/lib/store/
 
 ### 39. WebSocket Auto-Reconnect with Exponential Backoff
 **What:** Add exponential backoff reconnection (1s → 2s → 4s → max 30s) with automatic room rejoin on reconnect. Show connection status indicator.
@@ -381,7 +381,7 @@
 **Where:** `tooling/eslint-config/`, all `eslint.config.*` files
 **Effort:** 1 day
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — shared ESLint config in tooling/eslint-config, all packages updated
 
 ### 44. Canvas Interaction Layer Tests
 **What:** Write integration tests for `useCollaboration` (mock WebSocket) and unit tests for `useDrawingTools` (tool state machine), `useKeyboardShortcuts` (key bindings), `useSelection` (selection logic).
