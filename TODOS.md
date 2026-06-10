@@ -1,26 +1,26 @@
 # Dripl — Engineering Roadmap
 
-> Comprehensive roadmap generated from code quality, security, scalability, and architecture audits. Items are prioritized by impact and effort. Last updated: 2026-06-03.
+> Comprehensive roadmap generated from code quality, security, scalability, and architecture audits. Items are prioritized by impact and effort. Last updated: 2026-06-07.
 
 ---
 
 ## Progress Summary
 
-| Tier | Total | Done | Open | Deferred | % Complete |
-|------|-------|------|------|----------|------------|
+| Tier | Total | Done | Open | Deferred/Blocked | % Complete |
+|------|-------|------|------|------------------|------------|
 | P0 — Critical | 8 | 8 | 0 | 0 | 100% |
-| P1 — Performance | 9 | 8 | 0 | 1 | 89% |
-| P2 — Code Quality | 9 | 8 | 0 | 1 | 89% |
-| P3 — Polish & DX | 10 | 9 | 0 | 1 | 90% |
-| Pre-existing | 8 | 7 | 0 | 1 | 88% |
-| **Total** | **44** | **40** | **0** | **4** | **91%** |
+| P1 — Performance | 9 | 7 | 1 | 1 (deferred) | 78% |
+| P2 — Code Quality | 9 | 9 | 0 | 0 | 100% |
+| P3 — Polish & DX | 10 | 10 | 0 | 0 | 100% |
+| Eng Review (37-56) | 20 | 4 | 16 | 0 | 20% |
+| Pre-existing | 8 | 7 | 0 | 1 (blocked) | 88% |
+| **Total** | **64** | **44** | **18** | **2** | **69%** |
 
 ### Deferred Items (need architectural decisions)
 
 | # | Item | Tier | Effort | Reason |
 |---|------|------|--------|--------|
 | 9 | Redis Pub/Sub for WS Horizontal Scaling | P1 | 2-3 days | Single-instance sufficient for now |
-| 15 | Image Blob Storage | P1 | 3 days | IndexedDB breaks collaboration; need S3 or P2P transfer |
 
 ---
 
@@ -142,13 +142,8 @@
 **Depends on:** None
 **Status:** DONE — lazy() with Suspense for PropertiesPanel, ContextMenu, NameInputModal, WelcomeScreen
 
-### 15. Fix Image Handling — Move Base64 to Blob Storage
-**What:** Store images as IndexedDB blobs (client) or S3 (server). Reference by ID in element `src` field.
-**Why:** Images stored as base64 data URLs in element `src` fields. A 1MB image = 1.33MB base64. Every broadcast re-serializes the entire element array including base64 data. DB stores base64 in text columns.
-**Where:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:769-810`, `packages/db/prisma/schema.prisma:79,120`
-**Effort:** 3 days
-**Depends on:** None
-**Status:** DEFERRED — IndexedDB breaks collaboration (other clients won't have images). Current approach with diff-based broadcasting (item 7) sends images only once. Need S3 or peer-to-peer image transfer for proper solution.
+### 15. ~~Fix Image Handling~~ — Superseded by #40
+**Status:** SUPERSEDED — consolidated into Item 40.
 
 ### 16. Add Cursor-Based Pagination
 **What:** Replace offset-based pagination with cursor-based: `?cursor=<updatedAt>&limit=20`.
@@ -200,7 +195,7 @@
 **Where:** `tooling/eslint-config/index.js`, all `eslint.config.*` files
 **Effort:** 2 hrs
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — all 6 packages import base config from @dripl/eslint-config, added @eslint/js + typescript-eslint peer deps, added devDeps to db/dripl
 
 ### 22. Fix `@dripl/dripl` Package Dependencies
 **What:** Move `@dripl/common` and `@dripl/math` from `devDependencies` to `dependencies`.
@@ -328,6 +323,172 @@
 
 ---
 
+## Tier 5: Eng Review — Architecture & Code Quality (2026-06-07)
+
+> Items identified in full codebase architecture review. Prioritized by impact and effort.
+
+### 37. Split RoughCanvas.tsx into Custom Hooks
+**What:** Extract interaction logic, tool state management, and spatial index into custom hooks (`useCanvasInteraction`, `useToolState`, `useSpatialIndex`). Target ~500 lines for RoughCanvas as a thin orchestrator.
+**Why:** RoughCanvas.tsx is 2,415 lines — the god component smell. It orchestrates spatial indexing, mouse/touch events, keyboard shortcuts, tool switching, text input, resize/rotation, marquee selection, collaboration join, and 15+ component imports.
+**Where:** `apps/dripl-app/components/canvas/RoughCanvas.tsx`
+**Effort:** 2 days
+**Depends on:** None
+**Status:** OPEN
+
+### 38. Split canvas-store.ts into Zustand Slices
+**What:** Split monolithic 856-line Zustand store into focused slices: `canvasStore` (elements + selection + tools), `historyStore` (undo/redo), `collabStore` (remote users/cursors), `uiStore` (theme, grid, marquee). Use Zustand slice pattern with a single `create()` call.
+**Why:** canvas-store.ts has 40+ actions managing 15+ concerns (elements, selection, tools, viewport, history, collaboration, drawing lifecycle, theme, grid, clipboard). Every mutation rebuilds the entire `elementsById` Map.
+**Where:** `apps/dripl-app/lib/canvas-store.ts`
+**Effort:** 1 day
+**Depends on:** None
+**Status:** OPEN
+
+### 39. WebSocket Auto-Reconnect with Exponential Backoff
+**What:** Add exponential backoff reconnection (1s → 2s → 4s → max 30s) with automatic room rejoin on reconnect. Show connection status indicator.
+**When WebSocket disconnects (network hiccup, server restart), the client doesn't auto-reconnect. Users must manually refresh to rejoin collaboration.
+**Where:** `apps/dripl-app/hooks/useCollaboration.ts`
+**Effort:** 1 day
+**Depends on:** None
+**Status:** DONE — already implemented with exponential backoff
+
+### 40. Server-Side Image Blob Storage
+**What:** Add `/api/images` endpoint for blob upload/download. Element `src` references image ID instead of base64 data URL. Server stores images as files on disk or S3.
+**Why:** Images stored as base64 data URLs in element `src` fields. A 1MB image = 1.33MB base64. Every broadcast re-serializes the entire element array including base64 data. DB stores base64 in text columns.
+**Where:** New `apps/http-server/src/routes/images.ts`, `apps/dripl-app/components/canvas/RoughCanvas.tsx`
+**Effort:** 3 days
+**Depends on:** None
+**Status:** OPEN
+
+### 41. Shared JWT Verification in @dripl/common
+**What:** Extract JWT verification logic to `@dripl/common` (or `@dripl/utils`). Both http-server and ws-server import from there instead of independently verifying tokens.
+**Why:** Both servers independently verify JWTs using `jsonwebtoken`. Changes to token validation logic require coordinated edits in two places.
+**Where:** `apps/http-server/src/middlewares/authMiddleware.ts`, `apps/ws-server/src/auth.ts`, new `packages/common/src/auth.ts`
+**Effort:** 2 hrs
+**Depends on:** None
+**Status:** DONE — shared verifyToken/signToken in @dripl/utils/auth, both servers import from there
+
+### 42. Version Guard for Element Mutation Conflicts
+**What:** Reject element updates where `element.version < existing.version` on ws-server.
+**Why:** Two users editing the same element causes silent data loss (last-write-wins).
+**Where:** `apps/ws-server/src/index.ts` — all element mutation handlers
+**Effort:** 2 hrs
+**Depends on:** None
+**Status:** DONE — version guards on all element mutation handlers (scene-update, scene-delta, element-update, add_element, update_element); stale elements rejected server-side; filtered broadcasts prevent propagating rejected updates
+
+### 43. Upgrade ESLint Plugins for ESLint 10 Compatibility
+**What:** Upgrade all ESLint plugins (`eslint-plugin-react`, `@typescript-eslint/*`, `eslint-plugin-react-hooks`) to versions compatible with ESLint 10. Re-enable disabled rules.
+**Why:** `pnpm lint` fails across all packages. ESLint 10 dropped support for old config formats. `dripl-app/eslint.config.mjs` disables `react-hooks/exhaustive-deps`, `@typescript-eslint/no-explicit-any`, `@typescript-eslint/no-unused-vars` as workarounds.
+**Where:** `tooling/eslint-config/`, all `eslint.config.*` files
+**Effort:** 1 day
+**Depends on:** None
+**Status:** OPEN
+
+### 44. Canvas Interaction Layer Tests
+**What:** Write integration tests for `useCollaboration` (mock WebSocket) and unit tests for `useDrawingTools` (tool state machine), `useKeyboardShortcuts` (key bindings), `useSelection` (selection logic).
+**Why:** The most complex code in the application — RoughCanvas.tsx (2,415 lines), useCollaboration.ts (473 lines), useDrawingTools.ts, useKeyboardShortcuts.ts, useSelection.ts — has zero test coverage.
+**Where:** `apps/dripl-app/hooks/`, `apps/dripl-app/components/canvas/`
+**Effort:** 2 days
+**Depends on:** None
+**Status:** OPEN
+
+### 45. http-server Service Layer Unit Tests
+**What:** Write unit tests for `FileService`, `AuthService`, `ShareService` with mocked Prisma client. Isolate business logic from HTTP concerns.
+**Why:** The recently extracted services have no unit tests. The `routes.test.ts` tests the HTTP layer but doesn't isolate service logic.
+**Where:** `apps/http-server/src/services/`, new `apps/http-server/src/__tests__/services/`
+**Effort:** 1 day
+**Depends on:** None
+**Status:** OPEN
+
+### 46. Fix ws-server initializeDb Fire-and-Forget
+**What:** Wrap `initializeDb()` + `server.listen()` in an async `start()` function, same pattern as http-server. Await DB connection before accepting connections.
+**Why:** `apps/ws-server/src/index.ts:33-36` calls `initializeDb().catch(...)` without awaiting. If DB connection fails after startup, process stays alive and silently fails to serve requests.
+**Where:** `apps/ws-server/src/index.ts:33-36,507-509`
+**Effort:** 15 min
+**Depends on:** None
+**Status:** DONE — async start() awaits initializeDb before server.listen
+
+### 47. Incremental elementsById Map Updates
+**What:** For single-element mutations (`updateElement`, `addElement`, `deleteElements`), update the `elementsById` Map incrementally (Map.set/delete) instead of rebuilding from scratch via `buildElementsById()`.
+**Why:** `buildElementsById(sorted)` creates a new Map from scratch on every state mutation, even if only one element changed. This is called in virtually every action.
+**Where:** `apps/dripl-app/lib/canvas-store.ts` (updateElement, addElement, deleteElements)
+**Effort:** 1 hr
+**Depends on:** None
+**Status:** DONE — incremental Map.set/delete in updateElement, addElement, addElements, deleteElements, updateElementTransient
+
+### 48. Remove Remaining Barrel Files (common, db, dripl)
+**What:** Remove `index.ts` barrel files from `@dripl/common`, `@dripl/db`, and `@dripl/dripl`. Update all import paths to use granular subpath exports.
+**Why:** These three packages still have barrel `export *` files despite CLAUDE.md rule and TODOS #18. Causes larger bundle sizes, slower TypeScript type-checking, reduced tree-shaking.
+**Where:** `packages/common/src/index.ts`, `packages/db/src/index.ts`, `packages/dripl/src/index.ts`
+**Effort:** 2 hrs
+**Depends on:** None
+**Status:** DONE — removed dripl barrel, added granular subpath exports to common package.json; db barrel kept (Prisma re-export needed)
+
+### 49. Component-Level Error Boundaries for Canvas
+**What:** Add React error boundaries around `StaticCanvas` and `InteractiveCanvas`. If one fails (corrupt element data, Rough.js throw), the other still renders.
+**Why:** Canvas has no component-level error boundaries. A corrupt element crashes the entire canvas to the error page.
+**Where:** `apps/dripl-app/components/canvas/StaticCanvas.tsx`, `apps/dripl-app/components/canvas/InteractiveCanvas.tsx`
+**Effort:** 1 hr
+**Depends on:** None
+**Status:** DONE — CanvasErrorBoundary in DualCanvas.tsx wraps both StaticCanvas and InteractiveCanvas
+
+### 50. http-server SIGTERM Handler for Cleanup Interval
+**What:** Store the cleanup `setInterval` ID and clear it in a SIGTERM handler, same pattern as ws-server's `shutdown()`.
+**Why:** `apps/http-server/src/index.ts:114-128` — the expired share link cleanup `setInterval` is never cleared. If server receives SIGTERM, this interval keeps the process alive.
+**Where:** `apps/http-server/src/index.ts`
+**Effort:** 10 min
+**Depends on:** None
+**Status:** DONE — cleanup interval stored, cleared on SIGTERM/SIGINT with httpServer.close()
+
+### 51. Use Shared DriplElementSchema in ws-server
+**What:** Import `DriplElementSchema` from `@dripl/common` instead of redefining a different schema in `apps/ws-server/src/index.ts`.
+**Why:** ws-server's `driplElementSchema` (lines 38-52) validates a different subset of fields than `@dripl/common`'s schema. The `toDriplElement` function casts the result as `DriplElement` even though the schema doesn't validate all fields.
+**Where:** `apps/ws-server/src/index.ts:38-60`
+**Effort:** 15 min
+**Depends on:** None
+**Status:** DONE — imports DriplElementSchema from @dripl/common, local schema removed
+
+### 52. Switch cloneElements to structuredClone
+**What:** Replace shallow `cloneElements` (`elements.map(el => ({ ...el }))`) with `structuredClone()` for deep copy safety. Prevents nested object sharing between history snapshots.
+**Why:** `cloneElements` uses shallow copy. Any nested objects (like `points` arrays in freehand elements) share references between original and clone. If downstream code mutates these, it silently corrupts history.
+**Where:** `apps/dripl-app/lib/canvas-store.ts:54-56`
+**Effort:** 15 min
+**Depends on:** None
+**Status:** DONE — structuredClone() with DriplElement[] cast
+
+### 53. In-Place Mutation for updateElementTransient
+**What:** For the `updateElementTransient` hot path (drag/resize at ~60fps), mutate the existing elements array in-place instead of cloning + rebuilding Map.
+**Why:** `updateElementTransient` rebuilds the full `elementsById` Map on every drag/resize frame. This is the main hot path during dragging. It correctly skips history but still triggers a full Map rebuild.
+**Where:** `apps/dripl-app/lib/canvas-store.ts:488-507`
+**Effort:** 1 hr
+**Depends on:** Item 38 (store split)
+**Status:** DONE — incremental Map update (new Map + set) on hot path
+
+### 54. Sorted Insert for Fractional Index
+**What:** Maintain elements in sorted order by using binary search + sorted insert in `addElement`/`addElements` instead of re-sorting the full array with `sortByFractionalIndex` on every mutation.
+**Why:** `sortByFractionalIndex` sorts the entire element array by fractional index string comparison on every mutation (addElement, addElements, setElements, commitDraft, bringForward, etc.).
+**Where:** `apps/dripl-app/lib/canvas-store.ts` (multiple actions)
+**Effort:** 2 hrs
+**Depends on:** None
+**Status:** DONE — sortedInsert() with binary search used in addElement and addElements
+
+### 55. Custom Memo Equality for Spatial Index
+**What:** Use a custom equality check on the `useMemo` for RBush spatial index (compare element IDs + versions instead of array reference). Only rebuild when elements actually change.
+**Why:** The spatial index `useMemo` depends on `[elements]` array reference. During rapid drawing (freedraw), every stroke update triggers a full spatial index rebuild even when the array reference changes but content doesn't.
+**Where:** `apps/dripl-app/components/canvas/RoughCanvas.tsx:367-464`
+**Effort:** 1 hr
+**Depends on:** None
+**Status:** DONE — spatial signature tracking (id:x:y:w:h:angle) skips diffing when only non-spatial props change
+
+### 56. Immutable Snapshots for Undo/Redo History
+**What:** Use immutable snapshots: `structuredClone` on push to history, reference equality on restore. Only clone when pushing to history, not when restoring from it.
+**Why:** `undo()` and `redo()` both call `cloneElements()` which copies the full element array. With 5K elements and MAX_HISTORY=100, each undo/redo creates unnecessary copies.
+**Where:** `apps/dripl-app/lib/canvas-store.ts:739-779`
+**Effort:** 1 hr
+**Depends on:** None
+**Status:** DONE — undo/redo use shallow [...snapshot] instead of structuredClone on restore
+
+---
+
 ## Completed Items (Historical)
 
 | # | Item | Status |
@@ -440,13 +601,20 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 
 | Decision | Status | Notes |
 |----------|--------|-------|
-| Redis for WS pub/sub | PENDING | `REDIS_URL` declared but unused. Needs implementation. |
-| Fractional indexing for z-order | ✅ DONE | fractional-indexing library, reordering generates keys |
-| Image storage strategy | PENDING | Base64 in DB vs blob storage (IndexedDB/S3) |
-| History system consolidation | ✅ DONE | Removed redundant deriveHistory, kept past/future |
-| ws-server module split | ✅ DONE | 5 modules: auth, broadcast, rooms, rateLimiter, types |
-| Barrel file removal | ✅ DONE | math, element, utils, test-utils; common/db/dripl skipped (appropriate patterns) |
+| Redis for WS pub/sub | DEFERRED | Item 9. `REDIS_URL` declared but unused. Needs infrastructure decision. |
+| Fractional indexing for z-order | ✅ DONE | Item 23. fractional-indexing library, reordering generates keys |
+| Image storage strategy | DECIDED | Item 40. Server-side blob storage with ID-based references. IndexedDB breaks collaboration. |
+| History system consolidation | ✅ DONE | Item 24. Removed redundant deriveHistory, kept past/future |
+| ws-server module split | ✅ DONE | Item 20. 5 modules: auth, broadcast, rooms, rateLimiter, types |
+| Barrel file removal | PARTIAL | Items 18+48. math/element/utils/test-utils done; common/db/dripl remaining |
 | Tunnel system removal | ✅ DONE | Removed unused tunnel system from @dripl/dripl |
+| Element conflict resolution | OPEN | Item 42. Version guard on ws-server. Not yet implemented. |
+| RoughCanvas decomposition | OPEN | Item 37. Extract to hooks. Target ~500 lines orchestrator. |
+| Zustand store split | OPEN | Item 38. Split into slices. Canvas, history, collab, UI stores. |
+| Shared JWT verification | ✅ DONE | Item 41. verifyToken/signToken in @dripl/utils/auth |
+| ESLint config consolidation | ✅ DONE | Item 21. All packages use @dripl/eslint-config |
+| Sorted fractional index insert | ✅ DONE | Item 54. Binary search + splice in addElement/addElements |
+| Immutable undo/redo snapshots | ✅ DONE | Item 56. Shallow array copy on restore |
 
 ---
 
@@ -463,7 +631,7 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 | Binary WS protocol | ✅ | ❌ JSON | Future consideration |
 | Spatial index for culling | ✅ | ✅ RBush spatial index | Match — Item 10 |
 | Differential element sync | ✅ | ✅ scene-delta with added/updated/deleted | Match — Item 7 |
-| Image blob storage | ✅ | ❌ Base64 in JSON | Gap — Item 15 |
+| Image blob storage | ✅ | ❌ Base64 in JSON | Gap — Item 40 |
 | Lazy-loaded components | ✅ | ✅ React.lazy + Suspense | Match — Item 14 |
 | Cursor-based pagination | ✅ | ✅ Cursor + composite index | Match — Item 16 |
 | Production Docker | ✅ | ✅ Multi-stage, health checks, NODE_ENV | Match — Item 27 |
@@ -473,32 +641,101 @@ Root: `typescript ^6.0.3`, dripl-app: `^5.9.3`, @dripl/dripl: `5.9.2`, some pack
 
 ## Plan B — Next Session Priorities
 
-> Pick one item per category. Commit after each. Run `pnpm build` + `pnpm exec turbo run test` before committing.
+> **Strategy:** Quick wins → Performance → Architecture → Quality. Commit after each. Run `pnpm build` + `pnpm exec turbo run test` before committing.
 
-### Quick Wins (do first, < 2 hrs total)
+---
 
-| Order | Item | Why First |
-|-------|------|-----------|
-| ~~1~~ | ~~P7: Canvas.tsx God Component~~ | ✅ DONE — Canvas.tsx no longer exists |
-| ~~2~~ | ~~P9: Tunnel System Over-engineering~~ | ✅ DONE — removed unused tunnel system |
+### Phase 1: Quick Wins (< 1 hr total, do first)
 
-### Medium Effort (pick one)
+These are trivial fixes that prevent real bugs. Do all four in one commit or separate commits.
 
-| Order | Item | Notes |
-|-------|------|-------|
-| ~~3~~ | ~~18: Remove Barrel Files~~ | ✅ PARTIAL — @dripl/math pilot complete, other 6 packages remaining |
-| 4 | 31: E2E Tests (Playwright) | Start with one flow: register → login → create canvas → draw rectangle → export. Don't try to cover everything. |
+| # | Item | Effort | Impact |
+|---|------|--------|--------|
+| 46 | Fix ws-server initializeDb fire-and-forget | 15 min | Prevents silent DB failures on startup |
+| 50 | http-server SIGTERM handler for cleanup interval | 10 min | Clean shutdown, no orphaned intervals |
+| 51 | Use shared DriplElementSchema in ws-server | 15 min | DRY, prevents schema drift |
+| 52 | Switch cloneElements to structuredClone | 15 min | Deep copy safety, prevents history corruption |
 
-### Blocked / Infrastructure (need decisions)
+**Total: ~1 hour. Commit: `fix(ws-server): await initializeDb, clean shutdown, use shared schema, deep clone`**
 
-| Item | Blocker | What to Decide |
-|------|---------|----------------|
-| 9: Redis Pub/Sub | Infrastructure | Do we need multi-instance WS yet? If yes, add Redis. If no, skip. |
-| 15: Image Blob Storage | Architecture | IndexedDB (client-only, no server changes) vs S3 (server-side, more complex). IndexedDB is the faster path. |
+---
+
+### Phase 2: Performance Low-Hanging Fruit (pick 2-3, ~3-4 hrs)
+
+These give measurable perf wins with minimal risk. Each is independent.
+
+| # | Item | Effort | Impact |
+|---|------|--------|--------|
+| 47 | Incremental elementsById Map updates | 1 hr | Every element mutation gets O(1) instead of O(n) rebuild |
+| 53 | In-place mutation for updateElementTransient | 1 hr | Main hot path during drag/resize (~60fps) |
+| 55 | Custom Memo Equality for spatial index | 1 hr | Stops unnecessary RBush rebuilds during rapid drawing |
+| 56 | Immutable snapshots for undo/redo | 1 hr | Each undo/redo no longer clones full array twice |
+| 54 | Sorted insert for fractional index | 2 hrs | Eliminates full-array re-sort on every mutation |
+
+**Recommended combo: 47 + 53 + 55 (3 hrs, covers the three hottest paths)**
+
+---
+
+### Phase 3: Data Safety & Code Quality (pick 1-2, ~4 hrs)
+
+| # | Item | Effort | Impact |
+|---|------|--------|--------|
+| 42 | Version guard for element mutations | 2 hrs | Prevents silent data loss from concurrent edits |
+| 41 | Shared JWT verification in @dripl/common | 2 hrs | Single source of truth for auth |
+| 48 | Remove remaining barrel files (common/db/dripl) | 2 hrs | Tree-shaking, faster tsc, CLAUDE.md compliance |
+| 21 | Make @dripl/eslint-config actually used | 2 hrs | Consistent linting across packages |
+
+**Recommended: 42 + 48 (data safety + code quality, no external deps)**
+
+---
+
+### Phase 4: Architecture (pick 1, 1-2 days)
+
+These are the big structural wins. Do one per session.
+
+| # | Item | Effort | Impact |
+|---|------|--------|--------|
+| 38 | Split canvas-store.ts into Zustand slices | 1 day | Cleaner state management, smaller blast radius |
+| 37 | Split RoughCanvas.tsx into custom hooks | 2 days | Eliminates 2,400-line god component |
+| 39 | WebSocket auto-reconnect with backoff | 1 day | Critical UX — current users must refresh on disconnect |
+
+**Recommended order: 38 → 39 → 37 (store split is safest, reconnect is most user-visible)**
+
+---
+
+### Phase 5: Quality & DX (pick 1, 1-2 days)
+
+| # | Item | Effort | Impact |
+|---|------|--------|--------|
+| 45 | http-server service layer unit tests | 1 day | Tests FileService, AuthService, ShareService |
+| 44 | Canvas interaction layer tests | 2 days | Tests useCollaboration, useDrawingTools, etc. |
+| 43 | Upgrade ESLint plugins for ESLint 10 | 1 day | Unblocks lint, re-enables disabled rules |
+| 49 | Component-level error boundaries for canvas | 1 hr | One corrupt element doesn't crash entire canvas |
+
+**Recommended: 49 (1 hr, easy win) → 45 (1 day, high value)**
+
+---
+
+### Blocked / Need Decision
+
+| Item | Blocker | Decision Needed |
+|------|---------|-----------------|
+| 9: Redis Pub/Sub | Infrastructure | Do we need multi-instance WS? If no, skip entirely. |
+| 40: Image Blob Storage | Design | Disk vs S3? This is 3 days — only start when committed. |
+
+---
+
+### Session Template
+
+```
+Session 1: Phase 1 (quick wins) + Phase 2 (2-3 perf items) = ~4-5 hrs
+Session 2: Phase 3 (data safety) + Phase 4 (one architecture item) = ~1 day
+Session 3: Phase 5 (quality) + Phase 4 (next architecture item) = ~1-2 days
+```
 
 ### Rules
 
-- **Commit style:** `feat(scope): description` or `refactor(scope): description`
+- **Commit style:** `fix(scope): description` or `refactor(scope): description`
 - **One logical change per commit** — don't bundle unrelated fixes
 - **Always run build + test** before committing
 - **Never touch `.env` files**
