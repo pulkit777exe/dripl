@@ -5,7 +5,6 @@ import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { useCanvasWorker } from '@/hooks/useCanvasWorker';
-import { saveLocalCanvasToStorage, LocalCanvasState } from '@/utils/localCanvasStorage';
 import { getElementBounds, isPointInElement, inverseRotatePoint } from '@dripl/math/intersection';
 import { CanvasContentSchema, type DriplElement } from '@dripl/common';
 import { getOrCreateCollaboratorName } from '@/utils/username';
@@ -18,6 +17,9 @@ import { LaserCanvas } from './LaserCanvas';
 import { DualCanvas } from './DualCanvas';
 import { screenToCanvas, Viewport } from '@/utils/canvas-coordinates';
 import { useDrawingTools } from '@/hooks/useDrawingTools';
+import { useCanvasPersistence } from '@/hooks/canvas/useCanvasPersistence';
+import { useCanvasViewport } from '@/hooks/canvas/useCanvasViewport';
+import { useCanvasClipboard } from '@/hooks/canvas/useCanvasClipboard';
 
 const PropertiesPanel = lazy(() => import('./PropertiesPanel').then(m => ({ default: m.PropertiesPanel })));
 const ContextMenu = lazy(() => import('./ContextMenu').then(m => ({ default: m.ContextMenu })));
@@ -291,60 +293,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   }, [broadcastElements, elements, roomSlug]);
 
   // ── Persist local canvas ─────────────────────────────────────────────────
-  // Shared serializer — called both by the idle debounce and beforeunload.
-  const flushToStorageRef = useRef<(() => void) | null>(null);
-  flushToStorageRef.current = () => {
-    if (roomSlug !== null) return;
-    const state = useCanvasStore.getState();
-    const appState: LocalCanvasState = {
-      theme,
-      zoom: state.zoom,
-      panX: state.panX,
-      panY: state.panY,
-      currentStrokeColor: state.currentStrokeColor,
-      currentBackgroundColor: state.currentBackgroundColor,
-      currentStrokeWidth: state.currentStrokeWidth,
-      currentRoughness: state.currentRoughness,
-      currentStrokeStyle: state.currentStrokeStyle,
-      currentFillStyle: state.currentFillStyle,
-      activeTool: state.activeTool,
-    };
-    saveLocalCanvasToStorage(state.elements, appState, state.selectedIds);
-  };
-
-  // Activity-gated debounce: only serialize when the user is idle.
-  // Re-schedules itself for 2s if the user is still drawing, preventing
-  // main-thread jank during rapid freedraw / drag sessions. (Item 45)
-  useEffect(() => {
-    if (roomSlug !== null) return;
-    const IDLE_DELAY = 2500;
-    const RETRY_DELAY = 2000;
-    let timeoutId: ReturnType<typeof setTimeout>;
-
-    const schedule = () => {
-      timeoutId = setTimeout(() => {
-        if (isDrawingRef.current) {
-          // User is still drawing — wait a bit longer before writing.
-          schedule();
-        } else {
-          flushToStorageRef.current?.();
-        }
-      }, isDrawingRef.current ? RETRY_DELAY : IDLE_DELAY);
-    };
-
-    schedule();
-    return () => clearTimeout(timeoutId);
-  }, [elements, roomSlug, selectedIds, theme]);
-
-  // Flush immediately on tab close / navigation.
-  useEffect(() => {
-    if (roomSlug !== null) return;
-    const handleBeforeUnload = () => flushToStorageRef.current?.();
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [roomSlug]);
+  useCanvasPersistence({ roomSlug, theme, isDrawingRef });
 
   useEffect(() => {
     const stored = getOrCreateCollaboratorName();
@@ -364,6 +313,11 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     height: containerSize.height,
     zoom,
   };
+
+  const { fitAllToScreen, fitElementsToScreen } = useCanvasViewport(containerRef);
+
+  // ── Clipboard ────────────────────────────────────────────────────────────
+  const { duplicateSelection, copySelectedToClipboard, pasteFromClipboard, findOnCanvas } = useCanvasClipboard();
 
   // ── Spatial index (worker-accelerated rebuild) ──────────────────────────────
   const spatialIndexRef = useRef<SpatialIndexState>({
@@ -1631,265 +1585,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       maybeRevertToSelectTool('text'); // RULE: Tool Reversion
     }
   };
-
-  const fitAllToScreen = useCallback(() => {
-    if (!containerRef.current || elements.length === 0) return;
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    elements.forEach(element => {
-      const bounds = getElementBounds(element);
-      minX = Math.min(minX, bounds.x);
-      minY = Math.min(minY, bounds.y);
-      maxX = Math.max(maxX, bounds.x + bounds.width);
-      maxY = Math.max(maxY, bounds.y + bounds.height);
-    });
-
-    const contentWidth = Math.max(1, maxX - minX);
-    const contentHeight = Math.max(1, maxY - minY);
-    const padding = 64;
-    const viewportWidth = containerRef.current.clientWidth - padding * 2;
-    const viewportHeight = containerRef.current.clientHeight - padding * 2;
-    const nextZoom = Math.max(
-      0.1,
-      Math.min(20, Math.min(viewportWidth / contentWidth, viewportHeight / contentHeight))
-    );
-    const nextPanX = containerRef.current.clientWidth / 2 - (minX + contentWidth / 2) * nextZoom;
-    const nextPanY = containerRef.current.clientHeight / 2 - (minY + contentHeight / 2) * nextZoom;
-
-    setZoom(nextZoom);
-    setPan(nextPanX, nextPanY);
-  }, [elements, setPan, setZoom]);
-
-  const fitElementsToScreen = useCallback(
-    (elementIds: string[]) => {
-      if (!containerRef.current || elementIds.length === 0) return;
-
-      const selectedElements = elements.filter(element => elementIds.includes(element.id));
-      if (selectedElements.length === 0) return;
-
-      let minX = Infinity;
-      let minY = Infinity;
-      let maxX = -Infinity;
-      let maxY = -Infinity;
-
-      selectedElements.forEach(element => {
-        const bounds = getElementBounds(element);
-        minX = Math.min(minX, bounds.x);
-        minY = Math.min(minY, bounds.y);
-        maxX = Math.max(maxX, bounds.x + bounds.width);
-        maxY = Math.max(maxY, bounds.y + bounds.height);
-      });
-
-      const contentWidth = Math.max(1, maxX - minX);
-      const contentHeight = Math.max(1, maxY - minY);
-      const padding = 64;
-      const viewportWidth = containerRef.current.clientWidth - padding * 2;
-      const viewportHeight = containerRef.current.clientHeight - padding * 2;
-      const nextZoom = Math.max(
-        0.1,
-        Math.min(20, Math.min(viewportWidth / contentWidth, viewportHeight / contentHeight))
-      );
-      const nextPanX = containerRef.current.clientWidth / 2 - (minX + contentWidth / 2) * nextZoom;
-      const nextPanY = containerRef.current.clientHeight / 2 - (minY + contentHeight / 2) * nextZoom;
-
-      setZoom(nextZoom);
-      setPan(nextPanX, nextPanY);
-    },
-    [elements, setPan, setZoom]
-  );
-
-  const duplicateSelection = useCallback(() => {
-    const selected = elements.filter(element => selectedIds.has(element.id));
-    if (selected.length === 0) return;
-    const copies = selected.map(element => ({
-      ...element,
-      id: uuidv4(),
-      x: element.x + 10,
-      y: element.y + 10,
-    }));
-    useCanvasStore.getState().addElements(copies);
-    setSelectedIds(new Set(copies.map(element => element.id)));
-  }, [elements, selectedIds, setSelectedIds]);
-
-  const copySelectedToClipboard = useCallback(async () => {
-    const selected = elements.filter(element => selectedIds.has(element.id));
-    if (selected.length === 0) return;
-    // Store in internal clipboard
-    useCanvasStore.getState().setClipboard(selected);
-    // Also copy to system clipboard for external use
-    await navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
-  }, [elements, selectedIds]);
-
-  const pasteFromClipboard = useCallback(async () => {
-    // First, check internal clipboard (Ctrl+C within app)
-    const internalClipboard = useCanvasStore.getState().clipboard;
-    if (internalClipboard.length > 0) {
-      const copies = internalClipboard.map(element => ({
-        ...element,
-        id: uuidv4(),
-        x: element.x + 10,
-        y: element.y + 10,
-      }));
-      useCanvasStore.getState().addElements(copies);
-      setSelectedIds(new Set(copies.map(element => element.id)));
-      return;
-    }
-
-    // Fall back to system clipboard
-    if (typeof navigator.clipboard.read === 'function') {
-      try {
-        const items = await navigator.clipboard.read();
-        for (const item of items) {
-          if (item.types.includes('image/png')) {
-            const blob = await item.getType('image/png');
-            const dataUrl = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result as string);
-              reader.onerror = () => reject(reader.error);
-              reader.readAsDataURL(blob);
-            });
-            const img = new Image();
-            img.src = dataUrl;
-            await new Promise(resolve => {
-              img.onload = resolve;
-              img.onerror = resolve;
-            });
-            if (img.width > 0 && img.height > 0) {
-              addElement({
-                id: uuidv4(),
-                type: 'image',
-                x: 40,
-                y: 40,
-                width: img.width,
-                height: img.height,
-                strokeColor: 'transparent',
-                backgroundColor: 'transparent',
-                strokeWidth: 0,
-                opacity: 1,
-                src: dataUrl,
-              });
-            }
-            return;
-          }
-        }
-      } catch {
-        // fall back to text paste path below
-      }
-    }
-
-    const text = await navigator.clipboard.readText();
-    if (!text) return;
-
-    try {
-      const parsed = JSON.parse(text) as unknown;
-      let incoming: DriplElement[] = [];
-      if (Array.isArray(parsed)) {
-        incoming = CanvasContentSchema.parse(parsed) as DriplElement[];
-      } else if (
-        parsed &&
-        typeof parsed === 'object' &&
-        'elements' in parsed &&
-        Array.isArray((parsed as { elements?: unknown }).elements)
-      ) {
-        incoming = CanvasContentSchema.parse(
-          (parsed as { elements: unknown[] }).elements
-        ) as DriplElement[];
-      } else {
-        return;
-      }
-
-      const copies = incoming.map(element => ({
-        ...element,
-        id: uuidv4(),
-        x: element.x + 10,
-        y: element.y + 10,
-      }));
-      useCanvasStore.getState().addElements(copies);
-      setSelectedIds(new Set(copies.map(element => element.id)));
-    } catch {
-      // ignore non-dripl clipboard content
-    }
-  }, [addElement, setSelectedIds]);
-
-  const findOnCanvas = useCallback(
-    (rawQuery: string): number => {
-      const query = rawQuery.trim().toLowerCase();
-      if (!query) return 0;
-
-      const matches = elements.filter(element => {
-        const textContent = element.type === 'text' && 'text' in element ? element.text : '';
-        const searchable = [
-          element.type,
-          element.id,
-          textContent,
-          element.strokeColor ?? '',
-          element.backgroundColor ?? '',
-          String(Math.round(element.x)),
-          String(Math.round(element.y)),
-        ]
-          .join(' ')
-          .toLowerCase();
-        return searchable.includes(query);
-      });
-
-      if (matches.length === 0) {
-        return 0;
-      }
-
-      setSelectedIds(new Set(matches.map(element => element.id)));
-      const first = matches[0];
-      if (first && containerRef.current) {
-        const bounds = getElementBounds(first);
-        const centerX = bounds.x + bounds.width / 2;
-        const centerY = bounds.y + bounds.height / 2;
-        const viewportWidth = containerRef.current.clientWidth;
-        const viewportHeight = containerRef.current.clientHeight;
-        setPan(viewportWidth / 2 - centerX * zoom, viewportHeight / 2 - centerY * zoom);
-      }
-
-      return matches.length;
-    },
-    [elements, setPan, setSelectedIds, zoom]
-  );
-
-  useEffect(() => {
-    const handleFindOnCanvasEvent = (event: Event) => {
-      const custom = event as CustomEvent<{ query?: string }>;
-      const query = custom.detail?.query;
-      if (!query) return;
-      const count = findOnCanvas(query);
-      if (count === 0) {
-        alert('No matching elements found on canvas.');
-      } else if (count === 1) {
-        alert('Found 1 matching element.');
-      } else {
-        alert(`Found ${count} matching elements.`);
-      }
-    };
-
-    window.addEventListener('dripl:find-on-canvas', handleFindOnCanvasEvent);
-    return () => {
-      window.removeEventListener('dripl:find-on-canvas', handleFindOnCanvasEvent);
-    };
-  }, [findOnCanvas]);
-
-  useEffect(() => {
-    const handleFitElementsEvent = (event: Event) => {
-      const custom = event as CustomEvent<{ elementIds?: string[] }>;
-      const elementIds = custom.detail?.elementIds;
-      if (!Array.isArray(elementIds) || elementIds.length === 0) return;
-      fitElementsToScreen(elementIds);
-    };
-
-    window.addEventListener('dripl:fit-elements', handleFitElementsEvent);
-    return () => {
-      window.removeEventListener('dripl:fit-elements', handleFitElementsEvent);
-    };
-  }, [fitElementsToScreen]);
 
   const openContextMenu = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {

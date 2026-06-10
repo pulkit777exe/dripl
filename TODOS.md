@@ -1,6 +1,6 @@
 # Dripl — Engineering Roadmap
 
-> Comprehensive roadmap generated from code quality, security, scalability, and architecture audits. Items are prioritized by impact and effort. Last updated: 2026-06-07.
+> Comprehensive roadmap generated from code quality, security, scalability, and architecture audits. Items are prioritized by impact and effort. Last updated: 2026-06-10.
 
 ---
 
@@ -12,9 +12,9 @@
 | P1 — Performance | 9 | 7 | 1 | 1 (deferred) | 78% |
 | P2 — Code Quality | 9 | 9 | 0 | 0 | 100% |
 | P3 — Polish & DX | 10 | 10 | 0 | 0 | 100% |
-| Eng Review (37-56) | 20 | 8 | 12 | 0 | 40% |
+| Eng Review (37-56) | 20 | 10 | 10 | 0 | 50% |
 | Pre-existing | 8 | 7 | 0 | 1 (blocked) | 88% |
-| **Total** | **64** | **48** | **14** | **2** | **75%** |
+| **Total** | **64** | **50** | **12** | **2** | **78%** |
 
 ### Deferred Items (need architectural decisions)
 
@@ -389,7 +389,7 @@
 **Where:** `apps/dripl-app/hooks/`, `apps/dripl-app/components/canvas/`
 **Effort:** 2 days
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — useSelection.test.ts (8 tests), useKeyboardShortcuts.test.ts (8 tests)
 
 ### 45. http-server Service Layer Unit Tests
 **What:** Write unit tests for `FileService`, `AuthService`, `ShareService` with mocked Prisma client. Isolate business logic from HTTP concerns.
@@ -397,7 +397,7 @@
 **Where:** `apps/http-server/src/services/`, new `apps/http-server/src/__tests__/services/`
 **Effort:** 1 day
 **Depends on:** None
-**Status:** OPEN
+**Status:** DONE — authService.test.ts, fileService.test.ts, shareService.test.ts
 
 ### 46. Fix ws-server initializeDb Fire-and-Forget
 **What:** Wrap `initializeDb()` + `server.listen()` in an async `start()` function, same pattern as http-server. Await DB connection before accepting connections.
