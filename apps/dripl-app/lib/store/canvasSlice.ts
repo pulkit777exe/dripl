@@ -3,6 +3,7 @@ import type { DriplElement } from '@dripl/common';
 import { generateKeyBetween } from 'fractional-indexing';
 import { invalidateElementCache } from '@dripl/element/staticScene';
 import { clearShapeFromCache, clearAllShapeCache } from '@dripl/element/shape-cache';
+import { getElementBounds } from '@dripl/math/intersection';
 import type { CanvasStoreState, CanvasSlice } from './types';
 import {
   cloneElements,
@@ -421,6 +422,99 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
 
   setClipboard: elements => set({ clipboard: elements }),
   clearClipboard: () => set({ clipboard: [] }),
+
+  // Drawing state (moved from RoughCanvas local state)
+  isDrawing: false,
+  marqueeSelection: null,
+  eraserPath: [],
+  cursorPosition: null,
+
+  setIsDrawing: isDrawing => set({ isDrawing }),
+  setMarqueeSelection: marqueeSelection => set({ marqueeSelection }),
+  setEraserPath: eraserPath =>
+    set(state => ({
+      eraserPath: typeof eraserPath === 'function' ? eraserPath(state.eraserPath) : eraserPath,
+    })),
+  setCursorPosition: cursorPosition => set({ cursorPosition }),
+
+  // Helper functions (moved from RoughCanvas)
+  expandSelectionWithGroups: (ids, sceneElements) => {
+    const expanded = new Set(ids);
+    if (ids.size === 0) return expanded;
+
+    const groupIds = new Set<string>();
+    sceneElements.forEach(element => {
+      if (ids.has(element.id) && element.groupId) {
+        groupIds.add(element.groupId);
+      }
+    });
+
+    if (groupIds.size === 0) return expanded;
+
+    sceneElements.forEach(element => {
+      if (element.groupId && groupIds.has(element.groupId)) {
+        expanded.add(element.id);
+      }
+    });
+
+    return expanded;
+  },
+
+  getSelectionBounds: (selected, sceneElements) => {
+    const selectedElements = sceneElements.filter(element => selected.has(element.id));
+    if (selectedElements.length === 0) return null;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    selectedElements.forEach(element => {
+      const bounds = getElementBounds(element);
+      minX = Math.min(minX, bounds.x);
+      minY = Math.min(minY, bounds.y);
+      maxX = Math.max(maxX, bounds.x + bounds.width);
+      maxY = Math.max(maxY, bounds.y + bounds.height);
+    });
+
+    return { minX, minY, maxX, maxY };
+  },
+
+  collectCascadeDeleteIds: seedIds => {
+    const state = get();
+    const toDelete = new Set<string>(seedIds);
+    if (toDelete.size === 0) return [];
+
+    let changed = true;
+    while (changed) {
+      changed = false;
+      state.elements.forEach(element => {
+        if (toDelete.has(element.id)) {
+          if (
+            (element.type === 'arrow' || element.type === 'line') &&
+            'labelId' in element &&
+            element.labelId &&
+            !toDelete.has(element.labelId)
+          ) {
+            toDelete.add(element.labelId);
+            changed = true;
+          }
+          return;
+        }
+
+        if (element.type !== 'text') return;
+        const boundTargetId =
+          ('boundElementId' in element ? element.boundElementId : undefined) ??
+          ('containerId' in element ? element.containerId : undefined);
+        if (boundTargetId && toDelete.has(boundTargetId)) {
+          toDelete.add(element.id);
+          changed = true;
+        }
+      });
+    }
+
+    return Array.from(toDelete);
+  },
 
   groupElements: ids =>
     set(state => {

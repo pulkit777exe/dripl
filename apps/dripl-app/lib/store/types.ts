@@ -31,6 +31,12 @@ export interface CanvasSlice {
   draftElement: DriplElement | null;
   isEditingElementId: string | null;
   clipboard: DriplElement[];
+  
+  // Drawing state (moved from RoughCanvas local state)
+  isDrawing: boolean;
+  marqueeSelection: { start: { x: number; y: number }; end: { x: number; y: number }; active: boolean } | null;
+  eraserPath: Array<{ x: number; y: number }>;
+  cursorPosition: { x: number; y: number } | null;
 
   setElements: (elements: DriplElement[], options?: { skipHistory?: boolean }) => void;
   addElement: (element: DriplElement) => void;
@@ -67,6 +73,17 @@ export interface CanvasSlice {
   setMarqueeSelectionMode: (mode: 'intersecting' | 'contained') => void;
   setClipboard: (elements: DriplElement[]) => void;
   clearClipboard: () => void;
+  
+  // Drawing state setters
+  setIsDrawing: (isDrawing: boolean) => void;
+  setMarqueeSelection: (selection: { start: { x: number; y: number }; end: { x: number; y: number }; active: boolean } | null) => void;
+  setEraserPath: (path: Array<{ x: number; y: number }> | ((prev: Array<{ x: number; y: number }>) => Array<{ x: number; y: number }>)) => void;
+  setCursorPosition: (position: { x: number; y: number } | null) => void;
+  
+  // Helper functions (moved from RoughCanvas)
+  expandSelectionWithGroups: (ids: Set<string>, sceneElements: DriplElement[]) => Set<string>;
+  getSelectionBounds: (selected: Set<string>, sceneElements: DriplElement[]) => { minX: number; minY: number; maxX: number; maxY: number } | null;
+  collectCascadeDeleteIds: (seedIds: Iterable<string>) => string[];
 }
 
 export interface HistorySlice {
@@ -111,11 +128,37 @@ export interface UiSlice {
   fileName: string;
   isSaving: boolean;
   lastSaved: number | null;
+  
+  // UI state (moved from RoughCanvas local state)
+  isDragging: boolean;
+  isPanning: boolean;
+  isResizing: boolean;
+  isRotating: boolean;
+  textInput: {
+    x: number;
+    y: number;
+    id: string;
+    existingElementId?: string;
+    value: string;
+  } | null;
 
   setTheme: (theme: Theme) => void;
   setFileMetadata: (fileId: string | null, fileName: string) => void;
   markSaving: (isSaving: boolean) => void;
   markSaved: () => void;
+  
+  // UI state setters
+  setIsDragging: (isDragging: boolean) => void;
+  setIsPanning: (isPanning: boolean) => void;
+  setIsResizing: (isResizing: boolean) => void;
+  setIsRotating: (isRotating: boolean) => void;
+  setTextInput: (textInput: {
+    x: number;
+    y: number;
+    id: string;
+    existingElementId?: string;
+    value: string;
+  } | null) => void;
 }
 
 export type CanvasStoreState = CanvasSlice & HistorySlice & CollabSlice & UiSlice;
