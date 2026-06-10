@@ -12,9 +12,9 @@
 | P1 — Performance | 9 | 7 | 1 | 1 (deferred) | 78% |
 | P2 — Code Quality | 9 | 9 | 0 | 0 | 100% |
 | P3 — Polish & DX | 10 | 10 | 0 | 0 | 100% |
-| Eng Review (37-56) | 20 | 4 | 16 | 0 | 20% |
+| Eng Review (37-56) | 20 | 8 | 12 | 0 | 40% |
 | Pre-existing | 8 | 7 | 0 | 1 (blocked) | 88% |
-| **Total** | **64** | **44** | **18** | **2** | **69%** |
+| **Total** | **64** | **48** | **14** | **2** | **75%** |
 
 ### Deferred Items (need architectural decisions)
 
@@ -357,7 +357,7 @@
 **Where:** New `apps/http-server/src/routes/images.ts`, `apps/dripl-app/components/canvas/RoughCanvas.tsx`
 **Effort:** 3 days
 **Depends on:** None
-**Status:** OPEN
+**Status:** PARTIAL — server-side upload/download API complete; client integration pending
 
 ### 41. Shared JWT Verification in @dripl/common
 **What:** Extract JWT verification logic to `@dripl/common` (or `@dripl/utils`). Both http-server and ws-server import from there instead of independently verifying tokens.
