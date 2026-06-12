@@ -56,6 +56,7 @@ export class RoomController {
     const createRoomSchema = z.object({
       name: z.string().trim().min(1).max(200).optional(),
       isPublic: z.boolean().optional(),
+      content: z.string().optional(),
     });
 
     const parsed = createRoomSchema.safeParse(req.body);
@@ -64,7 +65,7 @@ export class RoomController {
       return;
     }
 
-    const { name, isPublic = false } = parsed.data;
+    const { name, isPublic = false, content = '[]' } = parsed.data;
 
     try {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -99,7 +100,7 @@ export class RoomController {
           name: name || 'Untitled Room',
           ownerId: req.userId!,
           isPublic,
-          content: '[]',
+          content,
         },
       });
 
