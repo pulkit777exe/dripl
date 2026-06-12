@@ -27,6 +27,7 @@ export interface ElementFactoryOptions {
   locked?: boolean;
   zIndex?: number;
   fractionalIndex?: string;
+  boundElements?: Array<{ id: string; type: 'arrow' | 'text' }>;
 }
 
 function baseElement(options: ElementFactoryOptions = {}): ElementFactoryOptions {
@@ -46,6 +47,7 @@ function baseElement(options: ElementFactoryOptions = {}): ElementFactoryOptions
     locked: options.locked ?? false,
     zIndex: options.zIndex,
     fractionalIndex: options.fractionalIndex,
+    boundElements: options.boundElements,
   };
 }
 

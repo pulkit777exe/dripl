@@ -58,6 +58,10 @@ export const BaseElementSchema = z.object({
   groupId: z.string().optional(),
   zIndex: z.number().optional(),
   fractionalIndex: z.string().optional(),
+  boundElements: z.array(z.object({
+    id: z.string(),
+    type: z.enum(['arrow', 'text']),
+  })).optional(),
 });
 
 export const RectangleElementSchema = BaseElementSchema.extend({

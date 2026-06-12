@@ -76,6 +76,45 @@ describe('BaseElementSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('validates element with boundElements', () => {
+    const result = BaseElementSchema.safeParse({
+      id: UUID,
+      type: 'rectangle',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      boundElements: [{ id: 'arrow-1', type: 'arrow' }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates element without boundElements (backward compat)', () => {
+    const result = BaseElementSchema.safeParse({
+      id: UUID,
+      type: 'rectangle',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.boundElements).toBeUndefined();
+  });
+
+  it('rejects invalid boundElements entry type', () => {
+    const result = BaseElementSchema.safeParse({
+      id: UUID,
+      type: 'rectangle',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      boundElements: [{ id: 'a', type: 'invalid' }],
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('DriplElementSchema', () => {

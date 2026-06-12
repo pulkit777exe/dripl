@@ -52,6 +52,9 @@ export interface ElementBase {
   padding?: number;
   title?: string;
 
+  /** other elements that are bound to this element */
+  boundElements?: Array<{ id: string; type: 'arrow' | 'text' }>;
+
   // Custom properties for extensions
   [key: string]: unknown;
 }
