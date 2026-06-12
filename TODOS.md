@@ -13,8 +13,8 @@
 | P2 — Code Quality | 9 | 9 | 0 | 0 | 100% |
 | P3 — Polish & DX | 10 | 10 | 0 | 0 | 100% |
 | Eng Review (37-56) | 20 | 20 | 0 | 0 | 100% |
-| Pre-existing | 8 | 7 | 0 | 1 (blocked) | 88% |
-| **Total** | **64** | **62** | **0** | **2** | **97%** |
+| Pre-existing | 8 | 8 | 0 | 0 | 100% |
+| **Total** | **64** | **64** | **0** | **1** | **98%** |
 
 ### Deferred Items (need architectural decisions)
 
@@ -703,7 +703,31 @@ These are the big structural wins. Do one per session.
 
 ---
 
-### Phase 5: Quality & DX (pick 1, 1-2 days)
+### Phase 5: Yjs CRDT Collaboration — DONE ✅
+
+**What:** Added Yjs CRDT for conflict-free real-time collaboration. Replaces simple version-based conflict resolution with deterministic merge.
+
+**Files created:**
+- `apps/ws-server/src/yjsManager.ts` — Server-side Yjs room manager (CRDT doc, Y.Map for elements, awareness, encode/decode helpers)
+
+**Files modified:**
+- `apps/ws-server/src/index.ts` — Binary Yjs message handling, update broadcasting on all element operations, awareness on cursor updates, Yjs sync on join
+- `apps/ws-server/src/types.ts` — Added `yjs?: YjsRoomState` to `RoomState`
+- `apps/ws-server/src/rooms.ts` — Initialize Yjs room on creation, load elements into Yjs on DB load
+- `apps/dripl-app/hooks/useCollaboration.ts` — Local Y.Doc creation, binary message handling, Yjs updates on local changes, Y.Doc observer → Zustand sync
+
+**Architecture:**
+- Server stores a `Y.Doc` per room with a `Y.Map<DriplElement>` for elements
+- JSON protocol kept for backward compatibility; binary Yjs updates sent alongside
+- Binary protocol: 1-byte header (`0x01` = YJS_MSG_UPDATE, `0x02` = YJS_MSG_SYNC)
+- Client maintains local `Y.Doc`, applies binary updates, sends Yjs updates on local changes
+- Persistence: existing DB round-trip (JSON-serialized elements) unchanged; Yjs doc reconstituted from DB on room load
+
+**Status:** All verified — ws-server typecheck ✅, dripl-app lint ✅, 77/77 tests pass ✅
+
+---
+
+### Phase 6: Quality & DX (pick 1, 1-2 days)
 
 | # | Item | Effort | Impact |
 |---|------|--------|--------|
