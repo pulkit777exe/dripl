@@ -1,17 +1,22 @@
 import type { DriplElement, Point } from '@dripl/common';
 import { getBounds } from '@dripl/math/geometry';
+import { AnimationController } from './animationController';
+import { useCanvasStore } from '@/lib/canvas-store';
 
 export interface ZoomSettings {
   minZoom: number;
   maxZoom: number;
-  zoomStep: number;
+  zoomFactor: number;
 }
 
 export const DEFAULT_ZOOM_SETTINGS: ZoomSettings = {
   minZoom: 0.1,
-  maxZoom: 5,
-  zoomStep: 0.1,
+  maxZoom: 20,
+  zoomFactor: 1.1,
 };
+
+const SMOOTH_ZOOM_KEY = 'smooth-zoom';
+const ZOOM_DURATION_MS = 150;
 
 function getElementPoints(element: DriplElement): Point[] {
   if (element.points) {
@@ -106,21 +111,64 @@ export function calculateZoom(
   delta: number,
   minZoom: number = DEFAULT_ZOOM_SETTINGS.minZoom,
   maxZoom: number = DEFAULT_ZOOM_SETTINGS.maxZoom,
-  step: number = DEFAULT_ZOOM_SETTINGS.zoomStep
+  factor: number = DEFAULT_ZOOM_SETTINGS.zoomFactor
 ): number {
   const direction = delta > 0 ? 1 : -1;
-  let newZoom = currentZoom + direction * step;
-
-  newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
-
-  if (newZoom > 1) {
-    const snapped = Math.round(newZoom * 2) / 2;
-    if (Math.abs(newZoom - snapped) < step / 2) {
-      newZoom = snapped;
-    }
-  }
-
+  const newZoom = Math.max(minZoom, Math.min(maxZoom, currentZoom * Math.pow(factor, direction)));
   return newZoom;
+}
+
+export function smoothZoom(
+  targetZoom: number,
+  targetPanX: number,
+  targetPanY: number,
+  setZoom: (zoom: number) => void,
+  setPan: (x: number, y: number) => void
+): void {
+  AnimationController.stop(SMOOTH_ZOOM_KEY);
+
+  const startZoom = AnimationController.getState(SMOOTH_ZOOM_KEY)?.zoom ?? null;
+  const startPanX = AnimationController.getState(SMOOTH_ZOOM_KEY)?.panX ?? null;
+  const startPanY = AnimationController.getState(SMOOTH_ZOOM_KEY)?.panY ?? null;
+
+  const { zoom: currentZoom, panX: currentPanX, panY: currentPanY } =
+    useCanvasStore.getState();
+
+  const fromZoom = startZoom ?? currentZoom;
+  const fromPanX = startPanX ?? currentPanX;
+  const fromPanY = startPanY ?? currentPanY;
+  const startTime = performance.now();
+
+  AnimationController.start(
+    SMOOTH_ZOOM_KEY,
+    (state) => {
+      const elapsed = performance.now() - state.startTime;
+      const t = Math.min(1, elapsed / ZOOM_DURATION_MS);
+      const eased = 1 - Math.pow(1 - t, 3);
+
+      const zoom = fromZoom + (targetZoom - fromZoom) * eased;
+      const panX = fromPanX + (targetPanX - fromPanX) * eased;
+      const panY = fromPanY + (targetPanY - fromPanY) * eased;
+
+      setZoom(zoom);
+      setPan(panX, panY);
+
+      if (t < 1) {
+        return { ...state, zoom, panX, panY };
+      }
+      return undefined;
+    },
+    { startTime, zoom: fromZoom, panX: fromPanX, panY: fromPanY }
+  );
+}
+
+export function normalizeWheelDelta(e: WheelEvent): { dx: number; dy: number } {
+  const LINE_HEIGHT = 16;
+  const PAGE_HEIGHT = 600;
+  let dy = e.deltaY;
+  if (e.deltaMode === 1) dy *= LINE_HEIGHT;
+  else if (e.deltaMode === 2) dy *= PAGE_HEIGHT;
+  return { dx: e.deltaX, dy };
 }
 
 export function getScaledDimensions(

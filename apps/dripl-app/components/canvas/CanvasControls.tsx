@@ -11,8 +11,8 @@ export function CanvasControls() {
   const canUndo = useCanvasStore(state => state.past.length > 0);
   const canRedo = useCanvasStore(state => state.future.length > 0);
 
-  const handleZoomIn = () => setZoom(Math.min(zoom + 0.1, 5));
-  const handleZoomOut = () => setZoom(Math.max(zoom - 0.1, 0.1));
+  const handleZoomIn = () => setZoom(Math.min(zoom * 1.1, 20));
+  const handleZoomOut = () => setZoom(Math.max(zoom / 1.1, 0.1));
 
   return (
     <div className="flex items-center gap-2 z-100">
