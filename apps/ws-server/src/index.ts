@@ -13,6 +13,17 @@ import { pickUserColor, DriplElementSchema } from '@dripl/common';
 import { initializeDb, db } from '@dripl/db';
 import { messageSchema } from './validation';
 import type { UserConnection } from './types';
+import {
+  applyElementToYjs,
+  applyElementsToYjs,
+  deleteElementFromYjs,
+  deleteElementsFromYjs,
+  getElementsFromYjs,
+  getYjsUpdate,
+  applyYjsUpdate,
+  getStateVector,
+  encodeYjsDoc,
+} from './yjsManager';
 import { resolveTokenFromUrl, resolveUserFromToken } from './auth';
 import { send, broadcast, roomUsersPayload, roomCursorsPayload } from './broadcast';
 import {
@@ -51,6 +62,30 @@ function toDriplElement(el: unknown): DriplElement {
     throw new Error('Invalid element structure');
   }
   return parsed.data as DriplElement;
+}
+
+const YJS_MSG_UPDATE = 1;
+const YJS_MSG_SYNC = 2;
+
+function broadcastYjsUpdate(room: { users: Map<string, UserConnection> }, yjsUpdate: Uint8Array, exceptUserId?: string): void {
+  const packet = new Uint8Array(1 + yjsUpdate.length);
+  packet[0] = YJS_MSG_UPDATE;
+  packet.set(yjsUpdate, 1);
+  room.users.forEach(user => {
+    if (exceptUserId && user.userId === exceptUserId) return;
+    if (user.ws.readyState !== WebSocket.OPEN) return;
+    user.ws.send(packet);
+  });
+}
+
+function sendYjsSync(ws: WebSocket, stateVector: Uint8Array, yjsState: Uint8Array): void {
+  const packet = new Uint8Array(1 + stateVector.length + yjsState.length);
+  packet[0] = YJS_MSG_SYNC;
+  packet.set(stateVector, 1);
+  packet.set(yjsState, 1 + stateVector.length);
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(packet);
+  }
 }
 
 const WS_PORT = Number(process.env.WS_PORT || 3001);
@@ -123,6 +158,24 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('message', async (raw: Buffer) => {
+    // Handle binary Yjs messages
+    if (raw instanceof Buffer && raw.length > 0 && raw[0] === YJS_MSG_UPDATE) {
+      if (!currentRoomId) return;
+      const room = rooms.get(currentRoomId);
+      if (!room?.yjs) return;
+      const yjsUpdate = raw.slice(1);
+      applyYjsUpdate(room.yjs, yjsUpdate);
+      // Sync Yjs state back to the legacy elements Map
+      const yjsElements = getElementsFromYjs(room.yjs);
+      room.elements.clear();
+      for (const el of yjsElements) {
+        room.elements.set(el.id, el);
+      }
+      broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+      scheduleSave(currentRoomId);
+      return;
+    }
+
     const messageStr = raw.toString();
 
     let parsed: unknown;
@@ -209,6 +262,13 @@ wss.on('connection', (ws, req) => {
           color,
           timestamp: Date.now(),
         }, userId);
+
+        // Send Yjs sync state to the new client
+        if (room.yjs) {
+          const stateVector = getStateVector(room.yjs);
+          const yjsState = encodeYjsDoc(room.yjs);
+          sendYjsSync(ws, stateVector, yjsState);
+        }
         break;
       }
 
@@ -267,6 +327,11 @@ wss.on('connection', (ws, req) => {
           const existing = room.elements.get(element.id);
           if (existing && (element.version ?? 0) <= (existing.version ?? 0)) break;
           room.elements.set(element.id, element);
+          if (room.yjs) {
+            applyElementToYjs(room.yjs, element);
+            const yjsUpdate = getYjsUpdate(room.yjs);
+            broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+          }
           broadcast(room, message, currentUserId ?? undefined);
           scheduleSave(currentRoomId);
         } catch {
@@ -284,6 +349,11 @@ wss.on('connection', (ws, req) => {
           const existing = room.elements.get(element.id);
           if (existing && (element.version ?? 0) < (existing.version ?? 0)) break;
           room.elements.set(element.id, element);
+          if (room.yjs) {
+            applyElementToYjs(room.yjs, element);
+            const yjsUpdate = getYjsUpdate(room.yjs);
+            broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+          }
           broadcast(room, message, currentUserId ?? undefined);
           scheduleSave(currentRoomId);
         } catch {
@@ -297,6 +367,11 @@ wss.on('connection', (ws, req) => {
         const room = rooms.get(currentRoomId);
         if (!room) break;
         room.elements.delete(message.elementId);
+        if (room.yjs) {
+          deleteElementFromYjs(room.yjs, message.elementId);
+          const yjsUpdate = getYjsUpdate(room.yjs);
+          broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+        }
         broadcast(room, message, currentUserId ?? undefined);
         scheduleSave(currentRoomId);
         break;
@@ -312,6 +387,7 @@ wss.on('connection', (ws, req) => {
           break;
         }
 
+        const acceptedElements: DriplElement[] = [];
         for (const rawEl of message.elements) {
           try {
             const element = toDriplElement(rawEl);
@@ -320,9 +396,16 @@ wss.on('connection', (ws, req) => {
               continue;
             }
             room.elements.set(element.id, element);
+            acceptedElements.push(element);
           } catch {
             // Skip invalid elements
           }
+        }
+
+        if (room.yjs && acceptedElements.length > 0) {
+          applyElementsToYjs(room.yjs, acceptedElements);
+          const yjsUpdate = getYjsUpdate(room.yjs);
+          broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
         }
 
         broadcast(room, {
@@ -341,6 +424,7 @@ wss.on('connection', (ws, req) => {
 
         const acceptedAdded: unknown[] = [];
         const acceptedUpdated: unknown[] = [];
+        const yjsChangedElements: DriplElement[] = [];
 
         if (message.added && Array.isArray(message.added)) {
           for (const rawEl of message.added) {
@@ -352,6 +436,7 @@ wss.on('connection', (ws, req) => {
               }
               room.elements.set(element.id, element);
               acceptedAdded.push(element);
+              yjsChangedElements.push(element);
             } catch {
               // Skip invalid elements
             }
@@ -368,6 +453,7 @@ wss.on('connection', (ws, req) => {
               }
               room.elements.set(element.id, element);
               acceptedUpdated.push(element);
+              yjsChangedElements.push(element);
             } catch {
               // Skip invalid elements
             }
@@ -378,6 +464,18 @@ wss.on('connection', (ws, req) => {
           for (const id of message.deleted) {
             room.elements.delete(id);
           }
+          if (room.yjs) {
+            deleteElementsFromYjs(room.yjs, message.deleted);
+          }
+        }
+
+        if (room.yjs && yjsChangedElements.length > 0) {
+          applyElementsToYjs(room.yjs, yjsChangedElements);
+        }
+
+        if (room.yjs) {
+          const yjsUpdate = getYjsUpdate(room.yjs);
+          broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
         }
 
         const filteredDelta: Record<string, unknown> = { type: 'scene-delta' };
@@ -399,6 +497,7 @@ wss.on('connection', (ws, req) => {
 
         if (Array.isArray(message.elements)) {
           const accepted: unknown[] = [];
+          const yjsElements: DriplElement[] = [];
           for (const rawEl of message.elements) {
             try {
               const element = toDriplElement(rawEl);
@@ -408,9 +507,15 @@ wss.on('connection', (ws, req) => {
               }
               room.elements.set(element.id, element);
               accepted.push(element);
+              yjsElements.push(element);
             } catch {
-              // Skip invalid elements
+              // Skip invalid element
             }
+          }
+          if (room.yjs && yjsElements.length > 0) {
+            applyElementsToYjs(room.yjs, yjsElements);
+            const yjsUpdate = getYjsUpdate(room.yjs);
+            broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
           }
           if (accepted.length > 0) {
             broadcast(room, { type: 'element-update', elements: accepted }, currentUserId ?? undefined);
@@ -425,6 +530,11 @@ wss.on('connection', (ws, req) => {
               break;
             }
             room.elements.set(element.id, element);
+            if (room.yjs) {
+              applyElementToYjs(room.yjs, element);
+              const yjsUpdate = getYjsUpdate(room.yjs);
+              broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+            }
             broadcast(room, { type: 'element-update', element }, currentUserId ?? undefined);
           } catch {
             // Skip invalid element
@@ -444,6 +554,20 @@ wss.on('connection', (ws, req) => {
         room.cursors.set(currentUserId, { x: message.x, y: message.y });
         const user = room.users.get(currentUserId);
         const displayName = message.type === 'cursor-move' ? message.displayName : message.userName;
+
+        // Update Yjs awareness
+        if (room.yjs) {
+          room.yjs.awareness.setLocalStateField('cursor', {
+            x: message.x,
+            y: message.y,
+          });
+          room.yjs.awareness.setLocalStateField('user', {
+            id: currentUserId,
+            name: displayName ?? user?.displayName ?? 'Unknown',
+            color: message.color ?? user?.color ?? '#000000',
+          });
+        }
+
         broadcast(room, {
           type: 'cursor_move',
           roomId: currentRoomId,

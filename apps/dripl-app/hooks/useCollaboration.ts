@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DriplElement } from '@dripl/common';
 import { useCanvasStore } from '@/lib/canvas-store';
+import * as Y from 'yjs';
+
+const YJS_MSG_UPDATE = 1;
+const YJS_MSG_SYNC = 2;
 
 export interface CollabUser {
   userId: string;
@@ -114,6 +118,11 @@ export function useCollaboration(
   const reconnectAttemptRef = useRef(0);
   const lastCursorSentAtRef = useRef(0);
 
+  // Yjs refs
+  const yDocRef = useRef<Y.Doc | null>(null);
+  const yElementsRef = useRef<Y.Map<DriplElement> | null>(null);
+  const ySyncedRef = useRef(false);
+
   const [isConnected, setIsConnected] = useState(false);
   const [connectionMessage, setConnectionMessage] = useState('Reconnecting...');
   const [collaboratorsMap, setCollaboratorsMap] = useState<Map<string, CollabUser>>(new Map());
@@ -143,9 +152,66 @@ export function useCollaboration(
     }
   }, [options.displayName]);
 
+  // Initialize Y.Doc
+  useEffect(() => {
+    const doc = new Y.Doc();
+    const elements = doc.getMap<DriplElement>('elements');
+    yDocRef.current = doc;
+    yElementsRef.current = elements;
+
+    return () => {
+      doc.destroy();
+      yDocRef.current = null;
+      yElementsRef.current = null;
+    };
+  }, []);
+
+  // Observe Y.Doc element changes → sync to Zustand store
+  useEffect(() => {
+    const elements = yElementsRef.current;
+    if (!elements) return;
+
+    const observer = (event: Y.YMapEvent<DriplElement>) => {
+      if (!ySyncedRef.current) return;
+
+      const storeElements = useCanvasStore.getState().elements;
+      const storeMap = new Map(storeElements.map(el => [el.id, el]));
+      let changed = false;
+
+      event.changes.keys.forEach((change, key) => {
+        if (change.action === 'add' || change.action === 'update') {
+          const yEl = elements.get(key);
+          if (yEl) {
+            storeMap.set(key, yEl);
+            changed = true;
+          }
+        } else if (change.action === 'delete') {
+          if (storeMap.has(key)) {
+            storeMap.delete(key);
+            changed = true;
+          }
+        }
+      });
+
+      if (changed) {
+        useCanvasStore.getState().setElements(Array.from(storeMap.values()));
+      }
+    };
+
+    elements.observe(observer);
+    return () => {
+      elements.unobserve(observer);
+    };
+  }, []);
+
   const send = useCallback((message: ClientMessage) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(JSON.stringify(message));
+  }, []);
+
+  const sendBinary = useCallback((data: Uint8Array) => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(data);
   }, []);
 
   const flushElementBroadcast = useCallback(() => {
@@ -153,12 +219,41 @@ export function useCollaboration(
     if (!pending || !roomId) return;
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
 
+    // Update local Y.Doc with the pending elements
+    const yElements = yElementsRef.current;
+    const yDoc = yDocRef.current;
+    if (yElements && yDoc) {
+      yDoc.transact(() => {
+        const yIds = new Set(yElements.keys());
+        const pendingIds = new Set(pending.map(el => el.id));
+
+        // Add/update elements in Yjs
+        for (const el of pending) {
+          yElements.set(el.id, el);
+        }
+
+        // Delete elements no longer in the local state
+        for (const id of yIds) {
+          if (!pendingIds.has(id)) {
+            yElements.delete(id);
+          }
+        }
+      });
+
+      // Send Yjs binary update to server
+      const update = Y.encodeStateAsUpdate(yDoc);
+      const packet = new Uint8Array(1 + update.length);
+      packet[0] = YJS_MSG_UPDATE;
+      packet.set(update, 1);
+      sendBinary(packet);
+    }
+
     if (isFirstSyncRef.current) {
-      // First sync: send full state
+      // First sync: send full state via JSON (for backward compat)
       send({ type: 'scene-update', subtype: 'init', elements: pending });
       isFirstSyncRef.current = false;
     } else {
-      // Subsequent syncs: compute and send delta
+      // Subsequent syncs: compute and send delta via JSON
       const prev = prevElementsRef.current;
       const prevMap = new Map(prev.map(el => [el.id, el]));
       const nextMap = new Map(pending.map(el => [el.id, el]));
@@ -167,7 +262,6 @@ export function useCollaboration(
       const updated: DriplElement[] = [];
       const deleted: string[] = [];
 
-      // Find added and updated elements
       for (const el of pending) {
         const prevEl = prevMap.get(el.id);
         if (!prevEl) {
@@ -177,14 +271,12 @@ export function useCollaboration(
         }
       }
 
-      // Find deleted elements
       for (const el of prev) {
         if (!nextMap.has(el.id)) {
           deleted.push(el.id);
         }
       }
 
-      // Only send if there are actual changes
       if (added.length > 0 || updated.length > 0 || deleted.length > 0) {
         send({
           type: 'scene-delta',
@@ -197,7 +289,7 @@ export function useCollaboration(
 
     prevElementsRef.current = pending;
     pendingElementsRef.current = null;
-  }, [roomId, send]);
+  }, [roomId, send, sendBinary]);
 
   const broadcastElements = useCallback(
     (_prevElements: DriplElement[], nextElements: DriplElement[]) => {
@@ -244,10 +336,12 @@ export function useCollaboration(
       setRemoteUsers(new Map());
       setCollaboratorsMap(new Map());
       clearElementLocks();
+      ySyncedRef.current = false;
       return;
     }
 
     shouldReconnectRef.current = true;
+    ySyncedRef.current = false;
 
     const savedColor = localStorage.getItem('dripl_cursor_color');
     if (savedColor) colorRef.current = savedColor;
@@ -277,7 +371,48 @@ export function useCollaboration(
         }, 15_000);
       };
 
-ws.onmessage = event => {
+      ws.onmessage = (event: MessageEvent) => {
+        // Handle binary Yjs messages
+        if (event.data instanceof ArrayBuffer || event.data instanceof Blob) {
+          const handleBinary = (data: ArrayBuffer) => {
+            const bytes = new Uint8Array(data);
+            if (bytes.length === 0) return;
+
+            const msgType = bytes[0];
+
+            if (msgType === YJS_MSG_UPDATE) {
+              const update = bytes.slice(1);
+              const yDoc = yDocRef.current;
+              if (yDoc) {
+                Y.applyUpdate(yDoc, update);
+                ySyncedRef.current = true;
+              }
+              return;
+            }
+
+            if (msgType === YJS_MSG_SYNC) {
+              // Format: [type][stateVector...][yjsState...]
+              // Server sends full state on join; we apply it and don't reply
+              // (server already has our state since we just joined)
+              const payload = bytes.slice(1);
+              const yDoc = yDocRef.current;
+              if (yDoc && payload.length > 0) {
+                Y.applyUpdate(yDoc, payload);
+                ySyncedRef.current = true;
+              }
+              return;
+            }
+          };
+
+          if (event.data instanceof ArrayBuffer) {
+            handleBinary(event.data);
+          } else if (event.data instanceof Blob) {
+            event.data.arrayBuffer().then(handleBinary);
+          }
+          return;
+        }
+
+        // Handle JSON messages
         let message: ServerMessage | null = null;
         try {
           message = JSON.parse(event.data) as ServerMessage;
@@ -290,6 +425,19 @@ ws.onmessage = event => {
           if (message.subtype === 'init') {
             onFullSyncRef.current?.(message.elements);
             prevElementsRef.current = message.elements;
+
+            // Also populate local Y.Doc from full sync
+            const yElements = yElementsRef.current;
+            const yDoc = yDocRef.current;
+            if (yElements && yDoc) {
+              yDoc.transact(() => {
+                yElements.clear();
+                for (const el of message.elements) {
+                  yElements.set(el.id, el);
+                }
+              });
+              ySyncedRef.current = true;
+            }
           } else {
             onRemoteElementsRef.current?.(message.elements, [], []);
             prevElementsRef.current = message.elements;
@@ -370,6 +518,7 @@ ws.onmessage = event => {
         setRemoteUsers(new Map());
         setCollaboratorsMap(new Map());
         clearElementLocks();
+        ySyncedRef.current = false;
 
         if (heartbeatTimerRef.current) {
           window.clearInterval(heartbeatTimerRef.current);
@@ -405,8 +554,23 @@ ws.onmessage = event => {
 
     connect();
 
+    // Reconnect immediately when browser comes back online
+    const handleOnline = () => {
+      if (!shouldReconnectRef.current) return;
+      if (wsRef.current?.readyState === WebSocket.OPEN) return;
+      // Reset attempts and reconnect immediately
+      reconnectAttemptRef.current = 0;
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      connect();
+    };
+    window.addEventListener('online', handleOnline);
+
     return () => {
       shouldReconnectRef.current = false;
+      window.removeEventListener('online', handleOnline);
       window.clearInterval(cursorCleanupTimer);
       if (reconnectTimerRef.current) {
         window.clearTimeout(reconnectTimerRef.current);
@@ -423,6 +587,7 @@ ws.onmessage = event => {
       setConnectionMessage('Disconnected');
       setRemoteUsers(new Map());
       setCollaboratorsMap(new Map());
+      ySyncedRef.current = false;
     };
   }, [
     WS_URL,
@@ -431,6 +596,7 @@ ws.onmessage = event => {
     removeRemoteUser,
     roomId,
     send,
+    sendBinary,
     setIsStoreConnected,
     setRemoteUsers,
     updateRemoteCursor,

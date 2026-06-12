@@ -1,4 +1,6 @@
 import { WebSocket } from 'ws';
+import type { DriplElement } from '@dripl/common';
+import type { YjsRoomState } from './yjsManager';
 
 export interface UserConnection {
   userId: string;
@@ -20,9 +22,8 @@ export interface RoomState {
   cursors: Map<string, Cursor>;
   loadedFromDb: boolean;
   saving: boolean;
+  yjs?: YjsRoomState;
 }
-
-import type { DriplElement } from '@dripl/common';
 
 export interface RateLimitInfo {
   count: number;

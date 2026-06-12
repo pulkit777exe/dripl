@@ -5,11 +5,10 @@ import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { useCanvasWorker } from '@/hooks/useCanvasWorker';
-import { getElementBounds, isPointInElement, inverseRotatePoint } from '@dripl/math/intersection';
-import { CanvasContentSchema, type DriplElement } from '@dripl/common';
+import { getElementBounds, isPointInElement } from '@dripl/math/intersection';
+import { type DriplElement } from '@dripl/common';
 import { getOrCreateCollaboratorName } from '@/utils/username';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
-import { v4 as uuidv4 } from 'uuid';
 import RBush from 'rbush';
 import { SelectionOverlay, ResizeHandle } from './SelectionOverlay';
 import { RemoteCursors } from './RemoteCursors';
@@ -20,7 +19,9 @@ import { useDrawingTools } from '@/hooks/useDrawingTools';
 import { useCanvasPersistence } from '@/hooks/canvas/useCanvasPersistence';
 import { useCanvasViewport } from '@/hooks/canvas/useCanvasViewport';
 import { useCanvasClipboard } from '@/hooks/canvas/useCanvasClipboard';
-import { uploadImageToServer } from '@/utils/tools/image';
+import { useCanvasPointerEvents } from '@/hooks/canvas/useCanvasPointerEvents';
+import { useCanvasKeyboard } from '@/hooks/canvas/useCanvasKeyboard';
+import { useCanvasWheel } from '@/hooks/canvas/useCanvasWheel';
 
 const PropertiesPanel = lazy(() => import('./PropertiesPanel').then(m => ({ default: m.PropertiesPanel })));
 const ContextMenu = lazy(() => import('./ContextMenu').then(m => ({ default: m.ContextMenu })));
@@ -124,61 +125,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     isDrawingRef.current = next;
     setIsDrawing(next);
   }, []);
-
-  const eraserHitIdsRef = useRef<Set<string>>(new Set());
-  const lastToolBeforeSpaceRef = useRef<ActiveTool | null>(null);
   const activeGestureLocksRef = useRef<Set<string>>(new Set());
-
-  // ── Momentum scrolling state ───────────────────────────────────────────
-  const momentumRef = useRef({
-    isInertial: false,
-    velocityX: 0,
-    velocityY: 0,
-    lastX: 0,
-    lastY: 0,
-    lastTime: 0,
-    animationFrame: 0,
-  });
-
-  // ── Interaction refs ─────────────────────────────────────────────────────
-  // All mutable interaction state lives here to avoid stale closures.
-  const interactionRef = useRef({
-    // Resize
-    resizing: false,
-    resizeHandle: null as ResizeHandle | null,
-    resizeStartCanvasPos: null as Point | null,
-    resizeInitialEl: null as DriplElement | null,
-
-    // Drag
-    dragging: false,
-    dragStartCanvasPos: null as Point | null,
-    // Snapshot of elements at drag start (by id → element)
-    dragInitialElements: null as Map<string, DriplElement> | null,
-
-    // Rotate
-    rotating: false,
-    rotateInitialEl: null as DriplElement | null,
-    rotateCenterX: 0,
-    rotateCenterY: 0,
-
-    // Panning
-    panning: false,
-    panStartClient: null as Point | null,
-
-    // Gesture
-    isSpacePressed: false,
-    historyPushed: false,
-    touchPointers: new Map<number, Point>(),
-    pinchStartDistance: 0,
-    pinchStartMid: null as Point | null,
-    pinchStartZoom: 1,
-    pinchStartPan: { x: 0, y: 0 },
-
-    // Trackpad two-finger pan
-    isTrackpadPanning: false,
-    trackpadLastX: 0,
-    trackpadLastY: 0,
-  });
 
   const { startDrawing, updateDrawing, finishDrawing, cancelDrawing } = useDrawingTools();
 
@@ -316,6 +263,18 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   };
 
   const { fitAllToScreen, fitElementsToScreen } = useCanvasViewport(containerRef);
+
+  // Listen for dripl:fit-elements event (dispatched by AI generation modal)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<{ elementIds: string[] }>;
+      if (customEvent.detail?.elementIds?.length) {
+        fitElementsToScreen(customEvent.detail.elementIds);
+      }
+    };
+    window.addEventListener('dripl:fit-elements', handler);
+    return () => window.removeEventListener('dripl:fit-elements', handler);
+  }, [fitElementsToScreen]);
 
   // ── Clipboard ────────────────────────────────────────────────────────────
   const { duplicateSelection, copySelectedToClipboard, pasteFromClipboard, findOnCanvas } = useCanvasClipboard();
@@ -673,6 +632,37 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     [setSelectedIds]
   );
 
+  // ── Pointer events hook ──────────────────────────────────────────────────
+  const {
+    interactionRef,
+    lastToolBeforeSpaceRef,
+    eraserHitIdsRef,
+    handleDragOver,
+    handleDrop: hookHandleDrop,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+  } = useCanvasPointerEvents({
+    readOnly,
+    getCanvasCoordinates,
+    snapPointToGrid,
+    broadcastCursor,
+    addElement,
+    getElementAtPosition,
+    updateElementTransient,
+    pushHistory,
+    lockElementsForGesture,
+    unlockElement,
+    unlockGestureElements,
+    setEditingElementId,
+    updateDrawing,
+    setDrawingState,
+    maybeRevertToSelectTool,
+    finishDrawing,
+    applyFrameGrouping,
+    spatialIndex,
+  });
+
   // Legacy createElement is removed — all element creation goes through
   // useDrawingTools (startDrawing → updateDrawing → finishDrawing → commitDraft).
 
@@ -728,14 +718,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       if (lockOwner && lockOwner !== state.userId) return;
 
       const frozenEl: DriplElement = JSON.parse(JSON.stringify(element));
-      const cx = element.x + element.width / 2;
-      const cy = element.y + element.height / 2;
 
       interactionRef.current.rotating = true;
       interactionRef.current.historyPushed = false;
       interactionRef.current.rotateInitialEl = frozenEl;
-      interactionRef.current.rotateCenterX = cx;
-      interactionRef.current.rotateCenterY = cy;
 
       setIsRotating(true);
       // Lock: prevent remote reconciliation from overwriting this element.
@@ -749,778 +735,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     },
     [lockElementsForGesture, setEditingElementId]
   );
-
-  // ── Drag / drop images ────────────────────────────────────────────────────
-  const handleDragOver = (e: React.DragEvent) => e.preventDefault();
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    const { x, y } = getCanvasCoordinates(e);
-    const files = Array.from(e.dataTransfer.files);
-
-    for (const file of files) {
-      if (file.type.startsWith('image/')) {
-        try {
-          // Upload to server and get URL
-          const imageUrl = await uploadImageToServer(file);
-          const img = new Image();
-          img.onload = () => {
-            let width = img.width;
-            let height = img.height;
-            const maxSize = 500;
-            if (width > maxSize || height > maxSize) {
-              const ratio = Math.min(maxSize / width, maxSize / height);
-              width *= ratio;
-              height *= ratio;
-            }
-            const element: DriplElement = {
-              id: uuidv4(),
-              type: 'image',
-              x: x - width / 2,
-              y: y - height / 2,
-              width,
-              height,
-              strokeColor: 'transparent',
-              backgroundColor: 'transparent',
-              strokeWidth: 0,
-              opacity: 1,
-              src: imageUrl,
-            };
-            addElement(element);
-          };
-          img.src = imageUrl;
-        } catch (error) {
-          console.error('Failed to upload image:', error);
-        }
-      }
-    }
-  };
-
-  // ── Pointer down ──────────────────────────────────────────────────────────
-  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const target = e.target as HTMLElement;
-    if (target.classList.contains('pointer-events-auto')) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-
-    if (e.pointerType === 'touch') {
-      interactionRef.current.touchPointers.set(e.pointerId, {
-        x: e.clientX,
-        y: e.clientY,
-      });
-      if (interactionRef.current.touchPointers.size === 2) {
-        const points = Array.from(interactionRef.current.touchPointers.values());
-        const first = points[0];
-        const second = points[1];
-        if (first && second) {
-          const dx = second.x - first.x;
-          const dy = second.y - first.y;
-          interactionRef.current.pinchStartDistance = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-          interactionRef.current.pinchStartMid = {
-            x: (first.x + second.x) / 2,
-            y: (first.y + second.y) / 2,
-          };
-          const state = useCanvasStore.getState();
-          interactionRef.current.pinchStartZoom = state.zoom;
-          interactionRef.current.pinchStartPan = {
-            x: state.panX,
-            y: state.panY,
-          };
-          interactionRef.current.panning = true;
-          setIsPanning(true);
-        }
-      }
-    }
-
-    const rawPoint = getCanvasCoordinates(e);
-    const point = snapPointToGrid(rawPoint);
-    const { x, y } = point;
-    const currentTool = useCanvasStore.getState().activeTool;
-
-    broadcastCursor(x, y);
-
-    const isTemporaryPan = interactionRef.current.isSpacePressed || e.button === 1;
-    if (currentTool === 'hand' || isTemporaryPan) {
-      e.preventDefault();
-      if (isTemporaryPan && currentTool !== 'hand') {
-        lastToolBeforeSpaceRef.current = currentTool;
-      }
-      interactionRef.current.panning = true;
-      interactionRef.current.panStartClient = { x: e.clientX, y: e.clientY };
-      setIsPanning(true);
-      return;
-    }
-
-    if (currentTool === 'laser') {
-      setDrawingState(true);
-      window.dispatchEvent(new CustomEvent('dripl:laser-start', { detail: { x, y } }));
-      return;
-    }
-
-    if (readOnly) {
-      return;
-    }
-
-    if (currentTool === 'select') {
-      if (e.detail === 2) {
-        const doubleClicked = getElementAtPosition(x, y);
-        if (doubleClicked?.type === 'text') {
-          const existingText = 'text' in doubleClicked ? doubleClicked.text : '';
-          setTextInput({
-            x: doubleClicked.x,
-            y: doubleClicked.y,
-            id: uuidv4(),
-            existingElementId: doubleClicked.id,
-            value: existingText,
-          });
-          return;
-        }
-      }
-
-      const element = getElementAtPosition(x, y);
-      if (element && element.id) {
-        const state = useCanvasStore.getState();
-        const clickedSet = expandSelectionWithGroups(new Set([element.id]), state.elements);
-        const nextSelection = e.shiftKey
-          ? expandSelectionWithGroups(
-              new Set([...state.selectedIds, ...clickedSet]),
-              state.elements
-            )
-          : clickedSet;
-        setSelectedIds(nextSelection);
-
-        // Snapshot ALL currently-selected elements (after selection update)
-        // Use a microtask delay so the selection state has settled
-        const idsToTrack = nextSelection;
-
-        const snapshot = new Map<string, DriplElement>();
-        state.elements.forEach(el => {
-          if (idsToTrack.has(el.id)) snapshot.set(el.id, JSON.parse(JSON.stringify(el)));
-        });
-
-        interactionRef.current.dragging = true;
-        interactionRef.current.historyPushed = false;
-        interactionRef.current.dragStartCanvasPos = { x, y };
-        interactionRef.current.dragInitialElements = snapshot;
-
-        setIsDragging(true);
-        if (idsToTrack.size > 0) {
-          setEditingElementId(idsToTrack.size === 1 ? (Array.from(idsToTrack)[0] ?? null) : null);
-          lockElementsForGesture(idsToTrack);
-        }
-      } else {
-        const state = useCanvasStore.getState();
-        const selectionBounds = getSelectionBounds(state.selectedIds, state.elements);
-        if (
-          selectionBounds &&
-          x >= selectionBounds.minX &&
-          x <= selectionBounds.maxX &&
-          y >= selectionBounds.minY &&
-          y <= selectionBounds.maxY
-        ) {
-          const snapshot = new Map<string, DriplElement>();
-          state.elements.forEach(candidate => {
-            if (!state.selectedIds.has(candidate.id)) return;
-            const lockOwner = state.elementLocks.get(candidate.id);
-            if (lockOwner && lockOwner !== state.userId) return;
-            snapshot.set(candidate.id, JSON.parse(JSON.stringify(candidate)));
-          });
-
-          if (snapshot.size > 0) {
-            interactionRef.current.dragging = true;
-            interactionRef.current.historyPushed = false;
-            interactionRef.current.dragStartCanvasPos = { x, y };
-            interactionRef.current.dragInitialElements = snapshot;
-            setIsDragging(true);
-            setEditingElementId(
-              snapshot.size === 1 ? (Array.from(snapshot.keys())[0] ?? null) : null
-            );
-            lockElementsForGesture(snapshot.keys());
-            return;
-          }
-        }
-
-        if (!e.shiftKey) clearSelection();
-        setMarqueeSelection({ start: { x, y }, end: { x, y }, active: true });
-      }
-      return;
-    }
-
-    if (currentTool === 'text') {
-      setTextInput({ x, y, id: uuidv4(), value: '' });
-      return;
-    }
-
-    if (currentTool === 'image') {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.onchange = async event => {
-        const file = (event.target as HTMLInputElement).files?.[0];
-        if (file) {
-          try {
-            // Upload to server and get URL
-            const imageUrl = await uploadImageToServer(file);
-            const img = new Image();
-            img.onload = () => {
-              let width = img.width;
-              let height = img.height;
-              const maxSize = 500;
-              if (width > maxSize || height > maxSize) {
-                const ratio = Math.min(maxSize / width, maxSize / height);
-                width *= ratio;
-                height *= ratio;
-              }
-              const element: DriplElement = {
-                id: uuidv4(),
-                type: 'image',
-                x: x - width / 2,
-                y: y - height / 2,
-                width,
-                height,
-                strokeColor: 'transparent',
-                backgroundColor: 'transparent',
-                strokeWidth: 0,
-                opacity: 1,
-                src: imageUrl,
-              };
-              addElement(element);
-              if (useCanvasStore.getState().activeTool === 'image') {
-                maybeRevertToSelectTool('image'); // RULE: Tool Reversion
-              }
-            };
-            img.src = imageUrl;
-          } catch (error) {
-            console.error('Failed to upload image:', error);
-          }
-        }
-      };
-      input.click();
-      return;
-    }
-
-    if (currentTool === 'eraser') {
-      setDrawingState(true);
-      eraserHitIdsRef.current.clear();
-      setEraserPath([{ x, y }]);
-      return;
-    }
-
-    if (
-      currentTool === 'rectangle' ||
-      currentTool === 'ellipse' ||
-      currentTool === 'diamond' ||
-      currentTool === 'arrow' ||
-      currentTool === 'line' ||
-      currentTool === 'freedraw' ||
-      currentTool === 'frame'
-    ) {
-      startDrawing(
-        { x, y },
-        currentTool,
-        { shiftKey: e.shiftKey, altKey: e.altKey },
-        {
-          strokeColor: currentStrokeColor,
-          backgroundColor: currentBackgroundColor,
-          strokeWidth: currentStrokeWidth,
-          opacity: 1,
-          roughness: currentRoughness,
-          strokeStyle: currentStrokeStyle,
-          fillStyle: currentFillStyle,
-        },
-        elements
-      );
-      setDrawingState(true);
-      return;
-    }
-  };
-
-  // ── Pointer move ──────────────────────────────────────────────────────────
-  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const { x, y } = getCanvasCoordinates(e);
-    const currentTool = useCanvasStore.getState().activeTool;
-
-    if (e.pointerType === 'touch' && interactionRef.current.touchPointers.has(e.pointerId)) {
-      interactionRef.current.touchPointers.set(e.pointerId, {
-        x: e.clientX,
-        y: e.clientY,
-      });
-
-      if (interactionRef.current.touchPointers.size === 2 && interactionRef.current.pinchStartMid) {
-        const points = Array.from(interactionRef.current.touchPointers.values());
-        const first = points[0];
-        const second = points[1];
-        if (first && second) {
-          const dx = second.x - first.x;
-          const dy = second.y - first.y;
-          const distance = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-          const mid = {
-            x: (first.x + second.x) / 2,
-            y: (first.y + second.y) / 2,
-          };
-          const startMid = interactionRef.current.pinchStartMid;
-          const startZoom = interactionRef.current.pinchStartZoom;
-          const startPan = interactionRef.current.pinchStartPan;
-
-          const worldX = (startMid.x - startPan.x) / startZoom;
-          const worldY = (startMid.y - startPan.y) / startZoom;
-          const scaledZoom = Math.max(
-            0.1,
-            Math.min(20, startZoom * (distance / interactionRef.current.pinchStartDistance))
-          );
-
-          setZoom(scaledZoom);
-          setPan(mid.x - worldX * scaledZoom, mid.y - worldY * scaledZoom);
-          return;
-        }
-      }
-    }
-
-    setCursorPosition({ x, y });
-    broadcastCursor(x, y);
-
-    // ── Panning ────────────────────────────────────────────────────────────
-    if (interactionRef.current.panning && interactionRef.current.panStartClient) {
-      const dx = e.clientX - interactionRef.current.panStartClient.x;
-      const dy = e.clientY - interactionRef.current.panStartClient.y;
-      const state = useCanvasStore.getState();
-      setPan(state.panX + dx, state.panY + dy);
-      interactionRef.current.panStartClient = { x: e.clientX, y: e.clientY };
-      return;
-    }
-
-    // ── Marquee selection ──────────────────────────────────────────────────
-    if (marqueeSelection?.active) {
-      setMarqueeSelection({ ...marqueeSelection, end: { x, y } });
-      return;
-    }
-
-    if (currentTool === 'laser' && isDrawingRef.current) {
-      window.dispatchEvent(new CustomEvent('dripl:laser-move', { detail: { x, y } }));
-      return;
-    }
-
-    if (readOnly) return;
-
-    // ── Resize ─────────────────────────────────────────────────────────────
-    if (
-      interactionRef.current.resizing &&
-      interactionRef.current.resizeInitialEl &&
-      interactionRef.current.resizeStartCanvasPos
-    ) {
-      const el = interactionRef.current.resizeInitialEl;
-      const handle = interactionRef.current.resizeHandle!;
-      const dx = x - interactionRef.current.resizeStartCanvasPos.x;
-      const dy = y - interactionRef.current.resizeStartCanvasPos.y;
-      if (!interactionRef.current.historyPushed && (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5)) {
-        pushHistory();
-        interactionRef.current.historyPushed = true;
-      }
-
-      // ── Arrow endpoint / vertex dragging ─────────────────────────────────
-      const isArrowEndpoint = handle === 'arrow-start' || handle === 'arrow-end';
-      const arrowPointMatch = typeof handle === 'string' && handle.startsWith('arrow-point-')
-        ? parseInt(handle.slice('arrow-point-'.length), 10)
-        : -1;
-
-      if (isArrowEndpoint || arrowPointMatch >= 0) {
-        if (!('points' in el) || !el.points || el.points.length < 2) return;
-        const pts = el.points as Point[];
-        const absPts = pts.map((p: Point) => ({ x: el.x + p.x, y: el.y + p.y }));
-        const idx = handle === 'arrow-start' ? 0
-          : handle === 'arrow-end' ? pts.length - 1
-          : arrowPointMatch;
-        const target = absPts[idx];
-        if (!target) return;
-        const angle = el.angle ?? 0;
-        if (angle) {
-          const localDelta = inverseRotatePoint({ x: dx, y: dy }, 0, 0, angle);
-          target.x += localDelta.x;
-          target.y += localDelta.y;
-        } else {
-          target.x += dx;
-          target.y += dy;
-        }
-        const allX = absPts.map(p => p.x);
-        const allY = absPts.map(p => p.y);
-        const newMinX = Math.min(...allX);
-        const newMinY = Math.min(...allY);
-        const newMaxX = Math.max(...allX);
-        const newMaxY = Math.max(...allY);
-        const relPts = absPts.map(p => ({ x: p.x - newMinX, y: p.y - newMinY }));
-        const updatedElement: DriplElement = {
-          ...el,
-          x: newMinX,
-          y: newMinY,
-          width: Math.max(4, newMaxX - newMinX),
-          height: Math.max(4, newMaxY - newMinY),
-          points: relPts,
-        };
-        if (el.id) updateElementTransient(el.id, updatedElement);
-        return;
-      }
-
-      let newX = el.x;
-      let newY = el.y;
-      let newWidth = el.width;
-      let newHeight = el.height;
-      const aspect = el.height !== 0 ? el.width / el.height : 1;
-
-      switch (handle) {
-        case 'se':
-          newWidth = Math.max(4, el.width + dx);
-          newHeight = Math.max(4, el.height + dy);
-          break;
-        case 'sw':
-          newWidth = Math.max(4, el.width - dx);
-          newX = el.x + el.width - newWidth;
-          newHeight = Math.max(4, el.height + dy);
-          break;
-        case 'ne':
-          newWidth = Math.max(4, el.width + dx);
-          newHeight = Math.max(4, el.height - dy);
-          newY = el.y + el.height - newHeight;
-          break;
-        case 'nw':
-          newWidth = Math.max(4, el.width - dx);
-          newX = el.x + el.width - newWidth;
-          newHeight = Math.max(4, el.height - dy);
-          newY = el.y + el.height - newHeight;
-          break;
-        case 'e':
-          newWidth = Math.max(4, el.width + dx);
-          break;
-        case 'w':
-          newWidth = Math.max(4, el.width - dx);
-          newX = el.x + el.width - newWidth;
-          break;
-        case 's':
-          newHeight = Math.max(4, el.height + dy);
-          break;
-        case 'n':
-          newHeight = Math.max(4, el.height - dy);
-          newY = el.y + el.height - newHeight;
-          break;
-      }
-
-      if (e.shiftKey) {
-        const base = Math.max(newWidth, newHeight);
-        newWidth = base;
-        newHeight = aspect !== 0 ? base / aspect : base;
-        if (handle.includes('w')) {
-          newX = el.x + el.width - newWidth;
-        }
-        if (handle.includes('n')) {
-          newY = el.y + el.height - newHeight;
-        }
-      }
-
-      if (gridEnabled) {
-        const snapped = snapPointToGrid({ x: newX, y: newY });
-        newX = snapped.x;
-        newY = snapped.y;
-        newWidth = Math.max(4, Math.round(newWidth / gridSize) * gridSize);
-        newHeight = Math.max(4, Math.round(newHeight / gridSize) * gridSize);
-      }
-
-      const updatedElement: DriplElement = {
-        ...el,
-        x: newX,
-        y: newY,
-        width: newWidth,
-        height: newHeight,
-      };
-
-      // Scale fontSize for text elements
-      if (el.type === 'text') {
-        const originalFontSize = el.fontSize ?? 20;
-        const scaleX = newWidth / el.width;
-        const scaleY = newHeight / el.height;
-        const scale = Math.sqrt(scaleX * scaleY);
-        const newFontSize = Math.max(6, Math.round(originalFontSize * scale));
-        updatedElement.fontSize = newFontSize;
-      }
-
-      // Scale points for line/arrow/freedraw
-      if (
-        (el.type === 'arrow' || el.type === 'line' || el.type === 'freedraw') &&
-        el.points &&
-        el.points.length > 0 &&
-        el.width !== 0 &&
-        el.height !== 0
-      ) {
-        const scaleX = newWidth / el.width;
-        const scaleY = newHeight / el.height;
-        const scaledPoints = el.points.map((p: Point) => ({
-          x: newX + (p.x - el.x) * scaleX,
-          y: newY + (p.y - el.y) * scaleY,
-        }));
-        Object.assign(updatedElement, { points: scaledPoints });
-      }
-
-      if (el.id) {
-        updateElementTransient(el.id, updatedElement);
-      }
-      return;
-    }
-
-    // ── Rotate ─────────────────────────────────────────────────────────────
-    if (interactionRef.current.rotating && interactionRef.current.rotateInitialEl) {
-      const cx = interactionRef.current.rotateCenterX;
-      const cy = interactionRef.current.rotateCenterY;
-      // angle from center to cursor; offset by -PI/2 so 0 = pointing up
-      const angle = Math.atan2(y - cy, x - cx) + Math.PI / 2;
-      if (
-        !interactionRef.current.historyPushed &&
-        Math.abs(angle - (interactionRef.current.rotateInitialEl.angle ?? 0)) > 0.001
-      ) {
-        pushHistory();
-        interactionRef.current.historyPushed = true;
-      }
-
-      const el = interactionRef.current.rotateInitialEl;
-      const updatedElement = { ...el, angle };
-      if (el.id) {
-        updateElementTransient(el.id, updatedElement);
-      }
-      return;
-    }
-
-    // ── Drag selected elements ─────────────────────────────────────────────
-    if (
-      interactionRef.current.dragging &&
-      currentTool === 'select' &&
-      interactionRef.current.dragStartCanvasPos &&
-      interactionRef.current.dragInitialElements
-    ) {
-      const currentPoint = gridEnabled ? snapPointToGrid({ x, y }) : { x, y };
-      const totalDeltaX = currentPoint.x - interactionRef.current.dragStartCanvasPos.x;
-      const totalDeltaY = currentPoint.y - interactionRef.current.dragStartCanvasPos.y;
-      if (
-        !interactionRef.current.historyPushed &&
-        (Math.abs(totalDeltaX) > 0.5 || Math.abs(totalDeltaY) > 0.5)
-      ) {
-        pushHistory();
-        interactionRef.current.historyPushed = true;
-      }
-
-      interactionRef.current.dragInitialElements.forEach((initialEl, id) => {
-        const updatedEl: DriplElement = {
-          ...initialEl,
-          x: initialEl.x + totalDeltaX,
-          y: initialEl.y + totalDeltaY,
-        };
-
-        updateElementTransient(id, updatedEl);
-      });
-
-      return;
-    }
-
-    if (!isDrawingRef.current) return;
-
-    if (currentTool === 'eraser') {
-      setEraserPath(prev => [...prev, { x, y }]);
-      const state = useCanvasStore.getState();
-      const candidates = spatialIndex.tree.search({
-        minX: x - 20,
-        minY: y - 20,
-        maxX: x + 20,
-        maxY: y + 20,
-      });
-      candidates.forEach(candidate => {
-        const element = spatialIndex.byId.get(candidate.id);
-        if (!element) return;
-        const lockOwner = state.elementLocks.get(element.id);
-        if (lockOwner && lockOwner !== state.userId) return;
-        if (isPointNearElement({ x, y }, element, 20)) {
-          eraserHitIdsRef.current.add(element.id);
-        }
-      });
-      return;
-    }
-
-    if (
-      currentTool === 'rectangle' ||
-      currentTool === 'ellipse' ||
-      currentTool === 'diamond' ||
-      currentTool === 'arrow' ||
-      currentTool === 'line' ||
-      currentTool === 'freedraw' ||
-      currentTool === 'frame'
-    ) {
-      const snapped = snapPointToGrid({ x, y });
-      updateDrawing(
-        snapped,
-        {
-          shiftKey: e.shiftKey || false,
-          altKey: e.altKey,
-          pressure: e.pressure,
-        },
-        elements
-      );
-      return;
-    }
-  };
-
-  // ── Pointer up ────────────────────────────────────────────────────────────
-  const handlePointerUp = (e?: React.PointerEvent) => {
-    const currentTool = useCanvasStore.getState().activeTool;
-    if (e?.pointerType === 'touch') {
-      interactionRef.current.touchPointers.delete(e.pointerId);
-      if (interactionRef.current.touchPointers.size < 2) {
-        interactionRef.current.pinchStartDistance = 0;
-        interactionRef.current.pinchStartMid = null;
-      }
-    }
-    setCursorPosition(null);
-
-    // ── End pan ────────────────────────────────────────────────────────────
-    if (interactionRef.current.panning) {
-      interactionRef.current.panning = false;
-      interactionRef.current.panStartClient = null;
-      setIsPanning(false);
-      if (
-        !interactionRef.current.isSpacePressed &&
-        currentTool === 'hand' &&
-        lastToolBeforeSpaceRef.current &&
-        lastToolBeforeSpaceRef.current !== 'hand'
-      ) {
-        setActiveTool(lastToolBeforeSpaceRef.current);
-      }
-      return;
-    }
-
-    // ── End marquee ────────────────────────────────────────────────────────
-    if (marqueeSelection?.active) {
-      const rect = {
-        minX: Math.min(marqueeSelection.start.x, marqueeSelection.end.x),
-        minY: Math.min(marqueeSelection.start.y, marqueeSelection.end.y),
-        maxX: Math.max(marqueeSelection.start.x, marqueeSelection.end.x),
-        maxY: Math.max(marqueeSelection.start.y, marqueeSelection.end.y),
-      };
-      const candidates = spatialIndex.tree.search(rect);
-
-      let hitIds: Set<string>;
-      if (marqueeSelectionMode === 'contained') {
-        // Contained: element must be fully inside the marquee
-        hitIds = new Set();
-        for (const candidate of candidates) {
-          const element = spatialIndex.byId.get(candidate.id);
-          if (!element) continue;
-          const bounds = getElementBounds(element);
-          if (
-            bounds.x >= rect.minX &&
-            bounds.y >= rect.minY &&
-            bounds.x + bounds.width <= rect.maxX &&
-            bounds.y + bounds.height <= rect.maxY
-          ) {
-            hitIds.add(candidate.id);
-          }
-        }
-      } else {
-        // Intersecting: element overlaps with marquee (default)
-        hitIds = new Set(candidates.map(candidate => candidate.id));
-      }
-      const expandedHitIds = expandSelectionWithGroups(hitIds, elements);
-
-      if (e?.shiftKey) {
-        setSelectedIds(
-          expandSelectionWithGroups(new Set([...selectedIds, ...expandedHitIds]), elements)
-        );
-      } else {
-        setSelectedIds(expandedHitIds);
-      }
-      setMarqueeSelection(null);
-      return;
-    }
-
-    // ── End resize ─────────────────────────────────────────────────────────
-    if (interactionRef.current.resizing) {
-      const editingId = useCanvasStore.getState().isEditingElementId;
-      interactionRef.current.resizing = false;
-      interactionRef.current.historyPushed = false;
-      interactionRef.current.resizeHandle = null;
-      interactionRef.current.resizeStartCanvasPos = null;
-      interactionRef.current.resizeInitialEl = null;
-      setIsResizing(false);
-      setEditingElementId(null); // release edit lock
-      if (editingId) unlockElement(editingId);
-      unlockGestureElements();
-      return;
-    }
-
-    // ── End rotate ─────────────────────────────────────────────────────────
-    if (interactionRef.current.rotating) {
-      const editingId = useCanvasStore.getState().isEditingElementId;
-      interactionRef.current.rotating = false;
-      interactionRef.current.historyPushed = false;
-      interactionRef.current.rotateInitialEl = null;
-      setIsRotating(false);
-      setEditingElementId(null); // release edit lock
-      if (editingId) unlockElement(editingId);
-      unlockGestureElements();
-      return;
-    }
-
-    // ── End drag ───────────────────────────────────────────────────────────
-    if (interactionRef.current.dragging) {
-      const editingId = useCanvasStore.getState().isEditingElementId;
-      interactionRef.current.dragging = false;
-      interactionRef.current.historyPushed = false;
-      interactionRef.current.dragStartCanvasPos = null;
-      interactionRef.current.dragInitialElements = null;
-      setIsDragging(false);
-      setEditingElementId(null); // release edit lock
-      if (editingId) unlockElement(editingId);
-      unlockGestureElements();
-      return;
-    }
-
-    // ── End drawing ────────────────────────────────────────────────────────
-    if (isDrawingRef.current) {
-      if (currentTool === 'laser') {
-        setDrawingState(false);
-        window.dispatchEvent(new CustomEvent('dripl:laser-end'));
-        return;
-      }
-
-      if (currentTool === 'eraser') {
-        const elementsToErase = collectCascadeDeleteIds(eraserHitIdsRef.current);
-
-        if (elementsToErase.length > 0) {
-          deleteElements(elementsToErase);
-        }
-
-        setEraserPath([]);
-        eraserHitIdsRef.current.clear();
-        setDrawingState(false);
-        maybeRevertToSelectTool('eraser');
-        return;
-      }
-
-      if (
-        currentTool === 'rectangle' ||
-        currentTool === 'ellipse' ||
-        currentTool === 'diamond' ||
-        currentTool === 'arrow' ||
-        currentTool === 'line' ||
-        currentTool === 'freedraw' ||
-        currentTool === 'frame'
-      ) {
-        const finishedElement = finishDrawing();
-        if (finishedElement) {
-          if (finishedElement.type === 'frame') {
-            applyFrameGrouping(finishedElement);
-          }
-        }
-        setDrawingState(false);
-        maybeRevertToSelectTool(currentTool); // RULE: Tool Reversion
-        return;
-      }
-      // All drawing tools go through useDrawingTools — no legacy fallback.
-      setDrawingState(false);
-    }
-  };
 
   useEffect(() => {
     return () => {
@@ -1611,350 +825,25 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   );
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
-        return;
-
-      const isMac = navigator.platform.toUpperCase().includes('MAC');
-      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
-      const key = e.key.toLowerCase();
-
-      if (e.code === 'Space') {
-        if (!interactionRef.current.isSpacePressed) {
-          interactionRef.current.isSpacePressed = true;
-          if (activeTool !== 'hand') {
-            lastToolBeforeSpaceRef.current = activeTool;
-            setActiveTool('hand');
-          }
-        }
-        e.preventDefault();
-      }
-
-      if (!cmdOrCtrl && !e.altKey && !e.shiftKey) {
-        if (key === 'v') setActiveTool('select');
-        if (key === 'r') setActiveTool('rectangle');
-        if (key === 'd') setActiveTool('diamond');
-        if (key === 'e' || key === 'o') setActiveTool('ellipse');
-        if (key === 'p') setActiveTool('freedraw');
-        if (key === 'l') setActiveTool('line');
-        if (key === 'a') setActiveTool('arrow');
-        if (key === 't') setActiveTool('text');
-        if (key === 'f') setActiveTool('frame');
-        if (key === 'x') setActiveTool('eraser');
-        if (key === 'h') setActiveTool('hand');
-      }
-
-      if (cmdOrCtrl && key === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-        return;
-      }
-
-      if (cmdOrCtrl && key === 'y') {
-        e.preventDefault();
-        redo();
-        return;
-      }
-
-      if (cmdOrCtrl && key === 'a') {
-        e.preventDefault();
-        setSelectedIds(new Set(elements.map(element => element.id)));
-        return;
-      }
-
-      if (cmdOrCtrl && key === 'f') {
-        e.preventDefault();
-        const query = window.prompt('Find on canvas', '');
-        if (query && query.trim()) {
-          const count = findOnCanvas(query);
-          if (count === 0) {
-            alert('No matching elements found on canvas.');
-          }
-        }
-        return;
-      }
-
-      if (cmdOrCtrl && key === 'c') {
-        e.preventDefault();
-        void copySelectedToClipboard();
-        return;
-      }
-
-      if (cmdOrCtrl && key === 'v') {
-        if (readOnly) return;
-        e.preventDefault();
-        void pasteFromClipboard();
-        return;
-      }
-
-      if (cmdOrCtrl && key === 'd') {
-        if (readOnly) return;
-        e.preventDefault();
-        duplicateSelection();
-        return;
-      }
-
-      if (cmdOrCtrl && key === 'g') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          // Ctrl+Shift+G = ungroup
-          const ids = Array.from(useCanvasStore.getState().selectedIds);
-          ungroupElements(ids);
-        } else {
-          // Ctrl+G = group
-          const ids = Array.from(useCanvasStore.getState().selectedIds);
-          groupElements(ids);
-        }
-        return;
-      }
-
-      // Ctrl+Alt+G = toggle grid (moved from Ctrl+G)
-      if (cmdOrCtrl && e.altKey && key === 'g') {
-        e.preventDefault();
-        setGridEnabled(!useCanvasStore.getState().gridEnabled);
-        return;
-      }
-
-      if (cmdOrCtrl && e.shiftKey && key === 'f') {
-        e.preventDefault();
-        fitAllToScreen();
-        return;
-      }
-
-      if (cmdOrCtrl && key === '0') {
-        e.preventDefault();
-        fitAllToScreen();
-        return;
-      }
-
-      if (cmdOrCtrl && e.shiftKey && key === 'h') {
-        e.preventDefault();
-        setZoom(1);
-        setPan(0, 0);
-        return;
-      }
-
-      if (key === '[') {
-        if (readOnly) return;
-        e.preventDefault();
-        const ids = Array.from(useCanvasStore.getState().selectedIds);
-        if (cmdOrCtrl) sendToBack(ids);
-        else sendBackward(ids);
-        return;
-      }
-
-      if (key === ']') {
-        if (readOnly) return;
-        e.preventDefault();
-        const ids = Array.from(useCanvasStore.getState().selectedIds);
-        if (cmdOrCtrl) bringToFront(ids);
-        else bringForward(ids);
-        return;
-      }
-
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (readOnly) return;
-        const { selectedIds: ids } = useCanvasStore.getState();
-        if (ids.size > 0) {
-          e.preventDefault();
-          const idsArr = collectCascadeDeleteIds(ids);
-          deleteElements(idsArr);
-          clearSelection();
-        }
-      }
-
-      if (e.key === 'Escape') {
-        clearSelection();
-        setTextInput(null);
-        cancelDrawing();
-        setDrawingState(false);
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        interactionRef.current.isSpacePressed = false;
-        if (
-          activeTool === 'hand' &&
-          lastToolBeforeSpaceRef.current &&
-          lastToolBeforeSpaceRef.current !== 'hand'
-        ) {
-          setActiveTool(lastToolBeforeSpaceRef.current as ActiveTool);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [
+  useCanvasKeyboard({
+    interactionRef,
+    lastToolBeforeSpaceRef,
     activeTool,
-    bringForward,
-    bringToFront,
-    deleteElements,
-    clearSelection,
-    copySelectedToClipboard,
-    duplicateSelection,
-    fitAllToScreen,
-    collectCascadeDeleteIds,
-    findOnCanvas,
-    pasteFromClipboard,
-    redo,
     readOnly,
-    sendBackward,
-    sendToBack,
-    setActiveTool,
-    setGridEnabled,
-    setPan,
-    setSelectedIds,
-    setZoom,
-    cancelDrawing,
     elements,
-    undo,
-    marqueeSelectionMode,
-    groupElements,
-    ungroupElements,
-  ]);
+    setTextInput,
+    setDrawingState,
+    cancelDrawing,
+    collectCascadeDeleteIds,
+    copySelectedToClipboard,
+    pasteFromClipboard,
+    duplicateSelection,
+    findOnCanvas,
+    fitAllToScreen,
+  });
 
   // ── Mouse wheel zoom & momentum ───────────────────────────────────────
-  const stopMomentum = useCallback(() => {
-    const m = momentumRef.current;
-    if (m.animationFrame) {
-      cancelAnimationFrame(m.animationFrame);
-      m.animationFrame = 0;
-    }
-    m.isInertial = false;
-    m.velocityX = 0;
-    m.velocityY = 0;
-  }, []);
-
-  // Placeholder ref - will be set after applyMomentum is defined
-  const applyMomentumRef = useRef<any>(null);
-
-  const applyMomentum = useCallback(() => {
-    const m = momentumRef.current;
-    if (!m.isInertial) return;
-
-    const decay = 0.95;
-    const minVelocity = 0.5;
-
-    m.velocityX *= decay;
-    m.velocityY *= decay;
-
-    if (Math.abs(m.velocityX) < minVelocity && Math.abs(m.velocityY) < minVelocity) {
-      stopMomentum();
-      return;
-    }
-
-    const state = useCanvasStore.getState();
-    setPan(state.panX + m.velocityX, state.panY + m.velocityY);
-
-    m.animationFrame = requestAnimationFrame(applyMomentumRef.current);
-  }, [setPan, stopMomentum]);
-
-  // Store the callback in a ref to avoid circular dependency issues in requestAnimationFrame
-  applyMomentumRef.current = applyMomentum;
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let isTrackpad = false;
-    let lastWheelDeltaX = 0;
-    let lastWheelDeltaY = 0;
-    let wheelTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const handleWheel = (e: WheelEvent) => {
-      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
-      const isShift = e.shiftKey;
-      const absDx = Math.abs(e.deltaX);
-      const absDy = Math.abs(e.deltaY);
-
-      // Detect trackpad vs mouse wheel
-      if (!isCtrlOrMeta) {
-        if (wheelTimer) clearTimeout(wheelTimer);
-        isTrackpad = absDx > 0 || absDy > 0;
-        wheelTimer = setTimeout(() => {
-          isTrackpad = false;
-        }, 150);
-      }
-
-      // Two-finger trackpad pan (Dripl behavior)
-      if (!isCtrlOrMeta && (absDx > 2 || absDy > 2)) {
-        e.preventDefault();
-        const state = useCanvasStore.getState();
-
-        // Apply pan with momentum
-        const deltaX = -e.deltaX * 1.5;
-        const deltaY = -e.deltaY * 1.5;
-
-        // For trackpad, accumulate momentum
-        if (isTrackpad || absDx > 5 || absDy > 5) {
-          const now = performance.now();
-          const m = momentumRef.current;
-
-          if (m.isInertial) {
-            // Blend with existing velocity for smoother continuation
-            m.velocityX = m.velocityX * 0.7 + deltaX * 0.3;
-            m.velocityY = m.velocityY * 0.7 + deltaY * 0.3;
-          } else {
-            m.velocityX = deltaX;
-            m.velocityY = deltaY;
-          }
-
-          m.isInertial = true;
-          m.lastTime = now;
-
-          if (!m.animationFrame) {
-            m.animationFrame = requestAnimationFrame(applyMomentumRef.current);
-          }
-        } else {
-          stopMomentum();
-          setPan(state.panX + deltaX, state.panY + deltaY);
-        }
-        return;
-      }
-
-      // Ctrl/Cmd + scroll = zoom (Dripl behavior)
-      if (isCtrlOrMeta) {
-        e.preventDefault();
-        const rect = container.getBoundingClientRect();
-        const state = useCanvasStore.getState();
-        const screenX = e.clientX - rect.left;
-        const screenY = e.clientY - rect.top;
-        const worldX = (screenX - state.panX) / state.zoom;
-        const worldY = (screenY - state.panY) / state.zoom;
-        const factor = e.deltaY > 0 ? 0.9 : 1.1;
-        const nextZoom = Math.max(0.1, Math.min(20, state.zoom * factor));
-        const nextPanX = screenX - worldX * nextZoom;
-        const nextPanY = screenY - worldY * nextZoom;
-        setZoom(nextZoom);
-        setPan(nextPanX, nextPanY);
-        return;
-      }
-
-      // Shift + scroll = horizontal pan
-      if (isShift && (e.deltaX !== 0 || e.deltaY !== 0)) {
-        e.preventDefault();
-        const state = useCanvasStore.getState();
-        setPan(state.panX - e.deltaX * 1.5, state.panY - e.deltaY * 1.5);
-        return;
-      }
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => {
-      container.removeEventListener('wheel', handleWheel);
-      stopMomentum();
-      if (wheelTimer) clearTimeout(wheelTimer);
-    };
-  }, [containerReady, setPan, setZoom, applyMomentum, stopMomentum]);
+  const { stopMomentum } = useCanvasWheel({ containerRef, containerReady });
 
   const collaboratorCursors = collaborators;
   const shouldShowPropertiesPanel = activeTool === 'select' && selectedIds.size > 0; // RULE: Sidebar Visibility
@@ -1966,7 +855,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       ref={setContainerRef}
       className="relative w-full h-full"
       onDragOver={handleDragOver}
-      onDrop={handleDrop}
+      onDrop={hookHandleDrop}
       onContextMenu={openContextMenu}
       style={{ backgroundColor: 'var(--color-canvas-bg)' }}
     >

@@ -5,6 +5,12 @@ const pointSchema = z.object({
   y: z.number(),
 });
 
+const bindingSchema = z.object({
+  elementId: z.string(),
+  fixedPoint: pointSchema,
+  mode: z.enum(['inside', 'orbit']),
+}).optional();
+
 const elementBaseSchema = z
   .object({
     id: z.string().min(1).max(100),
@@ -56,6 +62,8 @@ const linearElementSchema = elementBaseSchema.extend({
       end: z.boolean().optional(),
     })
     .optional(),
+  startBinding: bindingSchema,
+  endBinding: bindingSchema,
 });
 
 const freedrawElementSchema = elementBaseSchema.extend({

@@ -1,6 +1,7 @@
 import type { DriplElement } from '@dripl/common';
 import { db } from '@dripl/db';
 import type { RoomState } from './types';
+import { getOrCreateYjsRoom, loadElementsIntoYjs } from './yjsManager';
 
 export const rooms = new Map<string, RoomState>();
 export const saveTimeouts = new Map<string, NodeJS.Timeout>();
@@ -14,6 +15,7 @@ export const SAVE_DEBOUNCE_MS = 2_000;
 export function getOrCreateRoom(roomId: string): RoomState {
   let room = rooms.get(roomId);
   if (!room) {
+    const yjs = getOrCreateYjsRoom(roomId);
     room = {
       roomId,
       elements: new Map(),
@@ -21,6 +23,7 @@ export function getOrCreateRoom(roomId: string): RoomState {
       cursors: new Map(),
       loadedFromDb: false,
       saving: false,
+      yjs,
     };
     rooms.set(roomId, room);
   }
@@ -73,7 +76,12 @@ export async function loadRoomElements(roomId: string): Promise<Map<string, Drip
     select: { content: true },
   });
   if (file) {
-    return elementsToMap(parseStoredElements(file.content));
+    const elements = elementsToMap(parseStoredElements(file.content));
+    const room = rooms.get(roomId);
+    if (room?.yjs) {
+      loadElementsIntoYjs(room.yjs, Array.from(elements.values()));
+    }
+    return elements;
   }
 
   const canvasRoom = await db.canvasRoom.findUnique({
@@ -81,7 +89,12 @@ export async function loadRoomElements(roomId: string): Promise<Map<string, Drip
     select: { content: true },
   });
   if (canvasRoom) {
-    return elementsToMap(parseStoredElements(canvasRoom.content));
+    const elements = elementsToMap(parseStoredElements(canvasRoom.content));
+    const room = rooms.get(roomId);
+    if (room?.yjs) {
+      loadElementsIntoYjs(room.yjs, Array.from(elements.values()));
+    }
+    return elements;
   }
 
   return new Map();
