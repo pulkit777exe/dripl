@@ -223,7 +223,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay backdrop-blur-sm pointer-events-auto t-modal ${modalState}"
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-overlay backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
       onClick={onClose}
     >
       <div

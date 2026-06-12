@@ -24,7 +24,7 @@ export function NameInputModal({ onSubmit }: NameInputModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay backdrop-blur-sm t-modal ${animState === 'open' ? 'is-open' : ''}">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-overlay backdrop-blur-sm t-modal ${animState === 'open' ? 'is-open' : ''}`}>
       <div className="bg-card border border-panel-border rounded-xl shadow-lg p-7 w-full max-w-sm mx-4">
         <div className="flex items-center gap-2 mb-4 justify-center">
           <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">

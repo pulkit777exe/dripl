@@ -160,7 +160,7 @@ export default function CookieConsent() {
 
       {animState !== 'closed' && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-overlay backdrop-blur-sm t-modal ${modalState}"
+          className={`fixed inset-0 z-50 flex items-center justify-center bg-overlay backdrop-blur-sm t-modal ${modalState}`}
           onClick={handleClosePreferences}
         >
           <div
