@@ -68,6 +68,7 @@ export interface CanvasSlice {
   setEditingElementId: (id: string | null) => void;
   setZoom: (zoom: number) => void;
   setPan: (panX: number, panY: number) => void;
+  setViewport: (zoom: number, panX: number, panY: number) => void;
   setGridEnabled: (enabled: boolean) => void;
   setGridSize: (size: number) => void;
   setMarqueeSelectionMode: (mode: 'intersecting' | 'contained') => void;

@@ -2,15 +2,16 @@
 
 import { useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { DriplElement, Point } from '@dripl/common';
+import type { DriplElement, Point, NormalizedBinding } from '@dripl/common';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { createRectangleElement, type RectangleToolState } from '@/utils/tools/rectangle';
 import { createEllipseElement, type EllipseToolState } from '@/utils/tools/ellipse';
 import { createDiamondElement, type DiamondToolState } from '@/utils/tools/diamond';
-import { createArrowElement, type ArrowToolState } from '@/utils/tools/arrow';
+import { createArrowElement, type ArrowToolState, type ArrowBindingInfo } from '@/utils/tools/arrow';
 import { createLineElement, type LineToolState } from '@/utils/tools/line';
 import { createFreedrawElement, type FreedrawToolState } from '@/utils/tools/freedraw';
 import { createFrameElement, type FrameToolState } from '@/utils/tools/frame';
+import { calculateArrowBinding } from '@/utils/arrow-routing';
 
 export type ToolType =
   | 'select'
@@ -126,6 +127,43 @@ function simplifyRdp(points: Point[], epsilon: number): Point[] {
   const left = simplifyRdp(points.slice(0, maxIndex + 1), epsilon);
   const right = simplifyRdp(points.slice(maxIndex), epsilon);
   return [...left.slice(0, -1), ...right];
+}
+
+const BINDING_SNAP_THRESHOLD = 20;
+
+function findNearestShape(
+  point: Point,
+  elements: DriplElement[],
+  excludeId: string
+): { element: DriplElement; binding: NormalizedBinding } | null {
+  let bestMatch: { element: DriplElement; binding: NormalizedBinding } | null = null;
+  let bestDistance = BINDING_SNAP_THRESHOLD;
+
+  for (const el of elements) {
+    if (el.id === excludeId) continue;
+    if (el.type === 'arrow' || el.type === 'line' || el.type === 'freedraw') continue;
+
+    const binding = calculateArrowBinding(point, el);
+    if (!binding) continue;
+
+    const centerX = el.x + el.width / 2;
+    const centerY = el.y + el.height / 2;
+    const dist = Math.hypot(point.x - centerX, point.y - centerY);
+
+    if (dist < bestDistance) {
+      bestDistance = dist;
+      bestMatch = {
+        element: el,
+        binding: {
+          elementId: el.id,
+          fixedPoint: { x: binding.focus, y: 0.5 },
+          mode: 'orbit',
+        },
+      };
+    }
+  }
+
+  return bestMatch;
 }
 
 export function useDrawingTools(): UseDrawingToolsReturn {
@@ -371,7 +409,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
       };
     }
 
-    const preview = buildElement(toolState, baseProps);
+    let preview = buildElement(toolState, baseProps);
     if (!preview) {
       setDraftElement(null);
       return null;
@@ -394,6 +432,31 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     if (isTinyShape || isTinyLinear) {
       setDraftElement(null);
       return null;
+    }
+
+    // Detect bindings for arrows
+    if (preview.type === 'arrow' && 'points' in preview) {
+      const elements = useCanvasStore.getState().elements;
+      const points = preview.points as Point[];
+      const arrowId = preview.id;
+
+      if (points.length >= 2) {
+        const firstPoint = points[0]!;
+        const lastPoint = points[points.length - 1]!;
+        const startPoint = { x: preview.x + firstPoint.x, y: preview.y + firstPoint.y };
+        const endPoint = { x: preview.x + lastPoint.x, y: preview.y + lastPoint.y };
+
+        const startMatch = findNearestShape(startPoint, elements, arrowId);
+        const endMatch = findNearestShape(endPoint, elements, arrowId);
+
+        if (startMatch || endMatch) {
+          preview = {
+            ...preview,
+            startBinding: startMatch?.binding,
+            endBinding: endMatch?.binding,
+          };
+        }
+      }
     }
 
     updateDraftElement(preview);

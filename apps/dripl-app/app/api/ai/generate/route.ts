@@ -18,11 +18,12 @@ Return a JSON array of diagram elements with these exact properties:
 - width: number (e.g., 120)
 - height: number (e.g., 80)
 - strokeColor: hex color string (e.g., "#6965db", "#e03131")
-- backgroundColor: hex color or "transparent"
+- backgroundColor: hex color or "transparent" (fill color of the shape)
+- fillColor: hex color or "transparent" (alias for backgroundColor, use this for fill)
 - strokeWidth: number (1, 2, or 4)
 - roughness: number (0=sharp, 1=sketchy, 2=hand-drawn)
 - text: string (label for shapes, empty string if none)
-- points: [[x1, y1], [x2, y2]] for arrows/lines (relative to x,y)
+- points: [{x: number, y: number}, ...] for arrows/lines (relative to x,y) - NOT arrays
 
 IMPORTANT: Use x and y as direct properties, NOT nested position object.
 IMPORTANT: Return ONLY a valid JSON array, no markdown code blocks, no explanation.
@@ -39,6 +40,15 @@ interface RateLimitEntry {
 const rateLimitMap = new Map<string, RateLimitEntry>();
 const RATE_LIMIT = 10; // requests per minute
 const RATE_WINDOW = 60 * 1000; // 1 minute
+
+function finiteNumber(value: unknown, fallback: number): number {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+function stringValue(value: unknown, fallback: string): string {
+  return typeof value === 'string' ? value : fallback;
+}
 
 function checkRateLimit(userId: string): {
   allowed: boolean;
@@ -165,43 +175,72 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let droppedElementCount = 0;
+
     // Add default properties to elements and validate
     const processedElements = (elements as Record<string, unknown>[])
       .map((el, index) => {
         const now = Date.now();
+
+        // Normalize points: convert [x,y] arrays to {x,y} objects
+        const rawPoints = Array.isArray(el.points) ? el.points : [];
+        const normalizedPoints = rawPoints.map((p: unknown) => {
+          if (Array.isArray(p) && p.length >= 2) {
+            return { x: finiteNumber(p[0], 0), y: finiteNumber(p[1], 0) };
+          }
+          if (p && typeof p === 'object' && 'x' in p && 'y' in p) {
+            return {
+              x: finiteNumber((p as { x: unknown }).x, 0),
+              y: finiteNumber((p as { y: unknown }).y, 0),
+            };
+          }
+          return { x: 0, y: 0 };
+        });
+
         return {
           id: typeof el.id === 'string' && el.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
             ? el.id
             : crypto.randomUUID(),
-          type: el.type || 'rectangle',
-          x: (Number(el.x) || 100) + index * 150,
-          y: Number(el.y) || 100,
-          width: Number(el.width) || 120,
-          height: Number(el.height) || 80,
-          strokeColor: el.strokeColor || '#6965db',
-          backgroundColor: el.backgroundColor || 'transparent',
-          strokeWidth: Number(el.strokeWidth) || 2,
-          strokeStyle: el.strokeStyle || 'solid',
-          roughness: Number(el.roughness) || 1,
-          opacity: Number(el.opacity) || 1,
-          text: el.text || '',
-          fontSize: Number(el.fontSize) || 16,
-          points: el.points || [],
+          type: stringValue(el.type, 'rectangle'),
+          x: finiteNumber(el.x, 100) + index * 150,
+          y: finiteNumber(el.y, 100),
+          width: finiteNumber(el.width, 120),
+          height: finiteNumber(el.height, 80),
+          strokeColor: stringValue(el.strokeColor, '#6965db'),
+          backgroundColor: stringValue(el.backgroundColor, 'transparent'),
+          fillColor: stringValue(el.fillColor, 'transparent'),
+          strokeWidth: finiteNumber(el.strokeWidth, 2),
+          strokeStyle: stringValue(el.strokeStyle, 'solid'),
+          roughness: finiteNumber(el.roughness, 1),
+          opacity: finiteNumber(el.opacity, 1),
+          text: stringValue(el.text, ''),
+          fontSize: finiteNumber(el.fontSize, 16),
+          points: normalizedPoints,
           angle: 0,
           locked: false,
           createdAt: now,
           updatedAt: now,
         };
       })
-      .filter(el => {
+      .flatMap(el => {
         const result = DriplElementSchema.safeParse(el);
-        return result.success;
+        if (!result.success) {
+          droppedElementCount++;
+          return [];
+        }
+        return [result.data];
       })
       .slice(0, 100); // Limit to 100 elements
+
+    const warnings =
+      droppedElementCount > 0
+        ? [`${droppedElementCount} element${droppedElementCount === 1 ? '' : 's'} could not be rendered. Try rephrasing your prompt.`]
+        : [];
 
     return NextResponse.json({
       elements: processedElements,
       message: 'Diagram generated successfully',
+      warnings,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

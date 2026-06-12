@@ -5,6 +5,12 @@ export const PointSchema = z.object({
   y: z.number(),
 });
 
+export const BindingSchema = z.object({
+  elementId: z.string(),
+  fixedPoint: PointSchema,
+  mode: z.enum(['inside', 'orbit']),
+}).optional();
+
 export const TextAlignSchema = z.enum(['left', 'center', 'right']);
 
 export const ElementTypeSchema = z.enum([
@@ -70,11 +76,15 @@ export const PathElementSchema = BaseElementSchema.extend({
 export const LineElementSchema = BaseElementSchema.extend({
   type: z.literal('line'),
   points: z.array(PointSchema).min(2),
+  startBinding: BindingSchema,
+  endBinding: BindingSchema,
 });
 
 export const ArrowElementSchema = BaseElementSchema.extend({
   type: z.literal('arrow'),
   points: z.array(PointSchema).min(2),
+  startBinding: BindingSchema,
+  endBinding: BindingSchema,
 });
 
 export const TextElementSchema = BaseElementSchema.extend({

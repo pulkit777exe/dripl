@@ -76,6 +76,8 @@ export interface LinearElement extends ElementBase {
     start?: boolean;
     end?: boolean;
   };
+  startBinding?: NormalizedBinding;
+  endBinding?: NormalizedBinding;
 }
 
 export interface FreeDrawElement extends ElementBase {

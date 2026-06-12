@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { X, Sparkles, Loader2, AlertCircle, AlertTriangle } from 'lucide-react';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { useAuth } from '@/app/context/AuthContext';
 import type { DriplElement } from '@dripl/common';
@@ -24,6 +24,7 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [generateSuccess, setGenerateSuccess] = useState(false);
 
   const addElements = useCanvasStore(state => state.addElements);
@@ -50,6 +51,7 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
     setIsLoading(true);
     setError(null);
+    setWarning(null);
 
     try {
       const response = await fetch('/api/ai/generate', {
@@ -69,6 +71,14 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
       if (data.elements && Array.isArray(data.elements)) {
         const generatedElements = data.elements as DriplElement[];
+        const warnings = Array.isArray(data.warnings)
+          ? data.warnings.filter((item: unknown): item is string => typeof item === 'string')
+          : [];
+
+        if (generatedElements.length === 0) {
+          throw new Error('No renderable elements were generated. Try rephrasing your prompt.');
+        }
+
         addElements(generatedElements);
         setSelectedIds(new Set(generatedElements.map(element => element.id)));
         setActiveTool('select');
@@ -77,12 +87,14 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
             detail: { elementIds: generatedElements.map(element => element.id) },
           })
         );
+        setWarning(warnings[0] ?? null);
         setGenerateSuccess(true);
         setTimeout(() => {
           setGenerateSuccess(false);
+          setWarning(null);
           onClose();
           setPrompt('');
-        }, 1200);
+        }, warnings.length > 0 ? 2400 : 1200);
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred');
@@ -94,6 +106,7 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
   const handleExampleClick = (example: string) => {
     setPrompt(example);
     setError(null);
+    setWarning(null);
   };
 
   const [mounted, setMounted] = useState(false);
@@ -139,6 +152,12 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
             </svg>
           </span>
           <p className="text-[15px] font-semibold text-foreground">Diagram Generated!</p>
+          {warning && (
+            <div className="flex max-w-72 items-center gap-2 rounded-md border border-[#f59e0b]/40 bg-[#f59e0b]/10 px-3 py-2 text-[12px] text-[#b45309]">
+              <AlertTriangle size={14} className="shrink-0" />
+              <span>{warning}</span>
+            </div>
+          )}
         </div>
       </div>,
       document.body

@@ -182,18 +182,37 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
   deleteElements: ids =>
     set(state => {
       if (ids.length === 0) return state;
+      
+      // Find all arrows bound to the elements being deleted
       const idSet = new Set(ids);
-      const nextElements = state.elements.filter(element => !idSet.has(element.id));
+      const boundArrowIds = new Set<string>();
+      
+      for (const element of state.elements) {
+        if (element.type !== 'arrow' && element.type !== 'line') continue;
+        const linearEl = element as import('@dripl/common').LinearElement;
+        
+        if (linearEl.startBinding && idSet.has(linearEl.startBinding.elementId)) {
+          boundArrowIds.add(element.id);
+        }
+        if (linearEl.endBinding && idSet.has(linearEl.endBinding.elementId)) {
+          boundArrowIds.add(element.id);
+        }
+      }
+      
+      // Combine original IDs with bound arrow IDs
+      const allIdsToDelete = new Set([...idSet, ...boundArrowIds]);
+      
+      const nextElements = state.elements.filter(element => !allIdsToDelete.has(element.id));
       if (nextElements.length === state.elements.length) return state;
 
-      ids.forEach(id => invalidateElementCache(id));
+      allIdsToDelete.forEach(id => invalidateElementCache(id));
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
       );
       const nextMap = new Map(state.elementsById);
-      for (const id of ids) {
+      for (const id of allIdsToDelete) {
         nextMap.delete(id);
       }
       const historyPayload = commitPresentFromHistory(history.past, history.future);
@@ -201,7 +220,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         elements: nextElements,
         elementsById: nextMap,
         selectedIds: new Set(
-          Array.from(state.selectedIds).filter(selectedId => !idSet.has(selectedId))
+          Array.from(state.selectedIds).filter(selectedId => !allIdsToDelete.has(selectedId))
         ),
         past: historyPayload.past,
         future: historyPayload.future,
@@ -416,6 +435,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
 
   setZoom: zoom => set({ zoom: Math.max(0.1, Math.min(20, zoom)) }),
   setPan: (panX, panY) => set({ panX, panY }),
+  setViewport: (zoom, panX, panY) => set({ zoom: Math.max(0.1, Math.min(20, zoom)), panX, panY }),
   setGridEnabled: gridEnabled => set({ gridEnabled }),
   setGridSize: gridSize => set({ gridSize: Math.max(4, gridSize) }),
   setMarqueeSelectionMode: mode => set({ marqueeSelectionMode: mode }),

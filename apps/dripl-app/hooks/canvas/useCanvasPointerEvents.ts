@@ -1,10 +1,11 @@
 import { useCallback, useRef } from 'react';
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
-import { getElementBounds, inverseRotatePoint } from '@dripl/math/intersection';
-import type { DriplElement } from '@dripl/common';
+import { getElementBounds, isPointInElement, inverseRotatePoint } from '@dripl/math/intersection';
+import type { DriplElement, LinearElement } from '@dripl/common';
 import { uploadImageToServer } from '@/utils/tools/image';
 import { v4 as uuidv4 } from 'uuid';
+import { recalculateBinding } from '@/utils/arrow-routing';
 
 interface InteractionState {
   panning: boolean;
@@ -33,7 +34,7 @@ interface CanvasPointerEventsProps {
   snapPointToGrid: (point: { x: number; y: number }) => { x: number; y: number };
   broadcastCursor: (x: number, y: number) => void;
   addElement: (element: DriplElement) => void;
-  getElementAtPosition: (x: number, y: number) => DriplElement | undefined;
+  getElementAtPosition: (x: number, y: number) => DriplElement | null | undefined;
   updateElementTransient: (id: string, element: DriplElement) => void;
   pushHistory: () => void;
   lockElementsForGesture: (ids: Iterable<string>) => void;
@@ -46,7 +47,68 @@ interface CanvasPointerEventsProps {
     elements: DriplElement[]
   ) => void;
   setDrawingState: (drawing: boolean) => void;
-  maybeRevertToSelectTool: (tool: string) => void;
+  maybeRevertToSelectTool: (tool: ActiveTool) => void;
+  finishDrawing: () => DriplElement | null;
+  applyFrameGrouping: (frameElement: DriplElement) => void;
+  spatialIndex: {
+    tree: { search: (bbox: { minX: number; minY: number; maxX: number; maxY: number }) => Array<{ id: string }> };
+    byId: Map<string, DriplElement>;
+  };
+}
+
+function updateBoundArrows(
+  movedElementIds: Set<string>,
+  elements: DriplElement[],
+  updateElementTransient: (id: string, element: DriplElement) => void
+) {
+  const elementsById = new Map(elements.map(e => [e.id, e]));
+
+  for (const el of elements) {
+    if (el.type !== 'arrow' && el.type !== 'line') continue;
+    const linearEl = el as LinearElement;
+
+    let needsUpdate = false;
+    let newStartBinding = linearEl.startBinding;
+    let newEndBinding = linearEl.endBinding;
+
+    if (linearEl.startBinding && movedElementIds.has(linearEl.startBinding.elementId)) {
+      const targetEl = elementsById.get(linearEl.startBinding.elementId);
+      if (targetEl) {
+        const startPoint = recalculateBinding(
+          { elementId: targetEl.id, focus: linearEl.startBinding.fixedPoint.x },
+          targetEl
+        );
+        const relStart = { x: startPoint.x - el.x, y: startPoint.y - el.y };
+        if (el.points.length > 0) {
+          const newPoints = [...el.points];
+          newPoints[0] = relStart;
+          linearEl.points = newPoints;
+          needsUpdate = true;
+        }
+      }
+    }
+
+    if (linearEl.endBinding && movedElementIds.has(linearEl.endBinding.elementId)) {
+      const targetEl = elementsById.get(linearEl.endBinding.elementId);
+      if (targetEl) {
+        const endPoint = recalculateBinding(
+          { elementId: targetEl.id, focus: linearEl.endBinding.fixedPoint.x },
+          targetEl
+        );
+        const relEnd = { x: endPoint.x - el.x, y: endPoint.y - el.y };
+        if (el.points.length > 1) {
+          const newPoints = [...el.points];
+          newPoints[newPoints.length - 1] = relEnd;
+          linearEl.points = newPoints;
+          needsUpdate = true;
+        }
+      }
+    }
+
+    if (needsUpdate) {
+      updateElementTransient(el.id, { ...linearEl });
+    }
+  }
 }
 
 export function useCanvasPointerEvents({
@@ -65,6 +127,9 @@ export function useCanvasPointerEvents({
   updateDrawing,
   setDrawingState,
   maybeRevertToSelectTool,
+  finishDrawing,
+  applyFrameGrouping,
+  spatialIndex,
 }: CanvasPointerEventsProps) {
   const interactionRef = useRef<InteractionState>({
     panning: false,
@@ -124,6 +189,23 @@ export function useCanvasPointerEvents({
       collectCascadeDeleteIds: state.collectCascadeDeleteIds,
       setActiveTool: state.setActiveTool,
     }))
+  );
+
+  const getDistanceToBounds = useCallback((point: { x: number; y: number }, element: DriplElement): number => {
+    const bounds = getElementBounds(element);
+    const nearestX = Math.max(bounds.x, Math.min(point.x, bounds.x + bounds.width));
+    const nearestY = Math.max(bounds.y, Math.min(point.y, bounds.y + bounds.height));
+    const dx = point.x - nearestX;
+    const dy = point.y - nearestY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }, []);
+
+  const isPointNearElement = useCallback(
+    (point: { x: number; y: number }, element: DriplElement, tolerance: number): boolean => {
+      if (isPointInElement(point, element)) return true;
+      return getDistanceToBounds(point, element) <= tolerance;
+    },
+    [getDistanceToBounds]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => e.preventDefault(), []);
@@ -460,8 +542,7 @@ export function useCanvasPointerEvents({
               Math.min(20, startZoom * (distance / interactionRef.current.pinchStartDistance))
             );
 
-            useCanvasStore.getState().setZoom(scaledZoom);
-            useCanvasStore.getState().setPan(mid.x - worldX * scaledZoom, mid.y - worldY * scaledZoom);
+            useCanvasStore.getState().setViewport(scaledZoom, mid.x - worldX * scaledZoom, mid.y - worldY * scaledZoom);
             return;
           }
         }
@@ -642,7 +723,12 @@ export function useCanvasPointerEvents({
           updatedElement.points = pts.map(p => ({ x: p.x * sx, y: p.y * sy }));
         }
 
-        if (el.id) updateElementTransient(el.id, updatedElement);
+        if (el.id) {
+          updateElementTransient(el.id, updatedElement);
+          // Update arrows bound to the resized element
+          const allElements = useCanvasStore.getState().elements;
+          updateBoundArrows(new Set([el.id]), allElements, updateElementTransient);
+        }
         return;
       }
 
@@ -650,13 +736,12 @@ export function useCanvasPointerEvents({
         const el = interactionRef.current.rotateInitialEl;
         const cx = el.x + el.width / 2;
         const cy = el.y + el.height / 2;
-        const angle = Math.atan2(y - cy, x - cx);
-        const degrees = (angle * 180) / Math.PI + 90;
+        const angle = Math.atan2(y - cy, x - cx) + Math.PI / 2;
         if (!interactionRef.current.historyPushed) {
           pushHistory();
           interactionRef.current.historyPushed = true;
         }
-        const updatedElement: DriplElement = { ...el, angle: degrees };
+        const updatedElement: DriplElement = { ...el, angle };
         if (el.id) updateElementTransient(el.id, updatedElement);
         return;
       }
@@ -673,6 +758,7 @@ export function useCanvasPointerEvents({
           interactionRef.current.historyPushed = true;
         }
 
+        const movedIds = new Set<string>();
         interactionRef.current.dragInitialElements.forEach((initialEl, id) => {
           const updatedEl: DriplElement = {
             ...initialEl,
@@ -681,7 +767,12 @@ export function useCanvasPointerEvents({
           };
 
           updateElementTransient(id, updatedEl);
+          movedIds.add(id);
         });
+
+        // Update arrows bound to moved elements
+        const allElements = useCanvasStore.getState().elements;
+        updateBoundArrows(movedIds, allElements, updateElementTransient);
 
         return;
       }
@@ -691,18 +782,18 @@ export function useCanvasPointerEvents({
       if (currentTool === 'eraser') {
         useCanvasStore.getState().setEraserPath(prev => [...prev, { x, y }]);
         const state = useCanvasStore.getState();
-        const candidates = useCanvasStore.getState().elementsById;
-        // Simple hit test for eraser
-        state.elements.forEach(element => {
-          const bounds = getElementBounds(element);
-          if (
-            x >= bounds.x - 20 &&
-            x <= bounds.x + bounds.width + 20 &&
-            y >= bounds.y - 20 &&
-            y <= bounds.y + bounds.height + 20
-          ) {
-            const lockOwner = state.elementLocks.get(element.id);
-            if (lockOwner && lockOwner !== state.userId) return;
+        const candidates = spatialIndex.tree.search({
+          minX: x - 20,
+          minY: y - 20,
+          maxX: x + 20,
+          maxY: y + 20,
+        });
+        candidates.forEach(candidate => {
+          const element = spatialIndex.byId.get(candidate.id);
+          if (!element) return;
+          const lockOwner = state.elementLocks.get(element.id);
+          if (lockOwner && lockOwner !== state.userId) return;
+          if (isPointNearElement({ x, y }, element, 20)) {
             eraserHitIdsRef.current.add(element.id);
           }
         });
@@ -863,6 +954,28 @@ export function useCanvasPointerEvents({
           maybeRevertToSelectTool('eraser');
           return;
         }
+
+        if (
+          currentTool === 'rectangle' ||
+          currentTool === 'ellipse' ||
+          currentTool === 'diamond' ||
+          currentTool === 'arrow' ||
+          currentTool === 'line' ||
+          currentTool === 'freedraw' ||
+          currentTool === 'frame'
+        ) {
+          const finishedElement = finishDrawing();
+          if (finishedElement) {
+            if (finishedElement.type === 'frame') {
+              applyFrameGrouping(finishedElement);
+            }
+          }
+          setIsDrawing(false);
+          maybeRevertToSelectTool(currentTool);
+          return;
+        }
+
+        setIsDrawing(false);
       }
     },
     [
@@ -881,6 +994,8 @@ export function useCanvasPointerEvents({
       maybeRevertToSelectTool,
       setActiveTool,
       collectCascadeDeleteIds,
+      finishDrawing,
+      applyFrameGrouping,
     ]
   );
 
