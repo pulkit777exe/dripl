@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { DriplElement } from '@dripl/common';
+import type { DriplElement, LinearElement } from '@dripl/common';
 import { generateKeyBetween } from 'fractional-indexing';
 import { invalidateElementCache } from '@dripl/element/staticScene';
 import { clearShapeFromCache, clearAllShapeCache } from '@dripl/element/shape-cache';
@@ -16,6 +16,7 @@ import {
   withHistoryBeforeMutation,
   commitPresentFromHistory,
 } from './helpers';
+import { unbindAffectedByDeletion, unbindArrowFromElement } from '@/utils/arrow-binding';
 
 export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSlice> = (set, get) => ({
   elements: [],
@@ -182,45 +183,42 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
   deleteElements: ids =>
     set(state => {
       if (ids.length === 0) return state;
-      
-      // Find all arrows bound to the elements being deleted
       const idSet = new Set(ids);
-      const boundArrowIds = new Set<string>();
-      
-      for (const element of state.elements) {
-        if (element.type !== 'arrow' && element.type !== 'line') continue;
-        const linearEl = element as import('@dripl/common').LinearElement;
-        
-        if (linearEl.startBinding && idSet.has(linearEl.startBinding.elementId)) {
-          boundArrowIds.add(element.id);
-        }
-        if (linearEl.endBinding && idSet.has(linearEl.endBinding.elementId)) {
-          boundArrowIds.add(element.id);
+
+      // Step 1: Unbind arrows that were bound to deleted shapes (arrows survive)
+      let nextElements = unbindAffectedByDeletion([...idSet], state.elements);
+
+      // Step 2: If deleting an arrow/line, remove it from any shape's boundElements
+      for (const id of idSet) {
+        const el = state.elementsById.get(id);
+        if (el && (el.type === 'arrow' || el.type === 'line')) {
+          nextElements = unbindArrowFromElement(el as LinearElement, 'start', nextElements);
+          const updated = nextElements.find(e => e.id === id) as LinearElement | undefined;
+          if (updated) {
+            nextElements = unbindArrowFromElement(updated, 'end', nextElements);
+          }
         }
       }
-      
-      // Combine original IDs with bound arrow IDs
-      const allIdsToDelete = new Set([...idSet, ...boundArrowIds]);
-      
-      const nextElements = state.elements.filter(element => !allIdsToDelete.has(element.id));
-      if (nextElements.length === state.elements.length) return state;
 
-      allIdsToDelete.forEach(id => invalidateElementCache(id));
+      // Step 3: Filter out the deleted elements themselves
+      const finalElements = nextElements.filter(el => !idSet.has(el.id));
+      if (finalElements.length === state.elements.length) return state;
+
+      // Step 4: Invalidate caches, push history
+      idSet.forEach(id => invalidateElementCache(id));
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
       );
       const nextMap = new Map(state.elementsById);
-      for (const id of allIdsToDelete) {
-        nextMap.delete(id);
-      }
+      idSet.forEach(id => nextMap.delete(id));
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
-        elements: nextElements,
+        elements: finalElements,
         elementsById: nextMap,
         selectedIds: new Set(
-          Array.from(state.selectedIds).filter(selectedId => !allIdsToDelete.has(selectedId))
+          Array.from(state.selectedIds).filter(selectedId => !idSet.has(selectedId))
         ),
         past: historyPayload.past,
         future: historyPayload.future,

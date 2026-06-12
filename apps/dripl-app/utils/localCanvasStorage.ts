@@ -1,4 +1,5 @@
 import type { DriplElement } from '@dripl/common';
+import { repairBindings } from '@dripl/common/arrow-binding';
 
 const STORAGE_KEY = 'dripl:local-canvas';
 
@@ -149,8 +150,10 @@ export const loadLocalCanvasFromStorage = (): {
       console.warn('Invalid local canvas payload. Clearing stored canvas.');
       return { elements: null, appState: null };
     }
+    const rawElements = payload.elementStates.elements ?? null;
+    const elements = rawElements ? repairBindings(rawElements) : null;
     return {
-      elements: payload.elementStates.elements ?? null,
+      elements,
       appState: payload.userPreferences as LocalCanvasState,
       selectedIds: payload.elementStates.selectedIds,
     };

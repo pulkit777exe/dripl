@@ -1,4 +1,5 @@
 import type { DriplElement } from '@dripl/common';
+import { repairBindings } from '@dripl/common/arrow-binding';
 import { db } from '@dripl/db';
 import type { RoomState } from './types';
 import { getOrCreateYjsRoom, loadElementsIntoYjs } from './yjsManager';
@@ -34,17 +35,19 @@ export function parseStoredElements(raw: string | null | undefined): DriplElemen
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (Array.isArray(parsed)) return parsed as DriplElement[];
-    if (parsed && typeof parsed === 'object') {
+    let elements: DriplElement[] = [];
+    if (Array.isArray(parsed)) {
+      elements = parsed as DriplElement[];
+    } else if (parsed && typeof parsed === 'object') {
       const record = parsed as Record<string, unknown>;
       if (Array.isArray(record.elements)) {
-        return record.elements as DriplElement[];
+        elements = record.elements as DriplElement[];
       }
     }
+    return repairBindings(elements);
   } catch {
     return [];
   }
-  return [];
 }
 
 export function elementsToMap(elements: DriplElement[]): Map<string, DriplElement> {
