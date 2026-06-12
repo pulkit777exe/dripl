@@ -14,6 +14,7 @@ import { apiClient } from '@/lib/api';
 import { Spinner } from '@/components/button/Spinner';
 import HelpModal from '@/components/canvas/HelpModal';
 import { CollaboratorsList } from '@/components/canvas/CollaboratorsList';
+import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
 import { useCanvasStore } from '@/lib/canvas-store';
 
 interface CanvasFilePageProps {
@@ -117,16 +118,24 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
         }}
       />
 
-      <TopBar />
-      <CollaboratorsList roomSlug={roomId} onLeaveRoom={handleLeaveSession} />
+      <CanvasErrorBoundary name="TopBar">
+        <TopBar />
+      </CanvasErrorBoundary>
+      <CanvasErrorBoundary name="CollaboratorsList">
+        <CollaboratorsList roomSlug={roomId} onLeaveRoom={handleLeaveSession} />
+      </CanvasErrorBoundary>
       <CanvasBootstrap mode="room" roomSlug={roomId} theme={effectiveTheme} />
 
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
-        <CanvasToolbar />
+        <CanvasErrorBoundary name="CanvasToolbar">
+          <CanvasToolbar />
+        </CanvasErrorBoundary>
       </div>
 
       <div className="absolute bottom-6 left-6 z-20">
-        <CanvasControls />
+        <CanvasErrorBoundary name="CanvasControls">
+          <CanvasControls />
+        </CanvasErrorBoundary>
       </div>
 
       <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2 pointer-events-auto">
@@ -148,7 +157,9 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps) {
         </button>
       </div>
 
-      <CommandPalette />
+      <CanvasErrorBoundary name="CommandPalette">
+        <CommandPalette />
+      </CanvasErrorBoundary>
       {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)} />}
     </div>
   );

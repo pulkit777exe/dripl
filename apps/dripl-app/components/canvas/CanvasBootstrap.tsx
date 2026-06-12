@@ -215,7 +215,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
   }
 
   return (
-    <CanvasErrorBoundary>
+    <CanvasErrorBoundary name="RoughCanvas">
       <RoughCanvas roomSlug={mode === 'room' ? roomSlug : null} theme={theme} />
     </CanvasErrorBoundary>
   );

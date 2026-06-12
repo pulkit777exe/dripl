@@ -3,7 +3,9 @@
 import React from 'react';
 
 interface CanvasErrorBoundaryProps {
+  name: string;
   children: React.ReactNode;
+  fallback?: React.ReactNode;
 }
 
 interface CanvasErrorBoundaryState {
@@ -22,19 +24,13 @@ export class CanvasErrorBoundary extends React.Component<
     return { hasError: true };
   }
 
-  componentDidCatch(error: unknown) {
-    console.error('Canvas render error', error);
+  componentDidCatch(error: Error) {
+    console.error(`[${this.props.name}] render error:`, error);
   }
 
   render() {
     if (this.state.hasError) {
-      return (
-        <div className="relative w-full h-full flex items-center justify-center">
-          <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
-            Something went wrong — reload
-          </div>
-        </div>
-      );
+      return this.props.fallback ?? null;
     }
     return this.props.children;
   }

@@ -8,6 +8,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { TopBar } from '@/components/canvas/TopBar';
 import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
 import { CommandPalette } from '@/components/canvas/CommandPalette';
+import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
 import HelpModal from '@/components/canvas/HelpModal';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { useAuth } from '@/app/context/AuthContext';
@@ -215,15 +216,21 @@ function CanvasContent() {
           </div>
         </div>
       )}
-      <TopBar />
+      <CanvasErrorBoundary name="TopBar">
+        <TopBar />
+      </CanvasErrorBoundary>
       <CanvasBootstrap mode="local" theme={effectiveTheme} />
 
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
-        <CanvasToolbar />
+        <CanvasErrorBoundary name="CanvasToolbar">
+          <CanvasToolbar />
+        </CanvasErrorBoundary>
       </div>
 
       <div className="absolute bottom-6 left-6 z-20">
-        <CanvasControls />
+        <CanvasErrorBoundary name="CanvasControls">
+          <CanvasControls />
+        </CanvasErrorBoundary>
       </div>
 
       {showScrollBack && (
@@ -256,7 +263,9 @@ function CanvasContent() {
         </button>
       </div>
 
-      <CommandPalette />
+      <CanvasErrorBoundary name="CommandPalette">
+        <CommandPalette />
+      </CanvasErrorBoundary>
       {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)} />}
     </div>
   );
