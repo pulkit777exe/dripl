@@ -6,6 +6,7 @@ import type { DriplElement, LinearElement } from '@dripl/common';
 import { uploadImageToServer } from '@/utils/tools/image';
 import { v4 as uuidv4 } from 'uuid';
 import { recalculateBinding } from '@/utils/arrow-routing';
+import type { ToolType } from '@/hooks/useDrawingTools';
 
 interface InteractionState {
   panning: boolean;
@@ -41,6 +42,21 @@ interface CanvasPointerEventsProps {
   unlockElement: (id: string) => void;
   unlockGestureElements: () => void;
   setEditingElementId: (id: string | null) => void;
+  startDrawing: (
+    point: { x: number; y: number },
+    tool: ToolType,
+    options: { shiftKey: boolean; altKey?: boolean },
+    baseProps: {
+      strokeColor: string;
+      backgroundColor: string;
+      strokeWidth: number;
+      opacity: number;
+      roughness: number;
+      strokeStyle: 'solid' | 'dashed' | 'dotted';
+      fillStyle: 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
+    },
+    elements?: DriplElement[]
+  ) => void;
   updateDrawing: (
     point: { x: number; y: number },
     options: { shiftKey: boolean; altKey: boolean; pressure?: number },
@@ -124,6 +140,7 @@ export function useCanvasPointerEvents({
   unlockElement,
   unlockGestureElements,
   setEditingElementId,
+  startDrawing,
   updateDrawing,
   setDrawingState,
   maybeRevertToSelectTool,
@@ -472,14 +489,21 @@ export function useCanvasPointerEvents({
         currentTool === 'freedraw' ||
         currentTool === 'frame'
       ) {
-        updateDrawing(
+        const state = useCanvasStore.getState();
+        startDrawing(
           { x, y },
+          currentTool,
+          { shiftKey: e.shiftKey, altKey: e.altKey },
           {
-            shiftKey: e.shiftKey,
-            altKey: e.altKey,
-            pressure: e.pressure,
+            strokeColor: state.currentStrokeColor,
+            backgroundColor: state.currentBackgroundColor,
+            strokeWidth: state.currentStrokeWidth,
+            opacity: 1,
+            roughness: state.currentRoughness,
+            strokeStyle: state.currentStrokeStyle,
+            fillStyle: state.currentFillStyle,
           },
-          useCanvasStore.getState().elements
+          state.elements
         );
         setIsDrawing(true);
         return;
@@ -501,7 +525,7 @@ export function useCanvasPointerEvents({
       setTextInput,
       setMarqueeSelection,
       addElement,
-      updateDrawing,
+      startDrawing,
       setIsDrawing,
       setEraserPath,
       maybeRevertToSelectTool,

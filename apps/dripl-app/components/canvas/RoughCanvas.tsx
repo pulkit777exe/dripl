@@ -655,6 +655,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     unlockElement,
     unlockGestureElements,
     setEditingElementId,
+    startDrawing,
     updateDrawing,
     setDrawingState,
     maybeRevertToSelectTool,
