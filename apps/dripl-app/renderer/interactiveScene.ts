@@ -44,6 +44,7 @@ export interface RenderSceneOptions {
   renderCommittedElements?: boolean;
   dpr?: number;
   clearCanvas?: boolean;
+  hoveredBindingId?: string | null;
 }
 
 interface TextMeasurement {
@@ -599,6 +600,39 @@ function drawLockOverlays(
   });
 }
 
+function drawBindingIndicator(
+  ctx: CanvasRenderingContext2D,
+  elements: readonly DriplElement[],
+  hoveredBindingId: string,
+  viewport: SceneViewport
+) {
+  const target = elements.find(e => e.id === hoveredBindingId);
+  if (!target || target.isDeleted) return;
+
+  const bounds = getElementBounds(target);
+  const padding = 8 / viewport.zoom;
+  const lineWidth = 2 / viewport.zoom;
+
+  ctx.save();
+  ctx.strokeStyle = '#4a90d9';
+  ctx.lineWidth = lineWidth;
+  ctx.setLineDash([6 / viewport.zoom, 4 / viewport.zoom]);
+  ctx.globalAlpha = 0.8;
+
+  // Draw dashed rectangle around the bound shape
+  ctx.beginPath();
+  ctx.roundRect(
+    bounds.x - padding,
+    bounds.y - padding,
+    bounds.width + padding * 2,
+    bounds.height + padding * 2,
+    4 / viewport.zoom
+  );
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 export function clearTextMeasurementCache() {
   textMetricsCache.clear();
   imageCache.clear();
@@ -623,6 +657,7 @@ export function renderInteractiveScene({
   renderCommittedElements = true,
   dpr = 1,
   clearCanvas = true,
+  hoveredBindingId,
 }: RenderSceneOptions): void {
   if (clearCanvas) {
     ctx.save();
@@ -656,6 +691,10 @@ export function renderInteractiveScene({
 
   if (draftElement && !draftElement.isDeleted) {
     renderElement(ctx, draftElement, viewport.zoom);
+  }
+
+  if (hoveredBindingId) {
+    drawBindingIndicator(ctx, elements, hoveredBindingId, viewport);
   }
 
   if (eraserPath.length > 1) {

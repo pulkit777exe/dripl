@@ -5,7 +5,8 @@ import { getElementBounds, isPointInElement, inverseRotatePoint } from '@dripl/m
 import type { DriplElement, LinearElement } from '@dripl/common';
 import { uploadImageToServer } from '@/utils/tools/image';
 import { v4 as uuidv4 } from 'uuid';
-import { recalculateBinding } from '@/utils/arrow-routing';
+import { recalculateBinding, calculateArrowBinding } from '@/utils/arrow-routing';
+import { findBindableElementAtPoint, bindArrowToElement, unbindArrowFromElement } from '@/utils/arrow-binding';
 import type { ToolType } from '@/hooks/useDrawingTools';
 
 interface InteractionState {
@@ -78,14 +79,42 @@ function updateBoundArrows(
   updateElementTransient: (id: string, element: DriplElement) => void
 ) {
   const elementsById = new Map(elements.map(e => [e.id, e]));
-
+  
+  // Build reverse index: shapeId -> Set<arrowId> using boundElements
+  const boundArrowsByShape = new Map<string, Set<string>>();
   for (const el of elements) {
-    if (el.type !== 'arrow' && el.type !== 'line') continue;
+    const bounds = (el as DriplElement & { boundElements?: Array<{ id: string; type: 'arrow' | 'text' }> }).boundElements;
+    if (bounds) {
+      for (const bound of bounds) {
+        if (bound.type === 'arrow') {
+          let arrowSet = boundArrowsByShape.get(el.id);
+          if (!arrowSet) {
+            arrowSet = new Set();
+            boundArrowsByShape.set(el.id, arrowSet);
+          }
+          arrowSet.add(bound.id);
+        }
+      }
+    }
+  }
+
+  // Only process arrows that are bound to moved shapes (O(k) where k = number of bound arrows)
+  const arrowsToUpdate = new Set<string>();
+  for (const movedId of movedElementIds) {
+    const boundArrows = boundArrowsByShape.get(movedId);
+    if (boundArrows) {
+      for (const arrowId of boundArrows) {
+        arrowsToUpdate.add(arrowId);
+      }
+    }
+  }
+
+  for (const arrowId of arrowsToUpdate) {
+    const el = elementsById.get(arrowId);
+    if (!el || (el.type !== 'arrow' && el.type !== 'line')) continue;
     const linearEl = el as LinearElement;
 
     let needsUpdate = false;
-    let newStartBinding = linearEl.startBinding;
-    let newEndBinding = linearEl.endBinding;
 
     if (linearEl.startBinding && movedElementIds.has(linearEl.startBinding.elementId)) {
       const targetEl = elementsById.get(linearEl.startBinding.elementId);
@@ -171,6 +200,7 @@ export function useCanvasPointerEvents({
 
   const lastToolBeforeSpaceRef = useRef<string | null>(null);
   const eraserHitIdsRef = useRef<Set<string>>(new Set());
+  const hoveredBindingIdRef = useRef<string | null>(null);
 
   const {
     setSelectedIds,
@@ -641,7 +671,7 @@ export function useCanvasPointerEvents({
           const newMaxX = Math.max(...allX);
           const newMaxY = Math.max(...allY);
           const relPts = absPts.map(p => ({ x: p.x - newMinX, y: p.y - newMinY }));
-          const updatedElement: DriplElement = {
+          let updatedElement: DriplElement = {
             ...el,
             x: newMinX,
             y: newMinY,
@@ -649,6 +679,55 @@ export function useCanvasPointerEvents({
             height: Math.max(4, newMaxY - newMinY),
             points: relPts,
           };
+
+          // Dynamic binding detection for arrow endpoints
+          const allElements = useCanvasStore.getState().elements;
+          const arrowEl = updatedElement as LinearElement;
+          const startOrEnd = handle === 'arrow-start' ? 'start' : handle === 'arrow-end' ? 'end' : null;
+          
+          if (startOrEnd) {
+            const currentBinding = startOrEnd === 'start' ? arrowEl.startBinding : arrowEl.endBinding;
+            const nearbyShape = findBindableElementAtPoint(target, allElements, el.id, 20);
+            
+            if (nearbyShape) {
+              // Bind to the nearby shape
+              hoveredBindingIdRef.current = nearbyShape.id;
+              if (!currentBinding || currentBinding.elementId !== nearbyShape.id) {
+                // Unbind from current target if different
+                let newElements = currentBinding 
+                  ? unbindArrowFromElement(arrowEl, startOrEnd, allElements)
+                  : allElements;
+                // Bind to new target
+                const binding = calculateArrowBinding(target, nearbyShape);
+                if (binding) {
+                  newElements = bindArrowToElement(
+                    arrowEl,
+                    nearbyShape.id,
+                    startOrEnd,
+                    { x: binding.focus, y: 0.5 },
+                    'orbit',
+                    newElements
+                  );
+                  // Update the arrow in the store
+                  const boundArrow = newElements.find(e => e.id === el.id) as LinearElement;
+                  if (boundArrow) {
+                    updatedElement = boundArrow;
+                  }
+                }
+              }
+            } else {
+              // No nearby shape - unbind if currently bound
+              hoveredBindingIdRef.current = null;
+              if (currentBinding) {
+                const newElements = unbindArrowFromElement(arrowEl, startOrEnd, allElements);
+                const unboundArrow = newElements.find(e => e.id === el.id) as LinearElement;
+                if (unboundArrow) {
+                  updatedElement = unboundArrow;
+                }
+              }
+            }
+          }
+
           if (el.id) updateElementTransient(el.id, updatedElement);
           return;
         }
@@ -1027,6 +1106,7 @@ export function useCanvasPointerEvents({
     interactionRef,
     lastToolBeforeSpaceRef,
     eraserHitIdsRef,
+    hoveredBindingIdRef,
     handleDragOver,
     handleDrop,
     handlePointerDown,

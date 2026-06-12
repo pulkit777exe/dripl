@@ -34,6 +34,7 @@ interface DualCanvasProps {
   collaborators?: CollaboratorCursor[];
   lockOwners?: ReadonlyMap<string, string>;
   localUserId?: string | null;
+  hoveredBindingId?: string | null;
 }
 
 export function DualCanvas({
@@ -57,6 +58,7 @@ export function DualCanvas({
   collaborators = [],
   lockOwners = new Map<string, string>(),
   localUserId = null,
+  hoveredBindingId,
 }: DualCanvasProps) {
   return (
     <div
@@ -98,6 +100,7 @@ export function DualCanvas({
           collaborators={collaborators}
           lockOwners={lockOwners}
           localUserId={localUserId}
+          hoveredBindingId={hoveredBindingId}
         />
       </CanvasErrorBoundary>
     </div>

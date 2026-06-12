@@ -28,6 +28,7 @@ interface InteractiveCanvasProps {
   collaborators?: CollaboratorCursor[];
   lockOwners?: ReadonlyMap<string, string>;
   localUserId?: string | null;
+  hoveredBindingId?: string | null;
 }
 
 const areEqual = (prev: InteractiveCanvasProps, next: InteractiveCanvasProps): boolean => {
@@ -49,7 +50,8 @@ const areEqual = (prev: InteractiveCanvasProps, next: InteractiveCanvasProps): b
     prev.marqueeSelection !== next.marqueeSelection ||
     prev.collaborators !== next.collaborators ||
     prev.lockOwners !== next.lockOwners ||
-    prev.localUserId !== next.localUserId
+    prev.localUserId !== next.localUserId ||
+    prev.hoveredBindingId !== next.hoveredBindingId
   );
 };
 
@@ -68,6 +70,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   collaborators = [],
   lockOwners = new Map<string, string>(),
   localUserId = null,
+  hoveredBindingId,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -85,6 +88,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     collaborators,
     lockOwners,
     localUserId,
+    hoveredBindingId,
   });
 
   useEffect(() => {
@@ -99,6 +103,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       collaborators,
       lockOwners,
       localUserId,
+      hoveredBindingId,
     };
     isDirtyRef.current = true;
   }, [
@@ -112,6 +117,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     collaborators,
     lockOwners,
     localUserId,
+    hoveredBindingId,
   ]);
 
   useEffect(() => {
@@ -172,6 +178,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
           theme: props.theme,
           renderCommittedElements: false,
           dpr: dprRef.current,
+          hoveredBindingId: props.hoveredBindingId,
         });
       }
       rafRef.current = requestAnimationFrame(loop);

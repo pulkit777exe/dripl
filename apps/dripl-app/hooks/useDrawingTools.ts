@@ -67,6 +67,7 @@ export interface UseDrawingToolsReturn {
   updateDrawing: (point: Point, options: UpdateOptions, elements?: DriplElement[]) => void;
   finishDrawing: () => DriplElement | null;
   cancelDrawing: () => void;
+  bindModeRef: React.MutableRefObject<'orbit' | 'inside'>;
   isDrawing: boolean;
 }
 
@@ -134,7 +135,8 @@ const BINDING_SNAP_THRESHOLD = 20;
 function findNearestShape(
   point: Point,
   elements: DriplElement[],
-  excludeId: string
+  excludeId: string,
+  bindMode: 'orbit' | 'inside' = 'orbit'
 ): { element: DriplElement; binding: NormalizedBinding } | null {
   let bestMatch: { element: DriplElement; binding: NormalizedBinding } | null = null;
   let bestDistance = BINDING_SNAP_THRESHOLD;
@@ -157,7 +159,7 @@ function findNearestShape(
         binding: {
           elementId: el.id,
           fixedPoint: { x: binding.focus, y: 0.5 },
-          mode: 'orbit',
+          mode: bindMode,
         },
       };
     }
@@ -171,6 +173,8 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     toolState: ActiveToolState | null;
     baseProps: BaseToolProps | null;
   }>({ toolState: null, baseProps: null });
+
+  const bindModeRef = useRef<'orbit' | 'inside'>('orbit');
 
   const setDraftElement = useCanvasStore(state => state.setDraftElement);
   const updateDraftElement = useCanvasStore(state => state.updateDraftElement);
@@ -269,6 +273,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
           };
           break;
         case 'arrow':
+          bindModeRef.current = options.altKey ? 'inside' : 'orbit';
           toolState = {
             type: 'arrow',
             id,
@@ -446,8 +451,8 @@ export function useDrawingTools(): UseDrawingToolsReturn {
         const startPoint = { x: preview.x + firstPoint.x, y: preview.y + firstPoint.y };
         const endPoint = { x: preview.x + lastPoint.x, y: preview.y + lastPoint.y };
 
-        const startMatch = findNearestShape(startPoint, elements, arrowId);
-        const endMatch = findNearestShape(endPoint, elements, arrowId);
+        const startMatch = findNearestShape(startPoint, elements, arrowId, bindModeRef.current);
+        const endMatch = findNearestShape(endPoint, elements, arrowId, bindModeRef.current);
 
         if (startMatch || endMatch) {
           preview = {
@@ -475,6 +480,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     updateDrawing,
     finishDrawing,
     cancelDrawing,
+    bindModeRef,
     isDrawing: lifecycle === 'drawing' || lifecycle === 'committing',
   };
 }

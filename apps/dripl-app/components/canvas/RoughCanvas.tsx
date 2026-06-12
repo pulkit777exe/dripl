@@ -637,6 +637,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     interactionRef,
     lastToolBeforeSpaceRef,
     eraserHitIdsRef,
+    hoveredBindingIdRef,
     handleDragOver,
     handleDrop: hookHandleDrop,
     handlePointerDown,
@@ -882,6 +883,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           collaborators={collaboratorCursors}
           lockOwners={elementLocks}
           localUserId={userId}
+          hoveredBindingId={hoveredBindingIdRef.current}
         />
       )}
 
