@@ -1,9 +1,9 @@
 import { useCallback, useRef } from 'react';
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
-import { getElementBounds, isPointInElement, inverseRotatePoint } from '@dripl/math/intersection';
+import { getElementBounds, isPointInElement, inverseRotatePoint, getDistanceToBounds, isPointNearElement } from '@dripl/math/intersection';
 import type { DriplElement, LinearElement } from '@dripl/common';
-import { uploadImageToServer } from '@/utils/tools/image';
+import { uploadImageToServer, loadImage } from '@/utils/tools/image';
 import { v4 as uuidv4 } from 'uuid';
 import { recalculateBinding, calculateArrowBinding } from '@/utils/arrow-routing';
 import { findBindableElementAtPoint, bindArrowToElement, unbindArrowFromElement } from '@/utils/arrow-binding';
@@ -238,23 +238,6 @@ export function useCanvasPointerEvents({
     }))
   );
 
-  const getDistanceToBounds = useCallback((point: { x: number; y: number }, element: DriplElement): number => {
-    const bounds = getElementBounds(element);
-    const nearestX = Math.max(bounds.x, Math.min(point.x, bounds.x + bounds.width));
-    const nearestY = Math.max(bounds.y, Math.min(point.y, bounds.y + bounds.height));
-    const dx = point.x - nearestX;
-    const dy = point.y - nearestY;
-    return Math.sqrt(dx * dx + dy * dy);
-  }, []);
-
-  const isPointNearElement = useCallback(
-    (point: { x: number; y: number }, element: DriplElement, tolerance: number): boolean => {
-      if (isPointInElement(point, element)) return true;
-      return getDistanceToBounds(point, element) <= tolerance;
-    },
-    [getDistanceToBounds]
-  );
-
   const handleDragOver = useCallback((e: React.DragEvent) => e.preventDefault(), []);
 
   const handleDrop = useCallback(
@@ -267,32 +250,21 @@ export function useCanvasPointerEvents({
         if (file.type.startsWith('image/')) {
           try {
             const imageUrl = await uploadImageToServer(file);
-            const img = new Image();
-            img.onload = () => {
-              let width = img.width;
-              let height = img.height;
-              const maxSize = 500;
-              if (width > maxSize || height > maxSize) {
-                const ratio = Math.min(maxSize / width, maxSize / height);
-                width *= ratio;
-                height *= ratio;
-              }
-              const element: DriplElement = {
-                id: uuidv4(),
-                type: 'image',
-                x: x - width / 2,
-                y: y - height / 2,
-                width,
-                height,
-                strokeColor: 'transparent',
-                backgroundColor: 'transparent',
-                strokeWidth: 0,
-                opacity: 1,
-                src: imageUrl,
-              };
-              addElement(element);
+            const dims = await loadImage(imageUrl, 500);
+            const element: DriplElement = {
+              id: uuidv4(),
+              type: 'image',
+              x: x - dims.displayWidth / 2,
+              y: y - dims.displayHeight / 2,
+              width: dims.displayWidth,
+              height: dims.displayHeight,
+              strokeColor: 'transparent',
+              backgroundColor: 'transparent',
+              strokeWidth: 0,
+              opacity: 1,
+              src: imageUrl,
             };
-            img.src = imageUrl;
+            addElement(element);
           } catch (error) {
             console.error('Failed to upload image:', error);
           }
@@ -465,35 +437,24 @@ export function useCanvasPointerEvents({
           if (file) {
             try {
               const imageUrl = await uploadImageToServer(file);
-              const img = new Image();
-              img.onload = () => {
-                let width = img.width;
-                let height = img.height;
-                const maxSize = 500;
-                if (width > maxSize || height > maxSize) {
-                  const ratio = Math.min(maxSize / width, maxSize / height);
-                  width *= ratio;
-                  height *= ratio;
-                }
-                const element: DriplElement = {
-                  id: uuidv4(),
-                  type: 'image',
-                  x: x - width / 2,
-                  y: y - height / 2,
-                  width,
-                  height,
-                  strokeColor: 'transparent',
-                  backgroundColor: 'transparent',
-                  strokeWidth: 0,
-                  opacity: 1,
-                  src: imageUrl,
-                };
-                addElement(element);
-                if (useCanvasStore.getState().activeTool === 'image') {
-                  maybeRevertToSelectTool('image');
-                }
+              const dims = await loadImage(imageUrl, 500);
+              const element: DriplElement = {
+                id: uuidv4(),
+                type: 'image',
+                x: x - dims.displayWidth / 2,
+                y: y - dims.displayHeight / 2,
+                width: dims.displayWidth,
+                height: dims.displayHeight,
+                strokeColor: 'transparent',
+                backgroundColor: 'transparent',
+                strokeWidth: 0,
+                opacity: 1,
+                src: imageUrl,
               };
-              img.src = imageUrl;
+              addElement(element);
+              if (useCanvasStore.getState().activeTool === 'image') {
+                maybeRevertToSelectTool('image');
+              }
             } catch (error) {
               console.error('Failed to upload image:', error);
             }

@@ -5,8 +5,9 @@ import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { useCanvasWorker } from '@/hooks/useCanvasWorker';
-import { getElementBounds, isPointInElement } from '@dripl/math/intersection';
+import { getElementBounds, isPointInElement, isPointNearElement } from '@dripl/math/intersection';
 import { type DriplElement } from '@dripl/common';
+import { collectCascadeDeleteIds } from '@dripl/common/cascade-delete';
 import { getOrCreateCollaboratorName } from '@/utils/username';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
 import RBush from 'rbush';
@@ -438,23 +439,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     [gridEnabled, gridSize]
   );
 
-  const getDistanceToBounds = useCallback((point: Point, element: DriplElement): number => {
-    const bounds = getElementBounds(element);
-    const nearestX = Math.max(bounds.x, Math.min(point.x, bounds.x + bounds.width));
-    const nearestY = Math.max(bounds.y, Math.min(point.y, bounds.y + bounds.height));
-    const dx = point.x - nearestX;
-    const dy = point.y - nearestY;
-    return Math.sqrt(dx * dx + dy * dy);
-  }, []);
-
-  const isPointNearElement = useCallback(
-    (point: Point, element: DriplElement, tolerance: number): boolean => {
-      if (isPointInElement(point, element)) return true;
-      return getDistanceToBounds(point, element) <= tolerance;
-    },
-    [getDistanceToBounds]
-  );
-
   const getElementAtPosition = useCallback(
     (x: number, y: number): DriplElement | null => {
       const state = useCanvasStore.getState();
@@ -502,40 +486,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     [isPointNearElement, spatialIndex.tree]
   );
 
-  const collectCascadeDeleteIds = useCallback(
+  const collectCascadeDeleteIdsCallback = useCallback(
     (seedIds: Iterable<string>): string[] => {
-      const toDelete = new Set<string>(seedIds);
-      if (toDelete.size === 0) return [];
-
-      let changed = true;
-      while (changed) {
-        changed = false;
-        elements.forEach(element => {
-          if (toDelete.has(element.id)) {
-            if (
-              (element.type === 'arrow' || element.type === 'line') &&
-              'labelId' in element &&
-              element.labelId &&
-              !toDelete.has(element.labelId)
-            ) {
-              toDelete.add(element.labelId);
-              changed = true;
-            }
-            return;
-          }
-
-          if (element.type !== 'text') return;
-          const boundTargetId =
-            ('boundElementId' in element ? element.boundElementId : undefined) ??
-            ('containerId' in element ? element.containerId : undefined);
-          if (boundTargetId && toDelete.has(boundTargetId)) {
-            toDelete.add(element.id);
-            changed = true;
-          }
-        });
-      }
-
-      return Array.from(toDelete);
+      return collectCascadeDeleteIds(seedIds, elements);
     },
     [elements]
   );
@@ -836,7 +789,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     setTextInput,
     setDrawingState,
     cancelDrawing,
-    collectCascadeDeleteIds,
+    collectCascadeDeleteIds: collectCascadeDeleteIdsCallback,
     copySelectedToClipboard,
     pasteFromClipboard,
     duplicateSelection,
@@ -989,7 +942,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
             onDuplicate={duplicateSelection}
             onDelete={() => {
               const ids = Array.from(useCanvasStore.getState().selectedIds);
-              deleteElements(collectCascadeDeleteIds(ids));
+              deleteElements(collectCascadeDeleteIdsCallback(ids));
               clearSelection();
             }}
             onBringToFront={() => {

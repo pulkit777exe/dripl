@@ -37,6 +37,10 @@
     "./arrow-binding": {
       "types": "./dist/arrow-binding.d.ts",
       "default": "./dist/arrow-binding"
+    },
+    "./cascade-delete": {
+      "types": "./dist/cascade-delete.d.ts",
+      "default": "./dist/cascade-delete"
     }
   },
   "scripts": {

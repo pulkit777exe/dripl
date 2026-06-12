@@ -280,3 +280,27 @@ export const getFreedrawOutline = (element: FreeDrawElement): Point[] => {
 
   return world.map(p => rotatePoint(p, cx, cy, angle));
 };
+
+/**
+ * Distance from a point to the nearest edge of an element's bounding box.
+ */
+export const getDistanceToBounds = (point: Point, element: DriplElement): number => {
+  const bounds = getElementBounds(element);
+  const nearestX = Math.max(bounds.x, Math.min(point.x, bounds.x + bounds.width));
+  const nearestY = Math.max(bounds.y, Math.min(point.y, bounds.y + bounds.height));
+  const dx = point.x - nearestX;
+  const dy = point.y - nearestY;
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
+/**
+ * Whether a point is within tolerance of an element (inside or near its bounds).
+ */
+export const isPointNearElement = (
+  point: Point,
+  element: DriplElement,
+  tolerance: number
+): boolean => {
+  if (isPointInElement(point, element)) return true;
+  return getDistanceToBounds(point, element) <= tolerance;
+};

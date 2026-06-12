@@ -1,5 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { DriplElement, LinearElement } from '@dripl/common';
+import { collectCascadeDeleteIds } from '@dripl/common/cascade-delete';
 import { generateKeyBetween } from 'fractional-indexing';
 import { invalidateElementCache } from '@dripl/element/staticScene';
 import { clearShapeFromCache, clearAllShapeCache } from '@dripl/element/shape-cache';
@@ -500,38 +501,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
 
   collectCascadeDeleteIds: seedIds => {
     const state = get();
-    const toDelete = new Set<string>(seedIds);
-    if (toDelete.size === 0) return [];
-
-    let changed = true;
-    while (changed) {
-      changed = false;
-      state.elements.forEach(element => {
-        if (toDelete.has(element.id)) {
-          if (
-            (element.type === 'arrow' || element.type === 'line') &&
-            'labelId' in element &&
-            element.labelId &&
-            !toDelete.has(element.labelId)
-          ) {
-            toDelete.add(element.labelId);
-            changed = true;
-          }
-          return;
-        }
-
-        if (element.type !== 'text') return;
-        const boundTargetId =
-          ('boundElementId' in element ? element.boundElementId : undefined) ??
-          ('containerId' in element ? element.containerId : undefined);
-        if (boundTargetId && toDelete.has(boundTargetId)) {
-          toDelete.add(element.id);
-          changed = true;
-        }
-      });
-    }
-
-    return Array.from(toDelete);
+    return collectCascadeDeleteIds(seedIds, state.elements);
   },
 
   groupElements: ids =>

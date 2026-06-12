@@ -1,4 +1,5 @@
 import type { DriplElement, LinearElement, NormalizedBinding, Point } from '@dripl/common';
+import { isBindableElement } from '@dripl/common/arrow-binding';
 
 /**
  * Find the nearest bindable element to a point.
@@ -10,14 +11,13 @@ export function findBindableElementAtPoint(
   excludeId: string,
   threshold: number = 20
 ): DriplElement | null {
-  const BINDABLE_TYPES = new Set(['rectangle', 'ellipse', 'diamond', 'image', 'frame']);
   let best: DriplElement | null = null;
   let bestArea = Infinity;
 
   for (const el of elements) {
     if (el.id === excludeId) continue;
     if (el.isDeleted) continue;
-    if (!BINDABLE_TYPES.has(el.type)) continue;
+    if (!isBindableElement(el)) continue;
 
     const cx = el.x + el.width / 2;
     const cy = el.y + el.height / 2;
