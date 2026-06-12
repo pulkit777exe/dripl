@@ -125,6 +125,77 @@ export async function exportToPng(
   });
 }
 
+export async function generateThumbnail(
+  elements: DriplElement[],
+  options: { width?: number; height?: number } = {}
+): Promise<string> {
+  const width = options.width ?? 400;
+  const height = options.height ?? 300;
+  const bounds = getSceneBounds(elements);
+  const padding = 16;
+
+  const scaleX = (width - padding * 2) / bounds.width;
+  const scaleY = (height - padding * 2) / bounds.height;
+  const scale = Math.min(scaleX, scaleY, 1);
+
+  const canvasWidth = Math.ceil((bounds.width + padding * 2) * scale);
+  const canvasHeight = Math.ceil((bounds.height + padding * 2) * scale);
+
+  let canvas: OffscreenCanvas | HTMLCanvasElement;
+  let ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
+
+  if (typeof OffscreenCanvas !== 'undefined') {
+    canvas = new OffscreenCanvas(canvasWidth, canvasHeight);
+    ctx = canvas.getContext('2d');
+  } else {
+    const fallback = document.createElement('canvas');
+    fallback.width = canvasWidth;
+    fallback.height = canvasHeight;
+    canvas = fallback;
+    ctx = fallback.getContext('2d');
+  }
+
+  if (!ctx) {
+    return '';
+  }
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  renderInteractiveScene({
+    ctx: ctx as CanvasRenderingContext2D,
+    canvasWidth,
+    canvasHeight,
+    viewport: {
+      x: -bounds.minX * scale + padding * scale,
+      y: -bounds.minY * scale + padding * scale,
+      width: canvasWidth,
+      height: canvasHeight,
+      zoom: scale,
+    },
+    elements,
+    selectedIds: new Set<string>(),
+    collaborators: [],
+    gridEnabled: false,
+    renderCommittedElements: true,
+    dpr: 1,
+    clearCanvas: false,
+  });
+
+  if ('convertToBlob' in canvas) {
+    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 });
+    return new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  return new Promise<string>((resolve) => {
+    resolve((canvas as HTMLCanvasElement).toDataURL('image/jpeg', 0.8));
+  });
+}
+
 export function exportToSvg(elements: DriplElement[], options: { padding?: number } = {}): Blob {
   const padding = options.padding ?? 16;
   const bounds = getSceneBounds(elements);

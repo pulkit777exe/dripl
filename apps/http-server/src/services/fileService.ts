@@ -187,6 +187,7 @@ export class FileService {
                 elements: nextContent.elements,
                 encryptedPayload: null,
                 encryptedAt: null,
+                appState: nextContent.appState ?? null,
               })
             : undefined,
       },

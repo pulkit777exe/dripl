@@ -206,8 +206,16 @@ export function FileBrowser({
               href={`/file/${file.id}`}
               className="group relative rounded-lg border border-[#E4E0D9] bg-[#FAFAF7] hover:border-[#D4D0C9] hover:shadow-sm transition-all"
             >
-              <div className="aspect-square bg-[#E8E5DE]/40 flex items-center justify-center rounded-t-lg">
-                <File className="h-10 w-10 text-[#D4D0C9]" />
+              <div className="aspect-square bg-[#E8E5DE]/40 flex items-center justify-center rounded-t-lg overflow-hidden">
+                {file.preview ? (
+                  <img
+                    src={file.preview}
+                    alt={file.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <File className="h-10 w-10 text-[#D4D0C9]" />
+                )}
               </div>
               <div className="p-3">
                 {editingId === file.id ? (
@@ -289,8 +297,16 @@ export function FileBrowser({
                 className="grid grid-cols-12 gap-4 px-5 py-3 items-center hover:bg-secondary/30 transition-colors group"
               >
                 <div className="col-span-6 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-secondary/50 flex items-center justify-center">
-                    <File className="h-4 w-4 text-muted-foreground" />
+                  <div className="w-9 h-9 rounded-lg bg-secondary/50 flex items-center justify-center overflow-hidden shrink-0">
+                    {file.preview ? (
+                      <img
+                        src={file.preview}
+                        alt={file.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <File className="h-4 w-4 text-muted-foreground" />
+                    )}
                   </div>
                   {editingId === file.id ? (
                     <input

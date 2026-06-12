@@ -282,7 +282,7 @@ class ApiClient {
     payload: {
       name?: string;
       folderId?: string | null;
-      content?: unknown[];
+      content?: unknown;
       preview?: string | null;
     }
   ): Promise<{ file: FileSummary }> {

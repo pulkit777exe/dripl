@@ -4,6 +4,7 @@ export interface StoredFileContent {
   elements: unknown[];
   encryptedPayload: EncryptedPayload | null;
   encryptedAt: string | null;
+  appState?: Record<string, unknown> | null;
 }
 
 function isEncryptedPayload(value: unknown): value is EncryptedPayload {
@@ -47,10 +48,16 @@ export function parseStoredFileContent(raw: string | null | undefined): StoredFi
         };
       }
 
+      const parsedAppState =
+        record.appState && typeof record.appState === 'object' && !Array.isArray(record.appState)
+          ? (record.appState as Record<string, unknown>)
+          : null;
+
       return {
         elements: parsedElements,
         encryptedPayload: parsedEncryptedPayload,
         encryptedAt: parsedEncryptedAt,
+        appState: parsedAppState,
       };
     }
   } catch {
@@ -69,11 +76,15 @@ export function parseStoredFileContent(raw: string | null | undefined): StoredFi
 }
 
 export function serializeStoredFileContent(content: StoredFileContent): string {
-  return JSON.stringify({
+  const payload: Record<string, unknown> = {
     elements: content.elements,
     encryptedPayload: content.encryptedPayload,
     encryptedAt: content.encryptedAt,
-  });
+  };
+  if (content.appState) {
+    payload.appState = content.appState;
+  }
+  return JSON.stringify(payload);
 }
 
 export async function buildEncryptedShare(

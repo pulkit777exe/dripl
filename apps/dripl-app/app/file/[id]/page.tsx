@@ -13,9 +13,11 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { apiClient } from '@/lib/api';
+import { generateThumbnail } from '@/utils/export';
 import { Spinner } from '@/components/button/Spinner';
 import { HelpCircle, ShieldCheck } from 'lucide-react';
 import HelpModal from '@/components/canvas/HelpModal';
+import type { LocalCanvasState } from '@/utils/localCanvasStorage';
 
 export default function FilePage() {
   const params = useParams<{ id: string }>();
@@ -65,10 +67,26 @@ export default function FilePage() {
       setLoadError(null);
       try {
         const response = await apiClient.getFile(fileId);
-        const fileElements = Array.isArray(response.file.content)
-          ? (response.file.content as DriplElement[])
-          : [];
-        const nextInitialData = { elements: fileElements };
+        const rawContent = response.file.content;
+        let fileElements: DriplElement[] = [];
+        let fileAppState: Partial<LocalCanvasState> | null = null;
+
+        if (Array.isArray(rawContent)) {
+          fileElements = rawContent as DriplElement[];
+        } else if (rawContent && typeof rawContent === 'object') {
+          const contentObj = rawContent as {
+            elements?: unknown;
+            appState?: Partial<LocalCanvasState>;
+          };
+          if (Array.isArray(contentObj.elements)) {
+            fileElements = contentObj.elements as DriplElement[];
+          }
+          if (contentObj.appState && typeof contentObj.appState === 'object') {
+            fileAppState = contentObj.appState;
+          }
+        }
+
+        const nextInitialData = { elements: fileElements, appState: fileAppState };
         if (cancelled) return;
 
         setInitialData(nextInitialData);
@@ -122,8 +140,24 @@ export default function FilePage() {
     autosaveTimerRef.current = window.setTimeout(() => {
       void (async () => {
         try {
-          await apiClient.updateFile(fileId, { content: latestElementsRef.current });
-          lastSavedContentRef.current = JSON.stringify(latestElementsRef.current);
+          const currentElements = latestElementsRef.current;
+          const { zoom: currentZoom, panX: currentPanX, panY: currentPanY } =
+            useCanvasStore.getState();
+          await apiClient.updateFile(fileId, {
+            content: {
+              elements: currentElements,
+              appState: { zoom: currentZoom, panX: currentPanX, panY: currentPanY },
+            },
+          });
+          
+          // Generate and save thumbnail (non-blocking, best-effort)
+          generateThumbnail(currentElements).then(thumbnail => {
+            if (thumbnail) {
+              apiClient.updateFile(fileId, { preview: thumbnail }).catch(() => {});
+            }
+          }).catch(() => {});
+          
+          lastSavedContentRef.current = JSON.stringify(currentElements);
           pendingSaveRef.current = false;
           setSaveError(null);
         } catch (error) {
@@ -146,7 +180,15 @@ export default function FilePage() {
         window.clearTimeout(autosaveTimerRef.current);
       }
       if (pendingSaveRef.current) {
-        apiClient.updateFile(fileId, { content: latestElementsRef.current }).catch(() => {});
+        const { zoom: z, panX: px, panY: py } = useCanvasStore.getState();
+        apiClient
+          .updateFile(fileId, {
+            content: {
+              elements: latestElementsRef.current,
+              appState: { zoom: z, panX: px, panY: py },
+            },
+          })
+          .catch(() => {});
       }
       initialSyncDoneRef.current = false;
     };
