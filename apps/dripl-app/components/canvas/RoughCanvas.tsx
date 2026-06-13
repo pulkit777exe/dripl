@@ -110,11 +110,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const eraserPath = useCanvasStore(state => state.eraserPath);
   const cursorPosition = useCanvasStore(state => state.cursorPosition);
   const [welcomeScreenDismissed, setWelcomeScreenDismissed] = useState(false);
-  const [marqueeSelection, setMarqueeSelection] = useState<{
-    start: Point;
-    end: Point;
-    active: boolean;
-  } | null>(null);
+  const marqueeSelection = useCanvasStore(state => state.marqueeSelection);
   const [contextMenuState, setContextMenuState] = useState<{
     x: number;
     y: number;

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   initializeShapeRegistry,
-  getRegisteredShapes,
   getShapeByType,
   createElementFromType,
 } from '@/utils/shapes/shapeInitializer';

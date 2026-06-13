@@ -50,7 +50,21 @@ export function useCanvasPersistence({ roomSlug, theme, isDrawingRef }: UseCanva
     };
 
     schedule();
-    return () => clearTimeout(timeoutId);
+
+    // Re-save on every element change (debounced via the idle delay)
+    const unsubscribe = useCanvasStore.subscribe(
+      (state, prevState) => {
+        if (state.elements !== prevState.elements && !isDrawingRef.current) {
+          clearTimeout(timeoutId);
+          schedule();
+        }
+      }
+    );
+
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
   }, [roomSlug, theme, isDrawingRef]);
 
   // Flush immediately on tab close / navigation.

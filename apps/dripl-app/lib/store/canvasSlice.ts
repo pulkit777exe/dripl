@@ -311,7 +311,8 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       const newFrontier = generateFractionalIndexAfterAll(sorted);
       const nextElements = sorted.map(el => {
         if (selected.has(el.id)) {
-          return { ...el, fractionalIndex: generateKeyBetween(newFrontier, null) };
+          const idx = generateKeyBetween(newFrontier, null);
+          return { ...el, fractionalIndex: idx };
         }
         return { ...el };
       });
@@ -341,7 +342,8 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       const newBackier = generateFractionalIndexBeforeAll(sorted);
       const nextElements = sorted.map(el => {
         if (selected.has(el.id)) {
-          return { ...el, fractionalIndex: generateKeyBetween(null, newBackier) };
+          const idx = generateKeyBetween(null, newBackier);
+          return { ...el, fractionalIndex: idx };
         }
         return { ...el };
       });
@@ -517,7 +519,13 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
 
       const nextElements = state.elements.map(element => {
         if (idSet.has(element.id)) {
-          return { ...element, groupId } as DriplElement;
+          return {
+            ...element,
+            groupId,
+            version: (element.version ?? 0) + 1,
+            versionNonce: Math.floor(Math.random() * 2000000000),
+            updated: Date.now(),
+          } as DriplElement;
         }
         return element;
       });
@@ -544,7 +552,12 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       const nextElements = state.elements.map(element => {
         if (ids.includes(element.id) && element.groupId) {
           const { groupId, ...rest } = element;
-          return rest as DriplElement;
+          return {
+            ...rest,
+            version: (rest.version ?? 0) + 1,
+            versionNonce: Math.floor(Math.random() * 2000000000),
+            updated: Date.now(),
+          } as DriplElement;
         }
         return element;
       });

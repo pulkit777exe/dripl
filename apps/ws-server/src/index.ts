@@ -159,6 +159,15 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('message', async (raw: Buffer) => {
+    // Rate limit all messages including binary
+    if (!checkRateLimit(ws)) {
+      console.warn(
+        JSON.stringify({ level: 'warn', event: 'rate_limit_exceeded' })
+      );
+      ws.close(4000, 'Rate limit exceeded');
+      return;
+    }
+
     // Handle binary Yjs messages
     if (raw instanceof Buffer && raw.length > 0 && raw[0] === YJS_MSG_UPDATE) {
       if (!currentRoomId) return;
@@ -188,14 +197,6 @@ wss.on('connection', (ws, req) => {
 
     const validation = messageSchema.safeParse(parsed);
     if (!validation.success) {
-      return;
-    }
-
-    if (!checkRateLimit(ws)) {
-      console.warn(
-        JSON.stringify({ level: 'warn', event: 'rate_limit_exceeded' })
-      );
-      ws.close(4000, 'Rate limit exceeded');
       return;
     }
 
@@ -405,6 +406,9 @@ wss.on('connection', (ws, req) => {
           }
           for (const id of toRemove) {
             room.elements.delete(id);
+          }
+          if (room.yjs && toRemove.length > 0) {
+            deleteElementsFromYjs(room.yjs, toRemove);
           }
         }
 
@@ -637,6 +641,7 @@ const heartbeat = setInterval(() => {
           room.cursors.delete(user.userId);
           if (room.users.size === 0) {
             roomLastEmptyAt.set(roomId, Date.now());
+            scheduleSave(roomId);
           }
         }
       }
