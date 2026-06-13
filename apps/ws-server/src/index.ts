@@ -401,7 +401,7 @@ wss.on('connection', (ws, req) => {
         broadcast(room, {
           type: 'scene-update',
           subtype: message.subtype,
-          elements: Array.from(room.elements.values()),
+          elements: acceptedElements,
         }, currentUserId ?? undefined);
         scheduleSave(currentRoomId);
         break;
@@ -611,6 +611,12 @@ const heartbeat = setInterval(() => {
       if (roomId) {
         const room = rooms.get(roomId);
         if (room) {
+          broadcast(room, {
+            type: 'user-leave',
+            roomId,
+            userId: user.userId,
+            timestamp: Date.now(),
+          });
           room.users.delete(user.userId);
           room.cursors.delete(user.userId);
           if (room.users.size === 0) {

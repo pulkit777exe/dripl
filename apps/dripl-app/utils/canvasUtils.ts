@@ -91,7 +91,7 @@ export function drawShape(
 ): void {
   ctx.save();
 
-  ctx.globalAlpha = (element.opacity ?? 100) / 100;
+  ctx.globalAlpha = element.opacity ?? 1;
 
   if (element.angle) {
     const centerX = element.x + element.width / 2;

@@ -146,7 +146,7 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
         updated: canvasUpdate.count,
       })
     );
-    return true;
+    return canvasUpdate.count > 0;
   } catch (error) {
     console.error(
       JSON.stringify({

@@ -60,13 +60,6 @@ export function useElementManipulation({
           y: element.y + delta.y,
         };
 
-        if ('points' in updatedElement && updatedElement.points) {
-          updatedElement.points = updatedElement.points.map((p: { x: number; y: number }) => ({
-            x: p.x + delta.x,
-            y: p.y + delta.y,
-          }));
-        }
-
         updateElement(id, updatedElement);
         hasChanges = true;
       });
@@ -254,13 +247,6 @@ export function useElementManipulation({
         };
 
         idMap.set(element.id, duplicated.id);
-
-        if ('points' in duplicated && duplicated.points) {
-          duplicated.points = duplicated.points.map((p: { x: number; y: number }) => ({
-            x: p.x + offset,
-            y: p.y + offset,
-          }));
-        }
 
         if (duplicated.type === 'arrow' && (duplicated as any).labelId) {
           (duplicated as any).labelId =
