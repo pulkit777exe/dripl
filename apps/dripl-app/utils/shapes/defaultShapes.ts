@@ -1,4 +1,6 @@
 import type { ShapeDefinition, DriplElement, Point, ElementBase } from '@dripl/common';
+
+const imageCache = new Map<string, HTMLImageElement>();
 import { createRectangleElement, RectangleToolState } from '@/utils/tools/rectangle';
 import { createEllipseElement, EllipseToolState } from '@/utils/tools/ellipse';
 import { createDiamondElement, DiamondToolState } from '@/utils/tools/diamond';
@@ -454,11 +456,16 @@ export const imageShape: ShapeDefinition = {
 
     ctx.globalAlpha = element.opacity || 1;
 
-    const img = new Image();
-    img.src = imageElement.src;
-    img.onload = () => {
+    let img = imageCache.get(imageElement.src);
+    if (img && img.complete && img.naturalWidth > 0) {
       ctx.drawImage(img, element.x, element.y, element.width, element.height);
-    };
+    } else if (!img) {
+      img = new Image();
+      img.src = imageElement.src;
+      img.onload = () => {
+        imageCache.set(imageElement.src, img!);
+      };
+    }
   },
   getProperties: (element: DriplElement) => {
     const imageElement = element as any;

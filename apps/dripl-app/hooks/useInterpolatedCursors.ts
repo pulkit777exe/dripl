@@ -80,7 +80,7 @@ export function useInterpolatedCursors(
       });
 
       if (hasChanges) {
-        setInterpolatedCursors(cursorsRef.current);
+        setInterpolatedCursors(new Map(cursorsRef.current));
       }
 
       animationFrameRef.current = requestAnimationFrame(animate);
