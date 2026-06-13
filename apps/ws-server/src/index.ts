@@ -386,7 +386,7 @@ wss.on('connection', (ws, req) => {
             const element = toDriplElement(rawEl);
             incomingIds.add(element.id);
             const existing = room.elements.get(element.id);
-            if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
+            if (existing && (element.version ?? 0) <= (existing.version ?? 0)) {
               continue;
             }
             room.elements.set(element.id, element);
@@ -639,9 +639,9 @@ const heartbeat = setInterval(() => {
           });
           room.users.delete(user.userId);
           room.cursors.delete(user.userId);
+          scheduleSave(roomId);
           if (room.users.size === 0) {
             roomLastEmptyAt.set(roomId, Date.now());
-            scheduleSave(roomId);
           }
         }
       }

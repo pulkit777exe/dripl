@@ -268,19 +268,19 @@ export function calculateArrowBinding(
     // Pointing to left or right edge
     if (dx > 0) {
       // Right edge
-      focus = 0.5 + (dy / bounds.height) * 0.5;
+      focus = bounds.height > 0 ? 0.5 + (dy / bounds.height) * 0.5 : 0.5;
     } else {
       // Left edge
-      focus = 0.5 - (dy / bounds.height) * 0.5;
+      focus = bounds.height > 0 ? 0.5 - (dy / bounds.height) * 0.5 : 0.5;
     }
   } else {
     // Pointing to top or bottom edge
     if (dy > 0) {
       // Bottom edge
-      focus = 0.5 + (dx / bounds.width) * 0.5;
+      focus = bounds.width > 0 ? 0.5 + (dx / bounds.width) * 0.5 : 0.5;
     } else {
       // Top edge
-      focus = 0.5 - (dx / bounds.width) * 0.5;
+      focus = bounds.width > 0 ? 0.5 - (dx / bounds.width) * 0.5 : 0.5;
     }
   }
 

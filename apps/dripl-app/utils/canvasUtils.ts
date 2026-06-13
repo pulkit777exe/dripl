@@ -17,20 +17,20 @@ export function normalizeElement(element: DriplElement): DriplElement {
     // Ensure all required fields are present
     id: element.id || generateId(),
     type: element.type || 'rectangle',
-    x: element.x || 0,
-    y: element.y || 0,
-    width: element.width || 100,
-    height: element.height || 100,
+    x: element.x ?? 0,
+    y: element.y ?? 0,
+    width: element.width ?? 100,
+    height: element.height ?? 100,
     angle: typeof element.angle === 'number' ? element.angle : 0,
     version: element.version || 1,
     versionNonce: element.versionNonce || Math.floor(Math.random() * 2_147_483_647),
     opacity: typeof element.opacity === 'number' ? element.opacity : 1,
     strokeColor: element.strokeColor || '#000000',
-    strokeWidth: element.strokeWidth || 2,
+    strokeWidth: element.strokeWidth ?? 2,
     strokeStyle: element.strokeStyle || 'solid',
     backgroundColor: element.backgroundColor || 'transparent',
     fillStyle: element.fillStyle || 'hachure',
-    roughness: element.roughness || 1,
+    roughness: element.roughness ?? 1,
     isDeleted: element.isDeleted || false,
     updated: element.updated || Date.now(),
   } as DriplElement;
@@ -224,15 +224,18 @@ function drawDiamond(ctx: CanvasRenderingContext2D, element: DriplElement): void
 function drawArrow(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   if (!element.points || element.points.length < 2) return;
 
+  const ox = element.x;
+  const oy = element.y;
+
   ctx.beginPath();
   const firstPoint = element.points[0];
   if (!firstPoint) return;
 
-  ctx.moveTo(firstPoint.x, firstPoint.y);
+  ctx.moveTo(firstPoint.x + ox, firstPoint.y + oy);
   for (let i = 1; i < element.points.length; i++) {
     const point = element.points[i];
     if (!point) continue;
-    ctx.lineTo(point.x, point.y);
+    ctx.lineTo(point.x + ox, point.y + oy);
   }
   ctx.stroke();
 
@@ -241,18 +244,17 @@ function drawArrow(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   if (lastPoint === undefined || secondLastPoint === undefined) return;
   const angle = Math.atan2(lastPoint.y - secondLastPoint.y, lastPoint.x - secondLastPoint.x);
   const arrowLength = 15;
-  const arrowWidth = 10;
 
   ctx.beginPath();
-  ctx.moveTo(lastPoint.x, lastPoint.y);
+  ctx.moveTo(lastPoint.x + ox, lastPoint.y + oy);
   ctx.lineTo(
-    lastPoint.x - arrowLength * Math.cos(angle - Math.PI / 6),
-    lastPoint.y - arrowLength * Math.sin(angle - Math.PI / 6)
+    lastPoint.x + ox - arrowLength * Math.cos(angle - Math.PI / 6),
+    lastPoint.y + oy - arrowLength * Math.sin(angle - Math.PI / 6)
   );
-  ctx.moveTo(lastPoint.x, lastPoint.y);
+  ctx.moveTo(lastPoint.x + ox, lastPoint.y + oy);
   ctx.lineTo(
-    lastPoint.x - arrowLength * Math.cos(angle + Math.PI / 6),
-    lastPoint.y - arrowLength * Math.sin(angle + Math.PI / 6)
+    lastPoint.x + ox - arrowLength * Math.cos(angle + Math.PI / 6),
+    lastPoint.y + oy - arrowLength * Math.sin(angle + Math.PI / 6)
   );
   ctx.stroke();
 }
@@ -260,15 +262,18 @@ function drawArrow(ctx: CanvasRenderingContext2D, element: DriplElement): void {
 function drawLine(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   if (!element.points || element.points.length < 2) return;
 
+  const ox = element.x;
+  const oy = element.y;
+
   const firstPoint = element.points[0];
   if (!firstPoint) return;
 
   ctx.beginPath();
-  ctx.moveTo(firstPoint.x, firstPoint.y);
+  ctx.moveTo(firstPoint.x + ox, firstPoint.y + oy);
   for (let i = 1; i < element.points.length; i++) {
     const point = element.points[i];
     if (!point) continue;
-    ctx.lineTo(point.x, point.y);
+    ctx.lineTo(point.x + ox, point.y + oy);
   }
   ctx.stroke();
 }
@@ -276,25 +281,28 @@ function drawLine(ctx: CanvasRenderingContext2D, element: DriplElement): void {
 function drawFreedraw(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   if (!element.points || element.points.length < 2) return;
 
+  const ox = element.x;
+  const oy = element.y;
+
   const firstPoint = element.points[0];
   if (!firstPoint) return;
 
   ctx.beginPath();
-  ctx.moveTo(firstPoint.x, firstPoint.y);
+  ctx.moveTo(firstPoint.x + ox, firstPoint.y + oy);
 
   for (let i = 1; i < element.points.length - 1; i++) {
     const currentPoint = element.points[i];
     const nextPoint = element.points[i + 1];
     if (!currentPoint || !nextPoint) continue;
 
-    const xc = (currentPoint.x + nextPoint.x) / 2;
-    const yc = (currentPoint.y + nextPoint.y) / 2;
-    ctx.quadraticCurveTo(currentPoint.x, currentPoint.y, xc, yc);
+    const xc = (currentPoint.x + nextPoint.x) / 2 + ox;
+    const yc = (currentPoint.y + nextPoint.y) / 2 + oy;
+    ctx.quadraticCurveTo(currentPoint.x + ox, currentPoint.y + oy, xc, yc);
   }
 
   const lastPoint = element.points[element.points.length - 1];
   if (lastPoint) {
-    ctx.lineTo(lastPoint.x, lastPoint.y);
+    ctx.lineTo(lastPoint.x + ox, lastPoint.y + oy);
   }
   ctx.stroke();
 }
