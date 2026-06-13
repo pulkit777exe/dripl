@@ -493,26 +493,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     [elements]
   );
 
-  const getSelectionBounds = useCallback((selected: Set<string>, sceneElements: DriplElement[]) => {
-    const selectedElements = sceneElements.filter(element => selected.has(element.id));
-    if (selectedElements.length === 0) return null;
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    selectedElements.forEach(element => {
-      const bounds = getElementBounds(element);
-      minX = Math.min(minX, bounds.x);
-      minY = Math.min(minY, bounds.y);
-      maxX = Math.max(maxX, bounds.x + bounds.width);
-      maxY = Math.max(maxY, bounds.y + bounds.height);
-    });
-
-    return { minX, minY, maxX, maxY };
-  }, []);
-
   const maybeRevertToSelectTool = useCallback(
     (completedTool: ActiveTool) => {
       if (toolLocked || completedTool === 'laser') return;
@@ -520,31 +500,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       setActiveTool('select');
     },
     [setActiveTool, toolLocked]
-  );
-
-  const expandSelectionWithGroups = useCallback(
-    (ids: Set<string>, sceneElements: DriplElement[]): Set<string> => {
-      const expanded = new Set(ids);
-      if (ids.size === 0) return expanded;
-
-      const groupIds = new Set<string>();
-      sceneElements.forEach(element => {
-        if (ids.has(element.id) && element.groupId) {
-          groupIds.add(element.groupId);
-        }
-      });
-
-      if (groupIds.size === 0) return expanded;
-
-      sceneElements.forEach(element => {
-        if (element.groupId && groupIds.has(element.groupId)) {
-          expanded.add(element.id);
-        }
-      });
-
-      return expanded;
-    },
-    []
   );
 
   const applyFrameGrouping = useCallback(

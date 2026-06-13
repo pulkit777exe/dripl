@@ -79,11 +79,15 @@ export class AuthService {
       return { type: 'not_found' };
     }
 
-    if (!user.emailVerified && user.password) {
+    if (!user.emailVerified) {
       return { type: 'needs_verification' };
     }
 
-    const isValid = user.password && (await bcrypt.compare(password, user.password));
+    if (!user.password) {
+      return { type: 'invalid_password' };
+    }
+
+    const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
       return { type: 'invalid_password' };
     }

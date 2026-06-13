@@ -38,7 +38,7 @@ const elementBaseSchema = z
     flipHorizontal: z.number().optional(),
     flipVertical: z.number().optional(),
   })
-  .passthrough(); // Allow custom properties
+  .strip(); // Remove unknown properties instead of passing them through
 
 const rectangleElementSchema = elementBaseSchema.extend({
   type: z.literal('rectangle'),

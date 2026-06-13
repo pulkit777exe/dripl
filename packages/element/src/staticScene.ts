@@ -209,7 +209,7 @@ function drawElement(
   }
 
   const PADDING = 10; // must match generateElementCanvas
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = config.dpr ?? (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
 
   ctx.drawImage(
     offscreen,
@@ -250,7 +250,7 @@ function generateElementCanvas(
   element: DriplElement,
   config: StaticSceneConfig
 ): HTMLCanvasElement | null {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = config.dpr ?? (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
 
   // Guard against zero-size elements (e.g. a line being drawn)
   const rawW = Math.max(element.width, 1);

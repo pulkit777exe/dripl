@@ -9,7 +9,7 @@ export function generateCsrfToken(res: Response): string {
   res.cookie('csrf-token', token, {
     httpOnly: false,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax',
     path: '/',
     maxAge: 24 * 60 * 60 * 1000,
   });

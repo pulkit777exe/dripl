@@ -110,7 +110,6 @@ export function useCollaboration(
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const heartbeatTimerRef = useRef<number | null>(null);
-  const broadcastTimerRef = useRef<number | null>(null);
   const pendingElementsRef = useRef<DriplElement[] | null>(null);
   const prevElementsRef = useRef<DriplElement[]>([]);
   const isFirstSyncRef = useRef(true);
@@ -578,9 +577,6 @@ export function useCollaboration(
       if (heartbeatTimerRef.current) {
         window.clearInterval(heartbeatTimerRef.current);
       }
-      if (broadcastTimerRef.current) {
-        window.clearTimeout(broadcastTimerRef.current);
-      }
       send({ type: 'leave' });
       wsRef.current?.close();
       setIsStoreConnected(false);
@@ -612,9 +608,6 @@ export function useCollaboration(
     }
     if (heartbeatTimerRef.current) {
       window.clearInterval(heartbeatTimerRef.current);
-    }
-    if (broadcastTimerRef.current) {
-      window.clearTimeout(broadcastTimerRef.current);
     }
     if (wsRef.current) {
       send({ type: 'leave' });

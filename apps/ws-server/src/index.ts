@@ -18,6 +18,7 @@ import {
   applyElementsToYjs,
   deleteElementFromYjs,
   deleteElementsFromYjs,
+  deleteYjsRoom,
   getElementsFromYjs,
   getYjsUpdate,
   applyYjsUpdate,
@@ -378,9 +379,11 @@ wss.on('connection', (ws, req) => {
         }
 
         const acceptedElements: DriplElement[] = [];
+        const incomingIds = new Set<string>();
         for (const rawEl of message.elements) {
           try {
             const element = toDriplElement(rawEl);
+            incomingIds.add(element.id);
             const existing = room.elements.get(element.id);
             if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
               continue;
@@ -389,6 +392,19 @@ wss.on('connection', (ws, req) => {
             acceptedElements.push(element);
           } catch {
             // Skip invalid elements
+          }
+        }
+
+        // Remove elements not in the incoming set (full state replacement)
+        if (message.subtype === 'init') {
+          const toRemove: string[] = [];
+          for (const [id] of room.elements) {
+            if (!incomingIds.has(id)) {
+              toRemove.push(id);
+            }
+          }
+          for (const id of toRemove) {
+            room.elements.delete(id);
           }
         }
 
@@ -672,6 +688,9 @@ const periodicSave = setInterval(async () => {
         if (room.users.size === 0) {
           rooms.delete(roomId);
           roomLastEmptyAt.delete(roomId);
+          if (room.yjs) {
+            deleteYjsRoom(roomId);
+          }
         }
       }
     }
