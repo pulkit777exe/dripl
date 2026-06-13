@@ -933,15 +933,18 @@ export function useCanvasPointerEvents({
           maxX: Math.max(state.marqueeSelection.start.x, state.marqueeSelection.end.x),
           maxY: Math.max(state.marqueeSelection.start.y, state.marqueeSelection.end.y),
         };
-        // Simple marquee selection using element bounds
+        // Use spatial index to narrow candidates, then check intersection
+        const candidates = spatialIndex.tree.search(rect);
+        const candidateIds = new Set(candidates.map(c => c.id));
         const hitIds = new Set<string>();
         state.elements.forEach(element => {
+          if (!candidateIds.has(element.id)) return;
           const bounds = getElementBounds(element);
           if (
-            bounds.x >= rect.minX &&
-            bounds.y >= rect.minY &&
-            bounds.x + bounds.width <= rect.maxX &&
-            bounds.y + bounds.height <= rect.maxY
+            bounds.x < rect.maxX &&
+            bounds.x + bounds.width > rect.minX &&
+            bounds.y < rect.maxY &&
+            bounds.y + bounds.height > rect.minY
           ) {
             hitIds.add(element.id);
           }

@@ -4,6 +4,7 @@ import { useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { DriplElement, Point, NormalizedBinding } from '@dripl/common';
 import { useCanvasStore } from '@/lib/canvas-store';
+import { getDistanceToBounds } from '@dripl/math/intersection';
 import { createRectangleElement, type RectangleToolState } from '@/utils/tools/rectangle';
 import { createEllipseElement, type EllipseToolState } from '@/utils/tools/ellipse';
 import { createDiamondElement, type DiamondToolState } from '@/utils/tools/diamond';
@@ -148,9 +149,7 @@ function findNearestShape(
     const binding = calculateArrowBinding(point, el);
     if (!binding) continue;
 
-    const centerX = el.x + el.width / 2;
-    const centerY = el.y + el.height / 2;
-    const dist = Math.hypot(point.x - centerX, point.y - centerY);
+    const dist = getDistanceToBounds(point, el);
 
     if (dist < bestDistance) {
       bestDistance = dist;

@@ -265,7 +265,7 @@ export function useCollaboration(
         const prevEl = prevMap.get(el.id);
         if (!prevEl) {
           added.push(el);
-        } else if (prevEl.version !== el.version) {
+        } else if (prevEl !== el) {
           updated.push(el);
         }
       }

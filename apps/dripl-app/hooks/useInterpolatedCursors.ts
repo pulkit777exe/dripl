@@ -58,6 +58,8 @@ export function useInterpolatedCursors(
   }, [remoteCursors]);
 
   useEffect(() => {
+    if (remoteCursors.size === 0) return;
+
     let isRunning = true;
 
     const animate = () => {
@@ -94,7 +96,7 @@ export function useInterpolatedCursors(
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [lerpFactor]);
+  }, [lerpFactor, remoteCursors.size]);
 
   return interpolatedCursors;
 }

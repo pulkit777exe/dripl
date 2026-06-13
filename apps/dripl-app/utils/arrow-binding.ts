@@ -1,5 +1,6 @@
 import type { DriplElement, LinearElement, NormalizedBinding, Point } from '@dripl/common';
 import { isBindableElement } from '@dripl/common/arrow-binding';
+import { getDistanceToBounds } from '@dripl/math/intersection';
 
 /**
  * Find the nearest bindable element to a point.
@@ -19,9 +20,7 @@ export function findBindableElementAtPoint(
     if (el.isDeleted) continue;
     if (!isBindableElement(el)) continue;
 
-    const cx = el.x + el.width / 2;
-    const cy = el.y + el.height / 2;
-    const dist = Math.hypot(point.x - cx, point.y - cy);
+    const dist = getDistanceToBounds(point, el);
     if (dist > threshold) continue;
 
     const area = el.width * el.height;
