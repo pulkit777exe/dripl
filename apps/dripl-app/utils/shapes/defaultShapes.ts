@@ -1,6 +1,14 @@
 import type { ShapeDefinition, DriplElement, Point, ElementBase } from '@dripl/common';
 
+const IMAGE_CACHE_MAX = 200;
 const imageCache = new Map<string, HTMLImageElement>();
+function cacheImage(key: string, img: HTMLImageElement) {
+  if (imageCache.size >= IMAGE_CACHE_MAX) {
+    const firstKey = imageCache.keys().next().value;
+    if (firstKey) imageCache.delete(firstKey);
+  }
+  imageCache.set(key, img);
+}
 import { createRectangleElement, RectangleToolState } from '@/utils/tools/rectangle';
 import { createEllipseElement, EllipseToolState } from '@/utils/tools/ellipse';
 import { createDiamondElement, DiamondToolState } from '@/utils/tools/diamond';
@@ -463,7 +471,7 @@ export const imageShape: ShapeDefinition = {
       img = new Image();
       img.src = imageElement.src;
       img.onload = () => {
-        imageCache.set(imageElement.src, img!);
+        cacheImage(imageElement.src, img!);
       };
     }
   },

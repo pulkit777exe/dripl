@@ -160,22 +160,30 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
             modal.innerHTML =
               '<div class="w-full max-w-2xl bg-[#232329] rounded-xl border border-[#3f3f46] shadow-2xl p-6"><h2 class="text-xl font-semibold text-white mb-4">Load from link</h2><p class="text-gray-400 mb-4">This will replace your current content.</p><div class="flex gap-3 justify-end"><button class="px-4 py-2 text-gray-400 cancel-btn">Cancel</button><button class="px-6 py-2 bg-[#8b5cf6] text-white rounded-lg replace-btn">Replace</button></div></div>';
             document.body.appendChild(modal);
+
+            const cleanup = () => {
+              if (modal.parentElement) document.body.removeChild(modal);
+            };
             modal.querySelector('.cancel-btn')?.addEventListener('click', () => {
               resolve(false);
-              document.body.removeChild(modal);
+              cleanup();
             });
             modal.querySelector('.replace-btn')?.addEventListener('click', () => {
               resolve(true);
-              document.body.removeChild(modal);
+              cleanup();
             });
             modal.addEventListener('click', e => {
               if (e.target === modal) {
                 resolve(false);
-                document.body.removeChild(modal);
+                cleanup();
               }
             });
           });
-          if (!shouldOverride) {
+          if (!shouldOverride || cancelled) {
+            if (cancelled) {
+              const staleModal = document.querySelector('.fixed.inset-0.bg-black\\/60.z-100');
+              if (staleModal) staleModal.remove();
+            }
             setIsInitialized(true);
             return;
           }

@@ -38,7 +38,9 @@ const areEqual = (prev: InteractiveCanvasProps, next: InteractiveCanvasProps): b
   const viewportChanged =
     prev.viewport.x !== next.viewport.x ||
     prev.viewport.y !== next.viewport.y ||
-    prev.viewport.zoom !== next.viewport.zoom;
+    prev.viewport.zoom !== next.viewport.zoom ||
+    prev.viewport.width !== next.viewport.width ||
+    prev.viewport.height !== next.viewport.height;
 
   return !(
     selectionChanged ||

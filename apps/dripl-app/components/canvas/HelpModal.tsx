@@ -95,8 +95,8 @@ export default function HelpModal({ onClose }: HelpModalProps) {
               <ShortcutItem toolName="Hand (panning tool)" shortcut="H" />
               <ShortcutItem toolName="Selection" shortcut="V or 1" />
               <ShortcutItem toolName="Rectangle" shortcut="R or 2" />
-              <ShortcutItem toolName="Diamond" shortcut="3" />
-              <ShortcutItem toolName="Draw (freehand)" shortcut="D or P or 7" />
+              <ShortcutItem toolName="Diamond" shortcut="D or 3" />
+              <ShortcutItem toolName="Draw (freehand)" shortcut="P or 7" />
               <ShortcutItem toolName="Ellipse" shortcut="O or 4" />
               <ShortcutItem toolName="Arrow" shortcut="A or 5" />
               <ShortcutItem toolName="Line" shortcut="L or 6" />

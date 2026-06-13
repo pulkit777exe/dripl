@@ -20,7 +20,7 @@ export interface UseEnhancedSelectionReturn {
   startMarqueeSelection: (point: Point) => void;
   updateMarqueeSelection: (point: Point) => void;
   endMarqueeSelection: () => void;
-  selectAll: () => void;
+  selectAll: (elements: DriplElement[]) => void;
   deleteSelected: () => string[];
   getSelectedElements: (elements: DriplElement[]) => DriplElement[];
 }
@@ -110,7 +110,7 @@ export function useEnhancedSelection(): UseEnhancedSelectionReturn {
     startMarqueeSelection,
     updateMarqueeSelection,
     endMarqueeSelection,
-    selectAll: () => {},
+    selectAll,
     deleteSelected,
     getSelectedElements,
   };

@@ -115,8 +115,10 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         const url = URL.createObjectURL(pngBlob);
         const img = new window.Image();
         img.src = url;
-        await new Promise(resolve => {
-          img.onload = resolve;
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error('Failed to load image for PDF'));
+          setTimeout(() => reject(new Error('PDF image load timed out')), 10000);
         });
 
         const pdf = new jsPDF({

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { ActiveTool, useCanvasStore } from '@/lib/canvas-store';
 import {
   Lock,
@@ -75,47 +74,6 @@ export function CanvasToolbar() {
   const toolLocked = useCanvasStore(state => state.toolLocked);
   const setActiveTool = useCanvasStore(state => state.setActiveTool);
   const setToolLocked = useCanvasStore(state => state.setToolLocked);
-  const undo = useCanvasStore(state => state.undo);
-  const redo = useCanvasStore(state => state.redo);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-        return;
-      }
-
-      if (e.ctrlKey || e.metaKey || e.altKey) {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-          e.preventDefault();
-          if (e.shiftKey) {
-            redo();
-          } else {
-            undo();
-          }
-        }
-        return;
-      }
-
-      const key = e.key.toLowerCase();
-      if (key === 'f') {
-        e.preventDefault();
-        setActiveTool('frame');
-        return;
-      }
-
-      for (const tool of tools) {
-        if (tool.shortcuts.includes(key)) {
-          e.preventDefault();
-          setActiveTool(tool.id as ActiveTool);
-          return;
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setActiveTool, undo, redo]);
 
   return (
     <div

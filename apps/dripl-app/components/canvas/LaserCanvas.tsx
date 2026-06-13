@@ -65,8 +65,12 @@ export function LaserCanvas() {
     const resizeCanvas = () => {
       const parent = canvas.parentElement;
       if (parent) {
-        canvas.width = parent.clientWidth;
-        canvas.height = parent.clientHeight;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = parent.clientWidth * dpr;
+        canvas.height = parent.clientHeight * dpr;
+        canvas.style.width = `${parent.clientWidth}px`;
+        canvas.style.height = `${parent.clientHeight}px`;
+        ctx.scale(dpr, dpr);
       }
     };
 

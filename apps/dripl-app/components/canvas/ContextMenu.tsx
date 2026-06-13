@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DriplElement } from '@dripl/common';
-import { Copy, Trash2, Layers, RotateCcw } from 'lucide-react';
+import { Copy, Trash2, Layers, RotateCcw, ClipboardPaste } from 'lucide-react';
 
 interface ContextMenuProps {
   x: number;
@@ -103,7 +103,7 @@ export function ContextMenu({
           }}
           role="menuitem"
         >
-          <Copy className="w-4 h-4" />
+          <ClipboardPaste className="w-4 h-4" />
           Paste
         </button>
       )}
