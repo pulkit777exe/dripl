@@ -12,7 +12,6 @@ export interface UseElementManipulationProps {
   addElement: (element: DriplElement) => void;
   deleteElements: (ids: string[]) => void;
   pushHistory: () => void;
-  send?: (message: any) => void;
 }
 
 export interface UseElementManipulationReturn {
@@ -30,7 +29,6 @@ export function useElementManipulation({
   addElement,
   deleteElements,
   pushHistory,
-  send,
 }: UseElementManipulationProps): UseElementManipulationReturn {
   const moveElements = useCallback(
     (delta: Point, elementIds?: string[]) => {
@@ -70,11 +68,6 @@ export function useElementManipulation({
         }
 
         updateElement(id, updatedElement);
-        send?.({
-          type: 'update_element',
-          element: updatedElement,
-          timestamp: Date.now(),
-        });
         hasChanges = true;
       });
 
@@ -82,7 +75,7 @@ export function useElementManipulation({
         pushHistory();
       }
     },
-    [elements, selectedIds, updateElement, pushHistory, send]
+    [elements, selectedIds, updateElement, pushHistory]
   );
 
   const resizeElement = useCallback(
@@ -204,13 +197,8 @@ export function useElementManipulation({
       } as DriplElement;
 
       updateElement(elementId, updatedElement);
-      send?.({
-        type: 'update_element',
-        element: updatedElement,
-        timestamp: Date.now(),
-      });
     },
-    [elements, updateElement, send]
+    [elements, updateElement]
   );
 
   const rotateElement = useCallback(
@@ -230,13 +218,8 @@ export function useElementManipulation({
       };
 
       updateElement(elementId, updatedElement);
-      send?.({
-        type: 'update_element',
-        element: updatedElement,
-        timestamp: Date.now(),
-      });
     },
-    [elements, updateElement, send]
+    [elements, updateElement]
   );
 
   const duplicateElements = useCallback(
@@ -289,18 +272,13 @@ export function useElementManipulation({
         }
 
         addElement(duplicated);
-        send?.({
-          type: 'add_element',
-          element: duplicated,
-          timestamp: Date.now(),
-        });
       });
 
       if (idsToDuplicate.length > 0) {
         pushHistory();
       }
     },
-    [elements, selectedIds, addElement, pushHistory, send]
+    [elements, selectedIds, addElement, pushHistory]
   );
 
   const deleteSelectedElements = useCallback(() => {
@@ -317,15 +295,8 @@ export function useElementManipulation({
     });
 
     deleteElements(Array.from(allIdsToDelete));
-    allIdsToDelete.forEach(id => {
-      send?.({
-        type: 'delete_element',
-        elementId: id,
-        timestamp: Date.now(),
-      });
-    });
     pushHistory();
-  }, [selectedIds, deleteElements, pushHistory, send]);
+  }, [selectedIds, deleteElements, pushHistory]);
 
   return {
     moveElements,

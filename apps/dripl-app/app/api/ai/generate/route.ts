@@ -95,10 +95,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Rate limit by IP (not client-supplied userId which can be spoofed)
-    const forwarded = request.headers.get('x-forwarded-for');
-    const ip = forwarded?.split(',')[0]?.trim() ?? 'unknown';
-    const rateCheck = checkRateLimit(ip);
+    // Rate limit by session cookie (X-Forwarded-For is spoofable)
+    const cookies = (request as any).cookies?.get?.('session')?.value;
+    const rateLimitKey = cookies ?? 'anonymous';
+    const rateCheck = checkRateLimit(rateLimitKey);
     if (!rateCheck.allowed) {
       return NextResponse.json(
         {

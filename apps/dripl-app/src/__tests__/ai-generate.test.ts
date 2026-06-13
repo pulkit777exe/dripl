@@ -131,7 +131,6 @@ describe('/api/ai/generate', () => {
 
     const makeRequest = () => new Request('http://localhost:3000/api/ai/generate', {
       method: 'POST',
-      headers: { 'x-forwarded-for': 'test-ip' },
       body: JSON.stringify({ prompt: 'test' }),
     });
 
