@@ -7,9 +7,8 @@ import {
   pushPast,
   withHistoryBeforeMutation,
   commitPresentFromHistory,
+  MAX_HISTORY,
 } from './helpers';
-
-const MAX_HISTORY = 100;
 
 export const createHistorySlice: StateCreator<CanvasStoreState, [], [], HistorySlice> = (set) => ({
   past: [],

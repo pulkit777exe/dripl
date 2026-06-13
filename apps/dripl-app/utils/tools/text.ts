@@ -17,7 +17,7 @@ export function createTextElement(
   // Estimate text dimensions (rough approximation)
   // In a real implementation, you'd measure the actual text
   const estimatedWidth = state.text.length * (state.fontSize * 0.6);
-  const estimatedHeight = state.fontSize * 1.2;
+  const estimatedHeight = state.fontSize * 1.25;
 
   return {
     ...baseProps,
@@ -46,11 +46,11 @@ export function updateTextDimensions(
       ctx.font = `${element.fontSize}px ${element.fontFamily}`;
       const metrics = ctx.measureText(text);
       width = Math.max(metrics.width, 100);
-      height = element.fontSize * 1.2;
+      height = element.fontSize * 1.25;
     }
   } else {
     width = Math.max(text.length * (element.fontSize * 0.6), 100);
-    height = element.fontSize * 1.2;
+    height = element.fontSize * 1.25;
   }
 
   return {

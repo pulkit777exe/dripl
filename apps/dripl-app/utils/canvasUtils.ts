@@ -2,6 +2,7 @@ import type { DriplElement, Point } from '@dripl/common';
 import type { Bounds, AppState } from '@/types/canvas';
 import { getElementBounds, isPointInElement } from '@dripl/math/intersection';
 import { getDefaultFontFamily } from './fontPreferences';
+import { applyStrokeStyle } from './canvas-helpers';
 export type { Point, Bounds, AppState };
 export type { DriplElement };
 
@@ -92,11 +93,11 @@ export function drawShape(
 
   ctx.globalAlpha = (element.opacity ?? 100) / 100;
 
-  if (element.rotation) {
+  if (element.angle) {
     const centerX = element.x + element.width / 2;
     const centerY = element.y + element.height / 2;
     ctx.translate(centerX, centerY);
-    ctx.rotate(element.rotation);
+    ctx.rotate(element.angle);
     ctx.translate(-centerX, -centerY);
   }
 
@@ -105,13 +106,7 @@ export function drawShape(
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  if (element.strokeStyle === 'dashed') {
-    ctx.setLineDash([10, 5]);
-  } else if (element.strokeStyle === 'dotted') {
-    ctx.setLineDash([2, 3]);
-  } else {
-    ctx.setLineDash([]);
-  }
+  applyStrokeStyle(ctx, element.strokeStyle);
 
   if (element.backgroundColor && element.backgroundColor !== 'transparent') {
     ctx.fillStyle = element.backgroundColor;
@@ -331,7 +326,7 @@ function drawText(ctx: CanvasRenderingContext2D, element: DriplElement): void {
   }
   if (currentLine) lines.push(currentLine);
 
-  const lineHeight = fontSize * 1.2;
+  const lineHeight = fontSize * 1.25;
   lines.forEach((line, i) => {
     ctx.fillText(line, element.x + 5, element.y + 5 + i * lineHeight);
   });

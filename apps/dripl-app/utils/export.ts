@@ -4,6 +4,7 @@ import { ElementSchema, type DriplElement } from '@dripl/common';
 import { getElementBounds } from '@dripl/math/intersection';
 import { renderInteractiveScene } from '@/renderer/interactiveScene';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
+import { createCanvas, downloadBlob } from './canvas-helpers';
 
 const ElementsSchema = z.array(ElementSchema);
 
@@ -69,19 +70,7 @@ export async function exportToPng(
   const width = Math.ceil((bounds.width + padding * 2) * scale);
   const height = Math.ceil((bounds.height + padding * 2) * scale);
 
-  let canvas: OffscreenCanvas | HTMLCanvasElement;
-  let ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
-
-  if (typeof OffscreenCanvas !== 'undefined') {
-    canvas = new OffscreenCanvas(width, height);
-    ctx = canvas.getContext('2d');
-  } else {
-    const fallback = document.createElement('canvas');
-    fallback.width = width;
-    fallback.height = height;
-    canvas = fallback;
-    ctx = fallback.getContext('2d');
-  }
+  const { canvas, ctx } = createCanvas(width, height);
 
   if (!ctx) {
     throw new Error('Unable to initialize canvas context for export');
@@ -141,19 +130,7 @@ export async function generateThumbnail(
   const canvasWidth = Math.ceil((bounds.width + padding * 2) * scale);
   const canvasHeight = Math.ceil((bounds.height + padding * 2) * scale);
 
-  let canvas: OffscreenCanvas | HTMLCanvasElement;
-  let ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
-
-  if (typeof OffscreenCanvas !== 'undefined') {
-    canvas = new OffscreenCanvas(canvasWidth, canvasHeight);
-    ctx = canvas.getContext('2d');
-  } else {
-    const fallback = document.createElement('canvas');
-    fallback.width = canvasWidth;
-    fallback.height = canvasHeight;
-    canvas = fallback;
-    ctx = fallback.getContext('2d');
-  }
+  const { canvas, ctx } = createCanvas(canvasWidth, canvasHeight);
 
   if (!ctx) {
     return '';
@@ -336,13 +313,4 @@ export function importFromJson(
   return [...currentElements, ...next];
 }
 
-export function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  URL.revokeObjectURL(url);
-}
+export { downloadBlob } from './canvas-helpers';

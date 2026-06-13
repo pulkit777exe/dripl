@@ -1,7 +1,9 @@
 import type { DriplElement } from '@dripl/common';
 import { generateKeyBetween } from 'fractional-indexing';
+import { sortElementsByZIndex } from '@/utils/zIndexUtils';
 
 export const MAX_HISTORY = 100;
+export { sortElementsByZIndex as sortByFractionalIndex } from '@/utils/zIndexUtils';
 
 export type DrawingLifecycle = 'idle' | 'drawing' | 'committing';
 
@@ -48,17 +50,6 @@ export function cloneElements(elements: readonly DriplElement[]): DriplElement[]
   return structuredClone(elements) as DriplElement[];
 }
 
-export function sortByFractionalIndex(elements: DriplElement[]): DriplElement[] {
-  return [...elements].sort((a, b) => {
-    const ai = a.fractionalIndex ?? '';
-    const bi = b.fractionalIndex ?? '';
-    if (ai === bi) return 0;
-    if (ai === '') return -1;
-    if (bi === '') return 1;
-    return ai < bi ? -1 : ai > bi ? 1 : 0;
-  });
-}
-
 export function ensureFractionalIndexes(elements: DriplElement[]): DriplElement[] {
   let needsMigration = false;
   for (const el of elements) {
@@ -69,7 +60,7 @@ export function ensureFractionalIndexes(elements: DriplElement[]): DriplElement[
   }
   if (!needsMigration) return elements;
 
-  return sortByFractionalIndex(elements).map((el, i) => {
+  return sortElementsByZIndex(elements).map((el, i) => {
     if (el.fractionalIndex != null) return el;
     return { ...el, fractionalIndex: generateKeyBetween(null, null) };
   });
@@ -86,13 +77,13 @@ export function generateFractionalIndexBetween(
 }
 
 export function generateFractionalIndexAfterAll(elements: readonly DriplElement[]): string {
-  const sorted = sortByFractionalIndex(elements as DriplElement[]);
+  const sorted = sortElementsByZIndex(elements as DriplElement[]);
   const last = sorted[sorted.length - 1];
   return generateKeyBetween(last?.fractionalIndex ?? null, null);
 }
 
 export function generateFractionalIndexBeforeAll(elements: readonly DriplElement[]): string {
-  const sorted = sortByFractionalIndex(elements as DriplElement[]);
+  const sorted = sortElementsByZIndex(elements as DriplElement[]);
   const first = sorted[0];
   return generateKeyBetween(null, first?.fractionalIndex ?? null);
 }

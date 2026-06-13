@@ -1,5 +1,6 @@
 import type { DriplElement, Point } from '@dripl/common';
 import { getBounds } from '@dripl/math/geometry';
+import { applyStrokeStyle } from './canvas-helpers';
 
 export interface Binding {
   id: string;
@@ -107,13 +108,7 @@ export function drawBindings(
     ctx.lineWidth = binding.properties.strokeWidth;
     ctx.globalAlpha = binding.properties.opacity;
 
-    if (binding.properties.strokeStyle === 'dashed') {
-      ctx.setLineDash([10, 5]);
-    } else if (binding.properties.strokeStyle === 'dotted') {
-      ctx.setLineDash([2, 3]);
-    } else {
-      ctx.setLineDash([]);
-    }
+    applyStrokeStyle(ctx, binding.properties.strokeStyle);
 
     ctx.beginPath();
     ctx.moveTo(binding.sourcePoint.x, binding.sourcePoint.y);

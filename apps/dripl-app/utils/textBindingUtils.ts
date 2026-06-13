@@ -30,7 +30,7 @@ function measureText(text: string, fontSize: number): { width: number; height: n
 
   return {
     width: Math.ceil(metrics.width),
-    height: Math.ceil(fontSize * 1.2),
+    height: Math.ceil(fontSize * 1.25),
   };
 }
 
