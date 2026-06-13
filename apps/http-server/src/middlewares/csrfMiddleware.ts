@@ -31,7 +31,9 @@ export function validateCsrfToken(req: Request, res: Response, next: Function): 
     return;
   }
 
-  if (csrfCookie !== csrfHeader) {
+  const a = Buffer.from(csrfCookie);
+  const b = Buffer.from(csrfHeader);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
     res.status(403).json({ error: 'CSRF token invalid' });
     return;
   }

@@ -1,6 +1,5 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { setInterval } from 'timers';
 
 config({ path: resolve(process.cwd(), '../../.env') });
 config({ path: resolve(process.cwd(), '../../.env.local'), override: true });
@@ -79,7 +78,7 @@ app.use('/api/auth/change-password', validateCsrfToken);
 app.use('/api/auth/logout', validateCsrfToken);
 
 app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/forgot-password', validateCsrfToken);
+app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth', authRouter);
 app.use('/api/share', validateCsrfToken, shareRouter);
 app.use('/api/files', validateCsrfToken, authMiddleware, filesRouter);

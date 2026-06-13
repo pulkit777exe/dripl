@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type Response } from 'express';
 import { randomUUID } from 'crypto';
 import { mkdir, writeFile, readFile, stat } from 'fs/promises';
 import { join } from 'path';
@@ -57,6 +57,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     });
 
     req.on('end', async () => {
+      if (res.headersSent) return;
       try {
         const buffer = Buffer.concat(chunks);
         const id = randomUUID();
@@ -88,7 +89,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 });
 
 // GET /api/images/:id — Download image
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const filePath = getImagePath(id);
