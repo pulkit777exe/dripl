@@ -49,7 +49,9 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     req.on('data', (chunk: Buffer) => {
       totalSize += chunk.length;
       if (totalSize > MAX_IMAGE_SIZE) {
-        res.status(413).json({ error: 'Image too large. Maximum size is 10MB.' });
+        if (!res.headersSent) {
+          res.status(413).json({ error: 'Image too large. Maximum size is 10MB.' });
+        }
         req.destroy();
         return;
       }

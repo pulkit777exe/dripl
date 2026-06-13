@@ -14,7 +14,7 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const registerSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(8).max(128),
   name: z.string().trim().min(1).max(100).optional(),
 });
 
@@ -188,15 +188,19 @@ authRouter.post('/google', async (req, res) => {
   }
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
 authRouter.post('/forgot-password', async (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    res.status(400).json({ error: 'Email is required' });
+  const parsed = forgotPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Valid email is required' });
     return;
   }
 
   try {
-    await AuthService.forgotPassword(email);
+    await AuthService.forgotPassword(parsed.data.email);
     res.json({ ok: true });
   } catch (error) {
     console.error(

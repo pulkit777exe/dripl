@@ -60,9 +60,15 @@ export function ensureFractionalIndexes(elements: DriplElement[]): DriplElement[
   }
   if (!needsMigration) return elements;
 
-  return sortElementsByZIndex(elements).map((el, i) => {
-    if (el.fractionalIndex != null) return el;
-    return { ...el, fractionalIndex: generateKeyBetween(null, null) };
+  let lastKey: string | null = null;
+  return sortElementsByZIndex(elements).map((el) => {
+    if (el.fractionalIndex != null) {
+      lastKey = el.fractionalIndex;
+      return el;
+    }
+    const newKey = generateKeyBetween(lastKey, null);
+    lastKey = newKey;
+    return { ...el, fractionalIndex: newKey };
   });
 }
 

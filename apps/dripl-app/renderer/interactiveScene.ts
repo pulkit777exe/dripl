@@ -55,6 +55,8 @@ interface TextMeasurement {
 
 const textMetricsCache = new Map<string, TextMeasurement>();
 const imageCache = new Map<string, HTMLImageElement>();
+const MAX_TEXT_CACHE_SIZE = 500;
+const MAX_IMAGE_CACHE_SIZE = 200;
 
 const MARQUEE_DASH = [6, 4];
 const DEFAULT_GRID_SIZE = 20;
@@ -352,6 +354,10 @@ function renderText(ctx: CanvasRenderingContext2D, element: DriplElement) {
       lineWidths,
       lineHeight,
     };
+    if (textMetricsCache.size >= MAX_TEXT_CACHE_SIZE) {
+      const firstKey = textMetricsCache.keys().next().value;
+      if (firstKey !== undefined) textMetricsCache.delete(firstKey);
+    }
     textMetricsCache.set(cacheKey, metrics);
   }
 
@@ -376,6 +382,10 @@ function renderImage(ctx: CanvasRenderingContext2D, element: DriplElement) {
   if (!image) {
     image = new Image();
     image.src = element.src;
+    if (imageCache.size >= MAX_IMAGE_CACHE_SIZE) {
+      const firstKey = imageCache.keys().next().value;
+      if (firstKey !== undefined) imageCache.delete(firstKey);
+    }
     imageCache.set(element.src, image);
   }
   if (image.complete && image.naturalWidth > 0) {
