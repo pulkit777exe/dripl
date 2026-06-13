@@ -175,6 +175,7 @@ export function scheduleSave(roomId: string): void {
       }
       if (room.saving) {
         saveTimeouts.delete(roomId);
+        scheduleSave(roomId);
         return;
       }
       room.saving = true;

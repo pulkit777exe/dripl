@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import type { DriplElement, Point } from '@dripl/common';
 import { getElementAtPoint, getElementsInSelectionRect } from '@dripl/math/hit-detection';
 import type { Bounds } from '@dripl/math/geometry';
+import { useCanvasStore } from '@/lib/canvas-store';
 
 export interface MarqueeSelection {
   start: Point;
@@ -51,9 +52,10 @@ export function useEnhancedSelection(): UseEnhancedSelectionReturn {
 
   const handleClickSelection = useCallback(
     (point: Point, shiftKey: boolean): DriplElement | null => {
-      return null;
+      const { elements } = useCanvasStore.getState();
+      return handleClickSelectionWithElements(point, elements, shiftKey, selectedIds, setSelectedIds);
     },
-    []
+    [selectedIds, setSelectedIds]
   );
 
   const startMarqueeSelection = useCallback((point: Point) => {

@@ -1,6 +1,7 @@
 import type { DriplElement } from '@dripl/common';
 import { createRoughCanvas, renderRoughElement } from './rough-renderer';
 import { imageCache } from './image-cache';
+import { getElementBounds } from '@dripl/math/intersection';
 
 export interface StaticSceneViewport {
   x: number;
@@ -159,11 +160,12 @@ function isElementVisible(el: DriplElement, viewport: StaticSceneViewport, zoom:
   const worldRight = worldLeft + viewport.width / zoom + padding * 2;
   const worldBottom = worldTop + viewport.height / zoom + padding * 2;
 
-  // For point-based elements use their bounding box
-  const elLeft = el.x;
-  const elTop = el.y;
-  const elRight = el.x + el.width;
-  const elBottom = el.y + el.height;
+  // Use axis-aligned bounding box that accounts for rotation
+  const bounds = getElementBounds(el);
+  const elLeft = bounds.x;
+  const elTop = bounds.y;
+  const elRight = bounds.x + bounds.width;
+  const elBottom = bounds.y + bounds.height;
 
   return !(
     elRight < worldLeft ||

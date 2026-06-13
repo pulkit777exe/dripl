@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useCanvasStore } from '@/lib/canvas-store';
 import type { DriplElement } from '@dripl/common';
 import { loadImage, uploadImageToServer } from '@/utils/tools/image';
+import { generateFractionalIndexAfterAll } from '@/lib/store/helpers';
 
 export function useCanvasClipboard() {
   const addElement = useCanvasStore(state => state.addElement);
@@ -16,12 +17,21 @@ export function useCanvasClipboard() {
     if (selectedIds.size === 0) return;
 
     const selectedElements = elements.filter(element => selectedIds.has(element.id));
-    const copies = selectedElements.map(element => ({
-      ...element,
-      id: uuidv4(),
-      x: element.x + 10,
-      y: element.y + 10,
-    }));
+    const currentElements = useCanvasStore.getState().elements;
+    let baseIndex = currentElements.length;
+    const copies = selectedElements.map(element => {
+      const fractionalIndex = generateFractionalIndexAfterAll(
+        currentElements.slice(0, baseIndex)
+      );
+      baseIndex++;
+      return {
+        ...element,
+        id: uuidv4(),
+        x: element.x + 10,
+        y: element.y + 10,
+        fractionalIndex,
+      };
+    });
     useCanvasStore.getState().addElements(copies);
     setSelectedIds(new Set(copies.map(element => element.id)));
     return;
@@ -46,12 +56,21 @@ export function useCanvasClipboard() {
 
     if (selectedIds.size > 0) {
       const selectedElements = elements.filter(element => selectedIds.has(element.id));
-      const copies = selectedElements.map(element => ({
-        ...element,
-        id: uuidv4(),
-        x: element.x + 10,
-        y: element.y + 10,
-      }));
+      const currentElements = useCanvasStore.getState().elements;
+      let baseIndex = currentElements.length;
+      const copies = selectedElements.map(element => {
+        const fractionalIndex = generateFractionalIndexAfterAll(
+          currentElements.slice(0, baseIndex)
+        );
+        baseIndex++;
+        return {
+          ...element,
+          id: uuidv4(),
+          x: element.x + 10,
+          y: element.y + 10,
+          fractionalIndex,
+        };
+      });
       useCanvasStore.getState().addElements(copies);
       setSelectedIds(new Set(copies.map(element => element.id)));
       return;

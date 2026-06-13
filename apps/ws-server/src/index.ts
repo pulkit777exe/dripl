@@ -243,16 +243,6 @@ wss.on('connection', (ws, req) => {
           timestamp: Date.now(),
         });
 
-        send(ws, {
-          type: 'room-state',
-          roomId,
-          elements: Array.from(room.elements.values()),
-          users: roomUsersPayload(room),
-          cursors: roomCursorsPayload(room),
-          yourUserId: userId,
-          timestamp: Date.now(),
-        });
-
         broadcast(room, {
           type: 'user-join',
           roomId,
@@ -473,7 +463,7 @@ wss.on('connection', (ws, req) => {
           applyElementsToYjs(room.yjs, yjsChangedElements);
         }
 
-        if (room.yjs) {
+        if (room.yjs && yjsChangedElements.length > 0) {
           const yjsUpdate = getYjsUpdate(room.yjs);
           broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
         }
