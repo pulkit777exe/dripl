@@ -170,7 +170,9 @@ dotenv -e ../../.env -- <command>    # http-server, ws-server
 | `DATABASE_URL` | `@dripl/db`, `http-server` |
 | `JWT_SECRET` | `http-server`, `ws-server` |
 | `GEMINI_API_KEY` | `dripl-app` |
-| `GOOGLE_CLIENT_ID` | `http-server`, `dripl-app` |
+| `GOOGLE_CLIENT_ID` | `http-server` |
+| `GOOGLE_CLIENT_SECRET` | `http-server` |
+| `HTTP_SERVER_URL` | `http-server` (OAuth callback URL) |
 | `NEXT_PUBLIC_*` | `dripl-app` (client-side) |
 | `FRONTEND_URL` | `http-server`, `ws-server` |
 | `REDIS_URL` | `ws-server`, `http-server` |

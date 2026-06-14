@@ -101,6 +101,14 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 async function start() {
+  // Validate required env vars
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.error(
+      JSON.stringify({ level: 'error', event: 'missing_env', error: 'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required' })
+    );
+    process.exit(1);
+  }
+
   try {
     await initializeDb();
     console.log(JSON.stringify({ level: 'info', event: 'db_connected' }));

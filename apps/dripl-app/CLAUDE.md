@@ -228,7 +228,6 @@ These are read from the root `.env`. Variables prefixed `NEXT_PUBLIC_` are inlin
 |---|---|
 | `NEXT_PUBLIC_WS_URL` | WebSocket server URL for client |
 | `NEXT_PUBLIC_API_URL` | HTTP server base URL for client |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GEMINI_API_KEY` | Google Gemini (AI diagram generation) |
 | `DATABASE_URL` | Prisma DB connection (server-side only) |
 | `JWT_SECRET` | Session token signing |

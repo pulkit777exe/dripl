@@ -10,7 +10,20 @@ import {
 import { OAuth2Client } from 'google-auth-library';
 import { AuthService } from '../services/authService';
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClientId = process.env.GOOGLE_CLIENT_ID!;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET!;
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+const httpServerUrl = process.env.HTTP_SERVER_URL || 'http://localhost:3002';
+
+const googleClient = new OAuth2Client(googleClientId, googleClientSecret);
+
+function getGoogleOAuthClient() {
+  return new OAuth2Client(
+    googleClientId,
+    googleClientSecret,
+    `${httpServerUrl}/api/auth/google/callback`
+  );
+}
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -185,6 +198,57 @@ authRouter.post('/google', async (req, res) => {
       })
     );
     res.status(401).json({ error: 'Invalid Google token' });
+  }
+});
+
+authRouter.get('/google', (_req, res) => {
+  const oauth2Client = getGoogleOAuthClient();
+  const url = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['openid', 'email', 'profile'],
+    prompt: 'consent',
+  });
+  res.redirect(url);
+});
+
+authRouter.get('/google/callback', async (req, res) => {
+  const code = req.query.code as string | undefined;
+  if (!code) {
+    res.status(400).json({ error: 'Missing authorization code' });
+    return;
+  }
+
+  try {
+    const oauth2Client = getGoogleOAuthClient();
+    const { tokens } = await oauth2Client.getToken(code);
+    const ticket = await googleClient.verifyIdToken({
+      idToken: tokens.id_token!,
+      audience: googleClientId,
+    });
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      res.redirect(`${frontendUrl}/login?error=google_failed`);
+      return;
+    }
+
+    const user = await AuthService.googleAuth(
+      payload.email,
+      payload.name ?? null,
+      payload.picture ?? null
+    );
+
+    const sessionToken = signSessionToken(user.id);
+    setSessionCookie(res, sessionToken);
+    res.redirect(`${frontendUrl}/dashboard`);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'google_oauth_callback_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+    res.redirect(`${frontendUrl}/login?error=google_failed`);
   }
 });
 
