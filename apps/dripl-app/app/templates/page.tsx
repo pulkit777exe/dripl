@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Search, ArrowLeft, FileText, Users, Briefcase, Lightbulb, Layout } from 'lucide-react';
 import Link from 'next/link';
 
+
 interface Template {
   id: string;
   name: string;

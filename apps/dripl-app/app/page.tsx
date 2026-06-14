@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { LoadingState } from '@/components/ui/LoadingState';
+import { LandingNavbar } from '@/components/landing/LandingNavbar';
 
 /* ----------  FAQ data  ---------- */
 const faqs = [
@@ -89,51 +90,7 @@ export default function LandingPage() {
 
   return (
     <main className="min-h-dvh bg-[#F0EDE6] text-[#1A1917] font-sans selection:bg-[#FAE8E5]">
-      {/* ═══════════  NAVBAR  ═══════════ */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 md:px-10 bg-[#F0EDE6]/90 backdrop-blur-sm border-b border-[#E4E0D9]">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8462A] text-white">
-            <PenLine className="h-4 w-4" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight text-[#E8462A]">Dripl</span>
-        </Link>
-
-        <div className="hidden md:flex items-center gap-6">
-          <a
-            href="#features"
-            className="text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors"
-          >
-            Features
-          </a>
-          <a
-            href="#how"
-            className="text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors"
-          >
-            How it works
-          </a>
-          <a
-            href="#faq"
-            className="text-[13px] text-[#6B6860] hover:text-[#1A1917] transition-colors"
-          >
-            FAQ
-          </a>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="text-[13px] font-medium text-[#6B6860] hover:text-[#1A1917] transition-colors hidden sm:inline"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/signup"
-            className="rounded-md bg-[#E8462A] px-4 py-1.75 text-[13px] font-medium text-white transition-colors hover:bg-[#D93D22]"
-          >
-            Get started free
-          </Link>
-        </div>
-      </nav>
+      <LandingNavbar />
 
       {/* ═══════════  HERO  ═══════════ */}
       <section className="mx-auto max-w-5xl px-6 pt-20 pb-16 md:px-10 md:pt-28 md:pb-24 font-ui">
@@ -253,7 +210,7 @@ export default function LandingPage() {
               src="/maple.png"
               alt=""
               fill
-              sizes="100vw"
+              sizes="52vw"
               className="object-cover opacity-30 mix-blend-multiply pointer-events-none"
             />
           </div>

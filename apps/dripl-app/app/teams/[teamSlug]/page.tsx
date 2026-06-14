@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, Users, Settings, FolderOpen, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 
+
 interface TeamMember {
   id: string;
   name: string;
