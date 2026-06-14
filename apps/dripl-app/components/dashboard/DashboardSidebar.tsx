@@ -15,6 +15,7 @@ import {
   ChevronsUpDown,
   Wallet,
   Settings,
+  User2,
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import Image from 'next/image';
@@ -102,14 +103,24 @@ export function DashboardSidebar() {
       {/* Workspace header */}
       <div className="px-4 pt-4 pb-3">
         <div className="flex items-center gap-3 p-2 mb-3 bg-[#FAFAF7] border border-[#E4E0D9] rounded-xl shadow-sm">
-          <div className="relative h-8 w-8 rounded-lg overflow-hidden bg-white border border-[#E4E0D9] flex items-center justify-center p-1">
-            <Image
-              src="/maple.png"
-              alt="Workspace icon"
-              fill
-              sizes="32px"
-              className="object-contain p-1"
-            />
+          <div className="relative h-8 w-8 rounded-lg overflow-hidden bg-white border border-[#E4E0D9] flex items-center justify-center">
+            {user?.image ? (
+              <Image
+                src={user.image}
+                alt={user.name || 'Workspace'}
+                width={32}
+                height={32}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <Image
+                src="/maple.png"
+                alt="Workspace icon"
+                fill
+                sizes="32px"
+                className="object-contain p-1"
+              />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-semibold text-[#1A1917] truncate">
@@ -196,6 +207,13 @@ export function DashboardSidebar() {
                 data-origin="bottom-center"
               >
                 <Link
+                  href="/settings/profile"
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] font-medium text-[#6B6860] hover:bg-[#E8E5DE] transition-colors"
+                >
+                  <User2 className="w-4 h-4" />
+                  Account
+                </Link>
+                <Link
                   href="/settings/billing"
                   className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] font-medium text-[#6B6860] hover:bg-[#E8E5DE] transition-colors"
                 >
@@ -233,11 +251,20 @@ export function DashboardSidebar() {
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-[#E8E5DE] transition-colors text-left"
             >
-              <div className="h-8 w-8 rounded-lg bg-white border border-[#E4E0D9] flex items-center justify-center text-[12px] font-semibold text-[#1A1917] overflow-hidden">
-                {/* Fallback to initials since image might not exist */}
-                <span className="text-[12px] font-medium text-[#6B6860] uppercase">
-                  {user.name?.[0] || user.email?.[0] || 'U'}
-                </span>
+              <div className="h-8 w-8 rounded-lg bg-white border border-[#E4E0D9] flex items-center justify-center overflow-hidden">
+                {user.image ? (
+                  <Image
+                    src={user.image}
+                    alt={user.name || user.email || 'User'}
+                    width={32}
+                    height={32}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-[12px] font-medium text-[#6B6860] uppercase">
+                    {user.name?.[0] || user.email?.[0] || 'U'}
+                  </span>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold text-[#1A1917] truncate">

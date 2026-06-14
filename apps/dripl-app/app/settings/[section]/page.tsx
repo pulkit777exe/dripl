@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 
+
 type SectionId = 'profile' | 'password' | 'font' | 'plan' | 'account';
 
 const SECTION_NAV: Array<{
@@ -75,7 +76,34 @@ function ProfileSettings() {
 
   return (
     <SectionCard title="Account" description="Manage how your name appears across Dripl.">
-      <div className="space-y-4">
+      <div className="space-y-5">
+        {/* Profile image + name */}
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 rounded-xl overflow-hidden bg-white border border-[#E4E0D9] flex items-center justify-center flex-shrink-0">
+            {user?.image ? (
+              <img
+                src={user.image}
+                alt={user.name || 'Profile'}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="text-[22px] font-medium text-[#6B6860] uppercase">
+                {user?.name?.[0] || user?.email?.[0] || 'U'}
+              </span>
+            )}
+          </div>
+          <div>
+            <p className="text-[15px] font-medium text-[#1A1917]">
+              {user?.name || 'No name set'}
+            </p>
+            <p className="text-[13px] text-[#6B6860]">{user?.email}</p>
+            {user?.image && (
+              <p className="text-[11px] text-[#9B9890] mt-0.5">From Google account</p>
+            )}
+          </div>
+        </div>
+
+        {/* Name input */}
         <div>
           <label className="block text-[12px] font-medium text-[#6B6860] mb-1.5">
             What should Dripl call you?
@@ -88,8 +116,6 @@ function ProfileSettings() {
             className="w-full max-w-md rounded-xl border border-[#D4D0C9] bg-white px-4 py-2.5 text-[18px] text-[#10332B] focus:outline-none focus:border-[#0E6655]"
           />
         </div>
-
-        <p className="text-[12px] text-[#9B9890]">{user?.email ?? 'No email available'}</p>
 
         <button
           onClick={handleSave}
@@ -382,19 +408,36 @@ export default function SettingsPage() {
         </div>
 
         <div className="px-5 pt-7 pb-5 border-b border-[#D8D2C8]">
-          <h2
-            className="text-[42px] leading-none text-[#10332B]"
-            style={{ fontFamily: 'Georgia, serif' }}
-          >
-            {user?.name || 'Account'}
-          </h2>
-          <p
-            className="mt-3 text-[22px] leading-none text-[#A7A195]"
-            style={{ fontFamily: 'Georgia, serif' }}
-          >
-            Settings
-          </p>
-          <p className="mt-4 text-[15px] text-[#6B6860] break-all">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="h-14 w-14 rounded-xl overflow-hidden bg-white border border-[#E4E0D9] flex items-center justify-center flex-shrink-0">
+              {user?.image ? (
+                <img
+                  src={user.image}
+                  alt={user.name || 'Account'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-[20px] font-medium text-[#6B6860] uppercase">
+                  {user?.name?.[0] || user?.email?.[0] || 'U'}
+                </span>
+              )}
+            </div>
+            <div>
+              <h2
+                className="text-[28px] leading-none text-[#10332B]"
+                style={{ fontFamily: 'Georgia, serif' }}
+              >
+                {user?.name || 'Account'}
+              </h2>
+              <p
+                className="mt-1 text-[16px] leading-none text-[#A7A195]"
+                style={{ fontFamily: 'Georgia, serif' }}
+              >
+                Settings
+              </p>
+            </div>
+          </div>
+          <p className="text-[15px] text-[#6B6860] break-all">
             {user?.email ?? 'No email connected'}
           </p>
           <p className="mt-1 text-[13px] text-[#9B9890]">Workspace preferences</p>

@@ -110,6 +110,17 @@ export class AuthService {
           image: image ?? null,
         },
       });
+    } else {
+      // Sync Google name/image on every login
+      const updateData: { name?: string; image?: string } = {};
+      if (name && !user.name) updateData.name = name;
+      if (image && user.image !== image) updateData.image = image;
+      if (Object.keys(updateData).length > 0) {
+        user = await db.user.update({
+          where: { id: user.id },
+          data: updateData,
+        });
+      }
     }
 
     return { id: user.id, email: user.email, name: user.name, image: user.image };
