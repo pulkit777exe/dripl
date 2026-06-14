@@ -33,7 +33,7 @@ export function LandingNavbar() {
 
   return (
     <nav
-      className={`sticky top-0 z-50 mx-auto max-w-5xl border-b transition-all duration-200 [linear-gradient(to_right,transparent,black_64px,black_calc(100%-64px),transparent)] ${
+      className={`sticky top-0 z-50 mx-auto max-w-5xl border-b transition-all duration-200 px-2 [mask-image:linear-gradient(to_right,transparent,black_64px,black_calc(100%-64px),transparent)] ${
         scrolled
           ? 'border-[#E4E0D9] bg-[#F0EDE6]/95 shadow-sm backdrop-blur-md'
           : 'border-[#E4E0D9] bg-[#F0EDE6]/90 backdrop-blur-sm'
