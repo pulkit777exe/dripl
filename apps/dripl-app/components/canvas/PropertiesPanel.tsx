@@ -332,7 +332,7 @@ export function PropertiesPanel({
                     className={`flex-1 py-1.5 rounded-md text-[11px] font-medium transition-all duration-150 ${
                       selectedElement?.fontSize === size
                         ? 'bg-[#E8462A] text-white shadow-sm'
-                        : 'bg-[#E8E5DE] text-[#6B6860] hover:bg-[#D4D0C9]'
+                        : 'bg-[#D4D0C9] text-[#5A5750] hover:bg-[#C8C4BC]'
                     }`}
                   >
                     {size}
@@ -357,7 +357,7 @@ export function PropertiesPanel({
                     className={`px-2.5 py-1.5 rounded-md text-[10px] font-medium transition-all duration-150 ${
                       selectedElement?.fontFamily === value
                         ? 'bg-[#E8462A] text-white shadow-sm'
-                        : 'bg-[#E8E5DE] text-[#6B6860] hover:bg-[#D4D0C9]'
+                        : 'bg-[#D4D0C9] text-[#5A5750] hover:bg-[#C8C4BC]'
                     }`}
                     style={{ fontFamily: value }}
                   >
