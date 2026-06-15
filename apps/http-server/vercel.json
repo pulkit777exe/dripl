@@ -5,7 +5,7 @@
       "use": "@vercel/node"
     }
   ],
-  "installCommand": "cd ../.. && pnpm install",
+  "installCommand": "cd ../.. && corepack enable && pnpm install",
   "buildCommand": "cd ../.. && bash scripts/build-http.sh",
   "routes": [
     {
