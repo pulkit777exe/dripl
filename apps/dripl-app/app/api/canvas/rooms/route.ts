@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  process.env.NEXT_PUBLIC_HTTP_URL ??
-  'http://localhost:3002/api';
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002/api';
 
 export async function POST(request: NextRequest) {
   const cookie = request.headers.get('cookie') ?? '';

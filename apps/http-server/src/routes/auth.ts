@@ -12,8 +12,8 @@ import { AuthService } from '../services/authService';
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID!;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET!;
-const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-const httpServerUrl = process.env.HTTP_SERVER_URL || 'http://localhost:3002';
+const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api';
 
 const googleClient = new OAuth2Client(googleClientId, googleClientSecret);
 
@@ -21,7 +21,7 @@ function getGoogleOAuthClient() {
   return new OAuth2Client(
     googleClientId,
     googleClientSecret,
-    `${httpServerUrl}/api/auth/google/callback`
+    `${apiUrl}/auth/google/callback`
   );
 }
 

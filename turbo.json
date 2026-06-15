@@ -60,11 +60,7 @@
         "GEMINI_API_KEY",
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
-        "HTTP_SERVER_URL",
         "JWT_SECRET",
-        "PORT",
-        "WS_PORT",
-        "FRONTEND_URL",
         "REDIS_URL",
         "DATABASE_URL",
         "NODE_ENV",
@@ -75,7 +71,7 @@
     "test": {
       "description": "Execute test suites",
       "dependsOn": ["^build", "build"],
-      "env": ["DATABASE_URL", "JWT_SECRET", "NEXT_PUBLIC_*", "GEMINI_API_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "HTTP_SERVER_URL"],
+      "env": ["DATABASE_URL", "JWT_SECRET", "NEXT_PUBLIC_*", "GEMINI_API_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/.env",

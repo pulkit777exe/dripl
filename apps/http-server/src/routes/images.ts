@@ -68,7 +68,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 
         await writeFile(getImagePath(fileId), buffer);
 
-        const baseUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
         const url = `${baseUrl}/api/images/${fileId}`;
 
         res.status(201).json({ id: fileId, url, size: buffer.length });

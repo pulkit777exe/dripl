@@ -15,7 +15,7 @@ import roomRoutes from './routes/roomRoutes';
 
 export function createApp(): Application {
   const app = express();
-  const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+  const frontendUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 
   app.set('trust proxy', 1);
   app.use(helmet());

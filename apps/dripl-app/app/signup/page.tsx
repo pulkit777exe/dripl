@@ -8,9 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { InlineError } from '@/components/ui/ErrorState';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  process.env.NEXT_PUBLIC_HTTP_URL ??
-  'http://localhost:3002/api';
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002/api';
 
 const fieldClassName =
   'w-full rounded-md border border-[#D4D0C9] bg-white px-3 py-2 text-[14px] text-[#1A1917] outline-none transition-all placeholder:text-[#9B9890] focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20';

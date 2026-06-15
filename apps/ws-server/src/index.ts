@@ -89,7 +89,7 @@ function sendYjsSync(ws: WebSocket, stateVector: Uint8Array, yjsState: Uint8Arra
   }
 }
 
-const WS_PORT = Number(process.env.WS_PORT || 3001);
+const WS_PORT = 3001;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;
 
@@ -126,7 +126,7 @@ const server = createServer((req, res) => {
   }
 });
 
-const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+const FRONTEND_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 const wss = new WebSocketServer({
   server,
   maxPayload: 10 * 1024 * 1024,

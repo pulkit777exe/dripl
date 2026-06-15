@@ -226,7 +226,7 @@ export class FileService {
 
     const { nanoidLike } = await import('../routes/files');
     const token = nanoidLike(24);
-    const baseUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
     const baseShareUrl = `${baseUrl}/share/${token}`;
     const parsedContent = parseStoredFileContent(file.content);
     const { shareUrl, encryptedPayload } = await buildEncryptedShare(

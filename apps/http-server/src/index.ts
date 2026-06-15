@@ -8,7 +8,7 @@ import { initializeDb } from '@dripl/db';
 import { createApp } from './app';
 
 const app = createApp();
-const port = Number(process.env.PORT ?? 3002);
+const port = 3002;
 
 async function start() {
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {

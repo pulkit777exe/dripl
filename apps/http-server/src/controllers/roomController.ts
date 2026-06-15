@@ -396,7 +396,7 @@ export class RoomController {
       res.status(201).json({
         status: 'share link created',
         token: shareLink.token,
-        url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/board/${shareLink.token}`,
+        url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/board/${shareLink.token}`,
         permission: shareLink.permission,
         expiresAt: shareLink.expiresAt,
       });
