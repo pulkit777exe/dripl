@@ -163,9 +163,13 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       const previous = state.elementsById.get(id);
       if (!previous) return state;
 
+      invalidateElementCache(id);
+      clearShapeFromCache(previous);
+
       const updated = {
         ...previous,
         ...updates,
+        version: (previous.version ?? 0) + 1,
       } as DriplElement;
 
       const nextElements = state.elements.map(e => (e.id === id ? updated : e));
