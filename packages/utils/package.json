@@ -36,10 +36,10 @@
     "@dripl/typescript-config": "workspace:*",
     "@eslint/js": "^10.0.1",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^22.19.19",
+    "@types/node": "^22.19.21",
     "eslint": "^9.39.4",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.60.1",
-    "vitest": "^4.1.8"
+    "typescript-eslint": "^8.61.0",
+    "vitest": "^4.1.9"
   }
 }

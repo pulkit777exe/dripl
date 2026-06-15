@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "pnpm turbo run build",
-    "postinstall": "pnpm approve-builds || true",
+    "postinstall": "pnpm approve-builds",
     "db:generate": "prisma generate --schema=./packages/db/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=./packages/db/prisma/schema.prisma",
     "db:push": "prisma db push --schema=./packages/db/prisma/schema.prisma",
@@ -18,15 +18,15 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/compression": "^1.8.1",
-    "eslint": "^10.4.1",
+    "eslint": "^10.5.0",
     "postcss": "^8.5.15",
-    "prettier": "^3.8.3",
+    "prettier": "^3.8.4",
     "prisma": "^7.8.0",
     "tsx": "^4.22.4",
-    "turbo": "^2.9.16",
+    "turbo": "^2.9.18",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.60.1",
-    "vitest": "^4.1.8"
+    "typescript-eslint": "^8.61.0",
+    "vitest": "^4.1.9"
   },
   "packageManager": "pnpm@10.33.0",
   "workspaces": [
