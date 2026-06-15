@@ -1,16 +1,15 @@
 {
   "builds": [
     {
-      "src": "api/index.ts",
+      "src": "api/index.js",
       "use": "@vercel/node"
     }
   ],
-  "installCommand": "cd ../.. && corepack enable && corepack prepare pnpm@10.33.0 --activate && pnpm install",
-  "buildCommand": "cd ../.. && bash scripts/build-http.sh",
+  "installCommand": "cd ../.. && pnpm install && pnpm --filter @dripl/common build && pnpm --filter @dripl/utils build && pnpm --filter @dripl/db build && npx esbuild apps/http-server/api/index.ts --bundle --platform=node --format=esm --outfile=apps/http-server/api/index.js --external:@prisma/client --external:@prisma/adapter-pg --external:prisma --external:pg",
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/api/index.ts"
+      "dest": "/api/index.js"
     }
   ]
 }
