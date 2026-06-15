@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd ../.. && pnpm --filter @dripl/common build && pnpm --filter @dripl/math build && pnpm --filter @dripl/utils build && pnpm --filter @dripl/element build && pnpm --filter dripl-app build",
+  "installCommand": "cd ../.. && pnpm install",
+  "framework": "nextjs"
+}

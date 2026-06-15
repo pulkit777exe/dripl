@@ -440,6 +440,9 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     }
 
     // Detect bindings for arrows
+    let startMatch: { element: DriplElement; binding: NormalizedBinding } | null = null;
+    let endMatch: { element: DriplElement; binding: NormalizedBinding } | null = null;
+
     if (preview.type === 'arrow' && 'points' in preview) {
       const elements = useCanvasStore.getState().elements;
       const points = preview.points as Point[];
@@ -451,8 +454,8 @@ export function useDrawingTools(): UseDrawingToolsReturn {
         const startPoint = { x: preview.x + firstPoint.x, y: preview.y + firstPoint.y };
         const endPoint = { x: preview.x + lastPoint.x, y: preview.y + lastPoint.y };
 
-        const startMatch = findNearestShape(startPoint, elements, arrowId, bindModeRef.current);
-        const endMatch = findNearestShape(endPoint, elements, arrowId, bindModeRef.current);
+        startMatch = findNearestShape(startPoint, elements, arrowId, bindModeRef.current);
+        endMatch = findNearestShape(endPoint, elements, arrowId, bindModeRef.current);
 
         if (startMatch || endMatch) {
           preview = {

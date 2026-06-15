@@ -1,0 +1,16 @@
+{
+  "builds": [
+    {
+      "src": "api/index.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "installCommand": "cd ../.. && pnpm install",
+  "buildCommand": "cd ../.. && bash scripts/build-http.sh",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.ts"
+    }
+  ]
+}
