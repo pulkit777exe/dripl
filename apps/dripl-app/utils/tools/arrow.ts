@@ -63,6 +63,7 @@ export function createArrowElement(
       width: 100,
       height: 24,
       text: state.label,
+      originalText: state.label,
       fontSize: 14,
       fontFamily: getDefaultFontFamily(),
       strokeColor: 'transparent',

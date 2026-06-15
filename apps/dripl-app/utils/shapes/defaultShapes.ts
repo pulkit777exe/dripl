@@ -399,6 +399,7 @@ export const textShape: ShapeDefinition = {
       strokeStyle: 'solid',
       fillStyle: 'hachure',
       text: 'Text',
+      originalText: 'Text',
       fontSize: 20,
       fontFamily: getDefaultFontFamily(),
       ...props,

@@ -209,6 +209,7 @@ export function createTextElement(
     id: crypto.randomUUID(),
     type: 'text',
     text,
+    originalText: text,
     fontSize: baseProps.fontSize ?? 16,
     fontFamily: baseProps.fontFamily ?? getFontFamily(),
     textAlign: baseProps.textAlign ?? 'left',

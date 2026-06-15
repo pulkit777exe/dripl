@@ -28,6 +28,7 @@ function text(id: string, boundElementId?: string): DriplElement {
     width: 80,
     height: 20,
     text: 'Hello',
+    originalText: 'Hello',
     boundElementId,
   } as DriplElement;
 }

@@ -94,6 +94,7 @@ export interface FreeDrawElement extends ElementBase {
 export interface TextElement extends ElementBase {
   type: 'text';
   text: string;
+  originalText?: string;
   fontSize: number;
   fontFamily: string;
   textAlign?: 'left' | 'center' | 'right';

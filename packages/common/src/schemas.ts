@@ -94,6 +94,7 @@ export const ArrowElementSchema = BaseElementSchema.extend({
 export const TextElementSchema = BaseElementSchema.extend({
   type: z.literal('text'),
   text: z.string(),
+  originalText: z.string().optional(),
   fontSize: z.number().default(20),
   fontFamily: z.string().default('Caveat'),
   textAlign: TextAlignSchema.default('left'),

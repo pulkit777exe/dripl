@@ -27,6 +27,7 @@ export function createTextElement(
     width: Math.max(estimatedWidth, 100),
     height: estimatedHeight,
     text: state.text,
+    originalText: state.text,
     fontSize: state.fontSize,
     fontFamily: state.fontFamily,
   };

@@ -161,6 +161,7 @@ export function createTextElement(options: TextElementOptions = {}): DriplElemen
     ...baseElement(options),
     type: 'text',
     text,
+    originalText: text,
     fontSize,
     fontFamily,
     textAlign: options.textAlign ?? 'left',

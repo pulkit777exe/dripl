@@ -135,6 +135,7 @@ const measureFontSizeFromWidth = (
 ): { size: number; height: number } => {
   const maxFontSize = 200;
   const minFontSize = 8;
+  const text = element.type === 'text' ? ((element as any).originalText || element.text || 'A') : (element.text || 'A');
 
   for (let fontSize = maxFontSize; fontSize >= minFontSize; fontSize -= 1) {
     const canvas = document.createElement('canvas');
@@ -142,7 +143,7 @@ const measureFontSizeFromWidth = (
     if (!ctx) continue;
 
     ctx.font = `${fontSize}px ${element.fontFamily || 'Arial'}`;
-    const metrics = ctx.measureText(element.text || 'A');
+    const metrics = ctx.measureText(text);
 
     if (metrics.width <= metricsWidth) {
       return {
@@ -228,75 +229,38 @@ export const resizeSingleTextElement = (
   origElement: DriplElement,
   element: DriplElement,
   handleDirection: TransformHandleDirection,
-  shouldResizeFromCenter: boolean,
+  _shouldResizeFromCenter: boolean,
   nextWidth: number,
   nextHeight: number
 ): Partial<DriplElement> => {
   if (element.type !== 'text') return {};
 
+  const fontString = `${element.fontSize || 16}px ${element.fontFamily || 'Arial'}`;
+  const lineHeight = (element.lineHeight as number) || 1.2;
+
+  // Corner/top/bottom handles: scale font size proportionally, keep aspect ratio
   if (handleDirection.includes('n') || handleDirection.includes('s')) {
     const metricsWidth = origElement.width * (nextHeight / origElement.height);
     const metrics = measureFontSizeFromWidth(element, metricsWidth);
-
-    const previousOrigin = { x: origElement.x, y: origElement.y };
-    const newOrigin = getResizedOrigin(
-      previousOrigin,
-      origElement.width,
-      origElement.height,
-      metricsWidth,
-      nextHeight,
-      origElement.angle || 0,
-      handleDirection,
-      false,
-      shouldResizeFromCenter
-    );
-
+    // Do NOT return x/y — let the pointer handler's origin computation take effect
     return {
       fontSize: metrics.size,
       width: metricsWidth,
       height: nextHeight,
-      x: newOrigin.x,
-      y: newOrigin.y,
     };
   }
 
+  // Side handles (e/w): re-wrap text to new width, keep font size
   if (handleDirection === 'e' || handleDirection === 'w') {
-    const minWidth = getMinTextElementWidth(
-      `${element.fontSize || 16}px ${element.fontFamily || 'Arial'}`,
-      (element.lineHeight as number) || 1.2
-    );
-
+    const minWidth = getMinTextElementWidth(fontString, lineHeight);
     const newWidth = Math.max(minWidth, nextWidth);
-    const text = wrapText(
-      element.text || '',
-      `${element.fontSize || 16}px ${element.fontFamily || 'Arial'}`,
-      Math.abs(newWidth)
-    );
-    const metrics = measureText(
-      text,
-      `${element.fontSize || 16}px ${element.fontFamily || 'Arial'}`,
-      (element.lineHeight as number) || 1.2
-    );
-
-    const newHeight = metrics.height;
-    const previousOrigin = { x: origElement.x, y: origElement.y };
-    const newOrigin = getResizedOrigin(
-      previousOrigin,
-      origElement.width,
-      origElement.height,
-      newWidth,
-      newHeight,
-      element.angle || 0,
-      handleDirection,
-      false,
-      shouldResizeFromCenter
-    );
-
+    const sourceText = (element as any).originalText || element.text || '';
+    const text = wrapText(sourceText, fontString, Math.abs(newWidth));
+    const metrics = measureText(text, fontString, lineHeight);
+    // Do NOT return x/y — let the pointer handler's origin computation take effect
     return {
       width: Math.abs(newWidth),
       height: Math.abs(metrics.height),
-      x: newOrigin.x,
-      y: newOrigin.y,
       text,
       autoResize: false,
     };
