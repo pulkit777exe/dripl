@@ -5,7 +5,7 @@
       "use": "@vercel/node"
     }
   ],
-  "installCommand": "cd ../.. && pnpm install && pnpm --filter @dripl/common build && pnpm --filter @dripl/utils build && pnpm --filter @dripl/db build && npx esbuild apps/ws-server/api/index.ts --bundle --platform=node --format=esm --outfile=apps/ws-server/api/index.js --external:@prisma/client --external:@prisma/adapter-pg --external:prisma --external:pg",
+  "installCommand": "cd ../.. && bash scripts/vercel-install.sh ws-server",
   "routes": [
     {
       "src": "/(.*)",
