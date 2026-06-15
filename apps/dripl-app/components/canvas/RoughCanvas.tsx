@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { useCanvasWorker } from '@/hooks/useCanvasWorker';
-import { getElementBounds, isPointInElement, isPointNearElement } from '@dripl/math/intersection';
+import { getElementBounds, isPointInElement, isPointNearElement, shouldTestInside, isPointOnElementOutline } from '@dripl/math/intersection';
 import { type DriplElement } from '@dripl/common';
 import { collectCascadeDeleteIds } from '@dripl/common/cascade-delete';
 import { getOrCreateCollaboratorName } from '@/utils/username';
@@ -451,15 +451,22 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         const element = state.elements[i];
         if (!element) continue;
         if (!candidateIds.has(element.id)) continue;
+        // Skip elements locked by other users (collaborative locks)
         if (
           state.elementLocks.has(element.id) &&
           state.elementLocks.get(element.id) !== state.userId
         ) {
           continue;
         }
+        // Skip individually locked elements — they should not be selectable
+        if (element.locked) continue;
         // Per-element zoom-aware tolerance: thin elements get extra slack at low zoom
         const elThreshold = Math.max((element.strokeWidth ?? 2) / 2 + 0.1, 8 / state.zoom);
-        if (!isPointNearElement({ x, y }, element, elThreshold)) continue;
+        // For unfilled shapes, only test the stroke outline; for filled shapes, test inside + outline
+        const hit = shouldTestInside(element)
+          ? isPointNearElement({ x, y }, element, elThreshold)
+          : isPointOnElementOutline({ x, y }, element, elThreshold);
+        if (!hit) continue;
         if (element.type === 'text' && ('boundElementId' in element || 'containerId' in element)) {
           const containerId =
             ('boundElementId' in element ? element.boundElementId : undefined) ??
@@ -468,6 +475,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
             const container = state.elements.find(candidate => candidate.id === containerId);
             if (
               container &&
+              !container.locked &&
               (!state.elementLocks.has(container.id) ||
                 state.elementLocks.get(container.id) === state.userId)
             ) {
@@ -478,6 +486,49 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         return element;
       }
       return null;
+    },
+    [isPointNearElement, spatialIndex.tree]
+  );
+
+  /**
+   * Returns ALL elements at a given point, ordered from lowest to highest z-index.
+   * Used for overlap resolution (preferSelected, bounding-box tiebreak).
+   */
+  const getElementsAtPosition = useCallback(
+    (x: number, y: number): DriplElement[] => {
+      const state = useCanvasStore.getState();
+      const hitThreshold = Math.max(2, 8 / state.zoom);
+      const candidates = spatialIndex.tree.search({
+        minX: x - hitThreshold,
+        minY: y - hitThreshold,
+        maxX: x + hitThreshold,
+        maxY: y + hitThreshold,
+      });
+      const candidateIds = new Set(candidates.map(candidate => candidate.id));
+      const hits: DriplElement[] = [];
+      for (let i = state.elements.length - 1; i >= 0; i -= 1) {
+        const element = state.elements[i];
+        if (!element) continue;
+        if (!candidateIds.has(element.id)) continue;
+        if (
+          state.elementLocks.has(element.id) &&
+          state.elementLocks.get(element.id) !== state.userId
+        ) {
+          continue;
+        }
+        if (element.locked) continue;
+        const elThreshold = Math.max((element.strokeWidth ?? 2) / 2 + 0.1, 8 / state.zoom);
+        const hit = shouldTestInside(element)
+          ? isPointNearElement({ x, y }, element, elThreshold)
+          : isPointOnElementOutline({ x, y }, element, elThreshold);
+        if (!hit) continue;
+        // Skip bound text — hitting text hits the container
+        if (element.type === 'text' && ('boundElementId' in element || 'containerId' in element)) {
+          continue;
+        }
+        hits.push(element);
+      }
+      return hits;
     },
     [isPointNearElement, spatialIndex.tree]
   );
@@ -554,7 +605,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     broadcastCursor,
     addElement,
     getElementAtPosition,
+    getElementsAtPosition,
     updateElementTransient,
+    updateElement,
     pushHistory,
     lockElementsForGesture,
     unlockElement,

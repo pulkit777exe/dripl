@@ -12,6 +12,72 @@ import {
 
 export { rotatePoint } from './geometry';
 
+/**
+ * Threshold for determining if the first and last points of a path form a loop.
+ * Points within this distance are considered the same point.
+ */
+const LINE_CONFIRM_THRESHOLD = 10;
+
+/**
+ * Checks if a background color is considered transparent (i.e., not a visible fill).
+ * Empty string, 'transparent', 'rgba(0,0,0,0)', etc. are all transparent.
+ */
+function isTransparent(color?: string): boolean {
+  if (!color) return true;
+  if (color === 'transparent') return true;
+  if (color.startsWith('rgba(')) {
+    const match = color.match(/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/);
+    if (match && parseFloat(match[1]!) === 0) return true;
+  }
+  return false;
+}
+
+/**
+ * Determines whether clicking *inside* the element's fill area counts as a hit.
+ * Returns false for shapes that should only be hittable on their stroke/outline.
+ *
+ * Mirrors Excalidraw's shouldTestInside logic:
+ * - Arrow: never (stroke only)
+ * - Line/Freedraw: only if closed loop AND has non-transparent fill
+ * - Rectangle/Diamond/Ellipse/Frame: only if has non-transparent bg or bound text
+ * - Text/Image/Ifame: always true
+ */
+export function shouldTestInside(element: DriplElement): boolean {
+  if (element.type === 'arrow') {
+    return false;
+  }
+
+  const hasBackground =
+    element.backgroundColor && !isTransparent(element.backgroundColor);
+  const hasBoundText = element.boundElements?.some(b => b.type === 'text') ?? false;
+  const isText = element.type === 'text';
+  const isImage = element.type === 'image';
+
+  const isDraggableFromInside = hasBackground || hasBoundText || isText;
+
+  if (element.type === 'line') {
+    return isDraggableFromInside && isPathALoop(element);
+  }
+
+  if (element.type === 'freedraw') {
+    return isDraggableFromInside && isPathALoop(element);
+  }
+
+  return isDraggableFromInside || isImage;
+}
+
+/**
+ * Checks if a freedraw or line element's points form a closed loop.
+ * Uses LINE_CONFIRM_THRESHOLD to determine if endpoints are close enough.
+ */
+export function isPathALoop(element: FreeDrawElement | LinearElement): boolean {
+  const pts = element.points || [];
+  if (pts.length < 3) return false;
+  const first = pts[0]!;
+  const last = pts[pts.length - 1]!;
+  return distance(first, last) <= LINE_CONFIRM_THRESHOLD;
+}
+
 export function inverseRotatePoint(p: Point, cx: number, cy: number, angleRad: number): Point {
   return rotatePoint(p, cx, cy, -angleRad);
 }
@@ -304,3 +370,94 @@ export const isPointNearElement = (
   if (isPointInElement(point, element)) return true;
   return getDistanceToBounds(point, element) <= tolerance;
 };
+
+/**
+ * Tests if a point is within tolerance of the element's stroke/outline path.
+ * Does NOT test the interior — only the drawn stroke.
+ * Used for unfilled shapes where only the border should be hittable.
+ */
+export function isPointOnElementOutline(
+  point: Point,
+  element: DriplElement,
+  threshold: number
+): boolean {
+  const angle = (element.angle || 0) as number;
+  const cx = element.x + element.width / 2;
+  const cy = element.y + element.height / 2;
+
+  // Counter-rotate the test point to work in element-local coordinates
+  const local = angle ? inverseRotatePoint(point, cx, cy, angle) : point;
+
+  if (element.type === 'rectangle' || element.type === 'text' || element.type === 'image' || element.type === 'frame') {
+    // Test distance to each of the 4 sides
+    const x1 = element.x;
+    const y1 = element.y;
+    const x2 = element.x + element.width;
+    const y2 = element.y + element.height;
+
+    const top: LineSegment = { start: { x: x1, y: y1 }, end: { x: x2, y: y1 } };
+    const right: LineSegment = { start: { x: x2, y: y1 }, end: { x: x2, y: y2 } };
+    const bottom: LineSegment = { start: { x: x1, y: y2 }, end: { x: x2, y: y2 } };
+    const left: LineSegment = { start: { x: x1, y: y2 }, end: { x: x1, y: y1 } };
+
+    const minDist = Math.min(
+      distanceToSegment(local, top),
+      distanceToSegment(local, right),
+      distanceToSegment(local, bottom),
+      distanceToSegment(local, left)
+    );
+    return minDist <= threshold;
+  }
+
+  if (element.type === 'diamond') {
+    // Diamond vertices at midpoints of bounding box edges
+    const vertices: Point[] = [
+      { x: element.x + element.width / 2, y: element.y },
+      { x: element.x + element.width, y: element.y + element.height / 2 },
+      { x: element.x + element.width / 2, y: element.y + element.height },
+      { x: element.x, y: element.y + element.height / 2 },
+    ];
+
+    let minDist = Infinity;
+    for (let i = 0; i < vertices.length; i++) {
+      const j = (i + 1) % vertices.length;
+      const seg: LineSegment = { start: vertices[i]!, end: vertices[j]! };
+      minDist = Math.min(minDist, distanceToSegment(local, seg));
+    }
+    return minDist <= threshold;
+  }
+
+  if (element.type === 'ellipse') {
+    // Approximate ellipse with polygon and test distance to each segment
+    const rx = element.width / 2;
+    const ry = element.height / 2;
+    const ecx = element.x + rx;
+    const ecy = element.y + ry;
+    const segments = 32;
+    let minDist = Infinity;
+
+    for (let i = 0; i < segments; i++) {
+      const a1 = (i / segments) * Math.PI * 2;
+      const a2 = ((i + 1) / segments) * Math.PI * 2;
+      const p1: Point = { x: ecx + Math.cos(a1) * rx, y: ecy + Math.sin(a1) * ry };
+      const p2: Point = { x: ecx + Math.cos(a2) * rx, y: ecy + Math.sin(a2) * ry };
+      const seg: LineSegment = { start: p1, end: p2 };
+      minDist = Math.min(minDist, distanceToSegment(local, seg));
+    }
+    return minDist <= threshold;
+  }
+
+  if (element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line') {
+    const pts = (element as FreeDrawElement | LinearElement).points || [];
+    const worldPts = pts.map(p => elementLocalPointToWorld(element, p));
+    const tolerance = (element.strokeWidth || 0) / 2 + threshold;
+
+    for (let i = 0; i < worldPts.length - 1; i++) {
+      const seg: LineSegment = { start: worldPts[i]!, end: worldPts[i + 1]! };
+      if (distanceToSegment(point, seg) <= tolerance) return true;
+    }
+    return false;
+  }
+
+  return false;
+}

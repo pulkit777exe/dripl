@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
 import { getElementBounds, isPointInElement, inverseRotatePoint, getDistanceToBounds, isPointNearElement } from '@dripl/math/intersection';
 import type { DriplElement, LinearElement } from '@dripl/common';
+import { resizeSingleElement } from '@dripl/element/resizeElements';
 import { uploadImageToServer, loadImage } from '@/utils/tools/image';
 import { v4 as uuidv4 } from 'uuid';
 import { recalculateBinding, calculateArrowBinding } from '@/utils/arrow-routing';
@@ -37,7 +38,9 @@ interface CanvasPointerEventsProps {
   broadcastCursor: (x: number, y: number) => void;
   addElement: (element: DriplElement) => void;
   getElementAtPosition: (x: number, y: number) => DriplElement | null | undefined;
+  getElementsAtPosition: (x: number, y: number) => DriplElement[];
   updateElementTransient: (id: string, element: DriplElement) => void;
+  updateElement: (id: string, updates: Partial<DriplElement>) => void;
   pushHistory: () => void;
   lockElementsForGesture: (ids: Iterable<string>) => void;
   unlockElement: (id: string) => void;
@@ -163,7 +166,9 @@ export function useCanvasPointerEvents({
   broadcastCursor,
   addElement,
   getElementAtPosition,
+  getElementsAtPosition,
   updateElementTransient,
+  updateElement,
   pushHistory,
   lockElementsForGesture,
   unlockElement,
@@ -354,7 +359,17 @@ export function useCanvasPointerEvents({
           }
         }
 
-        const element = getElementAtPosition(x, y);
+        // Get all elements at this point for overlap resolution
+        const allHitElements = getElementsAtPosition(x, y);
+        // preferSelected: if any hit element is already selected, prefer it
+        // over the topmost element. This lets you start dragging a selected element
+        // even when a higher-z element overlaps it.
+        let element: DriplElement | null = null;
+        if (allHitElements.length > 0) {
+          const state = useCanvasStore.getState();
+          const selectedHit = allHitElements.find(el => state.selectedIds.has(el.id));
+          element = selectedHit ?? allHitElements[allHitElements.length - 1]!;
+        }
         if (element && element.id) {
           const state = useCanvasStore.getState();
           const clickedSet = expandSelectionWithGroups(new Set([element.id]), state.elements);
@@ -766,12 +781,15 @@ export function useCanvasPointerEvents({
         };
 
         if (el.type === 'text') {
-          const originalFontSize = el.fontSize ?? 20;
-          const scaleX = newWidth / el.width;
-          const scaleY = newHeight / el.height;
-          const scale = Math.sqrt(scaleX * scaleY);
-          const newFontSize = Math.max(6, Math.round(originalFontSize * scale));
-          updatedElement.fontSize = newFontSize;
+          const resizedProps = resizeSingleElement(
+            newWidth,
+            newHeight,
+            el,
+            interactionRef.current.resizeInitialEl || el,
+            handle as any,
+            { shouldMaintainAspectRatio: e.shiftKey, shouldResizeFromCenter: e.altKey }
+          );
+          Object.assign(updatedElement, resizedProps);
         }
 
         if (
@@ -963,7 +981,9 @@ export function useCanvasPointerEvents({
       }
 
       if (interactionRef.current.resizing) {
-        const editingId = useCanvasStore.getState().isEditingElementId;
+        const state = useCanvasStore.getState();
+        const editingId = state.isEditingElementId;
+        const resizedId = interactionRef.current.resizeInitialEl?.id;
         interactionRef.current.resizing = false;
         interactionRef.current.historyPushed = false;
         interactionRef.current.resizeHandle = null;
@@ -971,6 +991,7 @@ export function useCanvasPointerEvents({
         interactionRef.current.resizeInitialEl = null;
         setIsResizing(false);
         setEditingElementId(null);
+        if (resizedId) updateElement(resizedId, {});
         if (editingId) unlockElement(editingId);
         unlockGestureElements();
         return;
