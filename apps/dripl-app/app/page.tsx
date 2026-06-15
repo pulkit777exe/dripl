@@ -73,7 +73,7 @@ const features = [
   },
 ];
 
-export default function LandingPage() {
+export default function LandingPage(): React.ReactNode {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [openFaq, setOpenFaq] = useState<number | null>(null);

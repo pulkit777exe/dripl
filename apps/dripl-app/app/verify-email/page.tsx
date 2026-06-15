@@ -84,7 +84,7 @@ function VerifyEmailContent() {
   );
 }
 
-export default function VerifyEmailPage() {
+export default function VerifyEmailPage(): React.ReactNode {
   return (
     <Suspense
       fallback={

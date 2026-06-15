@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 const fieldClassName =
   'w-full rounded-xl border border-border/70 bg-secondary/35 px-4 py-2.5 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary/45 focus:bg-card focus:ring-2 focus:ring-primary/20';
 
-export default function ForgotPasswordPage() {
+export default function ForgotPasswordPage(): React.ReactNode {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');

@@ -19,7 +19,7 @@ import { HelpCircle, ShieldCheck } from 'lucide-react';
 import HelpModal from '@/components/canvas/HelpModal';
 import type { LocalCanvasState } from '@/utils/localCanvasStorage';
 
-export default function FilePage() {
+export default function FilePage(): React.ReactNode {
   const params = useParams<{ id: string }>();
   const fileId = params.id;
   const { effectiveTheme } = useTheme();

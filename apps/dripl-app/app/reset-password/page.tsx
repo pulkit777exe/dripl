@@ -88,7 +88,7 @@ function ResetPasswordForm() {
   );
 }
 
-export default function ResetPasswordPage() {
+export default function ResetPasswordPage(): React.ReactNode {
   return (
     <AuthShell title="Set new password" subtitle="Choose a strong password for your account.">
       <Suspense

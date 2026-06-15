@@ -364,7 +364,7 @@ function renderSection(section: SectionId) {
   }
 }
 
-export default function SettingsPage() {
+export default function SettingsPage(): React.ReactNode {
   const router = useRouter();
   const params = useParams<{ section?: string }>();
   const { user, loading, logout } = useAuth();

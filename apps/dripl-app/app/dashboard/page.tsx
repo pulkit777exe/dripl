@@ -9,7 +9,7 @@ import { PageSkeleton } from '@/components/ui/LoadingState';
 
 const PAGE_SIZE = 20;
 
-export default function DashboardPage() {
+export default function DashboardPage(): React.ReactNode {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [files, setFiles] = useState<FileSummary[]>([]);

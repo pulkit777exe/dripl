@@ -56,7 +56,7 @@ const MOCK_LIBRARY: LibraryItem[] = [
 
 const CATEGORIES = ['All', 'Diagrams', 'Icons', 'Shapes', 'UI Components'];
 
-export default function LibraryPage() {
+export default function LibraryPage(): React.ReactNode {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');

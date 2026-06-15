@@ -81,7 +81,7 @@ const CATEGORIES = [
   { id: 'meetings', label: 'Meetings', icon: Users },
 ];
 
-export default function TemplatesPage() {
+export default function TemplatesPage(): React.ReactNode {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 

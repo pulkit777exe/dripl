@@ -26,7 +26,7 @@ function readKeyFromHash(): string | null {
   return params.get('key');
 }
 
-export default function SharedCanvasPage({ params }: SharePageProps) {
+export default function SharedCanvasPage({ params }: SharePageProps): React.ReactNode {
   const { token } = React.use(params);
   const [loading, setLoading] = useState(true);
   const [permission, setPermission] = useState<'view' | 'edit'>('view');

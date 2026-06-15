@@ -33,7 +33,7 @@ const MOCK_FILES: TeamFile[] = [
   { id: '3', name: 'Design System', updatedAt: new Date(), updatedBy: 'Carol' },
 ];
 
-export default function TeamWorkspacePage() {
+export default function TeamWorkspacePage(): React.ReactNode {
   const params = useParams();
   const teamSlug = params.teamSlug as string;
   const [activeTab, setActiveTab] = useState<'files' | 'members' | 'settings'>('files');

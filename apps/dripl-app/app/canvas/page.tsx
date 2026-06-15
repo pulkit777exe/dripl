@@ -271,7 +271,7 @@ function CanvasContent() {
   );
 }
 
-export default function CanvasPage() {
+export default function CanvasPage(): React.ReactNode {
   return (
     <Suspense
       fallback={

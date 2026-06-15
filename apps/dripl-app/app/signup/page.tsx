@@ -13,7 +13,7 @@ const API_BASE_URL =
 const fieldClassName =
   'w-full rounded-md border border-[#D4D0C9] bg-white px-3 py-2 text-[14px] text-[#1A1917] outline-none transition-all placeholder:text-[#9B9890] focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20';
 
-export default function SignupPage() {
+export default function SignupPage(): React.ReactNode {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

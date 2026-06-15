@@ -79,7 +79,7 @@ function VerifyPendingContent() {
   );
 }
 
-export default function VerifyPendingPage() {
+export default function VerifyPendingPage(): React.ReactNode {
   return (
     <Suspense
       fallback={

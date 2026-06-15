@@ -23,7 +23,7 @@ interface CanvasFilePageProps {
   }>;
 }
 
-export default function CanvasFilePage({ params }: CanvasFilePageProps) {
+export default function CanvasFilePage({ params }: CanvasFilePageProps): React.ReactNode {
   const { fileId: roomId } = React.use(params);
   const { effectiveTheme } = useTheme();
   const router = useRouter();
