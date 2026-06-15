@@ -10,7 +10,9 @@ interface BoardPageProps {
   params: Promise<{ token: string }>;
 }
 
-export default async function BoardTokenPage({ params }: BoardPageProps) {
+export default async function BoardTokenPage({
+  params,
+}: BoardPageProps): Promise<React.ReactNode> {
   const { token } = await params;
   const fallback = getInMemoryShare(token);
 

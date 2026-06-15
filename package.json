@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "pnpm turbo run build",
-    "postinstall": "pnpm approve-builds",
+    "postinstall": "node -e \"if(!process.env.CI&&!process.env.VERCEL){require('child_process').execSync('pnpm approve-builds',{stdio:'inherit'})}\"",
     "db:generate": "prisma generate --schema=./packages/db/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=./packages/db/prisma/schema.prisma",
     "db:push": "prisma db push --schema=./packages/db/prisma/schema.prisma",

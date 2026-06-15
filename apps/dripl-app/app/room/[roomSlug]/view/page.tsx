@@ -4,7 +4,9 @@ interface PageProps {
   params: Promise<{ roomSlug: string }>;
 }
 
-export default async function RoomViewPage({ params }: PageProps) {
+export default async function RoomViewPage({
+  params,
+}: PageProps): Promise<React.ReactNode> {
   const { roomSlug } = await params;
 
   // Server-side check for room existence would go here

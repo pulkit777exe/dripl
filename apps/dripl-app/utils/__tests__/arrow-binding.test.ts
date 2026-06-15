@@ -27,7 +27,7 @@ function createRectangleElement(overrides: Partial<DriplElement> = {}): DriplEle
     strokeWidth: 2,
     opacity: 1,
     ...overrides,
-  };
+  } as DriplElement;
 }
 
 function createArrowElement(
@@ -47,7 +47,7 @@ function createArrowElement(
     opacity: 1,
     points,
     ...overrides,
-  };
+  } as DriplElement;
 }
 
 beforeEach(() => {

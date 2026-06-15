@@ -4,7 +4,9 @@ interface PageProps {
   params: Promise<{ roomSlug: string }>;
 }
 
-export default async function RoomPresentPage({ params }: PageProps) {
+export default async function RoomPresentPage({
+  params,
+}: PageProps): Promise<React.ReactNode> {
   const { roomSlug } = await params;
 
   // Redirect to canvas with presentation mode

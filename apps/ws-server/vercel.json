@@ -5,7 +5,7 @@
       "use": "@vercel/node"
     }
   ],
-  "installCommand": "cd ../.. && corepack enable && pnpm install",
+  "installCommand": "cd ../.. && corepack enable && corepack prepare pnpm@10.33.0 --activate && pnpm install",
   "buildCommand": "cd ../.. && bash scripts/build-ws.sh",
   "routes": [
     {
