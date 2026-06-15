@@ -989,6 +989,7 @@ export function useCanvasPointerEvents({
         interactionRef.current.resizeHandle = null;
         interactionRef.current.resizeStartCanvasPos = null;
         interactionRef.current.resizeInitialEl = null;
+        hoveredBindingIdRef.current = null;
         setIsResizing(false);
         setEditingElementId(null);
         if (resizedId) updateElement(resizedId, {});

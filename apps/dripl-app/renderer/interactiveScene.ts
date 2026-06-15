@@ -624,7 +624,7 @@ function drawBindingIndicator(
   const lineWidth = 2 / viewport.zoom;
 
   ctx.save();
-  ctx.strokeStyle = '#4a90d9';
+  ctx.strokeStyle = '#E8462A';
   ctx.lineWidth = lineWidth;
   ctx.setLineDash([6 / viewport.zoom, 4 / viewport.zoom]);
   ctx.globalAlpha = 0.8;

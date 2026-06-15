@@ -2,7 +2,7 @@
 
 import { useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { DriplElement, Point, NormalizedBinding } from '@dripl/common';
+import type { DriplElement, LinearElement, Point, NormalizedBinding } from '@dripl/common';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { getDistanceToBounds } from '@dripl/math/intersection';
 import { createRectangleElement, type RectangleToolState } from '@/utils/tools/rectangle';
@@ -13,6 +13,7 @@ import { createLineElement, type LineToolState } from '@/utils/tools/line';
 import { createFreedrawElement, type FreedrawToolState } from '@/utils/tools/freedraw';
 import { createFrameElement, type FrameToolState } from '@/utils/tools/frame';
 import { calculateArrowBinding } from '@/utils/arrow-routing';
+import { bindArrowToElement } from '@/utils/arrow-binding';
 
 export type ToolType =
   | 'select'
@@ -464,7 +465,36 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     }
 
     updateDraftElement(preview);
-    return commitDraft();
+    const committed = commitDraft();
+
+    // Update the target shapes' boundElements (reverse index) so arrows follow shapes when dragged
+    if (committed && (startMatch || endMatch)) {
+      const state = useCanvasStore.getState();
+      let elements = state.elements;
+      if (startMatch) {
+        elements = bindArrowToElement(
+          committed as LinearElement,
+          startMatch.element.id,
+          'start',
+          startMatch.binding.fixedPoint,
+          startMatch.binding.mode,
+          elements,
+        );
+      }
+      if (endMatch) {
+        elements = bindArrowToElement(
+          committed as LinearElement,
+          endMatch.element.id,
+          'end',
+          endMatch.binding.fixedPoint,
+          endMatch.binding.mode,
+          elements,
+        );
+      }
+      state.setElements(elements);
+    }
+
+    return committed;
   }, [buildElement, commitDraft, setDraftElement, updateDraftElement]);
 
   const cancelDrawing = useCallback(() => {
