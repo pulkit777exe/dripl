@@ -47,6 +47,10 @@ export function createApp(): Application {
   app.use(express.urlencoded({ extended: true, limit: '5mb' }));
   app.use(cookieParser());
 
+  app.get('/', (_req, res) => {
+    res.json({ service: 'dripl-http', status: 'ok' });
+  });
+
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
