@@ -1,11 +1,10 @@
 {
   "builds": [
     {
-      "src": "api/index.ts",
+      "src": "api/index.js",
       "use": "@vercel/node"
     }
   ],
-  "installCommand": "cd ../.. && corepack enable && pnpm install && pnpm --filter @dripl/common build && pnpm --filter @dripl/utils build && pnpm --filter @dripl/db build",
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api/index" }
