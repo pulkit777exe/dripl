@@ -32,6 +32,7 @@ next-env.d.ts
 apps/*/.next/
 apps/*/out/
 apps/*/next-env.d.ts
+apps/http-server/api/index.js
 
 # TypeScript build info
 *.tsbuildinfo
