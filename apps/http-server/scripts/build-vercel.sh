@@ -11,6 +11,5 @@ cd apps/http-server
 
 npx esbuild --bundle --platform=node --target=node20 --format=esm \
   --outfile=api/index.js \
-  --external:@prisma/client \
-  --packages=external \
+  --conditions=import \
   api/index.src.ts
