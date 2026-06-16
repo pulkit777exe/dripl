@@ -1,4 +1,5 @@
 {
+  "outputDirectory": ".",
   "installCommand": "cd ../.. && corepack enable && pnpm install && pnpm --filter @dripl/common build && pnpm --filter @dripl/utils build && pnpm --filter @dripl/db build",
   "buildCommand": "pnpm exec esbuild api/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=api/index.js",
   "routes": [
