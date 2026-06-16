@@ -7,23 +7,23 @@
   "exports": {
     "./geometry": {
       "types": "./dist/geometry.d.ts",
-      "default": "./dist/geometry"
+      "default": "./dist/geometry.js"
     },
     "./hit-detection": {
       "types": "./dist/hit-detection.d.ts",
-      "default": "./dist/hit-detection"
+      "default": "./dist/hit-detection.js"
     },
     "./intersection": {
       "types": "./dist/intersection.d.ts",
-      "default": "./dist/intersection"
+      "default": "./dist/intersection.js"
     },
     "./performance": {
       "types": "./dist/performance.d.ts",
-      "default": "./dist/performance"
+      "default": "./dist/performance.js"
     },
     "./constraints": {
       "types": "./dist/constraints.d.ts",
-      "default": "./dist/constraints"
+      "default": "./dist/constraints.js"
     }
   },
   "scripts": {

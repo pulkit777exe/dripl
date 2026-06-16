@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@dripl/typescript-config": "workspace:*",
+    "esbuild": "^0.25.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.13.2",
     "@types/ws": "^8.18.1",

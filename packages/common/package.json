@@ -8,39 +8,39 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "default": "./dist/index"
+      "default": "./dist/index.js"
     },
     "./constants": {
       "types": "./dist/constants.d.ts",
-      "default": "./dist/constants"
+      "default": "./dist/constants.js"
     },
     "./types/element": {
       "types": "./dist/types/element.d.ts",
-      "default": "./dist/types/element"
+      "default": "./dist/types/element.js"
     },
     "./types/user": {
       "types": "./dist/types/user.d.ts",
-      "default": "./dist/types/user"
+      "default": "./dist/types/user.js"
     },
     "./schemas": {
       "types": "./dist/schemas.d.ts",
-      "default": "./dist/schemas"
+      "default": "./dist/schemas.js"
     },
     "./scene": {
       "types": "./dist/scene.d.ts",
-      "default": "./dist/scene"
+      "default": "./dist/scene.js"
     },
     "./pointer": {
       "types": "./dist/pointer.d.ts",
-      "default": "./dist/pointer"
+      "default": "./dist/pointer.js"
     },
     "./arrow-binding": {
       "types": "./dist/arrow-binding.d.ts",
-      "default": "./dist/arrow-binding"
+      "default": "./dist/arrow-binding.js"
     },
     "./cascade-delete": {
       "types": "./dist/cascade-delete.d.ts",
-      "default": "./dist/cascade-delete"
+      "default": "./dist/cascade-delete.js"
     }
   },
   "scripts": {

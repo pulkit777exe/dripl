@@ -8,19 +8,19 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "default": "./dist/index"
+      "default": "./dist/index.js"
     },
     "./elements": {
       "types": "./dist/elements.d.ts",
-      "default": "./dist/elements"
+      "default": "./dist/elements.js"
     },
     "./users": {
       "types": "./dist/users.d.ts",
-      "default": "./dist/users"
+      "default": "./dist/users.js"
     },
     "./mock-canvas": {
       "types": "./dist/mock-canvas.d.ts",
-      "default": "./dist/mock-canvas"
+      "default": "./dist/mock-canvas.js"
     }
   },
   "scripts": {

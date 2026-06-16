@@ -14,6 +14,7 @@
     "@dripl/db": "workspace:*",
     "@dripl/utils": "workspace:*",
     "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@dripl/typescript-config": "workspace:*",
+    "esbuild": "^0.25.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",

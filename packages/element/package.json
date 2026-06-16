@@ -7,19 +7,19 @@
   "exports": {
     "./staticScene": {
       "types": "./dist/staticScene.d.ts",
-      "default": "./dist/staticScene"
+      "default": "./dist/staticScene.js"
     },
     "./resizeElements": {
       "types": "./dist/resizeElements.d.ts",
-      "default": "./dist/resizeElements"
+      "default": "./dist/resizeElements.js"
     },
     "./renderElement": {
       "types": "./dist/renderElement.d.ts",
-      "default": "./dist/renderElement"
+      "default": "./dist/renderElement.js"
     },
     "./shape-cache": {
       "types": "./dist/shape-cache.d.ts",
-      "default": "./dist/shape-cache"
+      "default": "./dist/shape-cache.js"
     }
   },
   "scripts": {

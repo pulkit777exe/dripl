@@ -1,11 +1,11 @@
 {
   "builds": [
     {
-      "src": "api/index.ts",
+      "src": "api/index.js",
       "use": "@vercel/node"
     }
   ],
-  "installCommand": "cd ../.. && corepack enable && pnpm install && pnpm --filter @dripl/common build && pnpm --filter @dripl/utils build && pnpm --filter @dripl/db build",
+  "installCommand": "cd ../.. && corepack enable && pnpm install && pnpm --filter @dripl/common build && pnpm --filter @dripl/utils build && pnpm --filter @dripl/db build && bash scripts/bundle-serverless.sh apps/http-server",
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api/index" }

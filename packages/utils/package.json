@@ -7,19 +7,19 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "default": "./dist/index"
+      "default": "./dist/index.js"
     },
     "./auth": {
       "types": "./dist/auth.d.ts",
-      "default": "./dist/auth"
+      "default": "./dist/auth.js"
     },
     "./encryption": {
       "types": "./dist/encryption/index.d.ts",
-      "default": "./dist/encryption/index"
+      "default": "./dist/encryption/index.js"
     },
     "./env": {
       "types": "./dist/env.d.ts",
-      "default": "./dist/env"
+      "default": "./dist/env.js"
     }
   },
   "scripts": {
