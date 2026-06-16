@@ -1,11 +1,6 @@
 {
-  "builds": [
-    {
-      "src": "api/index.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "installCommand": "cd ../.. && corepack enable && pnpm install && pnpm --filter @dripl/common build && pnpm --filter @dripl/utils build && pnpm --filter @dripl/db build && bash scripts/bundle-serverless.sh apps/http-server",
+  "installCommand": "cd ../.. && corepack enable && pnpm install && pnpm --filter @dripl/common build && pnpm --filter @dripl/utils build && pnpm --filter @dripl/db build",
+  "buildCommand": "pnpm exec esbuild api/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=api/index.js",
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api/index" }
