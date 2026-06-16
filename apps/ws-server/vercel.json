@@ -1,10 +1,12 @@
 {
-  "builds": [
-    {
-      "src": "api/index.js",
-      "use": "@vercel/node"
+  "installCommand": "cd ../.. && corepack enable && corepack prepare pnpm@10.33.0 --activate && pnpm install",
+  "buildCommand": "cd ../.. && pnpm --filter @dripl/common build && pnpm --filter @dripl/utils build && pnpm --filter @dripl/db build && cd apps/ws-server && npx esbuild --bundle --platform=node --target=node20 --format=esm --outfile=api/index.js --external:@prisma/client --packages=external api/index.ts",
+  "outputDirectory": ".",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30
     }
-  ],
+  },
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api/index" }

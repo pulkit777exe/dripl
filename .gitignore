@@ -33,6 +33,7 @@ apps/*/.next/
 apps/*/out/
 apps/*/next-env.d.ts
 apps/http-server/api/index.js
+apps/ws-server/api/index.js
 
 # TypeScript build info
 *.tsbuildinfo
