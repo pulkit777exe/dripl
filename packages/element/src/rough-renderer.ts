@@ -1,10 +1,34 @@
 import rough from 'roughjs';
-import type { DriplElement } from '@dripl/common';
+import type { DriplElement, LinearElement } from '@dripl/common';
 import { getShapeFromCache, setShapeInCache, pruneShapeCache } from './shape-cache';
 import type { RoughCanvas as _RoughCanvas } from 'roughjs/bin/canvas';
 import type { Drawable as _Drawable } from 'roughjs/bin/core';
 export type { RoughCanvas } from 'roughjs/bin/canvas';
 export type { Drawable } from 'roughjs/bin/core';
+
+// Arrow routing functions (inline to avoid circular deps)
+
+function calculateCurvedPath(start: { x: number; y: number }, end: { x: number; y: number }, curvature: number = 0.5): { x: number; y: number }[] {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const midX = (start.x + end.x) / 2;
+  const midY = (start.y + end.y) / 2;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  if (length === 0) return [start, end];
+  const offsetX = (-dy / length) * length * curvature * 0.25;
+  const offsetY = (dx / length) * length * curvature * 0.25;
+  return [start, { x: midX + offsetX, y: midY + offsetY }, end];
+}
+
+function calculateElbowPath(start: { x: number; y: number }, end: { x: number; y: number }): { x: number; y: number }[] {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return [start, { x: end.x, y: start.y }, end];
+  } else {
+    return [start, { x: start.x, y: end.y }, end];
+  }
+}
 
 let generator: ReturnType<typeof rough.generator> | null = null;
 function getGenerator() {
@@ -105,7 +129,44 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
     }
 
     case 'line':
-    case 'arrow':
+    case 'arrow': {
+      if ('points' in element && element.points.length > 1) {
+        const pts = element.points.map((p: any) => [p.x, p.y] as [number, number]);
+        const linearEl = element as LinearElement;
+        const arrowStyle = linearEl.arrowStyle ?? 'straight';
+        const firstPt = pts[0];
+        const secondPt = pts[1];
+        
+        // For curved arrows, use quadratic bezier with control point
+        if (element.type === 'arrow' && arrowStyle === 'curved' && pts.length === 2 && firstPt && secondPt) {
+          const start = { x: firstPt[0], y: firstPt[1] };
+          const end = { x: secondPt[0], y: secondPt[1] };
+          const curvedPoints = calculateCurvedPath(start, end, 0.5);
+          // Convert to roughjs curve format
+          return getGenerator().curve(
+            curvedPoints.map(p => [p.x, p.y] as [number, number]),
+            options
+          );
+        }
+        
+        // For elbow arrows, generate rounded corner path
+        if (element.type === 'arrow' && arrowStyle === 'elbow' && pts.length === 2 && firstPt && secondPt) {
+          const start = { x: firstPt[0], y: firstPt[1] };
+          const end = { x: secondPt[0], y: secondPt[1] };
+          const elbowPoints = calculateElbowPath(start, end);
+          // For now, render as linear path through elbow points
+          // TODO: Add rounded corners with quadratic bezier curves
+          return getGenerator().linearPath(
+            elbowPoints.map(p => [p.x, p.y] as [number, number]),
+            options
+          );
+        }
+        
+        // Default: straight line
+        return getGenerator().linearPath(pts, options);
+      }
+      return [];
+    }
     case 'freedraw': {
       if ('points' in element && element.points.length > 1) {
         const pts = element.points.map((p: any) => [p.x, p.y] as [number, number]);

@@ -79,6 +79,7 @@ export interface LinearElement extends ElementBase {
     start?: boolean;
     end?: boolean;
   };
+  arrowStyle?: ArrowStyle; // straight, curved, or elbow routing
   startBinding?: NormalizedBinding;
   endBinding?: NormalizedBinding;
 }
@@ -115,6 +116,7 @@ export interface FrameElement extends ElementBase {
 }
 
 // Normalized binding model for constraints (Spec §5.3 Binding Constraint System)
+export type ArrowStyle = 'straight' | 'curved' | 'elbow';
 export type BindingMode = 'inside' | 'orbit';
 
 export interface NormalizedBinding {

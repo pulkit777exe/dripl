@@ -270,6 +270,57 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
     }
   };
 
+  const drawCurvedArrowPath = (offsetX: number, offsetY: number) => {
+    if (points.length < 2) return;
+    const first = points[0];
+    const last = points[points.length - 1];
+    if (!first || !last) return;
+
+    // Calculate control point for quadratic bezier
+    const midX = (first.x + last.x) / 2;
+    const midY = (first.y + last.y) / 2;
+    const dx = last.x - first.x;
+    const dy = last.y - first.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    
+    // Perpendicular offset for curvature
+    const offsetX2 = (-dy / length) * length * 0.25;
+    const offsetY2 = (dx / length) * length * 0.25;
+    const controlX = midX + offsetX2;
+    const controlY = midY + offsetY2;
+
+    ctx.moveTo(first.x + offsetX, first.y + offsetY);
+    ctx.quadraticCurveTo(
+      controlX + offsetX,
+      controlY + offsetY,
+      last.x + offsetX,
+      last.y + offsetY
+    );
+  };
+
+  const drawElbowArrowPath = (offsetX: number, offsetY: number) => {
+    if (points.length < 2) return;
+    const first = points[0];
+    const last = points[points.length - 1];
+    if (!first || !last) return;
+
+    // Calculate elbow path (horizontal then vertical or vice versa)
+    const dx = last.x - first.x;
+    const dy = last.y - first.y;
+    
+    ctx.moveTo(first.x + offsetX, first.y + offsetY);
+    
+    if (Math.abs(dx) > Math.abs(dy)) {
+      // Horizontal then vertical
+      ctx.lineTo(last.x + offsetX, first.y + offsetY);
+      ctx.lineTo(last.x + offsetX, last.y + offsetY);
+    } else {
+      // Vertical then horizontal
+      ctx.lineTo(first.x + offsetX, last.y + offsetY);
+      ctx.lineTo(last.x + offsetX, last.y + offsetY);
+    }
+  };
+
   const drawPath = (offsetX: number, offsetY: number) => {
     const first = points[0];
     if (!first) return;
@@ -279,6 +330,20 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
       return;
     }
 
+    // Handle arrow styles
+    if (element.type === 'arrow' && 'arrowStyle' in element) {
+      const arrowStyle = (element as any).arrowStyle as string;
+      if (arrowStyle === 'curved') {
+        drawCurvedArrowPath(offsetX, offsetY);
+        return;
+      }
+      if (arrowStyle === 'elbow') {
+        drawElbowArrowPath(offsetX, offsetY);
+        return;
+      }
+    }
+
+    // Default: straight line
     ctx.moveTo(first.x + offsetX, first.y + offsetY);
     for (let i = 1; i < points.length; i += 1) {
       const point = points[i];
@@ -301,7 +366,42 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
     const prev = points[points.length - 2];
     if (!end || !prev) return;
 
-    const angle = Math.atan2(end.y - prev.y, end.x - prev.x);
+    // Calculate angle based on arrow style
+    let angle: number;
+    if ('arrowStyle' in element) {
+      const arrowStyle = (element as any).arrowStyle as string;
+      if (arrowStyle === 'curved') {
+        // For curved arrows, approximate tangent at endpoint
+        // Using quadratic bezier: B(t) = (1-t)^2*P0 + 2*(1-t)*t*P1 + t^2*P2
+        // Derivative at t=1: 2*(P2 - P1)
+        const first = points[0];
+        if (first) {
+          const midX = (first.x + end.x) / 2;
+          const midY = (first.y + end.y) / 2;
+          const dx = end.x - first.x;
+          const dy = end.y - first.y;
+          const length = Math.sqrt(dx * dx + dy * dy);
+          const ctrlX = midX + (-dy / length) * length * 0.25;
+          const ctrlY = midY + (dx / length) * length * 0.25;
+          angle = Math.atan2(end.y - ctrlY, end.x - ctrlX);
+        } else {
+          angle = Math.atan2(end.y - prev.y, end.x - prev.x);
+        }
+      } else if (arrowStyle === 'elbow') {
+        // For elbow arrows, use the last segment direction
+        const secondLast = points.length > 2 ? points[points.length - 3] : prev;
+        if (secondLast) {
+          angle = Math.atan2(end.y - secondLast.y, end.x - secondLast.x);
+        } else {
+          angle = Math.atan2(end.y - prev.y, end.x - prev.x);
+        }
+      } else {
+        angle = Math.atan2(end.y - prev.y, end.x - prev.x);
+      }
+    } else {
+      angle = Math.atan2(end.y - prev.y, end.x - prev.x);
+    }
+
     const headLength = 12;
     const spread = (25 * Math.PI) / 180;
 

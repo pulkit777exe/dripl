@@ -38,6 +38,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
   currentRoughness: 1,
   currentStrokeStyle: 'solid',
   currentFillStyle: 'hachure',
+  currentArrowStyle: 'straight',
   drawingLifecycle: 'idle',
   draftElement: null,
   isEditingElementId: null,
@@ -383,6 +384,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
   setCurrentRoughness: currentRoughness => set({ currentRoughness }),
   setCurrentStrokeStyle: currentStrokeStyle => set({ currentStrokeStyle }),
   setCurrentFillStyle: currentFillStyle => set({ currentFillStyle }),
+  setCurrentArrowStyle: currentArrowStyle => set({ currentArrowStyle }),
 
   setDraftElement: element =>
     set({

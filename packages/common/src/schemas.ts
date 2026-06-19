@@ -80,6 +80,7 @@ export const PathElementSchema = BaseElementSchema.extend({
 export const LineElementSchema = BaseElementSchema.extend({
   type: z.literal('line'),
   points: z.array(PointSchema).min(2),
+  arrowStyle: z.enum(['straight', 'curved', 'elbow']).optional(),
   startBinding: BindingSchema,
   endBinding: BindingSchema,
 });
@@ -87,6 +88,7 @@ export const LineElementSchema = BaseElementSchema.extend({
 export const ArrowElementSchema = BaseElementSchema.extend({
   type: z.literal('arrow'),
   points: z.array(PointSchema).min(2),
+  arrowStyle: z.enum(['straight', 'curved', 'elbow']).optional(),
   startBinding: BindingSchema,
   endBinding: BindingSchema,
 });

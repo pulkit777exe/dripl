@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { ExportModal } from './ExportModal';
-import type { DriplElement } from '@dripl/common';
+import type { DriplElement, ArrowStyle } from '@dripl/common';
 import { FONT_PREFERENCES, getDefaultFontFamily } from '@/utils/fontPreferences';
 
 interface ElementPropertiesProps {
@@ -201,12 +201,14 @@ export function PropertiesPanel({
   const currentStrokeWidth = useCanvasStore(s => s.currentStrokeWidth);
   const currentRoughness = useCanvasStore(s => s.currentRoughness);
   const currentStrokeStyle = useCanvasStore(s => s.currentStrokeStyle);
+  const currentArrowStyle = useCanvasStore(s => s.currentArrowStyle);
 
   const setCurrentStrokeColor = useCanvasStore(s => s.setCurrentStrokeColor);
   const setCurrentBackgroundColor = useCanvasStore(s => s.setCurrentBackgroundColor);
   const setCurrentStrokeWidth = useCanvasStore(s => s.setCurrentStrokeWidth);
   const setCurrentRoughness = useCanvasStore(s => s.setCurrentRoughness);
   const setCurrentStrokeStyle = useCanvasStore(s => s.setCurrentStrokeStyle);
+  const setCurrentArrowStyle = useCanvasStore(s => s.setCurrentArrowStyle);
 
   const bringForward = useCanvasStore(s => s.bringForward);
   const sendBackward = useCanvasStore(s => s.sendBackward);
@@ -487,8 +489,12 @@ export function PropertiesPanel({
               {(['straight', 'curved', 'elbow'] as const).map(type => (
                 <RowBtn
                   key={type}
-                  active={(selectedElement as any)?.arrowType === type}
-                  onClick={() => updateProp('arrowType', type)}
+                  active={((selectedElement as any)?.arrowStyle ?? currentArrowStyle) === type}
+                  onClick={() =>
+                    selectedElement
+                      ? updateProp('arrowStyle', type)
+                      : setCurrentArrowStyle(type)
+                  }
                   title={type}
                 >
                   <svg

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { DriplElement, LinearElement, Point, NormalizedBinding } from '@dripl/common';
+import type { DriplElement, LinearElement, Point, NormalizedBinding, ArrowStyle } from '@dripl/common';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { getDistanceToBounds } from '@dripl/math/intersection';
 import { createRectangleElement, type RectangleToolState } from '@/utils/tools/rectangle';
@@ -36,6 +36,7 @@ interface BaseToolProps {
   roughness: number;
   strokeStyle: 'solid' | 'dashed' | 'dotted';
   fillStyle: 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
+  arrowStyle?: ArrowStyle;
 }
 
 type ActiveToolState =
@@ -201,7 +202,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
         case 'diamond':
           return createDiamondElement(toolState.state, props);
         case 'arrow':
-          return createArrowElement(toolState.state, props).arrow;
+          return createArrowElement(toolState.state, props, undefined, base.arrowStyle).arrow;
         case 'line':
           return createLineElement(toolState.state, props);
         case 'freedraw':

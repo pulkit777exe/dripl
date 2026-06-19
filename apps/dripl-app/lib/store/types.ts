@@ -1,4 +1,4 @@
-import type { DriplElement } from '@dripl/common';
+import type { DriplElement, ArrowStyle } from '@dripl/common';
 import type { RemoteUser, RemoteCursor, Theme, ActiveTool, DrawingLifecycle } from '../canvas-store';
 
 export type FillStyle = 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
@@ -27,6 +27,7 @@ export interface CanvasSlice {
   currentRoughness: number;
   currentStrokeStyle: StrokeStyle;
   currentFillStyle: FillStyle;
+  currentArrowStyle: ArrowStyle;
   drawingLifecycle: DrawingLifecycle;
   draftElement: DriplElement | null;
   isEditingElementId: string | null;
@@ -62,6 +63,7 @@ export interface CanvasSlice {
   setCurrentRoughness: (roughness: number) => void;
   setCurrentStrokeStyle: (style: StrokeStyle) => void;
   setCurrentFillStyle: (style: FillStyle) => void;
+  setCurrentArrowStyle: (style: ArrowStyle) => void;
   setDraftElement: (element: DriplElement | null) => void;
   updateDraftElement: (updates: Partial<DriplElement>) => void;
   commitDraft: () => DriplElement | null;

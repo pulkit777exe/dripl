@@ -1,4 +1,4 @@
-import type { DriplElement, Point, LinearElement, TextElement, NormalizedBinding } from '@dripl/common';
+import type { DriplElement, Point, LinearElement, TextElement, NormalizedBinding, ArrowStyle } from '@dripl/common';
 import { v4 as uuidv4 } from 'uuid';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
 import {
@@ -26,7 +26,8 @@ export interface ArrowBindingInfo {
 export function createArrowElement(
   state: ArrowToolState,
   baseProps: Omit<DriplElement, 'type' | 'x' | 'y' | 'width' | 'height' | 'points'> & { id: string },
-  bindingInfo?: ArrowBindingInfo
+  bindingInfo?: ArrowBindingInfo,
+  arrowStyle?: ArrowStyle
 ): { arrow: LinearElement; label?: TextElement } {
   if (state.points.length === 0) {
     throw new Error('Arrow must have at least one point');
@@ -44,6 +45,7 @@ export function createArrowElement(
     height: maxY - minY,
     points: relativePoints,
     arrowHeads: { start: false, end: true },
+    arrowStyle: arrowStyle ?? 'straight',
     startBinding: bindingInfo?.startBinding,
     endBinding: bindingInfo?.endBinding,
   };
