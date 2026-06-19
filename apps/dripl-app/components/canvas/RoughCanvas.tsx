@@ -11,10 +11,10 @@ import { collectCascadeDeleteIds } from '@dripl/common/cascade-delete';
 import { getOrCreateCollaboratorName } from '@/utils/username';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
 import RBush from 'rbush';
-import { SelectionOverlay, ResizeHandle } from './SelectionOverlay';
-import { RemoteCursors } from './RemoteCursors';
+import { SelectionOverlay, MemoizedSelectionOverlay, ResizeHandle } from './SelectionOverlay';
+import { MemoizedRemoteCursors } from './RemoteCursors';
 import { LaserCanvas } from './LaserCanvas';
-import { DualCanvas } from './DualCanvas';
+import DualCanvas from './DualCanvas';
 import { screenToCanvas, Viewport } from '@/utils/canvas-coordinates';
 import { useDrawingTools } from '@/hooks/useDrawingTools';
 import { useCanvasPersistence } from '@/hooks/canvas/useCanvasPersistence';
@@ -131,7 +131,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const draftElement = useCanvasStore(state => state.draftElement);
   const activeTool = useCanvasStore(state => state.activeTool);
   const toolLocked = useCanvasStore(state => state.toolLocked);
-  const selectedIds = useCanvasStore(state => state.selectedIds);
+  const selectedIds = useCanvasStore(useShallow(state => state.selectedIds));
   const currentStrokeColor = useCanvasStore(state => state.currentStrokeColor);
   const currentStrokeWidth = useCanvasStore(state => state.currentStrokeWidth);
   const currentRoughness = useCanvasStore(state => state.currentRoughness);
@@ -144,6 +144,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const marqueeSelectionMode = useCanvasStore(state => state.marqueeSelectionMode);
   const elementLocks = useCanvasStore(state => state.elementLocks);
   const userId = useCanvasStore(state => state.userId);
+  const shouldCacheIgnoreZoom = useCanvasStore(state => state.shouldCacheIgnoreZoom);
 
   const setElements = useCanvasStore(state => state.setElements);
   const addElement = useCanvasStore(state => state.addElement);
@@ -251,13 +252,16 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   };
 
   // ── Viewport ─────────────────────────────────────────────────────────────
-  const viewport: Viewport = {
-    x: panX,
-    y: panY,
-    width: containerSize.width,
-    height: containerSize.height,
-    zoom,
-  };
+  const viewport: Viewport = useMemo(
+    () => ({
+      x: panX,
+      y: panY,
+      width: containerSize.width,
+      height: containerSize.height,
+      zoom,
+    }),
+    [panX, panY, containerSize.width, containerSize.height, zoom]
+  );
 
   const { fitAllToScreen, fitElementsToScreen } = useCanvasViewport(containerRef);
 
@@ -806,8 +810,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   const collaboratorCursors = collaborators;
   const shouldShowPropertiesPanel = activeTool === 'select' && selectedIds.size > 0; // RULE: Sidebar Visibility
-  const primarySelectedElement =
-    selectedIds.size > 0 ? (elements.find(element => selectedIds.has(element.id)) ?? null) : null;
+  const primarySelectedElement = useMemo(
+    () => (selectedIds.size > 0 ? (elements.find(element => selectedIds.has(element.id)) ?? null) : null),
+    [elements, selectedIds]
+  );
 
   return (
     <div
@@ -841,13 +847,14 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           lockOwners={elementLocks}
           localUserId={userId}
           hoveredBindingId={hoveredBindingIdRef.current}
+          shouldCacheIgnoreZoom={shouldCacheIgnoreZoom}
         />
       )}
 
       <LaserCanvas />
 
       {!readOnly && (
-        <SelectionOverlay
+        <MemoizedSelectionOverlay
           zoom={zoom}
           panX={panX}
           panY={panY}
@@ -859,7 +866,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         />
       )}
 
-      <RemoteCursors />
+      <MemoizedRemoteCursors />
 
       {roomSlug === null && elements.length === 0 && !welcomeScreenDismissed && (
         <Suspense fallback={null}>

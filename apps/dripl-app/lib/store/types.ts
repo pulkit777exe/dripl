@@ -31,6 +31,7 @@ export interface CanvasSlice {
   draftElement: DriplElement | null;
   isEditingElementId: string | null;
   clipboard: DriplElement[];
+  shouldCacheIgnoreZoom: boolean;
   
   // Drawing state (moved from RoughCanvas local state)
   isDrawing: boolean;
@@ -69,6 +70,7 @@ export interface CanvasSlice {
   setZoom: (zoom: number) => void;
   setPan: (panX: number, panY: number) => void;
   setViewport: (zoom: number, panX: number, panY: number) => void;
+  setShouldCacheIgnoreZoom: (ignore: boolean) => void;
   setGridEnabled: (enabled: boolean) => void;
   setGridSize: (size: number) => void;
   setMarqueeSelectionMode: (mode: 'intersecting' | 'contained') => void;

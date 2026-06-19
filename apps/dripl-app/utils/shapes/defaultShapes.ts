@@ -1,14 +1,5 @@
 import type { ShapeDefinition, DriplElement, Point, ElementBase } from '@dripl/common';
-
-const IMAGE_CACHE_MAX = 200;
-const imageCache = new Map<string, HTMLImageElement>();
-function cacheImage(key: string, img: HTMLImageElement) {
-  if (imageCache.size >= IMAGE_CACHE_MAX) {
-    const firstKey = imageCache.keys().next().value;
-    if (firstKey) imageCache.delete(firstKey);
-  }
-  imageCache.set(key, img);
-}
+import { imageCache } from '@dripl/element/image-cache';
 import { createRectangleElement, RectangleToolState } from '@/utils/tools/rectangle';
 import { createEllipseElement, EllipseToolState } from '@/utils/tools/ellipse';
 import { createDiamondElement, DiamondToolState } from '@/utils/tools/diamond';
@@ -465,15 +456,19 @@ export const imageShape: ShapeDefinition = {
 
     ctx.globalAlpha = element.opacity || 1;
 
-    let img = imageCache.get(imageElement.src);
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, element.x, element.y, element.width, element.height);
-    } else if (!img) {
-      img = new Image();
-      img.src = imageElement.src;
-      img.onload = () => {
-        cacheImage(imageElement.src, img!);
-      };
+    const cached = imageCache.get(imageElement.src);
+    if (cached?.loaded) {
+      ctx.drawImage(cached.image, element.x, element.y, element.width, element.height);
+    } else if (cached?.error) {
+      ctx.fillStyle = 'rgba(255,0,0,0.1)';
+      ctx.fillRect(element.x, element.y, element.width, element.height);
+    } else {
+      // Start loading if not already in progress
+      if (!cached) {
+        imageCache.load(imageElement.src).catch(() => {});
+      }
+      ctx.fillStyle = 'rgba(0,0,0,0.06)';
+      ctx.fillRect(element.x, element.y, element.width, element.height);
     }
   },
   getProperties: (element: DriplElement) => {

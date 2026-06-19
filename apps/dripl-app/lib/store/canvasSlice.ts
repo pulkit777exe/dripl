@@ -4,6 +4,7 @@ import { collectCascadeDeleteIds } from '@dripl/common/cascade-delete';
 import { generateKeyBetween } from 'fractional-indexing';
 import { invalidateElementCache } from '@dripl/element/staticScene';
 import { clearShapeFromCache, clearAllShapeCache } from '@dripl/element/shape-cache';
+import { mutateElement } from '@dripl/element/mutateElement';
 import { getElementBounds } from '@dripl/math/intersection';
 import type { CanvasStoreState, CanvasSlice } from './types';
 import {
@@ -41,6 +42,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
   draftElement: null,
   isEditingElementId: null,
   clipboard: [],
+  shouldCacheIgnoreZoom: false,
 
   setElements: (elements, options) =>
     set(state => {
@@ -131,20 +133,15 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       const previous = state.elementsById.get(id);
       if (!previous) return state;
 
-      invalidateElementCache(id);
-      clearShapeFromCache(previous);
+      const updated = mutateElement(previous, updates);
+
+      // No-op guard: if nothing changed, skip history and state update
+      if (updated === previous) return state;
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
       );
-      const updated: DriplElement = {
-        ...previous,
-        ...updates,
-        version: (previous.version ?? 0) + 1,
-        versionNonce: Math.floor(Math.random() * 2_147_483_647),
-        updated: Date.now(),
-      } as DriplElement;
 
       const nextElements = state.elements.map(e => (e.id === id ? updated : e));
       const nextMap = new Map(state.elementsById);
@@ -163,14 +160,10 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       const previous = state.elementsById.get(id);
       if (!previous) return state;
 
-      invalidateElementCache(id);
-      clearShapeFromCache(previous);
+      const updated = mutateElement(previous, updates);
 
-      const updated = {
-        ...previous,
-        ...updates,
-        version: (previous.version ?? 0) + 1,
-      } as DriplElement;
+      // No-op guard: if nothing changed, skip state update
+      if (updated === previous) return state;
 
       const nextElements = state.elements.map(e => (e.id === id ? updated : e));
       const nextMap = new Map(state.elementsById);
@@ -244,8 +237,12 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
             above.fractionalIndex ?? null,
             (i + 2 < nextElements.length ? nextElements[i + 2]?.fractionalIndex : null) ?? null,
           );
-          current.fractionalIndex = newIdx;
-          changed = true;
+          // Use mutateElement to bump version and invalidate caches
+          const updated = mutateElement(current, { fractionalIndex: newIdx });
+          if (updated !== current) {
+            nextElements[i] = updated;
+            changed = true;
+          }
         }
       }
       if (!changed) return state;
@@ -281,8 +278,12 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
             (i - 2 >= 0 ? nextElements[i - 2]?.fractionalIndex : null) ?? null,
             below.fractionalIndex ?? null,
           );
-          current.fractionalIndex = newIdx;
-          changed = true;
+          // Use mutateElement to bump version and invalidate caches
+          const updated = mutateElement(current, { fractionalIndex: newIdx });
+          if (updated !== current) {
+            nextElements[i] = updated;
+            changed = true;
+          }
         }
       }
       if (!changed) return state;
@@ -313,7 +314,8 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       const nextElements = sorted.map(el => {
         if (selected.has(el.id)) {
           const idx = generateKeyBetween(newFrontier, null);
-          return { ...el, fractionalIndex: idx };
+          // Use mutateElement to bump version and invalidate caches
+          return mutateElement(el, { fractionalIndex: idx });
         }
         return { ...el };
       });
@@ -344,7 +346,8 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       const nextElements = sorted.map(el => {
         if (selected.has(el.id)) {
           const idx = generateKeyBetween(null, newBackier);
-          return { ...el, fractionalIndex: idx };
+          // Use mutateElement to bump version and invalidate caches
+          return mutateElement(el, { fractionalIndex: idx });
         }
         return { ...el };
       });
@@ -438,6 +441,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
   setZoom: zoom => set({ zoom: Math.max(0.1, Math.min(20, zoom)) }),
   setPan: (panX, panY) => set({ panX, panY }),
   setViewport: (zoom, panX, panY) => set({ zoom: Math.max(0.1, Math.min(20, zoom)), panX, panY }),
+  setShouldCacheIgnoreZoom: shouldCacheIgnoreZoom => set({ shouldCacheIgnoreZoom }),
   setGridEnabled: gridEnabled => set({ gridEnabled }),
   setGridSize: gridSize => set({ gridSize: Math.max(4, gridSize) }),
   setMarqueeSelectionMode: mode => set({ marqueeSelectionMode: mode }),
@@ -520,13 +524,8 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
 
       const nextElements = state.elements.map(element => {
         if (idSet.has(element.id)) {
-          return {
-            ...element,
-            groupId,
-            version: (element.version ?? 0) + 1,
-            versionNonce: Math.floor(Math.random() * 2000000000),
-            updated: Date.now(),
-          } as DriplElement;
+          // Use mutateElement to bump version and invalidate caches
+          return mutateElement(element, { groupId });
         }
         return element;
       });
@@ -553,12 +552,16 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       const nextElements = state.elements.map(element => {
         if (ids.includes(element.id) && element.groupId) {
           const { groupId, ...rest } = element;
-          return {
+          const updated = {
             ...rest,
             version: (rest.version ?? 0) + 1,
             versionNonce: Math.floor(Math.random() * 2000000000),
             updated: Date.now(),
           } as DriplElement;
+          // Invalidate caches for the updated element
+          invalidateElementCache(element.id);
+          clearShapeFromCache(element);
+          return updated;
         }
         return element;
       });

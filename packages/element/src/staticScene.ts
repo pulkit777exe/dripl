@@ -17,6 +17,7 @@ export interface StaticSceneConfig {
   zoom: number;
   theme: 'light' | 'dark';
   dpr: number;
+  shouldCacheIgnoreZoom?: boolean;
 }
 
 // ─── Element canvas cache ────────────────────────────────────────────────────
@@ -24,17 +25,19 @@ export interface StaticSceneConfig {
 //   canvas  – the offscreen canvas with the rendered element
 //   version – element.version at the time of rendering.
 //             If element.version changes, the entry is regenerated in O(1).
+//
+// Uses WeakMap keyed by element object reference for automatic GC.
 interface CacheEntry {
   canvas: HTMLCanvasElement;
   version: number;
 }
 
-const elementCanvasCache = new Map<string, CacheEntry>();
+const elementCanvasCache = new WeakMap<DriplElement, CacheEntry>();
 
 /**
  * Return the element's version number for cache invalidation.
  * Falls back to 0 for legacy elements that don't have a version yet.
- * O(1) — no serialization required (TODO #31).
+ * O(1) — no serialization required.
  */
 function getElementVersion(el: DriplElement): number {
   return (el as any).version ?? 0;
@@ -59,6 +62,8 @@ export function renderStaticScene(
     drawGrid(ctx, viewport, config);
   }
 
+  const shouldCacheIgnoreZoom = config.shouldCacheIgnoreZoom ?? false;
+
   // 3. Draw each visible element.
   for (const element of elements) {
     if ((element as any).isDeleted) continue;
@@ -66,16 +71,25 @@ export function renderStaticScene(
     // StaticSceneViewport culling — skip elements fully outside the visible area.
     if (!isElementVisible(element, viewport, config.zoom)) continue;
 
-    drawElement(ctx, element, viewport, config);
+    drawElement(ctx, element, viewport, config, shouldCacheIgnoreZoom);
   }
 }
 
-export function invalidateElementCache(elementId: string): void {
-  elementCanvasCache.delete(elementId);
+/**
+ * Invalidate element canvas cache.
+ *
+ * Note: With WeakMap, explicit invalidation is optional for normal mutations
+ * since old element objects will be GC'd automatically. This function is
+ * kept for backward compatibility but is now a no-op.
+ */
+export function invalidateElementCache(_elementId: string): void {
+  // WeakMap doesn't support lookup by string ID.
+  // Old entries are automatically cleaned up when element objects are GC'd.
 }
 
 export function clearStaticSceneCache(): void {
-  elementCanvasCache.clear();
+  // WeakMap doesn't support clear().
+  // Entries are automatically cleaned up when element objects are GC'd.
 }
 
 // ─── Canvas bootstrap ────────────────────────────────────────────────────────
@@ -181,7 +195,8 @@ function drawElement(
   ctx: CanvasRenderingContext2D,
   element: DriplElement,
   _viewport: StaticSceneViewport,
-  config: StaticSceneConfig
+  config: StaticSceneConfig,
+  shouldCacheIgnoreZoom: boolean = false
 ): void {
   // Image elements are drawn directly — no offscreen canvas needed.
   if (element.type === 'image') {
@@ -190,7 +205,7 @@ function drawElement(
   }
 
   // For everything else, get (or generate) the offscreen element canvas.
-  const offscreen = getOrCreateElementCanvas(element, config);
+  const offscreen = getOrCreateElementCanvas(element, config, shouldCacheIgnoreZoom);
   if (!offscreen) return;
 
   // Opacity — apply before drawing so it composites correctly.
@@ -228,13 +243,16 @@ const PADDING = 10;
 
 function getOrCreateElementCanvas(
   element: DriplElement,
-  config: StaticSceneConfig
+  config: StaticSceneConfig,
+  shouldCacheIgnoreZoom: boolean = false
 ): HTMLCanvasElement | null {
   const version = getElementVersion(element);
-  const cached = elementCanvasCache.get(element.id);
+  const cached = elementCanvasCache.get(element);
 
-  // O(1) version-number comparison instead of O(n) string serialization (TODO #31)
-  if (cached && cached.version === version) {
+  // O(1) version-number comparison
+  // When shouldCacheIgnoreZoom is true, skip zoom-based cache invalidation
+  // This allows slightly blurry but fast rendering during zoom animations
+  if (cached && (cached.version === version || shouldCacheIgnoreZoom)) {
     return cached.canvas;
   }
 
@@ -242,7 +260,7 @@ function getOrCreateElementCanvas(
   const canvas = generateElementCanvas(element, config);
   if (!canvas) return null;
 
-  elementCanvasCache.set(element.id, { canvas, version });
+  elementCanvasCache.set(element, { canvas, version });
   return canvas;
 }
 

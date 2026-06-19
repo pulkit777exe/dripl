@@ -315,3 +315,18 @@ export function SelectionOverlay({
     </div>
   );
 }
+
+const areSelectionOverlayEqual = (prev: SelectionOverlayProps, next: SelectionOverlayProps): boolean => {
+  return (
+    prev.zoom === next.zoom &&
+    prev.panX === next.panX &&
+    prev.panY === next.panY &&
+    prev.elements === next.elements &&
+    prev.selectedIds === next.selectedIds &&
+    prev.onResizeStart === next.onResizeStart &&
+    prev.onRotateStart === next.onRotateStart &&
+    prev.marqueeSelection === next.marqueeSelection
+  );
+};
+
+export const MemoizedSelectionOverlay = React.memo(SelectionOverlay, areSelectionOverlayEqual);

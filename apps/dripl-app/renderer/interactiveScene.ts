@@ -1,6 +1,7 @@
 import type { DriplElement, Point } from '@dripl/common';
 import { getElementBounds } from '@dripl/math/intersection';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
+import { imageCache } from '@dripl/element/image-cache';
 
 export interface SceneViewport {
   x: number;
@@ -54,9 +55,7 @@ interface TextMeasurement {
 }
 
 const textMetricsCache = new Map<string, TextMeasurement>();
-const imageCache = new Map<string, HTMLImageElement>();
 const MAX_TEXT_CACHE_SIZE = 500;
-const MAX_IMAGE_CACHE_SIZE = 200;
 
 const MARQUEE_DASH = [6, 4];
 const DEFAULT_GRID_SIZE = 20;
@@ -378,19 +377,15 @@ function renderImage(ctx: CanvasRenderingContext2D, element: DriplElement) {
   if (!('src' in element) || typeof element.src !== 'string' || !element.src) {
     return;
   }
-  let image = imageCache.get(element.src);
-  if (!image) {
-    image = new Image();
-    image.src = element.src;
-    if (imageCache.size >= MAX_IMAGE_CACHE_SIZE) {
-      const firstKey = imageCache.keys().next().value;
-      if (firstKey !== undefined) imageCache.delete(firstKey);
-    }
-    imageCache.set(element.src, image);
-  }
-  if (image.complete && image.naturalWidth > 0) {
-    ctx.drawImage(image, element.x, element.y, element.width, element.height);
+  const cached = imageCache.get(element.src);
+  if (cached?.loaded) {
+    ctx.drawImage(cached.image, element.x, element.y, element.width, element.height);
     return;
+  }
+
+  // Start loading if not already in progress
+  if (!cached) {
+    imageCache.load(element.src).catch(() => {});
   }
 
   ctx.fillStyle = 'rgba(127,127,127,0.2)';
@@ -645,7 +640,8 @@ function drawBindingIndicator(
 
 export function clearTextMeasurementCache() {
   textMetricsCache.clear();
-  imageCache.clear();
+  // Note: imageCache is now shared via @dripl/element/image-cache
+  // Don't clear it here as other renderers may still need it
 }
 
 export function renderInteractiveScene({

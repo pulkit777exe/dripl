@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useInterpolatedCursors } from '@/hooks/useInterpolatedCursors';
 import { useCanvasStore } from '@/lib/canvas-store';
 
@@ -59,3 +60,5 @@ export function RemoteCursors() {
     </>
   );
 }
+
+export const MemoizedRemoteCursors = React.memo(RemoteCursors);

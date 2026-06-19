@@ -13,6 +13,7 @@ interface StaticCanvasProps {
   gridEnabled?: boolean;
   gridSize?: number;
   theme: 'light' | 'dark';
+  shouldCacheIgnoreZoom?: boolean;
 }
 
 const areEqual = (prev: StaticCanvasProps, next: StaticCanvasProps): boolean => {
@@ -47,6 +48,7 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
   gridEnabled = false,
   gridSize = 20,
   theme,
+  shouldCacheIgnoreZoom = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -60,6 +62,7 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
     gridEnabled,
     gridSize,
     theme,
+    shouldCacheIgnoreZoom,
   });
 
   useEffect(() => {
@@ -70,9 +73,10 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
       gridEnabled,
       gridSize,
       theme,
+      shouldCacheIgnoreZoom,
     };
     isDirtyRef.current = true;
-  }, [elements, selectedIds, viewport, gridEnabled, gridSize, theme]);
+  }, [elements, selectedIds, viewport, gridEnabled, gridSize, theme, shouldCacheIgnoreZoom]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -132,6 +136,7 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
             zoom: props.viewport.zoom,
             theme: props.theme,
             dpr: dprRef.current,
+            shouldCacheIgnoreZoom: props.shouldCacheIgnoreZoom,
           }
         );
       }

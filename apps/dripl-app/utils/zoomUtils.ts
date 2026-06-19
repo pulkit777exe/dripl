@@ -139,6 +139,9 @@ export function smoothZoom(
   const fromPanY = startPanY ?? currentPanY;
   const startTime = performance.now();
 
+  // Set shouldCacheIgnoreZoom to true during animation for smooth zoom
+  useCanvasStore.getState().setShouldCacheIgnoreZoom(true);
+
   AnimationController.start(
     SMOOTH_ZOOM_KEY,
     (state) => {
@@ -156,6 +159,9 @@ export function smoothZoom(
       if (t < 1) {
         return { ...state, zoom, panX, panY };
       }
+
+      // Animation complete - restore cache behavior
+      useCanvasStore.getState().setShouldCacheIgnoreZoom(false);
       return undefined;
     },
     { startTime, zoom: fromZoom, panX: fromPanX, panY: fromPanY }

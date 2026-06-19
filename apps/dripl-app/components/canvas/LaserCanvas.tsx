@@ -16,10 +16,6 @@ export function LaserCanvas() {
   const pointsRef = useRef<LaserPoint[]>([]);
   const isDrawingRef = useRef(false);
 
-  const zoom = useCanvasStore(state => state.zoom);
-  const panX = useCanvasStore(state => state.panX);
-  const panY = useCanvasStore(state => state.panY);
-
   useEffect(() => {
     const handleStart = (e: Event) => {
       const custom = e as CustomEvent<{ x: number; y: number }>;
@@ -83,6 +79,9 @@ export function LaserCanvas() {
     const draw = () => {
       const points = pointsRef.current;
       const now = Date.now();
+
+      // Read zoom/pan from store directly to avoid recreating RAF loop
+      const { zoom, panX, panY } = useCanvasStore.getState();
 
       // Prune old points
       pointsRef.current = points.filter(p => now - p.createdAt < LASER_FADE_MS);
@@ -153,7 +152,7 @@ export function LaserCanvas() {
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [zoom, panX, panY]);
+  }, []); // Empty deps - RAF loop runs once, reads store directly
 
   return <canvas ref={canvasRef} className="absolute inset-0 z-30 pointer-events-none overflow-visible" />;
 }

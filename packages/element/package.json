@@ -20,6 +20,14 @@
     "./shape-cache": {
       "types": "./dist/shape-cache.d.ts",
       "default": "./dist/shape-cache.js"
+    },
+    "./mutateElement": {
+      "types": "./dist/mutateElement.d.ts",
+      "default": "./dist/mutateElement.js"
+    },
+    "./image-cache": {
+      "types": "./dist/image-cache.d.ts",
+      "default": "./dist/image-cache.js"
     }
   },
   "scripts": {

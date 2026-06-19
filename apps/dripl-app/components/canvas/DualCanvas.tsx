@@ -5,7 +5,7 @@ import StaticCanvas from './StaticCanvas';
 import InteractiveCanvas from './InteractiveCanvas';
 import { CanvasErrorBoundary } from './CanvasErrorBoundary';
 import type { DriplElement, Point } from '@dripl/common';
-import { Viewport } from '@/utils/canvas-coordinates';
+import type { Viewport } from '@/utils/canvas-coordinates';
 import type { CollaboratorCursor } from '@/renderer/interactiveScene';
 
 interface DualCanvasProps {
@@ -35,9 +35,24 @@ interface DualCanvasProps {
   lockOwners?: ReadonlyMap<string, string>;
   localUserId?: string | null;
   hoveredBindingId?: string | null;
+  shouldCacheIgnoreZoom?: boolean;
 }
 
-export function DualCanvas({
+/**
+ * DualCanvas — stacked canvas architecture matching Excalidraw's pattern.
+ *
+ * StaticCanvas (z-1, pointer-events: none):
+ *   Renders committed scene elements. Only re-renders when elements,
+ *   viewport, grid, or theme change. Pointer events fall through.
+ *
+ * InteractiveCanvas (z-2, pointer-events: auto):
+ *   Renders selection boxes, draft elements, cursors, marquee.
+ *   Receives all pointer events for user interaction.
+ *
+ * This separation ensures panning/zooming only touches the interactive
+ * canvas, while expensive element rendering is isolated to the static layer.
+ */
+const DualCanvas: React.FC<DualCanvasProps> = ({
   containerRef,
   elements,
   selectedIds,
@@ -59,7 +74,8 @@ export function DualCanvas({
   lockOwners = new Map<string, string>(),
   localUserId = null,
   hoveredBindingId,
-}: DualCanvasProps) {
+  shouldCacheIgnoreZoom = false,
+}) => {
   return (
     <div
       style={{
@@ -68,6 +84,7 @@ export function DualCanvas({
         pointerEvents: 'none',
       }}
     >
+      {/* Static layer — committed elements only, no pointer events */}
       <CanvasErrorBoundary name="StaticCanvas">
         <StaticCanvas
           containerRef={containerRef}
@@ -77,9 +94,11 @@ export function DualCanvas({
           gridEnabled={gridEnabled}
           gridSize={gridSize}
           theme={theme}
+          shouldCacheIgnoreZoom={shouldCacheIgnoreZoom}
         />
       </CanvasErrorBoundary>
 
+      {/* Interactive layer — selection, cursors, draft, receives pointer events */}
       <CanvasErrorBoundary name="InteractiveCanvas">
         <InteractiveCanvas
           containerRef={containerRef}
@@ -105,6 +124,38 @@ export function DualCanvas({
       </CanvasErrorBoundary>
     </div>
   );
-}
+};
 
-export default DualCanvas;
+/**
+ * Memoize DualCanvas to prevent re-renders when props haven't changed.
+ * The child canvases (StaticCanvas, InteractiveCanvas) have their own
+ * React.memo with surgical equality checks, so they skip rendering
+ * even when DualCanvas re-renders but their specific props are unchanged.
+ */
+const areEqual = (prev: DualCanvasProps, next: DualCanvasProps): boolean => {
+  return (
+    prev.elements === next.elements &&
+    prev.selectedIds === next.selectedIds &&
+    prev.draftElement === next.draftElement &&
+    prev.eraserPath === next.eraserPath &&
+    prev.viewport === next.viewport &&
+    prev.theme === next.theme &&
+    prev.onPointerDown === next.onPointerDown &&
+    prev.onPointerMove === next.onPointerMove &&
+    prev.onPointerUp === next.onPointerUp &&
+    prev.cursorPosition === next.cursorPosition &&
+    prev.isDragging === next.isDragging &&
+    prev.isResizing === next.isResizing &&
+    prev.isDrawing === next.isDrawing &&
+    prev.marqueeSelection === next.marqueeSelection &&
+    prev.gridEnabled === next.gridEnabled &&
+    prev.gridSize === next.gridSize &&
+    prev.collaborators === next.collaborators &&
+    prev.lockOwners === next.lockOwners &&
+    prev.localUserId === next.localUserId &&
+    prev.hoveredBindingId === next.hoveredBindingId &&
+    prev.shouldCacheIgnoreZoom === next.shouldCacheIgnoreZoom
+  );
+};
+
+export default React.memo(DualCanvas, areEqual);
