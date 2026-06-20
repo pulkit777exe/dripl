@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { DriplElement, LinearElement } from '@dripl/common';
+import type { DriplElement, LinearElement, TextElement } from '@dripl/common';
 import { collectCascadeDeleteIds } from '@dripl/common/cascade-delete';
 import { generateKeyBetween } from 'fractional-indexing';
 import { invalidateElementCache } from '@dripl/element/staticScene';
@@ -19,6 +19,7 @@ import {
   commitPresentFromHistory,
 } from './helpers';
 import { unbindAffectedByDeletion, unbindArrowFromElement } from '@/utils/arrow-binding';
+import { updateArrowLabelPosition } from '@/utils/textBindingUtils';
 
 export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSlice> = (set, get) => ({
   elements: [],
@@ -147,6 +148,22 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       const nextElements = state.elements.map(e => (e.id === id ? updated : e));
       const nextMap = new Map(state.elementsById);
       nextMap.set(id, updated);
+
+      // Auto-reposition arrow label if arrow points changed
+      if (updated.type === 'arrow' && updated.labelId) {
+        const pointsChanged = 'points' in updates;
+        if (pointsChanged) {
+          const labelElement = state.elementsById.get(updated.labelId) as TextElement | undefined;
+          if (labelElement) {
+            const repositioned = updateArrowLabelPosition(updated as LinearElement, labelElement);
+            if (repositioned !== labelElement) {
+              nextElements.push(repositioned);
+              nextMap.set(repositioned.id, repositioned);
+            }
+          }
+        }
+      }
+
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: nextElements,

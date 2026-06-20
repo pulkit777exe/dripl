@@ -2,12 +2,13 @@ import { useCallback, useRef, useState } from 'react';
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
 import { getElementBounds, isPointInElement, inverseRotatePoint, getDistanceToBounds, isPointNearElement } from '@dripl/math/intersection';
-import type { DriplElement, LinearElement } from '@dripl/common';
+import type { DriplElement, LinearElement, TextElement } from '@dripl/common';
 import { resizeSingleElement } from '@dripl/element/resizeElements';
 import { uploadImageToServer, loadImage } from '@/utils/tools/image';
 import { v4 as uuidv4 } from 'uuid';
 import { recalculateBinding, calculateArrowBinding } from '@/utils/arrow-routing';
 import { findBindableElementAtPoint, bindArrowToElement, unbindArrowFromElement } from '@/utils/arrow-binding';
+import { createArrowLabel } from '@/utils/tools/arrow';
 import type { ToolType } from '@/hooks/useDrawingTools';
 
 interface InteractionState {
@@ -370,6 +371,52 @@ export function useCanvasPointerEvents({
               id: uuidv4(),
               existingElementId: doubleClicked.id,
               value: existingText,
+            });
+            return;
+          }
+          
+          // Handle double-click on arrows to create/edit labels
+          if (doubleClicked?.type === 'arrow') {
+            const arrow = doubleClicked as LinearElement;
+            const elements = useCanvasStore.getState().elements;
+            
+            // Check if arrow already has a label
+            if (arrow.labelId) {
+              // Find the existing label text element
+              const labelElement = elements.find(el => el.id === arrow.labelId) as TextElement | undefined;
+              if (labelElement) {
+                // Open text editor for existing label
+                setTextInput({
+                  x: labelElement.x,
+                  y: labelElement.y,
+                  id: uuidv4(),
+                  existingElementId: labelElement.id,
+                  value: labelElement.text,
+                });
+                return;
+              }
+            }
+            
+            // Create a new label for the arrow
+            const label = createArrowLabel(arrow, '');
+            
+            // Update the arrow to have the label
+            const updatedArrow: LinearElement = {
+              ...arrow,
+              labelId: label.id,
+            };
+            
+            // Add the label to the elements array
+            useCanvasStore.getState().addElement(label);
+            useCanvasStore.getState().updateElement(arrow.id, updatedArrow);
+            
+            // Open text editor for the new label
+            setTextInput({
+              x: label.x,
+              y: label.y,
+              id: uuidv4(),
+              existingElementId: label.id,
+              value: '',
             });
             return;
           }

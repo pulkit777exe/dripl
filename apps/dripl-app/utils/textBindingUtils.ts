@@ -1,4 +1,4 @@
-import type { DriplElement, TextElement } from '@dripl/common';
+import type { DriplElement, TextElement, LinearElement } from '@dripl/common';
 import { getBounds } from '@dripl/math/geometry';
 import { getDefaultFontFamily } from './fontPreferences';
 
@@ -220,5 +220,42 @@ export function createTextElement(
     width: 200,
     height: 20,
     ...baseProps,
+  };
+}
+
+export function updateArrowLabelPosition(
+  arrow: LinearElement,
+  labelElement: TextElement
+): TextElement {
+  const points = arrow.points as Array<{ x: number; y: number }>;
+  if (!points || points.length < 2) return labelElement;
+
+  // Calculate midpoint of the arrow
+  let midX = 0;
+  let midY = 0;
+  
+  if (points.length % 2 === 1) {
+    // Odd number of points: use the middle point
+    const index = Math.floor(points.length / 2);
+    const midPoint = points[index];
+    if (midPoint) {
+      midX = arrow.x + midPoint.x;
+      midY = arrow.y + midPoint.y;
+    }
+  } else {
+    // Even number of points: use the midpoint of the middle segment
+    const index = points.length / 2 - 1;
+    const p1 = points[index];
+    const p2 = points[index + 1];
+    if (p1 && p2) {
+      midX = arrow.x + (p1.x + p2.x) / 2;
+      midY = arrow.y + (p1.y + p2.y) / 2;
+    }
+  }
+
+  return {
+    ...labelElement,
+    x: midX - labelElement.width / 2,
+    y: midY - labelElement.height / 2,
   };
 }

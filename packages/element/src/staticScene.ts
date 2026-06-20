@@ -18,6 +18,7 @@ export interface StaticSceneConfig {
   theme: 'light' | 'dark';
   dpr: number;
   shouldCacheIgnoreZoom?: boolean;
+  elements?: DriplElement[];
 }
 
 // ─── Element canvas cache ────────────────────────────────────────────────────
@@ -64,6 +65,9 @@ export function renderStaticScene(
 
   const shouldCacheIgnoreZoom = config.shouldCacheIgnoreZoom ?? false;
 
+  // Pass elements to config for arrow label rendering
+  const configWithElements = { ...config, elements };
+
   // 3. Draw each visible element.
   for (const element of elements) {
     if ((element as any).isDeleted) continue;
@@ -71,7 +75,7 @@ export function renderStaticScene(
     // StaticSceneViewport culling — skip elements fully outside the visible area.
     if (!isElementVisible(element, viewport, config.zoom)) continue;
 
-    drawElement(ctx, element, viewport, config, shouldCacheIgnoreZoom);
+    drawElement(ctx, element, viewport, configWithElements, shouldCacheIgnoreZoom);
   }
 }
 
@@ -292,7 +296,8 @@ function generateElementCanvas(
     // renderRoughElement draws relative to element.x / element.y.
     // We translate so those become local offscreen coords.
     ctx.translate(-element.x, -element.y);
-    renderRoughElement(rc, ctx, element, [], config.theme);
+    // Pass elements array for arrow label cutout rendering
+    renderRoughElement(rc, ctx, element, config.elements ?? [], config.theme);
   }
 
   return canvas;

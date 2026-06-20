@@ -110,6 +110,32 @@ export function getArrowMidpoint(p1: Point, p2: Point): Point {
   return getMidpoint(p1, p2);
 }
 
+export function createArrowLabel(
+  arrow: LinearElement,
+  text: string = ''
+): TextElement {
+  const points = arrow.points as Point[];
+  const midPoint = getMidPoint(points);
+  
+  return {
+    id: uuidv4(),
+    type: 'text',
+    x: arrow.x + midPoint.x - 25,
+    y: arrow.y + midPoint.y - 10,
+    width: 100,
+    height: 24,
+    text: text,
+    originalText: text,
+    fontSize: 14,
+    fontFamily: getDefaultFontFamily(),
+    strokeColor: 'transparent',
+    backgroundColor: 'transparent',
+    strokeWidth: 0,
+    opacity: 1,
+    containerId: arrow.id,
+  };
+}
+
 export function removePointFromArrow(index: number, state: ArrowToolState): ArrowToolState {
   return removePointFromState(index, state, 2);
 }
