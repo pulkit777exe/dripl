@@ -901,6 +901,32 @@ export function useCanvasPointerEvents({
           },
           useCanvasStore.getState().elements
         );
+
+        // Detect nearby shapes for binding visual feedback during arrow drawing
+        if (currentTool === 'arrow') {
+          const allElements = useCanvasStore.getState().elements;
+          const draftEl = useCanvasStore.getState().draftElement;
+          
+          if (draftEl && 'points' in draftEl && Array.isArray(draftEl.points) && draftEl.points.length >= 2) {
+            // Get the current endpoint position (last point)
+            const points = draftEl.points as Array<{ x: number; y: number }>;
+            const endPoint = points[points.length - 1];
+            
+            if (endPoint) {
+              const globalEndPoint = { x: draftEl.x + endPoint.x, y: draftEl.y + endPoint.y };
+              const nearbyShape = findBindableElementAtPoint(globalEndPoint, allElements, draftEl.id, 20);
+              
+              if (nearbyShape) {
+                hoveredBindingIdRef.current = nearbyShape.id;
+              } else {
+                hoveredBindingIdRef.current = null;
+              }
+            }
+          } else {
+            hoveredBindingIdRef.current = null;
+          }
+        }
+
         return;
       }
     },

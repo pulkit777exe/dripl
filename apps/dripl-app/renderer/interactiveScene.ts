@@ -362,61 +362,76 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
   strokeCurrentPath(ctx, element, drawPath, zoom);
 
   if (element.type === 'arrow' && points.length > 1) {
-    const end = points[points.length - 1];
-    const prev = points[points.length - 2];
-    if (!end || !prev) return;
-
-    // Calculate angle based on arrow style
-    let angle: number;
-    if ('arrowStyle' in element) {
-      const arrowStyle = (element as any).arrowStyle as string;
-      if (arrowStyle === 'curved') {
-        // For curved arrows, approximate tangent at endpoint
-        // Using quadratic bezier: B(t) = (1-t)^2*P0 + 2*(1-t)*t*P1 + t^2*P2
-        // Derivative at t=1: 2*(P2 - P1)
-        const first = points[0];
-        if (first) {
-          const midX = (first.x + end.x) / 2;
-          const midY = (first.y + end.y) / 2;
-          const dx = end.x - first.x;
-          const dy = end.y - first.y;
-          const length = Math.sqrt(dx * dx + dy * dy);
-          const ctrlX = midX + (-dy / length) * length * 0.25;
-          const ctrlY = midY + (dx / length) * length * 0.25;
-          angle = Math.atan2(end.y - ctrlY, end.x - ctrlX);
-        } else {
-          angle = Math.atan2(end.y - prev.y, end.x - prev.x);
-        }
-      } else if (arrowStyle === 'elbow') {
-        // For elbow arrows, use the last segment direction
-        const secondLast = points.length > 2 ? points[points.length - 3] : prev;
-        if (secondLast) {
-          angle = Math.atan2(end.y - secondLast.y, end.x - secondLast.x);
-        } else {
-          angle = Math.atan2(end.y - prev.y, end.x - prev.x);
-        }
-      } else {
-        angle = Math.atan2(end.y - prev.y, end.x - prev.x);
-      }
-    } else {
-      angle = Math.atan2(end.y - prev.y, end.x - prev.x);
-    }
-
+    const arrowHeads = ('arrowHeads' in element ? (element as any).arrowHeads : null) ?? { start: false, end: true };
     const headLength = 12;
     const spread = (25 * Math.PI) / 180;
 
-    ctx.beginPath();
-    ctx.moveTo(end.x, end.y);
-    ctx.lineTo(
-      end.x - headLength * Math.cos(angle - spread),
-      end.y - headLength * Math.sin(angle - spread)
-    );
-    ctx.moveTo(end.x, end.y);
-    ctx.lineTo(
-      end.x - headLength * Math.cos(angle + spread),
-      end.y - headLength * Math.sin(angle + spread)
-    );
-    ctx.stroke();
+    // Helper to calculate angle for arrowhead
+    const calculateAngle = (from: Point, to: Point, style?: string): number => {
+      if (style === 'curved') {
+        // Approximate tangent at endpoint for quadratic bezier
+        const first = points[0];
+        if (first) {
+          const midX = (first.x + to.x) / 2;
+          const midY = (first.y + to.y) / 2;
+          const dx = to.x - first.x;
+          const dy = to.y - first.y;
+          const length = Math.sqrt(dx * dx + dy * dy);
+          if (length === 0) return Math.atan2(to.y - from.y, to.x - from.x);
+          const ctrlX = midX + (-dy / length) * length * 0.25;
+          const ctrlY = midY + (dx / length) * length * 0.25;
+          return Math.atan2(to.y - ctrlY, to.x - ctrlX);
+        }
+        return Math.atan2(to.y - from.y, to.x - from.x);
+      }
+      return Math.atan2(to.y - from.y, to.x - from.x);
+    };
+
+    // Render end arrowhead
+    if (arrowHeads.end) {
+      const end = points[points.length - 1];
+      const prev = points[points.length - 2];
+      if (!end || !prev) return;
+
+      const arrowStyle = 'arrowStyle' in element ? (element as any).arrowStyle as string : undefined;
+      const angle = calculateAngle(prev, end, arrowStyle);
+
+      ctx.beginPath();
+      ctx.moveTo(end.x, end.y);
+      ctx.lineTo(
+        end.x - headLength * Math.cos(angle - spread),
+        end.y - headLength * Math.sin(angle - spread)
+      );
+      ctx.moveTo(end.x, end.y);
+      ctx.lineTo(
+        end.x - headLength * Math.cos(angle + spread),
+        end.y - headLength * Math.sin(angle + spread)
+      );
+      ctx.stroke();
+    }
+
+    // Render start arrowhead
+    if (arrowHeads.start) {
+      const start = points[0];
+      const next = points[1];
+      if (!start || !next) return;
+
+      // Start arrowhead angle is opposite direction (pointing inward)
+      const angle = Math.atan2(start.y - next.y, start.x - next.x);
+
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(
+        start.x - headLength * Math.cos(angle - spread),
+        start.y - headLength * Math.sin(angle - spread)
+      );
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(
+        start.x - headLength * Math.cos(angle + spread),
+        start.y - headLength * Math.sin(angle + spread)
+      );
+      ctx.stroke();
+    }
   }
 }
 
