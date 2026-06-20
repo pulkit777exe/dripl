@@ -35,6 +35,7 @@ interface DualCanvasProps {
   lockOwners?: ReadonlyMap<string, string>;
   localUserId?: string | null;
   hoveredBindingId?: string | null;
+  startPointBindingId?: string | null;
   shouldCacheIgnoreZoom?: boolean;
 }
 
@@ -74,6 +75,7 @@ const DualCanvas: React.FC<DualCanvasProps> = ({
   lockOwners = new Map<string, string>(),
   localUserId = null,
   hoveredBindingId,
+  startPointBindingId,
   shouldCacheIgnoreZoom = false,
 }) => {
   return (
@@ -120,6 +122,7 @@ const DualCanvas: React.FC<DualCanvasProps> = ({
           lockOwners={lockOwners}
           localUserId={localUserId}
           hoveredBindingId={hoveredBindingId}
+          startPointBindingId={startPointBindingId}
         />
       </CanvasErrorBoundary>
     </div>
@@ -154,6 +157,7 @@ const areEqual = (prev: DualCanvasProps, next: DualCanvasProps): boolean => {
     prev.lockOwners === next.lockOwners &&
     prev.localUserId === next.localUserId &&
     prev.hoveredBindingId === next.hoveredBindingId &&
+    prev.startPointBindingId === next.startPointBindingId &&
     prev.shouldCacheIgnoreZoom === next.shouldCacheIgnoreZoom
   );
 };

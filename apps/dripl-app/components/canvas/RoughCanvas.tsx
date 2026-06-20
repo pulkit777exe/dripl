@@ -596,7 +596,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     interactionRef,
     lastToolBeforeSpaceRef,
     eraserHitIdsRef,
-    hoveredBindingIdRef,
+    hoveredBindingId,
+    startPointBindingId,
+    bindMode,
     handleDragOver,
     handleDrop: hookHandleDrop,
     handlePointerDown,
@@ -846,7 +848,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           collaborators={collaboratorCursors}
           lockOwners={elementLocks}
           localUserId={userId}
-          hoveredBindingId={hoveredBindingIdRef.current}
+          hoveredBindingId={hoveredBindingId}
+          startPointBindingId={startPointBindingId}
           shouldCacheIgnoreZoom={shouldCacheIgnoreZoom}
         />
       )}

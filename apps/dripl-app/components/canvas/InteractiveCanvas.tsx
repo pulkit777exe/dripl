@@ -29,6 +29,7 @@ interface InteractiveCanvasProps {
   lockOwners?: ReadonlyMap<string, string>;
   localUserId?: string | null;
   hoveredBindingId?: string | null;
+  startPointBindingId?: string | null;
 }
 
 const areEqual = (prev: InteractiveCanvasProps, next: InteractiveCanvasProps): boolean => {
@@ -53,7 +54,8 @@ const areEqual = (prev: InteractiveCanvasProps, next: InteractiveCanvasProps): b
     prev.collaborators !== next.collaborators ||
     prev.lockOwners !== next.lockOwners ||
     prev.localUserId !== next.localUserId ||
-    prev.hoveredBindingId !== next.hoveredBindingId
+    prev.hoveredBindingId !== next.hoveredBindingId ||
+    prev.startPointBindingId !== next.startPointBindingId
   );
 };
 
@@ -73,6 +75,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   lockOwners = new Map<string, string>(),
   localUserId = null,
   hoveredBindingId,
+  startPointBindingId,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -91,6 +94,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     lockOwners,
     localUserId,
     hoveredBindingId,
+    startPointBindingId,
   });
 
   useEffect(() => {
@@ -106,6 +110,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       lockOwners,
       localUserId,
       hoveredBindingId,
+      startPointBindingId,
     };
     isDirtyRef.current = true;
   }, [
@@ -120,6 +125,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     lockOwners,
     localUserId,
     hoveredBindingId,
+    startPointBindingId,
   ]);
 
   useEffect(() => {
@@ -181,6 +187,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
           renderCommittedElements: false,
           dpr: dprRef.current,
           hoveredBindingId: props.hoveredBindingId,
+          startPointBindingId: props.startPointBindingId,
         });
       }
       rafRef.current = requestAnimationFrame(loop);

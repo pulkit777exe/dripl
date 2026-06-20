@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
 import { getElementBounds, isPointInElement, inverseRotatePoint, getDistanceToBounds, isPointNearElement } from '@dripl/math/intersection';
@@ -206,6 +206,22 @@ export function useCanvasPointerEvents({
   const lastToolBeforeSpaceRef = useRef<string | null>(null);
   const eraserHitIdsRef = useRef<Set<string>>(new Set());
   const hoveredBindingIdRef = useRef<string | null>(null);
+  const startPointBindingIdRef = useRef<string | null>(null);
+  const [hoveredBindingId, setHoveredBindingId] = useState<string | null>(null);
+  const [startPointBindingId, setStartPointBindingId] = useState<string | null>(null);
+  const [bindMode, setBindMode] = useState<'orbit' | 'inside'>('orbit');
+
+  // Helper to update both ref and state for hoveredBindingId
+  const updateHoveredBindingId = useCallback((id: string | null) => {
+    hoveredBindingIdRef.current = id;
+    setHoveredBindingId(id);
+  }, []);
+
+  // Helper to update both ref and state for startPointBindingId
+  const updateStartPointBindingId = useCallback((id: string | null) => {
+    startPointBindingIdRef.current = id;
+    setStartPointBindingId(id);
+  }, []);
 
   const {
     setSelectedIds,
@@ -717,7 +733,7 @@ export function useCanvasPointerEvents({
             
             if (nearbyShape) {
               // Bind to the nearby shape
-              hoveredBindingIdRef.current = nearbyShape.id;
+              updateHoveredBindingId(nearbyShape.id);
               if (!currentBinding || currentBinding.elementId !== nearbyShape.id) {
                 // Unbind from current target if different
                 let newElements = currentBinding 
@@ -743,7 +759,7 @@ export function useCanvasPointerEvents({
               }
             } else {
               // No nearby shape - unbind if currently bound
-              hoveredBindingIdRef.current = null;
+              updateHoveredBindingId(null);
               if (currentBinding) {
                 const newElements = unbindArrowFromElement(arrowEl, startOrEnd, allElements);
                 const unboundArrow = newElements.find(e => e.id === el.id) as LinearElement;
@@ -961,20 +977,34 @@ export function useCanvasPointerEvents({
             // Get the current endpoint position (last point)
             const points = draftEl.points as Array<{ x: number; y: number }>;
             const endPoint = points[points.length - 1];
+            const startPoint = points[0];
             
-            if (endPoint) {
-              const globalEndPoint = { x: draftEl.x + endPoint.x, y: draftEl.y + endPoint.y };
-              const nearbyShape = findBindableElementAtPoint(globalEndPoint, allElements, draftEl.id, 20);
-              
-              if (nearbyShape) {
-                hoveredBindingIdRef.current = nearbyShape.id;
-              } else {
-                hoveredBindingIdRef.current = null;
+              if (endPoint) {
+                const globalEndPoint = { x: draftEl.x + endPoint.x, y: draftEl.y + endPoint.y };
+                const nearbyShape = findBindableElementAtPoint(globalEndPoint, allElements, draftEl.id, 20);
+                
+                if (nearbyShape) {
+                  updateHoveredBindingId(nearbyShape.id);
+                } else {
+                  updateHoveredBindingId(null);
+                }
               }
+
+              // Also detect binding at start point
+              if (startPoint) {
+                const globalStartPoint = { x: draftEl.x + startPoint.x, y: draftEl.y + startPoint.y };
+                const nearbyStartShape = findBindableElementAtPoint(globalStartPoint, allElements, draftEl.id, 20);
+                
+                if (nearbyStartShape) {
+                  updateStartPointBindingId(nearbyStartShape.id);
+                } else {
+                  updateStartPointBindingId(null);
+                }
+              }
+            } else {
+              updateHoveredBindingId(null);
+              updateStartPointBindingId(null);
             }
-          } else {
-            hoveredBindingIdRef.current = null;
-          }
         }
 
         return;
@@ -1065,7 +1095,7 @@ export function useCanvasPointerEvents({
         interactionRef.current.resizeHandle = null;
         interactionRef.current.resizeStartCanvasPos = null;
         interactionRef.current.resizeInitialEl = null;
-        hoveredBindingIdRef.current = null;
+        updateHoveredBindingId(null);
         setIsResizing(false);
         setEditingElementId(null);
         if (resizedId) updateElement(resizedId, {});
@@ -1168,7 +1198,9 @@ export function useCanvasPointerEvents({
     interactionRef,
     lastToolBeforeSpaceRef,
     eraserHitIdsRef,
-    hoveredBindingIdRef,
+    hoveredBindingId,
+    startPointBindingId,
+    bindMode,
     handleDragOver,
     handleDrop,
     handlePointerDown,

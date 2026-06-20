@@ -47,6 +47,7 @@ export interface RenderSceneOptions {
   dpr?: number;
   clearCanvas?: boolean;
   hoveredBindingId?: string | null;
+  startPointBindingId?: string | null;
 }
 
 interface TextMeasurement {
@@ -754,7 +755,8 @@ function drawBindingIndicator(
   ctx: CanvasRenderingContext2D,
   elements: readonly DriplElement[],
   hoveredBindingId: string,
-  viewport: SceneViewport
+  viewport: SceneViewport,
+  bindingPoint: 'start' | 'end' = 'end'
 ) {
   const target = elements.find(e => e.id === hoveredBindingId);
   if (!target || target.isDeleted) return;
@@ -764,7 +766,9 @@ function drawBindingIndicator(
   const lineWidth = 2 / viewport.zoom;
 
   ctx.save();
-  ctx.strokeStyle = '#E8462A';
+  
+  // Different colors for start vs end binding
+  ctx.strokeStyle = bindingPoint === 'start' ? '#3B82F6' : '#E8462A';
   ctx.lineWidth = lineWidth;
   ctx.setLineDash([6 / viewport.zoom, 4 / viewport.zoom]);
   ctx.globalAlpha = 0.8;
@@ -779,6 +783,17 @@ function drawBindingIndicator(
     4 / viewport.zoom
   );
   ctx.stroke();
+
+  // Draw a small circle at the center to indicate binding mode
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+  const radius = 6 / viewport.zoom;
+  
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.globalAlpha = 0.6;
+  ctx.fill();
 
   ctx.restore();
 }
@@ -809,6 +824,7 @@ export function renderInteractiveScene({
   dpr = 1,
   clearCanvas = true,
   hoveredBindingId,
+  startPointBindingId,
 }: RenderSceneOptions): void {
   if (clearCanvas) {
     ctx.save();
@@ -844,8 +860,12 @@ export function renderInteractiveScene({
     renderElement(ctx, draftElement, viewport.zoom);
   }
 
+  // Draw binding indicators for both endpoint and start point
   if (hoveredBindingId) {
-    drawBindingIndicator(ctx, elements, hoveredBindingId, viewport);
+    drawBindingIndicator(ctx, elements, hoveredBindingId, viewport, 'end');
+  }
+  if (startPointBindingId) {
+    drawBindingIndicator(ctx, elements, startPointBindingId, viewport, 'start');
   }
 
   if (eraserPath.length > 1) {
