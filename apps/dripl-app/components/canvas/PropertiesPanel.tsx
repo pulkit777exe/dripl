@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { ExportModal } from './ExportModal';
-import type { DriplElement, ArrowStyle } from '@dripl/common';
+import type { DriplElement, ArrowStyle, ArrowheadType, LinearElement } from '@dripl/common';
 import { FONT_PREFERENCES, getDefaultFontFamily } from '@/utils/fontPreferences';
 
 interface ElementPropertiesProps {
@@ -467,7 +467,7 @@ export function PropertiesPanel({
               {(['sharp', 'round'] as const).map(edge => (
                 <RowBtn
                   key={edge}
-                  active={(selectedElement as any)?.edges === edge}
+                  active={(selectedElement as Record<string, unknown>)?.edges === edge}
                   onClick={() => updateProp('edges', edge)}
                   title={edge}
                 >
@@ -489,7 +489,11 @@ export function PropertiesPanel({
               {(['straight', 'curved', 'elbow'] as const).map(type => (
                 <RowBtn
                   key={type}
-                  active={((selectedElement as any)?.arrowStyle ?? currentArrowStyle) === type}
+                  active={
+                    (selectedElement && 'arrowStyle' in selectedElement
+                      ? (selectedElement as LinearElement).arrowStyle
+                      : currentArrowStyle) === type
+                  }
                   onClick={() =>
                     selectedElement
                       ? updateProp('arrowStyle', type)
@@ -520,24 +524,69 @@ export function PropertiesPanel({
         {/* ── Arrowheads ────────────────────────────────────────────────── */}
         {showProp('arrowheads') && (
           <div className="space-y-1.5">
-            <SectionLabel>Arrowheads</SectionLabel>
+            <SectionLabel>Start arrowhead</SectionLabel>
             <div className="flex gap-1">
-              <RowBtn
-                active={!!(selectedElement as any)?.startArrowhead}
-                onClick={() =>
-                  updateProp('startArrowhead', !(selectedElement as any)?.startArrowhead)
-                }
-                title="Start arrowhead"
-              >
-                <span className="text-xs">←●</span>
-              </RowBtn>
-              <RowBtn
-                active={(selectedElement as any)?.endArrowhead !== false}
-                onClick={() => updateProp('endArrowhead', !(selectedElement as any)?.endArrowhead)}
-                title="End arrowhead"
-              >
-                <span className="text-xs">●→</span>
-              </RowBtn>
+              {(['none', 'triangle', 'dot', 'bar', 'diamond'] as const).map(type => (
+                <RowBtn
+                  key={`start-${type}`}
+                  active={
+                    (selectedElement && 'arrowHeads' in selectedElement
+                      ? (selectedElement as LinearElement).arrowHeads?.start
+                      : undefined) === type
+                  }
+                  onClick={() => {
+                    const currentArrowHeads =
+                      selectedElement && 'arrowHeads' in selectedElement
+                        ? (selectedElement as LinearElement).arrowHeads ?? {}
+                        : {};
+                    updateProp('arrowHeads', {
+                      ...currentArrowHeads,
+                      start: type,
+                    });
+                  }}
+                  title={type}
+                >
+                  <span className="text-xs">
+                    {type === 'none' && '✕'}
+                    {type === 'triangle' && '◀'}
+                    {type === 'dot' && '●'}
+                    {type === 'bar' && '|'}
+                    {type === 'diamond' && '◆'}
+                  </span>
+                </RowBtn>
+              ))}
+            </div>
+            <SectionLabel>End arrowhead</SectionLabel>
+            <div className="flex gap-1">
+              {(['none', 'triangle', 'dot', 'bar', 'diamond'] as const).map(type => (
+                <RowBtn
+                  key={`end-${type}`}
+                  active={
+                    (selectedElement && 'arrowHeads' in selectedElement
+                      ? (selectedElement as LinearElement).arrowHeads?.end ?? 'triangle'
+                      : 'triangle') === type
+                  }
+                  onClick={() => {
+                    const currentArrowHeads =
+                      selectedElement && 'arrowHeads' in selectedElement
+                        ? (selectedElement as LinearElement).arrowHeads ?? {}
+                        : {};
+                    updateProp('arrowHeads', {
+                      ...currentArrowHeads,
+                      end: type,
+                    });
+                  }}
+                  title={type}
+                >
+                  <span className="text-xs">
+                    {type === 'none' && '✕'}
+                    {type === 'triangle' && '▶'}
+                    {type === 'dot' && '●'}
+                    {type === 'bar' && '|'}
+                    {type === 'diamond' && '◆'}
+                  </span>
+                </RowBtn>
+              ))}
             </div>
           </div>
         )}

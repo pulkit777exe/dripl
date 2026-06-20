@@ -3,6 +3,11 @@ export interface Point {
   y: number;
 }
 
+// Type definitions for arrow system
+export type ArrowStyle = 'straight' | 'curved' | 'elbow';
+export type ArrowheadType = 'triangle' | 'dot' | 'bar' | 'diamond' | 'none';
+export type BindingMode = 'inside' | 'orbit';
+
 export interface ElementBase {
   id: string;
   type: string;
@@ -41,7 +46,7 @@ export interface ElementBase {
   containerId?: string;
   text?: string;
   src?: string;
-  arrowHeads?: { start?: boolean; end?: boolean };
+  arrowHeads?: { start?: ArrowheadType; end?: ArrowheadType };
   startArrowhead?: string;
   endArrowhead?: string;
   roundness?: null | number | { type: number; value?: number };
@@ -76,8 +81,8 @@ export interface LinearElement extends ElementBase {
   points: Point[];
   labelId?: string; // ID of text element used as label
   arrowHeads?: {
-    start?: boolean;
-    end?: boolean;
+    start?: ArrowheadType;
+    end?: ArrowheadType;
   };
   arrowStyle?: ArrowStyle; // straight, curved, or elbow routing
   startBinding?: NormalizedBinding;
@@ -116,8 +121,6 @@ export interface FrameElement extends ElementBase {
 }
 
 // Normalized binding model for constraints (Spec §5.3 Binding Constraint System)
-export type ArrowStyle = 'straight' | 'curved' | 'elbow';
-export type BindingMode = 'inside' | 'orbit';
 
 export interface NormalizedBinding {
   /** Target element id this binding attaches to. */

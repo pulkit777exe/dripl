@@ -1,5 +1,5 @@
 import rough from 'roughjs';
-import type { DriplElement, LinearElement } from '@dripl/common';
+import type { DriplElement, LinearElement, ArrowheadType } from '@dripl/common';
 import { getShapeFromCache, setShapeInCache, pruneShapeCache } from './shape-cache';
 import type { RoughCanvas as _RoughCanvas } from 'roughjs/bin/canvas';
 import type { Drawable as _Drawable } from 'roughjs/bin/core';
@@ -27,6 +27,73 @@ function calculateElbowPath(start: { x: number; y: number }, end: { x: number; y
     return [start, { x: end.x, y: start.y }, end];
   } else {
     return [start, { x: start.x, y: end.y }, end];
+  }
+}
+
+function drawArrowhead(
+  rc: _RoughCanvas,
+  tip: { x: number; y: number },
+  direction: { x: number; y: number },
+  type: ArrowheadType,
+  size: number,
+  options: Record<string, unknown>
+) {
+  if (type === 'none') return;
+
+  const { x: dx, y: dy } = direction;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  if (length === 0) return;
+  const nx = dx / length;
+  const ny = dy / length;
+  const perpX = -ny;
+  const perpY = nx;
+
+  switch (type) {
+    case 'triangle': {
+      const x1 = tip.x - size * nx + size * 0.4 * perpX;
+      const y1 = tip.y - size * ny + size * 0.4 * perpY;
+      const x2 = tip.x - size * nx - size * 0.4 * perpX;
+      const y2 = tip.y - size * ny - size * 0.4 * perpY;
+      rc.draw(getGenerator().polygon(
+        [[tip.x, tip.y], [x1, y1], [x2, y2]],
+        options
+      ));
+      break;
+    }
+    case 'dot': {
+      const circle = getGenerator().circle(tip.x - size * 0.5 * nx, tip.y - size * 0.5 * ny, size * 0.6, {
+        ...options,
+        fill: options.stroke as string,
+        fillStyle: 'solid',
+      });
+      rc.draw(circle);
+      break;
+    }
+    case 'bar': {
+      const x1 = tip.x + perpX * size * 0.5;
+      const y1 = tip.y + perpY * size * 0.5;
+      const x2 = tip.x - perpX * size * 0.5;
+      const y2 = tip.y - perpY * size * 0.5;
+      const line = getGenerator().line(x1, y1, x2, y2, options);
+      rc.draw(line);
+      break;
+    }
+    case 'diamond': {
+      const midX = tip.x - size * 0.5 * nx;
+      const midY = tip.y - size * 0.5 * ny;
+      const baseX = tip.x - size * nx;
+      const baseY = tip.y - size * ny;
+      rc.draw(getGenerator().polygon(
+        [
+          [tip.x, tip.y],
+          [midX + perpX * size * 0.35, midY + perpY * size * 0.35],
+          [baseX, baseY],
+          [midX - perpX * size * 0.35, midY - perpY * size * 0.35],
+        ],
+        options
+      ));
+      break;
+    }
   }
 }
 
@@ -280,7 +347,7 @@ export function renderRoughElement(
   if (element.type === 'arrow' && (element as any).points && (element as any).points.length > 1) {
     const points = (element as any).points;
     const linearEl = element as LinearElement;
-    const arrowHeads = linearEl.arrowHeads ?? { start: false, end: true };
+    const arrowHeads = linearEl.arrowHeads ?? { start: 'none', end: 'triangle' };
     
     const arrowHeadOptions: Record<string, unknown> = {
       stroke: element.strokeColor,
@@ -292,56 +359,27 @@ export function renderRoughElement(
       arrowHeadOptions.roughness = element.roughness;
     }
 
+    const headLength = 10 + (element.strokeWidth || 2) * 2;
+
     // Render end arrowhead
-    if (arrowHeads.end) {
+    if (arrowHeads.end && arrowHeads.end !== 'none') {
       const endPoint = points[points.length - 1];
       const prevPoint = points[points.length - 2];
       if (endPoint && prevPoint) {
         const angle = Math.atan2(endPoint.y - prevPoint.y, endPoint.x - prevPoint.x);
-        const headLength = 10 + (element.strokeWidth || 2) * 2;
-        const headAngle = Math.PI / 6;
-
-        const x1 = endPoint.x - headLength * Math.cos(angle - headAngle);
-        const y1 = endPoint.y - headLength * Math.sin(angle - headAngle);
-        const x2 = endPoint.x - headLength * Math.cos(angle + headAngle);
-        const y2 = endPoint.y - headLength * Math.sin(angle + headAngle);
-
-        const arrowHead = getGenerator().polygon(
-          [
-            [endPoint.x, endPoint.y],
-            [x1, y1],
-            [x2, y2],
-          ],
-          arrowHeadOptions
-        );
-        rc.draw(arrowHead);
+        const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+        drawArrowhead(rc, endPoint, direction, arrowHeads.end, headLength, arrowHeadOptions);
       }
     }
 
     // Render start arrowhead
-    if (arrowHeads.start) {
+    if (arrowHeads.start && arrowHeads.start !== 'none') {
       const startPoint = points[0];
       const nextPoint = points[1];
       if (startPoint && nextPoint) {
-        const angle = Math.atan2(nextPoint.y - startPoint.y, nextPoint.x - startPoint.x);
-        const headLength = 10 + (element.strokeWidth || 2) * 2;
-        const headAngle = Math.PI / 6;
-
-        // Start arrowhead points in opposite direction
-        const x1 = startPoint.x + headLength * Math.cos(angle - headAngle);
-        const y1 = startPoint.y + headLength * Math.sin(angle - headAngle);
-        const x2 = startPoint.x + headLength * Math.cos(angle + headAngle);
-        const y2 = startPoint.y + headLength * Math.sin(angle + headAngle);
-
-        const arrowHead = getGenerator().polygon(
-          [
-            [startPoint.x, startPoint.y],
-            [x1, y1],
-            [x2, y2],
-          ],
-          arrowHeadOptions
-        );
-        rc.draw(arrowHead);
+        const angle = Math.atan2(startPoint.y - nextPoint.y, startPoint.x - nextPoint.x);
+        const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+        drawArrowhead(rc, startPoint, direction, arrowHeads.start, headLength, arrowHeadOptions);
       }
     }
   }

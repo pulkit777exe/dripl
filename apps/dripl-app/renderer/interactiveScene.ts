@@ -1,7 +1,8 @@
-import type { DriplElement, Point } from '@dripl/common';
+import type { DriplElement, Point, ArrowheadType, LinearElement } from '@dripl/common';
 import { getElementBounds } from '@dripl/math/intersection';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
 import { imageCache } from '@dripl/element/image-cache';
+import { getArrowheadPoints, getDirectionVector } from '@/utils/arrow-routing';
 
 export interface SceneViewport {
   x: number;
@@ -332,12 +333,12 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
 
     // Handle arrow styles
     if (element.type === 'arrow' && 'arrowStyle' in element) {
-      const arrowStyle = (element as any).arrowStyle as string;
-      if (arrowStyle === 'curved') {
+      const arrowElement = element as LinearElement;
+      if (arrowElement.arrowStyle === 'curved') {
         drawCurvedArrowPath(offsetX, offsetY);
         return;
       }
-      if (arrowStyle === 'elbow') {
+      if (arrowElement.arrowStyle === 'elbow') {
         drawElbowArrowPath(offsetX, offsetY);
         return;
       }
@@ -362,9 +363,10 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
   strokeCurrentPath(ctx, element, drawPath, zoom);
 
   if (element.type === 'arrow' && points.length > 1) {
-    const arrowHeads = ('arrowHeads' in element ? (element as any).arrowHeads : null) ?? { start: false, end: true };
+    const arrowElement = element as LinearElement;
+    const arrowHeads = arrowElement.arrowHeads ?? { start: 'none' as ArrowheadType, end: 'triangle' as ArrowheadType };
     const headLength = 12;
-    const spread = (25 * Math.PI) / 180;
+    const arrowStyle = arrowElement.arrowStyle;
 
     // Helper to calculate angle for arrowhead
     const calculateAngle = (from: Point, to: Point, style?: string): number => {
@@ -387,50 +389,78 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
       return Math.atan2(to.y - from.y, to.x - from.x);
     };
 
+    // Helper to render arrowhead based on type
+    const renderArrowhead = (
+      tip: Point,
+      angle: number,
+      type: ArrowheadType
+    ) => {
+      if (type === 'none') return;
+
+      const direction = getDirectionVector(
+        { x: tip.x - Math.cos(angle), y: tip.y - Math.sin(angle) },
+        tip
+      );
+
+      const arrowPoints = getArrowheadPoints(tip, direction, type, headLength);
+
+      if (type === 'dot') {
+        // Render as filled circle
+        ctx.beginPath();
+        ctx.arc(tip.x, tip.y, headLength * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (type === 'bar') {
+        // Render as perpendicular line
+        if (arrowPoints.length >= 2) {
+          const p0 = arrowPoints[0];
+          const p1 = arrowPoints[1];
+          if (p0 && p1) {
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(p1.x, p1.y);
+            ctx.stroke();
+          }
+        }
+      } else if (type === 'triangle' || type === 'diamond') {
+        // Render as filled polygon
+        const firstPoint = arrowPoints[0];
+        if (firstPoint) {
+          ctx.beginPath();
+          ctx.moveTo(firstPoint.x, firstPoint.y);
+          for (let i = 1; i < arrowPoints.length; i++) {
+            const point = arrowPoints[i];
+            if (point) {
+              ctx.lineTo(point.x, point.y);
+            }
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+    };
+
     // Render end arrowhead
-    if (arrowHeads.end) {
+    const endArrowheadType = arrowHeads.end ?? 'triangle';
+    if (endArrowheadType !== 'none') {
       const end = points[points.length - 1];
       const prev = points[points.length - 2];
       if (!end || !prev) return;
 
-      const arrowStyle = 'arrowStyle' in element ? (element as any).arrowStyle as string : undefined;
       const angle = calculateAngle(prev, end, arrowStyle);
-
-      ctx.beginPath();
-      ctx.moveTo(end.x, end.y);
-      ctx.lineTo(
-        end.x - headLength * Math.cos(angle - spread),
-        end.y - headLength * Math.sin(angle - spread)
-      );
-      ctx.moveTo(end.x, end.y);
-      ctx.lineTo(
-        end.x - headLength * Math.cos(angle + spread),
-        end.y - headLength * Math.sin(angle + spread)
-      );
-      ctx.stroke();
+      renderArrowhead(end, angle, endArrowheadType);
     }
 
     // Render start arrowhead
-    if (arrowHeads.start) {
+    const startArrowheadType = arrowHeads.start ?? 'none';
+    if (startArrowheadType !== 'none') {
       const start = points[0];
       const next = points[1];
       if (!start || !next) return;
 
       // Start arrowhead angle is opposite direction (pointing inward)
       const angle = Math.atan2(start.y - next.y, start.x - next.x);
-
-      ctx.beginPath();
-      ctx.moveTo(start.x, start.y);
-      ctx.lineTo(
-        start.x - headLength * Math.cos(angle - spread),
-        start.y - headLength * Math.sin(angle - spread)
-      );
-      ctx.moveTo(start.x, start.y);
-      ctx.lineTo(
-        start.x - headLength * Math.cos(angle + spread),
-        start.y - headLength * Math.sin(angle + spread)
-      );
-      ctx.stroke();
+      renderArrowhead(start, angle, startArrowheadType);
     }
   }
 }
