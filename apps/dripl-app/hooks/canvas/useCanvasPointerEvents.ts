@@ -621,6 +621,56 @@ export function useCanvasPointerEvents({
         const arrowPointMatch = typeof handle === 'string' && handle.startsWith('arrow-point-')
           ? parseInt(handle.slice('arrow-point-'.length), 10)
           : -1;
+        const arrowInsertMatch = typeof handle === 'string' && handle.startsWith('arrow-insert-')
+          ? parseInt(handle.slice('arrow-insert-'.length), 10)
+          : -1;
+
+        // Handle midpoint insertion - insert a new point at the midpoint of the segment
+        if (arrowInsertMatch >= 0) {
+          if (!('points' in el) || !el.points || el.points.length < 2) return;
+          const pts = el.points as Array<{ x: number; y: number }>;
+          if (arrowInsertMatch < 1 || arrowInsertMatch >= pts.length) return;
+          
+          // Get the two points of the segment
+          const p1 = pts[arrowInsertMatch - 1];
+          const p2 = pts[arrowInsertMatch];
+          if (!p1 || !p2) return;
+          
+          // Calculate midpoint in absolute coordinates
+          const midX = el.x + (p1.x + p2.x) / 2;
+          const midY = el.y + (p1.y + p2.y) / 2;
+          
+          // Insert the new point at the specified index
+          const newPts = [...pts];
+          newPts.splice(arrowInsertMatch, 0, { x: midX - el.x, y: midY - el.y });
+          
+          // Recalculate bounding box
+          const allX = newPts.map(p => el.x + p.x);
+          const allY = newPts.map(p => el.y + p.y);
+          const newMinX = Math.min(...allX);
+          const newMinY = Math.min(...allY);
+          const newMaxX = Math.max(...allX);
+          const newMaxY = Math.max(...allY);
+          const relPts = newPts.map(p => ({ x: p.x + el.x - newMinX, y: p.y + el.y - newMinY }));
+          
+          const updatedElement: DriplElement = {
+            ...el,
+            x: newMinX,
+            y: newMinY,
+            width: Math.max(4, newMaxX - newMinX),
+            height: Math.max(4, newMaxY - newMinY),
+            points: relPts,
+          };
+          
+          if (el.id) updateElementTransient(el.id, updatedElement);
+          
+          // Set up for dragging the newly inserted point
+          interactionRef.current.resizeHandle = `arrow-point-${arrowInsertMatch}` as string;
+          interactionRef.current.resizeInitialEl = updatedElement;
+          interactionRef.current.resizeStartCanvasPos = { x, y };
+          interactionRef.current.historyPushed = true;
+          return;
+        }
 
         if (isArrowEndpoint || arrowPointMatch >= 0) {
           if (!('points' in el) || !el.points || el.points.length < 2) return;
@@ -786,7 +836,7 @@ export function useCanvasPointerEvents({
             newHeight,
             el,
             interactionRef.current.resizeInitialEl || el,
-            handle as any,
+            handle as 'n' | 'e' | 's' | 'w' | 'ne' | 'se' | 'sw' | 'nw',
             { shouldMaintainAspectRatio: e.shiftKey, shouldResizeFromCenter: e.altKey }
           );
           Object.assign(updatedElement, resizedProps);

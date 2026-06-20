@@ -1,13 +1,15 @@
-import type { DriplElement, Point, LinearElement, TextElement, NormalizedBinding, ArrowStyle } from '@dripl/common';
+import type { DriplElement, Point, LinearElement, TextElement, NormalizedBinding, ArrowStyle, ArrowheadType } from '@dripl/common';
 import { v4 as uuidv4 } from 'uuid';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
 import {
   addPoint as addPointToState,
+  insertPointAt as insertPointAtState,
   removePoint as removePointFromState,
   updatePoint as updatePointInState,
   snapPointToElements,
   getBoundingBox,
   toRelativePoints,
+  getMidpoint,
 } from './shared';
 
 export interface ArrowToolState {
@@ -44,7 +46,7 @@ export function createArrowElement(
     width: maxX - minX,
     height: maxY - minY,
     points: relativePoints,
-    arrowHeads: { start: false, end: true },
+    arrowHeads: { start: 'none', end: 'triangle' },
     arrowStyle: arrowStyle ?? 'straight',
     startBinding: bindingInfo?.startBinding,
     endBinding: bindingInfo?.endBinding,
@@ -94,6 +96,18 @@ function getMidPoint(points: Point[]): Point {
 
 export function addPointToArrow(point: Point, state: ArrowToolState): ArrowToolState {
   return addPointToState(point, state);
+}
+
+export function insertPointIntoArrow(
+  index: number,
+  point: Point,
+  state: ArrowToolState
+): ArrowToolState {
+  return insertPointAtState(index, point, state);
+}
+
+export function getArrowMidpoint(p1: Point, p2: Point): Point {
+  return getMidpoint(p1, p2);
 }
 
 export function removePointFromArrow(index: number, state: ArrowToolState): ArrowToolState {

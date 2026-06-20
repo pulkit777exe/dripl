@@ -26,7 +26,8 @@ export type ResizeHandle =
   | 'w'
   | 'arrow-start'
   | 'arrow-end'
-  | `arrow-point-${number}`;
+  | `arrow-point-${number}`
+  | `arrow-insert-${number}`;
 
 export function SelectionOverlay({
   zoom,
@@ -127,6 +128,30 @@ export function SelectionOverlay({
       z-index: 19;
       box-sizing: border-box;
       opacity: 0.85;
+    }
+
+    .dripl-linear-insert-handle {
+      width: 10px;
+      height: 10px;
+      background-color: var(--color-panel-bg, #FAFAF7);
+      border: 1.5px solid var(--color-primary, #E8462A);
+      border-radius: 50%;
+      position: absolute;
+      pointer-events: auto;
+      z-index: 20;
+      box-sizing: border-box;
+      cursor: copy;
+      opacity: 0;
+      transition: opacity 0.15s ease, transform 0.1s cubic-bezier(0.3, 0, 0, 1);
+    }
+
+    .dripl-linear-insert-handle.visible {
+      opacity: 1;
+    }
+
+    .dripl-linear-insert-handle:hover {
+      transform: scale(1.3);
+      background-color: var(--color-primary, #E8462A);
     }
   `;
 
@@ -243,36 +268,67 @@ export function SelectionOverlay({
     const arrowEndpoints = (() => {
       if (!('points' in el) || !el.points || el.points.length < 2) return [];
       const points = el.points as Point[];
+      const result: Array<{ id: string; left: number; top: number; isEndpoint: boolean; isInsert: boolean }> = [];
 
-      return points.map((pt, i) => {
+      // Add point handles
+      points.forEach((pt, i) => {
         const worldPt = elementLocalPointToWorld(el, pt);
         const isEndpoint = i === 0 || i === points.length - 1;
         const handleId: ResizeHandle =
           i === 0 ? 'arrow-start' : i === points.length - 1 ? 'arrow-end' : `arrow-point-${i}`;
-        return {
+        result.push({
           id: handleId,
           left: (worldPt.x - minX) * zoom,
           top: (worldPt.y - minY) * zoom,
           isEndpoint,
-        };
+          isInsert: false,
+        });
       });
+
+      // Add midpoint insertion handles between segments
+      for (let i = 0; i < points.length - 1; i++) {
+        const pt1 = points[i];
+        const pt2 = points[i + 1];
+        if (!pt1 || !pt2) continue;
+        const p1 = elementLocalPointToWorld(el, pt1);
+        const p2 = elementLocalPointToWorld(el, pt2);
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+        result.push({
+          id: `arrow-insert-${i + 1}`,
+          left: (midX - minX) * zoom,
+          top: (midY - minY) * zoom,
+          isEndpoint: false,
+          isInsert: true,
+        });
+      }
+
+      return result;
     })();
 
     return (
       <div style={containerStyle}>
         <style dangerouslySetInnerHTML={{ __html: customStyleSheet }} />
-        {arrowEndpoints.map(({ id, left, top, isEndpoint }) => (
+        {arrowEndpoints.map(({ id, left, top, isEndpoint, isInsert }) => (
           <div
             key={id}
-            className={isEndpoint ? 'dripl-linear-handle' : 'dripl-linear-mid-handle'}
+            className={
+              isEndpoint
+                ? 'dripl-linear-handle'
+                : isInsert
+                  ? 'dripl-linear-insert-handle visible'
+                  : 'dripl-linear-mid-handle'
+            }
             style={{
               left: isEndpoint ? left - 6 : left - 5,
               top: isEndpoint ? top - 6 : top - 5,
-              pointerEvents: 'auto',
-              cursor: 'move',
+              pointerEvents: isInsert ? 'auto' : isEndpoint ? 'auto' : undefined,
+              cursor: isInsert ? 'copy' : isEndpoint ? 'move' : undefined,
             }}
-            onPointerDown={e => onResizeStart(id, e)}
-          />
+            onPointerDown={e => onResizeStart(id as ResizeHandle, e)}
+          >
+            {isInsert ? '+' : null}
+          </div>
         ))}
       </div>
     );

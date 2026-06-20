@@ -7,6 +7,26 @@ export function addPoint<T extends { points: Point[] }>(point: Point, state: T):
   };
 }
 
+export function insertPointAt<T extends { points: Point[] }>(
+  index: number,
+  point: Point,
+  state: T
+): T {
+  const newPoints = [...state.points];
+  newPoints.splice(index, 0, point);
+  return {
+    ...state,
+    points: newPoints,
+  };
+}
+
+export function getMidpoint(p1: Point, p2: Point): Point {
+  return {
+    x: (p1.x + p2.x) / 2,
+    y: (p1.y + p2.y) / 2,
+  };
+}
+
 export function removePoint<T extends { points: Point[] }>(
   index: number,
   state: T,
