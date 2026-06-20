@@ -45,12 +45,13 @@ class ShapeRegistry {
     return definition.create(properties);
   }
 
-  validateElement(element: any): boolean {
-    if (!element || !element.type) {
+  validateElement(element: unknown): boolean {
+    if (!element || typeof element !== 'object' || !('type' in element)) {
       return false;
     }
 
-    const definition = this.get(element.type);
+    const el = element as { type: string };
+    const definition = this.get(el.type);
     if (!definition) {
       return false;
     }
@@ -68,7 +69,7 @@ class ShapeRegistry {
     definition.render(ctx, element);
   }
 
-  getElementProperties(element: DriplElement): any {
+  getElementProperties(element: DriplElement): Record<string, unknown> {
     const definition = this.get(element.type);
     if (!definition) {
       console.warn(`Shape type '${element.type}' not registered. Returning empty properties.`);
@@ -78,7 +79,7 @@ class ShapeRegistry {
     return definition.getProperties(element);
   }
 
-  setElementProperties(element: DriplElement, properties: any): DriplElement {
+  setElementProperties(element: DriplElement, properties: Record<string, unknown>): DriplElement {
     const definition = this.get(element.type);
     if (!definition) {
       console.warn(`Shape type '${element.type}' not registered. Returning original element.`);

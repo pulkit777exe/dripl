@@ -96,8 +96,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit by session cookie (X-Forwarded-For is spoofable)
-    const cookies = (request as any).cookies?.get?.('session')?.value;
-    const rateLimitKey = cookies ?? 'anonymous';
+    const sessionCookie = request.cookies.get('session');
+    const rateLimitKey = sessionCookie?.value ?? 'anonymous';
     const rateCheck = checkRateLimit(rateLimitKey);
     if (!rateCheck.allowed) {
       return NextResponse.json(

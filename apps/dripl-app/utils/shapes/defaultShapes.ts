@@ -1,4 +1,5 @@
-import type { ShapeDefinition, DriplElement, Point, ElementBase } from '@dripl/common';
+import type { ShapeDefinition, DriplElement, Point, ElementBase, LinearElement, TextElement, ImageElement, FrameElement, FreeDrawElement } from '@dripl/common';
+import { isDriplElement } from '@dripl/common';
 import { imageCache } from '@dripl/element/image-cache';
 import { createRectangleElement, RectangleToolState } from '@/utils/tools/rectangle';
 import { createEllipseElement, EllipseToolState } from '@/utils/tools/ellipse';
@@ -33,10 +34,11 @@ export const rectangleShape: ShapeDefinition = {
       fillStyle: 'hachure',
       ...props,
     }) as DriplElement,
-  validate: (element: any) => {
+  validate: (element: unknown) => {
+    if (!isDriplElement(element) || element.type !== 'rectangle') {
+      return false;
+    }
     return (
-      element &&
-      element.type === 'rectangle' &&
       typeof element.x === 'number' &&
       typeof element.y === 'number' &&
       typeof element.width === 'number' &&
@@ -66,7 +68,7 @@ export const rectangleShape: ShapeDefinition = {
       fillStyle: element.fillStyle,
     };
   },
-  setProperties: (element: DriplElement, properties: any) => {
+  setProperties: (element: DriplElement, properties: Record<string, unknown>) => {
     return {
       ...element,
       ...properties,
@@ -96,10 +98,11 @@ export const ellipseShape: ShapeDefinition = {
       fillStyle: 'hachure',
       ...props,
     }) as DriplElement,
-  validate: (element: any) => {
+  validate: (element: unknown) => {
+    if (!isDriplElement(element) || element.type !== 'ellipse') {
+      return false;
+    }
     return (
-      element &&
-      element.type === 'ellipse' &&
       typeof element.x === 'number' &&
       typeof element.y === 'number' &&
       typeof element.width === 'number' &&
@@ -140,7 +143,7 @@ export const ellipseShape: ShapeDefinition = {
       fillStyle: element.fillStyle,
     };
   },
-  setProperties: (element: DriplElement, properties: any) => {
+  setProperties: (element: DriplElement, properties: Record<string, unknown>) => {
     return {
       ...element,
       ...properties,
@@ -170,10 +173,11 @@ export const diamondShape: ShapeDefinition = {
       fillStyle: 'hachure',
       ...props,
     }) as DriplElement,
-  validate: (element: any) => {
+  validate: (element: unknown) => {
+    if (!isDriplElement(element) || element.type !== 'diamond') {
+      return false;
+    }
     return (
-      element &&
-      element.type === 'diamond' &&
       typeof element.x === 'number' &&
       typeof element.y === 'number' &&
       typeof element.width === 'number' &&
@@ -215,7 +219,7 @@ export const diamondShape: ShapeDefinition = {
       fillStyle: element.fillStyle,
     };
   },
-  setProperties: (element: DriplElement, properties: any) => {
+  setProperties: (element: DriplElement, properties: Record<string, unknown>) => {
     return {
       ...element,
       ...properties,
@@ -249,41 +253,43 @@ export const arrowShape: ShapeDefinition = {
       ],
       ...props,
     }) as DriplElement,
-  validate: (element: any) => {
-    return (
-      element &&
-      element.type === 'arrow' &&
-      Array.isArray(element.points) &&
-      element.points.length >= 2
-    );
+  validate: (element: unknown) => {
+    if (!isDriplElement(element) || element.type !== 'arrow') {
+      return false;
+    }
+    return 'points' in element && Array.isArray((element as LinearElement).points) && (element as LinearElement).points.length >= 2;
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
-    const arrowElement = element as any;
+    const arrowElement = element as LinearElement;
     if (!arrowElement.points || arrowElement.points.length < 2) return;
+
+    const first = arrowElement.points[0];
+    const second = arrowElement.points[1];
+    if (!first || !second) return;
 
     ctx.strokeStyle = element.strokeColor || '#000000';
     ctx.lineWidth = element.strokeWidth || 2;
     ctx.globalAlpha = element.opacity || 1;
 
     ctx.beginPath();
-    ctx.moveTo(arrowElement.points[0].x, arrowElement.points[0].y);
-    ctx.lineTo(arrowElement.points[1].x, arrowElement.points[1].y);
+    ctx.moveTo(first.x, first.y);
+    ctx.lineTo(second.x, second.y);
     ctx.stroke();
 
-    const dx = arrowElement.points[1].x - arrowElement.points[0].x;
-    const dy = arrowElement.points[1].y - arrowElement.points[0].y;
+    const dx = second.x - first.x;
+    const dy = second.y - first.y;
     const angle = Math.atan2(dy, dx);
     const headLength = 10;
 
     ctx.beginPath();
-    ctx.moveTo(arrowElement.points[1].x, arrowElement.points[1].y);
+    ctx.moveTo(second.x, second.y);
     ctx.lineTo(
-      arrowElement.points[1].x - headLength * Math.cos(angle - Math.PI / 6),
-      arrowElement.points[1].y - headLength * Math.sin(angle - Math.PI / 6)
+      second.x - headLength * Math.cos(angle - Math.PI / 6),
+      second.y - headLength * Math.sin(angle - Math.PI / 6)
     );
     ctx.lineTo(
-      arrowElement.points[1].x - headLength * Math.cos(angle + Math.PI / 6),
-      arrowElement.points[1].y - headLength * Math.sin(angle + Math.PI / 6)
+      second.x - headLength * Math.cos(angle + Math.PI / 6),
+      second.y - headLength * Math.sin(angle + Math.PI / 6)
     );
     ctx.closePath();
     ctx.fill();
@@ -297,7 +303,7 @@ export const arrowShape: ShapeDefinition = {
       strokeStyle: element.strokeStyle,
     };
   },
-  setProperties: (element: DriplElement, properties: any) => {
+  setProperties: (element: DriplElement, properties: Record<string, unknown>) => {
     return {
       ...element,
       ...properties,
@@ -331,25 +337,25 @@ export const lineShape: ShapeDefinition = {
       ],
       ...props,
     }) as DriplElement,
-  validate: (element: any) => {
-    return (
-      element &&
-      element.type === 'line' &&
-      Array.isArray(element.points) &&
-      element.points.length >= 2
-    );
+  validate: (element: unknown) => {
+    if (!isDriplElement(element) || element.type !== 'line') {
+      return false;
+    }
+    return 'points' in element && Array.isArray((element as LinearElement).points) && (element as LinearElement).points.length >= 2;
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
-    const lineElement = element as any;
-    if (!lineElement.points || lineElement.points.length < 2) return;
+    const lineElement = element as LinearElement;
+    const first = lineElement.points[0];
+    const second = lineElement.points[1];
+    if (!first || !second) return;
 
     ctx.strokeStyle = element.strokeColor || '#000000';
     ctx.lineWidth = element.strokeWidth || 2;
     ctx.globalAlpha = element.opacity || 1;
 
     ctx.beginPath();
-    ctx.moveTo(lineElement.points[0].x, lineElement.points[0].y);
-    ctx.lineTo(lineElement.points[1].x, lineElement.points[1].y);
+    ctx.moveTo(first.x, first.y);
+    ctx.lineTo(second.x, second.y);
     ctx.stroke();
   },
   getProperties: (element: DriplElement) => {
@@ -361,7 +367,7 @@ export const lineShape: ShapeDefinition = {
       strokeStyle: element.strokeStyle,
     };
   },
-  setProperties: (element: DriplElement, properties: any) => {
+  setProperties: (element: DriplElement, properties: Record<string, unknown>) => {
     return {
       ...element,
       ...properties,
@@ -395,11 +401,14 @@ export const textShape: ShapeDefinition = {
       fontFamily: getDefaultFontFamily(),
       ...props,
     }) as DriplElement,
-  validate: (element: any) => {
-    return element && element.type === 'text' && typeof element.text === 'string';
+  validate: (element: unknown) => {
+    if (!isDriplElement(element) || element.type !== 'text') {
+      return false;
+    }
+    return 'text' in element && typeof (element as TextElement).text === 'string';
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
-    const textElement = element as any;
+    const textElement = element as TextElement;
 
     ctx.fillStyle = element.strokeColor || '#000000';
     ctx.font = `${textElement.fontSize}px ${textElement.fontFamily}`;
@@ -408,7 +417,7 @@ export const textShape: ShapeDefinition = {
     ctx.fillText(textElement.text, element.x, element.y + textElement.fontSize);
   },
   getProperties: (element: DriplElement) => {
-    const textElement = element as any;
+    const textElement = element as TextElement;
     return {
       strokeColor: element.strokeColor,
       text: textElement.text,
@@ -416,7 +425,7 @@ export const textShape: ShapeDefinition = {
       fontFamily: textElement.fontFamily,
     };
   },
-  setProperties: (element: DriplElement, properties: any) => {
+  setProperties: (element: DriplElement, properties: Record<string, unknown>) => {
     return {
       ...element,
       ...properties,
@@ -447,11 +456,14 @@ export const imageShape: ShapeDefinition = {
       src: '',
       ...props,
     }) as DriplElement,
-  validate: (element: any) => {
-    return element && element.type === 'image' && typeof element.src === 'string';
+  validate: (element: unknown) => {
+    if (!isDriplElement(element) || element.type !== 'image') {
+      return false;
+    }
+    return 'src' in element && typeof (element as ImageElement).src === 'string';
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
-    const imageElement = element as any;
+    const imageElement = element as ImageElement;
     if (!imageElement.src) return;
 
     ctx.globalAlpha = element.opacity || 1;
@@ -472,13 +484,13 @@ export const imageShape: ShapeDefinition = {
     }
   },
   getProperties: (element: DriplElement) => {
-    const imageElement = element as any;
+    const imageElement = element as ImageElement;
     return {
       src: imageElement.src,
       opacity: element.opacity,
     };
   },
-  setProperties: (element: DriplElement, properties: any) => {
+  setProperties: (element: DriplElement, properties: Record<string, unknown>) => {
     return {
       ...element,
       ...properties,
@@ -510,10 +522,11 @@ export const frameShape: ShapeDefinition = {
       padding: 20,
       ...props,
     }) as DriplElement,
-  validate: (element: any) => {
+  validate: (element: unknown) => {
+    if (!isDriplElement(element) || element.type !== 'frame') {
+      return false;
+    }
     return (
-      element &&
-      element.type === 'frame' &&
       typeof element.x === 'number' &&
       typeof element.y === 'number' &&
       typeof element.width === 'number' &&
@@ -521,7 +534,7 @@ export const frameShape: ShapeDefinition = {
     );
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
-    const frameElement = element as any;
+    const frameElement = element as FrameElement;
 
     ctx.strokeStyle = element.strokeColor || '#000000';
     ctx.lineWidth = element.strokeWidth || 2;
@@ -546,7 +559,7 @@ export const frameShape: ShapeDefinition = {
     }
   },
   getProperties: (element: DriplElement) => {
-    const frameElement = element as any;
+    const frameElement = element as FrameElement;
     return {
       strokeColor: element.strokeColor,
       backgroundColor: element.backgroundColor,
@@ -559,7 +572,7 @@ export const frameShape: ShapeDefinition = {
       padding: frameElement.padding,
     };
   },
-  setProperties: (element: DriplElement, properties: any) => {
+  setProperties: (element: DriplElement, properties: Record<string, unknown>) => {
     return {
       ...element,
       ...properties,
@@ -590,11 +603,14 @@ export const freedrawShape: ShapeDefinition = {
       points: [],
       ...props,
     }) as DriplElement,
-  validate: (element: any) => {
-    return element && element.type === 'freedraw' && Array.isArray(element.points);
+  validate: (element: unknown) => {
+    if (!isDriplElement(element) || element.type !== 'freedraw') {
+      return false;
+    }
+    return 'points' in element && Array.isArray((element as FreeDrawElement).points);
   },
   render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
-    const freedrawElement = element as any;
+    const freedrawElement = element as FreeDrawElement;
     if (!freedrawElement.points || freedrawElement.points.length < 2) return;
 
     ctx.strokeStyle = element.strokeColor || '#000000';
@@ -603,10 +619,16 @@ export const freedrawShape: ShapeDefinition = {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
+    const first = freedrawElement.points[0];
+    if (!first) return;
+
     ctx.beginPath();
-    ctx.moveTo(freedrawElement.points[0].x, freedrawElement.points[0].y);
+    ctx.moveTo(first.x, first.y);
     for (let i = 1; i < freedrawElement.points.length; i++) {
-      ctx.lineTo(freedrawElement.points[i].x, freedrawElement.points[i].y);
+      const point = freedrawElement.points[i];
+      if (point) {
+        ctx.lineTo(point.x, point.y);
+      }
     }
     ctx.stroke();
   },
@@ -617,7 +639,7 @@ export const freedrawShape: ShapeDefinition = {
       opacity: element.opacity,
     };
   },
-  setProperties: (element: DriplElement, properties: any) => {
+  setProperties: (element: DriplElement, properties: Record<string, unknown>) => {
     return {
       ...element,
       ...properties,
@@ -633,5 +655,6 @@ export const defaultShapes = [
   lineShape,
   textShape,
   imageShape,
+  frameShape,
   freedrawShape,
 ];

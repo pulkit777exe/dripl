@@ -540,7 +540,7 @@ export function useCollaboration(
       const state = useCanvasStore.getState();
       const now = Date.now();
       state.remoteCursors.forEach((cursor, uid) => {
-        if (now - (cursor as any).updatedAt > 5000) {
+        if (now - cursor.updatedAt > 5000) {
           state.removeRemoteCursor(uid);
           setCollaboratorsMap(prev => {
             const next = new Map(prev);

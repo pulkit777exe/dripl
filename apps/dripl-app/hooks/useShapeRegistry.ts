@@ -40,7 +40,7 @@ export function useShapeRegistry() {
     return getShapeByType(type);
   };
 
-  const createElement = (type: string, properties: any) => {
+  const createElement = (type: string, properties: Partial<DriplElement>) => {
     return createElementFromType(type, properties);
   };
 
@@ -90,7 +90,7 @@ export function useShapeRegistry() {
     return shapeRegistry.getElementProperties(element);
   };
 
-  const setElementProperties = (element: DriplElement, properties: any) => {
+  const setElementProperties = (element: DriplElement, properties: Record<string, unknown>) => {
     return shapeRegistry.setElementProperties(element, properties);
   };
 

@@ -1,4 +1,4 @@
-import type { DriplElement, TextElement } from '@dripl/common';
+import type { DriplElement, TextElement, Point } from '@dripl/common';
 import { v4 as uuidv4 } from 'uuid';
 
 // Offset for duplicated elements (pixels)
@@ -41,7 +41,7 @@ export function duplicateElement(element: DriplElement, offset = DUPLICATION_OFF
 
   // Offset points for linear elements
   if (copy.points) {
-    copy.points = copy.points.map((point: any) => ({
+    copy.points = copy.points.map((point: Point) => ({
       x: point.x + offset,
       y: point.y + offset,
     }));

@@ -1,5 +1,6 @@
 import { shapeRegistry } from './ShapeRegistry';
 import { defaultShapes } from './defaultShapes';
+import type { DriplElement } from '@dripl/common';
 
 let initialized = false;
 
@@ -33,7 +34,7 @@ export function getShapeByType(type: string) {
   return shapeRegistry.get(type);
 }
 
-export function createElementFromType(type: string, properties: any) {
+export function createElementFromType(type: string, properties: Partial<DriplElement>) {
   try {
     return shapeRegistry.createElement(type, properties);
   } catch (error) {

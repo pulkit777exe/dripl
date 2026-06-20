@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import type { DriplElement, Point } from '@dripl/common';
+import type { DriplElement, Point, LinearElement, TextElement } from '@dripl/common';
 import { v4 as uuidv4 } from 'uuid';
 import { resizeSingleElement } from '@dripl/element/resizeElements';
 
@@ -41,12 +41,18 @@ export function useElementManipulation({
         allIdsToMove.add(id);
 
         const element = elements.find(el => el.id === id);
-        if (element && element.type === 'arrow' && (element as any).labelId) {
-          allIdsToMove.add((element as any).labelId);
+        if (element && element.type === 'arrow' && 'labelId' in element) {
+          const arrowElement = element as LinearElement;
+          if (arrowElement.labelId) {
+            allIdsToMove.add(arrowElement.labelId);
+          }
         }
 
-        if (element && element.type === 'text' && (element as any).containerId) {
-          allIdsToMove.add((element as any).containerId);
+        if (element && element.type === 'text' && 'containerId' in element) {
+          const textElement = element as TextElement;
+          if (textElement.containerId) {
+            allIdsToMove.add(textElement.containerId);
+          }
         }
       });
 
@@ -177,7 +183,7 @@ export function useElementManipulation({
         newHeight,
         element,
         element,
-        handle as any,
+        handle as 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw',
         {
           shouldMaintainAspectRatio: shiftKey,
           shouldResizeFromCenter: altKey,
@@ -227,10 +233,13 @@ export function useElementManipulation({
         if (element) {
           allElementsToDuplicate.push(element);
 
-          if (element && element.type === 'arrow' && (element as any).labelId) {
-            const label = elements.find(el => el.id === (element as any).labelId);
-            if (label) {
-              allElementsToDuplicate.push(label);
+          if (element && element.type === 'arrow' && 'labelId' in element) {
+            const arrowElement = element as LinearElement;
+            if (arrowElement.labelId) {
+              const label = elements.find(el => el.id === arrowElement.labelId);
+              if (label) {
+                allElementsToDuplicate.push(label);
+              }
             }
           }
         }
@@ -248,13 +257,17 @@ export function useElementManipulation({
 
         idMap.set(element.id, duplicated.id);
 
-        if (duplicated.type === 'arrow' && (duplicated as any).labelId) {
-          (duplicated as any).labelId =
-            idMap.get((duplicated as any).labelId) || (duplicated as any).labelId;
+        if (duplicated.type === 'arrow' && 'labelId' in duplicated) {
+          const arrowDuplicated = duplicated as LinearElement;
+          if (arrowDuplicated.labelId) {
+            arrowDuplicated.labelId = idMap.get(arrowDuplicated.labelId) || arrowDuplicated.labelId;
+          }
         }
-        if (duplicated.type === 'text' && (duplicated as any).containerId) {
-          (duplicated as any).containerId =
-            idMap.get((duplicated as any).containerId) || (duplicated as any).containerId;
+        if (duplicated.type === 'text' && 'containerId' in duplicated) {
+          const textDuplicated = duplicated as TextElement;
+          if (textDuplicated.containerId) {
+            textDuplicated.containerId = idMap.get(textDuplicated.containerId) || textDuplicated.containerId;
+          }
         }
 
         addElement(duplicated);
@@ -275,8 +288,11 @@ export function useElementManipulation({
 
     idsToDelete.forEach(id => {
       const element = elements.find(el => el.id === id);
-      if (element && element.type === 'arrow' && (element as any).labelId) {
-        allIdsToDelete.add((element as any).labelId);
+      if (element && element.type === 'arrow' && 'labelId' in element) {
+        const arrowElement = element as LinearElement;
+        if (arrowElement.labelId) {
+          allIdsToDelete.add(arrowElement.labelId);
+        }
       }
     });
 
