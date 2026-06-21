@@ -263,7 +263,7 @@ export default function FilePage(): React.ReactNode {
       </div>
 
       <CommandPalette />
-      {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)}/>}
+      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </div>
   );
 }

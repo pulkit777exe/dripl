@@ -266,7 +266,7 @@ function CanvasContent() {
       <CanvasErrorBoundary name="CommandPalette">
         <CommandPalette />
       </CanvasErrorBoundary>
-      {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)} />}
+      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </div>
   );
 }

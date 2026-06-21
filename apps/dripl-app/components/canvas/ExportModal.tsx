@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Download,
   X,
@@ -40,9 +41,14 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const [useCustomSize, setUseCustomSize] = useState(false);
   const [exportSelectionOnly, setExportSelectionOnly] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
   const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
   const prevOpen = useRef(false);
   const successRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isOpen && !prevOpen.current) {
@@ -78,7 +84,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     }
   }, [exportSuccess]);
 
-  if (animState === 'closed') return null;
+  if (!mounted || animState === 'closed') return null;
 
   const modalState = animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : '';
 
@@ -220,42 +226,47 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     }
   };
 
-  const inputClass =
-    'flex-1 px-3 py-1.5 rounded-md border border-border bg-card text-[13px] text-foreground outline-none focus:border-primary';
+  const inputClass = 'flex-1 px-3 py-1.5 rounded-md text-[13px] outline-none';
 
-  return (
+  const modal = (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-overlay backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
+      className={`fixed inset-0 z-400 flex items-center justify-center p-4 box-content backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
       onClick={onClose}
     >
       <div
-        className="bg-card border border-panel-border rounded-xl shadow-lg p-5 w-[440px]"
+        className="rounded-xl shadow-lg w-[440px] max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-[15px] font-semibold text-foreground">Export Canvas</h2>
+        <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #E4E0D9' }}>
+          <h2 className="text-[15px] font-semibold" style={{ color: '#1A1917' }}>Export Canvas</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-secondary rounded-md transition-colors text-muted-foreground hover:text-foreground"
+            className="p-1 rounded-md transition-colors"
+            style={{ color: '#6B6860' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#1A1917'; e.currentTarget.style.backgroundColor = '#E8E5DE'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#6B6860'; e.currentTarget.style.backgroundColor = 'transparent'; }}
           >
-            <X className="w-4 h-4" />
+            <X size={18} />
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="p-5 space-y-4">
           {/* Format Selection */}
           <div>
-            <label className="text-[12px] font-medium text-muted-foreground mb-2 block">Format</label>
+            <label className="text-[12px] font-medium mb-2 block" style={{ color: '#6B6860' }}>Format</label>
             <div className="grid grid-cols-4 gap-2">
               {(['png', 'svg', 'json', 'pdf'] as ExportFormat[]).map(format => (
                 <button
                   key={format}
                   onClick={() => setSelectedFormat(format)}
-                  className={`flex items-center justify-center gap-1.5 py-2 rounded-md border text-[12px] font-medium transition-colors ${
-                    selectedFormat === format
-                      ? 'bg-accent border-primary text-primary'
-                      : 'border-border hover:bg-secondary text-muted-foreground'
-                  }`}
+                  className="flex items-center justify-center gap-1.5 py-2 rounded-md text-[12px] font-medium transition-colors"
+                  style={{
+                    border: selectedFormat === format ? '1px solid #E8462A' : '1px solid #D4D0C9',
+                    backgroundColor: selectedFormat === format ? '#FAE8E5' : '#FAFAF7',
+                    color: selectedFormat === format ? '#E8462A' : '#6B6860',
+                  }}
                 >
                   {getFormatIcon(format)}
                   <span className="uppercase">{format}</span>
@@ -267,7 +278,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           {/* Scale */}
           {selectedFormat !== 'json' && selectedFormat !== 'pdf' && (
             <div>
-              <label className="text-[12px] font-medium text-muted-foreground mb-2 block">Scale</label>
+              <label className="text-[12px] font-medium mb-2 block" style={{ color: '#6B6860' }}>Scale</label>
               <div className="space-y-2">
                 <div className="flex gap-1.5">
                   {([1, 2, 3, 4] as ExportScale[]).map(s => (
@@ -277,22 +288,24 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                         setScale(s);
                         setUseCustomSize(false);
                       }}
-                      className={`flex-1 py-1.5 rounded-md border text-[12px] font-medium transition-colors ${
-                        scale === s && !useCustomSize
-                          ? 'bg-accent border-primary text-primary'
-                          : 'border-border hover:bg-secondary text-muted-foreground'
-                      }`}
+                      className="flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors"
+                      style={{
+                        border: scale === s && !useCustomSize ? '1px solid #E8462A' : '1px solid #D4D0C9',
+                        backgroundColor: scale === s && !useCustomSize ? '#FAE8E5' : '#FAFAF7',
+                        color: scale === s && !useCustomSize ? '#E8462A' : '#6B6860',
+                      }}
                     >
                       {s}x
                     </button>
                   ))}
                 </div>
-                <label className="flex items-center gap-2 text-[12px] text-muted-foreground cursor-pointer">
+                <label className="flex items-center gap-2 text-[12px] cursor-pointer" style={{ color: '#6B6860' }}>
                   <input
                     type="checkbox"
                     checked={useCustomSize}
                     onChange={e => setUseCustomSize(e.target.checked)}
-                    className="rounded border-border w-3.5 h-3.5 accent-primary"
+                    className="rounded w-3.5 h-3.5"
+                    style={{ accentColor: '#E8462A' }}
                   />
                   Custom dimensions
                 </label>
@@ -307,7 +320,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                       min={100}
                       max={10000}
                     />
-                    <span className="text-muted-foreground">×</span>
+                    <span style={{ color: '#6B6860' }}>×</span>
                     <input
                       type="number"
                       placeholder="Height"
@@ -317,16 +330,17 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                       min={100}
                       max={10000}
                     />
-                    <span className="text-[11px] text-muted-foreground">px</span>
+                    <span className="text-[11px]" style={{ color: '#6B6860' }}>px</span>
                   </div>
                 )}
                 {selectedIds.size > 0 && (
-                  <label className="flex items-center gap-2 text-[12px] text-muted-foreground cursor-pointer">
+                  <label className="flex items-center gap-2 text-[12px] cursor-pointer" style={{ color: '#6B6860' }}>
                     <input
                       type="checkbox"
                       checked={exportSelectionOnly}
                       onChange={e => setExportSelectionOnly(e.target.checked)}
-                      className="rounded border-border w-3.5 h-3.5 accent-primary"
+                      className="rounded w-3.5 h-3.5"
+                      style={{ accentColor: '#E8462A' }}
                     />
                     <Square size={12} />
                     Export selected only ({selectedIds.size})
@@ -340,23 +354,25 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           <div className="space-y-1.5 pt-1">
             <button
               onClick={() => handleExport('json')}
-              className="w-full flex items-center gap-3 px-3 py-2.5 border border-panel-border rounded-md bg-card hover:bg-secondary transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors"
+              style={{ border: '1px solid #E4E0D9', backgroundColor: '#FAFAF7' }}
             >
-              <FileJson className="w-4 h-4 text-primary" />
+              <FileJson className="w-4 h-4" style={{ color: '#E8462A' }} />
               <div className="text-left">
-                <div className="text-[13px] font-medium text-foreground">Export as JSON</div>
-                <div className="text-[11px] text-muted-foreground">Save all elements as JSON data</div>
+                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>Export as JSON</div>
+                <div className="text-[11px]" style={{ color: '#6B6860' }}>Save all elements as JSON data</div>
               </div>
             </button>
 
             <button
               onClick={() => handleExport('png')}
               disabled={exporting}
-              className="w-full flex items-center gap-3 px-3 py-2.5 border border-panel-border rounded-md bg-card hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ border: '1px solid #E4E0D9', backgroundColor: '#FAFAF7' }}
             >
-              <ImageIcon className="w-4 h-4 text-primary" />
+              <ImageIcon className="w-4 h-4" style={{ color: '#E8462A' }} />
               <div className="text-left">
-                <div className="text-[13px] font-medium text-foreground">
+                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>
                   {exporting ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -366,7 +382,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                     'Export as PNG'
                   )}
                 </div>
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-[11px]" style={{ color: '#6B6860' }}>
                   {useCustomSize
                     ? `${customWidth || '?'} × ${customHeight || '?'} px`
                     : `${scale}x scale`}
@@ -377,11 +393,12 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             <button
               onClick={() => handleExport('svg')}
               disabled={exporting}
-              className="w-full flex items-center gap-3 px-3 py-2.5 border border-panel-border rounded-md bg-card hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ border: '1px solid #E4E0D9', backgroundColor: '#FAFAF7' }}
             >
-              <FileCode className="w-4 h-4 text-primary" />
+              <FileCode className="w-4 h-4" style={{ color: '#E8462A' }} />
               <div className="text-left">
-                <div className="text-[13px] font-medium text-foreground">
+                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>
                   {exporting ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -391,18 +408,19 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                     'Export as SVG'
                   )}
                 </div>
-                <div className="text-[11px] text-muted-foreground">Vector graphics (scalable)</div>
+                <div className="text-[11px]" style={{ color: '#6B6860' }}>Vector graphics (scalable)</div>
               </div>
             </button>
 
             <button
               onClick={() => handleExport('pdf')}
               disabled={exporting}
-              className="w-full flex items-center gap-3 px-3 py-2.5 border border-panel-border rounded-md bg-card hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ border: '1px solid #E4E0D9', backgroundColor: '#FAFAF7' }}
             >
-              <FileText className="w-4 h-4 text-primary" />
+              <FileText className="w-4 h-4" style={{ color: '#E8462A' }} />
               <div className="text-left">
-                <div className="text-[13px] font-medium text-foreground">
+                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>
                   {exporting ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -412,18 +430,19 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                     'Export as PDF'
                   )}
                 </div>
-                <div className="text-[11px] text-muted-foreground">Document format</div>
+                <div className="text-[11px]" style={{ color: '#6B6860' }}>Document format</div>
               </div>
             </button>
 
             <button
               onClick={handleCopyToClipboard}
               disabled={exporting}
-              className="w-full flex items-center gap-3 px-3 py-2.5 border border-panel-border rounded-md bg-card hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ border: '1px solid #E4E0D9', backgroundColor: '#FAFAF7' }}
             >
-              <Clipboard className="w-4 h-4 text-primary" />
+              <Clipboard className="w-4 h-4" style={{ color: '#E8462A' }} />
               <div className="text-left">
-                <div className="text-[13px] font-medium text-foreground">
+                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>
                   {exporting ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -433,18 +452,19 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                     'Copy to Clipboard'
                   )}
                 </div>
-                <div className="text-[11px] text-muted-foreground">Copy as PNG image</div>
+                <div className="text-[11px]" style={{ color: '#6B6860' }}>Copy as PNG image</div>
               </div>
             </button>
 
             <button
               onClick={handleImport}
-              className="w-full flex items-center gap-3 px-3 py-2.5 border border-panel-border rounded-md bg-card hover:bg-secondary transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors"
+              style={{ border: '1px solid #E4E0D9', backgroundColor: '#FAFAF7' }}
             >
-              <Download className="w-4 h-4 text-primary" />
+              <Download className="w-4 h-4" style={{ color: '#E8462A' }} />
               <div className="text-left">
-                <div className="text-[13px] font-medium text-foreground">Import JSON</div>
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>Import JSON</div>
+                <div className="text-[11px]" style={{ color: '#6B6860' }}>
                   Merge or replace from exported JSON
                 </div>
               </div>
@@ -453,25 +473,30 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         </div>
 
         {exportError && (
-          <InlineError
-            message={exportError}
-            onRetry={() => setExportError(null)}
-            className="mt-4"
-          />
+          <div className="px-5 pb-5">
+            <InlineError
+              message={exportError}
+              onRetry={() => setExportError(null)}
+            />
+          </div>
         )}
 
         {exportSuccess && (
-          <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-success-bg border border-success-border rounded-md">
-            <span className="t-success-check" data-state="in" aria-hidden="true" ref={successRef}>
-              <svg viewBox="0 0 48 48" fill="none" width="20" height="20">
-                <circle cx="24" cy="24" r="22" stroke="#22c55e" strokeWidth="4" />
-                <path d="M16 24l6 6 10-10" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <span className="text-[13px] text-success font-medium">{exportSuccess}</span>
+          <div className="px-5 pb-5">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md" style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+              <span className="t-success-check" data-state="in" aria-hidden="true" ref={successRef}>
+                <svg viewBox="0 0 48 48" fill="none" width="20" height="20">
+                  <circle cx="24" cy="24" r="22" stroke="#22c55e" strokeWidth="4" />
+                  <path d="M16 24l6 6 10-10" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <span className="text-[13px] font-medium" style={{ color: '#16A34A' }}>{exportSuccess}</span>
+            </div>
           </div>
         )}
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }

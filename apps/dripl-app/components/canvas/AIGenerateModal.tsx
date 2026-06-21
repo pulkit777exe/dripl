@@ -144,17 +144,17 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
   if (generateSuccess) {
     return createPortal(
-      <div className="fixed inset-0 z-400 flex items-center justify-center bg-overlay backdrop-blur-sm t-modal is-open">
-        <div className="bg-card border border-panel-border rounded-xl shadow-lg p-8 flex flex-col items-center gap-3">
+      <div className="fixed inset-0 z-400 flex items-center justify-center p-4 box-content backdrop-blur-sm pointer-events-auto t-modal is-open" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
+        <div className="rounded-xl shadow-lg p-8 flex flex-col items-center gap-3" style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}>
           <span className="t-success-check" data-state="in" aria-hidden="true" ref={successRef}>
             <svg viewBox="0 0 48 48" fill="none" width="48" height="48">
               <circle cx="24" cy="24" r="22" stroke="#22c55e" strokeWidth="4" />
               <path d="M16 24l6 6 10-10" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>
-          <p className="text-[15px] font-semibold text-foreground">Diagram Generated!</p>
+          <p className="text-[15px] font-semibold" style={{ color: '#1A1917' }}>Diagram Generated!</p>
           {warning && (
-            <div className="flex max-w-72 items-center gap-2 rounded-md border border-[#f59e0b]/40 bg-[#f59e0b]/10 px-3 py-2 text-[12px] text-[#b45309]">
+            <div className="flex max-w-72 items-center gap-2 rounded-md px-3 py-2 text-[12px]" style={{ border: '1px solid rgba(245, 158, 11, 0.4)', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#b45309' }}>
               <AlertTriangle size={14} className="shrink-0" />
               <span>{warning}</span>
             </div>
@@ -171,21 +171,26 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
   const modal = (
     <div
-      className={`fixed inset-0 z-400 flex items-center justify-center p-4 box-content bg-overlay backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
+      className={`fixed inset-0 z-400 flex items-center justify-center p-4 box-content backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
       onClick={onClose}
     >
       <div
-        className="bg-card border border-panel-border rounded-xl shadow-lg w-full max-w-115 max-h-[85vh] overflow-y-auto"
+        className="rounded-xl shadow-lg w-full max-w-115 max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-panel-border">
+        <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #E4E0D9' }}>
           <div className="flex items-center gap-2">
-            <Sparkles size={18} className="text-primary" />
-            <h2 className="text-[15px] font-semibold text-foreground">AI Diagram Generator</h2>
+            <Sparkles size={18} style={{ color: '#E8462A' }} />
+            <h2 className="text-[15px] font-semibold" style={{ color: '#1A1917' }}>AI Diagram Generator</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-md transition-colors"
+            className="p-1 rounded-md transition-colors"
+            style={{ color: '#6B6860' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#1A1917'; e.currentTarget.style.backgroundColor = '#E8E5DE'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#6B6860'; e.currentTarget.style.backgroundColor = 'transparent'; }}
           >
             <X size={18} />
           </button>
@@ -193,7 +198,7 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
         <div className="p-5 space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[12px] font-medium text-muted-foreground">Describe your diagram</label>
+            <label className="text-[12px] font-medium" style={{ color: '#6B6860' }}>Describe your diagram</label>
             <textarea
               value={prompt}
               onChange={e => {
@@ -201,20 +206,22 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
                 setError(null);
               }}
               placeholder="e.g., A flowchart showing the checkout process for an e-commerce site"
-              className="w-full h-28 px-3 py-2 bg-card border border-border rounded-md text-[13px] text-foreground placeholder:text-muted-foreground resize-none outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+              className="w-full h-28 px-3 py-2 rounded-md text-[13px] resize-none outline-none"
+              style={{ backgroundColor: '#FAFAF7', border: '1px solid #D4D0C9', color: '#1A1917' }}
               disabled={isLoading}
             />
-            <div className="text-[11px] text-muted-foreground">{prompt.length}/2000</div>
+            <div className="text-[11px]" style={{ color: '#6B6860' }}>{prompt.length}/2000</div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[12px] font-medium text-muted-foreground">Try an example</label>
+            <label className="text-[12px] font-medium" style={{ color: '#6B6860' }}>Try an example</label>
             <div className="flex flex-wrap gap-1.5">
               {EXAMPLE_PROMPTS.map((example, index) => (
                 <button
                   key={index}
                   onClick={() => handleExampleClick(example)}
-                  className="px-2.5 py-1 text-[11px] bg-card border border-border rounded-full text-muted-foreground hover:bg-secondary hover:border-primary transition-colors"
+                  className="px-2.5 py-1 text-[11px] rounded-full transition-colors"
+                  style={{ backgroundColor: '#FAFAF7', border: '1px solid #D4D0C9', color: '#6B6860' }}
                   disabled={isLoading}
                 >
                   {example.length > 40 ? example.slice(0, 40) + '...' : example}
@@ -224,17 +231,18 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-error-bg border border-error-border rounded-md text-error text-[13px]">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px]" style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#B42318' }}>
               <AlertCircle size={14} />
               {error}
             </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-panel-border">
+        <div className="flex justify-end gap-2 px-5 py-3.5" style={{ borderTop: '1px solid #E4E0D9' }}>
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors"
+            className="px-3 py-1.5 text-[13px] transition-colors"
+            style={{ color: '#6B6860' }}
             disabled={isLoading}
           >
             Cancel
@@ -242,7 +250,8 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
           <button
             onClick={handleGenerate}
             disabled={isLoading || !prompt.trim()}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground text-[13px] font-medium rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium rounded-md transition-colors"
+            style={{ backgroundColor: '#E8462A', color: '#ffffff' }}
           >
             {isLoading ? (
               <>

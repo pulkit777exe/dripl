@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { HelpCircle, X, BookOpen, ExternalLink, Github, Youtube, Keyboard } from 'lucide-react';
 
 interface HelpModalProps {
+  isOpen: boolean;
   onClose: () => void;
 }
 
@@ -14,9 +16,9 @@ interface ShortcutItemProps {
 
 function ShortcutItem({ toolName, shortcut }: ShortcutItemProps) {
   return (
-    <div className="flex justify-between items-center py-1.5 border-b border-panel-border last:border-b-0">
-      <div className="text-[13px] text-muted-foreground flex-1">{toolName}</div>
-      <div className="text-[11px] font-mono px-2 py-0.5 rounded bg-secondary text-muted-foreground border border-border min-w-12 text-center">
+    <div className="flex justify-between items-center py-1.5" style={{ borderBottom: '1px solid #E4E0D9' }}>
+      <div className="text-[13px] flex-1" style={{ color: '#6B6860' }}>{toolName}</div>
+      <div className="text-[11px] font-mono px-2 py-0.5 rounded min-w-12 text-center" style={{ backgroundColor: '#EAE6DE', color: '#6B6860', border: '1px solid #E4E0D9' }}>
         {shortcut}
       </div>
     </div>
@@ -30,51 +32,76 @@ interface HeaderButtonProps {
 
 function HeaderButton({ icon, label }: HeaderButtonProps) {
   return (
-    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-card hover:bg-secondary rounded-md text-[12px] text-muted-foreground border border-border transition-colors">
+    <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] transition-colors" style={{ backgroundColor: '#FAFAF7', color: '#6B6860', border: '1px solid #E4E0D9' }}>
       {icon}
       {label}
     </button>
   );
 }
 
-export default function HelpModal({ onClose }: HelpModalProps) {
-  const [animState, setAnimState] = useState<'opening' | 'open' | 'closing'>('opening');
+export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
+  const [mounted, setMounted] = useState(false);
+  const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
+  const prevOpen = useRef(false);
+
   useEffect(() => {
-    const raf = requestAnimationFrame(() => setAnimState('open'));
-    return () => cancelAnimationFrame(raf);
+    setMounted(true);
   }, []);
 
-  const handleClose = useCallback(() => {
-    setAnimState('closing');
-    const ms = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
-    ) || 150;
-    setTimeout(() => onClose(), ms);
-  }, [onClose]);
+  useEffect(() => {
+    if (isOpen && !prevOpen.current) {
+      prevOpen.current = true;
+      setAnimState('opening');
+    } else if (!isOpen && prevOpen.current) {
+      prevOpen.current = false;
+      setAnimState('closing');
+    }
+  }, [isOpen]);
 
-  return (
+  useEffect(() => {
+    if (animState === 'opening') {
+      const raf = requestAnimationFrame(() => setAnimState('open'));
+      return () => cancelAnimationFrame(raf);
+    }
+    if (animState === 'closing') {
+      const ms = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
+      ) || 150;
+      const timer = setTimeout(() => setAnimState('closed'), ms);
+      return () => clearTimeout(timer);
+    }
+  }, [animState]);
+
+  if (!mounted || animState === 'closed') return null;
+
+  const modalState = animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : '';
+
+  const modal = (
     <div
-      className={`fixed inset-0 bg-overlay backdrop-blur-sm z-100 flex items-center justify-center p-4 t-modal ${animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : ''}`}
-      onClick={handleClose}
+      className={`fixed inset-0 z-400 flex items-center justify-center p-4 box-content backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
+      style={{ backgroundColor: 'rgba(26, 25, 23, 0.6)' }}
+      onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl bg-card rounded-xl border border-panel-border shadow-lg max-h-[90vh] overflow-hidden flex flex-col"
+        className="w-full max-w-4xl rounded-xl shadow-lg max-h-[90vh] overflow-hidden flex flex-col"
+        style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center px-5 py-3.5 border-b border-panel-border">
-          <h2 className="text-[15px] font-semibold text-foreground flex items-center gap-2">
-            <HelpCircle size={18} className="text-primary" />
+        <div className="flex justify-between items-center px-5 py-3.5" style={{ borderBottom: '1px solid #E4E0D9' }}>
+          <h2 className="text-[15px] font-semibold flex items-center gap-2" style={{ color: '#1A1917' }}>
+            <HelpCircle size={18} style={{ color: '#E8462A' }} />
             Help
           </h2>
           <button
-            onClick={handleClose}
-            className="p-1 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-md transition-colors"
+            onClick={onClose}
+            className="p-1 rounded-md transition-colors"
+            style={{ color: '#6B6860' }}
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="px-5 py-3 flex gap-2 border-b border-panel-border flex-wrap">
+        <div className="px-5 py-3 flex gap-2 flex-wrap" style={{ borderBottom: '1px solid #E4E0D9' }}>
           <HeaderButton icon={<BookOpen size={14} />} label="Documentation" />
           <HeaderButton icon={<ExternalLink size={14} />} label="Blog" />
           <HeaderButton icon={<Github size={14} />} label="GitHub" />
@@ -82,14 +109,14 @@ export default function HelpModal({ onClose }: HelpModalProps) {
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
-          <h3 className="text-[14px] font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Keyboard size={16} className="text-muted-foreground" />
+          <h3 className="text-[14px] font-semibold mb-3 flex items-center gap-2" style={{ color: '#1A1917' }}>
+            <Keyboard size={16} style={{ color: '#6B6860' }} />
             Keyboard shortcuts
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-0 text-sm">
             <div>
-              <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 mt-3">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider mb-2 mt-3" style={{ color: '#6B6860' }}>
                 Tools
               </h4>
               <ShortcutItem toolName="Hand (panning tool)" shortcut="H" />
@@ -107,7 +134,7 @@ export default function HelpModal({ onClose }: HelpModalProps) {
             </div>
 
             <div>
-              <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 mt-3">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider mb-2 mt-3" style={{ color: '#6B6860' }}>
                 Editor
               </h4>
               <ShortcutItem toolName="Move canvas" shortcut="Space + Drag" />
@@ -128,4 +155,6 @@ export default function HelpModal({ onClose }: HelpModalProps) {
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
