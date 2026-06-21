@@ -1,4 +1,4 @@
-import type { ShapeDefinition, DriplElement, Point, ElementBase, LinearElement, TextElement, ImageElement, FrameElement, FreeDrawElement } from '@dripl/common';
+import type { ShapeDefinition, DriplElement, Point, ElementBase, LinearElement, TextElement, ImageElement, FrameElement, EmbedElement, FreeDrawElement } from '@dripl/common';
 import { isDriplElement } from '@dripl/common';
 import { imageCache } from '@dripl/element/image-cache';
 import { createRectangleElement, RectangleToolState } from '@/utils/tools/rectangle';
@@ -647,6 +647,90 @@ export const freedrawShape: ShapeDefinition = {
   },
 };
 
+export const embedShape: ShapeDefinition = {
+  type: 'embed',
+  name: 'Web Embed',
+  icon: 'globe',
+  category: 'containers',
+  create: (props: Partial<DriplElement>) =>
+    ({
+      id: crypto.randomUUID(),
+      type: 'embed' as const,
+      x: 0,
+      y: 0,
+      width: 300,
+      height: 200,
+      strokeColor: '#6B6860',
+      backgroundColor: '#FAFAF7',
+      strokeWidth: 1,
+      opacity: 1,
+      roughness: 0,
+      strokeStyle: 'solid',
+      url: '',
+      title: 'Web Embed',
+      ...props,
+    }) as DriplElement,
+  validate: (element: unknown) => {
+    if (!isDriplElement(element) || element.type !== 'embed') {
+      return false;
+    }
+    return (
+      typeof element.x === 'number' &&
+      typeof element.y === 'number' &&
+      typeof element.width === 'number' &&
+      typeof element.height === 'number'
+    );
+  },
+  render: (ctx: CanvasRenderingContext2D, element: DriplElement) => {
+    const embedEl = element as EmbedElement;
+
+    // Draw outer rectangle
+    ctx.strokeStyle = element.strokeColor || '#6B6860';
+    ctx.lineWidth = element.strokeWidth || 1;
+    ctx.strokeRect(element.x, element.y, element.width, element.height);
+
+    // Fill background
+    ctx.fillStyle = element.backgroundColor || '#FAFAF7';
+    ctx.fillRect(element.x, element.y, element.width, element.height);
+
+    // Draw globe icon placeholder
+    ctx.fillStyle = '#6B6860';
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🌐', element.x + element.width / 2, element.y + element.height / 2 - 15);
+
+    // Draw URL or title
+    ctx.font = '12px sans-serif';
+    ctx.fillStyle = '#6B6860';
+    const displayText = embedEl.title || embedEl.url || 'Web Embed';
+    const maxWidth = element.width - 20;
+    const textWidth = ctx.measureText(displayText).width;
+    const truncatedText = textWidth > maxWidth ? displayText.slice(0, 30) + '...' : displayText;
+    ctx.fillText(truncatedText, element.x + element.width / 2, element.y + element.height / 2 + 15);
+
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+  },
+  getProperties: (element: DriplElement) => {
+    const embedEl = element as EmbedElement;
+    return {
+      strokeColor: element.strokeColor,
+      backgroundColor: element.backgroundColor,
+      strokeWidth: element.strokeWidth,
+      opacity: element.opacity,
+      url: embedEl.url,
+      title: embedEl.title,
+    };
+  },
+  setProperties: (element: DriplElement, properties: Record<string, unknown>) => {
+    return {
+      ...element,
+      ...properties,
+    };
+  },
+};
+
 export const defaultShapes = [
   rectangleShape,
   ellipseShape,
@@ -657,4 +741,5 @@ export const defaultShapes = [
   imageShape,
   frameShape,
   freedrawShape,
+  embedShape,
 ];

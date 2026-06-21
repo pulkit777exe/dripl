@@ -35,6 +35,7 @@ export type ActiveTool =
   | 'text'
   | 'image'
   | 'frame'
+  | 'embed'
   | 'eraser'
   | 'laser';
 

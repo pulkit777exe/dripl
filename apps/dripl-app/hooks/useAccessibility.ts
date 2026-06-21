@@ -107,6 +107,8 @@ export function getElementAccessibleLabel(element: DriplElement): string {
       return `Image at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
     case 'frame':
       return `Frame at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
+    case 'embed':
+      return `Web Embed at position ${Math.round(element.x)}, ${Math.round(element.y)}`;
     default: {
       const _exhaustive: never = element;
       return `Element at position ${Math.round((_exhaustive as DriplElement).x)}, ${Math.round((_exhaustive as DriplElement).y)}`;

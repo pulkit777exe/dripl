@@ -96,6 +96,13 @@ const frameElementSchema = elementBaseSchema.extend({
   padding: z.number().optional(),
 });
 
+const embedElementSchema = elementBaseSchema.extend({
+  type: z.literal('embed'),
+  url: z.string(),
+  title: z.string().optional(),
+  cachedPreview: z.string().optional(),
+});
+
 const driplElementSchema = z.union([
   rectangleElementSchema,
   ellipseElementSchema,
@@ -105,6 +112,7 @@ const driplElementSchema = z.union([
   textElementSchema,
   imageElementSchema,
   frameElementSchema,
+  embedElementSchema,
 ]);
 
 export const joinRoomSchema = z.object({

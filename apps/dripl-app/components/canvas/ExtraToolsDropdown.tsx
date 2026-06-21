@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Frame, Globe, Zap, Sparkles, ChevronDown, Wand2, Library } from 'lucide-react';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { AIGenerateModal } from './AIGenerateModal';
+import { EmbedUrlModal } from './EmbedUrlModal';
 
 interface ExtraTool {
   id: string;
@@ -24,6 +25,7 @@ function ToolIcon({ icon, size = 16, className }: { icon?: React.ComponentType<{
 export function ExtraToolsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [showEmbedModal, setShowEmbedModal] = useState(false);
   const [closing, setClosing] = useState(false);
   const prevOpen = useRef(isOpen);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -76,6 +78,7 @@ export function ExtraToolsDropdown() {
       label: 'Web Embed',
       icon: Globe,
       perform: () => {
+        setShowEmbedModal(true);
         setIsOpen(false);
       },
     },
@@ -116,12 +119,20 @@ export function ExtraToolsDropdown() {
     },
   ];
 
-  const isButtonActive = isOpen || activeTool === 'frame' || activeTool === 'laser';
+  const isButtonActive = isOpen || activeTool === 'frame' || activeTool === 'laser' || activeTool === 'embed';
   
   const renderActiveIcon = () => {
     if (activeTool === 'frame') return <Frame size={18} />;
     if (activeTool === 'laser') return <Zap size={18} />;
+    if (activeTool === 'embed') return <Globe size={18} />;
     return <Library size={18} />;
+  };
+
+  const handleEmbedSubmit = (url: string, title?: string) => {
+    // Store the URL and title in the canvas store for the embed tool
+    const store = useCanvasStore.getState();
+    store.setPendingEmbed?.(url, title);
+    setActiveTool('embed');
   };
 
   return (
@@ -222,6 +233,11 @@ export function ExtraToolsDropdown() {
       </div>
 
       <AIGenerateModal isOpen={showAIModal} onClose={() => setShowAIModal(false)} />
+      <EmbedUrlModal 
+        isOpen={showEmbedModal} 
+        onClose={() => setShowEmbedModal(false)} 
+        onSubmit={handleEmbedSubmit}
+      />
     </>
   );
 }

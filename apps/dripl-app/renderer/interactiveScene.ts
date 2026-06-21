@@ -538,6 +538,65 @@ function renderImage(ctx: CanvasRenderingContext2D, element: DriplElement) {
   ctx.fillRect(element.x, element.y, element.width, element.height);
 }
 
+function renderFrame(ctx: CanvasRenderingContext2D, element: DriplElement) {
+  const frameEl = element as DriplElement & { padding?: number; title?: string };
+  const padding = frameEl.padding || 20;
+
+  // Draw outer rectangle
+  ctx.strokeStyle = element.strokeColor || '#000000';
+  ctx.lineWidth = element.strokeWidth || 2;
+  ctx.strokeRect(element.x, element.y, element.width, element.height);
+
+  // Draw inner padding rectangle (dashed)
+  ctx.setLineDash([5, 5]);
+  ctx.strokeRect(
+    element.x + padding,
+    element.y + padding,
+    element.width - 2 * padding,
+    element.height - 2 * padding
+  );
+  ctx.setLineDash([]);
+
+  // Draw title above frame
+  if (frameEl.title) {
+    ctx.fillStyle = element.strokeColor || '#000000';
+    ctx.font = `14px ${getDefaultFontFamily()}, cursive`;
+    ctx.fillText(frameEl.title, element.x + 10, element.y - 10);
+  }
+}
+
+function renderEmbed(ctx: CanvasRenderingContext2D, element: DriplElement) {
+  const embedEl = element as DriplElement & { url?: string; title?: string; cachedPreview?: string };
+
+  // Draw outer rectangle
+  ctx.strokeStyle = element.strokeColor || '#6B6860';
+  ctx.lineWidth = element.strokeWidth || 1;
+  ctx.strokeRect(element.x, element.y, element.width, element.height);
+
+  // Fill background
+  ctx.fillStyle = element.backgroundColor || '#FAFAF7';
+  ctx.fillRect(element.x, element.y, element.width, element.height);
+
+  // Draw globe icon placeholder
+  ctx.fillStyle = '#6B6860';
+  ctx.font = '24px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🌐', element.x + element.width / 2, element.y + element.height / 2 - 15);
+
+  // Draw URL or title
+  ctx.font = '12px sans-serif';
+  ctx.fillStyle = '#6B6860';
+  const displayText = embedEl.title || embedEl.url || 'Web Embed';
+  const maxWidth = element.width - 20;
+  const textWidth = ctx.measureText(displayText).width;
+  const truncatedText = textWidth > maxWidth ? displayText.slice(0, 30) + '...' : displayText;
+  ctx.fillText(truncatedText, element.x + element.width / 2, element.y + element.height / 2 + 15);
+
+  ctx.textAlign = 'start';
+  ctx.textBaseline = 'alphabetic';
+}
+
 function renderElement(ctx: CanvasRenderingContext2D, element: DriplElement, zoom: number) {
   if (element.isDeleted) return;
   const type = element.type as string;
@@ -558,6 +617,10 @@ function renderElement(ctx: CanvasRenderingContext2D, element: DriplElement, zoo
     renderText(ctx, element);
   } else if (type === 'image') {
     renderImage(ctx, element);
+  } else if (type === 'frame') {
+    renderFrame(ctx, element);
+  } else if (type === 'embed') {
+    renderEmbed(ctx, element);
   } else {
     renderRectangle(ctx, element, zoom);
   }

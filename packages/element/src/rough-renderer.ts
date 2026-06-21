@@ -1,5 +1,5 @@
 import rough from 'roughjs';
-import type { DriplElement, LinearElement, ArrowheadType } from '@dripl/common';
+import type { DriplElement, LinearElement, ArrowheadType, FrameElement, EmbedElement } from '@dripl/common';
 import { getShapeFromCache, setShapeInCache, pruneShapeCache } from './shape-cache';
 import type { RoughCanvas as _RoughCanvas } from 'roughjs/bin/canvas';
 import type { Drawable as _Drawable } from 'roughjs/bin/core';
@@ -242,6 +242,16 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
       return [];
     }
 
+    case 'frame': {
+      // Frame renders as a rectangle with title
+      return getGenerator().rectangle(0, 0, width, height, options);
+    }
+
+    case 'embed': {
+      // Embed renders as a rectangle placeholder
+      return getGenerator().rectangle(0, 0, width, height, options);
+    }
+
     default:
       return [];
   }
@@ -297,6 +307,69 @@ export function renderRoughElement(
       ctx.translate(x, y);
       ctx.drawImage(imgEl._imageLoaded, 0, 0, width, height);
     }
+    ctx.restore();
+    return;
+  }
+
+  // Handle frame elements specially - draw border, padding, and title
+  if (element.type === 'frame') {
+    const frameEl = element as FrameElement;
+    ctx.translate(x, y);
+    
+    // Draw outer rectangle
+    ctx.strokeStyle = element.strokeColor || '#000000';
+    ctx.lineWidth = element.strokeWidth || 2;
+    ctx.strokeRect(0, 0, width, height);
+    
+    // Draw inner padding rectangle (dashed)
+    const padding = frameEl.padding || 20;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(padding, padding, width - 2 * padding, height - 2 * padding);
+    ctx.setLineDash([]);
+    
+    // Draw title above frame
+    if (frameEl.title) {
+      ctx.fillStyle = element.strokeColor || '#000000';
+      ctx.font = '14px "Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
+      ctx.fillText(frameEl.title, 10, -10);
+    }
+    
+    ctx.restore();
+    return;
+  }
+
+  // Handle embed elements specially - render placeholder with URL
+  if (element.type === 'embed') {
+    const embedEl = element as EmbedElement;
+    ctx.translate(x, y);
+    
+    // Draw outer rectangle
+    ctx.strokeStyle = element.strokeColor || '#6B6860';
+    ctx.lineWidth = element.strokeWidth || 1;
+    ctx.strokeRect(0, 0, width, height);
+    
+    // Fill background
+    ctx.fillStyle = element.backgroundColor || '#FAFAF7';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Draw globe icon placeholder
+    ctx.fillStyle = '#6B6860';
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🌐', width / 2, height / 2 - 15);
+    
+    // Draw URL or title
+    ctx.font = '12px sans-serif';
+    ctx.fillStyle = '#6B6860';
+    const displayText = embedEl.title || embedEl.url || 'Web Embed';
+    const maxWidth = width - 20;
+    const textWidth = ctx.measureText(displayText).width;
+    const truncatedText = textWidth > maxWidth ? displayText.slice(0, 30) + '...' : displayText;
+    ctx.fillText(truncatedText, width / 2, height / 2 + 15);
+    
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
     ctx.restore();
     return;
   }

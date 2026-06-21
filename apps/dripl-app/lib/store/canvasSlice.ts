@@ -45,6 +45,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
   isEditingElementId: null,
   clipboard: [],
   shouldCacheIgnoreZoom: false,
+  pendingEmbed: null,
 
   setElements: (elements, options) =>
     set(state => {
@@ -461,6 +462,8 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
   setPan: (panX, panY) => set({ panX, panY }),
   setViewport: (zoom, panX, panY) => set({ zoom: Math.max(0.1, Math.min(20, zoom)), panX, panY }),
   setShouldCacheIgnoreZoom: shouldCacheIgnoreZoom => set({ shouldCacheIgnoreZoom }),
+  setPendingEmbed: (url, title) => set({ pendingEmbed: { url, title } }),
+  clearPendingEmbed: () => set({ pendingEmbed: null }),
   setGridEnabled: gridEnabled => set({ gridEnabled }),
   setGridSize: gridSize => set({ gridSize: Math.max(4, gridSize) }),
   setMarqueeSelectionMode: mode => set({ marqueeSelectionMode: mode }),

@@ -12,6 +12,7 @@ import { createArrowElement, type ArrowToolState, type ArrowBindingInfo } from '
 import { createLineElement, type LineToolState } from '@/utils/tools/line';
 import { createFreedrawElement, type FreedrawToolState } from '@/utils/tools/freedraw';
 import { createFrameElement, type FrameToolState } from '@/utils/tools/frame';
+import { createEmbedElement, type WebEmbedToolState } from '@/utils/tools/webEmbed';
 import { calculateArrowBinding } from '@/utils/arrow-routing';
 import { bindArrowToElement } from '@/utils/arrow-binding';
 
@@ -26,6 +27,7 @@ export type ToolType =
   | 'text'
   | 'image'
   | 'frame'
+  | 'embed'
   | 'eraser';
 
 interface BaseToolProps {
@@ -46,7 +48,8 @@ type ActiveToolState =
   | { type: 'arrow'; state: ArrowToolState; id: string; seed: number }
   | { type: 'line'; state: LineToolState; id: string; seed: number }
   | { type: 'freedraw'; state: FreedrawToolState; id: string; seed: number }
-  | { type: 'frame'; state: FrameToolState; id: string; seed: number };
+  | { type: 'frame'; state: FrameToolState; id: string; seed: number }
+  | { type: 'embed'; state: WebEmbedToolState; id: string; seed: number; url: string; title?: string };
 
 interface StartOptions {
   shiftKey: boolean;
@@ -209,6 +212,13 @@ export function useDrawingTools(): UseDrawingToolsReturn {
           return createFreedrawElement(toolState.state, props);
         case 'frame':
           return createFrameElement(toolState.state, props);
+        case 'embed': {
+          // Use the URL from the tool state, or from the pending embed in the store
+          const pendingEmbed = useCanvasStore.getState().pendingEmbed;
+          const url = toolState.url || pendingEmbed?.url || '';
+          const title = toolState.title || pendingEmbed?.title;
+          return createEmbedElement(toolState.state, props, url, title);
+        }
         default:
           return null;
       }
@@ -317,6 +327,16 @@ export function useDrawingTools(): UseDrawingToolsReturn {
             state: { startPoint: point, currentPoint: point, shiftKey: options.shiftKey },
           };
           break;
+        case 'embed':
+          toolState = {
+            type: 'embed',
+            id,
+            seed,
+            state: { startPoint: point, currentPoint: point, shiftKey: options.shiftKey },
+            url: '',
+            title: undefined,
+          };
+          break;
         default:
           return;
       }
@@ -356,6 +376,9 @@ export function useDrawingTools(): UseDrawingToolsReturn {
           toolState.state = { ...toolState.state, currentPoint: point, shiftKey: options.shiftKey };
           break;
         case 'frame':
+          toolState.state = { ...toolState.state, currentPoint: point, shiftKey: options.shiftKey };
+          break;
+        case 'embed':
           toolState.state = { ...toolState.state, currentPoint: point, shiftKey: options.shiftKey };
           break;
         case 'arrow': {

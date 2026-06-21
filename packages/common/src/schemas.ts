@@ -25,6 +25,7 @@ export const ElementTypeSchema = z.enum([
   'diamond',
   'freedraw',
   'frame',
+  'embed',
 ]);
 
 export const BaseElementSchema = z.object({
@@ -125,6 +126,13 @@ const FrameElementSchema = BaseElementSchema.extend({
   padding: z.number().optional(),
 });
 
+const EmbedElementSchema = BaseElementSchema.extend({
+  type: z.literal('embed'),
+  url: z.string().url(),
+  title: z.string().optional(),
+  cachedPreview: z.string().optional(),
+});
+
 export const DriplElementSchema = z.discriminatedUnion('type', [
   RectangleElementSchema,
   EllipseElementSchema,
@@ -136,6 +144,7 @@ export const DriplElementSchema = z.discriminatedUnion('type', [
   DiamondElementSchema,
   FreeDrawElementSchema,
   FrameElementSchema,
+  EmbedElementSchema,
 ]);
 
 export const ElementSchema = DriplElementSchema;

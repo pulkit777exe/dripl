@@ -98,6 +98,7 @@ const SHAPE_PROPERTIES: Record<string, string[]> = {
   text: ['strokeColor', 'fontSize', 'fontFamily', 'opacity', 'layers', 'align', 'actions'],
   image: ['opacity', 'layers', 'align', 'actions'],
   frame: ['strokeColor', 'opacity', 'layers', 'actions'],
+  embed: ['strokeColor', 'opacity', 'layers', 'actions'],
 };
 
 function SectionLabel({ children }: { children: React.ReactNode }) {

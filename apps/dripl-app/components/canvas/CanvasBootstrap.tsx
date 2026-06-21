@@ -41,6 +41,7 @@ const VALID_TOOLS = new Set<ActiveTool>([
   'text',
   'image',
   'frame',
+  'embed',
   'eraser',
   'laser',
 ]);

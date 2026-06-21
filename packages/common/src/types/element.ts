@@ -120,6 +120,14 @@ export interface FrameElement extends ElementBase {
   padding?: number;
 }
 
+export interface EmbedElement extends ElementBase {
+  type: 'embed';
+  url: string;
+  title?: string;
+  /** Cached preview image data URL for rendering */
+  cachedPreview?: string;
+}
+
 // Normalized binding model for constraints (Spec §5.3 Binding Constraint System)
 
 export interface NormalizedBinding {
@@ -143,7 +151,8 @@ export type DriplElement =
   | FreeDrawElement
   | TextElement
   | ImageElement
-  | FrameElement;
+  | FrameElement
+  | EmbedElement;
 
 // Shape definition interface for registration
 export interface ShapeDefinition<T extends DriplElement = DriplElement> {

@@ -33,6 +33,7 @@ export interface CanvasSlice {
   isEditingElementId: string | null;
   clipboard: DriplElement[];
   shouldCacheIgnoreZoom: boolean;
+  pendingEmbed: { url: string; title?: string } | null;
   
   // Drawing state (moved from RoughCanvas local state)
   isDrawing: boolean;
@@ -73,6 +74,8 @@ export interface CanvasSlice {
   setPan: (panX: number, panY: number) => void;
   setViewport: (zoom: number, panX: number, panY: number) => void;
   setShouldCacheIgnoreZoom: (ignore: boolean) => void;
+  setPendingEmbed: (url: string, title?: string) => void;
+  clearPendingEmbed: () => void;
   setGridEnabled: (enabled: boolean) => void;
   setGridSize: (size: number) => void;
   setMarqueeSelectionMode: (mode: 'intersecting' | 'contained') => void;
