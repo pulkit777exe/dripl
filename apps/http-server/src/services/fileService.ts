@@ -40,6 +40,13 @@ export interface CreateShareOptions {
   expiresInHours?: number;
 }
 
+export interface ListSharedFilesOptions {
+  userId: string;
+  search?: string;
+  limit: number;
+  cursor?: string;
+}
+
 export class FileService {
   static async ensureFolderOwnership(userId: string, folderId: string | null | undefined): Promise<boolean> {
     if (!folderId) return true;
@@ -94,6 +101,71 @@ export class FileService {
       files.length === limit
         ? files[files.length - 1]?.updatedAt?.toISOString() ?? null
         : null;
+
+    return { files, total: isCursorBased ? undefined : total, nextCursor, isCursorBased };
+  }
+
+  static async listSharedFiles(options: ListSharedFilesOptions) {
+    const { userId, search, limit, cursor } = options;
+    const isCursorBased = typeof cursor === 'string' && cursor.length > 0;
+
+    const where = {
+      userId,
+      ...(typeof search === 'string'
+        ? { file: { name: { contains: search, mode: 'insensitive' as const } } }
+        : {}),
+      ...(isCursorBased ? { createdAt: { lt: new Date(cursor) } } : {}),
+    };
+
+    const [sharedFiles, total] = await Promise.all([
+      db.sharedFile.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: 0,
+        take: limit,
+        select: {
+          id: true,
+          createdAt: true,
+          file: {
+            select: {
+              id: true,
+              name: true,
+              preview: true,
+              createdAt: true,
+              updatedAt: true,
+              userId: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  image: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      db.sharedFile.count({
+        where: {
+          userId,
+          ...(typeof search === 'string'
+            ? { file: { name: { contains: search, mode: 'insensitive' as const } } }
+            : {}),
+        },
+      }),
+    ]);
+
+    const nextCursor =
+      sharedFiles.length === limit
+        ? sharedFiles[sharedFiles.length - 1]?.createdAt?.toISOString() ?? null
+        : null;
+
+    const files = sharedFiles.map(sf => ({
+      ...sf.file,
+      sharedAt: sf.createdAt,
+      sharedBy: sf.file.user,
+    }));
 
     return { files, total: isCursorBased ? undefined : total, nextCursor, isCursorBased };
   }

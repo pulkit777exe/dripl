@@ -52,6 +52,22 @@ export interface SharedFileResponse {
   elements: unknown[] | null;
 }
 
+export interface SharedFileSummary {
+  id: string;
+  name: string;
+  preview: string | null;
+  createdAt: string;
+  updatedAt: string;
+  userId: string | null;
+  sharedAt: string;
+  sharedBy: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    image: string | null;
+  } | null;
+}
+
 async function parseError(response: Response): Promise<string> {
   try {
     const parsed = (await response.json()) as { error?: string };
@@ -257,6 +273,19 @@ class ApiClient {
     if (params?.limit) searchParams.set('limit', String(params.limit));
     const query = searchParams.toString();
     return this.request(`/files${query ? `?${query}` : ''}`);
+  }
+
+  async listSharedFiles(params?: {
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ files: SharedFileSummary[]; total: number; page: number; limit: number }> {
+    const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    const query = searchParams.toString();
+    return this.request(`/files/shared${query ? `?${query}` : ''}`);
   }
 
   async createFile(payload?: {

@@ -37,6 +37,13 @@ const createShareSchema = z.object({
     .optional(),
 });
 
+const listSharedFilesQuerySchema = z.object({
+  search: z.string().trim().min(1).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  cursor: z.string().optional(),
+});
+
 const filesRouter: Router = Router();
 
 export function nanoidLike(size = 21): string {
@@ -103,6 +110,50 @@ filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
       })
     );
     res.status(500).json({ error: 'Failed to list files' });
+  }
+});
+
+filesRouter.get('/shared', async (req: AuthenticatedRequest, res) => {
+  if (!req.userId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  const parsedQuery = listSharedFilesQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    res.status(400).json({
+      error: 'Invalid query parameters',
+      details: parsedQuery.error.flatten(),
+    });
+    return;
+  }
+
+  const { search, page, limit, cursor } = parsedQuery.data;
+
+  try {
+    const result = await FileService.listSharedFiles({
+      userId: req.userId,
+      search,
+      limit,
+      cursor,
+    });
+
+    res.json({
+      files: result.files,
+      total: result.isCursorBased ? undefined : result.total,
+      page: result.isCursorBased ? undefined : page,
+      limit,
+      nextCursor: result.nextCursor,
+    });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'list_shared_files_error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+    res.status(500).json({ error: 'Failed to list shared files' });
   }
 });
 
