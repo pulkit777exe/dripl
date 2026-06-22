@@ -22,7 +22,6 @@ const EXAMPLE_PROMPTS = [
 
 export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
   const [prompt, setPrompt] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [generateSuccess, setGenerateSuccess] = useState(false);
@@ -30,6 +29,9 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
   const addElements = useCanvasStore(state => state.addElements);
   const setSelectedIds = useCanvasStore(state => state.setSelectedIds);
   const setActiveTool = useCanvasStore(state => state.setActiveTool);
+  const aiGenerating = useCanvasStore(s => s.aiGenerating);
+  const setAiGenerating = useCanvasStore(s => s.setAiGenerating);
+  const abortRef = useRef<AbortController | null>(null);
   const { user } = useAuth();
   const successRef = useRef<HTMLDivElement>(null);
 
@@ -48,8 +50,11 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
       setError('Please enter a prompt');
       return;
     }
+    if (aiGenerating) return;
 
-    setIsLoading(true);
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    setAiGenerating(true);
     setError(null);
     setWarning(null);
 
@@ -61,6 +66,7 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
           prompt: prompt.trim(),
           userId: user?.id || 'anonymous',
         }),
+        signal: abortRef.current.signal,
       });
 
       const data = await response.json();
@@ -97,12 +103,20 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
         }, warnings.length > 0 ? 2400 : 1200);
       }
     } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
       const message = err instanceof Error ? err.message : 'An error occurred';
       setError(message);
     } finally {
-      setIsLoading(false);
+      setAiGenerating(false);
     }
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, [isOpen]);
 
   const handleExampleClick = (example: string) => {
     setPrompt(example);
@@ -208,7 +222,7 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
               placeholder="e.g., A flowchart showing the checkout process for an e-commerce site"
               className="w-full h-28 px-3 py-2 rounded-md text-[13px] resize-none outline-none"
               style={{ backgroundColor: '#FAFAF7', border: '1px solid #D4D0C9', color: '#1A1917' }}
-              disabled={isLoading}
+              disabled={aiGenerating}
             />
             <div className="text-[11px]" style={{ color: '#6B6860' }}>{prompt.length}/2000</div>
           </div>
@@ -222,7 +236,7 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
                   onClick={() => handleExampleClick(example)}
                   className="px-2.5 py-1 text-[11px] rounded-full transition-colors"
                   style={{ backgroundColor: '#FAFAF7', border: '1px solid #D4D0C9', color: '#6B6860' }}
-                  disabled={isLoading}
+                  disabled={aiGenerating}
                 >
                   {example.length > 40 ? example.slice(0, 40) + '...' : example}
                 </button>
@@ -243,17 +257,17 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
             onClick={onClose}
             className="px-3 py-1.5 text-[13px] transition-colors"
             style={{ color: '#6B6860' }}
-            disabled={isLoading}
+            disabled={aiGenerating}
           >
             Cancel
           </button>
           <button
             onClick={handleGenerate}
-            disabled={isLoading || !prompt.trim()}
+            disabled={aiGenerating || !prompt.trim()}
             className="flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium rounded-md transition-colors"
             style={{ backgroundColor: '#E8462A', color: '#ffffff' }}
           >
-            {isLoading ? (
+            {aiGenerating ? (
               <>
                 <Loader2 size={14} className="animate-spin" />
                 Generating...

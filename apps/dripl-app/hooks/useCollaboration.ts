@@ -530,7 +530,8 @@ export function useCollaboration(
           return;
         }
         setConnectionMessage('Reconnecting...');
-        const delay = Math.min(30_000, 1000 * 2 ** reconnectAttemptRef.current);
+        const base = Math.min(30_000, 1000 * 2 ** reconnectAttemptRef.current);
+        const delay = base * (0.5 + Math.random() * 0.5);
         reconnectAttemptRef.current += 1;
         reconnectTimerRef.current = window.setTimeout(connect, delay);
       };

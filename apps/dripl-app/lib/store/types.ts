@@ -34,6 +34,7 @@ export interface CanvasSlice {
   clipboard: DriplElement[];
   shouldCacheIgnoreZoom: boolean;
   pendingEmbed: { url: string; title?: string } | null;
+  spatialVersion: number;
   
   // Drawing state (moved from RoughCanvas local state)
   isDrawing: boolean;
@@ -136,6 +137,7 @@ export interface UiSlice {
   fileName: string;
   isSaving: boolean;
   lastSaved: number | null;
+  aiGenerating: boolean;
   
   // UI state (moved from RoughCanvas local state)
   isDragging: boolean;
@@ -154,6 +156,7 @@ export interface UiSlice {
   setFileMetadata: (fileId: string | null, fileName: string) => void;
   markSaving: (isSaving: boolean) => void;
   markSaved: () => void;
+  setAiGenerating: (aiGenerating: boolean) => void;
   
   // UI state setters
   setIsDragging: (isDragging: boolean) => void;

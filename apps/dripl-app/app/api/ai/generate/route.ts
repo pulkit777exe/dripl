@@ -75,6 +75,14 @@ function checkRateLimit(userId: string): {
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF protection: reject requests from non-app origins
+    const origin = request.headers.get('origin');
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL env var is not set');
+    if (!origin || !origin.startsWith(appUrl)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Check for API key
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json(

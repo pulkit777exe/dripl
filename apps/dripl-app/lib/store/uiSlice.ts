@@ -8,6 +8,7 @@ export const createUiSlice: StateCreator<CanvasStoreState, [], [], UiSlice> = (s
   fileName: 'Untitled',
   isSaving: false,
   lastSaved: null,
+  aiGenerating: false,
   
   // UI state (moved from RoughCanvas local state)
   isDragging: false,
@@ -23,6 +24,7 @@ export const createUiSlice: StateCreator<CanvasStoreState, [], [], UiSlice> = (s
   setFileMetadata: (fileId, fileName) => set({ fileId, fileName }),
   markSaving: isSaving => set({ isSaving }),
   markSaved: () => set({ isSaving: false, lastSaved: Date.now() }),
+  setAiGenerating: aiGenerating => set({ aiGenerating }),
   
   // UI state setters
   setIsDragging: isDragging => set({ isDragging }),

@@ -35,6 +35,9 @@ interface CacheEntry {
 
 const elementCanvasCache = new WeakMap<DriplElement, CacheEntry>();
 
+// Parallel ID→element map for string-keyed invalidation
+const elementIdMap = new Map<string, DriplElement>();
+
 /**
  * Return the element's version number for cache invalidation.
  * Falls back to 0 for legacy elements that don't have a version yet.
@@ -80,15 +83,15 @@ export function renderStaticScene(
 }
 
 /**
- * Invalidate element canvas cache.
- *
- * Note: With WeakMap, explicit invalidation is optional for normal mutations
- * since old element objects will be GC'd automatically. This function is
- * kept for backward compatibility but is now a no-op.
+ * Invalidate element canvas cache by element ID.
+ * Removes the cached offscreen canvas so the next render recomputes it.
  */
-export function invalidateElementCache(_elementId: string): void {
-  // WeakMap doesn't support lookup by string ID.
-  // Old entries are automatically cleaned up when element objects are GC'd.
+export function invalidateElementCache(elementId: string): void {
+  const element = elementIdMap.get(elementId);
+  if (element !== undefined) {
+    elementCanvasCache.delete(element);
+    elementIdMap.delete(elementId);
+  }
 }
 
 export function clearStaticSceneCache(): void {
@@ -265,6 +268,7 @@ function getOrCreateElementCanvas(
   if (!canvas) return null;
 
   elementCanvasCache.set(element, { canvas, version });
+  elementIdMap.set(element.id, element);
   return canvas;
 }
 
