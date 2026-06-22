@@ -46,6 +46,8 @@
     "lint": {
       "description": "Run static analysis in parallel with dependency-aware hashing",
       "dependsOn": ["transit"],
+      "inputs": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", ".eslintrc*", "eslint.config*"],
+      "cache": true,
       "outputs": [],
       "outputLogs": "new-only"
     },
@@ -84,6 +86,8 @@
     "check-types": {
       "description": "Type-check packages without emitting files",
       "dependsOn": ["transit"],
+      "inputs": ["**/*.ts", "**/*.tsx", "**/tsconfig.json", "**/*.d.ts"],
+      "cache": true,
       "outputs": [],
       "outputLogs": "new-only"
     }
