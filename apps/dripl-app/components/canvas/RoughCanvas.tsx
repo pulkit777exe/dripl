@@ -94,19 +94,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   const [userName, setUserName] = useState<string | null>(() => getOrCreateCollaboratorName());
 
-  const [isDrawing, setIsDrawing] = useState(false);
+  const isDrawing = useCanvasStore(s => s.isDrawing);
   const isDrawingRef = useRef(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isPanning, setIsPanning] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [isRotating, setIsRotating] = useState(false);
-  const [textInput, setTextInput] = useState<{
-    x: number;
-    y: number;
-    id: string;
-    value?: string;
-    existingElementId?: string;
-  } | null>(null);
+  const isDragging = useCanvasStore(s => s.isDragging);
+  const isPanning = useCanvasStore(s => s.isPanning);
+  const isResizing = useCanvasStore(s => s.isResizing);
+  const isRotating = useCanvasStore(s => s.isRotating);
+  const textInput = useCanvasStore(s => s.textInput);
   const eraserPath = useCanvasStore(state => state.eraserPath);
   const cursorPosition = useCanvasStore(state => state.cursorPosition);
   const [welcomeScreenDismissed, setWelcomeScreenDismissed] = useState(false);
@@ -120,7 +114,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   const setDrawingState = useCallback((next: boolean) => {
     isDrawingRef.current = next;
-    setIsDrawing(next);
+    useCanvasStore.getState().setIsDrawing(next);
   }, []);
   const activeGestureLocksRef = useRef<Set<string>>(new Set());
 
@@ -287,13 +281,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     elementIds: new Set<string>(),
   });
 
-  // Track spatial signature to skip useMemo re-run when only non-spatial props change
-  const spatialSigRef = useRef('');
-  const spatialSig = elements
-    .map(e => `${e.id}:${e.x}:${e.y}:${e.width}:${e.height}:${e.angle ?? 0}`)
-    .join('|');
-  const spatialChanged = spatialSig !== spatialSigRef.current;
-  if (spatialChanged) spatialSigRef.current = spatialSig;
+  const spatialVersion = useCanvasStore(s => s.spatialVersion);
   const { buildIndex, isReady: workerReady } = useCanvasWorker();
   const workerBusyRef = useRef(false);
 
@@ -315,9 +303,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   // Synchronous local RBush for hit testing (loaded from worker result)
   // Fallback: rebuild inline if worker not ready
   const spatialIndex = useMemo<SpatialIndexState>(() => {
-    // Skip expensive diffing if only non-spatial props changed
-    if (!spatialChanged) return spatialIndexRef.current;
-
     const prev = spatialIndexRef.current;
 
     const prevIds = prev.elementIds;
@@ -408,7 +393,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     }
 
     return spatialIndexRef.current;
-  }, [elements]);
+  }, [spatialVersion, elements]);
 
   // ── Coordinate helpers ────────────────────────────────────────────────────
   const getCanvasCoordinates = useCallback(
@@ -655,7 +640,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       interactionRef.current.resizeStartCanvasPos = startPos;
       interactionRef.current.resizeInitialEl = frozenEl;
 
-      setIsResizing(true);
+      useCanvasStore.getState().setIsResizing(true);
       // Lock: prevent remote reconciliation from overwriting this element.
       setEditingElementId(element.id);
       lockElementsForGesture([element.id]);
@@ -688,7 +673,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       interactionRef.current.historyPushed = false;
       interactionRef.current.rotateInitialEl = frozenEl;
 
-      setIsRotating(true);
+      useCanvasStore.getState().setIsRotating(true);
       // Lock: prevent remote reconciliation from overwriting this element.
       setEditingElementId(element.id);
       lockElementsForGesture([element.id]);
@@ -709,7 +694,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   const handleTextSubmit = (text: string) => {
     if (!textInput || !text.trim()) {
-      setTextInput(null);
+      useCanvasStore.getState().setTextInput(null);
       if (activeTool === 'text') {
         maybeRevertToSelectTool('text'); // RULE: Tool Reversion
       }
@@ -736,7 +721,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         fontSize: existingElement?.fontSize ?? 20,
         fontFamily: existingElement?.fontFamily ?? getDefaultFontFamily(),
       } as Partial<DriplElement>);
-      setTextInput(null);
+      useCanvasStore.getState().setTextInput(null);
       if (activeTool === 'text') {
         maybeRevertToSelectTool('text'); // RULE: Tool Reversion
       }
@@ -760,7 +745,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     };
 
     addElement(textElement);
-    setTextInput(null);
+    useCanvasStore.getState().setTextInput(null);
     if (activeTool === 'text') {
       maybeRevertToSelectTool('text'); // RULE: Tool Reversion
     }
@@ -796,7 +781,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     activeTool,
     readOnly,
     elements,
-    setTextInput,
+    setTextInput: useCanvasStore.getState().setTextInput as (state: { x: number; y: number; id: string; value?: string; existingElementId?: string } | null) => void,
     setDrawingState,
     cancelDrawing,
     collectCascadeDeleteIds: collectCascadeDeleteIdsCallback,
@@ -925,7 +910,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
               e.preventDefault();
               handleTextSubmit(e.currentTarget.value);
             }
-            if (e.key === 'Escape') setTextInput(null);
+            if (e.key === 'Escape') useCanvasStore.getState().setTextInput(null);
           }}
           placeholder="Type text…"
         />

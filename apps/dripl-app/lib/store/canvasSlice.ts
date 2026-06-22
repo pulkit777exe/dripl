@@ -46,6 +46,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
   clipboard: [],
   shouldCacheIgnoreZoom: false,
   pendingEmbed: null,
+  spatialVersion: 0,
 
   setElements: (elements, options) =>
     set(state => {
@@ -59,7 +60,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         const withIndexes = ensureFractionalIndexes(elements);
         const sorted = sortByFractionalIndex(withIndexes);
         const next = cloneElements(sorted);
-        return { elements: next, elementsById: buildElementsById(next) };
+        return { elements: next, elementsById: buildElementsById(next), spatialVersion: state.spatialVersion + 1 };
       }
       clearAllShapeCache();
       const history = withHistoryBeforeMutation(
@@ -75,6 +76,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         elementsById: buildElementsById(nextElements),
         past: historyPayload.past,
         future: historyPayload.future,
+        spatialVersion: state.spatialVersion + 1,
       };
     }),
 
@@ -99,6 +101,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         elementsById: nextMap,
         past: historyPayload.past,
         future: historyPayload.future,
+        spatialVersion: state.spatialVersion + 1,
       };
     }),
 
@@ -128,6 +131,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         elementsById: nextMap,
         past: historyPayload.past,
         future: historyPayload.future,
+        spatialVersion: state.spatialVersion + 1,
       };
     }),
 
@@ -171,6 +175,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         elementsById: nextMap,
         past: historyPayload.past,
         future: historyPayload.future,
+        spatialVersion: state.spatialVersion + 1,
       };
     }),
 
@@ -191,6 +196,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       return {
         elements: nextElements,
         elementsById: nextMap,
+        spatialVersion: state.spatialVersion + 1,
       };
     }),
 
@@ -236,6 +242,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         ),
         past: historyPayload.past,
         future: historyPayload.future,
+        spatialVersion: state.spatialVersion + 1,
       };
     }),
 
@@ -451,6 +458,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       drawingLifecycle: 'idle',
       past: historyPayload.past,
       future: historyPayload.future,
+      spatialVersion: state.spatialVersion + 1,
     });
     return committed;
   },
