@@ -8,7 +8,8 @@
     "build": "tsc -b --force",
     "dev": "dotenv -e ../../.env -- tsx watch src/index.ts",
     "test": "vitest run",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "health": "curl -f http://localhost:${PORT:-3002}/health || exit 1"
   },
   "dependencies": {
     "@dripl/common": "workspace:*",

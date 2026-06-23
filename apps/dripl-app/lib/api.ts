@@ -70,8 +70,8 @@ export interface SharedFileSummary {
 
 async function parseError(response: Response): Promise<string> {
   try {
-    const parsed = (await response.json()) as { error?: string };
-    return parsed.error ?? 'Request failed';
+    const parsed = (await response.json()) as { message?: string; error?: string };
+    return parsed.message ?? parsed.error ?? 'Request failed';
   } catch {
     return 'Request failed';
   }

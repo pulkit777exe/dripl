@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import { randomUUID } from 'crypto';
 import { z } from 'zod';
+import { sendError } from '../lib/response';
 import {
   authMiddleware,
   clearSessionCookie,
@@ -9,6 +11,15 @@ import {
 } from '../middlewares/authMiddleware';
 import { OAuth2Client } from 'google-auth-library';
 import { AuthService } from '../services/authService';
+
+const wsTicketStore = new Map<string, { userId: string; expiresAt: number }>();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ticket, data] of wsTicketStore.entries()) {
+    if (data.expiresAt < now) wsTicketStore.delete(ticket);
+  }
+}, 60_000);
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID!;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET!;
@@ -42,7 +53,9 @@ authRouter.post('/register', async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
-      error: 'Invalid registration payload',
+      error: 'INVALID_PAYLOAD',
+      message: 'Invalid registration payload',
+      statusCode: 400,
       details: parsed.error.flatten(),
     });
     return;
@@ -57,7 +70,7 @@ authRouter.post('/register', async (req, res) => {
 
     switch (result.type) {
       case 'email_already_registered':
-        res.status(409).json({ error: 'Email is already registered' });
+        sendError(res, 409, 'CONFLICT', 'Email is already registered');
         break;
       case 'pending_verification':
         res.json({ message: result.message, pendingVerification: true });
@@ -80,7 +93,7 @@ authRouter.post('/register', async (req, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to register user' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to register user');
   }
 });
 
@@ -88,7 +101,9 @@ authRouter.post('/login', async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
-      error: 'Invalid login payload',
+      error: 'INVALID_PAYLOAD',
+      message: 'Invalid login payload',
+      statusCode: 400,
       details: parsed.error.flatten(),
     });
     return;
@@ -99,16 +114,18 @@ authRouter.post('/login', async (req, res) => {
 
     switch (result.type) {
       case 'not_found':
-        res.status(401).json({ error: 'Invalid email or password' });
+        sendError(res, 401, 'INVALID_CREDENTIALS', 'Invalid email or password');
         break;
       case 'needs_verification':
         res.status(401).json({
-          error: 'Please verify your email before logging in',
+          error: 'NEEDS_VERIFICATION',
+          message: 'Please verify your email before logging in',
+          statusCode: 401,
           needsVerification: true,
         });
         break;
       case 'invalid_password':
-        res.status(401).json({ error: 'Invalid email or password' });
+        sendError(res, 401, 'INVALID_CREDENTIALS', 'Invalid email or password');
         break;
       case 'success': {
         const token = signSessionToken(result.user!.id);
@@ -125,7 +142,7 @@ authRouter.post('/login', async (req, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to login' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to login');
   }
 });
 
@@ -136,7 +153,7 @@ authRouter.post('/logout', (_req, res) => {
 
 authRouter.get('/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
@@ -144,7 +161,7 @@ authRouter.get('/me', authMiddleware, async (req: AuthenticatedRequest, res) => 
     const user = await AuthService.getUser(req.userId);
 
     if (!user) {
-      res.status(404).json({ error: 'User not found' });
+      sendError(res, 404, 'NOT_FOUND', 'User not found');
       return;
     }
 
@@ -157,14 +174,14 @@ authRouter.get('/me', authMiddleware, async (req: AuthenticatedRequest, res) => 
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to load user profile' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to load user profile');
   }
 });
 
 authRouter.post('/google', async (req, res) => {
   const { token } = req.body;
   if (!token) {
-    res.status(400).json({ error: 'No token provided' });
+    sendError(res, 400, 'TOKEN_REQUIRED', 'No token provided');
     return;
   }
 
@@ -175,7 +192,7 @@ authRouter.post('/google', async (req, res) => {
     });
     const payload = ticket.getPayload();
     if (!payload || !payload.email) {
-      res.status(400).json({ error: 'Invalid Google token' });
+      sendError(res, 400, 'INVALID_GOOGLE_TOKEN', 'Invalid Google token');
       return;
     }
 
@@ -197,7 +214,7 @@ authRouter.post('/google', async (req, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(401).json({ error: 'Invalid Google token' });
+    sendError(res, 401, 'INVALID_GOOGLE_TOKEN', 'Invalid Google token');
   }
 });
 
@@ -214,7 +231,7 @@ authRouter.get('/google', (_req, res) => {
 authRouter.get('/google/callback', async (req, res) => {
   const code = req.query.code as string | undefined;
   if (!code) {
-    res.status(400).json({ error: 'Missing authorization code' });
+    sendError(res, 400, 'MISSING_TOKEN', 'Missing authorization code');
     return;
   }
 
@@ -259,7 +276,7 @@ const forgotPasswordSchema = z.object({
 authRouter.post('/forgot-password', async (req, res) => {
   const parsed = forgotPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: 'Valid email is required' });
+    sendError(res, 400, 'EMAIL_REQUIRED', 'Valid email is required');
     return;
   }
 
@@ -274,21 +291,21 @@ authRouter.post('/forgot-password', async (req, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to process request' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to process request');
   }
 });
 
 authRouter.post('/reset-password', async (req, res) => {
   const { token, password } = req.body;
   if (!token || !password) {
-    res.status(400).json({ error: 'Token and password are required' });
+    sendError(res, 400, 'PASSWORDS_REQUIRED', 'Token and password are required');
     return;
   }
 
   try {
     const success = await AuthService.resetPassword(token, password);
     if (!success) {
-      res.status(400).json({ error: 'Invalid or expired reset token' });
+      sendError(res, 400, 'INVALID_PAYLOAD', 'Invalid or expired reset token');
       return;
     }
     res.json({ ok: true });
@@ -300,21 +317,21 @@ authRouter.post('/reset-password', async (req, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to reset password' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to reset password');
   }
 });
 
 authRouter.post('/verify-email', async (req, res) => {
   const { token } = req.body;
   if (!token) {
-    res.status(400).json({ error: 'Verification token is required' });
+    sendError(res, 400, 'VERIFICATION_TOKEN_REQUIRED', 'Verification token is required');
     return;
   }
 
   try {
     const success = await AuthService.verifyEmail(token);
     if (!success) {
-      res.status(400).json({ error: 'Invalid or expired verification token' });
+      sendError(res, 400, 'INVALID_PAYLOAD', 'Invalid or expired verification token');
       return;
     }
     res.json({ message: 'Email verified successfully. You can now log in.' });
@@ -326,21 +343,21 @@ authRouter.post('/verify-email', async (req, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to verify email' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to verify email');
   }
 });
 
 authRouter.post('/resend-verification', async (req, res) => {
   const { email } = req.body;
   if (!email) {
-    res.status(400).json({ error: 'Email is required' });
+    sendError(res, 400, 'EMAIL_REQUIRED', 'Email is required');
     return;
   }
 
   try {
     const result = await AuthService.resendVerification(email);
     if (!result) {
-      res.status(400).json({ error: 'Email is already verified' });
+      sendError(res, 400, 'INVALID_PAYLOAD', 'Email is already verified');
       return;
     }
     res.json({ ok: true });
@@ -352,13 +369,13 @@ authRouter.post('/resend-verification', async (req, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to resend verification email' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to resend verification email');
   }
 });
 
 authRouter.put('/profile', authMiddleware, async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
@@ -375,32 +392,32 @@ authRouter.put('/profile', authMiddleware, async (req: AuthenticatedRequest, res
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to update profile' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to update profile');
   }
 });
 
 authRouter.post('/change-password', authMiddleware, async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
   const { currentPassword, newPassword } = req.body;
 
   if (!currentPassword || !newPassword) {
-    res.status(400).json({ error: 'Current and new password are required' });
+    sendError(res, 400, 'PASSWORDS_REQUIRED', 'Current and new password are required');
     return;
   }
 
   if (newPassword.length < 8) {
-    res.status(400).json({ error: 'New password must be at least 8 characters' });
+    sendError(res, 400, 'VALIDATION_ERROR', 'New password must be at least 8 characters');
     return;
   }
 
   try {
     const success = await AuthService.changePassword(req.userId, currentPassword, newPassword);
     if (!success) {
-      res.status(400).json({ error: 'Cannot change password for this account' });
+      sendError(res, 400, 'INVALID_PAYLOAD', 'Cannot change password for this account');
       return;
     }
     res.json({ ok: true });
@@ -412,8 +429,48 @@ authRouter.post('/change-password', authMiddleware, async (req: AuthenticatedReq
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to change password' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to change password');
   }
 });
 
-export { authRouter };
+authRouter.post('/ws-ticket', authMiddleware, (req: AuthenticatedRequest, res) => {
+  if (!req.userId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+  const ticket = randomUUID();
+  wsTicketStore.set(ticket, { userId: req.userId, expiresAt: Date.now() + 30_000 });
+  res.json({ ticket });
+});
+
+export { authRouter, wsTicketStore };
+
+export function createInternalRouter(): Router {
+  const internalRouter = Router();
+
+  function requireInternalSecret(req: any, res: any, next: any): void {
+    if (req.headers['x-internal-secret'] !== process.env.INTERNAL_SECRET) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+    next();
+  }
+
+  internalRouter.post('/validate-ticket', requireInternalSecret, (req, res) => {
+    const { ticket } = req.body;
+    if (!ticket || typeof ticket !== 'string') {
+      res.status(400).json({ error: 'Ticket is required' });
+      return;
+    }
+    const entry = wsTicketStore.get(ticket);
+    if (!entry || entry.expiresAt < Date.now()) {
+      wsTicketStore.delete(ticket);
+      res.status(401).json({ error: 'Invalid or expired ticket' });
+      return;
+    }
+    wsTicketStore.delete(ticket);
+    res.json({ userId: entry.userId });
+  });
+
+  return internalRouter;
+}

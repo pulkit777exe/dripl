@@ -7,7 +7,8 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { validateCsrfToken, generateCsrfToken } from './middlewares/csrfMiddleware';
 import { authMiddleware } from './middlewares/authMiddleware';
-import { authRouter } from './routes/auth';
+import { sendError } from './lib/response';
+import { authRouter, createInternalRouter } from './routes/auth';
 import { filesRouter } from './routes/files';
 import { foldersRouter } from './routes/folders';
 import { shareRouter } from './routes/share';
@@ -35,7 +36,7 @@ export async function rateLimitMiddleware(req: Request, res: Response, next: Nex
   const identifier = (req as Request & { session?: { userId?: string } }).session?.userId ?? req.ip ?? 'anonymous';
   const { success, remaining } = await generalRateLimit.limit(identifier);
   if (!success) {
-    res.status(429).json({ error: 'Rate limit exceeded', retryAfter: 60 });
+    sendError(res, 429, 'RATE_LIMITED', 'Rate limit exceeded');
     return;
   }
   res.setHeader('X-RateLimit-Remaining', remaining);
@@ -46,7 +47,7 @@ export async function authRateLimitMiddleware(req: Request, res: Response, next:
   const identifier = req.ip ?? 'anonymous';
   const { success } = await authRateLimit.limit(identifier);
   if (!success) {
-    res.status(429).json({ error: 'Too many attempts, please try again later.' });
+    sendError(res, 429, 'RATE_LIMITED', 'Too many attempts, please try again later.');
     return;
   }
   next();
@@ -119,6 +120,8 @@ export function createApp(): Application {
   app.use('/api/rooms', validateCsrfToken, authMiddleware, roomRoutes);
   app.use('/api/images', validateCsrfToken, authMiddleware, imagesRouter);
 
+  app.use('/internal', createInternalRouter());
+
   app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
     console.error(
       JSON.stringify({
@@ -128,9 +131,7 @@ export function createApp(): Application {
         stack: error.stack,
       }),
     );
-    res.status(500).json({
-      error: 'Internal server error',
-    });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
   });
 
   return app;

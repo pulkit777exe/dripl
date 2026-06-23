@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { type Request, type Response } from 'express';
+import { sendError } from '../lib/response';
 
 const CSRF_TOKEN_BYTES = 32;
 const CSRF_HEADER = 'x-csrf-token';
@@ -27,14 +28,14 @@ export function validateCsrfToken(req: Request, res: Response, next: Function): 
   const csrfHeader = req.headers[CSRF_HEADER] as string | undefined;
 
   if (!csrfCookie || !csrfHeader) {
-    res.status(403).json({ error: 'CSRF token missing' });
+    sendError(res, 403, 'CSRF_TOKEN_MISSING', 'CSRF token missing');
     return;
   }
 
   const a = Buffer.from(csrfCookie);
   const b = Buffer.from(csrfHeader);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-    res.status(403).json({ error: 'CSRF token invalid' });
+    sendError(res, 403, 'CSRF_TOKEN_INVALID', 'CSRF token invalid');
     return;
   }
 

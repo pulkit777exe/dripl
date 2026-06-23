@@ -2,6 +2,7 @@ import { randomBytes, createHash } from 'crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware';
+import { sendError } from '../lib/response';
 import { FileService } from '../services/fileService';
 
 const listFilesQuerySchema = z.object({
@@ -58,14 +59,16 @@ export function nanoidLike(size = 21): string {
 
 filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
   const parsedQuery = listFilesQuerySchema.safeParse(req.query);
   if (!parsedQuery.success) {
     res.status(400).json({
-      error: 'Invalid file query parameters',
+      error: 'INVALID_QUERY',
+      message: 'Invalid file query parameters',
+      statusCode: 400,
       details: parsedQuery.error.flatten(),
     });
     return;
@@ -109,20 +112,22 @@ filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to list files' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to list files');
   }
 });
 
 filesRouter.get('/shared', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
   const parsedQuery = listSharedFilesQuerySchema.safeParse(req.query);
   if (!parsedQuery.success) {
     res.status(400).json({
-      error: 'Invalid query parameters',
+      error: 'INVALID_QUERY',
+      message: 'Invalid query parameters',
+      statusCode: 400,
       details: parsedQuery.error.flatten(),
     });
     return;
@@ -153,20 +158,22 @@ filesRouter.get('/shared', async (req: AuthenticatedRequest, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to list shared files' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to list shared files');
   }
 });
 
 filesRouter.post('/', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
   const parsedBody = createFileSchema.safeParse(req.body);
   if (!parsedBody.success) {
     res.status(400).json({
-      error: 'Invalid create file payload',
+      error: 'INVALID_PAYLOAD',
+      message: 'Invalid create file payload',
+      statusCode: 400,
       details: parsedBody.error.flatten(),
     });
     return;
@@ -185,7 +192,8 @@ filesRouter.post('/', async (req: AuthenticatedRequest, res) => {
 
     if (result && 'error' in result) {
       const errorMsg = result.error as string;
-      res.status(errorMsg.includes('limit') ? 403 : 404).json({ error: errorMsg });
+      const isLimit = errorMsg.includes('limit');
+      sendError(res, isLimit ? 403 : 404, isLimit ? 'FORBIDDEN' : 'NOT_FOUND', errorMsg);
       return;
     }
 
@@ -198,19 +206,19 @@ filesRouter.post('/', async (req: AuthenticatedRequest, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to create file' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to create file');
   }
 });
 
 filesRouter.get('/:id', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
   const id = typeof req.params.id === 'string' ? req.params.id : null;
   if (!id) {
-    res.status(400).json({ error: 'File id is required' });
+    sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
     return;
   }
 
@@ -218,7 +226,7 @@ filesRouter.get('/:id', async (req: AuthenticatedRequest, res) => {
     const file = await FileService.getFile(req.userId, id);
 
     if (!file) {
-      res.status(404).json({ error: 'File not found' });
+      sendError(res, 404, 'NOT_FOUND', 'File not found');
       return;
     }
 
@@ -231,26 +239,28 @@ filesRouter.get('/:id', async (req: AuthenticatedRequest, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to load file' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to load file');
   }
 });
 
 filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
   const id = typeof req.params.id === 'string' ? req.params.id : null;
   if (!id) {
-    res.status(400).json({ error: 'File id is required' });
+    sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
     return;
   }
 
   const parsedBody = patchFileSchema.safeParse(req.body);
   if (!parsedBody.success) {
     res.status(400).json({
-      error: 'Invalid update file payload',
+      error: 'INVALID_PAYLOAD',
+      message: 'Invalid update file payload',
+      statusCode: 400,
       details: parsedBody.error.flatten(),
     });
     return;
@@ -269,12 +279,12 @@ filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!result) {
-      res.status(404).json({ error: 'File not found' });
+      sendError(res, 404, 'NOT_FOUND', 'File not found');
       return;
     }
 
     if ('error' in result) {
-      res.status(404).json({ error: result.error });
+      sendError(res, 404, 'NOT_FOUND', result.error ?? 'File not found');
       return;
     }
 
@@ -287,19 +297,19 @@ filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to update file' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to update file');
   }
 });
 
 filesRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
   const id = typeof req.params.id === 'string' ? req.params.id : null;
   if (!id) {
-    res.status(400).json({ error: 'File id is required' });
+    sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
     return;
   }
 
@@ -307,7 +317,7 @@ filesRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
     const deleted = await FileService.deleteFile(req.userId, id);
 
     if (!deleted) {
-      res.status(404).json({ error: 'File not found' });
+      sendError(res, 404, 'NOT_FOUND', 'File not found');
       return;
     }
 
@@ -320,26 +330,28 @@ filesRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to delete file' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to delete file');
   }
 });
 
 filesRouter.post('/:id/share', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
   const id = typeof req.params.id === 'string' ? req.params.id : null;
   if (!id) {
-    res.status(400).json({ error: 'File id is required' });
+    sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
     return;
   }
 
   const parsedBody = createShareSchema.safeParse(req.body ?? {});
   if (!parsedBody.success) {
     res.status(400).json({
-      error: 'Invalid share payload',
+      error: 'INVALID_PAYLOAD',
+      message: 'Invalid share payload',
+      statusCode: 400,
       details: parsedBody.error.flatten(),
     });
     return;
@@ -355,7 +367,7 @@ filesRouter.post('/:id/share', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!result) {
-      res.status(404).json({ error: 'File not found' });
+      sendError(res, 404, 'NOT_FOUND', 'File not found');
       return;
     }
 
@@ -373,19 +385,19 @@ filesRouter.post('/:id/share', async (req: AuthenticatedRequest, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to create share link' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to create share link');
   }
 });
 
 filesRouter.delete('/:id/share', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
   const id = typeof req.params.id === 'string' ? req.params.id : null;
   if (!id) {
-    res.status(400).json({ error: 'File id is required' });
+    sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
     return;
   }
 
@@ -393,7 +405,7 @@ filesRouter.delete('/:id/share', async (req: AuthenticatedRequest, res) => {
     const revoked = await FileService.revokeShare(req.userId, id);
 
     if (!revoked) {
-      res.status(404).json({ error: 'File not found' });
+      sendError(res, 404, 'NOT_FOUND', 'File not found');
       return;
     }
 
@@ -406,7 +418,7 @@ filesRouter.delete('/:id/share', async (req: AuthenticatedRequest, res) => {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    res.status(500).json({ error: 'Failed to revoke share link' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to revoke share link');
   }
 });
 

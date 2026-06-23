@@ -12,6 +12,7 @@ const REQUIRED_ENV = [
   'PORT',
   'UPSTASH_REDIS_REST_URL',
   'UPSTASH_REDIS_REST_TOKEN',
+  'HTTP_SERVER_URL',
 ] as const;
 
 for (const key of REQUIRED_ENV) {
@@ -19,6 +20,14 @@ for (const key of REQUIRED_ENV) {
     console.error(`FATAL: Missing required env var: ${key}`);
     process.exit(1);
   }
+}
+
+if (process.env.NODE_ENV === 'production' && !process.env.INTERNAL_SECRET) {
+  console.error('FATAL: Missing required env var: INTERNAL_SECRET');
+  process.exit(1);
+}
+if (!process.env.INTERNAL_SECRET) {
+  console.warn('WARN: INTERNAL_SECRET not set — ticket validation will reject all connections');
 }
 
 import { createServer } from 'http';
@@ -40,7 +49,7 @@ import {
   getStateVector,
   encodeYjsDoc,
 } from './yjsManager';
-import { resolveTokenFromUrl, resolveUserFromToken } from './auth';
+import { resolveTicketFromUrl, validateTicket } from './auth';
 import { send, broadcast, roomUsersPayload, roomCursorsPayload } from './broadcast';
 import {
   rooms,
@@ -133,14 +142,24 @@ const server = createServer((req, res) => {
   }
 });
 
-const FRONTEND_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+const ALLOWED_ORIGINS = [
+  process.env.FRONTEND_URL,
+  'http://localhost:3000',
+].filter(Boolean) as string[];
+
 const wss = new WebSocketServer({
   server,
   maxPayload: 10 * 1024 * 1024,
   verifyClient: ({ origin }: { origin: string }, cb: (result: boolean, code?: number, message?: string) => void) => {
-    if (!origin) return cb(true);
-    const allowed = FRONTEND_URL.replace(/\/$/, '');
-    if (origin === allowed) return cb(true);
+    if (!origin) {
+      if (process.env.NODE_ENV === 'production') {
+        console.warn(JSON.stringify({ level: 'warn', event: 'ws_origin_rejected', reason: 'no_origin' }));
+        return cb(false, 403, 'Forbidden');
+      }
+      return cb(true);
+    }
+    const allowed = ALLOWED_ORIGINS.some(o => origin.startsWith(o));
+    if (allowed) return cb(true);
     console.warn(JSON.stringify({ level: 'warn', event: 'ws_origin_rejected', origin }));
     cb(false, 403, 'Forbidden');
   },
@@ -148,12 +167,19 @@ const wss = new WebSocketServer({
 
 const wsToRoomMap = new Map<WebSocket, string>();
 
-wss.on('connection', (ws, req) => {
-  const authUserId = resolveUserFromToken(resolveTokenFromUrl(req.url, req.headers.host));
+wss.on('connection', async (ws, req) => {
+  const ticket = resolveTicketFromUrl(req.url, req.headers.host);
+  if (!ticket) {
+    ws.close(4001, 'Authentication required');
+    console.warn(JSON.stringify({ level: 'warn', event: 'ws_auth_rejected', reason: 'no_ticket', url: req.url }));
+    return;
+  }
+
+  const authUserId = await validateTicket(ticket);
 
   if (!authUserId) {
     ws.close(4001, 'Authentication required');
-    console.warn(JSON.stringify({ level: 'warn', event: 'ws_auth_rejected', url: req.url }));
+    console.warn(JSON.stringify({ level: 'warn', event: 'ws_auth_rejected', reason: 'invalid_ticket' }));
     return;
   }
 

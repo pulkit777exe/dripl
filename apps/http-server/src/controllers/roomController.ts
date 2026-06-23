@@ -3,6 +3,7 @@ import { db as prisma } from '@dripl/db';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import crypto from 'crypto';
 import { z } from 'zod';
+import { sendError } from '../lib/response';
 
 function generateSlug(): string {
   // Use CSPRNG: 6 random bytes → base36 → take first 8 chars
@@ -48,7 +49,7 @@ export class RoomController {
           error: error instanceof Error ? error.message : String(error),
         })
       );
-      res.status(500).json({ error: 'Internal server error' });
+      sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
     }
   }
 
@@ -61,7 +62,7 @@ export class RoomController {
 
     const parsed = createRoomSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+      res.status(400).json({ error: 'INVALID_PAYLOAD', message: 'Invalid payload', statusCode: 400, details: parsed.error.flatten() });
       return;
     }
 
@@ -77,9 +78,7 @@ export class RoomController {
       });
 
       if (roomCount >= 10) {
-        res
-          .status(429)
-          .json({ error: 'Room creation limit reached. You can create up to 10 rooms per day.' });
+        sendError(res, 429, 'RATE_LIMITED', 'Room creation limit reached. You can create up to 10 rooms per day.');
         return;
       }
 
@@ -116,7 +115,7 @@ export class RoomController {
           error: error instanceof Error ? error.message : String(error),
         })
       );
-      res.status(500).json({ error: 'Internal server error' });
+      sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
     }
   }
 
@@ -141,7 +140,7 @@ export class RoomController {
       });
 
       if (!room) {
-        res.status(404).json({ error: 'Room not found' });
+        sendError(res, 404, 'NOT_FOUND', 'Room not found');
         return;
       }
 
@@ -149,7 +148,7 @@ export class RoomController {
       const isMember = room.members.some(m => m.userId === req.userId);
 
       if (!room.isPublic && !isOwner && !isMember) {
-        res.status(403).json({ error: 'Access denied' });
+        sendError(res, 403, 'FORBIDDEN', 'Access denied');
         return;
       }
 
@@ -162,7 +161,7 @@ export class RoomController {
           error: error instanceof Error ? error.message : String(error),
         })
       );
-      res.status(500).json({ error: 'Internal server error' });
+      sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
     }
   }
 
@@ -177,7 +176,7 @@ export class RoomController {
 
     const parsed = updateRoomSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: 'Invalid update payload', details: parsed.error.flatten() });
+      res.status(400).json({ error: 'INVALID_PAYLOAD', message: 'Invalid update payload', statusCode: 400, details: parsed.error.flatten() });
       return;
     }
 
@@ -200,7 +199,7 @@ export class RoomController {
     } catch (error) {
       const err = error as { code?: string };
       if (err.code === 'P2025') {
-        res.status(404).json({ error: 'Room not found or you do not have permission' });
+        sendError(res, 404, 'NOT_FOUND', 'Room not found or you do not have permission');
         return;
       }
       console.error(
@@ -210,7 +209,7 @@ export class RoomController {
           error: error instanceof Error ? error.message : String(error),
         })
       );
-      res.status(500).json({ error: 'Internal server error' });
+      sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
     }
   }
 
@@ -224,7 +223,7 @@ export class RoomController {
       });
 
       if (!room) {
-        res.status(404).json({ error: 'Room not found or you do not have permission' });
+        sendError(res, 404, 'NOT_FOUND', 'Room not found or you do not have permission');
         return;
       }
 
@@ -243,7 +242,7 @@ export class RoomController {
           error: error instanceof Error ? error.message : String(error),
         })
       );
-      res.status(500).json({ error: 'Internal server error' });
+      sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
     }
   }
 
@@ -257,7 +256,7 @@ export class RoomController {
 
     const parsed = addMemberSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+      res.status(400).json({ error: 'INVALID_PAYLOAD', message: 'Invalid payload', statusCode: 400, details: parsed.error.flatten() });
       return;
     }
 
@@ -270,7 +269,7 @@ export class RoomController {
       });
 
       if (!room) {
-        res.status(404).json({ error: 'Room not found or you do not have permission' });
+        sendError(res, 404, 'NOT_FOUND', 'Room not found or you do not have permission');
         return;
       }
 
@@ -284,7 +283,7 @@ export class RoomController {
       });
 
       if (existingMember) {
-        res.status(409).json({ error: 'User is already a member of this room' });
+        sendError(res, 409, 'CONFLICT', 'User is already a member of this room');
         return;
       }
 
@@ -308,7 +307,7 @@ export class RoomController {
           error: error instanceof Error ? error.message : String(error),
         })
       );
-      res.status(500).json({ error: 'Internal server error' });
+      sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
     }
   }
 
@@ -322,12 +321,12 @@ export class RoomController {
       });
 
       if (!room) {
-        res.status(404).json({ error: 'Room not found or you do not have permission' });
+        sendError(res, 404, 'NOT_FOUND', 'Room not found or you do not have permission');
         return;
       }
 
       if (room.ownerId === userId) {
-        res.status(400).json({ error: 'Owner cannot remove themselves from the room' });
+        sendError(res, 400, 'INVALID_PAYLOAD', 'Owner cannot remove themselves from the room');
         return;
       }
 
@@ -347,7 +346,7 @@ export class RoomController {
           error: error instanceof Error ? error.message : String(error),
         })
       );
-      res.status(500).json({ error: 'Internal server error' });
+      sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
     }
   }
 
@@ -361,7 +360,7 @@ export class RoomController {
 
     const parsed = shareRoomSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+      res.status(400).json({ error: 'INVALID_PAYLOAD', message: 'Invalid payload', statusCode: 400, details: parsed.error.flatten() });
       return;
     }
 
@@ -371,12 +370,12 @@ export class RoomController {
       const room = await prisma.canvasRoom.findUnique({ where: { slug } });
 
       if (!room) {
-        res.status(404).json({ error: 'Room not found' });
+        sendError(res, 404, 'NOT_FOUND', 'Room not found');
         return;
       }
 
       if (room.ownerId !== req.userId) {
-        res.status(403).json({ error: 'Only the owner can share this room' });
+        sendError(res, 403, 'FORBIDDEN', 'Only the owner can share this room');
         return;
       }
 
@@ -408,7 +407,7 @@ export class RoomController {
           error: error instanceof Error ? error.message : String(error),
         })
       );
-      res.status(500).json({ error: 'Internal server error' });
+      sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
     }
   }
 
@@ -432,12 +431,12 @@ export class RoomController {
       });
 
       if (!shareLink) {
-        res.status(404).json({ error: 'Share link not found' });
+        sendError(res, 404, 'NOT_FOUND', 'Share link not found');
         return;
       }
 
       if (shareLink.expiresAt < new Date()) {
-        res.status(410).json({ error: 'Share link has expired' });
+        sendError(res, 410, 'EXPIRED', 'Share link has expired');
         return;
       }
 
@@ -454,7 +453,7 @@ export class RoomController {
           error: error instanceof Error ? error.message : String(error),
         })
       );
-      res.status(500).json({ error: 'Internal server error' });
+      sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
     }
   }
 
@@ -495,7 +494,7 @@ export class RoomController {
           error: error instanceof Error ? error.message : String(error),
         })
       );
-      res.status(500).json({ error: 'Internal server error' });
+      sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
     }
   }
 }

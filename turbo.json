@@ -90,6 +90,11 @@
       "cache": true,
       "outputs": [],
       "outputLogs": "new-only"
+    },
+    "health": {
+      "description": "Verify service is responding to health checks",
+      "cache": false,
+      "inputs": []
     }
   }
 }

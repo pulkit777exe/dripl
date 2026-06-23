@@ -4,6 +4,7 @@ import { mkdir, writeFile, readFile, stat } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { authMiddleware, type AuthRequest } from '../middlewares/authMiddleware';
+import { sendError } from '../lib/response';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -38,7 +39,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     const contentType = req.headers['content-type'];
     const baseType = contentType?.split(';')[0]?.trim();
     if (!baseType || !ALLOWED_TYPES.has(baseType)) {
-      res.status(400).json({ error: 'Invalid content type. Allowed: png, jpeg, gif, webp, svg' });
+      sendError(res, 400, 'INVALID_CONTENT_TYPE', 'Invalid content type. Allowed: png, jpeg, gif, webp, svg');
       return;
     }
 
@@ -50,7 +51,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
       totalSize += chunk.length;
       if (totalSize > MAX_IMAGE_SIZE) {
         if (!res.headersSent) {
-          res.status(413).json({ error: 'Image too large. Maximum size is 10MB.' });
+          sendError(res, 413, 'PAYLOAD_TOO_LARGE', 'Image too large. Maximum size is 10MB.');
         }
         req.destroy();
         return;
@@ -74,19 +75,19 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
         res.status(201).json({ id: fileId, url, size: buffer.length });
       } catch (error) {
         console.error('Image upload failed:', error);
-        res.status(500).json({ error: 'Failed to save image' });
+        sendError(res, 500, 'INTERNAL_ERROR', 'Failed to save image');
       }
     });
 
     req.on('error', (error) => {
       console.error('Image upload stream error:', error);
       if (!res.headersSent) {
-        res.status(500).json({ error: 'Upload failed' });
+        sendError(res, 500, 'INTERNAL_ERROR', 'Upload failed');
       }
     });
   } catch (error) {
     console.error('Image upload error:', error);
-    res.status(500).json({ error: 'Upload failed' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Upload failed');
   }
 });
 
@@ -97,7 +98,7 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     const filePath = getImagePath(id);
 
     if (!existsSync(filePath)) {
-      res.status(404).json({ error: 'Image not found' });
+      sendError(res, 404, 'NOT_FOUND', 'Image not found');
       return;
     }
 
@@ -112,7 +113,7 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     res.send(buffer);
   } catch (error) {
     console.error('Image download error:', error);
-    res.status(500).json({ error: 'Failed to read image' });
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to read image');
   }
 });
 

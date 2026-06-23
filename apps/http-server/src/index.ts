@@ -19,6 +19,14 @@ for (const key of REQUIRED_ENV) {
   }
 }
 
+if (process.env.NODE_ENV === 'production' && !process.env.INTERNAL_SECRET) {
+  console.error('FATAL: Missing required env var: INTERNAL_SECRET');
+  process.exit(1);
+}
+if (!process.env.INTERNAL_SECRET) {
+  console.warn('WARN: INTERNAL_SECRET not set — internal endpoints will reject all requests');
+}
+
 import { initializeDb } from '@dripl/db';
 import { createApp } from './app';
 

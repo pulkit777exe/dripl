@@ -102,6 +102,18 @@ export interface UseCollaborationReturn {
 }
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002/api';
+
+async function getWsTicket(): Promise<string> {
+  const res = await fetch(`${API_URL}/auth/ws-ticket`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error('Failed to get WS ticket');
+  const { ticket } = (await res.json()) as { ticket: string };
+  return ticket;
+}
 
 export function useCollaboration(
   roomId: string | null,
@@ -345,8 +357,15 @@ export function useCollaboration(
     const savedColor = localStorage.getItem('dripl_cursor_color');
     if (savedColor) colorRef.current = savedColor;
 
-    const connect = () => {
-      const ws = new WebSocket(WS_URL);
+    const connect = async () => {
+      let ws: WebSocket;
+      try {
+        const ticket = await getWsTicket();
+        ws = new WebSocket(`${WS_URL}?ticket=${ticket}`);
+      } catch {
+        setConnectionMessage('Failed to authenticate — refresh to retry');
+        return;
+      }
       wsRef.current = ws;
 
       ws.onopen = () => {
