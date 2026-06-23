@@ -301,7 +301,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   }, [elements, workerReady, buildIndex]);
 
   // Synchronous local RBush for hit testing (loaded from worker result)
-  // Fallback: rebuild inline if worker not ready
+  // Synchronous fallback: returns last committed index.
+  // Safe because stale worker responses are rejected by generation check.
   const spatialIndex = useMemo<SpatialIndexState>(() => {
     const prev = spatialIndexRef.current;
 

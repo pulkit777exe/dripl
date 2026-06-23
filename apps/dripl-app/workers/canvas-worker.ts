@@ -138,9 +138,9 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
   try {
     switch (type) {
       case 'build-index': {
-        const elements = payload as DriplElement[];
+        const { elements, gen } = payload as { elements: DriplElement[]; gen: number };
         const result = handleBuildIndex(elements);
-        self.postMessage({ id, type: 'index-built', payload: result });
+        self.postMessage({ id, type: 'index-built', payload: { ...result, gen } });
         break;
       }
       case 'hit-test': {

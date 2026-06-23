@@ -110,6 +110,7 @@ export function useCanvasWorker(): UseCanvasWorkerReturn {
     boundsMap: new Map(),
   });
   const [spatialIndex, setSpatialIndex] = useState<SpatialIndexState>(spatialIndexRef.current);
+  const workerGenRef = useRef(0);
 
   useEffect(() => {
     // Initialize worker
@@ -123,10 +124,17 @@ export function useCanvasWorker(): UseCanvasWorkerReturn {
 
   const buildIndex = useCallback(async (elements: DriplElement[]) => {
     try {
+      const gen = ++workerGenRef.current;
       const result = await postMessage<{
         tree: RBushData;
         bounds: Array<{ id: string; bounds: Bounds }>;
-      }>('build-index', elements);
+        gen: number;
+      }>('build-index', { elements, gen });
+
+      if (result.gen !== workerGenRef.current) {
+        console.log('[spatial] discarded stale worker response', { gen: result.gen, current: workerGenRef.current });
+        return;
+      }
 
       const byId = new Map<string, DriplElement>();
       const elementIds = new Set<string>();

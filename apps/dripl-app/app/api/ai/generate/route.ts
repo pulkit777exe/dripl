@@ -77,8 +77,7 @@ export async function POST(request: NextRequest) {
   try {
     // CSRF protection: reject requests from non-app origins
     const origin = request.headers.get('origin');
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL env var is not set');
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
     if (!origin || !origin.startsWith(appUrl)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }

@@ -130,42 +130,17 @@ export default function LandingPage(): React.ReactNode {
               <span className="h-2.5 w-2.5 rounded-full bg-[#D4D0C9]" />
               <span className="h-2.5 w-2.5 rounded-full bg-[#D4D0C9]" />
             </div>
-            <span className="ml-2 text-[11px] text-[#9B9890]">dripl.app/canvas/q2-board</span>
+            <span className="ml-2 text-[11px] text-[#9B9890]">dripl.app/</span>
           </div>
           <div className="relative h-80 md:h-105 bg-[#FAFAF7] flex items-center justify-center">
-            {/* Skeleton grid lines */}
-            <div
-              className="absolute inset-0 opacity-[0.08]"
-              style={{
-                backgroundImage:
-                  'linear-gradient(to right, #D4D0C9 1px, transparent 1px), linear-gradient(to bottom, #D4D0C9 1px, transparent 1px)',
-                backgroundSize: '32px 32px',
-              }}
+            <Image
+              src="/landing.png"
+              alt="Dripl canvas showing a product board with sticky notes and diagrams"
+              fill
+              sizes="(max-width: 768px) 100vw, 800px"
+              className="object-cover object-top"
+              priority
             />
-
-            {/* Floating cards */}
-            <div className="absolute top-8 left-8 md:top-12 md:left-16 w-56 rounded-lg border border-[#E4E0D9] bg-white p-4 shadow-sm -rotate-1">
-              <div className="h-3 w-20 rounded bg-[#E8E5DE] mb-3" />
-              <div className="space-y-2">
-                <div className="h-2 w-full rounded bg-[#E8E5DE]" />
-                <div className="h-2 w-4/5 rounded bg-[#E8E5DE]" />
-                <div className="h-2 w-3/5 rounded bg-[#E8E5DE]" />
-              </div>
-            </div>
-
-            <div className="absolute top-16 right-8 md:top-20 md:right-20 w-48 rounded-lg border border-[#E4E0D9] bg-white p-4 shadow-sm rotate-1">
-              <div className="h-24 w-full rounded bg-[#FAE8E5] mb-2" />
-              <div className="h-2 w-1/2 rounded bg-[#E8E5DE]" />
-            </div>
-
-            <div className="absolute bottom-12 left-1/3 w-64 rounded-lg border border-[#E4E0D9] bg-white p-4 shadow-sm rotate-[0.5deg]">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="h-6 w-6 rounded-full bg-[#E8462A]/15" />
-                <div className="h-2.5 w-24 rounded bg-[#E8E5DE]" />
-              </div>
-              <div className="h-2 w-full rounded bg-[#E8E5DE]" />
-              <div className="h-2 w-3/4 rounded bg-[#E8E5DE] mt-2" />
-            </div>
           </div>
         </div>
       </section>
