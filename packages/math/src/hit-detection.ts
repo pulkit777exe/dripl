@@ -66,8 +66,7 @@ export function elementIntersectsSelectionRect(
   }
 
   if (element.type === 'arrow' || element.type === 'line' || element.type === 'freedraw') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const points = (element as any).points || [];
+    const points = ('points' in element ? element.points : undefined) || [];
     if (points.length > 1) {
       for (let i = 0; i < points.length - 1; i++) {
         const segment: LineSegment = {

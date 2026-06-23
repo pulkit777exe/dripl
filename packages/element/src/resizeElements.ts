@@ -1,4 +1,4 @@
-import type { DriplElement, Point } from '@dripl/common';
+import type { DriplElement, Point, TextElement } from '@dripl/common';
 
 export type TransformHandleDirection = 'n' | 'e' | 's' | 'w' | 'ne' | 'se' | 'sw' | 'nw';
 
@@ -135,7 +135,7 @@ const measureFontSizeFromWidth = (
 ): { size: number; height: number } => {
   const maxFontSize = 200;
   const minFontSize = 8;
-  const text = element.type === 'text' ? ((element as any).originalText || element.text || 'A') : (element.text || 'A');
+  const text = element.type === 'text' ? ((element as TextElement).originalText || element.text || 'A') : (element.text || 'A');
 
   for (let fontSize = maxFontSize; fontSize >= minFontSize; fontSize -= 1) {
     const canvas = document.createElement('canvas');
@@ -254,7 +254,7 @@ export const resizeSingleTextElement = (
   if (handleDirection === 'e' || handleDirection === 'w') {
     const minWidth = getMinTextElementWidth(fontString, lineHeight);
     const newWidth = Math.max(minWidth, nextWidth);
-    const sourceText = (element as any).originalText || element.text || '';
+    const sourceText = ((element as TextElement).originalText) || element.text || '';
     const text = wrapText(sourceText, fontString, Math.abs(newWidth));
     const metrics = measureText(text, fontString, lineHeight);
     // Do NOT return x/y — let the pointer handler's origin computation take effect

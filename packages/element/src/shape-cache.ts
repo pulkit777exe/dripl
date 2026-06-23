@@ -33,7 +33,7 @@ export function getShapeFromCache(
 ): Drawable | Drawable[] | undefined {
   const entry = shapeCache.get(element);
   if (!entry) return undefined;
-  const version = (element as any).version ?? 0;
+  const version = element.version ?? 0;
   // Stale if version changed OR theme changed – evict and return miss.
   if (entry.version !== version || entry.theme !== theme) {
     shapeCache.delete(element);
@@ -50,7 +50,7 @@ export function setShapeInCache(
   shape: Drawable | Drawable[],
   theme: 'light' | 'dark' = 'light'
 ): void {
-  const version = (element as any).version ?? 0;
+  const version = element.version ?? 0;
   shapeCache.set(element, { shape, version, theme });
 }
 

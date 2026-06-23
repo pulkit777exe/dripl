@@ -46,7 +46,8 @@
   "scripts": {
     "build": "tsc -b --force",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check-types": "tsc --noEmit"
   },
   "devDependencies": {
     "@dripl/eslint-config": "workspace:*",

@@ -16,6 +16,7 @@ export interface ElementBase {
   width: number;
   height: number;
   strokeColor?: string;
+  fillColor?: string;
   backgroundColor?: string;
   strokeWidth?: number;
   opacity?: number;

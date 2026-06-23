@@ -44,7 +44,7 @@ const elementIdMap = new Map<string, DriplElement>();
  * O(1) — no serialization required.
  */
 function getElementVersion(el: DriplElement): number {
-  return (el as any).version ?? 0;
+  return el.version ?? 0;
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ export function renderStaticScene(
 
   // 3. Draw each visible element.
   for (const element of elements) {
-    if ((element as any).isDeleted) continue;
+    if (element.isDeleted) continue;
 
     // StaticSceneViewport culling — skip elements fully outside the visible area.
     if (!isElementVisible(element, viewport, config.zoom)) continue;
@@ -314,7 +314,7 @@ function drawImageElement(
   element: DriplElement,
   config: StaticSceneConfig
 ): void {
-  const src: string | undefined = (element as any).src;
+  const src: string | undefined = element.type === 'image' ? element.src : undefined;
   if (!src) return;
 
   const opacity = typeof element.opacity === 'number' ? element.opacity : 1;

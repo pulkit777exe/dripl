@@ -85,7 +85,7 @@ export function mutateElement<T extends DriplElement>(
     const value = updates[key];
     if (typeof value === 'undefined') continue;
 
-    const currentValue = (element as any)[key];
+    const currentValue = (element as Record<string, unknown>)[key];
 
     // Use custom equality check for specific keys
     if (valuesEqual(currentValue, value, key)) continue;
@@ -110,7 +110,7 @@ export function mutateElement<T extends DriplElement>(
   const updated = {
     ...element,
     ...updates,
-    version: ((element as any).version ?? 0) + 1,
+    version: (element.version ?? 0) + 1,
     versionNonce: Math.floor(Math.random() * 2_147_483_647),
     updated: Date.now(),
   } as T;

@@ -57,7 +57,7 @@ export const db: PrismaClient = new Proxy({} as PrismaClient, {
         'PrismaClient not initialized. This may be due to accessing db before dotenv is loaded or a connection issue. Make sure to load environment variables before using db operations.'
       );
     }
-    return (prismaInstance as any)[prop];
+    return (prismaInstance as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
 

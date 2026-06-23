@@ -1,5 +1,5 @@
 import rough from 'roughjs';
-import type { DriplElement, LinearElement, ArrowheadType, FrameElement, EmbedElement } from '@dripl/common';
+import type { DriplElement, LinearElement, ArrowheadType, FrameElement, EmbedElement, Point, TextElement, ImageElement } from '@dripl/common';
 import { getShapeFromCache, setShapeInCache, pruneShapeCache } from './shape-cache';
 import type { RoughCanvas as _RoughCanvas } from 'roughjs/bin/canvas';
 import type { Drawable as _Drawable } from 'roughjs/bin/core';
@@ -132,18 +132,16 @@ export function createRoughCanvas(canvas: HTMLCanvasElement): _RoughCanvas | nul
 }
 
 function generateShape(element: DriplElement): _Drawable | _Drawable[] {
-  const {
-    width,
-    height,
-    strokeColor,
-    backgroundColor,
-    strokeWidth,
-    roughness = 1,
-    strokeStyle = 'solid',
-    fillStyle = 'hachure',
-    seed,
-    roundness = 0,
-  } = element as any;
+  const width = element.width;
+  const height = element.height;
+  const strokeColor = element.strokeColor;
+  const backgroundColor = element.backgroundColor;
+  const strokeWidth = element.strokeWidth;
+  const roughness = element.roughness ?? 1;
+  const strokeStyle = element.strokeStyle ?? 'solid';
+  const fillStyle = element.fillStyle ?? 'hachure';
+  const seed = element.seed;
+  const roundness = element.roundness ?? 0;
 
   const options: Record<string, unknown> = {
     stroke: strokeColor,
@@ -152,7 +150,7 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
     fillStyle,
     seed,
     hachureAngle: 45,
-    hachureGap: strokeWidth * 2,
+    hachureGap: strokeWidth ? strokeWidth * 2 : 4,
     curveStepCount: 9,
     simplification: 0.5,
     roundness,
@@ -198,7 +196,7 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
     case 'line':
     case 'arrow': {
       if ('points' in element && element.points.length > 1) {
-        const pts = element.points.map((p: any) => [p.x, p.y] as [number, number]);
+        const pts = (element.points as Point[]).map(p => [p.x, p.y] as [number, number]);
         const linearEl = element as LinearElement;
         const arrowStyle = linearEl.arrowStyle ?? 'straight';
         const firstPt = pts[0];
@@ -236,7 +234,7 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
     }
     case 'freedraw': {
       if ('points' in element && element.points.length > 1) {
-        const pts = element.points.map((p: any) => [p.x, p.y] as [number, number]);
+        const pts = (element.points as Point[]).map(p => [p.x, p.y] as [number, number]);
         return getGenerator().linearPath(pts, options);
       }
       return [];
@@ -282,7 +280,7 @@ export function renderRoughElement(
 
   // Handle text elements specially (they don't use Rough.js)
   if (element.type === 'text') {
-    const textEl = element as any;
+    const textEl = element as TextElement;
     ctx.translate(x, y);
     ctx.fillStyle = element.strokeColor || (theme === 'dark' ? '#ffffff' : '#000000');
     ctx.font = `${textEl.fontSize || 16}px ${textEl.fontFamily || 'Inter'}`;
@@ -302,7 +300,7 @@ export function renderRoughElement(
 
   // Handle image elements specially
   if (element.type === 'image') {
-    const imgEl = element as any;
+    const imgEl = element as ImageElement & { _imageLoaded?: HTMLImageElement };
     if (imgEl.src && imgEl._imageLoaded) {
       ctx.translate(x, y);
       ctx.drawImage(imgEl._imageLoaded, 0, 0, width, height);
@@ -377,11 +375,11 @@ export function renderRoughElement(
   // isExporting bypasses the cache to guarantee latest state on export (TODO #32)
   let shape: ReturnType<typeof generateShape> | undefined = isExporting
     ? undefined
-    : getShapeFromCache(element as any, theme);
+    : getShapeFromCache(element, theme);
   if (!shape) {
     shape = generateShape(element);
     if (!isExporting) {
-      setShapeInCache(element as any, shape, theme);
+      setShapeInCache(element, shape, theme);
       cacheOperationCount++;
       if (cacheOperationCount % 1000 === 0) {
         pruneShapeCache();
@@ -391,8 +389,8 @@ export function renderRoughElement(
 
   ctx.translate(x, y);
 
-  if (element.type === 'arrow' && (element as any).labelId && elements) {
-    const label = elements.find(el => el.id === (element as any).labelId);
+  if (element.type === 'arrow' && (element as LinearElement).labelId && elements) {
+    const label = elements.find(el => el.id === (element as LinearElement).labelId);
 
     if (label && label.type === 'text') {
       const labelBounds = {
@@ -417,8 +415,8 @@ export function renderRoughElement(
   }
 
   // Render arrowheads for arrow elements
-  if (element.type === 'arrow' && (element as any).points && (element as any).points.length > 1) {
-    const points = (element as any).points;
+  if (element.type === 'arrow' && (element as LinearElement).points && (element as LinearElement).points.length > 1) {
+    const points = (element as LinearElement).points;
     const linearEl = element as LinearElement;
     const arrowHeads = linearEl.arrowHeads ?? { start: 'none', end: 'triangle' };
     
