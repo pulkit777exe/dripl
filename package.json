@@ -13,12 +13,15 @@
     "test": "turbo run test",
     "test:coverage": "turbo run test -- --coverage",
     "boundaries": "turbo boundaries",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "prepare": "husky || true"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/compression": "^1.8.1",
     "eslint": "^10.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
     "postcss": "^8.5.15",
     "prettier": "^3.8.4",
     "prisma": "^7.8.0",
@@ -36,5 +39,17 @@
   ],
   "dependencies": {
     "compression": "^1.8.1"
+  },
+  "lint-staged": {
+    "**/*.{ts,tsx}": [
+      "eslint --fix --max-warnings=0",
+      "prettier --write"
+    ],
+    "**/*.{js,mjs,cjs}": [
+      "prettier --write"
+    ],
+    "**/*.{json,md,yaml,yml}": [
+      "prettier --write"
+    ]
   }
 }

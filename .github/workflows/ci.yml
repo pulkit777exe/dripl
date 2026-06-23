@@ -111,3 +111,32 @@ jobs:
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
           JWT_SECRET: test-secret-for-ci
+
+  type-check:
+    name: Type check
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      TURBO_LOG_ORDER: grouped
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Build packages (required for type resolution)
+        run: pnpm turbo run build --filter=!dripl-app --filter=!http-server --filter=!ws-server
+      - name: "Type check (PR: affected / Main: full)"
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            pnpm turbo run check-types --affected
+          else
+            pnpm turbo run check-types
+          fi
