@@ -4,11 +4,26 @@ import { resolve } from 'path';
 config({ path: resolve(process.cwd(), '../../.env') });
 config({ path: resolve(process.cwd(), '../../.env.local'), override: true });
 
+const REQUIRED_ENV = [
+  'DATABASE_URL',
+  'JWT_SECRET',
+  'PORT',
+  'UPSTASH_REDIS_REST_URL',
+  'UPSTASH_REDIS_REST_TOKEN',
+] as const;
+
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    console.error(`FATAL: Missing required env var: ${key}`);
+    process.exit(1);
+  }
+}
+
 import { initializeDb } from '@dripl/db';
 import { createApp } from './app';
 
 const app = createApp();
-const port = 3002;
+const port = Number(process.env.PORT) || 3002;
 
 async function start() {
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {

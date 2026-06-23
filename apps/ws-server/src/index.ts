@@ -6,6 +6,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.resolve(__dirname, '../../../.env');
 config({ path: envPath });
 
+const REQUIRED_ENV = [
+  'DATABASE_URL',
+  'JWT_SECRET',
+  'PORT',
+  'UPSTASH_REDIS_REST_URL',
+  'UPSTASH_REDIS_REST_TOKEN',
+] as const;
+
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    console.error(`FATAL: Missing required env var: ${key}`);
+    process.exit(1);
+  }
+}
+
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { DriplElement } from '@dripl/common';
@@ -39,7 +54,7 @@ import {
   saveRoomElements,
   scheduleSave,
 } from './rooms';
-import { checkRateLimit, startRateLimitCleanup } from './rateLimiter';
+import { checkRateLimit, setRateLimitIdentity, removeRateLimitIdentity } from './rateLimiter';
 
 async function start() {
   try {
@@ -89,22 +104,14 @@ function sendYjsSync(ws: WebSocket, stateVector: Uint8Array, yjsState: Uint8Arra
   }
 }
 
-const WS_PORT = 3001;
+const WS_PORT = Number(process.env.PORT) || 3001;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;
 
 const server = createServer((req, res) => {
   if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        service: 'ws-server',
-        version: process.env.npm_package_version || '0.0.0',
-      })
-    );
+    res.end(JSON.stringify({ status: 'ok', ts: Date.now() }));
   } else if (req.url === '/metrics') {
     let totalUsers = 0;
     for (const room of rooms.values()) {
@@ -150,6 +157,8 @@ wss.on('connection', (ws, req) => {
     return;
   }
 
+  setRateLimitIdentity(ws, authUserId);
+
   let currentRoomId: string | null = null;
   let currentUserId: string | null = null;
 
@@ -160,7 +169,7 @@ wss.on('connection', (ws, req) => {
 
   ws.on('message', async (raw: Buffer) => {
     // Rate limit all messages including binary
-    if (!checkRateLimit(ws)) {
+    if (!(await checkRateLimit(ws))) {
       console.warn(
         JSON.stringify({ level: 'warn', event: 'rate_limit_exceeded' })
       );
@@ -600,6 +609,7 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
+    removeRateLimitIdentity(ws);
     if (!currentRoomId || !currentUserId) return;
     const room = rooms.get(currentRoomId);
     if (!room) return;
@@ -654,8 +664,6 @@ const heartbeat = setInterval(() => {
     ws.ping();
   });
 }, HEARTBEAT_INTERVAL_MS);
-
-const rateLimitCleanup = startRateLimitCleanup();
 
 const periodicSave = setInterval(async () => {
   const activeRooms = Array.from(rooms.entries());
@@ -721,7 +729,6 @@ const periodicSave = setInterval(async () => {
 async function shutdown() {
   clearInterval(heartbeat);
   clearInterval(periodicSave);
-  clearInterval(rateLimitCleanup);
 
   const savePromises: Promise<void>[] = [];
   for (const [roomId, timeout] of saveTimeouts.entries()) {

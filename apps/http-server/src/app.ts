@@ -3,7 +3,8 @@ import compression from 'compression';
 import cors from 'cors';
 import express, { type Application, type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import { Ratelimit } from '@upstash/ratelimit';
+import { Redis } from '@upstash/redis';
 import { validateCsrfToken, generateCsrfToken } from './middlewares/csrfMiddleware';
 import { authMiddleware } from './middlewares/authMiddleware';
 import { authRouter } from './routes/auth';
@@ -13,34 +14,73 @@ import { shareRouter } from './routes/share';
 import { imagesRouter } from './routes/images';
 import roomRoutes from './routes/roomRoutes';
 
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
+
+export const generalRateLimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(250, '15 m'),
+  prefix: 'dripl:http:general',
+});
+
+const authRateLimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '15 m'),
+  prefix: 'dripl:http:auth',
+});
+
+export async function rateLimitMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const identifier = (req as Request & { session?: { userId?: string } }).session?.userId ?? req.ip ?? 'anonymous';
+  const { success, remaining } = await generalRateLimit.limit(identifier);
+  if (!success) {
+    res.status(429).json({ error: 'Rate limit exceeded', retryAfter: 60 });
+    return;
+  }
+  res.setHeader('X-RateLimit-Remaining', remaining);
+  next();
+}
+
+export async function authRateLimitMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const identifier = req.ip ?? 'anonymous';
+  const { success } = await authRateLimit.limit(identifier);
+  if (!success) {
+    res.status(429).json({ error: 'Too many attempts, please try again later.' });
+    return;
+  }
+  next();
+}
+
 export function createApp(): Application {
   const app = express();
-  const frontendUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+
+  app.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok', ts: Date.now() });
+  });
 
   app.set('trust proxy', 1);
   app.use(helmet());
   app.use(compression());
-  app.use(
-    rateLimit({
-      windowMs: 15 * 60 * 1000,
-      max: 250,
-      standardHeaders: true,
-      legacyHeaders: false,
-    }),
-  );
+  app.use(rateLimitMiddleware);
 
-  const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many attempts, please try again later.' },
-  });
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:3000',
+  ].filter(Boolean) as string[];
 
   app.use(
     cors({
-      origin: frontendUrl,
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.some(o => origin.startsWith(o))) {
+          callback(null, true);
+        } else {
+          callback(new Error(`CORS: origin ${origin} not allowed`));
+        }
+      },
       credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
   app.use(express.json({ limit: '5mb' }));
@@ -49,10 +89,6 @@ export function createApp(): Application {
 
   app.get('/', (_req, res) => {
     res.json({ service: 'dripl-http', status: 'ok' });
-  });
-
-  app.get('/health', (_req, res) => {
-    res.json({ status: 'ok' });
   });
 
   app.get('/metrics', (_req, res) => {
@@ -74,8 +110,8 @@ export function createApp(): Application {
   app.use('/api/auth/change-password', validateCsrfToken);
   app.use('/api/auth/logout', validateCsrfToken);
 
-  app.use('/api/auth/login', authLimiter);
-  app.use('/api/auth/forgot-password', authLimiter);
+  app.use('/api/auth/login', authRateLimitMiddleware);
+  app.use('/api/auth/forgot-password', authRateLimitMiddleware);
   app.use('/api/auth', authRouter);
   app.use('/api/share', validateCsrfToken, shareRouter);
   app.use('/api/files', validateCsrfToken, authMiddleware, filesRouter);

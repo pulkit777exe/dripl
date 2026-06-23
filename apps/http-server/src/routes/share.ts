@@ -1,16 +1,30 @@
-import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
+import { Router, type Request, type Response, type NextFunction } from 'express';
+import { Ratelimit } from '@upstash/ratelimit';
+import { Redis } from '@upstash/redis';
 import { ShareService } from '../services/shareService';
 
 const shareRouter: Router = Router();
 
-const shareLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' },
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 });
+
+const shareRateLimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(30, '15 m'),
+  prefix: 'dripl:http:share',
+});
+
+async function shareLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const identifier = req.ip ?? 'anonymous';
+  const { success } = await shareRateLimit.limit(identifier);
+  if (!success) {
+    res.status(429).json({ error: 'Too many requests, please try again later.' });
+    return;
+  }
+  next();
+}
 
 shareRouter.get('/:token', shareLimiter, async (req, res) => {
   const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;

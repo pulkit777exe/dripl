@@ -7,12 +7,15 @@
     "build": "tsc -b --force",
     "start": "node dist/index.js",
     "dev": "dotenv -e ../../.env -- tsx src/index.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@dripl/common": "workspace:*",
     "@dripl/db": "workspace:*",
     "@dripl/utils": "workspace:*",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "dotenv": "^17.4.2",
     "jsonwebtoken": "^9.0.3",
     "uuid": "^14.0.0",
@@ -23,11 +26,11 @@
   },
   "devDependencies": {
     "@dripl/typescript-config": "workspace:*",
-    "esbuild": "^0.25.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.13.2",
     "@types/ws": "^8.18.1",
     "dotenv-cli": "^8.0.0",
+    "esbuild": "^0.25.0",
     "eslint": "^9.39.4",
     "tsx": "^4.22.4",
     "typescript": "^5.9.3",
