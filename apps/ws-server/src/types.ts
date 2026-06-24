@@ -22,6 +22,7 @@ export interface RoomState {
   cursors: Map<string, Cursor>;
   loadedFromDb: boolean;
   saving: boolean;
+  recordType?: 'file' | 'canvasRoom';
   yjs?: YjsRoomState;
 }
 

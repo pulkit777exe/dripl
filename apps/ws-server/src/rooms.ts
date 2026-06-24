@@ -81,8 +81,9 @@ export async function loadRoomElements(roomId: string): Promise<Map<string, Drip
   if (file) {
     const elements = elementsToMap(parseStoredElements(file.content));
     const room = rooms.get(roomId);
-    if (room?.yjs) {
-      loadElementsIntoYjs(room.yjs, Array.from(elements.values()));
+    if (room) {
+      room.recordType = 'file';
+      if (room.yjs) loadElementsIntoYjs(room.yjs, Array.from(elements.values()));
     }
     return elements;
   }
@@ -94,8 +95,9 @@ export async function loadRoomElements(roomId: string): Promise<Map<string, Drip
   if (canvasRoom) {
     const elements = elementsToMap(parseStoredElements(canvasRoom.content));
     const room = rooms.get(roomId);
-    if (room?.yjs) {
-      loadElementsIntoYjs(room.yjs, Array.from(elements.values()));
+    if (room) {
+      room.recordType = 'canvasRoom';
+      if (room.yjs) loadElementsIntoYjs(room.yjs, Array.from(elements.values()));
     }
     return elements;
   }
@@ -106,46 +108,36 @@ export async function loadRoomElements(roomId: string): Promise<Map<string, Drip
 export async function saveRoomElements(roomId: string, elements: Map<string, DriplElement>): Promise<boolean> {
   const startTime = Date.now();
   const serialized = serializeElements(elements);
+  const room = rooms.get(roomId);
+  const recordType = room?.recordType;
+
   try {
+    if (recordType === 'canvasRoom') {
+      const update = await db.canvasRoom.updateMany({
+        where: { slug: roomId },
+        data: { content: serialized, updatedAt: new Date() },
+      });
+      console.log(JSON.stringify({ level: 'info', event: 'save_room_success', roomId, durationMs: Date.now() - startTime, recordType: 'canvasRoom', updated: update.count }));
+      return update.count > 0;
+    }
+
     const fileUpdate = await db.file.updateMany({
       where: { id: roomId },
-      data: {
-        content: serialized,
-        updatedAt: new Date(),
-      },
+      data: { content: serialized, updatedAt: new Date() },
     });
-
     if (fileUpdate.count > 0) {
-      console.log(
-        JSON.stringify({
-          level: 'info',
-          event: 'save_room_success',
-          roomId,
-          durationMs: Date.now() - startTime,
-          recordType: 'file',
-        })
-      );
+      console.log(JSON.stringify({ level: 'info', event: 'save_room_success', roomId, durationMs: Date.now() - startTime, recordType: 'file' }));
       return true;
     }
 
     const canvasUpdate = await db.canvasRoom.updateMany({
       where: { slug: roomId },
-      data: {
-        content: serialized,
-        updatedAt: new Date(),
-      },
+      data: { content: serialized, updatedAt: new Date() },
     });
-
-    console.log(
-      JSON.stringify({
-        level: 'info',
-        event: 'save_room_success',
-        roomId,
-        durationMs: Date.now() - startTime,
-        recordType: 'canvasRoom',
-        updated: canvasUpdate.count,
-      })
-    );
+    if (canvasUpdate.count > 0 && room) {
+      room.recordType = 'canvasRoom';
+    }
+    console.log(JSON.stringify({ level: 'info', event: 'save_room_success', roomId, durationMs: Date.now() - startTime, recordType: 'canvasRoom', updated: canvasUpdate.count }));
     return canvasUpdate.count > 0;
   } catch (error) {
     console.error(

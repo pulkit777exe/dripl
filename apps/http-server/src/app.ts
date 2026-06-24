@@ -56,8 +56,14 @@ export async function authRateLimitMiddleware(req: Request, res: Response, next:
 export function createApp(): Application {
   const app = express();
 
-  app.get('/health', (_req, res) => {
-    res.status(200).json({ status: 'ok', ts: Date.now() });
+  app.get('/health', async (_req, res) => {
+    try {
+      const { db } = await import('@dripl/db');
+      await db.$queryRaw`SELECT 1`;
+      res.status(200).json({ status: 'ok', ts: Date.now() });
+    } catch {
+      res.status(503).json({ status: 'error', message: 'Database unreachable', ts: Date.now() });
+    }
   });
 
   app.set('trust proxy', 1);
@@ -73,7 +79,7 @@ export function createApp(): Application {
   app.use(
     cors({
       origin: (origin, callback) => {
-        if (!origin || allowedOrigins.some(o => origin.startsWith(o))) {
+        if (!origin || allowedOrigins.some(o => origin === o)) {
           callback(null, true);
         } else {
           callback(new Error(`CORS: origin ${origin} not allowed`));
@@ -113,6 +119,9 @@ export function createApp(): Application {
 
   app.use('/api/auth/login', authRateLimitMiddleware);
   app.use('/api/auth/forgot-password', authRateLimitMiddleware);
+  app.use('/api/auth/register', authRateLimitMiddleware);
+  app.use('/api/auth/verify-email', authRateLimitMiddleware);
+  app.use('/api/auth/resend-verification', authRateLimitMiddleware);
   app.use('/api/auth', authRouter);
   app.use('/api/share', validateCsrfToken, shareRouter);
   app.use('/api/files', validateCsrfToken, authMiddleware, filesRouter);

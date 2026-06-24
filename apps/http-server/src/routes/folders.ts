@@ -244,19 +244,20 @@ foldersRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
 
     const folderIds = Array.from(toDelete);
 
-    await db.file.deleteMany({
-      where: {
-        userId: req.userId,
-        folderId: { in: folderIds },
-      },
-    });
-
-    await db.folder.deleteMany({
-      where: {
-        userId: req.userId,
-        id: { in: folderIds },
-      },
-    });
+    await db.$transaction([
+      db.file.deleteMany({
+        where: {
+          userId: req.userId,
+          folderId: { in: folderIds },
+        },
+      }),
+      db.folder.deleteMany({
+        where: {
+          userId: req.userId,
+          id: { in: folderIds },
+        },
+      }),
+    ]);
 
     res.status(204).send();
   } catch (error) {

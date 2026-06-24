@@ -30,6 +30,11 @@ if (!process.env.INTERNAL_SECRET) {
   console.warn('WARN: INTERNAL_SECRET not set — ticket validation will reject all connections');
 }
 
+if (process.env.JWT_SECRET && process.env.INTERNAL_SECRET && process.env.JWT_SECRET === process.env.INTERNAL_SECRET) {
+  console.error('FATAL: JWT_SECRET and INTERNAL_SECRET must be different values');
+  process.exit(1);
+}
+
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { DriplElement } from '@dripl/common';
@@ -117,10 +122,16 @@ const WS_PORT = Number(process.env.PORT) || 3001;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;
 
-const server = createServer((req, res) => {
+const server = createServer(async (req, res) => {
   if (req.url === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', ts: Date.now() }));
+    try {
+      await db.$queryRaw`SELECT 1`;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok', ts: Date.now() }));
+    } catch {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'error', message: 'Database unreachable', ts: Date.now() }));
+    }
   } else if (req.url === '/metrics') {
     let totalUsers = 0;
     for (const room of rooms.values()) {
@@ -152,13 +163,10 @@ const wss = new WebSocketServer({
   maxPayload: 10 * 1024 * 1024,
   verifyClient: ({ origin }: { origin: string }, cb: (result: boolean, code?: number, message?: string) => void) => {
     if (!origin) {
-      if (process.env.NODE_ENV === 'production') {
-        console.warn(JSON.stringify({ level: 'warn', event: 'ws_origin_rejected', reason: 'no_origin' }));
-        return cb(false, 403, 'Forbidden');
-      }
-      return cb(true);
+      console.warn(JSON.stringify({ level: 'warn', event: 'ws_origin_rejected', reason: 'no_origin' }));
+      return cb(false, 403, 'Forbidden');
     }
-    const allowed = ALLOWED_ORIGINS.some(o => origin.startsWith(o));
+    const allowed = ALLOWED_ORIGINS.some(o => origin === o);
     if (allowed) return cb(true);
     console.warn(JSON.stringify({ level: 'warn', event: 'ws_origin_rejected', origin }));
     cb(false, 403, 'Forbidden');
@@ -194,6 +202,7 @@ wss.on('connection', async (ws, req) => {
   });
 
   ws.on('message', async (raw: Buffer) => {
+    try {
     // Rate limit all messages including binary
     if (!(await checkRateLimit(ws))) {
       console.warn(
@@ -631,6 +640,9 @@ wss.on('connection', async (ws, req) => {
         send(ws, { type: 'pong', timestamp: Date.now() });
         break;
       }
+    }
+    } catch (err) {
+      console.error(JSON.stringify({ level: 'error', event: 'ws_message_handler_error', error: err instanceof Error ? err.message : String(err) }));
     }
   });
 

@@ -27,6 +27,11 @@ if (!process.env.INTERNAL_SECRET) {
   console.warn('WARN: INTERNAL_SECRET not set — internal endpoints will reject all requests');
 }
 
+if (process.env.JWT_SECRET && process.env.INTERNAL_SECRET && process.env.JWT_SECRET === process.env.INTERNAL_SECRET) {
+  console.error('FATAL: JWT_SECRET and INTERNAL_SECRET must be different values');
+  process.exit(1);
+}
+
 import { initializeDb } from '@dripl/db';
 import { createApp } from './app';
 

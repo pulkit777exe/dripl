@@ -5,6 +5,10 @@ import { sendResetPasswordEmail, sendVerificationEmail } from '../lib/mailer';
 
 const VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 const RESET_TOKEN_TTL_MS = 1000 * 60 * 60; // 1 hour
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 1000 * 60 * 15; // 15 minutes
+
+const loginAttempts = new Map<string, { attempts: number; lockedUntil: number }>();
 
 export interface RegisterResult {
   type: 'email_already_registered' | 'pending_verification' | 'verification_sent' | 'registered';
@@ -12,7 +16,7 @@ export interface RegisterResult {
 }
 
 export interface LoginResult {
-  type: 'not_found' | 'needs_verification' | 'invalid_password' | 'success';
+  type: 'not_found' | 'needs_verification' | 'invalid_password' | 'account_locked' | 'success';
   user?: { id: string; email: string; name: string | null; image: string | null };
 }
 
@@ -73,6 +77,11 @@ export class AuthService {
   }
 
   static async login(email: string, password: string): Promise<LoginResult> {
+    const record = loginAttempts.get(email);
+    if (record && record.lockedUntil > Date.now()) {
+      return { type: 'account_locked' };
+    }
+
     const user = await db.user.findUnique({ where: { email } });
 
     if (!user) {
@@ -89,9 +98,17 @@ export class AuthService {
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
+      const prev = loginAttempts.get(email);
+      const attempts = (prev?.attempts ?? 0) + 1;
+      if (attempts >= MAX_LOGIN_ATTEMPTS) {
+        loginAttempts.set(email, { attempts: 0, lockedUntil: Date.now() + LOCKOUT_DURATION_MS });
+      } else {
+        loginAttempts.set(email, { attempts, lockedUntil: prev?.lockedUntil ?? 0 });
+      }
       return { type: 'invalid_password' };
     }
 
+    loginAttempts.delete(email);
     return {
       type: 'success',
       user: { id: user.id, email: user.email, name: user.name, image: user.image },

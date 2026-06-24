@@ -127,6 +127,9 @@ authRouter.post('/login', async (req, res) => {
       case 'invalid_password':
         sendError(res, 401, 'INVALID_CREDENTIALS', 'Invalid email or password');
         break;
+      case 'account_locked':
+        sendError(res, 429, 'ACCOUNT_LOCKED', 'Too many failed attempts. Try again later.');
+        break;
       case 'success': {
         const token = signSessionToken(result.user!.id);
         setSessionCookie(res, token);
@@ -219,17 +222,29 @@ authRouter.post('/google', async (req, res) => {
 });
 
 authRouter.get('/google', (_req, res) => {
+  const state = randomUUID();
+  res.cookie('oauth_state', state, { httpOnly: true, maxAge: 600_000, sameSite: 'lax' });
   const oauth2Client = getGoogleOAuthClient();
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: ['openid', 'email', 'profile'],
     prompt: 'consent',
+    state,
   });
   res.redirect(url);
 });
 
 authRouter.get('/google/callback', async (req, res) => {
   const code = req.query.code as string | undefined;
+  const state = req.query.state as string | undefined;
+  const cookieState = (req as any).cookies?.oauth_state as string | undefined;
+
+  if (!state || !cookieState || state !== cookieState) {
+    sendError(res, 400, 'INVALID_STATE', 'Invalid or missing OAuth state');
+    return;
+  }
+  res.clearCookie('oauth_state');
+
   if (!code) {
     sendError(res, 400, 'MISSING_TOKEN', 'Missing authorization code');
     return;
