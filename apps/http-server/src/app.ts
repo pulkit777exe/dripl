@@ -72,9 +72,12 @@ export function createApp(): Application {
   app.use(rateLimitMiddleware);
 
   const allowedOrigins = [
-    process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL,
+    process.env.FRONTEND_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
     'http://localhost:3000',
   ].filter(Boolean) as string[];
+
+  console.log(JSON.stringify({ level: 'info', event: 'cors_config', allowedOrigins }));
 
   app.use(
     cors({
