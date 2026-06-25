@@ -54,5 +54,7 @@ services:
         sync: false
       - key: HTTP_SERVER_URL
         sync: false
+      - key: FRONTEND_URL
+        sync: false
     healthCheckPath: /health
     autoDeploy: true
