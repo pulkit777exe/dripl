@@ -1,5 +1,0 @@
-{
-  "buildCommand": "pnpm --filter @dripl/common build && pnpm --filter @dripl/math build && pnpm --filter @dripl/utils build && pnpm --filter @dripl/element build && pnpm --filter dripl-app build",
-  "installCommand": "corepack enable && corepack prepare pnpm@10.33.0 --activate && pnpm install",
-  "framework": "nextjs"
-}
