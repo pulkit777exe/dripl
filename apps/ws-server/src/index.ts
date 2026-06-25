@@ -154,7 +154,7 @@ const server = createServer(async (req, res) => {
 });
 
 const ALLOWED_ORIGINS = [
-  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL,
   'http://localhost:3000',
 ].filter(Boolean) as string[];
 
