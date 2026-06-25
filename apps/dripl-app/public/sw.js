@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dripl-v2';
+const CACHE_NAME = 'dripl-v3';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -24,6 +24,8 @@ self.addEventListener('fetch', event => {
         caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
         return response;
       })
-      .catch(() => caches.match(request))
+      .catch(() =>
+        caches.match(request).then(cached => cached || new Response('Offline', { status: 503 }))
+      )
   );
 });
