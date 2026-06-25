@@ -16,6 +16,7 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   if (request.method !== 'GET') return;
   if (request.url.includes('/api/')) return;
+  if (!request.url.startsWith('http')) return;
 
   event.respondWith(
     fetch(request)

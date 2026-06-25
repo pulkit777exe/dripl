@@ -9,8 +9,8 @@ export function generateCsrfToken(res: Response): string {
   const token = crypto.randomBytes(CSRF_TOKEN_BYTES).toString('hex');
   res.cookie('csrf-token', token, {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: true,
+    sameSite: 'none',
     path: '/',
     maxAge: 24 * 60 * 60 * 1000,
   });
