@@ -223,7 +223,14 @@ authRouter.post('/google', async (req, res) => {
 
 authRouter.get('/google', (_req, res) => {
   const state = randomUUID();
-  res.cookie('oauth_state', state, { httpOnly: true, maxAge: 600_000, sameSite: 'lax' });
+  const isProduction = process.env.NODE_ENV === 'production';
+  res.cookie('oauth_state', state, {
+    httpOnly: true,
+    maxAge: 600_000,
+    sameSite: isProduction ? 'none' : 'lax',
+    secure: isProduction,
+    path: '/',
+  });
   const oauth2Client = getGoogleOAuthClient();
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
