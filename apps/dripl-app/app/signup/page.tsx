@@ -7,9 +7,6 @@ import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
 import { InlineError } from '@/components/ui/ErrorState';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002/api';
-
 const fieldClassName =
   'w-full rounded-md border border-[#D4D0C9] bg-white px-3 py-2 text-[14px] text-[#1A1917] outline-none transition-all placeholder:text-[#9B9890] focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20';
 
@@ -70,7 +67,7 @@ export default function SignupPage(): React.ReactNode {
       {/* Google OAuth — server-side redirect */}
       <div className="flex justify-center mb-4">
         <a
-          href={`${API_BASE_URL}/auth/google`}
+          href="/api/auth/google"
           className="inline-flex items-center justify-center gap-2 rounded-md border border-[#D4D0C9] bg-white px-4 py-2 text-[14px] font-medium text-[#1A1917] transition-colors hover:bg-[#E8E5DE] w-[380px]"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24">
