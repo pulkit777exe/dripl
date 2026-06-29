@@ -24,6 +24,7 @@ export function getOrCreateRoom(roomId: string): RoomState {
       cursors: new Map(),
       loadedFromDb: false,
       saving: false,
+      dirty: false,
       yjs,
     };
     rooms.set(roomId, room);
@@ -108,6 +109,7 @@ export async function loadRoomElements(roomId: string): Promise<Map<string, Drip
 export async function saveRoomElements(roomId: string, elements: Map<string, DriplElement>): Promise<boolean> {
   const startTime = Date.now();
   const serialized = serializeElements(elements);
+  const elementCount = elements.size;
   const room = rooms.get(roomId);
   const recordType = room?.recordType;
 
@@ -117,7 +119,15 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
         where: { slug: roomId },
         data: { content: serialized, updatedAt: new Date() },
       });
-      console.log(JSON.stringify({ level: 'info', event: 'save_room_success', roomId, durationMs: Date.now() - startTime, recordType: 'canvasRoom', updated: update.count }));
+      console.log(JSON.stringify({
+        level: 'info',
+        event: 'save_room_success',
+        roomId,
+        durationMs: Date.now() - startTime,
+        recordType: 'canvasRoom',
+        updated: update.count,
+        elementCount,
+      }));
       return update.count > 0;
     }
 
@@ -126,7 +136,14 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
       data: { content: serialized, updatedAt: new Date() },
     });
     if (fileUpdate.count > 0) {
-      console.log(JSON.stringify({ level: 'info', event: 'save_room_success', roomId, durationMs: Date.now() - startTime, recordType: 'file' }));
+      console.log(JSON.stringify({
+        level: 'info',
+        event: 'save_room_success',
+        roomId,
+        durationMs: Date.now() - startTime,
+        recordType: 'file',
+        elementCount,
+      }));
       return true;
     }
 
@@ -137,7 +154,15 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
     if (canvasUpdate.count > 0 && room) {
       room.recordType = 'canvasRoom';
     }
-    console.log(JSON.stringify({ level: 'info', event: 'save_room_success', roomId, durationMs: Date.now() - startTime, recordType: 'canvasRoom', updated: canvasUpdate.count }));
+    console.log(JSON.stringify({
+      level: 'info',
+      event: 'save_room_success',
+      roomId,
+      durationMs: Date.now() - startTime,
+      recordType: 'canvasRoom',
+      updated: canvasUpdate.count,
+      elementCount,
+    }));
     return canvasUpdate.count > 0;
   } catch (error) {
     console.error(
@@ -146,6 +171,7 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
         event: 'save_room_failure',
         roomId,
         durationMs: Date.now() - startTime,
+        elementCount,
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       })
@@ -170,8 +196,13 @@ export function scheduleSave(roomId: string): void {
         scheduleSave(roomId);
         return;
       }
+      if (!room.dirty) {
+        saveTimeouts.delete(roomId);
+        return;
+      }
       room.saving = true;
       const success = await saveRoomElements(roomId, room.elements);
+      if (success) room.dirty = false;
       room.saving = false;
       if (!success) {
         console.error(

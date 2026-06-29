@@ -24,6 +24,7 @@ export interface RoomState {
   saving: boolean;
   recordType?: 'file' | 'canvasRoom';
   yjs?: YjsRoomState;
+  dirty: boolean;
 }
 
 export interface RateLimitInfo {

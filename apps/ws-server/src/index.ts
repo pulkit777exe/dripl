@@ -67,6 +67,7 @@ import {
   loadRoomElements,
   saveRoomElements,
   scheduleSave,
+  parseStoredElements,
 } from './rooms';
 import { checkRateLimit, setRateLimitIdentity, removeRateLimitIdentity } from './rateLimiter';
 
@@ -226,6 +227,7 @@ wss.on('connection', async (ws, req) => {
         room.elements.set(el.id, el);
       }
       broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+      room.dirty = true;
       scheduleSave(currentRoomId);
       return;
     }
@@ -369,6 +371,7 @@ wss.on('connection', async (ws, req) => {
             broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
           }
           broadcast(room, message, currentUserId ?? undefined);
+          room.dirty = true;
           scheduleSave(currentRoomId);
         } catch {
           // Skip invalid element
@@ -391,6 +394,7 @@ wss.on('connection', async (ws, req) => {
             broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
           }
           broadcast(room, message, currentUserId ?? undefined);
+          room.dirty = true;
           scheduleSave(currentRoomId);
         } catch {
           // Skip invalid element
@@ -409,6 +413,7 @@ wss.on('connection', async (ws, req) => {
           broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
         }
         broadcast(room, message, currentUserId ?? undefined);
+        room.dirty = true;
         scheduleSave(currentRoomId);
         break;
       }
@@ -467,6 +472,7 @@ wss.on('connection', async (ws, req) => {
           subtype: message.subtype,
           elements: acceptedElements,
         }, currentUserId ?? undefined);
+        room.dirty = true;
         scheduleSave(currentRoomId);
         break;
       }
@@ -540,6 +546,7 @@ wss.on('connection', async (ws, req) => {
         }
 
         broadcast(room, filteredDelta, currentUserId ?? undefined);
+        room.dirty = true;
         scheduleSave(currentRoomId);
         break;
       }
@@ -595,6 +602,7 @@ wss.on('connection', async (ws, req) => {
           }
         }
 
+        room.dirty = true;
         scheduleSave(currentRoomId);
         break;
       }
@@ -711,10 +719,11 @@ const periodicSave = setInterval(async () => {
   for (const [roomId, room] of activeRooms) {
     if (room.users.size > 0) {
       roomLastEmptyAt.delete(roomId);
-      if (!room.saving) {
+      if (!room.saving && room.dirty) {
         room.saving = true;
         savePromises.push(
           saveRoomElements(roomId, room.elements).then(success => {
+            if (success) room.dirty = false;
             room.saving = false;
             return { roomId, success };
           })
@@ -727,10 +736,11 @@ const periodicSave = setInterval(async () => {
         continue;
       }
       if (now - emptySince > MAX_EMPTY_ROOM_TTL_MS) {
-        if (!room.saving && room.elements.size > 0) {
+        if (!room.saving && room.elements.size > 0 && room.dirty) {
           room.saving = true;
           savePromises.push(
             saveRoomElements(roomId, room.elements).then(success => {
+              if (success) room.dirty = false;
               room.saving = false;
               return { roomId, success };
             })
@@ -764,9 +774,81 @@ const periodicSave = setInterval(async () => {
   }
 }, PERIODIC_SAVE_INTERVAL_MS);
 
+const RECONCILIATION_INTERVAL_MS = 60_000;
+
+const reconciliation = setInterval(async () => {
+  for (const [roomId, room] of rooms) {
+    if (room.users.size === 0) continue;
+    if (room.saving) continue;
+
+    try {
+      let dbContent: string | null = null;
+
+      if (room.recordType === 'canvasRoom') {
+        const dbRoom = await db.canvasRoom.findUnique({
+          where: { slug: roomId },
+          select: { content: true },
+        });
+        dbContent = dbRoom?.content ?? null;
+      } else {
+        const dbFile = await db.file.findUnique({
+          where: { id: roomId },
+          select: { content: true },
+        });
+        dbContent = dbFile?.content ?? null;
+      }
+
+      if (dbContent === null) continue;
+
+      const dbParsed = parseStoredElements(dbContent);
+      const dbIds = new Set(dbParsed.map((e: DriplElement) => e.id));
+      const memIds = new Set(room.elements.keys());
+
+      const addedInMem = [...memIds].filter(id => !dbIds.has(id));
+      const addedInDb = [...dbIds].filter(id => !memIds.has(id));
+
+      if (addedInMem.length > 0 || addedInDb.length > 0) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            event: 'state_divergence',
+            roomId,
+            memCount: memIds.size,
+            dbCount: dbIds.size,
+            onlyInMem: addedInMem.length,
+            onlyInDb: addedInDb.length,
+          })
+        );
+        room.saving = true;
+        const success = await saveRoomElements(roomId, room.elements);
+        room.saving = false;
+        if (!success) {
+          console.error(
+            JSON.stringify({
+              level: 'error',
+              event: 'reconciliation_save_failure',
+              roomId,
+            })
+          );
+        }
+      }
+    } catch (err) {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'reconciliation_check_error',
+          roomId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      );
+    }
+  }
+}, RECONCILIATION_INTERVAL_MS);
+
 async function shutdown() {
   clearInterval(heartbeat);
   clearInterval(periodicSave);
+  clearInterval(reconciliation);
 
   const savePromises: Promise<void>[] = [];
   for (const [roomId, timeout] of saveTimeouts.entries()) {
