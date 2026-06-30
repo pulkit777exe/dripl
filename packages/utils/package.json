@@ -20,6 +20,10 @@
     "./env": {
       "types": "./dist/env.d.ts",
       "default": "./dist/env.js"
+    },
+    "./logger": {
+      "types": "./dist/logger.d.ts",
+      "default": "./dist/logger.js"
     }
   },
   "scripts": {
@@ -38,6 +42,7 @@
     "@eslint/js": "^10.0.1",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.19.21",
+    "@types/pino": "^7.0.5",
     "eslint": "^9.39.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.61.0",

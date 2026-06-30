@@ -60,7 +60,12 @@ export function createApp(): Application {
     try {
       const { db } = await import('@dripl/db');
       await db.$queryRaw`SELECT 1`;
-      res.status(200).json({ status: 'ok', ts: Date.now() });
+      res.status(200).json({
+        status: 'ok',
+        uptime: process.uptime(),
+        memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        ts: Date.now(),
+      });
     } catch {
       res.status(503).json({ status: 'error', message: 'Database unreachable', ts: Date.now() });
     }

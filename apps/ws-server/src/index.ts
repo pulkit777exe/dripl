@@ -6,6 +6,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.resolve(__dirname, '../../../.env');
 config({ path: envPath });
 
+import { createLogger } from '@dripl/utils/logger';
+export const logger = createLogger('ws-server');
+
 const REQUIRED_ENV = [
   'DATABASE_URL',
   'JWT_SECRET',
@@ -128,7 +131,12 @@ const server = createServer(async (req, res) => {
     try {
       await db.$queryRaw`SELECT 1`;
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', ts: Date.now() }));
+      res.end(JSON.stringify({
+        status: 'ok',
+        uptime: process.uptime(),
+        memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        ts: Date.now(),
+      }));
     } catch {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'error', message: 'Database unreachable', ts: Date.now() }));

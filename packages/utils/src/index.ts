@@ -4,3 +4,4 @@ export type { EncryptedPayload } from './encryption/crypto';
 export { requiredEnv, requiredIntEnv } from './env';
 export { verifyToken, extractBearerToken } from './auth';
 export type { JwtPayload } from './auth';
+export { createLogger } from './logger';

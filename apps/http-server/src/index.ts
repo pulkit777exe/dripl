@@ -4,6 +4,9 @@ import { resolve } from 'path';
 config({ path: resolve(process.cwd(), '../../.env') });
 config({ path: resolve(process.cwd(), '../../.env.local'), override: true });
 
+import { createLogger } from '@dripl/utils/logger';
+const logger = createLogger('http-server');
+
 const REQUIRED_ENV = [
   'DATABASE_URL',
   'JWT_SECRET',
@@ -48,11 +51,9 @@ async function start() {
 
   try {
     await initializeDb();
-    console.log(JSON.stringify({ level: 'info', event: 'db_connected' }));
+    logger.info({ event: 'db_connected' });
   } catch (err: unknown) {
-    console.error(
-      JSON.stringify({ level: 'error', event: 'db_connection_failed', error: err instanceof Error ? err.message : String(err) }),
-    );
+    logger.error({ event: 'db_connection_failed', error: err instanceof Error ? err.message : String(err) });
     process.exit(1);
   }
 
@@ -65,22 +66,20 @@ async function start() {
           expiresAt: { lt: new Date() },
         },
       });
-      console.log(JSON.stringify({ level: 'info', event: 'expired_links_cleaned', count: result.count }));
+      logger.info({ event: 'expired_links_cleaned', count: result.count });
     } catch (err) {
-      console.error(
-        JSON.stringify({ level: 'error', event: 'cleanup_failed', error: err instanceof Error ? err.message : String(err) }),
-      );
+      logger.error({ event: 'cleanup_failed', error: err instanceof Error ? err.message : String(err) });
     }
   }, CLEANUP_INTERVAL_MS);
 
   const httpServer = app.listen(port, () => {
-    console.log(JSON.stringify({ level: 'info', event: 'http_server_started', port }));
+    logger.info({ event: 'http_server_started', port });
   });
 
   function shutdown() {
     clearInterval(cleanupInterval);
     httpServer.close(() => {
-      console.log(JSON.stringify({ level: 'info', event: 'http_server_closed' }));
+      logger.info({ event: 'http_server_closed' });
       process.exit(0);
     });
   }
