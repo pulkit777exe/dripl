@@ -73,6 +73,7 @@ import {
   parseStoredElements,
 } from './rooms';
 import { checkRateLimit, setRateLimitIdentity, removeRateLimitIdentity } from './rateLimiter';
+import { subscribeToRoom, unsubscribeFromRoom, publishToRoom, isRedisAvailable } from './redis';
 
 async function start() {
   try {
@@ -119,6 +120,29 @@ function sendYjsSync(ws: WebSocket, stateVector: Uint8Array, yjsState: Uint8Arra
   packet.set(yjsState, 1 + stateVector.length);
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(packet);
+  }
+}
+
+function handleRedisMessage(roomId: string, payload: unknown): void {
+  const room = rooms.get(roomId);
+  if (!room) return;
+
+  const msg = payload as { type: string; elements?: DriplElement[]; added?: DriplElement[]; updated?: DriplElement[]; deleted?: string[]; elementId?: string; element?: DriplElement; x?: number; y?: number; userId?: string; userName?: string; displayName?: string; color?: string };
+
+  switch (msg.type) {
+    case 'add_element':
+    case 'update_element':
+    case 'delete_element':
+    case 'element-update':
+    case 'scene-update':
+    case 'scene-delta':
+      broadcast(room, msg, undefined);
+      break;
+    case 'cursor_move':
+      broadcast(room, msg, undefined);
+      break;
+    default:
+      break;
   }
 }
 
@@ -315,6 +339,10 @@ wss.on('connection', async (ws, req) => {
           const yjsState = encodeYjsDoc(room.yjs);
           sendYjsSync(ws, stateVector, yjsState);
         }
+
+        if (isRedisAvailable()) {
+          subscribeToRoom(roomId, (payload) => handleRedisMessage(roomId, payload));
+        }
         break;
       }
 
@@ -357,6 +385,9 @@ wss.on('connection', async (ws, req) => {
               });
           }
           roomLastEmptyAt.set(currentRoomId, Date.now());
+          if (isRedisAvailable()) {
+            unsubscribeFromRoom(currentRoomId);
+          }
         }
 
         currentRoomId = null;
@@ -381,6 +412,7 @@ wss.on('connection', async (ws, req) => {
           broadcast(room, message, currentUserId ?? undefined);
           room.dirty = true;
           scheduleSave(currentRoomId);
+          publishToRoom(currentRoomId, message);
         } catch {
           // Skip invalid element
         }
@@ -404,6 +436,7 @@ wss.on('connection', async (ws, req) => {
           broadcast(room, message, currentUserId ?? undefined);
           room.dirty = true;
           scheduleSave(currentRoomId);
+          publishToRoom(currentRoomId, message);
         } catch {
           // Skip invalid element
         }
@@ -423,6 +456,7 @@ wss.on('connection', async (ws, req) => {
         broadcast(room, message, currentUserId ?? undefined);
         room.dirty = true;
         scheduleSave(currentRoomId);
+        publishToRoom(currentRoomId, message);
         break;
       }
 
@@ -482,6 +516,7 @@ wss.on('connection', async (ws, req) => {
         }, currentUserId ?? undefined);
         room.dirty = true;
         scheduleSave(currentRoomId);
+        publishToRoom(currentRoomId, { type: 'scene-update', subtype: message.subtype, elements: acceptedElements });
         break;
       }
 
@@ -556,6 +591,7 @@ wss.on('connection', async (ws, req) => {
         broadcast(room, filteredDelta, currentUserId ?? undefined);
         room.dirty = true;
         scheduleSave(currentRoomId);
+        publishToRoom(currentRoomId, filteredDelta);
         break;
       }
 
@@ -612,6 +648,7 @@ wss.on('connection', async (ws, req) => {
 
         room.dirty = true;
         scheduleSave(currentRoomId);
+        publishToRoom(currentRoomId, { type: 'element-update', elements: Array.isArray(message.elements) ? message.elements : undefined, element: !Array.isArray(message.elements) ? message.element : undefined });
         break;
       }
 
