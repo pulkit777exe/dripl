@@ -6,7 +6,6 @@ import type { DriplElement } from '@dripl/common';
 
 import RoughCanvas from '@/components/canvas/RoughCanvas';
 import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
-import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { saveCanvasToIndexedDB, loadCanvasFromIndexedDB } from '@/lib/canvas-db';
 import { type LocalCanvasState, loadLocalCanvasFromStorage } from '@/utils/localCanvasStorage';
@@ -95,7 +94,6 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
   const setElements = useCanvasStore(state => state.setElements);
   const setSelectedIds = useCanvasStore(state => state.setSelectedIds);
   const setRoomSlug = useCanvasStore(state => state.setRoomSlug);
-  const existingElements = useCanvasStore(useShallow(state => state.elements));
   const setReadOnly = useCanvasStore(state => state.setReadOnly);
 
   useEffect(() => {
@@ -106,7 +104,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const initialElementsRef = useRef<DriplElement[] | null>(null);
   if (initialElementsRef.current === null) {
-    initialElementsRef.current = existingElements;
+    initialElementsRef.current = useCanvasStore.getState().elements;
   }
 
   const roomSlug = mode === 'room' ? (props as RoomModeProps).roomSlug : null;
@@ -202,16 +200,15 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
     };
   }, [fileInitialData, mode, roomSlug, setElements, setSelectedIds]);
 
-  const elements = useCanvasStore(useShallow(state => state.elements));
-
   useEffect(() => {
     if (!isInitialized || mode !== 'local') return;
     const LOCAL_ROOM_ID = 'local-canvas';
     const timeoutId = setTimeout(() => {
+      const elements = useCanvasStore.getState().elements;
       saveCanvasToIndexedDB(LOCAL_ROOM_ID, elements).catch(console.error);
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [elements, isInitialized, mode]);
+  }, [isInitialized, mode]);
 
   if (!isInitialized) {
     return (

@@ -4,7 +4,6 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Menu as MenuIcon } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/lib/canvas-store';
 import { Menu } from './Menu';
 import { ShareModal } from './ShareModal';
@@ -14,7 +13,6 @@ import { downloadBlob, exportCanvas } from '@/utils/export';
 export const TopBar: React.FC = () => {
   const { user } = useAuth();
   const router = useRouter();
-  const elements = useCanvasStore(useShallow(state => state.elements));
   const fileId = useCanvasStore(state => state.fileId);
   const zoom = useCanvasStore(state => state.zoom);
   const panX = useCanvasStore(state => state.panX);
@@ -67,6 +65,7 @@ export const TopBar: React.FC = () => {
 
   const handleShareCanvas = useCallback(async () => {
     clearShareMessages();
+    const elements = useCanvasStore.getState().elements;
     if (elements.length === 0) {
       setShareErrorMessage('Nothing to share yet — draw something first.');
       return;
@@ -86,12 +85,12 @@ export const TopBar: React.FC = () => {
       console.error('Failed to share canvas snapshot:', error);
       setShareErrorMessage('Failed to create share link. Please try again.');
     }
-  }, [clearShareMessages, elements]);
+  }, [clearShareMessages]);
 
   const handleCollaborate = useCallback(async () => {
     clearShareMessages();
     try {
-      const elementsJson = JSON.stringify(elements);
+      const elementsJson = JSON.stringify(useCanvasStore.getState().elements);
       const response = await fetch('/api/canvas/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -113,7 +112,7 @@ export const TopBar: React.FC = () => {
       console.error('Failed to start collaboration:', error);
       setShareErrorMessage('Failed to start collaboration. Please try again.');
     }
-  }, [clearShareMessages, elements, router]);
+  }, [clearShareMessages, router]);
 
   const handleResetCanvas = () => {
     if (confirm('Are you sure you want to reset the canvas? This cannot be undone.')) {
@@ -123,6 +122,7 @@ export const TopBar: React.FC = () => {
   };
 
   const handleSaveToFile = () => {
+    const elements = useCanvasStore.getState().elements;
     const payload = {
       version: 1,
       type: 'dripl-scene',
@@ -221,6 +221,7 @@ export const TopBar: React.FC = () => {
 
   const handleExportImage = async () => {
     try {
+      const elements = useCanvasStore.getState().elements;
       const blob = await Promise.resolve(
         exportCanvas('png', elements, {
           scale: 2,
