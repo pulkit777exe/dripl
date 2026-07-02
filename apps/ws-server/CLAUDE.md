@@ -261,7 +261,8 @@ Unit tests in `tests/validation.test.ts` cover every Zod schema with valid and i
 - **No `tsx watch`** — the dev server does not auto-reload. Restart it manually.
 - **Stale user cleanup** — ungraceful disconnects handled via `ws` `close` event. Heartbeat terminates unresponsive clients every 30s.
 - **Room memory** — rooms live in process memory. Restarting clears all rooms.
-- **No Redis pub/sub** — currently single-process only. See TODOS #9.
+- **Redis is optional** — pub/sub and rate limiter fall back to in-memory when Redis env vars are missing. Multi-instance sync requires Redis.
+- **Dual state model** — each room has both a `Map<string, DriplElement>` and a Yjs `Y.Map`. They're kept in sync by applying every mutation to both. ~2x memory per room (~2.3 MB at 5K elements).
 - **Coordinate validation** — element coords must be finite and within canvas bounds. Zod enforces this.
 - **Map-based elements** — `room.elements` is a `Map<string, DriplElement>`. Always use `.set()` / `.get()` / `.delete()` instead of array operations. Convert to array for serialization.
 - **Reverse indexes** — `userToRoomMap` and `wsToRoomMap` must be kept in sync on join/leave/heartbeat-cleanup.
