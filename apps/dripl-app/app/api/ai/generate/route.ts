@@ -103,7 +103,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit by session cookie (X-Forwarded-For is spoofable)
-    const rateLimitKey = request.cookies?.get('session')?.value ?? 'anonymous';
+    // Cookie is named 'dripl-session' (httpOnly, set by http-server)
+    const sessionCookie = request.cookies?.get('dripl-session')?.value;
+    const rateLimitKey = sessionCookie ?? `anon:${request.headers.get('x-forwarded-for') ?? 'unknown'}`;
     const rateCheck = checkRateLimit(rateLimitKey);
     if (!rateCheck.allowed) {
       return NextResponse.json(
