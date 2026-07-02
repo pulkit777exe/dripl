@@ -1,5 +1,3 @@
-import { withSentryConfig } from "@sentry/nextjs";
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -14,11 +12,4 @@ const nextConfig = {
   serverExternalPackages: ['@prisma/client', '@dripl/db'],
 };
 
-export default withSentryConfig(nextConfig, {
-  org: "personal-2ao",
-  project: "dripl",
-  silent: !process.env.CI,
-  widenClientFileUpload: true,
-  disableLogger: true,
-  automaticVercelMonitors: true,
-});
+export default nextConfig;
