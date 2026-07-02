@@ -18,6 +18,7 @@ import DualCanvas from './DualCanvas';
 import { screenToCanvas, Viewport } from '@/utils/canvas-coordinates';
 import { useDrawingTools } from '@/hooks/useDrawingTools';
 import { useCanvasPersistence } from '@/hooks/canvas/useCanvasPersistence';
+import { perfMark, perfMeasure } from '@/utils/performance';
 import { useCanvasViewport } from '@/hooks/canvas/useCanvasViewport';
 import { useCanvasClipboard } from '@/hooks/canvas/useCanvasClipboard';
 import { useCanvasPointerEvents } from '@/hooks/canvas/useCanvasPointerEvents';
@@ -56,6 +57,7 @@ interface SpatialIndexState {
 
 
 export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
+  perfMark('RoughCanvas:render:start');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerReady, setContainerReady] = useState(false);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -802,6 +804,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     () => (selectedIds.size > 0 ? (elements.find(element => selectedIds.has(element.id)) ?? null) : null),
     [elements, selectedIds]
   );
+
+  perfMark('RoughCanvas:render:end');
+  perfMeasure('RoughCanvas:render', 'RoughCanvas:render:start', 'RoughCanvas:render:end');
 
   return (
     <div
