@@ -28,8 +28,10 @@ export interface StaticSceneConfig {
 //             If element.version changes, the entry is regenerated in O(1).
 //
 // Uses WeakMap keyed by element object reference for automatic GC.
+type CanvasLike = HTMLCanvasElement | OffscreenCanvas;
+
 interface CacheEntry {
-  canvas: HTMLCanvasElement;
+  canvas: CanvasLike;
   version: number;
 }
 
@@ -252,7 +254,7 @@ function getOrCreateElementCanvas(
   element: DriplElement,
   config: StaticSceneConfig,
   shouldCacheIgnoreZoom: boolean = false
-): HTMLCanvasElement | null {
+): CanvasLike | null {
   const version = getElementVersion(element);
   const cached = elementCanvasCache.get(element);
 
@@ -275,17 +277,25 @@ function getOrCreateElementCanvas(
 function generateElementCanvas(
   element: DriplElement,
   config: StaticSceneConfig
-): HTMLCanvasElement | null {
+): CanvasLike | null {
   const dpr = config.dpr ?? (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
 
   // Guard against zero-size elements (e.g. a line being drawn)
   const rawW = Math.max(element.width, 1);
   const rawH = Math.max(element.height, 1);
+  const w = Math.ceil((rawW + PADDING * 2) * dpr);
+  const h = Math.ceil((rawH + PADDING * 2) * dpr);
 
-  const canvas = document.createElement('canvas');
-  // Add padding on each side so strokes / rough jitter don't get clipped.
-  canvas.width = Math.ceil((rawW + PADDING * 2) * dpr);
-  canvas.height = Math.ceil((rawH + PADDING * 2) * dpr);
+  // Prefer OffscreenCanvas when available (no DOM dependency, transferable to Workers).
+  const canvas: CanvasLike =
+    typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(w, h)
+      : (() => {
+          const c = document.createElement('canvas');
+          c.width = w;
+          c.height = h;
+          return c;
+        })();
 
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
@@ -295,13 +305,13 @@ function generateElementCanvas(
   ctx.scale(dpr, dpr);
   ctx.translate(PADDING, PADDING);
 
-  const rc = createRoughCanvas(canvas);
+  const rc = createRoughCanvas(canvas as HTMLCanvasElement);
   if (rc) {
     // renderRoughElement draws relative to element.x / element.y.
     // We translate so those become local offscreen coords.
     ctx.translate(-element.x, -element.y);
     // Pass elements array for arrow label cutout rendering
-    renderRoughElement(rc, ctx, element, config.elements ?? [], config.theme);
+    renderRoughElement(rc, ctx as CanvasRenderingContext2D, element, config.elements ?? [], config.theme);
   }
 
   return canvas;
