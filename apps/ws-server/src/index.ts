@@ -13,8 +13,6 @@ const REQUIRED_ENV = [
   'DATABASE_URL',
   'JWT_SECRET',
   'PORT',
-  'UPSTASH_REDIS_REST_URL',
-  'UPSTASH_REDIS_REST_TOKEN',
   'HTTP_SERVER_URL',
 ] as const;
 
@@ -36,6 +34,10 @@ if (!process.env.INTERNAL_SECRET) {
 if (process.env.JWT_SECRET && process.env.INTERNAL_SECRET && process.env.JWT_SECRET === process.env.INTERNAL_SECRET) {
   console.error('FATAL: JWT_SECRET and INTERNAL_SECRET must be different values');
   process.exit(1);
+}
+
+if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+  console.warn('WARN: Redis not configured — multi-instance sync disabled, rate limiter using in-memory fallback');
 }
 
 import { createServer } from 'http';
