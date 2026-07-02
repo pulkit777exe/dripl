@@ -3,6 +3,7 @@ import { generateKeyBetween } from 'fractional-indexing';
 import { sortElementsByZIndex } from '@/utils/zIndexUtils';
 
 export const MAX_HISTORY = 100;
+export const MAX_HISTORY_BYTES = 10 * 1024 * 1024; // 10 MB budget for undo history
 export { sortElementsByZIndex as sortByFractionalIndex } from '@/utils/zIndexUtils';
 
 export type DrawingLifecycle = 'idle' | 'drawing' | 'committing';
@@ -121,13 +122,41 @@ export function sortedInsert(elements: DriplElement[], newElement: DriplElement)
   return result;
 }
 
+function estimateSnapshotBytes(snapshot: readonly DriplElement[]): number {
+  // Rough estimate: JSON.stringify size + overhead per element
+  // Inaccurate but fast — good enough for budget enforcement
+  return snapshot.length * 250;
+}
+
 export function pushPast(
   past: readonly DriplElement[][],
   snapshot: readonly DriplElement[]
 ): DriplElement[][] {
   const next = [...past, cloneElements(snapshot)];
-  if (next.length <= MAX_HISTORY) return next;
-  return next.slice(next.length - MAX_HISTORY);
+
+  // Enforce count limit
+  if (next.length > MAX_HISTORY) {
+    return next.slice(next.length - MAX_HISTORY);
+  }
+
+  // Enforce byte budget — trim oldest snapshots first
+  let totalBytes = 0;
+  let trimIndex = 0;
+  for (let i = 0; i < next.length; i++) {
+    const snap = next[i];
+    if (snap) {
+      totalBytes += estimateSnapshotBytes(snap);
+      if (totalBytes > MAX_HISTORY_BYTES) {
+        trimIndex = i;
+        break;
+      }
+    }
+  }
+  if (trimIndex > 0) {
+    return next.slice(trimIndex);
+  }
+
+  return next;
 }
 
 export function withHistoryBeforeMutation(
