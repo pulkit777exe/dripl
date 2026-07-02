@@ -898,10 +898,34 @@ async function shutdown() {
   clearInterval(reconciliation);
 
   const savePromises: Promise<void>[] = [];
+  const savedRoomIds = new Set<string>();
+
+  // Save rooms with pending debounced saves
   for (const [roomId, timeout] of saveTimeouts.entries()) {
     clearTimeout(timeout);
     const room = rooms.get(roomId);
     if (room) {
+      savedRoomIds.add(roomId);
+      savePromises.push(
+        saveRoomElements(roomId, room.elements).then(success => {
+          if (!success) {
+            console.error(
+              JSON.stringify({
+                level: 'error',
+                event: 'shutdown_save_failure',
+                roomId,
+                timestamp: Date.now(),
+              })
+            );
+          }
+        })
+      );
+    }
+  }
+
+  // Also save any dirty rooms not already queued
+  for (const [roomId, room] of rooms.entries()) {
+    if (!savedRoomIds.has(roomId) && room.dirty && room.elements.size > 0) {
       savePromises.push(
         saveRoomElements(roomId, room.elements).then(success => {
           if (!success) {
