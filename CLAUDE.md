@@ -43,7 +43,6 @@ dripl/
 ├── packages/
 │   ├── common/           # @dripl/common  — shared types, Zod schemas
 │   ├── db/               # @dripl/db      — Prisma ORM client + migrations
-│   ├── dripl/            # @dripl/dripl   — core canvas lib, hooks, state
 │   ├── element/          # @dripl/element — element factory & rendering
 │   ├── math/             # @dripl/math    — geometry & intersection utils
 │   ├── utils/            # @dripl/utils   — encryption, storage, throttle
@@ -63,7 +62,6 @@ dripl-app ──► @dripl/common
            ──► @dripl/element ──► @dripl/common, @dripl/math, @dripl/utils
            ──► @dripl/math    ──► @dripl/common
            ──► @dripl/utils   ──► @dripl/common
-           ──► @dripl/dripl   ──► @dripl/common, @dripl/math
 
 http-server ──► @dripl/common, @dripl/db, @dripl/utils
 ws-server   ──► @dripl/common, @dripl/db, @dripl/utils
@@ -168,15 +166,17 @@ dotenv -e ../../.env -- <command>    # http-server, ws-server
 | Variable | Used By |
 |---|---|
 | `DATABASE_URL` | `@dripl/db`, `http-server` |
-| `JWT_SECRET` | `http-server`, `ws-server` |
+| `JWT_SECRET` | `http-server` (signs session JWTs), `ws-server` (must differ from `INTERNAL_SECRET`) |
 | `GEMINI_API_KEY` | `dripl-app` |
 | `GOOGLE_CLIENT_ID` | `http-server` |
 | `GOOGLE_CLIENT_SECRET` | `http-server` |
-| `HTTP_SERVER_URL` | `http-server` (OAuth callback URL) |
+| `HTTP_SERVER_URL` | `ws-server` (internal HTTP calls), `dripl-app` (Google OAuth callback) |
+| `UPSTASH_REDIS_REST_URL` | `ws-server` (pub/sub for multi-instance sync) |
+| `UPSTASH_REDIS_REST_TOKEN` | `ws-server` (pub/sub auth) |
 | `NEXT_PUBLIC_*` | `dripl-app` (client-side) |
-| `FRONTEND_URL` | `http-server`, `ws-server` |
-| `REDIS_URL` | `ws-server`, `http-server` |
-| `PORT` / `WS_PORT` | `http-server` / `ws-server` |
+| `FRONTEND_URL` | `http-server`, `ws-server` (CORS origins) |
+| `INTERNAL_SECRET` | `http-server`, `ws-server` (server-to-server auth) |
+| `PORT` | `http-server` (default 3002), `ws-server` (default 3001) |
 | `SMTP_USER` / `SMTP_PASS` | `http-server` |
 
 See `.env.example` for the full list with descriptions.
@@ -278,8 +278,8 @@ Turbo remote caching is configured via `TURBO_TOKEN` + `TURBO_TEAM` env vars in 
 
 For the full engineering roadmap, see `TODOS.md`. Key active items:
 
-- **ws-server is a 737-line monolith** — documented module structure in `ws-server/CLAUDE.md` doesn't match reality (files like `rooms.ts`, `handlers.ts` don't exist yet)
-- **Redis is declared but unused** — `REDIS_URL` in `.env.example` but no Redis client imports anywhere
+- **ws-server is a 950-line monolith** — documented module structure in `ws-server/CLAUDE.md` includes `rooms.ts` (exists), `handlers.ts` (doesn't exist yet)
+- **Redis is now used** — `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` required by ws-server for pub/sub (multi-instance sync)
 - **Barrel files in all 7 packages** — violates the "no barrel files" rule above
 - **Duplicate `.env` files** — app-level `.env` files exist and may contain real credentials
 - **TypeScript version mismatch** — root at `^6.0.3`, apps at `^5.x`, some packages at `latest`
