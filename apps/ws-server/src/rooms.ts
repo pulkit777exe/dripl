@@ -110,6 +110,7 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
   const startTime = Date.now();
   const serialized = serializeElements(elements);
   const elementCount = elements.size;
+  const byteSize = Buffer.byteLength(serialized, 'utf-8');
   const room = rooms.get(roomId);
   const recordType = room?.recordType;
 
@@ -127,6 +128,7 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
         recordType: 'canvasRoom',
         updated: update.count,
         elementCount,
+        byteSize,
       }));
       return update.count > 0;
     }
@@ -143,6 +145,7 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
         durationMs: Date.now() - startTime,
         recordType: 'file',
         elementCount,
+        byteSize,
       }));
       return true;
     }
@@ -162,6 +165,7 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
       recordType: 'canvasRoom',
       updated: canvasUpdate.count,
       elementCount,
+      byteSize,
     }));
     return canvasUpdate.count > 0;
   } catch (error) {
@@ -172,6 +176,7 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
         roomId,
         durationMs: Date.now() - startTime,
         elementCount,
+        byteSize,
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       })
