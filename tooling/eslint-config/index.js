@@ -7,9 +7,9 @@ const config = {
 };
 
 const sharedRules = {
-  'no-console': 'warn',
+  'no-console': 'error',
   '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-  '@typescript-eslint/no-explicit-any': 'off',
+  '@typescript-eslint/no-explicit-any': 'error',
 };
 
 const nodeBrowserGlobals = {
@@ -26,14 +26,14 @@ const base = tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   nodeBrowserGlobals,
-  { rules: sharedRules },
+  { rules: sharedRules }
 );
 
 const reactInternal = tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   nodeBrowserGlobals,
-  { rules: sharedRules },
+  { rules: sharedRules }
 );
 
 export { config, base, reactInternal, sharedRules };

@@ -8,7 +8,6 @@ export const IconButton: React.FC<IconButtonProps> = ({
   className = '',
 }) => {
   const handleClick = () => {
-    console.log('IconButton clicked', icon);
     if (onClick) onClick();
   };
 
