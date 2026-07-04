@@ -1,11 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { DriplElementSchema } from '@dripl/common';
+import { Ratelimit } from '@upstash/ratelimit';
+import { Redis } from '@upstash/redis';
 
 let genAI: GoogleGenerativeAI | null = null;
 function getGenAI() {
   if (!genAI) genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
   return genAI;
+}
+
+let aiRateLimit: Ratelimit | null = null;
+function getAiRateLimit(): Ratelimit | null {
+  if (aiRateLimit) return aiRateLimit;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  aiRateLimit = new Ratelimit({
+    redis: new Redis({ url, token }),
+    limiter: Ratelimit.slidingWindow(10, '1 h'),
+    prefix: 'dripl:ai:ratelimit',
+  });
+  return aiRateLimit;
 }
 
 const SYSTEM_PROMPT = `You are an AI that generates diagram layouts for a canvas drawing application called Dripl.
@@ -50,26 +66,32 @@ function stringValue(value: unknown, fallback: string): string {
   return typeof value === 'string' ? value : fallback;
 }
 
-function checkRateLimit(userId: string): {
+async function checkRateLimit(userId: string): Promise<{
   allowed: boolean;
   retryAfter?: number;
-} {
-  const now = Date.now();
-  const entry = rateLimitMap.get(userId);
-
-  if (!entry || now > entry.resetTime) {
-    rateLimitMap.set(userId, { count: 1, resetTime: now + RATE_WINDOW });
+}> {
+  const limiter = getAiRateLimit();
+  if (!limiter) {
+    const now = Date.now();
+    const entry = rateLimitMap.get(userId);
+    if (!entry || now > entry.resetTime) {
+      rateLimitMap.set(userId, { count: 1, resetTime: now + RATE_WINDOW });
+      return { allowed: true };
+    }
+    if (entry.count >= RATE_LIMIT) {
+      return {
+        allowed: false,
+        retryAfter: Math.ceil((entry.resetTime - now) / 1000),
+      };
+    }
+    entry.count++;
     return { allowed: true };
   }
-
-  if (entry.count >= RATE_LIMIT) {
-    return {
-      allowed: false,
-      retryAfter: Math.ceil((entry.resetTime - now) / 1000),
-    };
+  const { success, reset } = await limiter.limit(userId);
+  if (!success) {
+    const retryAfter = Math.max(0, Math.ceil((reset - Date.now()) / 1000));
+    return { allowed: false, retryAfter };
   }
-
-  entry.count++;
   return { allowed: true };
 }
 
@@ -106,7 +128,7 @@ export async function POST(request: NextRequest) {
     // Cookie is named 'dripl-session' (httpOnly, set by http-server)
     const sessionCookie = request.cookies?.get('dripl-session')?.value;
     const rateLimitKey = sessionCookie ?? `anon:${request.headers.get('x-forwarded-for') ?? 'unknown'}`;
-    const rateCheck = checkRateLimit(rateLimitKey);
+    const rateCheck = await checkRateLimit(rateLimitKey);
     if (!rateCheck.allowed) {
       return NextResponse.json(
         {
