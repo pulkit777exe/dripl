@@ -45,13 +45,13 @@ describe('duplicationUtils', () => {
     });
 
     it('resets isDeleted', () => {
-      const original = rect('deleted', { isDeleted: true } as any);
+      const original = rect('deleted', { isDeleted: true });
       const copy = createElementCopy(original);
       expect(copy.isDeleted).toBe(false);
     });
 
     it('clears boundElementId', () => {
-      const original = rect('bound', { boundElementId: 'parent' } as any);
+      const original = rect('bound', { boundElementId: 'parent' });
       const copy = createElementCopy(original);
       expect(copy.boundElementId).toBeUndefined();
     });
@@ -80,7 +80,10 @@ describe('duplicationUtils', () => {
         y: 0,
         width: 100,
         height: 50,
-        points: [{ x: 0, y: 0 }, { x: 100, y: 50 }],
+        points: [
+          { x: 0, y: 0 },
+          { x: 100, y: 50 },
+        ],
       } as DriplElement;
       const copy = duplicateElement(arrow, 10);
       expect(copy.points).toEqual([

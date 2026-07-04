@@ -8,7 +8,7 @@ const setAiGenerating = vi.fn();
 let aiGenerating = false;
 
 vi.mock('@/lib/canvas-store', () => ({
-  useCanvasStore: (selector: (state: any) => any) =>
+  useCanvasStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
       addElements,
       setSelectedIds,
@@ -84,7 +84,9 @@ describe('AIGenerateModal', () => {
     ]);
     expect(setSelectedIds).toHaveBeenCalledWith(new Set(['diagram-1']));
     expect(setActiveTool).toHaveBeenCalledWith('select');
-    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'dripl:fit-elements' }));
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'dripl:fit-elements' })
+    );
 
     await act(async () => {
       vi.advanceTimersByTime(1200);

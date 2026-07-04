@@ -40,7 +40,7 @@ describe('ShareService', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(db.file.findFirst).mockResolvedValue(mockFile as any);
+      vi.mocked(db.file.findFirst).mockResolvedValue(mockFile as never);
       vi.mocked(parseStoredFileContent).mockReturnValue({
         elements: [{ id: 'el-1' }],
         encryptedPayload: null,
@@ -69,7 +69,7 @@ describe('ShareService', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(db.file.findFirst).mockResolvedValue(mockFile as any);
+      vi.mocked(db.file.findFirst).mockResolvedValue(mockFile as never);
       vi.mocked(parseStoredFileContent).mockReturnValue({
         elements: [],
         encryptedPayload: null,
@@ -95,7 +95,7 @@ describe('ShareService', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(db.file.findFirst).mockResolvedValue(mockFile as any);
+      vi.mocked(db.file.findFirst).mockResolvedValue(mockFile as never);
       vi.mocked(parseStoredFileContent).mockReturnValue({
         elements: [],
         encryptedPayload: { iv: 'abc', data: 'def' },

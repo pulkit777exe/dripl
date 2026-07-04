@@ -1,10 +1,10 @@
-export function debounce<T extends (...args: any[]) => any>(
-  func: T,
+export function debounce<TArgs extends unknown[], TReturn>(
+  func: (...args: TArgs) => TReturn,
   wait: number
-): (...args: Parameters<T>) => void {
+): (...args: TArgs) => void {
   let timeout: NodeJS.Timeout | null = null;
 
-  return function executedFunction(...args: Parameters<T>) {
+  return function executedFunction(...args: TArgs) {
     const later = () => {
       timeout = null;
       func(...args);
@@ -17,20 +17,18 @@ export function debounce<T extends (...args: any[]) => any>(
   };
 }
 
-export function throttle<T extends (...args: any[]) => any>(
-  func: T,
+export function throttle<TArgs extends unknown[], TReturn>(
+  func: (...args: TArgs) => TReturn,
   limit: number
-): (...args: Parameters<T>) => void {
+): (...args: TArgs) => void {
   let inThrottle: boolean;
-  let lastResult: ReturnType<T>;
 
-  return function executedFunction(...args: Parameters<T>): ReturnType<T> {
+  return function executedFunction(...args: TArgs): void {
     if (!inThrottle) {
-      lastResult = func(...args);
+      func(...args);
       inThrottle = true;
       setTimeout(() => (inThrottle = false), limit);
     }
-    return lastResult;
   };
 }
 
@@ -66,8 +64,11 @@ export function reportPerf() {
   const entries = performance.getEntriesByType('measure');
   const filtered = entries.filter(e => e.name.endsWith(':render'));
   if (filtered.length === 0) return;
+  // eslint-disable-next-line no-console -- Dev performance reporting tool
   console.groupCollapsed('[perf] render timings');
+  // eslint-disable-next-line no-console -- Dev performance reporting tool
   filtered.forEach(e => console.log(`${e.name}: ${e.duration.toFixed(1)}ms`));
+  // eslint-disable-next-line no-console -- Dev performance reporting tool
   console.groupEnd();
   performance.clearMeasures();
 }

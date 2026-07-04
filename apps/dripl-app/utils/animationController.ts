@@ -1,7 +1,5 @@
-import type { DriplElement } from '@dripl/common';
-
 type AnimationKey = string;
-type AnimationState = Record<string, any>;
+type AnimationState = Record<string, unknown>;
 type AnimationUpdate = (state: AnimationState) => AnimationState | undefined;
 
 interface AnimationInfo {

@@ -37,7 +37,7 @@ export interface ElementUpdate {
   fontFamily?: string;
   points?: { x: number; y: number }[];
   src?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -46,14 +46,16 @@ export interface ElementUpdate {
  * For arrays, does element-by-element comparison.
  * For objects (except specific keys), always considers them changed.
  */
-function valuesEqual(a: any, b: any, key: string): boolean {
+function valuesEqual(a: unknown, b: unknown, key: string): boolean {
   if (a === b) return true;
 
   // For specific object keys, do shallow comparison
   if (key === 'points' && Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) {
-      if (a[i]![0] !== b[i]![0] || a[i]![1] !== b[i]![1]) return false;
+      const aPoint = a[i] as [number, number];
+      const bPoint = b[i] as [number, number];
+      if (aPoint[0] !== bPoint[0] || aPoint[1] !== bPoint[1]) return false;
     }
     return true;
   }
@@ -74,10 +76,7 @@ function valuesEqual(a: any, b: any, key: string): boolean {
  * - Invalidates element canvas cache if geometry changed
  * - Clears shape cache if geometry changed
  */
-export function mutateElement<T extends DriplElement>(
-  element: T,
-  updates: ElementUpdate
-): T {
+export function mutateElement<T extends DriplElement>(element: T, updates: ElementUpdate): T {
   let didChange = false;
 
   // Check each update field for actual changes

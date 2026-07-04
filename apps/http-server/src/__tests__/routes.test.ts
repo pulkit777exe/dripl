@@ -8,6 +8,7 @@ import { authRouter } from '../routes/auth';
 import { filesRouter } from '../routes/files';
 import { foldersRouter } from '../routes/folders';
 import roomRoutes from '../routes/roomRoutes';
+import type { AuthRequest } from '../middlewares/authMiddleware';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
 
@@ -19,7 +20,7 @@ const testAuthMiddleware = (req: Request, res: Response, next: NextFunction): vo
   }
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    (req as any).userId = decoded.userId;
+    (req as AuthRequest).userId = decoded.userId;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid token' });

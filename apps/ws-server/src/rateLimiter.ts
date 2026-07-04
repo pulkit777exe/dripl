@@ -3,6 +3,8 @@ import { WebSocket } from 'ws';
 const RATE_LIMIT_WINDOW_MS = 1_000;
 const RATE_LIMIT_MAX_MESSAGES = 30;
 
+import type { Ratelimit } from '@upstash/ratelimit';
+
 interface TokenBucket {
   tokens: number;
   lastRefill: number;
@@ -11,7 +13,7 @@ interface TokenBucket {
 const wsToUserMap = new Map<WebSocket, string>();
 const buckets = new Map<string, TokenBucket>();
 
-let ratelimit: any = null;
+let ratelimit: Ratelimit | null = null;
 let redisAvailable = false;
 
 async function initRedis() {

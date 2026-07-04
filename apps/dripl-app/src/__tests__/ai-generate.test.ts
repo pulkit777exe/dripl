@@ -17,7 +17,7 @@ vi.stubEnv('GEMINI_API_KEY', 'test-api-key');
 vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
 
 describe('/api/ai/generate', () => {
-  let routeModule: any;
+  let routeModule: { POST: (request: NextRequest) => Promise<Response> };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -116,7 +116,9 @@ describe('/api/ai/generate', () => {
   });
 
   it('rejects requests from unknown origins', async () => {
-    const res = await routeModule.POST(makeRequest({ prompt: 'test' }, { origin: 'https://evil.com' }));
+    const res = await routeModule.POST(
+      makeRequest({ prompt: 'test' }, { origin: 'https://evil.com' })
+    );
     expect(res.status).toBe(403);
   });
 });

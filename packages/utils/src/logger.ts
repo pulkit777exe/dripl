@@ -15,7 +15,7 @@ export function createLogger(service: string) {
   };
 
   if (process.env.NODE_ENV === 'development') {
-    (opts as any).transport = { target: 'pino-pretty', options: { colorize: true } };
+    opts.transport = { target: 'pino-pretty', options: { colorize: true } };
   }
 
   return pino(opts);

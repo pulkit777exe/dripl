@@ -40,7 +40,7 @@ describe('FileService', () => {
 
     it('returns true when folder exists', async () => {
       const { db } = await import('@dripl/db');
-      vi.mocked(db.folder.findFirst).mockResolvedValue({ id: 'folder-1' } as any);
+      vi.mocked(db.folder.findFirst).mockResolvedValue({ id: 'folder-1' } as never);
 
       const result = await FileService.ensureFolderOwnership('user-1', 'folder-1');
       expect(result).toBe(true);
@@ -88,8 +88,8 @@ describe('FileService', () => {
 
     it('deletes owned file', async () => {
       const { db } = await import('@dripl/db');
-      vi.mocked(db.file.findFirst).mockResolvedValue({ id: 'file-1' } as any);
-      vi.mocked(db.file.delete).mockResolvedValue({} as any);
+      vi.mocked(db.file.findFirst).mockResolvedValue({ id: 'file-1' } as never);
+      vi.mocked(db.file.delete).mockResolvedValue({} as never);
 
       const result = await FileService.deleteFile('user-1', 'file-1');
       expect(result).toBe(true);
@@ -108,8 +108,8 @@ describe('FileService', () => {
 
     it('revokes share on owned file', async () => {
       const { db } = await import('@dripl/db');
-      vi.mocked(db.file.findFirst).mockResolvedValue({ id: 'file-1' } as any);
-      vi.mocked(db.file.update).mockResolvedValue({} as any);
+      vi.mocked(db.file.findFirst).mockResolvedValue({ id: 'file-1' } as never);
+      vi.mocked(db.file.update).mockResolvedValue({} as never);
 
       const result = await FileService.revokeShare('user-1', 'file-1');
       expect(result).toBe(true);

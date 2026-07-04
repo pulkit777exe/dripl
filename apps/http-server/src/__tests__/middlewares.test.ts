@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import cookieParser from 'cookie-parser';
-import { authMiddleware } from '../middlewares/authMiddleware';
+import jwt from 'jsonwebtoken';
+import { authMiddleware, type AuthRequest } from '../middlewares/authMiddleware';
 import { generateCsrfToken, validateCsrfToken } from '../middlewares/csrfMiddleware';
 
 function createTestApp(middleware: express.RequestHandler) {
@@ -10,7 +11,7 @@ function createTestApp(middleware: express.RequestHandler) {
   app.use(cookieParser());
   app.use(middleware);
   app.get('/protected', (req, res) => {
-    res.json({ userId: (req as any).userId });
+    res.json({ userId: (req as AuthRequest).userId });
   });
   app.post('/mutation', (_req, res) => {
     res.json({ success: true });
@@ -25,7 +26,7 @@ describe('authMiddleware', () => {
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c2VyLTEyMyIsImlhdCI6MTcwMDAwMDAwMH0.test-signature';
 
   beforeEach(() => {
-    vi.spyOn(require('jsonwebtoken'), 'verify').mockImplementation(() => ({
+    vi.spyOn(jwt, 'verify').mockImplementation(() => ({
       userId: 'user-123',
       iat: 1700000000,
     }));
@@ -42,9 +43,7 @@ describe('authMiddleware', () => {
 
   it('passes with valid Authorization header', async () => {
     const app = createTestApp(authMiddleware);
-    const res = await request(app)
-      .get('/protected')
-      .set('Authorization', `Bearer ${VALID_JWT}`);
+    const res = await request(app).get('/protected').set('Authorization', `Bearer ${VALID_JWT}`);
     expect(res.status).toBe(200);
     expect(res.body.userId).toBe('user-123');
   });
@@ -57,20 +56,18 @@ describe('authMiddleware', () => {
   });
 
   it('returns 401 when token is invalid', async () => {
-    vi.spyOn(require('jsonwebtoken'), 'verify').mockImplementation(() => {
+    vi.spyOn(jwt, 'verify').mockImplementation(() => {
       throw new Error('invalid token');
     });
     const app = createTestApp(authMiddleware);
-    const res = await request(app)
-      .get('/protected')
-      .set('Cookie', ['dripl-session=invalid-token']);
+    const res = await request(app).get('/protected').set('Cookie', ['dripl-session=invalid-token']);
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('Invalid or expired token');
   });
 
   it('returns 401 when token is expired', async () => {
-    vi.spyOn(require('jsonwebtoken'), 'verify').mockImplementation(() => {
-      const err = new Error('jwt expired') as any;
+    vi.spyOn(jwt, 'verify').mockImplementation(() => {
+      const err = new Error('jwt expired');
       err.name = 'TokenExpiredError';
       throw err;
     });
@@ -87,14 +84,14 @@ describe('authMiddleware', () => {
 describe('csrfMiddleware', () => {
   describe('generateCsrfToken', () => {
     it('generates a 64-character hex token', () => {
-      const res = { cookie: vi.fn() } as any;
+      const res = { cookie: vi.fn() } as unknown as express.Response;
       const token = generateCsrfToken(res);
       expect(token).toHaveLength(64);
       expect(token).toMatch(/^[0-9a-f]+$/);
     });
 
     it('sets cookie with correct options', () => {
-      const res = { cookie: vi.fn() } as any;
+      const res = { cookie: vi.fn() } as unknown as express.Response;
       generateCsrfToken(res);
       expect(res.cookie).toHaveBeenCalledWith(
         'csrf-token',
@@ -141,18 +138,14 @@ describe('csrfMiddleware', () => {
 
     it('rejects POST without CSRF cookie', async () => {
       const app = createCsrfApp();
-      const res = await request(app)
-        .post('/mutation')
-        .set('x-csrf-token', 'some-token');
+      const res = await request(app).post('/mutation').set('x-csrf-token', 'some-token');
       expect(res.status).toBe(403);
       expect(res.body.error).toBe('CSRF token missing');
     });
 
     it('rejects POST without CSRF header', async () => {
       const app = createCsrfApp();
-      const res = await request(app)
-        .post('/mutation')
-        .set('Cookie', ['csrf-token=some-token']);
+      const res = await request(app).post('/mutation').set('Cookie', ['csrf-token=some-token']);
       expect(res.status).toBe(403);
       expect(res.body.error).toBe('CSRF token missing');
     });

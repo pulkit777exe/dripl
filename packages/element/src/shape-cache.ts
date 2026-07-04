@@ -1,6 +1,5 @@
 import type { DriplElement } from '@dripl/common';
-
-export type Drawable = any;
+import type { Drawable } from './rough-renderer';
 
 /**
  * Shape cache keyed by element object reference (WeakMap).

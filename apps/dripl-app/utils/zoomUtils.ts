@@ -3,6 +3,13 @@ import { getBounds } from '@dripl/math/geometry';
 import { AnimationController } from './animationController';
 import { useCanvasStore } from '@/lib/canvas-store';
 
+interface ZoomAnimationState extends Record<string, unknown> {
+  startTime: number;
+  zoom: number;
+  panX: number;
+  panY: number;
+}
+
 export interface ZoomSettings {
   minZoom: number;
   maxZoom: number;
@@ -127,12 +134,12 @@ export function smoothZoom(
 ): void {
   AnimationController.stop(SMOOTH_ZOOM_KEY);
 
-  const startZoom = AnimationController.getState(SMOOTH_ZOOM_KEY)?.zoom ?? null;
-  const startPanX = AnimationController.getState(SMOOTH_ZOOM_KEY)?.panX ?? null;
-  const startPanY = AnimationController.getState(SMOOTH_ZOOM_KEY)?.panY ?? null;
+  const prevState = AnimationController.getState(SMOOTH_ZOOM_KEY) as ZoomAnimationState | undefined;
+  const startZoom = prevState?.zoom;
+  const startPanX = prevState?.panX;
+  const startPanY = prevState?.panY;
 
-  const { zoom: currentZoom, panX: currentPanX, panY: currentPanY } =
-    useCanvasStore.getState();
+  const { zoom: currentZoom, panX: currentPanX, panY: currentPanY } = useCanvasStore.getState();
 
   const fromZoom = startZoom ?? currentZoom;
   const fromPanX = startPanX ?? currentPanX;
@@ -144,8 +151,9 @@ export function smoothZoom(
 
   AnimationController.start(
     SMOOTH_ZOOM_KEY,
-    (state) => {
-      const elapsed = performance.now() - state.startTime;
+    state => {
+      const s = state as ZoomAnimationState;
+      const elapsed = performance.now() - s.startTime;
       const t = Math.min(1, elapsed / ZOOM_DURATION_MS);
       const eased = 1 - Math.pow(1 - t, 3);
 

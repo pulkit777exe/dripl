@@ -40,7 +40,7 @@ describe('AuthService', () => {
       vi.mocked(db.user.findUnique).mockResolvedValue({
         id: 'user-1',
         emailVerified: new Date(),
-      } as any);
+      } as never);
 
       const result = await AuthService.register('test@example.com', 'password123');
       expect(result.type).toBe('email_already_registered');
@@ -51,11 +51,11 @@ describe('AuthService', () => {
       vi.mocked(db.user.findUnique).mockResolvedValue({
         id: 'user-1',
         emailVerified: null,
-      } as any);
+      } as never);
       vi.mocked(db.emailVerificationToken.findFirst).mockResolvedValue({
         id: 'token-1',
         expiresAt: new Date(Date.now() + 86400000),
-      } as any);
+      } as never);
 
       const result = await AuthService.register('test@example.com', 'password123');
       expect(result.type).toBe('pending_verification');
@@ -66,8 +66,8 @@ describe('AuthService', () => {
       const { sendVerificationEmail } = await import('../../lib/mailer');
 
       vi.mocked(db.user.findUnique).mockResolvedValue(null);
-      vi.mocked(db.user.create).mockResolvedValue({ id: 'new-user' } as any);
-      vi.mocked(db.emailVerificationToken.create).mockResolvedValue({} as any);
+      vi.mocked(db.user.create).mockResolvedValue({ id: 'new-user' } as never);
+      vi.mocked(db.emailVerificationToken.create).mockResolvedValue({} as never);
 
       const result = await AuthService.register('new@example.com', 'password123', 'Test User');
       expect(result.type).toBe('registered');
@@ -91,7 +91,7 @@ describe('AuthService', () => {
         id: 'user-1',
         emailVerified: null,
         password: 'hashed-password',
-      } as any);
+      } as never);
 
       const result = await AuthService.login('test@example.com', 'password');
       expect(result.type).toBe('needs_verification');
@@ -113,7 +113,7 @@ describe('AuthService', () => {
         id: 'token-1',
         email: 'test@example.com',
         expiresAt: new Date(Date.now() - 86400000),
-      } as any);
+      } as never);
 
       const result = await AuthService.verifyEmail('expired-token');
       expect(result).toBe(false);
