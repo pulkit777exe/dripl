@@ -81,17 +81,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?error=auth_failed', request.url));
     }
 
-    await authResponse.json();
+    const { sessionToken } = (await authResponse.json()) as { sessionToken: string };
 
     const redirectUrl = new URL('/dashboard', request.url);
     const response = NextResponse.redirect(redirectUrl);
 
-    // Forward the Set-Cookie header from http-server so the browser stores the
-    // session cookie on the http-server domain (required for cross-origin API calls)
-    const setCookie = authResponse.headers.get('set-cookie');
-    if (setCookie) {
-      response.headers.set('set-cookie', setCookie);
-    }
+    // Set session cookie on the Vercel domain (non-httpOnly so client can read it
+    // and send as Authorization header for cross-origin requests to http-server)
+    response.cookies.set('dripl-session', sessionToken, {
+      httpOnly: false,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+    });
 
     return response;
   } catch (err) {

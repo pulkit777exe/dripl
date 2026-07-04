@@ -118,7 +118,7 @@ authRouter.post('/login', async (req, res) => {
       case 'success': {
         const token = signSessionToken(result.user!.id);
         setSessionCookie(res, token);
-        res.json({ user: result.user });
+        res.json({ user: result.user, sessionToken: token });
         break;
       }
     }
@@ -181,7 +181,7 @@ authRouter.post('/google', async (req, res) => {
     const sessionToken = signSessionToken(user.id);
     setSessionCookie(res, sessionToken);
 
-    res.json({ user });
+    res.json({ user, sessionToken });
   } catch (error) {
     logger.error({ event: 'google_auth_error', error }, 'Failed to authenticate with Google');
     sendError(res, 401, 'INVALID_GOOGLE_TOKEN', 'Invalid Google token');

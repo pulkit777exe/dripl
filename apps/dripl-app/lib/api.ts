@@ -1,5 +1,4 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 
 export interface AuthUser {
   id: string;
@@ -132,7 +131,24 @@ class ApiClient {
     return this.csrfTokenPromise;
   }
 
-  private async sendRequest(path: string, init?: RequestInit, retryOnCsrfFailure = true): Promise<Response> {
+  private getSessionToken(): string | null {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(/(?:^|;\s*)dripl-session=([^;]*)/);
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
+  }
+
+  private setSessionCookie(token: string): void {
+    if (typeof document === 'undefined') return;
+    // Set non-httpOnly cookie on current domain so client can read it
+    // and send as Authorization header for cross-origin requests
+    document.cookie = `dripl-session=${encodeURIComponent(token)}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax; Secure`;
+  }
+
+  private async sendRequest(
+    path: string,
+    init?: RequestInit,
+    retryOnCsrfFailure = true
+  ): Promise<Response> {
     const method = (init?.method ?? 'GET').toUpperCase();
     const headers = new Headers(init?.headers);
 
@@ -142,6 +158,12 @@ class ApiClient {
     if (!this.isSafeMethod(method)) {
       const csrfToken = await this.getCsrfToken();
       headers.set('x-csrf-token', csrfToken);
+    }
+
+    // Send session token as Authorization header for cross-origin requests
+    const sessionToken = this.getSessionToken();
+    if (sessionToken && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${sessionToken}`);
     }
 
     const response = await fetch(`${this.baseUrl}${path}`, {
@@ -192,23 +214,35 @@ class ApiClient {
   }
 
   async login(payload: { email: string; password: string }): Promise<{ user: AuthUser }> {
-    return this.request('/auth/login', {
+    const response = await this.request<{ user: AuthUser; sessionToken?: string }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+    if (response.sessionToken) {
+      this.setSessionCookie(response.sessionToken);
+    }
+    return response;
   }
 
   async logout(): Promise<void> {
     await this.request('/auth/logout', {
       method: 'POST',
     });
+    // Clear the session cookie on the client domain
+    if (typeof document !== 'undefined') {
+      document.cookie = 'dripl-session=; path=/; max-age=0';
+    }
   }
 
   async googleLogin(payload: { token: string }): Promise<{ user: AuthUser }> {
-    return this.request('/auth/google', {
+    const response = await this.request<{ user: AuthUser; sessionToken?: string }>('/auth/google', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+    if (response.sessionToken) {
+      this.setSessionCookie(response.sessionToken);
+    }
+    return response;
   }
 
   async forgotPassword(payload: { email: string }): Promise<{ ok: boolean }> {
