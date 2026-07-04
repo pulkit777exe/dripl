@@ -19,21 +19,15 @@ export async function GET(request: NextRequest) {
   cookieStore.delete('oauth_state');
 
   if (error) {
-    return NextResponse.redirect(
-      new URL(`/login?error=google_${error}`, request.url)
-    );
+    return NextResponse.redirect(new URL(`/login?error=google_${error}`, request.url));
   }
 
   if (!state || !cookieState || state !== cookieState) {
-    return NextResponse.redirect(
-      new URL('/login?error=invalid_state', request.url)
-    );
+    return NextResponse.redirect(new URL('/login?error=invalid_state', request.url));
   }
 
   if (!code) {
-    return NextResponse.redirect(
-      new URL('/login?error=missing_code', request.url)
-    );
+    return NextResponse.redirect(new URL('/login?error=missing_code', request.url));
   }
 
   try {
@@ -51,16 +45,19 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenResponse.ok) {
+      const errorBody = await tokenResponse.text();
+      // eslint-disable-next-line no-console -- OAuth debug logging
       console.error(
         JSON.stringify({
           level: 'error',
           event: 'google_token_exchange_failed',
           status: tokenResponse.status,
+          body: errorBody,
+          hasClientId: !!GOOGLE_CLIENT_ID,
+          hasClientSecret: !!GOOGLE_CLIENT_SECRET,
         })
       );
-      return NextResponse.redirect(
-        new URL('/login?error=token_exchange_failed', request.url)
-      );
+      return NextResponse.redirect(new URL('/login?error=token_exchange_failed', request.url));
     }
 
     const tokens = await tokenResponse.json();
@@ -74,6 +71,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!authResponse.ok) {
+      // eslint-disable-next-line no-console -- OAuth debug logging
       console.error(
         JSON.stringify({
           level: 'error',
@@ -81,9 +79,7 @@ export async function GET(request: NextRequest) {
           status: authResponse.status,
         })
       );
-      return NextResponse.redirect(
-        new URL('/login?error=auth_failed', request.url)
-      );
+      return NextResponse.redirect(new URL('/login?error=auth_failed', request.url));
     }
 
     const { user } = (await authResponse.json()) as { user: { id: string } };
@@ -102,6 +98,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(new URL('/dashboard', request.url));
   } catch (err) {
+    // eslint-disable-next-line no-console -- OAuth debug logging
     console.error(
       JSON.stringify({
         level: 'error',
@@ -109,8 +106,6 @@ export async function GET(request: NextRequest) {
         error: err instanceof Error ? err.message : String(err),
       })
     );
-    return NextResponse.redirect(
-      new URL('/login?error=google_failed', request.url)
-    );
+    return NextResponse.redirect(new URL('/login?error=google_failed', request.url));
   }
 }
