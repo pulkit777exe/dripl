@@ -17,9 +17,9 @@
     "prepare": "husky || true"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.0.0",
     "@types/compression": "^1.8.1",
-    "eslint": "^10.5.0",
+    "eslint": "^9.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.8",
     "postcss": "^8.5.15",
