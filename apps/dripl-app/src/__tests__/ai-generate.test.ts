@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { NextRequest } from 'next/server';
 
 const mockGenerateContent = vi.fn();
 
@@ -13,6 +14,7 @@ vi.mock('@google/generative-ai', () => ({
 }));
 
 vi.stubEnv('GEMINI_API_KEY', 'test-api-key');
+vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
 
 describe('/api/ai/generate', () => {
   let routeModule: any;
@@ -23,26 +25,26 @@ describe('/api/ai/generate', () => {
     routeModule = await import('@/app/api/ai/generate/route');
   });
 
-  it('returns 400 when prompt is missing', async () => {
-    const req = new Request('http://localhost:3000/api/ai/generate', {
+  function makeRequest(body: object, headers?: Record<string, string>) {
+    return new NextRequest('http://localhost:3000/api/ai/generate', {
       method: 'POST',
-      body: JSON.stringify({}),
+      body: JSON.stringify(body),
+      headers: {
+        origin: 'http://localhost:3000',
+        ...headers,
+      },
     });
+  }
 
-    const res = await routeModule.POST(req);
+  it('returns 400 when prompt is missing', async () => {
+    const res = await routeModule.POST(makeRequest({}));
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.code).toBe('VALIDATION_ERROR');
   });
 
   it('returns 400 when prompt exceeds 2000 characters', async () => {
-    const longPrompt = 'a'.repeat(2001);
-    const req = new Request('http://localhost:3000/api/ai/generate', {
-      method: 'POST',
-      body: JSON.stringify({ prompt: longPrompt }),
-    });
-
-    const res = await routeModule.POST(req);
+    const res = await routeModule.POST(makeRequest({ prompt: 'a'.repeat(2001) }));
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.code).toBe('VALIDATION_ERROR');
@@ -55,12 +57,7 @@ describe('/api/ai/generate', () => {
       },
     });
 
-    const req = new Request('http://localhost:3000/api/ai/generate', {
-      method: 'POST',
-      body: JSON.stringify({ prompt: 'A simple box' }),
-    });
-
-    const res = await routeModule.POST(req);
+    const res = await routeModule.POST(makeRequest({ prompt: 'A simple box' }));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body.elements)).toBe(true);
@@ -69,17 +66,10 @@ describe('/api/ai/generate', () => {
 
   it('returns 500 when AI returns invalid JSON', async () => {
     mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => 'not valid json [',
-      },
+      response: { text: () => 'not valid json [' },
     });
 
-    const req = new Request('http://localhost:3000/api/ai/generate', {
-      method: 'POST',
-      body: JSON.stringify({ prompt: 'test' }),
-    });
-
-    const res = await routeModule.POST(req);
+    const res = await routeModule.POST(makeRequest({ prompt: 'test' }));
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.code).toBe('PARSE_ERROR');
@@ -87,33 +77,19 @@ describe('/api/ai/generate', () => {
 
   it('returns 500 when AI response is not an array', async () => {
     mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => '{"id":"box1","type":"rectangle"}',
-      },
+      response: { text: () => '{"id":"box1","type":"rectangle"}' },
     });
 
-    const req = new Request('http://localhost:3000/api/ai/generate', {
-      method: 'POST',
-      body: JSON.stringify({ prompt: 'test' }),
-    });
-
-    const res = await routeModule.POST(req);
+    const res = await routeModule.POST(makeRequest({ prompt: 'test' }));
     expect(res.status).toBe(500);
   });
 
   it('applies default values to elements', async () => {
     mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => '[{"type":"rectangle"}]',
-      },
+      response: { text: () => '[{"type":"rectangle"}]' },
     });
 
-    const req = new Request('http://localhost:3000/api/ai/generate', {
-      method: 'POST',
-      body: JSON.stringify({ prompt: 'test' }),
-    });
-
-    const res = await routeModule.POST(req);
+    const res = await routeModule.POST(makeRequest({ prompt: 'test' }));
     const body = await res.json();
     const el = body.elements[0];
     expect(el.x).toBe(100);
@@ -129,48 +105,18 @@ describe('/api/ai/generate', () => {
       },
     });
 
-    const makeRequest = () => new Request('http://localhost:3000/api/ai/generate', {
-      method: 'POST',
-      body: JSON.stringify({ prompt: 'test' }),
-    });
-
     for (let i = 0; i < 10; i++) {
-      await routeModule.POST(makeRequest());
+      await routeModule.POST(makeRequest({ prompt: 'test' }));
     }
 
-    const res = await routeModule.POST(makeRequest());
+    const res = await routeModule.POST(makeRequest({ prompt: 'test' }));
     expect(res.status).toBe(429);
     const body = await res.json();
     expect(body.code).toBe('RATE_LIMIT');
   });
 
-  it('rate limits per session cookie, not globally', async () => {
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => '[{"id":"box1","type":"rectangle","x":100,"y":100}]',
-      },
-    });
-
-    const makeRequestWithSession = (session: string) => {
-      const req = new Request('http://localhost:3000/api/ai/generate', {
-        method: 'POST',
-        body: JSON.stringify({ prompt: 'test' }),
-      });
-      // Simulate cookie by overriding headers (NextRequest reads cookies from headers in test)
-      return req;
-    };
-
-    // User A exhausts their rate limit
-    for (let i = 0; i < 10; i++) {
-      const req = makeRequestWithSession('session-a');
-      // In test env, cookies aren't parsed from Request — rate limit falls to anon bucket
-      // This test verifies the code path exists and the key differentiation works
-      await routeModule.POST(req);
-    }
-
-    // User B (different session) should still be allowed if cookies were present
-    // In production, dripl-session cookie would be parsed by NextRequest
-    // The fix ensures dripl-session is read instead of non-existent 'session' cookie
-    expect(true).toBe(true); // Structural test — actual cookie parsing tested via E2E
+  it('rejects requests from unknown origins', async () => {
+    const res = await routeModule.POST(makeRequest({ prompt: 'test' }, { origin: 'https://evil.com' }));
+    expect(res.status).toBe(403);
   });
 });

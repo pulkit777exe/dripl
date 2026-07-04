@@ -4,6 +4,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const addElements = vi.fn();
 const setSelectedIds = vi.fn();
 const setActiveTool = vi.fn();
+const setAiGenerating = vi.fn();
+let aiGenerating = false;
 
 vi.mock('@/lib/canvas-store', () => ({
   useCanvasStore: (selector: (state: any) => any) =>
@@ -11,6 +13,8 @@ vi.mock('@/lib/canvas-store', () => ({
       addElements,
       setSelectedIds,
       setActiveTool,
+      aiGenerating,
+      setAiGenerating,
     }),
 }));
 
@@ -23,6 +27,7 @@ import { AIGenerateModal } from '@/components/canvas/AIGenerateModal';
 describe('AIGenerateModal', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    aiGenerating = false;
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
