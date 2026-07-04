@@ -12,7 +12,6 @@ export const logger = createLogger('ws-server');
 const REQUIRED_ENV = [
   'DATABASE_URL',
   'JWT_SECRET',
-  'PORT',
   'HTTP_SERVER_URL',
 ] as const;
 
@@ -148,7 +147,7 @@ function handleRedisMessage(roomId: string, payload: unknown): void {
   }
 }
 
-const WS_PORT = Number(process.env.PORT) || 3001;
+const WS_PORT = Number(process.env.WS_PORT) || 3001;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;
 
