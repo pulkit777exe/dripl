@@ -13,7 +13,6 @@ import { useAuth } from '@/app/context/AuthContext';
 import { apiClient } from '@/lib/api';
 import { Spinner } from '@/components/button/Spinner';
 import HelpModal from '@/components/canvas/HelpModal';
-import { CollaboratorsList } from '@/components/canvas/CollaboratorsList';
 import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
 import { useCanvasStore } from '@/lib/canvas-store';
 
@@ -120,9 +119,6 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps): React.R
 
       <CanvasErrorBoundary name="TopBar">
         <TopBar />
-      </CanvasErrorBoundary>
-      <CanvasErrorBoundary name="CollaboratorsList">
-        <CollaboratorsList roomSlug={roomId} onLeaveRoom={handleLeaveSession} />
       </CanvasErrorBoundary>
       <CanvasBootstrap mode="room" roomSlug={roomId} theme={effectiveTheme} />
 

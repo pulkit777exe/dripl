@@ -387,21 +387,22 @@ Chosen over JWT-at-upgrade because:
 
 2. **In-memory room state** — Process restart loses all room state. Redis pub/sub enables message forwarding but not state sharing. Room state is rebuilt from DB on reconnect, but cursor/user presence is lost.
 
-3. **AI rate limit uses client-supplied userId** — The AI generation endpoint (`app/api/ai/generate/route.ts`) accepts userId from the client for rate limiting, which can be bypassed.
-
-4. **`validateMiddleware.ts` is dead code** — `http-server/src/middlewares/validateMiddleware.ts` (42 lines) contains `validateSignup` and `validateLogin` functions that are not imported by any route file. Superseded by Zod schemas in route handlers.
-
-5. **ws-server requires Redis credentials** — `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are validated at startup (ws-server `index.ts` lines 12-39). Without them, the rate limiter will crash. The graceful fallback only applies to pub/sub, not rate limiting.
-
-6. **CLAUDE.md is stale** — Multiple claims in `CLAUDE.md` are contradicted by the actual code:
-   - Claims ws-server uses JWT auth (actually ticket-based)
-   - Claims RoughCanvas is 2,332 lines (actually 972)
+3. **CLAUDE.md is stale** — Multiple claims in `CLAUDE.md` are contradicted by the actual code:
+   - Claims RoughCanvas is 2,332 lines (actually 974)
    - Claims canvas-store.ts is 803 lines (actually a 4-line barrel)
    - Claims `@dripl/dripl` package exists (it doesn't)
 
+### Resolved Issues (Fixed)
+
+4. ~~**AI rate limit uses client-supplied userId**~~ — Fixed. Now reads `dripl-session` cookie (commit `d70b145`).
+
+5. ~~**`validateMiddleware.ts` is dead code**~~ — Removed (commit `974751f`).
+
+6. ~~**ws-server requires Redis credentials**~~ — Redis now optional. Rate limiter falls back to in-memory token bucket (commit `07a9733`).
+
 ### Tech Debt
 
-- **Full-snapshot history** — `historySlice.ts` stores full element arrays for undo. With 5K elements and 100 snapshots, this is ~150MB of JS heap.
+- **Full-snapshot history** — `historySlice.ts` stores full element arrays for undo. Capped at 10 MB byte budget (was flat 100 snapshots). With 5K elements, each snapshot is ~1.5MB, so budget allows ~6-7 snapshots at that size.
 - **No binary WS protocol for element data** — JSON serialization for `scene-update`/`scene-delta` messages. Yjs binary protocol is used but runs alongside JSON, not instead of it.
 - **Single-file route modules** — `http-server/src/routes/auth.ts` is 498 lines. Could be split by concern (register, login, OAuth, password reset, ticket).
 

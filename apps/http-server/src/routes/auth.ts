@@ -23,18 +23,8 @@ setInterval(() => {
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID!;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET!;
-const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api';
 
 const googleClient = new OAuth2Client(googleClientId, googleClientSecret);
-
-function getGoogleOAuthClient() {
-  return new OAuth2Client(
-    googleClientId,
-    googleClientSecret,
-    `${apiUrl}/auth/google/callback`
-  );
-}
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -218,76 +208,6 @@ authRouter.post('/google', async (req, res) => {
       })
     );
     sendError(res, 401, 'INVALID_GOOGLE_TOKEN', 'Invalid Google token');
-  }
-});
-
-authRouter.get('/google', (_req, res) => {
-  const state = randomUUID();
-  const isProduction = process.env.NODE_ENV === 'production';
-  res.cookie('oauth_state', state, {
-    httpOnly: true,
-    maxAge: 600_000,
-    sameSite: isProduction ? 'none' : 'lax',
-    secure: isProduction,
-    path: '/',
-  });
-  const oauth2Client = getGoogleOAuthClient();
-  const url = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: ['openid', 'email', 'profile'],
-    prompt: 'consent',
-    state,
-  });
-  res.redirect(url);
-});
-
-authRouter.get('/google/callback', async (req, res) => {
-  const code = req.query.code as string | undefined;
-  const state = req.query.state as string | undefined;
-  const cookieState = (req as any).cookies?.oauth_state as string | undefined;
-
-  if (!state || !cookieState || state !== cookieState) {
-    sendError(res, 400, 'INVALID_STATE', 'Invalid or missing OAuth state');
-    return;
-  }
-  res.clearCookie('oauth_state');
-
-  if (!code) {
-    sendError(res, 400, 'MISSING_TOKEN', 'Missing authorization code');
-    return;
-  }
-
-  try {
-    const oauth2Client = getGoogleOAuthClient();
-    const { tokens } = await oauth2Client.getToken(code);
-    const ticket = await googleClient.verifyIdToken({
-      idToken: tokens.id_token!,
-      audience: googleClientId,
-    });
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      res.redirect(`${frontendUrl}/login?error=google_failed`);
-      return;
-    }
-
-    const user = await AuthService.googleAuth(
-      payload.email,
-      payload.name ?? null,
-      payload.picture ?? null
-    );
-
-    const sessionToken = signSessionToken(user.id);
-    setSessionCookie(res, sessionToken);
-    res.redirect(`${frontendUrl}/dashboard`);
-  } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'google_oauth_callback_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
-    res.redirect(`${frontendUrl}/login?error=google_failed`);
   }
 });
 

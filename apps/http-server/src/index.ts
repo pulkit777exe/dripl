@@ -10,7 +10,7 @@ const logger = createLogger('http-server');
 const REQUIRED_ENV = [
   'DATABASE_URL',
   'JWT_SECRET',
-  'PORT',
+  'HTTP_PORT',
   'UPSTASH_REDIS_REST_URL',
   'UPSTASH_REDIS_REST_TOKEN',
 ] as const;
@@ -22,9 +22,15 @@ for (const key of REQUIRED_ENV) {
   }
 }
 
-if (process.env.NODE_ENV === 'production' && !process.env.INTERNAL_SECRET) {
-  console.error('FATAL: Missing required env var: INTERNAL_SECRET');
-  process.exit(1);
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.INTERNAL_SECRET) {
+    console.error('FATAL: Missing required env var: INTERNAL_SECRET');
+    process.exit(1);
+  }
+  if (!process.env.FRONTEND_URL && !process.env.NEXT_PUBLIC_APP_URL) {
+    console.error('FATAL: Missing required env var: FRONTEND_URL (or NEXT_PUBLIC_APP_URL) — needed for CORS and Google OAuth');
+    process.exit(1);
+  }
 }
 if (!process.env.INTERNAL_SECRET) {
   console.warn('WARN: INTERNAL_SECRET not set — internal endpoints will reject all requests');
@@ -39,7 +45,7 @@ import { initializeDb } from '@dripl/db';
 import { createApp } from './app';
 
 const app = createApp();
-const port = Number(process.env.PORT) || 3002;
+const port = Number(process.env.HTTP_PORT) || 3001;
 
 async function start() {
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {

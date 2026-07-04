@@ -67,7 +67,9 @@
         "DATABASE_URL",
         "NODE_ENV",
         "SMTP_USER",
-        "SMTP_PASS"
+        "SMTP_PASS",
+        "HTTP_PORT",
+        "WS_PORT"
       ]
     },
     "test": {

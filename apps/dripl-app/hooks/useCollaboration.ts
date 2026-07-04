@@ -101,8 +101,8 @@ export interface UseCollaborationReturn {
   disconnect: () => void;
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001';
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002/api';
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3002';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 
 async function getWsTicket(): Promise<string> {
   const res = await fetch(`${API_URL}/auth/ws-ticket`, {

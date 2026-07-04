@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Link2, Users, Check } from 'lucide-react';
+import { X, Link2, Users, Check, Copy } from 'lucide-react';
+
+interface Collaborator {
+  userId: string;
+  userName: string;
+  color: string;
+}
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -13,6 +19,8 @@ interface ShareModalProps {
   feedbackMessage?: string | null;
   errorMessage?: string | null;
   isCollaborating?: boolean;
+  roomId?: string | null;
+  collaborators?: Collaborator[];
 }
 
 export function ShareModal({
@@ -24,9 +32,12 @@ export function ShareModal({
   feedbackMessage,
   errorMessage,
   isCollaborating = false,
+  roomId,
+  collaborators = [],
 }: ShareModalProps) {
   const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
   const [isStartingCollab, setIsStartingCollab] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const [mounted, setMounted] = useState(false);
   const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
@@ -82,6 +93,19 @@ export function ShareModal({
     }
   };
 
+  const collabUrl = roomId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/canvas/${roomId}` : '';
+
+  const handleCopyLink = async () => {
+    if (!collabUrl) return;
+    try {
+      await navigator.clipboard.writeText(collabUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      // Fallback: select text
+    }
+  };
+
   const modal = (
     <div
       className={`fixed inset-0 z-400 flex items-center justify-center p-4 box-content backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
@@ -109,9 +133,38 @@ export function ShareModal({
         <div className="p-5 space-y-3">
           <p className="text-[13px]" style={{ color: '#6B6860' }}>
             {isCollaborating
-              ? 'Collaboration is active. Stop it anytime.'
+              ? 'Share the link below or invite others to collaborate.'
               : 'Choose how you want to share this canvas.'}
           </p>
+
+          {isCollaborating && collabUrl && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium" style={{ color: '#6B6860' }}>Collaboration link</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={collabUrl}
+                    className="flex-1 px-3 py-2 rounded-md text-[12px] bg-transparent outline-none truncate"
+                    style={{ border: '1px solid #D4D0C9', color: '#1A1917' }}
+                    onClick={e => (e.target as HTMLInputElement).select()}
+                  />
+                  <button
+                    onClick={handleCopyLink}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-md text-[12px] font-medium transition-colors shrink-0"
+                    style={{
+                      backgroundColor: copiedLink ? '#F0FDF4' : '#E8462A',
+                      color: copiedLink ? '#16A34A' : '#ffffff',
+                      border: copiedLink ? '1px solid #BBF7D0' : 'none',
+                    }}
+                  >
+                    {copiedLink ? <Check size={12} /> : <Copy size={12} />}
+                    {copiedLink ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {isCollaborating ? (
             <button
@@ -164,6 +217,29 @@ export function ShareModal({
                 </div>
               </button>
             </>
+          )}
+
+          {isCollaborating && collaborators.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium" style={{ color: '#6B6860' }}>
+                {collaborators.length === 1 ? '1 collaborator' : `${collaborators.length} collaborators`}
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {collaborators.map((collab) => (
+                  <div
+                    key={collab.userId}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium"
+                    style={{ backgroundColor: `${collab.color}18`, border: `1px solid ${collab.color}40`, color: collab.color }}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: collab.color }}
+                    />
+                    {collab.userName}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           <button

@@ -10,6 +10,7 @@ import { type DriplElement } from '@dripl/common';
 import { collectCascadeDeleteIds } from '@dripl/common/cascade-delete';
 import { getOrCreateCollaboratorName } from '@/utils/username';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
+import { useAuth } from '@/app/context/AuthContext';
 import RBush from 'rbush';
 import { SelectionOverlay, MemoizedSelectionOverlay, ResizeHandle } from './SelectionOverlay';
 import { MemoizedRemoteCursors } from './RemoteCursors';
@@ -94,7 +95,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     };
   }, [containerReady]);
 
-  const [userName, setUserName] = useState<string | null>(() => getOrCreateCollaboratorName());
+  const { user } = useAuth();
+  const [userName, setUserName] = useState<string | null>(() => user?.name?.trim() || getOrCreateCollaboratorName());
 
   const isDrawing = useCanvasStore(s => s.isDrawing);
   const isDrawingRef = useRef(false);

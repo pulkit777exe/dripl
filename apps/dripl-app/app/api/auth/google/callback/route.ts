@@ -5,7 +5,7 @@ import { signToken } from '@dripl/utils/auth';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
 const FRONTEND_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-const HTTP_SERVER_URL = process.env.HTTP_SERVER_URL || 'http://localhost:3002';
+const HTTP_SERVER_URL = process.env.HTTP_SERVER_URL || 'http://localhost:3001';
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code');

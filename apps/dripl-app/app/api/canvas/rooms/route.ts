@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002/api';
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 
 export async function POST(request: NextRequest) {
   const cookie = request.headers.get('cookie') ?? '';
@@ -14,12 +14,18 @@ export async function POST(request: NextRequest) {
   } catch {
     // Invalid JSON - use default empty content
   }
+
+  // Extract CSRF token from cookie to forward as header
+  const csrfMatch = cookie.match(/csrf-token=([^;]+)/);
+  const csrfToken = csrfMatch ? csrfMatch[1] : '';
+
   try {
     const response = await fetch(`${API_BASE_URL}/rooms`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         cookie,
+        ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
       },
       body: JSON.stringify({ content }),
     });

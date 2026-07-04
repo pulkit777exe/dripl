@@ -9,7 +9,7 @@
     "dev": "dotenv -e ../../.env -- tsx src/index.ts",
     "test": "vitest run",
     "check-types": "tsc --noEmit",
-    "health": "curl -f http://localhost:${PORT:-3001}/health || exit 1"
+    "health": "curl -f http://localhost:${WS_PORT:-3002}/health || exit 1"
   },
   "dependencies": {
     "@dripl/common": "workspace:*",

@@ -79,10 +79,11 @@ export function createApp(): Application {
   const allowedOrigins = [
     process.env.FRONTEND_URL,
     process.env.NEXT_PUBLIC_APP_URL,
-    'http://localhost:3000',
   ].filter(Boolean) as string[];
 
-  console.log(JSON.stringify({ level: 'info', event: 'cors_config', allowedOrigins }));
+  if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.push('http://localhost:3000');
+  }
 
   app.use(
     cors({

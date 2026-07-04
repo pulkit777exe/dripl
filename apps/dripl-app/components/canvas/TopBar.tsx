@@ -33,6 +33,8 @@ export const TopBar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const isConnected = useCanvasStore(state => state.isConnected);
+  const roomId = useCanvasStore(state => state.roomId);
+  const remoteUsers = useCanvasStore(state => state.remoteUsers);
 
   const handleLeaveSession = useCallback(() => {
     useCanvasStore.getState().setShouldLeaveRoom(true);
@@ -372,6 +374,8 @@ export const TopBar: React.FC = () => {
         feedbackMessage={shareFeedbackMessage}
         errorMessage={shareErrorMessage}
         isCollaborating={isConnected}
+        roomId={roomId}
+        collaborators={Array.from(remoteUsers.values())}
       />
     </>
   );
