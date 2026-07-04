@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { sendError } from '../lib/response';
@@ -11,6 +11,7 @@ import {
 } from '../middlewares/authMiddleware';
 import { OAuth2Client } from 'google-auth-library';
 import { AuthService } from '../services/authService';
+import { logger } from '../logger.js';
 
 const wsTicketStore = new Map<string, { userId: string; expiresAt: number }>();
 
@@ -76,13 +77,7 @@ authRouter.post('/register', async (req, res) => {
         break;
     }
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'register_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'register_error', error }, 'Failed to register user');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to register user');
   }
 });
@@ -128,13 +123,7 @@ authRouter.post('/login', async (req, res) => {
       }
     }
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'login_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'login_error', error }, 'Failed to login');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to login');
   }
 });
@@ -160,13 +149,7 @@ authRouter.get('/me', authMiddleware, async (req: AuthenticatedRequest, res) => 
 
     res.json({ user });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'me_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'me_error', error }, 'Failed to load user profile');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to load user profile');
   }
 });
@@ -200,13 +183,7 @@ authRouter.post('/google', async (req, res) => {
 
     res.json({ user });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'google_auth_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'google_auth_error', error }, 'Failed to authenticate with Google');
     sendError(res, 401, 'INVALID_GOOGLE_TOKEN', 'Invalid Google token');
   }
 });
@@ -226,13 +203,7 @@ authRouter.post('/forgot-password', async (req, res) => {
     await AuthService.forgotPassword(parsed.data.email);
     res.json({ ok: true });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'forgot_password_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'forgot_password_error', error }, 'Failed to process forgot password');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to process request');
   }
 });
@@ -252,13 +223,7 @@ authRouter.post('/reset-password', async (req, res) => {
     }
     res.json({ ok: true });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'reset_password_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'reset_password_error', error }, 'Failed to reset password');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to reset password');
   }
 });
@@ -278,13 +243,7 @@ authRouter.post('/verify-email', async (req, res) => {
     }
     res.json({ message: 'Email verified successfully. You can now log in.' });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'verify_email_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'verify_email_error', error }, 'Failed to verify email');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to verify email');
   }
 });
@@ -304,12 +263,9 @@ authRouter.post('/resend-verification', async (req, res) => {
     }
     res.json({ ok: true });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'resend_verification_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
+    logger.error(
+      { event: 'resend_verification_error', error },
+      'Failed to resend verification email'
     );
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to resend verification email');
   }
@@ -327,13 +283,7 @@ authRouter.put('/profile', authMiddleware, async (req: AuthenticatedRequest, res
     const user = await AuthService.updateProfile(req.userId, { name, image });
     res.json({ user });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'update_profile_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'update_profile_error', error }, 'Failed to update profile');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to update profile');
   }
 });
@@ -364,13 +314,7 @@ authRouter.post('/change-password', authMiddleware, async (req: AuthenticatedReq
     }
     res.json({ ok: true });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'change_password_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'change_password_error', error }, 'Failed to change password');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to change password');
   }
 });
@@ -390,7 +334,7 @@ export { authRouter, wsTicketStore };
 export function createInternalRouter(): Router {
   const internalRouter = Router();
 
-  function requireInternalSecret(req: any, res: any, next: any): void {
+  function requireInternalSecret(req: Request, res: Response, next: NextFunction): void {
     if (req.headers['x-internal-secret'] !== process.env.INTERNAL_SECRET) {
       res.status(403).json({ error: 'Forbidden' });
       return;

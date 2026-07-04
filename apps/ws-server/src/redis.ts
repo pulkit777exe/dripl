@@ -1,5 +1,5 @@
 import { Redis } from '@upstash/redis';
-import { logger } from './index';
+import { logger } from './logger.js';
 
 let redis: Redis | null = null;
 
@@ -34,12 +34,18 @@ function initSubscription(): void {
         const handler = roomHandlers.get(roomId);
         if (handler) handler(payload);
       } catch (err) {
-        logger.error({ event: 'redis_message_parse_error', error: err instanceof Error ? err.message : String(err) });
+        logger.error({
+          event: 'redis_message_parse_error',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     });
     logger.info({ event: 'redis_pattern_subscribed', pattern: 'dripl:room:*' });
   } catch (err) {
-    logger.error({ event: 'redis_subscribe_failed', error: err instanceof Error ? err.message : String(err) });
+    logger.error({
+      event: 'redis_subscribe_failed',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -62,7 +68,11 @@ export async function publishToRoom(roomId: string, payload: object): Promise<vo
       timestamp: Date.now(),
     });
   } catch (err) {
-    logger.error({ event: 'redis_publish_failed', roomId, error: err instanceof Error ? err.message : String(err) });
+    logger.error({
+      event: 'redis_publish_failed',
+      roomId,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 

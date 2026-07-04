@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, signToken, type JwtPayload } from '@dripl/utils/auth';
 import { sendError } from '../lib/response';
+import { logger } from '../logger.js';
 
 const SESSION_COOKIE = 'dripl-session';
 
@@ -10,9 +11,7 @@ export interface AuthRequest extends Request {
 
 export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction): void => {
   try {
-    const token =
-      req.cookies?.['dripl-session'] ||
-      req.headers.authorization?.split(' ')[1];
+    const token = req.cookies?.['dripl-session'] || req.headers.authorization?.split(' ')[1];
 
     if (!token) {
       sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
@@ -27,13 +26,7 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
     req.userId = decoded.userId;
     next();
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'auth_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'auth_error', error }, 'Auth middleware error');
     sendError(res, 401, 'UNAUTHORIZED', 'Invalid or expired token');
   }
 };

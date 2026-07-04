@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '@dripl/db';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { sendError } from '../lib/response';
+import { logger } from '../logger.js';
 
 const createFolderSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -65,14 +66,14 @@ foldersRouter.get('/', async (req: AuthenticatedRequest, res) => {
       })),
     });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'list_folders_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
-    res.status(500).json({ error: 'Failed to list folders', message: 'Failed to list folders', statusCode: 500 });
+    logger.error({ event: 'list_folders_error', error }, 'Failed to list folders');
+    res
+      .status(500)
+      .json({
+        error: 'Failed to list folders',
+        message: 'Failed to list folders',
+        statusCode: 500,
+      });
   }
 });
 
@@ -118,14 +119,14 @@ foldersRouter.post('/', async (req: AuthenticatedRequest, res) => {
 
     res.status(201).json({ folder });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'create_folder_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
-    res.status(500).json({ error: 'Failed to create folder', message: 'Failed to create folder', statusCode: 500 });
+    logger.error({ event: 'create_folder_error', error }, 'Failed to create folder');
+    res
+      .status(500)
+      .json({
+        error: 'Failed to create folder',
+        message: 'Failed to create folder',
+        statusCode: 500,
+      });
   }
 });
 
@@ -192,14 +193,14 @@ foldersRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
 
     res.json({ folder: updated });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'update_folder_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
-    res.status(500).json({ error: 'Failed to update folder', message: 'Failed to update folder', statusCode: 500 });
+    logger.error({ event: 'update_folder_error', error }, 'Failed to update folder');
+    res
+      .status(500)
+      .json({
+        error: 'Failed to update folder',
+        message: 'Failed to update folder',
+        statusCode: 500,
+      });
   }
 });
 
@@ -261,14 +262,14 @@ foldersRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'delete_folder_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
-    res.status(500).json({ error: 'Failed to delete folder', message: 'Failed to delete folder', statusCode: 500 });
+    logger.error({ event: 'delete_folder_error', error }, 'Failed to delete folder');
+    res
+      .status(500)
+      .json({
+        error: 'Failed to delete folder',
+        message: 'Failed to delete folder',
+        statusCode: 500,
+      });
   }
 });
 

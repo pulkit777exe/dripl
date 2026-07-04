@@ -5,6 +5,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { authMiddleware, type AuthRequest } from '../middlewares/authMiddleware';
 import { sendError } from '../lib/response';
+import { logger } from '../logger.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -39,7 +40,12 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     const contentType = req.headers['content-type'];
     const baseType = contentType?.split(';')[0]?.trim();
     if (!baseType || !ALLOWED_TYPES.has(baseType)) {
-      sendError(res, 400, 'INVALID_CONTENT_TYPE', 'Invalid content type. Allowed: png, jpeg, gif, webp, svg');
+      sendError(
+        res,
+        400,
+        'INVALID_CONTENT_TYPE',
+        'Invalid content type. Allowed: png, jpeg, gif, webp, svg'
+      );
       return;
     }
 
@@ -74,19 +80,19 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 
         res.status(201).json({ id: fileId, url, size: buffer.length });
       } catch (error) {
-        console.error('Image upload failed:', error);
+        logger.error({ event: 'image_upload_save_error', error }, 'Image upload failed');
         sendError(res, 500, 'INTERNAL_ERROR', 'Failed to save image');
       }
     });
 
-    req.on('error', (error) => {
-      console.error('Image upload stream error:', error);
+    req.on('error', error => {
+      logger.error({ event: 'image_upload_stream_error', error }, 'Image upload stream error');
       if (!res.headersSent) {
         sendError(res, 500, 'INTERNAL_ERROR', 'Upload failed');
       }
     });
   } catch (error) {
-    console.error('Image upload error:', error);
+    logger.error({ event: 'image_upload_error', error }, 'Image upload error');
     sendError(res, 500, 'INTERNAL_ERROR', 'Upload failed');
   }
 });
@@ -112,7 +118,7 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     const buffer = await readFile(filePath);
     res.send(buffer);
   } catch (error) {
-    console.error('Image download error:', error);
+    logger.error({ event: 'image_download_error', error }, 'Image download error');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to read image');
   }
 });

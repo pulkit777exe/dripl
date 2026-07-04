@@ -5,6 +5,7 @@ import type { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { sendError } from '../lib/response';
 import { FileService } from '../services/fileService';
 import { MAX_FILE_CONTENT_BYTES } from '@dripl/common';
+import { logger } from '../logger.js';
 
 const listFilesQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
@@ -87,7 +88,12 @@ filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
     });
 
     const responseHash = createHash('md5')
-      .update(JSON.stringify({ files: result.files, total: result.isCursorBased ? undefined : result.total }))
+      .update(
+        JSON.stringify({
+          files: result.files,
+          total: result.isCursorBased ? undefined : result.total,
+        })
+      )
       .digest('hex');
     const etag = `"${responseHash}"`;
 
@@ -106,13 +112,7 @@ filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
       nextCursor: result.nextCursor,
     });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'list_files_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'list_files_error', error }, 'Failed to list files');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to list files');
   }
 });
@@ -152,13 +152,7 @@ filesRouter.get('/shared', async (req: AuthenticatedRequest, res) => {
       nextCursor: result.nextCursor,
     });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'list_shared_files_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'list_shared_files_error', error }, 'Failed to list shared files');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to list shared files');
   }
 });
@@ -185,7 +179,12 @@ filesRouter.post('/', async (req: AuthenticatedRequest, res) => {
   if (payload.content !== undefined) {
     const contentSize = Buffer.byteLength(JSON.stringify(payload.content), 'utf8');
     if (contentSize > MAX_FILE_CONTENT_BYTES) {
-      sendError(res, 413, 'PAYLOAD_TOO_LARGE', `File content too large (${contentSize} bytes, max ${MAX_FILE_CONTENT_BYTES})`);
+      sendError(
+        res,
+        413,
+        'PAYLOAD_TOO_LARGE',
+        `File content too large (${contentSize} bytes, max ${MAX_FILE_CONTENT_BYTES})`
+      );
       return;
     }
   }
@@ -208,13 +207,7 @@ filesRouter.post('/', async (req: AuthenticatedRequest, res) => {
 
     res.status(201).json(result.file);
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'create_file_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'create_file_error', error }, 'Failed to create file');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to create file');
   }
 });
@@ -241,13 +234,7 @@ filesRouter.get('/:id', async (req: AuthenticatedRequest, res) => {
 
     res.json({ file });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'get_file_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'get_file_error', error }, 'Failed to load file');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to load file');
   }
 });
@@ -280,7 +267,12 @@ filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
   if (payload.content !== undefined) {
     const contentSize = Buffer.byteLength(JSON.stringify(payload.content), 'utf8');
     if (contentSize > MAX_FILE_CONTENT_BYTES) {
-      sendError(res, 413, 'PAYLOAD_TOO_LARGE', `File content too large (${contentSize} bytes, max ${MAX_FILE_CONTENT_BYTES})`);
+      sendError(
+        res,
+        413,
+        'PAYLOAD_TOO_LARGE',
+        `File content too large (${contentSize} bytes, max ${MAX_FILE_CONTENT_BYTES})`
+      );
       return;
     }
   }
@@ -307,13 +299,7 @@ filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
 
     res.json({ file: result.file });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'update_file_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'update_file_error', error }, 'Failed to update file');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to update file');
   }
 });
@@ -340,13 +326,7 @@ filesRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'delete_file_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'delete_file_error', error }, 'Failed to delete file');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to delete file');
   }
 });
@@ -395,13 +375,7 @@ filesRouter.post('/:id/share', async (req: AuthenticatedRequest, res) => {
       shareUrl: result.shareUrl,
     });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'share_file_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'share_file_error', error }, 'Failed to create share link');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to create share link');
   }
 });
@@ -428,13 +402,7 @@ filesRouter.delete('/:id/share', async (req: AuthenticatedRequest, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'revoke_share_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'revoke_share_error', error }, 'Failed to revoke share link');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to revoke share link');
   }
 });

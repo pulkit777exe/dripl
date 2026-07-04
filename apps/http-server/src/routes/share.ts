@@ -3,6 +3,7 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { ShareService } from '../services/shareService';
 import { sendError } from '../lib/response';
+import { logger } from '../logger.js';
 
 const shareRouter: Router = Router();
 
@@ -54,13 +55,7 @@ shareRouter.get('/:token', shareLimiter, async (req, res) => {
       elements: result.elements,
     });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'get_share_error',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logger.error({ event: 'get_share_error', error }, 'Failed to load shared file');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to load shared file');
   }
 });
