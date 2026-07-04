@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import { config } from 'dotenv';
 import { resolve } from 'path';
+import { fileURLToPath } from 'url';
 
 // Load env from repo root regardless of CWD
+const __dirname = resolve(fileURLToPath(import.meta.url), '..');
 const repoRoot = resolve(__dirname, '../../..');
 config({ path: resolve(repoRoot, '.env') });
 config({ path: resolve(repoRoot, '.env.local'), override: true });
