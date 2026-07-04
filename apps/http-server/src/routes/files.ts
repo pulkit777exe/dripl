@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { sendError } from '../lib/response';
 import { FileService } from '../services/fileService';
+import { MAX_FILE_CONTENT_BYTES } from '@dripl/common';
 
 const listFilesQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
@@ -181,6 +182,14 @@ filesRouter.post('/', async (req: AuthenticatedRequest, res) => {
 
   const payload = parsedBody.data;
 
+  if (payload.content !== undefined) {
+    const contentSize = Buffer.byteLength(JSON.stringify(payload.content), 'utf8');
+    if (contentSize > MAX_FILE_CONTENT_BYTES) {
+      sendError(res, 413, 'PAYLOAD_TOO_LARGE', `File content too large (${contentSize} bytes, max ${MAX_FILE_CONTENT_BYTES})`);
+      return;
+    }
+  }
+
   try {
     const result = await FileService.createFile({
       userId: req.userId,
@@ -267,6 +276,14 @@ filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
   }
 
   const payload = parsedBody.data;
+
+  if (payload.content !== undefined) {
+    const contentSize = Buffer.byteLength(JSON.stringify(payload.content), 'utf8');
+    if (contentSize > MAX_FILE_CONTENT_BYTES) {
+      sendError(res, 413, 'PAYLOAD_TOO_LARGE', `File content too large (${contentSize} bytes, max ${MAX_FILE_CONTENT_BYTES})`);
+      return;
+    }
+  }
 
   try {
     const result = await FileService.updateFile({

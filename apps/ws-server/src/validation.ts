@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_MESSAGE_BYTES } from '@dripl/common';
 
 const pointSchema = z.object({
   x: z.number(),
@@ -163,7 +164,7 @@ export const cursorMoveKebabSchema = z.object({
 
 export const elementUpdateSchema = z.object({
   type: z.literal('element-update'),
-  elements: z.array(driplElementSchema).optional(),
+  elements: z.array(driplElementSchema).max(100).optional(),
   element: driplElementSchema.optional(),
 });
 
@@ -175,9 +176,9 @@ export const sceneUpdateSchema = z.object({
 
 export const sceneDeltaSchema = z.object({
   type: z.literal('scene-delta'),
-  added: z.array(driplElementSchema).optional(),
-  updated: z.array(driplElementSchema).optional(),
-  deleted: z.array(z.string()).optional(),
+  added: z.array(driplElementSchema).max(1000).optional(),
+  updated: z.array(driplElementSchema).max(1000).optional(),
+  deleted: z.array(z.string()).max(1000).optional(),
 });
 
 export const messageSchema = z.discriminatedUnion('type', [
@@ -194,6 +195,23 @@ export const messageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('leave_room') }),
   z.object({ type: z.literal('leave') }),
   z.object({ type: z.literal('ping') }),
+  z.object({ type: z.literal('element-lock'), elementId: z.string() }),
+  z.object({ type: z.literal('element-unlock'), elementId: z.string() }),
+  z.object({ type: z.literal('element-lock-heartbeat'), elementId: z.string() }),
+  z.object({ type: z.literal('viewport-update'), panX: z.number(), panY: z.number(), zoom: z.number() }),
+  z.object({ type: z.literal('follow-user'), targetUserId: z.string() }),
+  z.object({ type: z.literal('unfollow-user') }),
 ]);
 
 export type WsMessage = z.infer<typeof messageSchema>;
+
+export function validateMessageSize(raw: string): { valid: boolean; error?: string } {
+  const byteSize = Buffer.byteLength(raw, 'utf8');
+  if (byteSize > MAX_MESSAGE_BYTES) {
+    return {
+      valid: false,
+      error: `Message too large (${byteSize} bytes, max ${MAX_MESSAGE_BYTES})`,
+    };
+  }
+  return { valid: true };
+}

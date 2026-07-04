@@ -6,8 +6,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.resolve(__dirname, '../../../.env');
 config({ path: envPath });
 
+import * as Sentry from '@sentry/node';
 import { createLogger } from '@dripl/utils/logger';
 export const logger = createLogger('ws-server');
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+  });
+}
 
 const REQUIRED_ENV = [
   'DATABASE_URL',
@@ -42,9 +50,9 @@ if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { DriplElement } from '@dripl/common';
-import { pickUserColor, DriplElementSchema } from '@dripl/common';
+import { pickUserColor, DriplElementSchema, MAX_ELEMENTS_PER_ROOM } from '@dripl/common';
 import { initializeDb, db } from '@dripl/db';
-import { messageSchema } from './validation';
+import { messageSchema, validateMessageSize } from './validation';
 import type { UserConnection } from './types';
 import {
   applyElementToYjs,
@@ -262,6 +270,12 @@ wss.on('connection', async (ws, req) => {
 
     const messageStr = raw.toString();
 
+    const sizeCheck = validateMessageSize(messageStr);
+    if (!sizeCheck.valid) {
+      send(ws, { type: 'error', message: sizeCheck.error! });
+      return;
+    }
+
     let parsed: unknown;
     try {
       parsed = JSON.parse(messageStr);
@@ -388,6 +402,11 @@ wss.on('connection', async (ws, req) => {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
+        const existingElement = room.elements.get(message.element.id);
+        if (!existingElement && room.elements.size >= MAX_ELEMENTS_PER_ROOM) {
+          send(ws, { type: 'error', message: `Room is at capacity (${MAX_ELEMENTS_PER_ROOM} elements max)` });
+          break;
+        }
         try {
           const element = toDriplElement(message.element);
           const existing = room.elements.get(element.id);
@@ -459,6 +478,20 @@ wss.on('connection', async (ws, req) => {
           break;
         }
 
+        // Dedup check
+        const sceneUpdateMsgId = 'clientMsgId' in message ? (message as { clientMsgId?: string }).clientMsgId : undefined;
+        if (sceneUpdateMsgId) {
+          if (room.recentMsgIds.has(sceneUpdateMsgId)) {
+            send(ws, { type: 'pong', timestamp: Date.now() });
+            break;
+          }
+          room.recentMsgIds.add(sceneUpdateMsgId);
+          if (room.recentMsgIds.size > 500) {
+            const first = room.recentMsgIds.values().next().value;
+            if (first !== undefined) room.recentMsgIds.delete(first);
+          }
+        }
+
         const acceptedElements: DriplElement[] = [];
         const incomingIds = new Set<string>();
         for (const rawEl of message.elements) {
@@ -513,6 +546,22 @@ wss.on('connection', async (ws, req) => {
         if (!currentRoomId) break;
         const room = rooms.get(currentRoomId);
         if (!room) break;
+
+        // Dedup check
+        const clientMsgId = 'clientMsgId' in message ? (message as { clientMsgId?: string }).clientMsgId : undefined;
+        if (clientMsgId) {
+          if (room.recentMsgIds.has(clientMsgId)) {
+            // Already processed, ack silently
+            send(ws, { type: 'pong', timestamp: Date.now() });
+            break;
+          }
+          room.recentMsgIds.add(clientMsgId);
+          // Evict old entries (keep last 500)
+          if (room.recentMsgIds.size > 500) {
+            const first = room.recentMsgIds.values().next().value;
+            if (first !== undefined) room.recentMsgIds.delete(first);
+          }
+        }
 
         const acceptedAdded: unknown[] = [];
         const acceptedUpdated: unknown[] = [];
@@ -678,13 +727,114 @@ wss.on('connection', async (ws, req) => {
         break;
       }
 
+      case 'element-lock': {
+        if (!currentRoomId || !currentUserId) break;
+        const room = rooms.get(currentRoomId);
+        if (!room) break;
+        const existingLock = room.elementLocks.get(message.elementId);
+        if (existingLock && existingLock.userId !== currentUserId) {
+          send(ws, { type: 'error', message: 'Element is locked by another user' });
+          break;
+        }
+        room.elementLocks.set(message.elementId, {
+          userId: currentUserId,
+          lastHeartbeat: Date.now(),
+        });
+        broadcast(room, {
+          type: 'element-lock',
+          elementId: message.elementId,
+          userId: currentUserId,
+        }, currentUserId);
+        break;
+      }
+
+      case 'element-unlock': {
+        if (!currentRoomId || !currentUserId) break;
+        const room = rooms.get(currentRoomId);
+        if (!room) break;
+        const lock = room.elementLocks.get(message.elementId);
+        if (lock && lock.userId === currentUserId) {
+          room.elementLocks.delete(message.elementId);
+          broadcast(room, {
+            type: 'element-unlock',
+            elementId: message.elementId,
+            userId: currentUserId,
+          }, currentUserId);
+        }
+        break;
+      }
+
+      case 'element-lock-heartbeat': {
+        if (!currentRoomId || !currentUserId) break;
+        const room = rooms.get(currentRoomId);
+        if (!room) break;
+        const lock = room.elementLocks.get(message.elementId);
+        if (lock && lock.userId === currentUserId) {
+          lock.lastHeartbeat = Date.now();
+        }
+        break;
+      }
+
       case 'ping': {
         send(ws, { type: 'pong', timestamp: Date.now() });
+        break;
+      }
+
+      case 'viewport-update': {
+        if (!currentRoomId || !currentUserId) break;
+        const room = rooms.get(currentRoomId);
+        if (!room) break;
+        room.viewports.set(currentUserId, {
+          panX: message.panX,
+          panY: message.panY,
+          zoom: message.zoom,
+        });
+        // Broadcast only to followers of this user
+        for (const [followerId, leaderId] of room.following) {
+          if (leaderId === currentUserId && followerId !== currentUserId) {
+            const follower = room.users.get(followerId);
+            if (follower) {
+              send(follower.ws, {
+                type: 'viewport-update',
+                userId: currentUserId,
+                panX: message.panX,
+                panY: message.panY,
+                zoom: message.zoom,
+              });
+            }
+          }
+        }
+        break;
+      }
+
+      case 'follow-user': {
+        if (!currentRoomId || !currentUserId) break;
+        const room = rooms.get(currentRoomId);
+        if (!room) break;
+        room.following.set(currentUserId, message.targetUserId);
+        // Send current viewport of target to follower
+        const targetViewport = room.viewports.get(message.targetUserId);
+        if (targetViewport) {
+          send(ws, {
+            type: 'viewport-update',
+            userId: message.targetUserId,
+            ...targetViewport,
+          });
+        }
+        break;
+      }
+
+      case 'unfollow-user': {
+        if (!currentRoomId || !currentUserId) break;
+        const room = rooms.get(currentRoomId);
+        if (!room) break;
+        room.following.delete(currentUserId);
         break;
       }
     }
     } catch (err) {
       logger.error({ event: 'ws_message_handler_error', err });
+      Sentry.captureException(err);
     }
   });
 
@@ -696,6 +846,14 @@ wss.on('connection', async (ws, req) => {
 
     room.users.delete(currentUserId);
     room.cursors.delete(currentUserId);
+    room.following.delete(currentUserId);
+    room.viewports.delete(currentUserId);
+    // Remove this user as a leader from anyone following them
+    for (const [followerId, leaderId] of room.following) {
+      if (leaderId === currentUserId) {
+        room.following.delete(followerId);
+      }
+    }
     wsToRoomMap.delete(ws);
     userToRoomMap.delete(currentUserId);
 
@@ -801,6 +959,33 @@ const periodicSave = setInterval(async () => {
   }
 }, PERIODIC_SAVE_INTERVAL_MS);
 
+const LOCK_HEARTBEAT_TIMEOUT_MS = 10_000;
+const LOCK_SWEEP_INTERVAL_MS = 5_000;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [, room] of rooms) {
+    if (room.elementLocks.size === 0) continue;
+    const expiredLocks: string[] = [];
+    for (const [elementId, lock] of room.elementLocks) {
+      if (now - lock.lastHeartbeat > LOCK_HEARTBEAT_TIMEOUT_MS) {
+        expiredLocks.push(elementId);
+      }
+    }
+    for (const elementId of expiredLocks) {
+      const lock = room.elementLocks.get(elementId);
+      room.elementLocks.delete(elementId);
+      if (lock) {
+        broadcast(room, {
+          type: 'element-unlock',
+          elementId,
+          userId: lock.userId,
+        });
+      }
+    }
+  }
+}, LOCK_SWEEP_INTERVAL_MS);
+
 const RECONCILIATION_INTERVAL_MS = 60_000;
 
 const reconciliation = setInterval(async () => {
@@ -845,6 +1030,7 @@ const reconciliation = setInterval(async () => {
       }
     } catch (err) {
       logger.error({ event: 'reconciliation_check_error', roomId, err });
+      Sentry.captureException(err);
     }
   }
 }, RECONCILIATION_INTERVAL_MS);
