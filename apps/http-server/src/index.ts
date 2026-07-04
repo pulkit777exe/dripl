@@ -1,8 +1,10 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
-config({ path: resolve(process.cwd(), '../../.env') });
-config({ path: resolve(process.cwd(), '../../.env.local'), override: true });
+// Load env from repo root regardless of CWD
+const repoRoot = resolve(__dirname, '../../..');
+config({ path: resolve(repoRoot, '.env') });
+config({ path: resolve(repoRoot, '.env.local'), override: true });
 
 import { createLogger } from '@dripl/utils/logger';
 const logger = createLogger('http-server');
@@ -45,7 +47,7 @@ import { initializeDb } from '@dripl/db';
 import { createApp } from './app';
 
 const app = createApp();
-const port = Number(process.env.HTTP_PORT) || 3001;
+const port = Number(process.env.PORT || process.env.HTTP_PORT) || 3001;
 
 async function start() {
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {

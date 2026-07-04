@@ -5,4 +5,3 @@ export { requiredEnv, requiredIntEnv } from './env';
 export { verifyToken, extractBearerToken } from './auth';
 export type { JwtPayload } from './auth';
 export { createLogger } from './logger';
-export { isSafeUrl } from './ssrfGuard';

@@ -7,8 +7,8 @@ const envPath = path.resolve(__dirname, '../../../.env');
 config({ path: envPath });
 
 import * as Sentry from '@sentry/node';
-import { createLogger } from '@dripl/utils/logger';
-export const logger = createLogger('ws-server');
+import { logger } from './logger.js';
+export { logger };
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -149,7 +149,7 @@ function handleRedisMessage(roomId: string, payload: unknown): void {
   }
 }
 
-const WS_PORT = Number(process.env.WS_PORT) || 3002;
+const WS_PORT = Number(process.env.PORT || process.env.WS_PORT) || 3002;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;
 
@@ -279,7 +279,8 @@ wss.on('connection', async (ws, req) => {
     let parsed: unknown;
     try {
       parsed = JSON.parse(messageStr);
-    } catch {
+    } catch (err) {
+      logger.debug({ event: 'invalid_ws_message', reason: 'json_parse_error', error: String(err) });
       return;
     }
 
@@ -421,8 +422,8 @@ wss.on('connection', async (ws, req) => {
           room.dirty = true;
           scheduleSave(currentRoomId);
           publishToRoom(currentRoomId, message);
-        } catch {
-          // Skip invalid element
+        } catch (err) {
+          logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: message.element?.id, error: String(err) });
         }
         break;
       }
@@ -445,8 +446,8 @@ wss.on('connection', async (ws, req) => {
           room.dirty = true;
           scheduleSave(currentRoomId);
           publishToRoom(currentRoomId, message);
-        } catch {
-          // Skip invalid element
+        } catch (err) {
+          logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: message.element?.id, error: String(err) });
         }
         break;
       }
@@ -504,8 +505,8 @@ wss.on('connection', async (ws, req) => {
             }
             room.elements.set(element.id, element);
             acceptedElements.push(element);
-          } catch {
-            // Skip invalid elements
+          } catch (err) {
+            logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: (rawEl as { id?: string })?.id, error: String(err) });
           }
         }
 
@@ -578,8 +579,8 @@ wss.on('connection', async (ws, req) => {
               room.elements.set(element.id, element);
               acceptedAdded.push(element);
               yjsChangedElements.push(element);
-            } catch {
-              // Skip invalid elements
+            } catch (err) {
+              logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: (rawEl as { id?: string })?.id, error: String(err) });
             }
           }
         }
@@ -595,8 +596,8 @@ wss.on('connection', async (ws, req) => {
               room.elements.set(element.id, element);
               acceptedUpdated.push(element);
               yjsChangedElements.push(element);
-            } catch {
-              // Skip invalid elements
+            } catch (err) {
+              logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: (rawEl as { id?: string })?.id, error: String(err) });
             }
           }
         }
@@ -651,8 +652,8 @@ wss.on('connection', async (ws, req) => {
               room.elements.set(element.id, element);
               accepted.push(element);
               yjsElements.push(element);
-            } catch {
-              // Skip invalid element
+            } catch (err) {
+              logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: (rawEl as { id?: string })?.id, error: String(err) });
             }
           }
           if (room.yjs && yjsElements.length > 0) {
@@ -679,8 +680,8 @@ wss.on('connection', async (ws, req) => {
               broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
             }
             broadcast(room, { type: 'element-update', element }, currentUserId ?? undefined);
-          } catch {
-            // Skip invalid element
+          } catch (err) {
+            logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: (rawElement as { id?: string })?.id, error: String(err) });
           }
         }
 
