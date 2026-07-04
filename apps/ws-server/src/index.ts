@@ -79,15 +79,9 @@ import { subscribeToRoom, unsubscribeFromRoom, publishToRoom, isRedisAvailable }
 async function start() {
   try {
     await initializeDb();
-    console.log(JSON.stringify({ level: 'info', event: 'db_connected' }));
+    logger.info({ event: 'db_connected' });
   } catch (err) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'db_connection_failed',
-        error: err instanceof Error ? err.message : String(err),
-      })
-    );
+    logger.error({ event: 'db_connection_failed', err });
     process.exit(1);
   }
 }
@@ -147,7 +141,7 @@ function handleRedisMessage(roomId: string, payload: unknown): void {
   }
 }
 
-const WS_PORT = Number(process.env.WS_PORT) || 3001;
+const WS_PORT = Number(process.env.WS_PORT) || 3002;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;
 
@@ -197,12 +191,12 @@ const wss = new WebSocketServer({
   maxPayload: 10 * 1024 * 1024,
   verifyClient: ({ origin }: { origin: string }, cb: (result: boolean, code?: number, message?: string) => void) => {
     if (!origin) {
-      console.warn(JSON.stringify({ level: 'warn', event: 'ws_origin_rejected', reason: 'no_origin' }));
+      logger.warn({ event: 'ws_origin_rejected', reason: 'no_origin' });
       return cb(false, 403, 'Forbidden');
     }
     const allowed = ALLOWED_ORIGINS.some(o => origin === o);
     if (allowed) return cb(true);
-    console.warn(JSON.stringify({ level: 'warn', event: 'ws_origin_rejected', origin }));
+    logger.warn({ event: 'ws_origin_rejected', origin });
     cb(false, 403, 'Forbidden');
   },
 });
@@ -213,7 +207,7 @@ wss.on('connection', async (ws, req) => {
   const ticket = resolveTicketFromUrl(req.url, req.headers.host);
   if (!ticket) {
     ws.close(4001, 'Authentication required');
-    console.warn(JSON.stringify({ level: 'warn', event: 'ws_auth_rejected', reason: 'no_ticket', url: req.url }));
+    logger.warn({ event: 'ws_auth_rejected', reason: 'no_ticket', url: req.url });
     return;
   }
 
@@ -221,7 +215,7 @@ wss.on('connection', async (ws, req) => {
 
   if (!authUserId) {
     ws.close(4001, 'Authentication required');
-    console.warn(JSON.stringify({ level: 'warn', event: 'ws_auth_rejected', reason: 'invalid_ticket' }));
+    logger.warn({ event: 'ws_auth_rejected', reason: 'invalid_ticket' });
     return;
   }
 
@@ -239,9 +233,7 @@ wss.on('connection', async (ws, req) => {
     try {
     // Rate limit all messages including binary
     if (!(await checkRateLimit(ws))) {
-      console.warn(
-        JSON.stringify({ level: 'warn', event: 'rate_limit_exceeded' })
-      );
+      logger.warn({ event: 'rate_limit_exceeded' });
       ws.close(4000, 'Rate limit exceeded');
       return;
     }
@@ -371,14 +363,7 @@ wss.on('connection', async (ws, req) => {
             saveRoomElements(currentRoomId, room.elements)
               .then(success => {
                 if (!success) {
-                  console.error(
-                    JSON.stringify({
-                      level: 'error',
-                      event: 'leave_save_failure',
-                      roomId: currentRoomId,
-                      timestamp: Date.now(),
-                    })
-                  );
+                  logger.error({ event: 'leave_save_failure', roomId: currentRoomId });
                 }
               })
               .finally(() => {
@@ -696,7 +681,7 @@ wss.on('connection', async (ws, req) => {
       }
     }
     } catch (err) {
-      console.error(JSON.stringify({ level: 'error', event: 'ws_message_handler_error', error: err instanceof Error ? err.message : String(err) }));
+      logger.error({ event: 'ws_message_handler_error', err });
     }
   });
 
@@ -807,14 +792,7 @@ const periodicSave = setInterval(async () => {
     const results = await Promise.allSettled(savePromises);
     for (const result of results) {
       if (result.status === 'fulfilled' && !result.value.success) {
-        console.error(
-          JSON.stringify({
-            level: 'error',
-            event: 'periodic_save_failure',
-            roomId: result.value.roomId,
-            timestamp: Date.now(),
-          })
-        );
+        logger.error({ event: 'periodic_save_failure', roomId: result.value.roomId });
       }
     }
   }
@@ -854,39 +832,16 @@ const reconciliation = setInterval(async () => {
       const addedInDb = [...dbIds].filter(id => !memIds.has(id));
 
       if (addedInMem.length > 0 || addedInDb.length > 0) {
-        console.warn(
-          JSON.stringify({
-            level: 'warn',
-            event: 'state_divergence',
-            roomId,
-            memCount: memIds.size,
-            dbCount: dbIds.size,
-            onlyInMem: addedInMem.length,
-            onlyInDb: addedInDb.length,
-          })
-        );
+        logger.warn({ event: 'state_divergence', roomId, memCount: memIds.size, dbCount: dbIds.size, onlyInMem: addedInMem.length, onlyInDb: addedInDb.length });
         room.saving = true;
         const success = await saveRoomElements(roomId, room.elements);
         room.saving = false;
         if (!success) {
-          console.error(
-            JSON.stringify({
-              level: 'error',
-              event: 'reconciliation_save_failure',
-              roomId,
-            })
-          );
+          logger.error({ event: 'reconciliation_save_failure', roomId });
         }
       }
     } catch (err) {
-      console.error(
-        JSON.stringify({
-          level: 'error',
-          event: 'reconciliation_check_error',
-          roomId,
-          error: err instanceof Error ? err.message : String(err),
-        })
-      );
+      logger.error({ event: 'reconciliation_check_error', roomId, err });
     }
   }
 }, RECONCILIATION_INTERVAL_MS);
@@ -908,14 +863,7 @@ async function shutdown() {
       savePromises.push(
         saveRoomElements(roomId, room.elements).then(success => {
           if (!success) {
-            console.error(
-              JSON.stringify({
-                level: 'error',
-                event: 'shutdown_save_failure',
-                roomId,
-                timestamp: Date.now(),
-              })
-            );
+            logger.error({ event: 'shutdown_save_failure', roomId });
           }
         })
       );
@@ -928,14 +876,7 @@ async function shutdown() {
       savePromises.push(
         saveRoomElements(roomId, room.elements).then(success => {
           if (!success) {
-            console.error(
-              JSON.stringify({
-                level: 'error',
-                event: 'shutdown_save_failure',
-                roomId,
-                timestamp: Date.now(),
-              })
-            );
+            logger.error({ event: 'shutdown_save_failure', roomId });
           }
         })
       );
@@ -945,13 +886,7 @@ async function shutdown() {
   const SHUTDOWN_TIMEOUT_MS = 10_000;
   const timeout = new Promise<void>(resolve => {
     setTimeout(() => {
-      console.error(
-        JSON.stringify({
-          level: 'error',
-          event: 'shutdown_timeout',
-          timestamp: Date.now(),
-        })
-      );
+      logger.error({ event: 'shutdown_timeout' });
       resolve();
     }, SHUTDOWN_TIMEOUT_MS);
   });
@@ -970,6 +905,6 @@ process.on('SIGTERM', () => {
 
 start().then(() => {
   server.listen(WS_PORT, () => {
-    console.log(JSON.stringify({ level: 'info', event: 'websocket_server_started', port: WS_PORT }));
+    logger.info({ event: 'websocket_server_started', port: WS_PORT });
   });
 });
