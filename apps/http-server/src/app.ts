@@ -3,6 +3,7 @@ import compression from 'compression';
 import cors from 'cors';
 import express, { type Application, type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
+import * as Sentry from '@sentry/node';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { validateCsrfToken, generateCsrfToken } from './middlewares/csrfMiddleware';
@@ -14,6 +15,13 @@ import { foldersRouter } from './routes/folders';
 import { shareRouter } from './routes/share';
 import { imagesRouter } from './routes/images';
 import roomRoutes from './routes/roomRoutes';
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+  });
+}
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -139,6 +147,8 @@ export function createApp(): Application {
   app.use('/api/images', validateCsrfToken, authMiddleware, imagesRouter);
 
   app.use('/internal', createInternalRouter());
+
+  Sentry.setupExpressErrorHandler(app);
 
   app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
     console.error(
