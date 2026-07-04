@@ -424,7 +424,7 @@ Chosen over JWT-at-upgrade because:
 | Pino logger                      | `packages/utils/src/logger.ts` (22 lines)                                                    |
 | RoughCanvas is 972 lines         | `wc -l apps/dripl-app/components/canvas/RoughCanvas.tsx` → 972                               |
 | staticScene.ts is 358 lines      | `wc -l packages/element/src/staticScene.ts` → 358                                            |
-| ws-server index.ts is 950 lines  | `wc -l apps/ws-server/src/index.ts` → 950                                                    |
+| ws-server index.ts is 913 lines   | `wc -l apps/ws-server/src/index.ts` → 913                                                    |
 | No @dripl/dripl package          | `ls packages/` → common, db, element, math, test-utils, utils                                |
 | Keepalive cron exists            | `.github/workflows/keepalive.yml` — `*/10 * * * *` schedule                                  |
 
