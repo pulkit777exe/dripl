@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
-import { signToken } from '@dripl/utils/auth';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
@@ -82,21 +81,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?error=auth_failed', request.url));
     }
 
-    const { user } = (await authResponse.json()) as { user: { id: string } };
+    await authResponse.json();
 
-    // Sign a session token for the dripl-app domain
-    const sessionToken = signToken(user.id);
+    const redirectUrl = new URL('/dashboard', request.url);
+    const response = NextResponse.redirect(redirectUrl);
 
-    // Set session cookie on dripl-app's domain (same-site, works immediately)
-    cookieStore.set('dripl-session', sessionToken, {
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-      path: '/',
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-    });
+    // Forward the Set-Cookie header from http-server so the browser stores the
+    // session cookie on the http-server domain (required for cross-origin API calls)
+    const setCookie = authResponse.headers.get('set-cookie');
+    if (setCookie) {
+      response.headers.set('set-cookie', setCookie);
+    }
 
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return response;
   } catch (err) {
     // eslint-disable-next-line no-console -- OAuth debug logging
     console.error(
