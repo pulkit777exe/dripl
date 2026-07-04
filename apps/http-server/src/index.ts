@@ -1,67 +1,23 @@
-import { config } from 'dotenv';
-import { resolve } from 'path';
-
-// Load env from repo root regardless of CWD
-const repoRoot = resolve(__dirname, '../../..');
-config({ path: resolve(repoRoot, '.env') });
-config({ path: resolve(repoRoot, '.env.local'), override: true });
-
 import { createLogger } from '@dripl/utils/logger';
+import { env } from './env.js';
+
 const logger = createLogger('http-server');
-
-const REQUIRED_ENV = [
-  'DATABASE_URL',
-  'JWT_SECRET',
-  'HTTP_PORT',
-  'UPSTASH_REDIS_REST_URL',
-  'UPSTASH_REDIS_REST_TOKEN',
-] as const;
-
-for (const key of REQUIRED_ENV) {
-  if (!process.env[key]) {
-    console.error(`FATAL: Missing required env var: ${key}`);
-    process.exit(1);
-  }
-}
-
-if (process.env.NODE_ENV === 'production') {
-  if (!process.env.INTERNAL_SECRET) {
-    console.error('FATAL: Missing required env var: INTERNAL_SECRET');
-    process.exit(1);
-  }
-  if (!process.env.FRONTEND_URL && !process.env.NEXT_PUBLIC_APP_URL) {
-    console.error('FATAL: Missing required env var: FRONTEND_URL (or NEXT_PUBLIC_APP_URL) — needed for CORS and Google OAuth');
-    process.exit(1);
-  }
-}
-if (!process.env.INTERNAL_SECRET) {
-  console.warn('WARN: INTERNAL_SECRET not set — internal endpoints will reject all requests');
-}
-
-if (process.env.JWT_SECRET && process.env.INTERNAL_SECRET && process.env.JWT_SECRET === process.env.INTERNAL_SECRET) {
-  console.error('FATAL: JWT_SECRET and INTERNAL_SECRET must be different values');
-  process.exit(1);
-}
 
 import { initializeDb } from '@dripl/db';
 import { createApp } from './app';
 
 const app = createApp();
-const port = Number(process.env.PORT || process.env.HTTP_PORT) || 3001;
+const port = Number(process.env.PORT || env.HTTP_PORT) || 3002;
 
 async function start() {
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-    console.error(
-      JSON.stringify({ level: 'error', event: 'missing_env', error: 'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required' }),
-    );
-    process.exit(1);
-  }
-
   try {
     await initializeDb();
     logger.info({ event: 'db_connected' });
   } catch (err: unknown) {
-    logger.error({ event: 'db_connection_failed', error: err instanceof Error ? err.message : String(err) });
+    logger.error({
+      event: 'db_connection_failed',
+      error: err instanceof Error ? err.message : String(err),
+    });
     process.exit(1);
   }
 
@@ -76,7 +32,10 @@ async function start() {
       });
       logger.info({ event: 'expired_links_cleaned', count: result.count });
     } catch (err) {
-      logger.error({ event: 'cleanup_failed', error: err instanceof Error ? err.message : String(err) });
+      logger.error({
+        event: 'cleanup_failed',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }, CLEANUP_INTERVAL_MS);
 

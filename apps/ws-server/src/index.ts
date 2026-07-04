@@ -1,50 +1,14 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { config } from 'dotenv';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const envPath = path.resolve(__dirname, '../../../.env');
-config({ path: envPath });
+import { env } from './env.js';
 
 import * as Sentry from '@sentry/node';
 import { logger } from './logger.js';
 export { logger };
 
-if (process.env.SENTRY_DSN) {
+if (env.SENTRY_DSN) {
   Sentry.init({
-    dsn: process.env.SENTRY_DSN,
+    dsn: env.SENTRY_DSN,
     environment: process.env.NODE_ENV || 'development',
   });
-}
-
-const REQUIRED_ENV = [
-  'DATABASE_URL',
-  'JWT_SECRET',
-  'HTTP_SERVER_URL',
-] as const;
-
-for (const key of REQUIRED_ENV) {
-  if (!process.env[key]) {
-    console.error(`FATAL: Missing required env var: ${key}`);
-    process.exit(1);
-  }
-}
-
-if (process.env.NODE_ENV === 'production' && !process.env.INTERNAL_SECRET) {
-  console.error('FATAL: Missing required env var: INTERNAL_SECRET');
-  process.exit(1);
-}
-if (!process.env.INTERNAL_SECRET) {
-  console.warn('WARN: INTERNAL_SECRET not set — ticket validation will reject all connections');
-}
-
-if (process.env.JWT_SECRET && process.env.INTERNAL_SECRET && process.env.JWT_SECRET === process.env.INTERNAL_SECRET) {
-  console.error('FATAL: JWT_SECRET and INTERNAL_SECRET must be different values');
-  process.exit(1);
-}
-
-if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-  console.warn('WARN: Redis not configured — multi-instance sync disabled, rate limiter using in-memory fallback');
 }
 
 import { createServer } from 'http';
@@ -105,7 +69,11 @@ function toDriplElement(el: unknown): DriplElement {
 const YJS_MSG_UPDATE = 1;
 const YJS_MSG_SYNC = 2;
 
-function broadcastYjsUpdate(room: { users: Map<string, UserConnection> }, yjsUpdate: Uint8Array, exceptUserId?: string): void {
+function broadcastYjsUpdate(
+  room: { users: Map<string, UserConnection> },
+  yjsUpdate: Uint8Array,
+  exceptUserId?: string
+): void {
   const packet = new Uint8Array(1 + yjsUpdate.length);
   packet[0] = YJS_MSG_UPDATE;
   packet.set(yjsUpdate, 1);
@@ -130,7 +98,21 @@ function handleRedisMessage(roomId: string, payload: unknown): void {
   const room = rooms.get(roomId);
   if (!room) return;
 
-  const msg = payload as { type: string; elements?: DriplElement[]; added?: DriplElement[]; updated?: DriplElement[]; deleted?: string[]; elementId?: string; element?: DriplElement; x?: number; y?: number; userId?: string; userName?: string; displayName?: string; color?: string };
+  const msg = payload as {
+    type: string;
+    elements?: DriplElement[];
+    added?: DriplElement[];
+    updated?: DriplElement[];
+    deleted?: string[];
+    elementId?: string;
+    element?: DriplElement;
+    x?: number;
+    y?: number;
+    userId?: string;
+    userName?: string;
+    displayName?: string;
+    color?: string;
+  };
 
   switch (msg.type) {
     case 'add_element':
@@ -149,7 +131,7 @@ function handleRedisMessage(roomId: string, payload: unknown): void {
   }
 }
 
-const WS_PORT = Number(process.env.PORT || process.env.WS_PORT) || 3002;
+const WS_PORT = Number(process.env.PORT || env.WS_PORT) || 3001;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;
 
@@ -158,12 +140,14 @@ const server = createServer(async (req, res) => {
     try {
       await db.$queryRaw`SELECT 1`;
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        status: 'ok',
-        uptime: process.uptime(),
-        memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        ts: Date.now(),
-      }));
+      res.end(
+        JSON.stringify({
+          status: 'ok',
+          uptime: process.uptime(),
+          memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+          ts: Date.now(),
+        })
+      );
     } catch {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'error', message: 'Database unreachable', ts: Date.now() }));
@@ -189,9 +173,9 @@ const server = createServer(async (req, res) => {
   }
 });
 
-const ALLOWED_ORIGINS = [
-  process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL,
-].filter(Boolean) as string[];
+const ALLOWED_ORIGINS = [env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL].filter(
+  Boolean
+) as string[];
 
 if (process.env.NODE_ENV !== 'production') {
   ALLOWED_ORIGINS.push('http://localhost:3000');
@@ -200,7 +184,10 @@ if (process.env.NODE_ENV !== 'production') {
 const wss = new WebSocketServer({
   server,
   maxPayload: 10 * 1024 * 1024,
-  verifyClient: ({ origin }: { origin: string }, cb: (result: boolean, code?: number, message?: string) => void) => {
+  verifyClient: (
+    { origin }: { origin: string },
+    cb: (result: boolean, code?: number, message?: string) => void
+  ) => {
     if (!origin) {
       logger.warn({ event: 'ws_origin_rejected', reason: 'no_origin' });
       return cb(false, 403, 'Forbidden');
@@ -242,597 +229,681 @@ wss.on('connection', async (ws, req) => {
 
   ws.on('message', async (raw: Buffer) => {
     try {
-    // Rate limit all messages including binary
-    if (!(await checkRateLimit(ws))) {
-      logger.warn({ event: 'rate_limit_exceeded' });
-      ws.close(4000, 'Rate limit exceeded');
-      return;
-    }
-
-    // Handle binary Yjs messages
-    if (raw instanceof Buffer && raw.length > 0 && raw[0] === YJS_MSG_UPDATE) {
-      if (!currentRoomId) return;
-      const room = rooms.get(currentRoomId);
-      if (!room?.yjs) return;
-      const yjsUpdate = raw.slice(1);
-      applyYjsUpdate(room.yjs, yjsUpdate);
-      // Sync Yjs state back to the legacy elements Map
-      const yjsElements = getElementsFromYjs(room.yjs);
-      room.elements.clear();
-      for (const el of yjsElements) {
-        room.elements.set(el.id, el);
-      }
-      broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-      room.dirty = true;
-      scheduleSave(currentRoomId);
-      return;
-    }
-
-    const messageStr = raw.toString();
-
-    const sizeCheck = validateMessageSize(messageStr);
-    if (!sizeCheck.valid) {
-      send(ws, { type: 'error', message: sizeCheck.error! });
-      return;
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(messageStr);
-    } catch (err) {
-      logger.debug({ event: 'invalid_ws_message', reason: 'json_parse_error', error: String(err) });
-      return;
-    }
-
-    const validation = messageSchema.safeParse(parsed);
-    if (!validation.success) {
-      return;
-    }
-
-    const message = validation.data;
-
-    switch (message.type) {
-      case 'join_room':
-      case 'join': {
-        const roomId = message.roomId;
-        const room = getOrCreateRoom(roomId);
-
-        if (!room.loadedFromDb) {
-          room.elements = await loadRoomElements(roomId);
-          room.loadedFromDb = true;
-        }
-
-        const requestedName = message.type === 'join' ? message.displayName : message.userName;
-        const requestedColor = message.type === 'join' ? message.color : undefined;
-
-        const userId = authUserId;
-        const displayName = requestedName || `User-${userId.slice(0, 4)}`;
-        const color = requestedColor || pickUserColor();
-
-        currentRoomId = roomId;
-        currentUserId = userId;
-        wsToRoomMap.set(ws, roomId);
-        userToRoomMap.set(userId, roomId);
-
-        const connection: UserConnection = {
-          userId,
-          displayName,
-          color,
-          ws,
-          isAlive: true,
-        };
-        room.users.set(userId, connection);
-        (ws as WebSocket & { __user?: UserConnection }).__user = connection;
-
-        send(ws, {
-          type: 'sync_room_state',
-          roomId,
-          elements: Array.from(room.elements.values()),
-          users: roomUsersPayload(room),
-          cursors: roomCursorsPayload(room),
-          yourUserId: userId,
-          timestamp: Date.now(),
-        });
-
-        broadcast(room, {
-          type: 'user-join',
-          roomId,
-          userId,
-          userName: displayName,
-          displayName,
-          color,
-          timestamp: Date.now(),
-        }, userId);
-
-        // Send Yjs sync state to the new client
-        if (room.yjs) {
-          const stateVector = getStateVector(room.yjs);
-          const yjsState = encodeYjsDoc(room.yjs);
-          sendYjsSync(ws, stateVector, yjsState);
-        }
-
-        if (isRedisAvailable()) {
-          subscribeToRoom(roomId, (payload) => handleRedisMessage(roomId, payload));
-        }
-        break;
+      // Rate limit all messages including binary
+      if (!(await checkRateLimit(ws))) {
+        logger.warn({ event: 'rate_limit_exceeded' });
+        ws.close(4000, 'Rate limit exceeded');
+        return;
       }
 
-      case 'leave_room':
-      case 'leave': {
-        if (!currentRoomId || !currentUserId) break;
+      // Handle binary Yjs messages
+      if (raw instanceof Buffer && raw.length > 0 && raw[0] === YJS_MSG_UPDATE) {
+        if (!currentRoomId) return;
         const room = rooms.get(currentRoomId);
-        if (!room) break;
+        if (!room?.yjs) return;
+        const yjsUpdate = raw.slice(1);
+        applyYjsUpdate(room.yjs, yjsUpdate);
+        // Sync Yjs state back to the legacy elements Map
+        const yjsElements = getElementsFromYjs(room.yjs);
+        room.elements.clear();
+        for (const el of yjsElements) {
+          room.elements.set(el.id, el);
+        }
+        broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+        room.dirty = true;
+        scheduleSave(currentRoomId);
+        return;
+      }
 
-        room.users.delete(currentUserId);
-        room.cursors.delete(currentUserId);
-        wsToRoomMap.delete(ws);
-        userToRoomMap.delete(currentUserId);
+      const messageStr = raw.toString();
 
-        broadcast(room, {
-          type: 'user-leave',
-          roomId: currentRoomId,
-          userId: currentUserId,
-          timestamp: Date.now(),
+      const sizeCheck = validateMessageSize(messageStr);
+      if (!sizeCheck.valid) {
+        send(ws, { type: 'error', message: sizeCheck.error! });
+        return;
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(messageStr);
+      } catch (err) {
+        logger.debug({
+          event: 'invalid_ws_message',
+          reason: 'json_parse_error',
+          error: String(err),
         });
+        return;
+      }
 
-        if (room.users.size === 0) {
-          if (room.elements.size > 0 && !room.saving) {
-            room.saving = true;
-            saveRoomElements(currentRoomId, room.elements)
-              .then(success => {
-                if (!success) {
-                  logger.error({ event: 'leave_save_failure', roomId: currentRoomId });
-                }
-              })
-              .finally(() => {
-                room.saving = false;
-              });
+      const validation = messageSchema.safeParse(parsed);
+      if (!validation.success) {
+        return;
+      }
+
+      const message = validation.data;
+
+      switch (message.type) {
+        case 'join_room':
+        case 'join': {
+          const roomId = message.roomId;
+          const room = getOrCreateRoom(roomId);
+
+          if (!room.loadedFromDb) {
+            room.elements = await loadRoomElements(roomId);
+            room.loadedFromDb = true;
           }
-          roomLastEmptyAt.set(currentRoomId, Date.now());
+
+          const requestedName = message.type === 'join' ? message.displayName : message.userName;
+          const requestedColor = message.type === 'join' ? message.color : undefined;
+
+          const userId = authUserId;
+          const displayName = requestedName || `User-${userId.slice(0, 4)}`;
+          const color = requestedColor || pickUserColor();
+
+          currentRoomId = roomId;
+          currentUserId = userId;
+          wsToRoomMap.set(ws, roomId);
+          userToRoomMap.set(userId, roomId);
+
+          const connection: UserConnection = {
+            userId,
+            displayName,
+            color,
+            ws,
+            isAlive: true,
+          };
+          room.users.set(userId, connection);
+          (ws as WebSocket & { __user?: UserConnection }).__user = connection;
+
+          send(ws, {
+            type: 'sync_room_state',
+            roomId,
+            elements: Array.from(room.elements.values()),
+            users: roomUsersPayload(room),
+            cursors: roomCursorsPayload(room),
+            yourUserId: userId,
+            timestamp: Date.now(),
+          });
+
+          broadcast(
+            room,
+            {
+              type: 'user-join',
+              roomId,
+              userId,
+              userName: displayName,
+              displayName,
+              color,
+              timestamp: Date.now(),
+            },
+            userId
+          );
+
+          // Send Yjs sync state to the new client
+          if (room.yjs) {
+            const stateVector = getStateVector(room.yjs);
+            const yjsState = encodeYjsDoc(room.yjs);
+            sendYjsSync(ws, stateVector, yjsState);
+          }
+
           if (isRedisAvailable()) {
-            unsubscribeFromRoom(currentRoomId);
+            subscribeToRoom(roomId, payload => handleRedisMessage(roomId, payload));
           }
-        }
-
-        currentRoomId = null;
-        currentUserId = null;
-        break;
-      }
-
-      case 'add_element': {
-        if (!currentRoomId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-        const existingElement = room.elements.get(message.element.id);
-        if (!existingElement && room.elements.size >= MAX_ELEMENTS_PER_ROOM) {
-          send(ws, { type: 'error', message: `Room is at capacity (${MAX_ELEMENTS_PER_ROOM} elements max)` });
-          break;
-        }
-        try {
-          const element = toDriplElement(message.element);
-          const existing = room.elements.get(element.id);
-          if (existing && (element.version ?? 0) <= (existing.version ?? 0)) break;
-          room.elements.set(element.id, element);
-          if (room.yjs) {
-            applyElementToYjs(room.yjs, element);
-            const yjsUpdate = getYjsUpdate(room.yjs);
-            broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-          }
-          broadcast(room, message, currentUserId ?? undefined);
-          room.dirty = true;
-          scheduleSave(currentRoomId);
-          publishToRoom(currentRoomId, message);
-        } catch (err) {
-          logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: message.element?.id, error: String(err) });
-        }
-        break;
-      }
-
-      case 'update_element': {
-        if (!currentRoomId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-        try {
-          const element = toDriplElement(message.element);
-          const existing = room.elements.get(element.id);
-          if (existing && (element.version ?? 0) < (existing.version ?? 0)) break;
-          room.elements.set(element.id, element);
-          if (room.yjs) {
-            applyElementToYjs(room.yjs, element);
-            const yjsUpdate = getYjsUpdate(room.yjs);
-            broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-          }
-          broadcast(room, message, currentUserId ?? undefined);
-          room.dirty = true;
-          scheduleSave(currentRoomId);
-          publishToRoom(currentRoomId, message);
-        } catch (err) {
-          logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: message.element?.id, error: String(err) });
-        }
-        break;
-      }
-
-      case 'delete_element': {
-        if (!currentRoomId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-        room.elements.delete(message.elementId);
-        if (room.yjs) {
-          deleteElementFromYjs(room.yjs, message.elementId);
-          const yjsUpdate = getYjsUpdate(room.yjs);
-          broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-        }
-        broadcast(room, message, currentUserId ?? undefined);
-        room.dirty = true;
-        scheduleSave(currentRoomId);
-        publishToRoom(currentRoomId, message);
-        break;
-      }
-
-      case 'scene-update': {
-        if (!currentRoomId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-        if (!Array.isArray(message.elements)) break;
-        if (message.elements.length > MAX_ELEMENTS_PER_SCENE) {
-          send(ws, { type: 'error', message: `Too many elements (max ${MAX_ELEMENTS_PER_SCENE})` });
           break;
         }
 
-        // Dedup check
-        const sceneUpdateMsgId = 'clientMsgId' in message ? (message as { clientMsgId?: string }).clientMsgId : undefined;
-        if (sceneUpdateMsgId) {
-          if (room.recentMsgIds.has(sceneUpdateMsgId)) {
-            send(ws, { type: 'pong', timestamp: Date.now() });
+        case 'leave_room':
+        case 'leave': {
+          if (!currentRoomId || !currentUserId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+
+          room.users.delete(currentUserId);
+          room.cursors.delete(currentUserId);
+          wsToRoomMap.delete(ws);
+          userToRoomMap.delete(currentUserId);
+
+          broadcast(room, {
+            type: 'user-leave',
+            roomId: currentRoomId,
+            userId: currentUserId,
+            timestamp: Date.now(),
+          });
+
+          if (room.users.size === 0) {
+            if (room.elements.size > 0 && !room.saving) {
+              room.saving = true;
+              saveRoomElements(currentRoomId, room.elements)
+                .then(success => {
+                  if (!success) {
+                    logger.error({ event: 'leave_save_failure', roomId: currentRoomId });
+                  }
+                })
+                .finally(() => {
+                  room.saving = false;
+                });
+            }
+            roomLastEmptyAt.set(currentRoomId, Date.now());
+            if (isRedisAvailable()) {
+              unsubscribeFromRoom(currentRoomId);
+            }
+          }
+
+          currentRoomId = null;
+          currentUserId = null;
+          break;
+        }
+
+        case 'add_element': {
+          if (!currentRoomId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+          const existingElement = room.elements.get(message.element.id);
+          if (!existingElement && room.elements.size >= MAX_ELEMENTS_PER_ROOM) {
+            send(ws, {
+              type: 'error',
+              message: `Room is at capacity (${MAX_ELEMENTS_PER_ROOM} elements max)`,
+            });
             break;
           }
-          room.recentMsgIds.add(sceneUpdateMsgId);
-          if (room.recentMsgIds.size > 500) {
-            const first = room.recentMsgIds.values().next().value;
-            if (first !== undefined) room.recentMsgIds.delete(first);
-          }
-        }
-
-        const acceptedElements: DriplElement[] = [];
-        const incomingIds = new Set<string>();
-        for (const rawEl of message.elements) {
           try {
-            const element = toDriplElement(rawEl);
-            incomingIds.add(element.id);
+            const element = toDriplElement(message.element);
             const existing = room.elements.get(element.id);
-            if (existing && (element.version ?? 0) <= (existing.version ?? 0)) {
-              continue;
-            }
-            room.elements.set(element.id, element);
-            acceptedElements.push(element);
-          } catch (err) {
-            logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: (rawEl as { id?: string })?.id, error: String(err) });
-          }
-        }
-
-        // Remove elements not in the incoming set (full state replacement)
-        if (message.subtype === 'init') {
-          const toRemove: string[] = [];
-          for (const [id] of room.elements) {
-            if (!incomingIds.has(id)) {
-              toRemove.push(id);
-            }
-          }
-          for (const id of toRemove) {
-            room.elements.delete(id);
-          }
-          if (room.yjs && toRemove.length > 0) {
-            deleteElementsFromYjs(room.yjs, toRemove);
-          }
-        }
-
-        if (room.yjs && acceptedElements.length > 0) {
-          applyElementsToYjs(room.yjs, acceptedElements);
-          const yjsUpdate = getYjsUpdate(room.yjs);
-          broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-        }
-
-        broadcast(room, {
-          type: 'scene-update',
-          subtype: message.subtype,
-          elements: acceptedElements,
-        }, currentUserId ?? undefined);
-        room.dirty = true;
-        scheduleSave(currentRoomId);
-        publishToRoom(currentRoomId, { type: 'scene-update', subtype: message.subtype, elements: acceptedElements });
-        break;
-      }
-
-      case 'scene-delta': {
-        if (!currentRoomId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-
-        // Dedup check
-        const clientMsgId = 'clientMsgId' in message ? (message as { clientMsgId?: string }).clientMsgId : undefined;
-        if (clientMsgId) {
-          if (room.recentMsgIds.has(clientMsgId)) {
-            // Already processed, ack silently
-            send(ws, { type: 'pong', timestamp: Date.now() });
-            break;
-          }
-          room.recentMsgIds.add(clientMsgId);
-          // Evict old entries (keep last 500)
-          if (room.recentMsgIds.size > 500) {
-            const first = room.recentMsgIds.values().next().value;
-            if (first !== undefined) room.recentMsgIds.delete(first);
-          }
-        }
-
-        const acceptedAdded: unknown[] = [];
-        const acceptedUpdated: unknown[] = [];
-        const yjsChangedElements: DriplElement[] = [];
-
-        if (message.added && Array.isArray(message.added)) {
-          for (const rawEl of message.added) {
-            try {
-              const element = toDriplElement(rawEl);
-              const existing = room.elements.get(element.id);
-              if (existing && (element.version ?? 0) <= (existing.version ?? 0)) {
-                continue;
-              }
-              room.elements.set(element.id, element);
-              acceptedAdded.push(element);
-              yjsChangedElements.push(element);
-            } catch (err) {
-              logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: (rawEl as { id?: string })?.id, error: String(err) });
-            }
-          }
-        }
-
-        if (message.updated && Array.isArray(message.updated)) {
-          for (const rawEl of message.updated) {
-            try {
-              const element = toDriplElement(rawEl);
-              const existing = room.elements.get(element.id);
-              if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
-                continue;
-              }
-              room.elements.set(element.id, element);
-              acceptedUpdated.push(element);
-              yjsChangedElements.push(element);
-            } catch (err) {
-              logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: (rawEl as { id?: string })?.id, error: String(err) });
-            }
-          }
-        }
-
-        if (message.deleted && Array.isArray(message.deleted)) {
-          for (const id of message.deleted) {
-            room.elements.delete(id);
-          }
-          if (room.yjs) {
-            deleteElementsFromYjs(room.yjs, message.deleted);
-          }
-        }
-
-        if (room.yjs && yjsChangedElements.length > 0) {
-          applyElementsToYjs(room.yjs, yjsChangedElements);
-        }
-
-        if (room.yjs && yjsChangedElements.length > 0) {
-          const yjsUpdate = getYjsUpdate(room.yjs);
-          broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-        }
-
-        const filteredDelta: Record<string, unknown> = { type: 'scene-delta' };
-        if (acceptedAdded.length > 0) filteredDelta.added = acceptedAdded;
-        if (acceptedUpdated.length > 0) filteredDelta.updated = acceptedUpdated;
-        if (message.deleted && Array.isArray(message.deleted) && message.deleted.length > 0) {
-          filteredDelta.deleted = message.deleted;
-        }
-
-        broadcast(room, filteredDelta, currentUserId ?? undefined);
-        room.dirty = true;
-        scheduleSave(currentRoomId);
-        publishToRoom(currentRoomId, filteredDelta);
-        break;
-      }
-
-      case 'element-update': {
-        if (!currentRoomId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-
-        if (Array.isArray(message.elements)) {
-          const accepted: unknown[] = [];
-          const yjsElements: DriplElement[] = [];
-          for (const rawEl of message.elements) {
-            try {
-              const element = toDriplElement(rawEl);
-              const existing = room.elements.get(element.id);
-              if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
-                continue;
-              }
-              room.elements.set(element.id, element);
-              accepted.push(element);
-              yjsElements.push(element);
-            } catch (err) {
-              logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: (rawEl as { id?: string })?.id, error: String(err) });
-            }
-          }
-          if (room.yjs && yjsElements.length > 0) {
-            applyElementsToYjs(room.yjs, yjsElements);
-            const yjsUpdate = getYjsUpdate(room.yjs);
-            broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-          }
-          if (accepted.length > 0) {
-            broadcast(room, { type: 'element-update', elements: accepted }, currentUserId ?? undefined);
-          }
-        } else {
-          const rawElement = message.element;
-          if (!rawElement) break;
-          try {
-            const element = toDriplElement(rawElement);
-            const existing = room.elements.get(element.id);
-            if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
-              break;
-            }
+            if (existing && (element.version ?? 0) <= (existing.version ?? 0)) break;
             room.elements.set(element.id, element);
             if (room.yjs) {
               applyElementToYjs(room.yjs, element);
               const yjsUpdate = getYjsUpdate(room.yjs);
               broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
             }
-            broadcast(room, { type: 'element-update', element }, currentUserId ?? undefined);
+            broadcast(room, message, currentUserId ?? undefined);
+            room.dirty = true;
+            scheduleSave(currentRoomId);
+            publishToRoom(currentRoomId, message);
           } catch (err) {
-            logger.debug({ event: 'invalid_element', roomId: currentRoomId, elementId: (rawElement as { id?: string })?.id, error: String(err) });
+            logger.debug({
+              event: 'invalid_element',
+              roomId: currentRoomId,
+              elementId: message.element?.id,
+              error: String(err),
+            });
           }
-        }
-
-        room.dirty = true;
-        scheduleSave(currentRoomId);
-        publishToRoom(currentRoomId, { type: 'element-update', elements: Array.isArray(message.elements) ? message.elements : undefined, element: !Array.isArray(message.elements) ? message.element : undefined });
-        break;
-      }
-
-      case 'cursor_move':
-      case 'cursor-move': {
-        if (!currentRoomId || !currentUserId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-
-        room.cursors.set(currentUserId, { x: message.x, y: message.y });
-        const user = room.users.get(currentUserId);
-        const displayName = message.type === 'cursor-move' ? message.displayName : message.userName;
-
-        // Update Yjs awareness
-        if (room.yjs) {
-          room.yjs.awareness.setLocalStateField('cursor', {
-            x: message.x,
-            y: message.y,
-          });
-          room.yjs.awareness.setLocalStateField('user', {
-            id: currentUserId,
-            name: displayName ?? user?.displayName ?? 'Unknown',
-            color: message.color ?? user?.color ?? '#000000',
-          });
-        }
-
-        broadcast(room, {
-          type: 'cursor_move',
-          roomId: currentRoomId,
-          userId: currentUserId,
-          x: message.x,
-          y: message.y,
-          userName: displayName ?? user?.displayName ?? 'Unknown',
-          displayName: displayName ?? user?.displayName ?? 'Unknown',
-          color: message.color ?? user?.color ?? '#000000',
-          timestamp: Date.now(),
-        }, currentUserId);
-        break;
-      }
-
-      case 'element-lock': {
-        if (!currentRoomId || !currentUserId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-        const existingLock = room.elementLocks.get(message.elementId);
-        if (existingLock && existingLock.userId !== currentUserId) {
-          send(ws, { type: 'error', message: 'Element is locked by another user' });
           break;
         }
-        room.elementLocks.set(message.elementId, {
-          userId: currentUserId,
-          lastHeartbeat: Date.now(),
-        });
-        broadcast(room, {
-          type: 'element-lock',
-          elementId: message.elementId,
-          userId: currentUserId,
-        }, currentUserId);
-        break;
-      }
 
-      case 'element-unlock': {
-        if (!currentRoomId || !currentUserId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-        const lock = room.elementLocks.get(message.elementId);
-        if (lock && lock.userId === currentUserId) {
-          room.elementLocks.delete(message.elementId);
-          broadcast(room, {
-            type: 'element-unlock',
-            elementId: message.elementId,
-            userId: currentUserId,
-          }, currentUserId);
+        case 'update_element': {
+          if (!currentRoomId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+          try {
+            const element = toDriplElement(message.element);
+            const existing = room.elements.get(element.id);
+            if (existing && (element.version ?? 0) < (existing.version ?? 0)) break;
+            room.elements.set(element.id, element);
+            if (room.yjs) {
+              applyElementToYjs(room.yjs, element);
+              const yjsUpdate = getYjsUpdate(room.yjs);
+              broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+            }
+            broadcast(room, message, currentUserId ?? undefined);
+            room.dirty = true;
+            scheduleSave(currentRoomId);
+            publishToRoom(currentRoomId, message);
+          } catch (err) {
+            logger.debug({
+              event: 'invalid_element',
+              roomId: currentRoomId,
+              elementId: message.element?.id,
+              error: String(err),
+            });
+          }
+          break;
         }
-        break;
-      }
 
-      case 'element-lock-heartbeat': {
-        if (!currentRoomId || !currentUserId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-        const lock = room.elementLocks.get(message.elementId);
-        if (lock && lock.userId === currentUserId) {
-          lock.lastHeartbeat = Date.now();
+        case 'delete_element': {
+          if (!currentRoomId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+          room.elements.delete(message.elementId);
+          if (room.yjs) {
+            deleteElementFromYjs(room.yjs, message.elementId);
+            const yjsUpdate = getYjsUpdate(room.yjs);
+            broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+          }
+          broadcast(room, message, currentUserId ?? undefined);
+          room.dirty = true;
+          scheduleSave(currentRoomId);
+          publishToRoom(currentRoomId, message);
+          break;
         }
-        break;
-      }
 
-      case 'ping': {
-        send(ws, { type: 'pong', timestamp: Date.now() });
-        break;
-      }
+        case 'scene-update': {
+          if (!currentRoomId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+          if (!Array.isArray(message.elements)) break;
+          if (message.elements.length > MAX_ELEMENTS_PER_SCENE) {
+            send(ws, {
+              type: 'error',
+              message: `Too many elements (max ${MAX_ELEMENTS_PER_SCENE})`,
+            });
+            break;
+          }
 
-      case 'viewport-update': {
-        if (!currentRoomId || !currentUserId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-        room.viewports.set(currentUserId, {
-          panX: message.panX,
-          panY: message.panY,
-          zoom: message.zoom,
-        });
-        // Broadcast only to followers of this user
-        for (const [followerId, leaderId] of room.following) {
-          if (leaderId === currentUserId && followerId !== currentUserId) {
-            const follower = room.users.get(followerId);
-            if (follower) {
-              send(follower.ws, {
-                type: 'viewport-update',
-                userId: currentUserId,
-                panX: message.panX,
-                panY: message.panY,
-                zoom: message.zoom,
+          // Dedup check
+          const sceneUpdateMsgId =
+            'clientMsgId' in message
+              ? (message as { clientMsgId?: string }).clientMsgId
+              : undefined;
+          if (sceneUpdateMsgId) {
+            if (room.recentMsgIds.has(sceneUpdateMsgId)) {
+              send(ws, { type: 'pong', timestamp: Date.now() });
+              break;
+            }
+            room.recentMsgIds.add(sceneUpdateMsgId);
+            if (room.recentMsgIds.size > 500) {
+              const first = room.recentMsgIds.values().next().value;
+              if (first !== undefined) room.recentMsgIds.delete(first);
+            }
+          }
+
+          const acceptedElements: DriplElement[] = [];
+          const incomingIds = new Set<string>();
+          for (const rawEl of message.elements) {
+            try {
+              const element = toDriplElement(rawEl);
+              incomingIds.add(element.id);
+              const existing = room.elements.get(element.id);
+              if (existing && (element.version ?? 0) <= (existing.version ?? 0)) {
+                continue;
+              }
+              room.elements.set(element.id, element);
+              acceptedElements.push(element);
+            } catch (err) {
+              logger.debug({
+                event: 'invalid_element',
+                roomId: currentRoomId,
+                elementId: (rawEl as { id?: string })?.id,
+                error: String(err),
               });
             }
           }
-        }
-        break;
-      }
 
-      case 'follow-user': {
-        if (!currentRoomId || !currentUserId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-        room.following.set(currentUserId, message.targetUserId);
-        // Send current viewport of target to follower
-        const targetViewport = room.viewports.get(message.targetUserId);
-        if (targetViewport) {
-          send(ws, {
-            type: 'viewport-update',
-            userId: message.targetUserId,
-            ...targetViewport,
+          // Remove elements not in the incoming set (full state replacement)
+          if (message.subtype === 'init') {
+            const toRemove: string[] = [];
+            for (const [id] of room.elements) {
+              if (!incomingIds.has(id)) {
+                toRemove.push(id);
+              }
+            }
+            for (const id of toRemove) {
+              room.elements.delete(id);
+            }
+            if (room.yjs && toRemove.length > 0) {
+              deleteElementsFromYjs(room.yjs, toRemove);
+            }
+          }
+
+          if (room.yjs && acceptedElements.length > 0) {
+            applyElementsToYjs(room.yjs, acceptedElements);
+            const yjsUpdate = getYjsUpdate(room.yjs);
+            broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+          }
+
+          broadcast(
+            room,
+            {
+              type: 'scene-update',
+              subtype: message.subtype,
+              elements: acceptedElements,
+            },
+            currentUserId ?? undefined
+          );
+          room.dirty = true;
+          scheduleSave(currentRoomId);
+          publishToRoom(currentRoomId, {
+            type: 'scene-update',
+            subtype: message.subtype,
+            elements: acceptedElements,
           });
+          break;
         }
-        break;
-      }
 
-      case 'unfollow-user': {
-        if (!currentRoomId || !currentUserId) break;
-        const room = rooms.get(currentRoomId);
-        if (!room) break;
-        room.following.delete(currentUserId);
-        break;
+        case 'scene-delta': {
+          if (!currentRoomId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+
+          // Dedup check
+          const clientMsgId =
+            'clientMsgId' in message
+              ? (message as { clientMsgId?: string }).clientMsgId
+              : undefined;
+          if (clientMsgId) {
+            if (room.recentMsgIds.has(clientMsgId)) {
+              // Already processed, ack silently
+              send(ws, { type: 'pong', timestamp: Date.now() });
+              break;
+            }
+            room.recentMsgIds.add(clientMsgId);
+            // Evict old entries (keep last 500)
+            if (room.recentMsgIds.size > 500) {
+              const first = room.recentMsgIds.values().next().value;
+              if (first !== undefined) room.recentMsgIds.delete(first);
+            }
+          }
+
+          const acceptedAdded: unknown[] = [];
+          const acceptedUpdated: unknown[] = [];
+          const yjsChangedElements: DriplElement[] = [];
+
+          if (message.added && Array.isArray(message.added)) {
+            for (const rawEl of message.added) {
+              try {
+                const element = toDriplElement(rawEl);
+                const existing = room.elements.get(element.id);
+                if (existing && (element.version ?? 0) <= (existing.version ?? 0)) {
+                  continue;
+                }
+                room.elements.set(element.id, element);
+                acceptedAdded.push(element);
+                yjsChangedElements.push(element);
+              } catch (err) {
+                logger.debug({
+                  event: 'invalid_element',
+                  roomId: currentRoomId,
+                  elementId: (rawEl as { id?: string })?.id,
+                  error: String(err),
+                });
+              }
+            }
+          }
+
+          if (message.updated && Array.isArray(message.updated)) {
+            for (const rawEl of message.updated) {
+              try {
+                const element = toDriplElement(rawEl);
+                const existing = room.elements.get(element.id);
+                if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
+                  continue;
+                }
+                room.elements.set(element.id, element);
+                acceptedUpdated.push(element);
+                yjsChangedElements.push(element);
+              } catch (err) {
+                logger.debug({
+                  event: 'invalid_element',
+                  roomId: currentRoomId,
+                  elementId: (rawEl as { id?: string })?.id,
+                  error: String(err),
+                });
+              }
+            }
+          }
+
+          if (message.deleted && Array.isArray(message.deleted)) {
+            for (const id of message.deleted) {
+              room.elements.delete(id);
+            }
+            if (room.yjs) {
+              deleteElementsFromYjs(room.yjs, message.deleted);
+            }
+          }
+
+          if (room.yjs && yjsChangedElements.length > 0) {
+            applyElementsToYjs(room.yjs, yjsChangedElements);
+          }
+
+          if (room.yjs && yjsChangedElements.length > 0) {
+            const yjsUpdate = getYjsUpdate(room.yjs);
+            broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+          }
+
+          const filteredDelta: Record<string, unknown> = { type: 'scene-delta' };
+          if (acceptedAdded.length > 0) filteredDelta.added = acceptedAdded;
+          if (acceptedUpdated.length > 0) filteredDelta.updated = acceptedUpdated;
+          if (message.deleted && Array.isArray(message.deleted) && message.deleted.length > 0) {
+            filteredDelta.deleted = message.deleted;
+          }
+
+          broadcast(room, filteredDelta, currentUserId ?? undefined);
+          room.dirty = true;
+          scheduleSave(currentRoomId);
+          publishToRoom(currentRoomId, filteredDelta);
+          break;
+        }
+
+        case 'element-update': {
+          if (!currentRoomId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+
+          if (Array.isArray(message.elements)) {
+            const accepted: unknown[] = [];
+            const yjsElements: DriplElement[] = [];
+            for (const rawEl of message.elements) {
+              try {
+                const element = toDriplElement(rawEl);
+                const existing = room.elements.get(element.id);
+                if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
+                  continue;
+                }
+                room.elements.set(element.id, element);
+                accepted.push(element);
+                yjsElements.push(element);
+              } catch (err) {
+                logger.debug({
+                  event: 'invalid_element',
+                  roomId: currentRoomId,
+                  elementId: (rawEl as { id?: string })?.id,
+                  error: String(err),
+                });
+              }
+            }
+            if (room.yjs && yjsElements.length > 0) {
+              applyElementsToYjs(room.yjs, yjsElements);
+              const yjsUpdate = getYjsUpdate(room.yjs);
+              broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+            }
+            if (accepted.length > 0) {
+              broadcast(
+                room,
+                { type: 'element-update', elements: accepted },
+                currentUserId ?? undefined
+              );
+            }
+          } else {
+            const rawElement = message.element;
+            if (!rawElement) break;
+            try {
+              const element = toDriplElement(rawElement);
+              const existing = room.elements.get(element.id);
+              if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
+                break;
+              }
+              room.elements.set(element.id, element);
+              if (room.yjs) {
+                applyElementToYjs(room.yjs, element);
+                const yjsUpdate = getYjsUpdate(room.yjs);
+                broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+              }
+              broadcast(room, { type: 'element-update', element }, currentUserId ?? undefined);
+            } catch (err) {
+              logger.debug({
+                event: 'invalid_element',
+                roomId: currentRoomId,
+                elementId: (rawElement as { id?: string })?.id,
+                error: String(err),
+              });
+            }
+          }
+
+          room.dirty = true;
+          scheduleSave(currentRoomId);
+          publishToRoom(currentRoomId, {
+            type: 'element-update',
+            elements: Array.isArray(message.elements) ? message.elements : undefined,
+            element: !Array.isArray(message.elements) ? message.element : undefined,
+          });
+          break;
+        }
+
+        case 'cursor_move':
+        case 'cursor-move': {
+          if (!currentRoomId || !currentUserId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+
+          room.cursors.set(currentUserId, { x: message.x, y: message.y });
+          const user = room.users.get(currentUserId);
+          const displayName =
+            message.type === 'cursor-move' ? message.displayName : message.userName;
+
+          // Update Yjs awareness
+          if (room.yjs) {
+            room.yjs.awareness.setLocalStateField('cursor', {
+              x: message.x,
+              y: message.y,
+            });
+            room.yjs.awareness.setLocalStateField('user', {
+              id: currentUserId,
+              name: displayName ?? user?.displayName ?? 'Unknown',
+              color: message.color ?? user?.color ?? '#000000',
+            });
+          }
+
+          broadcast(
+            room,
+            {
+              type: 'cursor_move',
+              roomId: currentRoomId,
+              userId: currentUserId,
+              x: message.x,
+              y: message.y,
+              userName: displayName ?? user?.displayName ?? 'Unknown',
+              displayName: displayName ?? user?.displayName ?? 'Unknown',
+              color: message.color ?? user?.color ?? '#000000',
+              timestamp: Date.now(),
+            },
+            currentUserId
+          );
+          break;
+        }
+
+        case 'element-lock': {
+          if (!currentRoomId || !currentUserId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+          const existingLock = room.elementLocks.get(message.elementId);
+          if (existingLock && existingLock.userId !== currentUserId) {
+            send(ws, { type: 'error', message: 'Element is locked by another user' });
+            break;
+          }
+          room.elementLocks.set(message.elementId, {
+            userId: currentUserId,
+            lastHeartbeat: Date.now(),
+          });
+          broadcast(
+            room,
+            {
+              type: 'element-lock',
+              elementId: message.elementId,
+              userId: currentUserId,
+            },
+            currentUserId
+          );
+          break;
+        }
+
+        case 'element-unlock': {
+          if (!currentRoomId || !currentUserId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+          const lock = room.elementLocks.get(message.elementId);
+          if (lock && lock.userId === currentUserId) {
+            room.elementLocks.delete(message.elementId);
+            broadcast(
+              room,
+              {
+                type: 'element-unlock',
+                elementId: message.elementId,
+                userId: currentUserId,
+              },
+              currentUserId
+            );
+          }
+          break;
+        }
+
+        case 'element-lock-heartbeat': {
+          if (!currentRoomId || !currentUserId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+          const lock = room.elementLocks.get(message.elementId);
+          if (lock && lock.userId === currentUserId) {
+            lock.lastHeartbeat = Date.now();
+          }
+          break;
+        }
+
+        case 'ping': {
+          send(ws, { type: 'pong', timestamp: Date.now() });
+          break;
+        }
+
+        case 'viewport-update': {
+          if (!currentRoomId || !currentUserId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+          room.viewports.set(currentUserId, {
+            panX: message.panX,
+            panY: message.panY,
+            zoom: message.zoom,
+          });
+          // Broadcast only to followers of this user
+          for (const [followerId, leaderId] of room.following) {
+            if (leaderId === currentUserId && followerId !== currentUserId) {
+              const follower = room.users.get(followerId);
+              if (follower) {
+                send(follower.ws, {
+                  type: 'viewport-update',
+                  userId: currentUserId,
+                  panX: message.panX,
+                  panY: message.panY,
+                  zoom: message.zoom,
+                });
+              }
+            }
+          }
+          break;
+        }
+
+        case 'follow-user': {
+          if (!currentRoomId || !currentUserId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+          room.following.set(currentUserId, message.targetUserId);
+          // Send current viewport of target to follower
+          const targetViewport = room.viewports.get(message.targetUserId);
+          if (targetViewport) {
+            send(ws, {
+              type: 'viewport-update',
+              userId: message.targetUserId,
+              ...targetViewport,
+            });
+          }
+          break;
+        }
+
+        case 'unfollow-user': {
+          if (!currentRoomId || !currentUserId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+          room.following.delete(currentUserId);
+          break;
+        }
       }
-    }
     } catch (err) {
       logger.error({ event: 'ws_message_handler_error', err });
       Sentry.captureException(err);
@@ -1021,7 +1092,14 @@ const reconciliation = setInterval(async () => {
       const addedInDb = [...dbIds].filter(id => !memIds.has(id));
 
       if (addedInMem.length > 0 || addedInDb.length > 0) {
-        logger.warn({ event: 'state_divergence', roomId, memCount: memIds.size, dbCount: dbIds.size, onlyInMem: addedInMem.length, onlyInDb: addedInDb.length });
+        logger.warn({
+          event: 'state_divergence',
+          roomId,
+          memCount: memIds.size,
+          dbCount: dbIds.size,
+          onlyInMem: addedInMem.length,
+          onlyInDb: addedInDb.length,
+        });
         room.saving = true;
         const success = await saveRoomElements(roomId, room.elements);
         room.saving = false;
