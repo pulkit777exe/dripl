@@ -54,3 +54,4 @@ dev-docs
 .kilo
 .env*.local
 docs/
+bun.lock
