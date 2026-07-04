@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import * as Sentry from '@sentry/nextjs';
 import { db } from '@dripl/db';
 import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
@@ -10,9 +11,7 @@ interface BoardPageProps {
   params: Promise<{ token: string }>;
 }
 
-export default async function BoardTokenPage({
-  params,
-}: BoardPageProps): Promise<React.ReactNode> {
+export default async function BoardTokenPage({ params }: BoardPageProps): Promise<React.ReactNode> {
   const { token } = await params;
   const fallback = getInMemoryShare(token);
 
@@ -43,7 +42,10 @@ export default async function BoardTokenPage({
       let elements: unknown[] = [];
       try {
         elements = shareLink.room.content ? JSON.parse(shareLink.room.content) : [];
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
+        // eslint-disable-next-line no-console -- Server Component, no pino available
+        console.error('Failed to parse room content JSON:', err);
         elements = [];
       }
 
@@ -53,7 +55,10 @@ export default async function BoardTokenPage({
         roomName: shareLink.room.name,
       };
     }
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
+    // eslint-disable-next-line no-console -- Server Component, no pino available
+    console.error('Failed to load share data from database:', err);
     // Fall back to in-memory share
   }
 

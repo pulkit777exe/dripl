@@ -1,9 +1,10 @@
 import type { DriplElement } from '@dripl/common';
 import { repairBindings } from '@dripl/common/arrow-binding';
+import * as Sentry from '@sentry/node';
 import { db } from '@dripl/db';
 import type { RoomState } from './types';
 import { getOrCreateYjsRoom, loadElementsIntoYjs } from './yjsManager';
-import { logger } from './index';
+import { logger } from './logger.js';
 
 export const rooms = new Map<string, RoomState>();
 export const saveTimeouts = new Map<string, NodeJS.Timeout>();
@@ -51,7 +52,9 @@ export function parseStoredElements(raw: string | null | undefined): DriplElemen
       }
     }
     return repairBindings(elements);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
+    logger.error({ event: 'parse_elements_error', error: err }, 'Failed to parse stored elements');
     return [];
   }
 }
@@ -111,7 +114,10 @@ export async function loadRoomElements(roomId: string): Promise<Map<string, Drip
   return new Map();
 }
 
-export async function saveRoomElements(roomId: string, elements: Map<string, DriplElement>): Promise<boolean> {
+export async function saveRoomElements(
+  roomId: string,
+  elements: Map<string, DriplElement>
+): Promise<boolean> {
   const startTime = Date.now();
   const serialized = serializeElements(elements);
   const elementCount = elements.size;
@@ -125,7 +131,15 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
         where: { slug: roomId },
         data: { content: serialized, updatedAt: new Date() },
       });
-      logger.info({ event: 'save_room_success', roomId, durationMs: Date.now() - startTime, recordType: 'canvasRoom', updated: update.count, elementCount, byteSize });
+      logger.info({
+        event: 'save_room_success',
+        roomId,
+        durationMs: Date.now() - startTime,
+        recordType: 'canvasRoom',
+        updated: update.count,
+        elementCount,
+        byteSize,
+      });
       return update.count > 0;
     }
 
@@ -134,7 +148,14 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
       data: { content: serialized, updatedAt: new Date() },
     });
     if (fileUpdate.count > 0) {
-      logger.info({ event: 'save_room_success', roomId, durationMs: Date.now() - startTime, recordType: 'file', elementCount, byteSize });
+      logger.info({
+        event: 'save_room_success',
+        roomId,
+        durationMs: Date.now() - startTime,
+        recordType: 'file',
+        elementCount,
+        byteSize,
+      });
       return true;
     }
 
@@ -145,10 +166,25 @@ export async function saveRoomElements(roomId: string, elements: Map<string, Dri
     if (canvasUpdate.count > 0 && room) {
       room.recordType = 'canvasRoom';
     }
-    logger.info({ event: 'save_room_success', roomId, durationMs: Date.now() - startTime, recordType: 'canvasRoom', updated: canvasUpdate.count, elementCount, byteSize });
+    logger.info({
+      event: 'save_room_success',
+      roomId,
+      durationMs: Date.now() - startTime,
+      recordType: 'canvasRoom',
+      updated: canvasUpdate.count,
+      elementCount,
+      byteSize,
+    });
     return canvasUpdate.count > 0;
   } catch (error) {
-    logger.error({ event: 'save_room_failure', roomId, durationMs: Date.now() - startTime, elementCount, byteSize, err: error });
+    logger.error({
+      event: 'save_room_failure',
+      roomId,
+      durationMs: Date.now() - startTime,
+      elementCount,
+      byteSize,
+      err: error,
+    });
     return false;
   }
 }
