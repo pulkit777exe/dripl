@@ -15,6 +15,17 @@ export interface Cursor {
   y: number;
 }
 
+export interface ElementLock {
+  userId: string;
+  lastHeartbeat: number;
+}
+
+export interface UserViewport {
+  panX: number;
+  panY: number;
+  zoom: number;
+}
+
 export interface RoomState {
   roomId: string;
   elements: Map<string, DriplElement>;
@@ -25,6 +36,10 @@ export interface RoomState {
   recordType?: 'file' | 'canvasRoom';
   yjs?: YjsRoomState;
   dirty: boolean;
+  recentMsgIds: Set<string>;
+  elementLocks: Map<string, ElementLock>;
+  following: Map<string, string>;
+  viewports: Map<string, UserViewport>;
 }
 
 export interface RateLimitInfo {

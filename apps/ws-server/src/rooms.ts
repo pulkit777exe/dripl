@@ -27,6 +27,10 @@ export function getOrCreateRoom(roomId: string): RoomState {
       saving: false,
       dirty: false,
       yjs,
+      recentMsgIds: new Set(),
+      elementLocks: new Map(),
+      following: new Map(),
+      viewports: new Map(),
     };
     rooms.set(roomId, room);
   }

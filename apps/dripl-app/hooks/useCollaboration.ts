@@ -61,6 +61,9 @@ type ServerMessage =
       color: string;
     }
   | { type: 'user_leave' | 'user-leave'; userId: string }
+  | { type: 'element-lock'; elementId: string; userId: string }
+  | { type: 'element-unlock'; elementId: string; userId: string }
+  | { type: 'viewport-update'; userId: string; panX: number; panY: number; zoom: number }
   | { type: 'pong' }
   | { type: 'error'; message: string };
 
@@ -73,12 +76,13 @@ type ClientMessage =
       color: string;
     }
   | { type: 'leave' }
-  | { type: 'scene-update'; subtype: 'init' | 'update'; elements: DriplElement[] }
+  | { type: 'scene-update'; subtype: 'init' | 'update'; elements: DriplElement[]; clientMsgId?: string }
   | {
       type: 'scene-delta';
       added?: DriplElement[];
       updated?: DriplElement[];
       deleted?: string[];
+      clientMsgId?: string;
     }
   | {
       type: 'cursor-move';
@@ -88,6 +92,11 @@ type ClientMessage =
       displayName: string;
       color: string;
     }
+  | { type: 'element-lock'; elementId: string }
+  | { type: 'element-unlock'; elementId: string }
+  | { type: 'viewport-update'; panX: number; panY: number; zoom: number }
+  | { type: 'follow-user'; targetUserId: string }
+  | { type: 'unfollow-user' }
   | { type: 'ping' };
 
 export interface UseCollaborationReturn {
@@ -98,6 +107,9 @@ export interface UseCollaborationReturn {
   broadcastCursor: (x: number, y: number) => void;
   lockElement: (_elementId: string) => void;
   unlockElement: (_elementId: string) => void;
+  followUser: (_targetUserId: string) => void;
+  unfollowUser: () => void;
+  broadcastViewport: (_panX: number, _panY: number, _zoom: number) => void;
   disconnect: () => void;
 }
 
@@ -129,6 +141,14 @@ export function useCollaboration(
   const reconnectAttemptRef = useRef(0);
   const lastCursorSentAtRef = useRef(0);
 
+  // Offline queue for messages sent while disconnected
+  const offlineQueueRef = useRef<Array<{ msg: ClientMessage; timestamp: number }>>([]);
+  const OFFLINE_QUEUE_MAX = 100;
+
+  // Follow mode
+  const followedUserIdRef = useRef<string | null>(null);
+  const viewportBroadcastThrottleRef = useRef(0);
+
   // Yjs refs
   const yDocRef = useRef<Y.Doc | null>(null);
   const yElementsRef = useRef<Y.Map<DriplElement> | null>(null);
@@ -146,6 +166,8 @@ export function useCollaboration(
   const removeRemoteUser = useCanvasStore(state => state.removeRemoteUser);
   const updateRemoteCursor = useCanvasStore(state => state.updateRemoteCursor);
   const clearElementLocks = useCanvasStore(state => state.clearElementLocks);
+  const setElementLock = useCanvasStore(state => state.setElementLock);
+  const releaseElementLock = useCanvasStore(state => state.releaseElementLock);
 
   const displayNameRef = useRef(options.displayName?.trim() || 'Guest');
   const colorRef = useRef('#6965db');
@@ -216,7 +238,16 @@ export function useCollaboration(
   }, []);
 
   const send = useCallback((message: ClientMessage) => {
-    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    if (wsRef.current?.readyState !== WebSocket.OPEN) {
+      if (message.type === 'scene-update' || message.type === 'scene-delta') {
+        const queue = offlineQueueRef.current;
+        if (queue.length >= OFFLINE_QUEUE_MAX) {
+          queue.shift();
+        }
+        queue.push({ msg: message, timestamp: Date.now() });
+      }
+      return;
+    }
     wsRef.current.send(JSON.stringify(message));
   }, []);
 
@@ -327,8 +358,30 @@ export function useCollaboration(
     [send]
   );
 
-  const lockElement = useCallback((_elementId: string) => {}, []);
-  const unlockElement = useCallback((_elementId: string) => {}, []);
+  const lockElement = useCallback((elementId: string) => {
+    send({ type: 'element-lock', elementId });
+  }, [send]);
+
+  const unlockElement = useCallback((elementId: string) => {
+    send({ type: 'element-unlock', elementId });
+  }, [send]);
+
+  const followUser = useCallback((targetUserId: string) => {
+    followedUserIdRef.current = targetUserId;
+    send({ type: 'follow-user', targetUserId });
+  }, [send]);
+
+  const unfollowUser = useCallback(() => {
+    followedUserIdRef.current = null;
+    send({ type: 'unfollow-user' });
+  }, [send]);
+
+  const broadcastViewport = useCallback((panX: number, panY: number, zoom: number) => {
+    const now = Date.now();
+    if (now - viewportBroadcastThrottleRef.current < 100) return;
+    viewportBroadcastThrottleRef.current = now;
+    send({ type: 'viewport-update', panX, panY, zoom });
+  }, [send]);
 
   useEffect(() => {
     if (!roomId) {
@@ -380,6 +433,17 @@ export function useCollaboration(
           displayName: displayNameRef.current,
           color: colorRef.current,
         });
+
+        // Replay offline queue
+        const queue = offlineQueueRef.current;
+        if (queue.length > 0) {
+          for (const { msg } of queue) {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify(msg));
+            }
+          }
+          offlineQueueRef.current = [];
+        }
 
         if (heartbeatTimerRef.current) {
           window.clearInterval(heartbeatTimerRef.current);
@@ -528,6 +592,26 @@ export function useCollaboration(
             return next;
           });
         }
+
+        if (message.type === 'element-lock') {
+          setElementLock(message.elementId, message.userId);
+          return;
+        }
+
+        if (message.type === 'element-unlock') {
+          releaseElementLock(message.elementId);
+          return;
+        }
+
+        if (message.type === 'viewport-update') {
+          // Apply viewport from followed user
+          if (followedUserIdRef.current === message.userId) {
+            const store = useCanvasStore.getState();
+            store.setPan(message.panX, message.panY);
+            store.setZoom(message.zoom);
+          }
+          return;
+        }
       };
 
       ws.onclose = () => {
@@ -647,6 +731,9 @@ export function useCollaboration(
     broadcastCursor,
     lockElement,
     unlockElement,
+    followUser,
+    unfollowUser,
+    broadcastViewport,
     disconnect,
   };
 }
