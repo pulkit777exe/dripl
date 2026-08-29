@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useInterpolatedCursors } from '@/hooks/useInterpolatedCursors';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 
 export function RemoteCursors() {
   const remoteCursors = useCanvasStore(state => state.remoteCursors);

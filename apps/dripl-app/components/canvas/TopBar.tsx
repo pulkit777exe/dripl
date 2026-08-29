@@ -1,13 +1,18 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { Menu as MenuIcon } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import { Menu } from './Menu';
-import { ShareModal } from './ShareModal';
 import { CanvasContentSchema, type DriplElement } from '@dripl/common';
+
+const ShareModal = dynamic(
+  () => import('./ShareModal').then((m) => m.ShareModal),
+  { ssr: false },
+);
 import { downloadBlob, exportCanvas } from '@/utils/export';
 
 export const TopBar: React.FC = () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
+import { useCanvasStore, type ActiveTool } from '@/lib/store';
 import {
   Square,
   Circle,

@@ -1,23 +1,28 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import type { DriplElement } from '@dripl/common';
 import { useParams, useRouter } from 'next/navigation';
 import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
 import { CanvasControls } from '@/components/canvas/CanvasControls';
 import { TopBar } from '@/components/canvas/TopBar';
-import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/app/context/AuthContext';
 import { useShallow } from 'zustand/shallow';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import { apiClient } from '@/lib/api';
 import { generateThumbnail } from '@/utils/export';
 import { Spinner } from '@/components/button/Spinner';
 import { HelpCircle, ShieldCheck } from 'lucide-react';
 import HelpModal from '@/components/canvas/HelpModal';
 import type { LocalCanvasState } from '@/utils/localCanvasStorage';
+
+const CommandPalette = dynamic(
+  () => import('@/components/canvas/CommandPalette').then((m) => m.CommandPalette),
+  { ssr: false },
+);
 
 export default function FilePage(): React.ReactNode {
   const params = useParams<{ id: string }>();
@@ -196,8 +201,11 @@ export default function FilePage(): React.ReactNode {
 
   if (authLoading || loading) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-background">
-        <Spinner className="size-6 text-muted-foreground" />
+      <div
+        className="flex h-dvh items-center justify-center"
+        style={{ backgroundColor: 'var(--color-background)' }}
+      >
+        <Spinner className="size-6 text-[#6B6860]" />
       </div>
     );
   }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { HelpCircle, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
@@ -8,13 +9,17 @@ import { CanvasControls } from '@/components/canvas/CanvasControls';
 import { useTheme } from '@/hooks/useTheme';
 import { TopBar } from '@/components/canvas/TopBar';
 import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
-import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { useAuth } from '@/app/context/AuthContext';
 import { apiClient } from '@/lib/api';
 import { Spinner } from '@/components/button/Spinner';
 import HelpModal from '@/components/canvas/HelpModal';
+
+const CommandPalette = dynamic(
+  () => import('@/components/canvas/CommandPalette').then((m) => m.CommandPalette),
+  { ssr: false },
+);
 import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 
 interface CanvasFilePageProps {
   params: Promise<{

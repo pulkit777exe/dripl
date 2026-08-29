@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 
 import { useTheme } from '@/hooks/useTheme';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 
 type CommandCategory = 'view' | 'tools' | 'actions';
 
@@ -338,26 +338,33 @@ export function CommandPalette() {
       aria-label="Command palette"
     >
       <div
-        className="w-full max-w-md rounded-xl bg-background shadow-lg border border-border pointer-events-auto overflow-hidden"
+        className="w-full max-w-md rounded-xl shadow-lg pointer-events-auto overflow-hidden"
+        style={{
+          backgroundColor: 'var(--color-card)',
+          border: '1px solid var(--color-border)',
+        }}
         onKeyDown={handleKeyDown}
       >
-        <div className="flex items-center gap-2 px-3 py-3 border-b border-border">
-          <Search className="h-4 w-4 text-muted-foreground" />
+        <div
+          className="flex items-center gap-2 px-3 py-3"
+          style={{ borderBottom: '1px solid var(--color-border)' }}
+        >
+          <Search className="h-4 w-4 text-[#6B6860]" />
           <input
             autoFocus
-            className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent outline-none text-sm text-[#1A1917] placeholder:text-[#9B9890]"
             placeholder="Search commands..."
             value={query}
             onChange={event => setQuery(event.target.value)}
           />
-          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+          <span className="text-[10px] text-[#6B6860] bg-[#E8E5DE] px-1.5 py-0.5 rounded">
             ESC
           </span>
         </div>
 
         <div className="max-h-80 overflow-y-auto py-1">
           {filteredCommands.length === 0 ? (
-            <div className="px-3 py-8 text-sm text-muted-foreground text-center">
+            <div className="px-3 py-8 text-sm text-[#6B6860] text-center">
               No commands found for &apos;{query}&apos;
             </div>
           ) : (
@@ -369,7 +376,7 @@ export function CommandPalette() {
 
               return (
                 <div key={category}>
-                  <div className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider bg-muted/50">
+                  <div className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium text-[#6B6860] uppercase tracking-wider bg-[#F0EDE6]">
                     <CategoryIcon size={12} />
                     {categoryLabels[category]}
                   </div>
@@ -383,8 +390,8 @@ export function CommandPalette() {
                         type="button"
                         className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors ${
                           selectedIndex === itemIndex
-                            ? 'bg-primary/10 text-primary'
-                            : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+                            ? 'bg-[#FAE8E5] text-[#E8462A]'
+                            : 'text-[#1A1917] hover:bg-[#FAE8E5] hover:text-[#1A1917]'
                         }`}
                         onClick={() => {
                           command.perform();
@@ -393,10 +400,10 @@ export function CommandPalette() {
                         }}
                         onMouseEnter={() => setSelectedIndex(itemIndex)}
                       >
-                        {Icon && <Icon size={16} className="text-muted-foreground" />}
+                        {Icon && <Icon size={16} className="text-[#6B6860]" />}
                         <span className="flex-1 text-left">{command.label}</span>
                         {selectedIndex === itemIndex && (
-                          <span className="text-[10px] text-muted-foreground">↵</span>
+                          <span className="text-[10px] text-[#6B6860]">↵</span>
                         )}
                       </button>
                     );
@@ -407,13 +414,16 @@ export function CommandPalette() {
           )}
         </div>
 
-        <div className="flex justify-between items-center px-3 py-2 border-t border-border text-[11px] text-muted-foreground bg-muted/30">
+        <div
+          className="flex justify-between items-center px-3 py-2 text-[11px] text-[#6B6860] bg-[#F0EDE6]"
+          style={{ borderTop: '1px solid var(--color-border)' }}
+        >
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">↑↓</kbd> navigate
+              <kbd className="px-1 py-0.5 bg-[#E8E5DE] rounded text-[10px]">↑↓</kbd> navigate
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">↵</kbd> select
+              <kbd className="px-1 py-0.5 bg-[#E8E5DE] rounded text-[10px]">↵</kbd> select
             </span>
           </div>
           <span>Ctrl/Cmd + K</span>

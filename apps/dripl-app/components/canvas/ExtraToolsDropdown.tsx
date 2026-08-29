@@ -1,10 +1,18 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { Frame, Globe, Zap, Sparkles, ChevronDown, Wand2, Library } from 'lucide-react';
-import { useCanvasStore } from '@/lib/canvas-store';
-import { AIGenerateModal } from './AIGenerateModal';
-import { EmbedUrlModal } from './EmbedUrlModal';
+import { useCanvasStore } from '@/lib/store';
+
+const AIGenerateModal = dynamic(
+  () => import('./AIGenerateModal').then((m) => m.AIGenerateModal),
+  { ssr: false },
+);
+const EmbedUrlModal = dynamic(
+  () => import('./EmbedUrlModal').then((m) => m.EmbedUrlModal),
+  { ssr: false },
+);
 
 interface ExtraTool {
   id: string;

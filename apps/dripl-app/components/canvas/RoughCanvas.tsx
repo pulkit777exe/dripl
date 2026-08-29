@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useShallow } from 'zustand/shallow';
-import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
+import { useCanvasStore, type ActiveTool } from '@/lib/store';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { useCanvasWorker } from '@/hooks/useCanvasWorker';
 import { getElementBounds, isPointInElement, isPointNearElement, shouldTestInside, isPointOnElementOutline } from '@dripl/math/intersection';

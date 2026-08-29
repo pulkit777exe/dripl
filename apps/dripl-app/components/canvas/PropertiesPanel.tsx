@@ -1,6 +1,7 @@
 'use client';
 
-import { useCanvasStore } from '@/lib/canvas-store';
+import dynamic from 'next/dynamic';
+import { useCanvasStore } from '@/lib/store';
 import {
   Download,
   Copy,
@@ -15,8 +16,12 @@ import {
   AlignVerticalJustifyCenter,
 } from 'lucide-react';
 import { useState } from 'react';
-import { ExportModal } from './ExportModal';
 import type { DriplElement, ArrowStyle, ArrowheadType, LinearElement } from '@dripl/common';
+
+const ExportModal = dynamic(
+  () => import('./ExportModal').then((m) => m.ExportModal),
+  { ssr: false },
+);
 import { FONT_PREFERENCES, getDefaultFontFamily } from '@/utils/fontPreferences';
 
 interface ElementPropertiesProps {

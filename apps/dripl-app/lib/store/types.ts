@@ -1,7 +1,14 @@
 import type { DriplElement, ArrowStyle } from '@dripl/common';
-import type { RemoteUser, RemoteCursor, Theme, ActiveTool, DrawingLifecycle } from '../canvas-store';
+import type { RemoteUser, RemoteCursor, Theme, ActiveTool, DrawingLifecycle } from './helpers';
 
-export type FillStyle = 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
+export type FillStyle =
+  | 'hachure'
+  | 'solid'
+  | 'zigzag'
+  | 'cross-hatch'
+  | 'dots'
+  | 'dashed'
+  | 'zigzag-line';
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted';
 
 export interface HistoryState {
@@ -35,10 +42,14 @@ export interface CanvasSlice {
   shouldCacheIgnoreZoom: boolean;
   pendingEmbed: { url: string; title?: string } | null;
   spatialVersion: number;
-  
+
   // Drawing state (moved from RoughCanvas local state)
   isDrawing: boolean;
-  marqueeSelection: { start: { x: number; y: number }; end: { x: number; y: number }; active: boolean } | null;
+  marqueeSelection: {
+    start: { x: number; y: number };
+    end: { x: number; y: number };
+    active: boolean;
+  } | null;
   eraserPath: Array<{ x: number; y: number }>;
   cursorPosition: { x: number; y: number } | null;
 
@@ -82,16 +93,29 @@ export interface CanvasSlice {
   setMarqueeSelectionMode: (mode: 'intersecting' | 'contained') => void;
   setClipboard: (elements: DriplElement[]) => void;
   clearClipboard: () => void;
-  
+
   // Drawing state setters
   setIsDrawing: (isDrawing: boolean) => void;
-  setMarqueeSelection: (selection: { start: { x: number; y: number }; end: { x: number; y: number }; active: boolean } | null) => void;
-  setEraserPath: (path: Array<{ x: number; y: number }> | ((prev: Array<{ x: number; y: number }>) => Array<{ x: number; y: number }>)) => void;
+  setMarqueeSelection: (
+    selection: {
+      start: { x: number; y: number };
+      end: { x: number; y: number };
+      active: boolean;
+    } | null
+  ) => void;
+  setEraserPath: (
+    path:
+      | Array<{ x: number; y: number }>
+      | ((prev: Array<{ x: number; y: number }>) => Array<{ x: number; y: number }>)
+  ) => void;
   setCursorPosition: (position: { x: number; y: number } | null) => void;
-  
+
   // Helper functions (moved from RoughCanvas)
   expandSelectionWithGroups: (ids: Set<string>, sceneElements: DriplElement[]) => Set<string>;
-  getSelectionBounds: (selected: Set<string>, sceneElements: DriplElement[]) => { minX: number; minY: number; maxX: number; maxY: number } | null;
+  getSelectionBounds: (
+    selected: Set<string>,
+    sceneElements: DriplElement[]
+  ) => { minX: number; minY: number; maxX: number; maxY: number } | null;
   collectCascadeDeleteIds: (seedIds: Iterable<string>) => string[];
 }
 
@@ -138,7 +162,7 @@ export interface UiSlice {
   isSaving: boolean;
   lastSaved: number | null;
   aiGenerating: boolean;
-  
+
   // UI state (moved from RoughCanvas local state)
   isDragging: boolean;
   isPanning: boolean;
@@ -157,19 +181,21 @@ export interface UiSlice {
   markSaving: (isSaving: boolean) => void;
   markSaved: () => void;
   setAiGenerating: (aiGenerating: boolean) => void;
-  
+
   // UI state setters
   setIsDragging: (isDragging: boolean) => void;
   setIsPanning: (isPanning: boolean) => void;
   setIsResizing: (isResizing: boolean) => void;
   setIsRotating: (isRotating: boolean) => void;
-  setTextInput: (textInput: {
-    x: number;
-    y: number;
-    id: string;
-    existingElementId?: string;
-    value: string;
-  } | null) => void;
+  setTextInput: (
+    textInput: {
+      x: number;
+      y: number;
+      id: string;
+      existingElementId?: string;
+      value: string;
+    } | null
+  ) => void;
 }
 
 export type CanvasStoreState = CanvasSlice & HistorySlice & CollabSlice & UiSlice;

@@ -1,6 +1,6 @@
 'use client';
 
-import { ActiveTool, useCanvasStore } from '@/lib/canvas-store';
+import { ActiveTool, useCanvasStore } from '@/lib/store';
 import {
   Lock,
   Hand,

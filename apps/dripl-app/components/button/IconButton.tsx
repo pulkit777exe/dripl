@@ -1,4 +1,4 @@
-import { IconButtonProps } from '@/eraser';
+import type { IconButtonProps } from '@/eraser/types';
 import { cn } from '@/lib/utils';
 
 export const IconButton: React.FC<IconButtonProps> = ({

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Sparkles, Loader2, AlertCircle, AlertTriangle } from 'lucide-react';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import { useAuth } from '@/app/context/AuthContext';
 import type { DriplElement } from '@dripl/common';
 

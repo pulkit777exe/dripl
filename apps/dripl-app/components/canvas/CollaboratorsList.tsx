@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { X, ChevronDown, ChevronUp } from 'lucide-react';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import { getOrCreateCollaboratorName } from '@/utils/username';
 
 interface CollaboratorsListProps {

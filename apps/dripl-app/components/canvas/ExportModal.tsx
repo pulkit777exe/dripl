@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useShallow } from 'zustand/shallow';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import { exportCanvas, downloadBlob, importFromJson } from '@/utils/export';
 import { InlineError } from '@/components/ui/ErrorState';
 

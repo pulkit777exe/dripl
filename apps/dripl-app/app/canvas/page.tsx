@@ -1,20 +1,25 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { HelpCircle, ShieldCheck } from 'lucide-react';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
 import { CanvasControls } from '@/components/canvas/CanvasControls';
 import { useTheme } from '@/hooks/useTheme';
 import { TopBar } from '@/components/canvas/TopBar';
 import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
-import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
 import HelpModal from '@/components/canvas/HelpModal';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { saveLocalCanvasToStorage, type LocalCanvasState } from '@/utils/localCanvasStorage';
 import { LoadingState, WarningBanner, ErrorState } from '@/components/ui/ErrorState';
+
+const CommandPalette = dynamic(
+  () => import('@/components/canvas/CommandPalette').then((m) => m.CommandPalette),
+  { ssr: false },
+);
 
 function CanvasContent() {
   const router = useRouter();

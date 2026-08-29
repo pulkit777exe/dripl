@@ -1,14 +1,18 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { base64ToKey, decrypt } from '@dripl/utils';
 import type { DriplElement } from '@dripl/common';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import { apiClient } from '@/lib/api';
 import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
 import { CanvasControls } from '@/components/canvas/CanvasControls';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
-import { CommandPalette } from '@/components/canvas/CommandPalette';
+const CommandPalette = dynamic(
+  () => import('@/components/canvas/CommandPalette').then((m) => m.CommandPalette),
+  { ssr: false },
+);
 import { TopBar } from '@/components/canvas/TopBar';
 import { Spinner } from '@/components/button/Spinner';
 
