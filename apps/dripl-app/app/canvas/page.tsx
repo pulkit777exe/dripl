@@ -17,8 +17,8 @@ import { saveLocalCanvasToStorage, type LocalCanvasState } from '@/utils/localCa
 import { LoadingState, WarningBanner, ErrorState } from '@/components/ui/ErrorState';
 
 const CommandPalette = dynamic(
-  () => import('@/components/canvas/CommandPalette').then((m) => m.CommandPalette),
-  { ssr: false },
+  () => import('@/components/canvas/CommandPalette').then(m => m.CommandPalette),
+  { ssr: false }
 );
 
 function CanvasContent() {
@@ -279,9 +279,7 @@ function CanvasContent() {
 export default function CanvasPage(): React.ReactNode {
   return (
     <Suspense
-      fallback={
-        <LoadingState message="Loading canvas..." className="h-dvh bg-canvas-bg" />
-      }
+      fallback={<LoadingState message="Loading canvas..." className="h-dvh bg-canvas-bg" />}
     >
       <CanvasContent />
     </Suspense>

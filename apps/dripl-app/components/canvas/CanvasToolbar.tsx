@@ -76,9 +76,7 @@ export function CanvasToolbar() {
   const setToolLocked = useCanvasStore(state => state.setToolLocked);
 
   return (
-    <div
-      className="canvas-toolbar-shell px-2 py-1.5 rounded-xl border flex items-center gap-0.5 z-50 pointer-events-auto"
-    >
+    <div className="canvas-toolbar-shell px-2 py-1.5 rounded-xl border flex items-center gap-0.5 z-50 pointer-events-auto">
       {/* Lock button */}
       <button
         className="p-2 rounded-md transition-all duration-150"
@@ -97,8 +95,12 @@ export function CanvasToolbar() {
         aria-pressed={toolLocked}
       >
         <div className="t-icon-swap" data-state={toolLocked ? 'b' : 'a'}>
-          <span className="t-icon" data-icon="a"><Lock size={17} /></span>
-          <span className="t-icon" data-icon="b"><Lock size={17} className="text-[var(--color-tool-active-text)]" /></span>
+          <span className="t-icon" data-icon="a">
+            <Lock size={17} />
+          </span>
+          <span className="t-icon" data-icon="b">
+            <Lock size={17} className="text-[var(--color-tool-active-text)]" />
+          </span>
         </div>
       </button>
 
@@ -151,7 +153,11 @@ export function CanvasToolbar() {
             {tool.numericShortcut && (
               <span
                 className="absolute bottom-[2px] right-[2px] min-w-[10px] text-center text-[9px] font-mono leading-none opacity-75 select-none"
-                style={{ color: isActive ? 'var(--color-tool-active-text)' : 'var(--color-tool-inactive-text)' }}
+                style={{
+                  color: isActive
+                    ? 'var(--color-tool-active-text)'
+                    : 'var(--color-tool-inactive-text)',
+                }}
               >
                 {tool.numericShortcut}
               </span>

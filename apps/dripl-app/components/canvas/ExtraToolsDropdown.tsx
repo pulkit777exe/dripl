@@ -5,14 +5,12 @@ import dynamic from 'next/dynamic';
 import { Frame, Globe, Zap, Sparkles, ChevronDown, Wand2, Library } from 'lucide-react';
 import { useCanvasStore } from '@/lib/store';
 
-const AIGenerateModal = dynamic(
-  () => import('./AIGenerateModal').then((m) => m.AIGenerateModal),
-  { ssr: false },
-);
-const EmbedUrlModal = dynamic(
-  () => import('./EmbedUrlModal').then((m) => m.EmbedUrlModal),
-  { ssr: false },
-);
+const AIGenerateModal = dynamic(() => import('./AIGenerateModal').then(m => m.AIGenerateModal), {
+  ssr: false,
+});
+const EmbedUrlModal = dynamic(() => import('./EmbedUrlModal').then(m => m.EmbedUrlModal), {
+  ssr: false,
+});
 
 interface ExtraTool {
   id: string;
@@ -24,7 +22,15 @@ interface ExtraTool {
   helperLabel?: string;
 }
 
-function ToolIcon({ icon, size = 16, className }: { icon?: React.ComponentType<{ size?: number; className?: string }>; size?: number; className?: string }) {
+function ToolIcon({
+  icon,
+  size = 16,
+  className,
+}: {
+  icon?: React.ComponentType<{ size?: number; className?: string }>;
+  size?: number;
+  className?: string;
+}) {
   if (!icon) return null;
   const Icon = icon;
   return <Icon size={size} className={className} />;
@@ -52,7 +58,10 @@ export function ExtraToolsDropdown() {
 
   useEffect(() => {
     if (!closing) return;
-    const ms = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dropdown-close-dur')) || 150;
+    const ms =
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--dropdown-close-dur')
+      ) || 150;
     const timer = setTimeout(() => setClosing(false), ms);
     return () => clearTimeout(timer);
   }, [closing]);
@@ -127,8 +136,9 @@ export function ExtraToolsDropdown() {
     },
   ];
 
-  const isButtonActive = isOpen || activeTool === 'frame' || activeTool === 'laser' || activeTool === 'embed';
-  
+  const isButtonActive =
+    isOpen || activeTool === 'frame' || activeTool === 'laser' || activeTool === 'embed';
+
   const renderActiveIcon = () => {
     if (activeTool === 'frame') return <Frame size={18} />;
     if (activeTool === 'laser') return <Zap size={18} />;
@@ -151,7 +161,10 @@ export function ExtraToolsDropdown() {
           className="relative p-2 rounded-md transition-colors"
           style={
             isButtonActive
-              ? { backgroundColor: 'var(--color-tool-active-bg)', color: 'var(--color-tool-active-text)' }
+              ? {
+                  backgroundColor: 'var(--color-tool-active-bg)',
+                  color: 'var(--color-tool-active-text)',
+                }
               : { backgroundColor: 'transparent', color: 'var(--color-tool-inactive-text)' }
           }
           aria-label="Frame and library tools"
@@ -167,12 +180,18 @@ export function ExtraToolsDropdown() {
         </button>
 
         {(isOpen || closing) && (
-          <div 
+          <div
             className={`t-dropdown absolute top-full right-0 mt-2 w-72 rounded-xl border shadow-2xl z-60 py-1.5 ${isOpen ? 'is-open' : closing ? 'is-closing' : ''}`}
             data-origin="top-right"
-            style={{ backgroundColor: 'var(--color-panel-bg)', borderColor: 'var(--color-panel-border)' }}
+            style={{
+              backgroundColor: 'var(--color-panel-bg)',
+              borderColor: 'var(--color-panel-border)',
+            }}
           >
-            <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase" style={{ color: 'var(--color-panel-label)' }}>
+            <div
+              className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+              style={{ color: 'var(--color-panel-label)' }}
+            >
               Extended Tools
             </div>
 
@@ -189,7 +208,13 @@ export function ExtraToolsDropdown() {
                     <span>{tool.label}</span>
                   </div>
                   {tool.shortcut && (
-                    <span className="text-[11px] font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--color-panel-btn-bg)', color: 'var(--color-panel-label)' }}>
+                    <span
+                      className="text-[11px] font-mono px-1.5 py-0.5 rounded"
+                      style={{
+                        backgroundColor: 'var(--color-panel-btn-bg)',
+                        color: 'var(--color-panel-label)',
+                      }}
+                    >
                       {tool.shortcut}
                     </span>
                   )}
@@ -197,9 +222,15 @@ export function ExtraToolsDropdown() {
               );
             })}
 
-            <div className="my-1.5 h-px" style={{ backgroundColor: 'var(--color-panel-divider)' }} />
+            <div
+              className="my-1.5 h-px"
+              style={{ backgroundColor: 'var(--color-panel-divider)' }}
+            />
 
-            <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase flex items-center gap-1.5" style={{ color: 'var(--color-panel-label)' }}>
+            <div
+              className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase flex items-center gap-1.5"
+              style={{ color: 'var(--color-panel-label)' }}
+            >
               <Sparkles size={12} style={{ color: '#E8462A' }} />
               Generate
             </div>
@@ -214,22 +245,29 @@ export function ExtraToolsDropdown() {
                   disabled={isDisabled}
                   title={isDisabled ? 'Coming Soon' : tool.label}
                   className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
-                    isDisabled
-                      ? 'opacity-55 cursor-not-allowed bg-transparent'
-                      : 'hover:opacity-80'
+                    isDisabled ? 'opacity-55 cursor-not-allowed bg-transparent' : 'hover:opacity-80'
                   }`}
-                  style={{ color: isDisabled ? 'var(--color-panel-label)' : 'var(--color-panel-text)' }}
+                  style={{
+                    color: isDisabled ? 'var(--color-panel-label)' : 'var(--color-panel-text)',
+                  }}
                 >
                   <div className="flex items-center gap-2.5">
-                    <ToolIcon 
-                      icon={tool.icon} 
-                      size={16} 
-                      className={isDisabled ? 'text-[#6B6860]' : 'text-[#E8462A]'} 
+                    <ToolIcon
+                      icon={tool.icon}
+                      size={16}
+                      className={isDisabled ? 'text-[#6B6860]' : 'text-[#E8462A]'}
                     />
                     <span>{tool.label}</span>
                   </div>
                   {tool.helperLabel && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded border" style={{ backgroundColor: 'var(--color-panel-btn-bg)', borderColor: 'var(--color-panel-border)', color: 'var(--color-panel-label)' }}>
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded border"
+                      style={{
+                        backgroundColor: 'var(--color-panel-btn-bg)',
+                        borderColor: 'var(--color-panel-border)',
+                        color: 'var(--color-panel-label)',
+                      }}
+                    >
                       {tool.helperLabel}
                     </span>
                   )}
@@ -241,9 +279,9 @@ export function ExtraToolsDropdown() {
       </div>
 
       <AIGenerateModal isOpen={showAIModal} onClose={() => setShowAIModal(false)} />
-      <EmbedUrlModal 
-        isOpen={showEmbedModal} 
-        onClose={() => setShowEmbedModal(false)} 
+      <EmbedUrlModal
+        isOpen={showEmbedModal}
+        onClose={() => setShowEmbedModal(false)}
         onSubmit={handleEmbedSubmit}
       />
     </>

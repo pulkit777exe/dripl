@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useCallback, useRef } from 'react';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import { smoothZoom, normalizeWheelDelta } from '@/utils/zoomUtils';
 
 interface MomentumRef {

@@ -9,10 +9,7 @@ import { useCanvasStore } from '@/lib/store';
 import { Menu } from './Menu';
 import { CanvasContentSchema, type DriplElement } from '@dripl/common';
 
-const ShareModal = dynamic(
-  () => import('./ShareModal').then((m) => m.ShareModal),
-  { ssr: false },
-);
+const ShareModal = dynamic(() => import('./ShareModal').then(m => m.ShareModal), { ssr: false });
 import { downloadBlob, exportCanvas } from '@/utils/export';
 
 export const TopBar: React.FC = () => {

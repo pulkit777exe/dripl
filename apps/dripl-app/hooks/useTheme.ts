@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme as useNextThemes } from 'next-themes';
-import { useCanvasStore, type Theme } from '@/lib/canvas-store';
+import { useCanvasStore, type Theme } from '@/lib/store';
 
 export function useTheme() {
   const { theme, setTheme: setNextTheme, resolvedTheme } = useNextThemes();

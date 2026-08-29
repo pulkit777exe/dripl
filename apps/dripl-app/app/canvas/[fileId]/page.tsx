@@ -15,8 +15,8 @@ import { Spinner } from '@/components/button/Spinner';
 import HelpModal from '@/components/canvas/HelpModal';
 
 const CommandPalette = dynamic(
-  () => import('@/components/canvas/CommandPalette').then((m) => m.CommandPalette),
-  { ssr: false },
+  () => import('@/components/canvas/CommandPalette').then(m => m.CommandPalette),
+  { ssr: false }
 );
 import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
 import { useCanvasStore } from '@/lib/store';

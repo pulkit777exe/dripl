@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DriplElement } from '@dripl/common';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import * as Y from 'yjs';
 
 const YJS_MSG_UPDATE = 1;

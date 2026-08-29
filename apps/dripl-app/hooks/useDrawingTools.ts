@@ -3,7 +3,7 @@
 import { useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { DriplElement, LinearElement, Point, NormalizedBinding, ArrowStyle } from '@dripl/common';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import { getDistanceToBounds } from '@dripl/math/intersection';
 import { createRectangleElement, type RectangleToolState } from '@/utils/tools/rectangle';
 import { createEllipseElement, type EllipseToolState } from '@/utils/tools/ellipse';

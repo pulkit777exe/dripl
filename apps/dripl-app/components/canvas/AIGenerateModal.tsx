@@ -95,12 +95,15 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
         );
         setWarning(warnings[0] ?? null);
         setGenerateSuccess(true);
-        setTimeout(() => {
-          setGenerateSuccess(false);
-          setWarning(null);
-          onClose();
-          setPrompt('');
-        }, warnings.length > 0 ? 2400 : 1200);
+        setTimeout(
+          () => {
+            setGenerateSuccess(false);
+            setWarning(null);
+            onClose();
+            setPrompt('');
+          },
+          warnings.length > 0 ? 2400 : 1200
+        );
       }
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
@@ -148,9 +151,10 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
       return () => cancelAnimationFrame(raf);
     }
     if (animState === 'closing') {
-      const ms = parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
-      ) || 150;
+      const ms =
+        parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
+        ) || 150;
       const timer = setTimeout(() => setAnimState('closed'), ms);
       return () => clearTimeout(timer);
     }
@@ -158,17 +162,38 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
   if (generateSuccess) {
     return createPortal(
-      <div className="fixed inset-0 z-400 flex items-center justify-center p-4 box-content backdrop-blur-sm pointer-events-auto t-modal is-open" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
-        <div className="rounded-xl shadow-lg p-8 flex flex-col items-center gap-3" style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}>
+      <div
+        className="fixed inset-0 z-400 flex items-center justify-center p-4 box-content backdrop-blur-sm pointer-events-auto t-modal is-open"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+      >
+        <div
+          className="rounded-xl shadow-lg p-8 flex flex-col items-center gap-3"
+          style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}
+        >
           <span className="t-success-check" data-state="in" aria-hidden="true" ref={successRef}>
             <svg viewBox="0 0 48 48" fill="none" width="48" height="48">
               <circle cx="24" cy="24" r="22" stroke="#22c55e" strokeWidth="4" />
-              <path d="M16 24l6 6 10-10" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M16 24l6 6 10-10"
+                stroke="#22c55e"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </span>
-          <p className="text-[15px] font-semibold" style={{ color: '#1A1917' }}>Diagram Generated!</p>
+          <p className="text-[15px] font-semibold" style={{ color: '#1A1917' }}>
+            Diagram Generated!
+          </p>
           {warning && (
-            <div className="flex max-w-72 items-center gap-2 rounded-md px-3 py-2 text-[12px]" style={{ border: '1px solid rgba(245, 158, 11, 0.4)', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#b45309' }}>
+            <div
+              className="flex max-w-72 items-center gap-2 rounded-md px-3 py-2 text-[12px]"
+              style={{
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                color: '#b45309',
+              }}
+            >
               <AlertTriangle size={14} className="shrink-0" />
               <span>{warning}</span>
             </div>
@@ -194,17 +219,28 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
         style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #E4E0D9' }}>
+        <div
+          className="flex items-center justify-between px-5 py-3.5"
+          style={{ borderBottom: '1px solid #E4E0D9' }}
+        >
           <div className="flex items-center gap-2">
             <Sparkles size={18} style={{ color: '#E8462A' }} />
-            <h2 className="text-[15px] font-semibold" style={{ color: '#1A1917' }}>AI Diagram Generator</h2>
+            <h2 className="text-[15px] font-semibold" style={{ color: '#1A1917' }}>
+              AI Diagram Generator
+            </h2>
           </div>
           <button
             onClick={onClose}
             className="p-1 rounded-md transition-colors"
             style={{ color: '#6B6860' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#1A1917'; e.currentTarget.style.backgroundColor = '#E8E5DE'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#6B6860'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = '#1A1917';
+              e.currentTarget.style.backgroundColor = '#E8E5DE';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = '#6B6860';
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
           >
             <X size={18} />
           </button>
@@ -212,7 +248,9 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
 
         <div className="p-5 space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[12px] font-medium" style={{ color: '#6B6860' }}>Describe your diagram</label>
+            <label className="text-[12px] font-medium" style={{ color: '#6B6860' }}>
+              Describe your diagram
+            </label>
             <textarea
               value={prompt}
               onChange={e => {
@@ -224,18 +262,26 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
               style={{ backgroundColor: '#FAFAF7', border: '1px solid #D4D0C9', color: '#1A1917' }}
               disabled={aiGenerating}
             />
-            <div className="text-[11px]" style={{ color: '#6B6860' }}>{prompt.length}/2000</div>
+            <div className="text-[11px]" style={{ color: '#6B6860' }}>
+              {prompt.length}/2000
+            </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[12px] font-medium" style={{ color: '#6B6860' }}>Try an example</label>
+            <label className="text-[12px] font-medium" style={{ color: '#6B6860' }}>
+              Try an example
+            </label>
             <div className="flex flex-wrap gap-1.5">
               {EXAMPLE_PROMPTS.map((example, index) => (
                 <button
                   key={index}
                   onClick={() => handleExampleClick(example)}
                   className="px-2.5 py-1 text-[11px] rounded-full transition-colors"
-                  style={{ backgroundColor: '#FAFAF7', border: '1px solid #D4D0C9', color: '#6B6860' }}
+                  style={{
+                    backgroundColor: '#FAFAF7',
+                    border: '1px solid #D4D0C9',
+                    color: '#6B6860',
+                  }}
                   disabled={aiGenerating}
                 >
                   {example.length > 40 ? example.slice(0, 40) + '...' : example}
@@ -245,14 +291,20 @@ export function AIGenerateModal({ isOpen, onClose }: AIGenerateModalProps) {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px]" style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#B42318' }}>
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px]"
+              style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#B42318' }}
+            >
               <AlertCircle size={14} />
               {error}
             </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-2 px-5 py-3.5" style={{ borderTop: '1px solid #E4E0D9' }}>
+        <div
+          className="flex justify-end gap-2 px-5 py-3.5"
+          style={{ borderTop: '1px solid #E4E0D9' }}
+        >
           <button
             onClick={onClose}
             className="px-3 py-1.5 text-[13px] transition-colors"

@@ -18,10 +18,7 @@ import {
 import { useState } from 'react';
 import type { DriplElement, ArrowStyle, ArrowheadType, LinearElement } from '@dripl/common';
 
-const ExportModal = dynamic(
-  () => import('./ExportModal').then((m) => m.ExportModal),
-  { ssr: false },
-);
+const ExportModal = dynamic(() => import('./ExportModal').then(m => m.ExportModal), { ssr: false });
 import { FONT_PREFERENCES, getDefaultFontFamily } from '@/utils/fontPreferences';
 
 interface ElementPropertiesProps {
@@ -239,7 +236,10 @@ export function PropertiesPanel({
   const panelClass = 't-panel-slide';
 
   return (
-    <div className={`flex flex-col gap-2 z-50 ${panelClass}`} data-open={selectedElement ? 'true' : 'false'}>
+    <div
+      className={`flex flex-col gap-2 z-50 ${panelClass}`}
+      data-open={selectedElement ? 'true' : 'false'}
+    >
       <div
         className="p-4 rounded-xl shadow-2xl w-48 space-y-3"
         style={{
@@ -501,9 +501,7 @@ export function PropertiesPanel({
                       : currentArrowStyle) === type
                   }
                   onClick={() =>
-                    selectedElement
-                      ? updateProp('arrowStyle', type)
-                      : setCurrentArrowStyle(type)
+                    selectedElement ? updateProp('arrowStyle', type) : setCurrentArrowStyle(type)
                   }
                   title={type}
                 >
@@ -543,7 +541,7 @@ export function PropertiesPanel({
                   onClick={() => {
                     const currentArrowHeads =
                       selectedElement && 'arrowHeads' in selectedElement
-                        ? (selectedElement as LinearElement).arrowHeads ?? {}
+                        ? ((selectedElement as LinearElement).arrowHeads ?? {})
                         : {};
                     updateProp('arrowHeads', {
                       ...currentArrowHeads,
@@ -569,13 +567,13 @@ export function PropertiesPanel({
                   key={`end-${type}`}
                   active={
                     (selectedElement && 'arrowHeads' in selectedElement
-                      ? (selectedElement as LinearElement).arrowHeads?.end ?? 'triangle'
+                      ? ((selectedElement as LinearElement).arrowHeads?.end ?? 'triangle')
                       : 'triangle') === type
                   }
                   onClick={() => {
                     const currentArrowHeads =
                       selectedElement && 'arrowHeads' in selectedElement
-                        ? (selectedElement as LinearElement).arrowHeads ?? {}
+                        ? ((selectedElement as LinearElement).arrowHeads ?? {})
                         : {};
                     updateProp('arrowHeads', {
                       ...currentArrowHeads,

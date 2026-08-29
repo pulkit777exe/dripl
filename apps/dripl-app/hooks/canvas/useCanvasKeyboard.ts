@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react';
 import { useShallow } from 'zustand/shallow';
-import { useCanvasStore } from '@/lib/canvas-store';
-import type { ActiveTool } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
+import type { ActiveTool } from '@/lib/store';
 import type { DriplElement } from '@dripl/common';
 
 interface InteractionRef {

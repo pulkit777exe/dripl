@@ -10,8 +10,8 @@ import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
 import { CanvasControls } from '@/components/canvas/CanvasControls';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
 const CommandPalette = dynamic(
-  () => import('@/components/canvas/CommandPalette').then((m) => m.CommandPalette),
-  { ssr: false },
+  () => import('@/components/canvas/CommandPalette').then(m => m.CommandPalette),
+  { ssr: false }
 );
 import { TopBar } from '@/components/canvas/TopBar';
 import { Spinner } from '@/components/button/Spinner';

@@ -59,12 +59,16 @@ export function CollaboratorsList({ roomSlug, onLeaveRoom }: CollaboratorsListPr
     const lift = parseFloat(cs.getPropertyValue('--avatar-lift')) || -4;
     const falloff = parseFloat(cs.getPropertyValue('--avatar-falloff')) || 0.45;
     const scale = parseFloat(cs.getPropertyValue('--avatar-scale')) || 1.05;
-    const easeIn = cs.getPropertyValue('--avatar-ease-in').trim() || 'cubic-bezier(0.22, 1, 0.36, 1)';
+    const easeIn =
+      cs.getPropertyValue('--avatar-ease-in').trim() || 'cubic-bezier(0.22, 1, 0.36, 1)';
 
     avatarGroupRef.current.querySelectorAll('.t-avatar').forEach((el, i) => {
       (el as HTMLElement).style.transitionTimingFunction = easeIn;
       const d = Math.abs(i - index);
-      (el as HTMLElement).style.setProperty('--shift', (lift * Math.pow(falloff, d)).toFixed(3) + 'px');
+      (el as HTMLElement).style.setProperty(
+        '--shift',
+        (lift * Math.pow(falloff, d)).toFixed(3) + 'px'
+      );
       (el as HTMLElement).style.setProperty('--scale-active', i === index ? String(scale) : '1');
     });
   };
@@ -72,7 +76,8 @@ export function CollaboratorsList({ roomSlug, onLeaveRoom }: CollaboratorsListPr
   const handleAvatarGroupLeave = () => {
     if (!avatarGroupRef.current) return;
     const cs = getComputedStyle(document.documentElement);
-    const easeOut = cs.getPropertyValue('--avatar-ease-out').trim() || 'cubic-bezier(0.34, 3.85, 0.64, 1)';
+    const easeOut =
+      cs.getPropertyValue('--avatar-ease-out').trim() || 'cubic-bezier(0.34, 3.85, 0.64, 1)';
 
     avatarGroupRef.current.querySelectorAll('.t-avatar').forEach(el => {
       (el as HTMLElement).style.transitionTimingFunction = easeOut;
@@ -98,7 +103,12 @@ export function CollaboratorsList({ roomSlug, onLeaveRoom }: CollaboratorsListPr
   return (
     <div className="fixed right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 pointer-events-auto z-50">
       {hasCollaborators && (
-        <div className="t-panel-slide" data-open={isExpanded ? 'true' : 'false'} ref={avatarGroupRef} onMouseLeave={handleAvatarGroupLeave}>
+        <div
+          className="t-panel-slide"
+          data-open={isExpanded ? 'true' : 'false'}
+          ref={avatarGroupRef}
+          onMouseLeave={handleAvatarGroupLeave}
+        >
           <div className="flex flex-col items-center gap-2">
             {allUsers.map((user, index) => (
               <div

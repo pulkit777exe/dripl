@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import type { DriplElement } from '@dripl/common';
 import { loadImage, uploadImageToServer } from '@/utils/tools/image';
 import { generateFractionalIndexAfterAll } from '@/lib/store/helpers';

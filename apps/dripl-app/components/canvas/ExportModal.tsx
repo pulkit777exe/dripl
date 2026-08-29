@@ -66,9 +66,10 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       return () => cancelAnimationFrame(raf);
     }
     if (animState === 'closing') {
-      const ms = parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
-      ) || 150;
+      const ms =
+        parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
+        ) || 150;
       const timer = setTimeout(() => setAnimState('closed'), ms);
       return () => clearTimeout(timer);
     }
@@ -239,14 +240,25 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #E4E0D9' }}>
-          <h2 className="text-[15px] font-semibold" style={{ color: '#1A1917' }}>Export Canvas</h2>
+        <div
+          className="flex items-center justify-between px-5 py-3.5"
+          style={{ borderBottom: '1px solid #E4E0D9' }}
+        >
+          <h2 className="text-[15px] font-semibold" style={{ color: '#1A1917' }}>
+            Export Canvas
+          </h2>
           <button
             onClick={onClose}
             className="p-1 rounded-md transition-colors"
             style={{ color: '#6B6860' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#1A1917'; e.currentTarget.style.backgroundColor = '#E8E5DE'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#6B6860'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = '#1A1917';
+              e.currentTarget.style.backgroundColor = '#E8E5DE';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = '#6B6860';
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
           >
             <X size={18} />
           </button>
@@ -255,7 +267,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         <div className="p-5 space-y-4">
           {/* Format Selection */}
           <div>
-            <label className="text-[12px] font-medium mb-2 block" style={{ color: '#6B6860' }}>Format</label>
+            <label className="text-[12px] font-medium mb-2 block" style={{ color: '#6B6860' }}>
+              Format
+            </label>
             <div className="grid grid-cols-4 gap-2">
               {(['png', 'svg', 'json', 'pdf'] as ExportFormat[]).map(format => (
                 <button
@@ -278,7 +292,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           {/* Scale */}
           {selectedFormat !== 'json' && selectedFormat !== 'pdf' && (
             <div>
-              <label className="text-[12px] font-medium mb-2 block" style={{ color: '#6B6860' }}>Scale</label>
+              <label className="text-[12px] font-medium mb-2 block" style={{ color: '#6B6860' }}>
+                Scale
+              </label>
               <div className="space-y-2">
                 <div className="flex gap-1.5">
                   {([1, 2, 3, 4] as ExportScale[]).map(s => (
@@ -290,7 +306,8 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                       }}
                       className="flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors"
                       style={{
-                        border: scale === s && !useCustomSize ? '1px solid #E8462A' : '1px solid #D4D0C9',
+                        border:
+                          scale === s && !useCustomSize ? '1px solid #E8462A' : '1px solid #D4D0C9',
                         backgroundColor: scale === s && !useCustomSize ? '#FAE8E5' : '#FAFAF7',
                         color: scale === s && !useCustomSize ? '#E8462A' : '#6B6860',
                       }}
@@ -299,7 +316,10 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                     </button>
                   ))}
                 </div>
-                <label className="flex items-center gap-2 text-[12px] cursor-pointer" style={{ color: '#6B6860' }}>
+                <label
+                  className="flex items-center gap-2 text-[12px] cursor-pointer"
+                  style={{ color: '#6B6860' }}
+                >
                   <input
                     type="checkbox"
                     checked={useCustomSize}
@@ -330,11 +350,16 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                       min={100}
                       max={10000}
                     />
-                    <span className="text-[11px]" style={{ color: '#6B6860' }}>px</span>
+                    <span className="text-[11px]" style={{ color: '#6B6860' }}>
+                      px
+                    </span>
                   </div>
                 )}
                 {selectedIds.size > 0 && (
-                  <label className="flex items-center gap-2 text-[12px] cursor-pointer" style={{ color: '#6B6860' }}>
+                  <label
+                    className="flex items-center gap-2 text-[12px] cursor-pointer"
+                    style={{ color: '#6B6860' }}
+                  >
                     <input
                       type="checkbox"
                       checked={exportSelectionOnly}
@@ -359,8 +384,12 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             >
               <FileJson className="w-4 h-4" style={{ color: '#E8462A' }} />
               <div className="text-left">
-                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>Export as JSON</div>
-                <div className="text-[11px]" style={{ color: '#6B6860' }}>Save all elements as JSON data</div>
+                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>
+                  Export as JSON
+                </div>
+                <div className="text-[11px]" style={{ color: '#6B6860' }}>
+                  Save all elements as JSON data
+                </div>
               </div>
             </button>
 
@@ -408,7 +437,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                     'Export as SVG'
                   )}
                 </div>
-                <div className="text-[11px]" style={{ color: '#6B6860' }}>Vector graphics (scalable)</div>
+                <div className="text-[11px]" style={{ color: '#6B6860' }}>
+                  Vector graphics (scalable)
+                </div>
               </div>
             </button>
 
@@ -430,7 +461,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                     'Export as PDF'
                   )}
                 </div>
-                <div className="text-[11px]" style={{ color: '#6B6860' }}>Document format</div>
+                <div className="text-[11px]" style={{ color: '#6B6860' }}>
+                  Document format
+                </div>
               </div>
             </button>
 
@@ -452,7 +485,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                     'Copy to Clipboard'
                   )}
                 </div>
-                <div className="text-[11px]" style={{ color: '#6B6860' }}>Copy as PNG image</div>
+                <div className="text-[11px]" style={{ color: '#6B6860' }}>
+                  Copy as PNG image
+                </div>
               </div>
             </button>
 
@@ -463,7 +498,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             >
               <Download className="w-4 h-4" style={{ color: '#E8462A' }} />
               <div className="text-left">
-                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>Import JSON</div>
+                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>
+                  Import JSON
+                </div>
                 <div className="text-[11px]" style={{ color: '#6B6860' }}>
                   Merge or replace from exported JSON
                 </div>
@@ -474,23 +511,31 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
 
         {exportError && (
           <div className="px-5 pb-5">
-            <InlineError
-              message={exportError}
-              onRetry={() => setExportError(null)}
-            />
+            <InlineError message={exportError} onRetry={() => setExportError(null)} />
           </div>
         )}
 
         {exportSuccess && (
           <div className="px-5 pb-5">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-md" style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-md"
+              style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}
+            >
               <span className="t-success-check" data-state="in" aria-hidden="true" ref={successRef}>
                 <svg viewBox="0 0 48 48" fill="none" width="20" height="20">
                   <circle cx="24" cy="24" r="22" stroke="#22c55e" strokeWidth="4" />
-                  <path d="M16 24l6 6 10-10" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M16 24l6 6 10-10"
+                    stroke="#22c55e"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </span>
-              <span className="text-[13px] font-medium" style={{ color: '#16A34A' }}>{exportSuccess}</span>
+              <span className="text-[13px] font-medium" style={{ color: '#16A34A' }}>
+                {exportSuccess}
+              </span>
             </div>
           </div>
         )}

@@ -1,7 +1,7 @@
 import type { DriplElement, Point } from '@dripl/common';
 import { getBounds } from '@dripl/math/geometry';
 import { AnimationController } from './animationController';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 
 interface ZoomAnimationState extends Record<string, unknown> {
   startTime: number;

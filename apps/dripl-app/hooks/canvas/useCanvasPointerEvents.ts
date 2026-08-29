@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { useShallow } from 'zustand/shallow';
-import { useCanvasStore, type ActiveTool } from '@/lib/canvas-store';
+import { useCanvasStore, type ActiveTool } from '@/lib/store';
 import { getElementBounds, isPointInElement, inverseRotatePoint, getDistanceToBounds, isPointNearElement } from '@dripl/math/intersection';
 import type { DriplElement, LinearElement, TextElement } from '@dripl/common';
 import { resizeSingleElement } from '@dripl/element/resizeElements';

@@ -5,7 +5,13 @@ import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/store';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { useCanvasWorker } from '@/hooks/useCanvasWorker';
-import { getElementBounds, isPointInElement, isPointNearElement, shouldTestInside, isPointOnElementOutline } from '@dripl/math/intersection';
+import {
+  getElementBounds,
+  isPointInElement,
+  isPointNearElement,
+  shouldTestInside,
+  isPointOnElementOutline,
+} from '@dripl/math/intersection';
 import { type DriplElement } from '@dripl/common';
 import { collectCascadeDeleteIds } from '@dripl/common/cascade-delete';
 import { getOrCreateCollaboratorName } from '@/utils/username';
@@ -26,10 +32,16 @@ import { useCanvasPointerEvents } from '@/hooks/canvas/useCanvasPointerEvents';
 import { useCanvasKeyboard } from '@/hooks/canvas/useCanvasKeyboard';
 import { useCanvasWheel } from '@/hooks/canvas/useCanvasWheel';
 
-const PropertiesPanel = lazy(() => import('./PropertiesPanel').then(m => ({ default: m.PropertiesPanel })));
+const PropertiesPanel = lazy(() =>
+  import('./PropertiesPanel').then(m => ({ default: m.PropertiesPanel }))
+);
 const ContextMenu = lazy(() => import('./ContextMenu').then(m => ({ default: m.ContextMenu })));
-const NameInputModal = lazy(() => import('./NameInputModal').then(m => ({ default: m.NameInputModal })));
-const WelcomeScreen = lazy(() => import('./WelcomeScreen').then(m => ({ default: m.WelcomeScreen })));
+const NameInputModal = lazy(() =>
+  import('./NameInputModal').then(m => ({ default: m.NameInputModal }))
+);
+const WelcomeScreen = lazy(() =>
+  import('./WelcomeScreen').then(m => ({ default: m.WelcomeScreen }))
+);
 
 interface Point {
   x: number;
@@ -54,8 +66,6 @@ interface SpatialIndexState {
   byId: Map<string, DriplElement>;
   elementIds: Set<string>;
 }
-
-
 
 export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   perfMark('RoughCanvas:render:start');
@@ -96,7 +106,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   }, [containerReady]);
 
   const { user } = useAuth();
-  const [userName, setUserName] = useState<string | null>(() => user?.name?.trim() || getOrCreateCollaboratorName());
+  const [userName, setUserName] = useState<string | null>(
+    () => user?.name?.trim() || getOrCreateCollaboratorName()
+  );
 
   const isDrawing = useCanvasStore(s => s.isDrawing);
   const isDrawingRef = useRef(false);
@@ -114,7 +126,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     y: number;
     elementId: string;
   } | null>(null);
-
 
   const setDrawingState = useCallback((next: boolean) => {
     isDrawingRef.current = next;
@@ -172,40 +183,35 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   const suppressRemoteBroadcastRef = useRef(false);
   const prevElementsRef = useRef<DriplElement[]>([]);
-  const {
-    collaborators,
-    broadcastElements,
-    broadcastCursor,
-    lockElement,
-    unlockElement,
-  } = useCollaboration(roomSlug, {
-    displayName: userName,
-    onFullSync: elements => {
-      suppressRemoteBroadcastRef.current = true;
-      setElements(elements, { skipHistory: true });
-    },
-    onRemoteElements: (added, updated, deleted) => {
-      suppressRemoteBroadcastRef.current = true;
-      const state = useCanvasStore.getState();
-      let nextElements = [...state.elements];
-      for (const el of added) {
-        if (!nextElements.some(e => e.id === el.id)) {
-          nextElements.push(el);
+  const { collaborators, broadcastElements, broadcastCursor, lockElement, unlockElement } =
+    useCollaboration(roomSlug, {
+      displayName: userName,
+      onFullSync: elements => {
+        suppressRemoteBroadcastRef.current = true;
+        setElements(elements, { skipHistory: true });
+      },
+      onRemoteElements: (added, updated, deleted) => {
+        suppressRemoteBroadcastRef.current = true;
+        const state = useCanvasStore.getState();
+        let nextElements = [...state.elements];
+        for (const el of added) {
+          if (!nextElements.some(e => e.id === el.id)) {
+            nextElements.push(el);
+          }
         }
-      }
-      for (const el of updated) {
-        const idx = nextElements.findIndex(e => e.id === el.id);
-        if (idx !== -1) {
-          nextElements[idx] = el;
+        for (const el of updated) {
+          const idx = nextElements.findIndex(e => e.id === el.id);
+          if (idx !== -1) {
+            nextElements[idx] = el;
+          }
         }
-      }
-      if (deleted.length > 0) {
-        const deletedSet = new Set(deleted);
-        nextElements = nextElements.filter(e => !deletedSet.has(e.id));
-      }
-      state.setElements(nextElements, { skipHistory: true });
-    },
-  });
+        if (deleted.length > 0) {
+          const deletedSet = new Set(deleted);
+          nextElements = nextElements.filter(e => !deletedSet.has(e.id));
+        }
+        state.setElements(nextElements, { skipHistory: true });
+      },
+    });
 
   const lockElementsForGesture = useCallback(
     (ids: Iterable<string>) => {
@@ -276,7 +282,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   }, [fitElementsToScreen]);
 
   // ── Clipboard ────────────────────────────────────────────────────────────
-  const { duplicateSelection, copySelectedToClipboard, pasteFromClipboard, findOnCanvas } = useCanvasClipboard();
+  const { duplicateSelection, copySelectedToClipboard, pasteFromClipboard, findOnCanvas } =
+    useCanvasClipboard();
 
   // ── Spatial index (worker-accelerated rebuild) ──────────────────────────────
   const spatialIndexRef = useRef<SpatialIndexState>({
@@ -297,11 +304,13 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     if (workerBusyRef.current) return;
     workerBusyRef.current = true;
 
-    buildIndex(elements).then(() => {
-      workerBusyRef.current = false;
-    }).catch(() => {
-      workerBusyRef.current = false;
-    });
+    buildIndex(elements)
+      .then(() => {
+        workerBusyRef.current = false;
+      })
+      .catch(() => {
+        workerBusyRef.current = false;
+      });
   }, [elements, workerReady, buildIndex]);
 
   // Synchronous local RBush for hit testing (loaded from worker result)
@@ -786,7 +795,9 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     activeTool,
     readOnly,
     elements,
-    setTextInput: useCanvasStore.getState().setTextInput as (state: { x: number; y: number; id: string; value?: string; existingElementId?: string } | null) => void,
+    setTextInput: useCanvasStore.getState().setTextInput as (
+      state: { x: number; y: number; id: string; value?: string; existingElementId?: string } | null
+    ) => void,
     setDrawingState,
     cancelDrawing,
     collectCascadeDeleteIds: collectCascadeDeleteIdsCallback,
@@ -803,7 +814,8 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const collaboratorCursors = collaborators;
   const shouldShowPropertiesPanel = activeTool === 'select' && selectedIds.size > 0; // RULE: Sidebar Visibility
   const primarySelectedElement = useMemo(
-    () => (selectedIds.size > 0 ? (elements.find(element => selectedIds.has(element.id)) ?? null) : null),
+    () =>
+      selectedIds.size > 0 ? (elements.find(element => selectedIds.has(element.id)) ?? null) : null,
     [elements, selectedIds]
   );
 

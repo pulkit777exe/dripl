@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorBody = await tokenResponse.text();
-      // eslint-disable-next-line no-console -- OAuth debug logging
+       
       console.error(
         JSON.stringify({
           level: 'error',
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!authResponse.ok) {
-      // eslint-disable-next-line no-console -- OAuth debug logging
+       
       console.error(
         JSON.stringify({
           level: 'error',
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (err) {
-    // eslint-disable-next-line no-console -- OAuth debug logging
+     
     console.error(
       JSON.stringify({
         level: 'error',

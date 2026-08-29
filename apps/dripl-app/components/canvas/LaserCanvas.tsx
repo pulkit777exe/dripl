@@ -154,5 +154,10 @@ export function LaserCanvas() {
     };
   }, []); // Empty deps - RAF loop runs once, reads store directly
 
-  return <canvas ref={canvasRef} className="absolute inset-0 z-30 pointer-events-none overflow-visible" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 z-30 pointer-events-none overflow-visible"
+    />
+  );
 }

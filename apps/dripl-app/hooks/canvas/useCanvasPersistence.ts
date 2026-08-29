@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import { saveLocalCanvasToStorage, type LocalCanvasState } from '@/utils/localCanvasStorage';
 
 interface UseCanvasPersistenceProps {

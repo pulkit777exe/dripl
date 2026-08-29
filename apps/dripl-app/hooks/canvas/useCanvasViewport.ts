@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import { getElementBounds } from '@dripl/math/intersection';
 import type { DriplElement } from '@dripl/common';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 
 export function useCanvasViewport(containerRef: React.RefObject<HTMLDivElement | null>) {
   const setZoom = useCanvasStore(state => state.setZoom);
