@@ -1,15 +1,8 @@
 #!/bin/bash
 set -e
 
-# Build workspace packages that dripl-app depends on
-echo "Building workspace packages..."
-pnpm --filter @dripl/common build
-pnpm --filter @dripl/math build
-pnpm --filter @dripl/utils build
-pnpm --filter @dripl/element build
-
-# Build dripl-app
-echo "Building dripl-app..."
-pnpm --filter dripl-app build
+# Build dripl-app with all workspace deps in dependency order.
+# Turbo's `^build` automatically builds @dripl/* packages first.
+pnpm turbo run build --filter=dripl-app
 
 echo "Build complete."

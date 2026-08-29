@@ -2,6 +2,7 @@
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
   "envMode": "strict",
+  "cacheDir": ".turbo/cache",
   "globalEnv": ["CI", "NODE_ENV", "VERCEL"],
   "globalPassThroughEnv": ["GITHUB_TOKEN", "NPM_TOKEN", "TURBO_TOKEN", "TURBO_TEAM", "VERCEL_URL"],
   "boundaries": {
@@ -52,7 +53,7 @@
       "outputLogs": "new-only"
     },
     "dev": {
-      "description": "Run local development servers",
+      "description": "Run local development servers (long-running; pre-builds workspace deps once)",
       "cache": false,
       "persistent": true,
       "interruptible": true,
@@ -75,7 +76,14 @@
     "test": {
       "description": "Execute test suites",
       "dependsOn": ["^build", "build"],
-      "env": ["DATABASE_URL", "JWT_SECRET", "NEXT_PUBLIC_*", "GEMINI_API_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+      "env": [
+        "DATABASE_URL",
+        "JWT_SECRET",
+        "NEXT_PUBLIC_*",
+        "GEMINI_API_KEY",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET"
+      ],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/.env",

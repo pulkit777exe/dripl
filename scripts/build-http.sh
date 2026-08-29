@@ -1,14 +1,8 @@
 #!/bin/bash
 set -e
 
-# Build workspace packages that http-server depends on
-echo "Building workspace packages..."
-pnpm --filter @dripl/common build
-pnpm --filter @dripl/utils build
-pnpm --filter @dripl/db build
-
-# Build http-server
-echo "Building http-server..."
-pnpm --filter http-server build
+# Build http-server with all workspace deps in dependency order.
+# Turbo's `^build` automatically builds @dripl/* packages first.
+pnpm turbo run build --filter=http-server
 
 echo "Build complete."

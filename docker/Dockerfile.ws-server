@@ -10,7 +10,6 @@ COPY packages/math/package.json        ./packages/math/
 COPY packages/element/package.json     ./packages/element/
 COPY packages/test-utils/package.json  ./packages/test-utils/
 COPY packages/utils/package.json       ./packages/utils/
-COPY packages/dripl/package.json       ./packages/dripl/
 COPY apps/ws-server/package.json       ./apps/ws-server/
 COPY tooling/typescript-config/package.json ./tooling/typescript-config/
 
@@ -20,12 +19,8 @@ RUN pnpm install --frozen-lockfile --network-concurrency 8 --fetch-retries 5
 COPY packages/ ./packages/
 COPY tooling/  ./tooling/
 RUN cd packages/db && npx prisma generate --no-engine --schema=./prisma/schema.prisma
-RUN pnpm --filter "@dripl/common" build && \
-    pnpm --filter "@dripl/db" build && \
-    pnpm --filter "@dripl/math" build && \
-    pnpm --filter "@dripl/utils" build && \
-    pnpm --filter "@dripl/element" build && \
-    pnpm --filter "@dripl/dripl" build
+# Build all workspace packages via Turbo (respects dependency graph + remote cache)
+RUN pnpm turbo run build --filter=!dripl-app
 
 COPY apps/ws-server/ ./apps/ws-server/
 

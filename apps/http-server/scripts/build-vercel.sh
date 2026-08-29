@@ -3,9 +3,8 @@ set -e
 
 cd ../..
 
-pnpm --filter @dripl/common build
-pnpm --filter @dripl/utils build
-pnpm --filter @dripl/db build
+# Turbo's `^build` automatically builds @dripl/* deps before http-server.
+pnpm turbo run build --filter=http-server
 
 cd apps/http-server
 

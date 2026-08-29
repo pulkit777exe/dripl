@@ -3,9 +3,8 @@ set -e
 
 cd ../..
 
-pnpm --filter @dripl/common build
-pnpm --filter @dripl/utils build
-pnpm --filter @dripl/db build
+# Turbo's `^build` automatically builds @dripl/* deps before ws-server.
+pnpm turbo run build --filter=ws-server
 
 cd apps/ws-server
 
