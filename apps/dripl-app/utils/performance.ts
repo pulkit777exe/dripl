@@ -64,11 +64,11 @@ export function reportPerf() {
   const entries = performance.getEntriesByType('measure');
   const filtered = entries.filter(e => e.name.endsWith(':render'));
   if (filtered.length === 0) return;
-  // eslint-disable-next-line no-console -- Dev performance reporting tool
+   
   console.groupCollapsed('[perf] render timings');
-  // eslint-disable-next-line no-console -- Dev performance reporting tool
+   
   filtered.forEach(e => console.log(`${e.name}: ${e.duration.toFixed(1)}ms`));
-  // eslint-disable-next-line no-console -- Dev performance reporting tool
+   
   console.groupEnd();
   performance.clearMeasures();
 }

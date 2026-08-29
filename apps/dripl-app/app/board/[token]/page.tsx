@@ -44,7 +44,7 @@ export default async function BoardTokenPage({ params }: BoardPageProps): Promis
         elements = shareLink.room.content ? JSON.parse(shareLink.room.content) : [];
       } catch (err) {
         Sentry.captureException(err);
-        // eslint-disable-next-line no-console -- Server Component, no pino available
+         
         console.error('Failed to parse room content JSON:', err);
         elements = [];
       }
@@ -57,7 +57,7 @@ export default async function BoardTokenPage({ params }: BoardPageProps): Promis
     }
   } catch (err) {
     Sentry.captureException(err);
-    // eslint-disable-next-line no-console -- Server Component, no pino available
+     
     console.error('Failed to load share data from database:', err);
     // Fall back to in-memory share
   }
