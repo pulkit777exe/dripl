@@ -17,6 +17,18 @@ import {
   resetIdCounter,
 } from '@dripl/test-utils';
 
+// jsdom does not implement HTMLCanvasElement.getContext. Stub the minimum
+// surface that resizeElements uses so the text-measurement fallback is
+// exercised without throwing.
+if (typeof HTMLCanvasElement !== 'undefined') {
+  HTMLCanvasElement.prototype.getContext = function getContextStub() {
+    return {
+      font: '',
+      measureText: (_text: string) => ({ width: 0 }),
+    } as unknown as CanvasRenderingContext2D;
+  };
+}
+
 vi.mock('./resizeElements', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./resizeElements')>();
   return actual;

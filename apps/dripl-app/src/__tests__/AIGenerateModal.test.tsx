@@ -7,7 +7,7 @@ const setActiveTool = vi.fn();
 const setAiGenerating = vi.fn();
 let aiGenerating = false;
 
-vi.mock('@/lib/canvas-store', () => ({
+vi.mock('@/lib/store', () => ({
   useCanvasStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
       addElements,

@@ -69,8 +69,8 @@ describe('Canvas Coordinates', () => {
   describe('getViewportBounds', () => {
     it('should return visible canvas area at zoom 1', () => {
       const result = getViewportBounds(defaultViewport);
-      expect(result.x === 0 || result.x === -0).toBe(true);
-      expect(result.y === 0 || result.y === -0).toBe(true);
+      expect(result.x).toBe(0);
+      expect(result.y).toBe(0);
       expect(result.width).toBe(800);
       expect(result.height).toBe(600);
     });
