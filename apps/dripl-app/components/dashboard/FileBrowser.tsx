@@ -282,22 +282,22 @@ export function FileBrowser({
           ))}
         </div>
       ) : (
-        <div className="bg-card rounded-xl border border-border/60 shadow-sm overflow-hidden">
-          <div className="grid grid-cols-12 gap-4 px-5 py-3 text-xs font-medium text-muted-foreground bg-secondary/20 border-b border-border/60">
+        <div className="rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] overflow-hidden">
+          <div className="grid grid-cols-12 gap-4 px-5 py-3 text-xs font-medium text-[#6B6860] bg-[#F0EDE6] border-b border-[#E4E0D9]">
             <div className="col-span-6">Name</div>
             <div className="col-span-2">Created</div>
             <div className="col-span-2 text-right">Modified</div>
             <div className="col-span-2"></div>
           </div>
-          <div className="divide-y divide-border/40">
+          <div className="divide-y divide-[#E4E0D9]">
             {files.map(file => (
               <Link
                 key={file.id}
                 href={`/file/${file.id}`}
-                className="grid grid-cols-12 gap-4 px-5 py-3 items-center hover:bg-secondary/30 transition-colors group"
+                className="grid grid-cols-12 gap-4 px-5 py-3 items-center hover:bg-white transition-colors group"
               >
                 <div className="col-span-6 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-secondary/50 flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="w-9 h-9 rounded-lg bg-[#E8E5DE] flex items-center justify-center overflow-hidden shrink-0">
                     {file.preview ? (
                       <img
                         src={file.preview}
@@ -305,7 +305,7 @@ export function FileBrowser({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <File className="h-4 w-4 text-muted-foreground" />
+                      <File className="h-4 w-4 text-[#6B6860]" />
                     )}
                   </div>
                   {editingId === file.id ? (
@@ -321,15 +321,15 @@ export function FileBrowser({
                       autoFocus
                     />
                   ) : (
-                    <span className="text-sm font-medium text-foreground">{file.name}</span>
+                    <span className="text-sm font-medium text-[#1A1917]">{file.name}</span>
                   )}
                 </div>
-                <div className="col-span-2 text-xs text-muted-foreground">
+                <div className="col-span-2 text-xs text-[#6B6860]">
                   {formatDistanceToNow(new Date(file.createdAt), {
                     addSuffix: true,
                   })}
                 </div>
-                <div className="col-span-2 text-xs text-muted-foreground text-right">
+                <div className="col-span-2 text-xs text-[#6B6860] text-right">
                   {formatDistanceToNow(new Date(file.updatedAt), {
                     addSuffix: true,
                   })}
@@ -380,21 +380,21 @@ export function FileBrowser({
       )}
 
       {total > pageSize && (
-        <div className="flex items-center justify-center gap-2 py-6 border-t border-border/40">
+        <div className="flex items-center justify-center gap-2 py-6 border-t border-[#E4E0D9]">
           <button
             onClick={() => onPageChange?.(page - 1)}
             disabled={page <= 1}
-            className="p-2 rounded-lg border border-border/60 hover:bg-secondary/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-lg border border-[#D4D0C9] hover:bg-[#E8E5DE] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-[#6B6860]">
             Page {page} of {Math.ceil(total / pageSize)}
           </span>
           <button
             onClick={() => onPageChange?.(page + 1)}
             disabled={page >= Math.ceil(total / pageSize)}
-            className="p-2 rounded-lg border border-border/60 hover:bg-secondary/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-lg border border-[#D4D0C9] hover:bg-[#E8E5DE] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronRight className="h-4 w-4" />
           </button>

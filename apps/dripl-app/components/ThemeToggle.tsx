@@ -13,7 +13,7 @@ export function ThemeToggle() {
   }, []);
 
   if (!mounted) {
-    return <div className="w-9 h-9 rounded-md bg-secondary/40" />;
+    return <div className="w-9 h-9 rounded-md bg-[#E8E5DE]" />;
   }
 
   const isDark = resolvedTheme === 'dark';
@@ -29,7 +29,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-md bg-secondary/40 hover:bg-secondary transition-colors text-foreground"
+      className="p-2 rounded-md bg-[#E8E5DE] hover:bg-[#D4D0C9] transition-colors text-[#1A1917]"
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
     >
       <div className="t-icon-swap" data-state={isDark ? 'b' : 'a'}>

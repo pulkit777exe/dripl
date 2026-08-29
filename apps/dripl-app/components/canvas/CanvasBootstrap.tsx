@@ -6,11 +6,11 @@ import type { DriplElement } from '@dripl/common';
 
 import RoughCanvas from '@/components/canvas/RoughCanvas';
 import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import { saveCanvasToIndexedDB, loadCanvasFromIndexedDB } from '@/lib/canvas-db';
 import { type LocalCanvasState, loadLocalCanvasFromStorage } from '@/utils/localCanvasStorage';
 import { loadInitialScene } from '@/lib/scene-loader';
-import type { ActiveTool, Theme } from '@/lib/canvas-store';
+import type { ActiveTool, Theme } from '@/lib/store';
 
 type BaseProps = {
   theme: 'light' | 'dark';
@@ -213,7 +213,14 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
   if (!isInitialized) {
     return (
       <div className="relative w-full h-full flex items-center justify-center">
-        <div className="rounded-lg border border-border bg-card px-4 py-2 text-sm text-muted-foreground shadow-sm">
+        <div
+          className="rounded-lg px-4 py-2 text-sm shadow-sm"
+          style={{
+            backgroundColor: 'var(--color-card)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-muted-foreground)',
+          }}
+        >
           Loading canvas...
         </div>
       </div>

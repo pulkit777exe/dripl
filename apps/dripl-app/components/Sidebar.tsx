@@ -35,9 +35,15 @@ export function Sidebar({ activeTool = 'select', onToolSelect }: SidebarProps) {
   ];
 
   return (
-    <aside className="fixed left-0 top-0 z-50 flex h-full w-14 flex-col items-center border-r bg-background py-4">
+    <aside
+      className="fixed left-0 top-0 z-50 flex h-full w-14 flex-col items-center border-r py-4"
+      style={{
+        backgroundColor: 'var(--color-background)',
+        borderColor: 'var(--color-border)',
+      }}
+    >
       <div className="mb-4">
-        <div className="h-8 w-8 rounded bg-primary" />
+        <div className="h-8 w-8 rounded bg-[#E8462A]" />
       </div>
       <div className="flex flex-col gap-2">
         {tools.map(tool => (
@@ -49,8 +55,10 @@ export function Sidebar({ activeTool = 'select', onToolSelect }: SidebarProps) {
             }}
             onClick={() => onToolSelect?.(tool.id)}
             className={cn(
-              'flex h-10 w-10 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground',
-              activeTool === tool.id ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
+              'flex h-10 w-10 items-center justify-center rounded-md transition-colors',
+              activeTool === tool.id
+                ? 'bg-[#FAE8E5] text-[#E8462A]'
+                : 'text-[#6B6860] hover:bg-[#E8E5DE] hover:text-[#1A1917]'
             )}
             title={tool.label}
           >

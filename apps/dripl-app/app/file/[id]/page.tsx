@@ -20,8 +20,8 @@ import HelpModal from '@/components/canvas/HelpModal';
 import type { LocalCanvasState } from '@/utils/localCanvasStorage';
 
 const CommandPalette = dynamic(
-  () => import('@/components/canvas/CommandPalette').then((m) => m.CommandPalette),
-  { ssr: false },
+  () => import('@/components/canvas/CommandPalette').then(m => m.CommandPalette),
+  { ssr: false }
 );
 
 export default function FilePage(): React.ReactNode {
@@ -146,22 +146,27 @@ export default function FilePage(): React.ReactNode {
       void (async () => {
         try {
           const currentElements = latestElementsRef.current;
-          const { zoom: currentZoom, panX: currentPanX, panY: currentPanY } =
-            useCanvasStore.getState();
+          const {
+            zoom: currentZoom,
+            panX: currentPanX,
+            panY: currentPanY,
+          } = useCanvasStore.getState();
           await apiClient.updateFile(fileId, {
             content: {
               elements: currentElements,
               appState: { zoom: currentZoom, panX: currentPanX, panY: currentPanY },
             },
           });
-          
+
           // Generate and save thumbnail (non-blocking, best-effort)
-          generateThumbnail(currentElements).then(thumbnail => {
-            if (thumbnail) {
-              apiClient.updateFile(fileId, { preview: thumbnail }).catch(() => {});
-            }
-          }).catch(() => {});
-          
+          generateThumbnail(currentElements)
+            .then(thumbnail => {
+              if (thumbnail) {
+                apiClient.updateFile(fileId, { preview: thumbnail }).catch(() => {});
+              }
+            })
+            .catch(() => {});
+
           lastSavedContentRef.current = JSON.stringify(currentElements);
           pendingSaveRef.current = false;
           setSaveError(null);

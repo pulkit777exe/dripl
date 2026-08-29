@@ -14,13 +14,17 @@ export default function DashboardError({
   }, [error]);
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-background">
+    <div
+      className="flex-1 flex items-center justify-center"
+      style={{ backgroundColor: 'var(--color-background)' }}
+    >
       <div className="text-center">
-        <h2 className="text-xl font-semibold text-foreground mb-2">Something went wrong!</h2>
-        <p className="text-muted-foreground mb-4">{error.message}</p>
+        <h2 className="text-xl font-semibold text-[#1A1917] mb-2">Something went wrong!</h2>
+        <p className="text-[#6B6860] mb-4">{error.message}</p>
         <button
           onClick={reset}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md transition-colors"
+          className="px-4 py-2 text-white rounded-md transition-colors"
+          style={{ backgroundColor: 'var(--color-primary)' }}
         >
           Try again
         </button>

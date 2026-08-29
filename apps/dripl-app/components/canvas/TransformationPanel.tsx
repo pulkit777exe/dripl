@@ -54,14 +54,20 @@ export function TransformationPanel({
 
   return (
     <div className="fixed top-4 right-4 flex flex-col gap-2 pointer-events-auto z-100">
-      <div className="p-4 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg w-64 space-y-4">
+      <div
+        className="p-4 rounded-lg shadow-lg w-64 space-y-4"
+        style={{
+          backgroundColor: 'var(--color-card)',
+          border: '1px solid var(--color-border)',
+        }}
+      >
         <h3 className="font-semibold text-sm mb-2">Transformations</h3>
 
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Position</label>
+          <label className="text-xs text-[#6B6860]">Position</label>
           <div className="flex gap-1">
             <div className="flex-1">
-              <label className="text-xs text-muted-foreground">X</label>
+              <label className="text-xs text-[#6B6860]">X</label>
               <input
                 type="number"
                 value={Math.round(selectedElement.x)}
@@ -71,7 +77,7 @@ export function TransformationPanel({
               />
             </div>
             <div className="flex-1">
-              <label className="text-xs text-muted-foreground">Y</label>
+              <label className="text-xs text-[#6B6860]">Y</label>
               <input
                 type="number"
                 value={Math.round(selectedElement.y)}
@@ -84,10 +90,10 @@ export function TransformationPanel({
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Size</label>
+          <label className="text-xs text-[#6B6860]">Size</label>
           <div className="flex gap-1">
             <div className="flex-1">
-              <label className="text-xs text-muted-foreground">W</label>
+              <label className="text-xs text-[#6B6860]">W</label>
               <input
                 type="number"
                 value={Math.round(selectedElement.width)}
@@ -98,7 +104,7 @@ export function TransformationPanel({
               />
             </div>
             <div className="flex-1">
-              <label className="text-xs text-muted-foreground">H</label>
+              <label className="text-xs text-[#6B6860]">H</label>
               <input
                 type="number"
                 value={Math.round(selectedElement.height)}
@@ -112,7 +118,7 @@ export function TransformationPanel({
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Rotation</label>
+          <label className="text-xs text-[#6B6860]">Rotation</label>
           <div className="flex items-center gap-2">
             <button
               onClick={handleRotate}
@@ -135,7 +141,7 @@ export function TransformationPanel({
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Flip</label>
+          <label className="text-xs text-[#6B6860]">Flip</label>
           <div className="flex gap-1">
             <button
               onClick={handleFlipHorizontal}
@@ -161,7 +167,7 @@ export function TransformationPanel({
         </div>
 
         <div className="space-y-1 pt-2 border-t">
-          <label className="text-xs text-muted-foreground">Actions</label>
+          <label className="text-xs text-[#6B6860]">Actions</label>
           <div className="grid grid-cols-2 gap-1">
             <button
               onClick={handleLock}

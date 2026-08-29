@@ -1,6 +1,6 @@
 'use client';
 
-import { useCanvasStore } from '@/lib/canvas-store';
+import { useCanvasStore } from '@/lib/store';
 import { Minus, Plus, Undo2, Redo2 } from 'lucide-react';
 
 export function CanvasControls() {
@@ -25,7 +25,7 @@ export function CanvasControls() {
         >
           <Minus className="size-5" />
         </button>
-        <span className="px-3 text-sm tabular-nums min-w-14 text-center text-foreground">
+        <span className="px-3 text-sm tabular-nums min-w-14 text-center text-[#1A1917]">
           {Math.round(zoom * 100)}%
         </span>
         <button

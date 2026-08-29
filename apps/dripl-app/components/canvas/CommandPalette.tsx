@@ -357,9 +357,7 @@ export function CommandPalette() {
             value={query}
             onChange={event => setQuery(event.target.value)}
           />
-          <span className="text-[10px] text-[#6B6860] bg-[#E8E5DE] px-1.5 py-0.5 rounded">
-            ESC
-          </span>
+          <span className="text-[10px] text-[#6B6860] bg-[#E8E5DE] px-1.5 py-0.5 rounded">ESC</span>
         </div>
 
         <div className="max-h-80 overflow-y-auto py-1">
