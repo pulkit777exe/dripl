@@ -32,6 +32,7 @@ import {
 } from './yjsManager';
 import { resolveTicketFromUrl, validateTicket } from './auth';
 import { send, broadcast, roomUsersPayload, roomCursorsPayload } from './broadcast';
+import { cursorMoveHandler } from './handlers/cursorMove.js';
 import {
   rooms,
   saveTimeouts,
@@ -755,39 +756,23 @@ wss.on('connection', async (ws, req) => {
           const room = rooms.get(currentRoomId);
           if (!room) break;
 
-          room.cursors.set(currentUserId, { x: message.x, y: message.y });
-          const user = room.users.get(currentUserId);
-          const displayName =
-            message.type === 'cursor-move' ? message.displayName : message.userName;
+          const parsed = cursorMoveHandler.schema.safeParse(message);
+          if (!parsed.success) break;
 
-          // Update Yjs awareness
-          if (room.yjs) {
-            room.yjs.awareness.setLocalStateField('cursor', {
-              x: message.x,
-              y: message.y,
-            });
-            room.yjs.awareness.setLocalStateField('user', {
-              id: currentUserId,
-              name: displayName ?? user?.displayName ?? 'Unknown',
-              color: message.color ?? user?.color ?? '#000000',
-            });
-          }
-
-          broadcast(
-            room,
-            {
-              type: 'cursor_move',
-              roomId: currentRoomId,
+          await cursorMoveHandler.apply(parsed.data, {
+            ws,
+            user: room.users.get(currentUserId) ?? {
               userId: currentUserId,
-              x: message.x,
-              y: message.y,
-              userName: displayName ?? user?.displayName ?? 'Unknown',
-              displayName: displayName ?? user?.displayName ?? 'Unknown',
-              color: message.color ?? user?.color ?? '#000000',
-              timestamp: Date.now(),
+              displayName: 'Unknown',
+              color: '#000000',
+              ws,
+              isAlive: true,
             },
-            currentUserId
-          );
+            userId: currentUserId,
+            roomId: currentRoomId,
+            room,
+            logger,
+          });
           break;
         }
 
