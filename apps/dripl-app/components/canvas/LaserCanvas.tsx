@@ -2,52 +2,13 @@
 
 import { useEffect, useRef } from 'react';
 import { useCanvasStore } from '@/lib/store';
-
-interface LaserPoint {
-  x: number;
-  y: number;
-  createdAt: number;
-}
+import { useLaserTrail } from '@/hooks/canvas/useLaserTrail';
 
 const LASER_FADE_MS = 1000;
 
 export function LaserCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const pointsRef = useRef<LaserPoint[]>([]);
-  const isDrawingRef = useRef(false);
-
-  useEffect(() => {
-    const handleStart = (e: Event) => {
-      const custom = e as CustomEvent<{ x: number; y: number }>;
-      if (!custom.detail) return;
-      isDrawingRef.current = true;
-      pointsRef.current = [{ x: custom.detail.x, y: custom.detail.y, createdAt: Date.now() }];
-    };
-
-    const handleMove = (e: Event) => {
-      const custom = e as CustomEvent<{ x: number; y: number }>;
-      if (!custom.detail || !isDrawingRef.current) return;
-      const now = Date.now();
-      pointsRef.current = [
-        ...pointsRef.current.slice(-160),
-        { x: custom.detail.x, y: custom.detail.y, createdAt: now },
-      ];
-    };
-
-    const handleEnd = () => {
-      isDrawingRef.current = false;
-    };
-
-    window.addEventListener('dripl:laser-start', handleStart);
-    window.addEventListener('dripl:laser-move', handleMove);
-    window.addEventListener('dripl:laser-end', handleEnd);
-
-    return () => {
-      window.removeEventListener('dripl:laser-start', handleStart);
-      window.removeEventListener('dripl:laser-move', handleMove);
-      window.removeEventListener('dripl:laser-end', handleEnd);
-    };
-  }, []);
+  const trail = useLaserTrail();
 
   useEffect(() => {
     let animationFrameId: number;
@@ -77,19 +38,17 @@ export function LaserCanvas() {
     }
 
     const draw = () => {
-      const points = pointsRef.current;
-      const now = Date.now();
-
       // Read zoom/pan from store directly to avoid recreating RAF loop
       const { zoom, panX, panY } = useCanvasStore.getState();
-
-      // Prune old points
-      pointsRef.current = points.filter(p => now - p.createdAt < LASER_FADE_MS);
+      // Prune old points and read the live array
+      trail.prune(LASER_FADE_MS);
+      const points = trail.points.current;
 
       // Clear the canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (pointsRef.current.length > 0) {
+      if (points.length > 0) {
+        const now = Date.now();
         ctx.save();
 
         // Configure laser trail style
@@ -101,13 +60,9 @@ export function LaserCanvas() {
         ctx.shadowBlur = 6;
 
         ctx.beginPath();
-        pointsRef.current.forEach((point, index) => {
+        points.forEach((point, index) => {
           const screenX = point.x * zoom + panX;
           const screenY = point.y * zoom + panY;
-
-          // Calculate point opacity based on age
-          const age = now - point.createdAt;
-          const opacity = Math.max(0, 1 - age / LASER_FADE_MS);
 
           if (index === 0) {
             ctx.moveTo(screenX, screenY);
@@ -117,7 +72,7 @@ export function LaserCanvas() {
         });
 
         // Get overall trail opacity from the latest point
-        const latestPoint = pointsRef.current[pointsRef.current.length - 1];
+        const latestPoint = points[points.length - 1];
         if (latestPoint) {
           const latestAge = now - latestPoint.createdAt;
           ctx.globalAlpha = Math.max(0, 1 - latestAge / LASER_FADE_MS);
@@ -126,8 +81,8 @@ export function LaserCanvas() {
         ctx.stroke();
 
         // Draw active laser dot at the pointer
-        if (isDrawingRef.current) {
-          const head = pointsRef.current[pointsRef.current.length - 1];
+        if (trail.isActive) {
+          const head = points[points.length - 1];
           if (head) {
             const screenX = head.x * zoom + panX;
             const screenY = head.y * zoom + panY;
@@ -152,7 +107,7 @@ export function LaserCanvas() {
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, []); // Empty deps - RAF loop runs once, reads store directly
+  }, [trail]);
 
   return (
     <canvas
