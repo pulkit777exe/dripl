@@ -1,7 +1,8 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import { z } from 'zod';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
-import { ShareService } from '../services/shareService';
+import { ShareService, type SharePermission } from '../services/shareService';
 import { sendError } from '../lib/response';
 import { logger } from '../logger.js';
 
@@ -27,6 +28,47 @@ async function shareLimiter(req: Request, res: Response, next: NextFunction): Pr
   }
   next();
 }
+
+const createShareBodySchema = z.object({
+  fileId: z.string().min(1).max(100),
+  permission: z.enum(['view', 'edit']),
+});
+
+shareRouter.post('/', shareLimiter, async (req, res) => {
+  const userId = (req as { userId?: string }).userId;
+  if (!userId) {
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
+    return;
+  }
+
+  const parsed = createShareBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    sendError(res, 400, 'INVALID_PAYLOAD', 'fileId and permission are required');
+    return;
+  }
+
+  try {
+    const result = await ShareService.upsertShareToken(
+      parsed.data.fileId,
+      userId,
+      parsed.data.permission as SharePermission
+    );
+
+    if (result.kind === 'not_found') {
+      sendError(res, 404, 'NOT_FOUND', 'File not found');
+      return;
+    }
+    if (result.kind === 'forbidden') {
+      sendError(res, 403, 'FORBIDDEN', 'You do not have permission to share this file');
+      return;
+    }
+
+    res.status(200).json({ token: result.token });
+  } catch (error) {
+    logger.error({ event: 'create_share_error', error }, 'Failed to create share link');
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to create share link');
+  }
+});
 
 shareRouter.get('/:token', shareLimiter, async (req, res) => {
   const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
