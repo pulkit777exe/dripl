@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Link2, Users, Check, Copy } from 'lucide-react';
+import { useShareLink, type SharePermission } from '@/hooks/useShareLink';
+import { SharePermissionToggle } from './SharePermissionToggle';
 
 interface Collaborator {
   userId: string;
@@ -13,8 +15,10 @@ interface Collaborator {
 interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onShareCanvas: () => Promise<void>;
-  onCollaborate: () => Promise<void>;
+  /** File id to generate a share link for. Required. */
+  fileId: string;
+  onShareCanvas?: () => void | Promise<void>;
+  onCollaborate?: () => void | Promise<void>;
   onStopCollaboration?: () => void;
   feedbackMessage?: string | null;
   errorMessage?: string | null;
@@ -26,6 +30,7 @@ interface ShareModalProps {
 export function ShareModal({
   isOpen,
   onClose,
+  fileId,
   onShareCanvas,
   onCollaborate,
   onStopCollaboration,
@@ -35,9 +40,8 @@ export function ShareModal({
   roomId,
   collaborators = [],
 }: ShareModalProps) {
-  const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
-  const [isStartingCollab, setIsStartingCollab] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
+  const [permission, setPermission] = useState<SharePermission>('view');
+  const share = useShareLink(fileId);
 
   const [mounted, setMounted] = useState(false);
   const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
@@ -75,93 +79,115 @@ export function ShareModal({
 
   const modalState = animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : '';
 
-  const handleShareCanvas = async () => {
-    setIsSharingSnapshot(true);
-    try {
-      await onShareCanvas();
-    } finally {
-      setIsSharingSnapshot(false);
-    }
+  const handleShare = async () => {
+    await share.generate(permission);
+    onShareCanvas?.();
   };
 
   const handleCollaborate = async () => {
-    setIsStartingCollab(true);
-    try {
-      await onCollaborate();
-    } finally {
-      setIsStartingCollab(false);
-    }
+    await onCollaborate?.();
   };
 
-  const collabUrl = roomId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/canvas/${roomId}` : '';
+  const collabUrl = roomId
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/canvas/${roomId}`
+    : '';
 
   const handleCopyLink = async () => {
-    if (!collabUrl) return;
-    try {
-      await navigator.clipboard.writeText(collabUrl);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
-    } catch {
-      // Fallback: select text
-    }
+    await share.copy();
   };
+
+  const isBusy = share.isLoading;
+  const shareButtonLabel = isBusy
+    ? 'Creating link…'
+    : share.url
+    ? 'Regenerate link'
+    : 'Share';
 
   const modal = (
     <div
       className={`fixed inset-0 z-400 flex items-center justify-center p-4 box-content backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="share-modal-title"
     >
       <div
         className="rounded-xl shadow-lg w-[440px] max-h-[85vh] overflow-y-auto"
         style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #E4E0D9' }}>
-          <h2 className="text-[15px] font-semibold" style={{ color: '#1A1917' }}>Share</h2>
+        <div
+          className="flex items-center justify-between px-5 py-3.5"
+          style={{ borderBottom: '1px solid #E4E0D9' }}
+        >
+          <h2
+            id="share-modal-title"
+            className="text-[15px] font-semibold"
+            style={{ color: '#1A1917' }}
+          >
+            Share
+          </h2>
           <button
             onClick={onClose}
             className="p-1 rounded-md transition-colors"
             style={{ color: '#6B6860' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#1A1917'; e.currentTarget.style.backgroundColor = '#E8E5DE'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#6B6860'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+            aria-label="Close share dialog"
+            onMouseEnter={e => {
+              e.currentTarget.style.color = '#1A1917';
+              e.currentTarget.style.backgroundColor = '#E8E5DE';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = '#6B6860';
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="p-5 space-y-3">
+        <div className="p-5 space-y-4">
           <p className="text-[13px]" style={{ color: '#6B6860' }}>
             {isCollaborating
               ? 'Share the link below or invite others to collaborate.'
-              : 'Choose how you want to share this canvas.'}
+              : 'Choose who can open this link.'}
           </p>
 
-          {isCollaborating && collabUrl && (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-medium" style={{ color: '#6B6860' }}>Collaboration link</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    readOnly
-                    value={collabUrl}
-                    className="flex-1 px-3 py-2 rounded-md text-[12px] bg-transparent outline-none truncate"
-                    style={{ border: '1px solid #D4D0C9', color: '#1A1917' }}
-                    onClick={e => (e.target as HTMLInputElement).select()}
-                  />
-                  <button
-                    onClick={handleCopyLink}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-md text-[12px] font-medium transition-colors shrink-0"
-                    style={{
-                      backgroundColor: copiedLink ? '#F0FDF4' : '#E8462A',
-                      color: copiedLink ? '#16A34A' : '#ffffff',
-                      border: copiedLink ? '1px solid #BBF7D0' : 'none',
-                    }}
-                  >
-                    {copiedLink ? <Check size={12} /> : <Copy size={12} />}
-                    {copiedLink ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
+          {!isCollaborating && (
+            <SharePermissionToggle
+              value={permission}
+              onChange={setPermission}
+              disabled={isBusy}
+            />
+          )}
+
+          {share.url && (
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium" style={{ color: '#6B6860' }}>
+                {permission === 'edit' ? 'Editable link' : 'View-only link'}
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={share.url}
+                  aria-label="Shareable link"
+                  className="flex-1 px-3 py-2 rounded-md text-[12px] bg-transparent outline-none truncate"
+                  style={{ border: '1px solid #D4D0C9', color: '#1A1917' }}
+                  onClick={e => (e.target as HTMLInputElement).select()}
+                />
+                <button
+                  onClick={handleCopyLink}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-md text-[12px] font-medium transition-colors shrink-0"
+                  style={{
+                    backgroundColor: share.copied ? '#FAE8E5' : '#E8462A',
+                    color: share.copied ? '#E8462A' : '#ffffff',
+                    border: share.copied ? '1px solid #E8462A' : 'none',
+                  }}
+                  aria-label="Copy share link to clipboard"
+                >
+                  {share.copied ? <Check size={12} /> : <Copy size={12} />}
+                  {share.copied ? 'Copied' : 'Copy'}
+                </button>
               </div>
             </div>
           )}
@@ -179,44 +205,30 @@ export function ShareModal({
               Stop Collaboration
             </button>
           ) : (
-            <>
+            <div className="flex gap-2">
               <button
-                onClick={handleShareCanvas}
-                disabled={isSharingSnapshot || isStartingCollab}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
+                onClick={handleShare}
+                disabled={isBusy}
+                className="flex-1 flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
                 style={{ backgroundColor: '#E8462A', color: '#ffffff' }}
               >
-                {isSharingSnapshot ? (
+                {isBusy ? (
                   <Check size={16} className="animate-pulse" />
                 ) : (
                   <Link2 size={16} />
                 )}
-                <div className="text-left flex-1">
-                  <div>{isSharingSnapshot ? 'Creating link...' : 'Share Canvas'}</div>
-                  <div className="text-[11px] font-normal" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    Copy a snapshot link to clipboard
-                  </div>
-                </div>
+                {shareButtonLabel}
               </button>
               <button
                 onClick={handleCollaborate}
-                disabled={isStartingCollab || isSharingSnapshot}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
+                disabled={isBusy}
+                className="flex-1 flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
                 style={{ border: '1px solid #D4D0C9', backgroundColor: '#FAFAF7', color: '#1A1917' }}
               >
-                {isStartingCollab ? (
-                  <Check size={16} className="animate-pulse" />
-                ) : (
-                  <Users size={16} />
-                )}
-                <div className="text-left flex-1">
-                  <div>{isStartingCollab ? 'Starting session...' : 'Collaborate'}</div>
-                  <div className="text-[11px] font-normal" style={{ color: '#6B6860' }}>
-                    Start a real-time collaboration session
-                  </div>
-                </div>
+                <Users size={16} />
+                Collaborate
               </button>
-            </>
+            </div>
           )}
 
           {isCollaborating && collaborators.length > 0 && (
@@ -225,11 +237,15 @@ export function ShareModal({
                 {collaborators.length === 1 ? '1 collaborator' : `${collaborators.length} collaborators`}
               </label>
               <div className="flex flex-wrap gap-1.5">
-                {collaborators.map((collab) => (
+                {collaborators.map(collab => (
                   <div
                     key={collab.userId}
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium"
-                    style={{ backgroundColor: `${collab.color}18`, border: `1px solid ${collab.color}40`, color: collab.color }}
+                    style={{
+                      backgroundColor: `${collab.color}18`,
+                      border: `1px solid ${collab.color}40`,
+                      color: collab.color,
+                    }}
                   >
                     <span
                       className="w-2 h-2 rounded-full shrink-0"
@@ -242,9 +258,26 @@ export function ShareModal({
             </div>
           )}
 
+          {isCollaborating && collabUrl && (
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium" style={{ color: '#6B6860' }}>
+                Collaboration link
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={collabUrl}
+                  aria-label="Collaboration link"
+                  className="flex-1 px-3 py-2 rounded-md text-[12px] bg-transparent outline-none truncate"
+                  style={{ border: '1px solid #D4D0C9', color: '#1A1917' }}
+                />
+              </div>
+            </div>
+          )}
+
           <button
             onClick={onClose}
-            disabled={isStartingCollab || isSharingSnapshot}
+            disabled={isBusy}
             className="w-full py-2 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
             style={{ border: '1px solid #D4D0C9', backgroundColor: '#FAFAF7', color: '#6B6860' }}
           >
@@ -254,17 +287,41 @@ export function ShareModal({
 
         {feedbackMessage && (
           <div className="px-5 pb-5">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-md" style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
-              <Check size={14} style={{ color: '#16A34A' }} />
-              <span className="text-[12px] font-medium" style={{ color: '#16A34A' }}>{feedbackMessage}</span>
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-md"
+              style={{ backgroundColor: '#FAE8E5', border: '1px solid #E8462A' }}
+            >
+              <Check size={14} style={{ color: '#E8462A' }} />
+              <span className="text-[12px] font-medium" style={{ color: '#E8462A' }}>
+                {feedbackMessage}
+              </span>
             </div>
           </div>
         )}
         {errorMessage && (
           <div className="px-5 pb-5">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-md" style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA' }}>
-              <X size={14} style={{ color: '#B42318' }} />
-              <span className="text-[12px] font-medium" style={{ color: '#B42318' }}>{errorMessage}</span>
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-md"
+              style={{ backgroundColor: '#FAE8E5', border: '1px solid #E8462A' }}
+            >
+              <X size={14} style={{ color: '#E8462A' }} />
+              <span className="text-[12px] font-medium" style={{ color: '#E8462A' }}>
+                {errorMessage}
+              </span>
+            </div>
+          </div>
+        )}
+        {share.error && !errorMessage && (
+          <div className="px-5 pb-5">
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-md"
+              style={{ backgroundColor: '#FAE8E5', border: '1px solid #E8462A' }}
+              role="alert"
+            >
+              <X size={14} style={{ color: '#E8462A' }} />
+              <span className="text-[12px] font-medium" style={{ color: '#E8462A' }}>
+                {share.error}
+              </span>
             </div>
           </div>
         )}

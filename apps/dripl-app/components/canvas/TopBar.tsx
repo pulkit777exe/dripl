@@ -370,6 +370,7 @@ export const TopBar: React.FC = () => {
           setIsShareModalOpen(false);
           clearShareMessages();
         }}
+        fileId={fileId ?? ''}
         onShareCanvas={handleShareCanvas}
         onCollaborate={handleCollaborate}
         onStopCollaboration={handleLeaveSession}
