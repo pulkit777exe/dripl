@@ -79,7 +79,9 @@ describe('POST /api/share', () => {
 
   it('returns 401 when the request has no auth token', async () => {
     const app = createTestApp();
-    const res = await request(app).post('/api/share').send({ fileId: 'file-1', permission: 'view' });
+    const res = await request(app)
+      .post('/api/share')
+      .send({ fileId: 'file-1', permission: 'view' });
     expect(res.status).toBe(401);
   });
 
@@ -154,9 +156,7 @@ describe('POST /api/share', () => {
   });
 
   it('rotates the token when the permission changes', async () => {
-    mockFindFirst.mockResolvedValue(
-      fileMock({ shareToken: 'old-view', sharePermission: 'view' })
-    );
+    mockFindFirst.mockResolvedValue(fileMock({ shareToken: 'old-view', sharePermission: 'view' }));
     mockUpdate.mockResolvedValue({ id: 'file-1' });
 
     const app = createTestApp();

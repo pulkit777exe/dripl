@@ -30,6 +30,14 @@ import {
 } from './handlers/locks';
 import { viewportUpdateHandler, followUserHandler, unfollowUserHandler } from './handlers/presence';
 import {
+  addElementHandler,
+  updateElementHandler,
+  deleteElementHandler,
+  sceneUpdateHandler,
+  sceneDeltaHandler,
+  elementUpdateHandler,
+} from './handlers/scene';
+import {
   runHeartbeatTick,
   runAuthorizationSweep,
   runPeriodicSave,
@@ -42,25 +50,14 @@ import {
   roomLastEmptyAt,
   userToRoomMap,
   wsToRoomMap,
-  MAX_ELEMENTS_PER_SCENE,
   getOrCreateRoom,
   loadRoomElements,
   saveRoomElements,
-  markRoomDirty,
-  scheduleSave,
 } from './rooms';
 import { checkRateLimit, setRateLimitIdentity, removeRateLimitIdentity } from './rateLimiter';
-import { subscribeToRoom, publishToRoom, isRedisAvailable } from './redis';
+import { subscribeToRoom, isRedisAvailable } from './redis';
 import { authorizeRoomAccess, authorizeShareRoomAccess, type RoomAccess } from './roomAccess';
-import { shouldAcceptElement } from '@dripl/common/reconciliation';
-import {
-  toDriplElement,
-  acceptAll,
-  wouldExceedSceneCapacity,
-  noteClientMsgId,
-  sceneCapacityMessage,
-  applyRemoteSceneMessage,
-} from './sceneMutation';
+import { applyRemoteSceneMessage } from './sceneMutation';
 
 const MAX_EARLY_BUFFER_BYTES = 1_000_000;
 const MAX_SERIALIZED_QUEUE_BYTES = 2_000_000;
@@ -526,290 +523,50 @@ wss.on('connection', async (ws, req) => {
         }
 
         case 'add_element': {
-          if (!currentRoomId) break;
-          if (rejectReadOnlyMutation()) break;
+          if (!currentRoomId || !currentUserId) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-          const existingElement = room.elements.get(message.element.id);
-          if (!existingElement && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
-            send(ws, {
-              type: 'error',
-              message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
-            });
-            break;
-          }
-          try {
-            const element = toDriplElement(message.element);
-            const existing = room.elements.get(element.id);
-            if (existing && !shouldAcceptElement(element, existing)) break;
-            room.elements.set(element.id, element);
-            broadcast(room, message, currentUserId ?? undefined);
-            markRoomDirty(currentRoomId);
-            scheduleSave(currentRoomId);
-            publishToRoom(currentRoomId, message);
-          } catch (err) {
-            logger.debug({
-              event: 'invalid_element',
-              roomId: currentRoomId,
-              elementId: message.element?.id,
-              error: String(err),
-            });
-          }
+          await addElementHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
 
         case 'update_element': {
-          if (!currentRoomId) break;
-          if (rejectReadOnlyMutation()) break;
+          if (!currentRoomId || !currentUserId) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-          try {
-            const element = toDriplElement(message.element);
-            const existing = room.elements.get(element.id);
-            if (!existing && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
-              send(ws, {
-                type: 'error',
-                message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
-              });
-              break;
-            }
-            if (existing && !shouldAcceptElement(element, existing)) break;
-            room.elements.set(element.id, element);
-            broadcast(room, message, currentUserId ?? undefined);
-            markRoomDirty(currentRoomId);
-            scheduleSave(currentRoomId);
-            publishToRoom(currentRoomId, message);
-          } catch (err) {
-            logger.debug({
-              event: 'invalid_element',
-              roomId: currentRoomId,
-              elementId: message.element?.id,
-              error: String(err),
-            });
-          }
+          await updateElementHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
 
         case 'delete_element': {
-          if (!currentRoomId) break;
-          if (rejectReadOnlyMutation()) break;
+          if (!currentRoomId || !currentUserId) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-          const deleted = room.elements.delete(message.elementId);
-          if (!deleted) break;
-          broadcast(room, message, currentUserId ?? undefined);
-          markRoomDirty(currentRoomId);
-          scheduleSave(currentRoomId);
-          publishToRoom(currentRoomId, message);
+          await deleteElementHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
 
         case 'scene-update': {
-          if (!currentRoomId) break;
-          if (rejectReadOnlyMutation()) break;
+          if (!currentRoomId || !currentUserId) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-          if (!Array.isArray(message.elements)) break;
-          if (
-            message.elements.length > MAX_ELEMENTS_PER_SCENE ||
-            wouldExceedSceneCapacity(room, message.elements)
-          ) {
-            send(ws, {
-              type: 'error',
-              message: sceneCapacityMessage(),
-            });
-            break;
-          }
-
-          // Dedup check
-          const sceneUpdateMsgId =
-            'clientMsgId' in message
-              ? (message as { clientMsgId?: string }).clientMsgId
-              : undefined;
-          if (noteClientMsgId(room, sceneUpdateMsgId)) {
-            send(ws, { type: 'pong', timestamp: Date.now() });
-            break;
-          }
-
-          const acceptedElements: DriplElement[] = [];
-          acceptAll(room, message.elements, acceptedElements, (rawEl, err) => {
-            logger.debug({
-              event: 'invalid_element',
-              roomId: currentRoomId,
-              elementId: (rawEl as { id?: string })?.id,
-              error: String(err),
-            });
-          });
-
-          // `init` is an initial snapshot, not an implicit delete-all
-          // instruction. A newly connected client can legitimately have an
-          // incomplete/local scene; deleting IDs absent from that payload
-          // would erase the room before the first collaboration update.
-          // Destructive replacement is an explicit operation and is not
-          // accepted through this transport message.
-          if (acceptedElements.length > 0) {
-            const filteredUpdate = {
-              type: 'scene-update' as const,
-              subtype: message.subtype,
-              elements: acceptedElements,
-            };
-            broadcast(room, filteredUpdate, currentUserId ?? undefined);
-            markRoomDirty(currentRoomId);
-            scheduleSave(currentRoomId);
-            publishToRoom(currentRoomId, filteredUpdate);
-          }
+          await sceneUpdateHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
 
         case 'scene-delta': {
-          if (!currentRoomId) break;
-          if (rejectReadOnlyMutation()) break;
+          if (!currentRoomId || !currentUserId) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-
-          // Dedup check
-          const clientMsgId =
-            'clientMsgId' in message
-              ? (message as { clientMsgId?: string }).clientMsgId
-              : undefined;
-          if (noteClientMsgId(room, clientMsgId)) {
-            // Already processed, ack silently
-            send(ws, { type: 'pong', timestamp: Date.now() });
-            break;
-          }
-
-          const acceptedAdded: DriplElement[] = [];
-          const acceptedUpdated: DriplElement[] = [];
-          const acceptedDeleted: string[] = [];
-
-          const prospectiveElements = [
-            ...(Array.isArray(message.added) ? message.added : []),
-            ...(Array.isArray(message.updated) ? message.updated : []),
-          ];
-          if (wouldExceedSceneCapacity(room, prospectiveElements)) {
-            send(ws, {
-              type: 'error',
-              message: sceneCapacityMessage(),
-            });
-            break;
-          }
-
-          if (message.added && Array.isArray(message.added)) {
-            acceptAll(room, message.added, acceptedAdded, (rawEl, err) => {
-              logger.debug({
-                event: 'invalid_element',
-                roomId: currentRoomId,
-                elementId: (rawEl as { id?: string })?.id,
-                error: String(err),
-              });
-            });
-          }
-
-          if (message.updated && Array.isArray(message.updated)) {
-            acceptAll(room, message.updated, acceptedUpdated, (rawEl, err) => {
-              logger.debug({
-                event: 'invalid_element',
-                roomId: currentRoomId,
-                elementId: (rawEl as { id?: string })?.id,
-                error: String(err),
-              });
-            });
-          }
-
-          if (message.deleted && Array.isArray(message.deleted)) {
-            for (const id of message.deleted) {
-              if (room.elements.delete(id)) acceptedDeleted.push(id);
-            }
-          }
-
-          if (
-            acceptedAdded.length > 0 ||
-            acceptedUpdated.length > 0 ||
-            acceptedDeleted.length > 0
-          ) {
-            const filteredDelta: Record<string, unknown> = { type: 'scene-delta' };
-            if (acceptedAdded.length > 0) filteredDelta.added = acceptedAdded;
-            if (acceptedUpdated.length > 0) filteredDelta.updated = acceptedUpdated;
-            if (acceptedDeleted.length > 0) filteredDelta.deleted = acceptedDeleted;
-
-            broadcast(room, filteredDelta, currentUserId ?? undefined);
-            markRoomDirty(currentRoomId);
-            scheduleSave(currentRoomId);
-            publishToRoom(currentRoomId, filteredDelta);
-          }
+          await sceneDeltaHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
 
         case 'element-update': {
-          if (!currentRoomId) break;
-          if (rejectReadOnlyMutation()) break;
+          if (!currentRoomId || !currentUserId) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-
-          let acceptedCount = 0;
-          const filteredElementUpdate: Record<string, unknown> = { type: 'element-update' };
-
-          if (Array.isArray(message.elements)) {
-            if (wouldExceedSceneCapacity(room, message.elements)) {
-              send(ws, {
-                type: 'error',
-                message: sceneCapacityMessage(),
-              });
-              break;
-            }
-            const accepted: DriplElement[] = [];
-            acceptAll(room, message.elements, accepted, (rawEl, err) => {
-              logger.debug({
-                event: 'invalid_element',
-                roomId: currentRoomId,
-                elementId: (rawEl as { id?: string })?.id,
-                error: String(err),
-              });
-            });
-            acceptedCount = accepted.length;
-            if (acceptedCount > 0) filteredElementUpdate.elements = accepted;
-            if (accepted.length > 0) {
-              broadcast(
-                room,
-                { type: 'element-update', elements: accepted },
-                currentUserId ?? undefined
-              );
-            }
-          } else {
-            const rawElement = message.element;
-            if (!rawElement) break;
-            try {
-              const element = toDriplElement(rawElement);
-              const existing = room.elements.get(element.id);
-              if (!existing && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
-                send(ws, {
-                  type: 'error',
-                  message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
-                });
-                break;
-              }
-              if (existing && !shouldAcceptElement(element, existing)) {
-                break;
-              }
-              room.elements.set(element.id, element);
-              acceptedCount = 1;
-              filteredElementUpdate.element = element;
-              broadcast(room, { type: 'element-update', element }, currentUserId ?? undefined);
-            } catch (err) {
-              logger.debug({
-                event: 'invalid_element',
-                roomId: currentRoomId,
-                elementId: (rawElement as { id?: string })?.id,
-                error: String(err),
-              });
-            }
-          }
-
-          if (acceptedCount > 0) {
-            markRoomDirty(currentRoomId);
-            scheduleSave(currentRoomId);
-            publishToRoom(currentRoomId, filteredElementUpdate);
-          }
+          await elementUpdateHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
 

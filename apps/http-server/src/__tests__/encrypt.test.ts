@@ -21,7 +21,10 @@ describe('parseStoredFileContent', () => {
   });
 
   it('parses a plain array of elements', () => {
-    const elements = [{ id: '1', type: 'rectangle' }, { id: '2', type: 'ellipse' }];
+    const elements = [
+      { id: '1', type: 'rectangle' },
+      { id: '2', type: 'ellipse' },
+    ];
     const result = parseStoredFileContent(JSON.stringify(elements));
     expect(result.elements).toEqual(elements);
     expect(result.encryptedPayload).toBeNull();

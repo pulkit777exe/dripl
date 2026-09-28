@@ -92,9 +92,7 @@ describe('ShareService.upsertShareToken', () => {
   });
 
   it('clears the share token when called with a null permission', async () => {
-    mockFindFirst.mockResolvedValue(
-      fileMock({ shareToken: 'old-token', sharePermission: 'edit' })
-    );
+    mockFindFirst.mockResolvedValue(fileMock({ shareToken: 'old-token', sharePermission: 'edit' }));
     mockUpdate.mockResolvedValue({ id: FILE_ID });
 
     const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, null);
