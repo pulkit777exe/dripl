@@ -5,18 +5,21 @@ vi.mock('@dripl/db', () => ({
     file: {
       findFirst: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }));
 
 import { db } from '@dripl/db';
-import { ShareService } from '../src/services/shareService';
+import { ShareService } from '../../services/shareService';
 
 const mockFindFirst = vi.mocked(db.file.findFirst);
 const mockUpdate = vi.mocked(db.file.update);
+const mockUpdateMany = vi.mocked(db.file.updateMany);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockUpdateMany.mockResolvedValue({ count: 1 });
 });
 
 describe('ShareService.upsertShareToken', () => {
@@ -48,14 +51,14 @@ describe('ShareService.upsertShareToken', () => {
 
   it('generates a new token when the file has none', async () => {
     mockFindFirst.mockResolvedValue(fileMock({ shareToken: null }));
-    mockUpdate.mockResolvedValue({ id: FILE_ID });
+    mockUpdate.mockResolvedValue({ id: FILE_ID } as never);
 
     const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'edit');
     expect(result?.kind).toBe('ok');
     if (result?.kind !== 'ok') throw new Error('expected ok');
     expect(result.token).not.toBeNull();
-    expect(result.token.length).toBeGreaterThanOrEqual(24);
-    expect(result.token).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(result.token!.length).toBeGreaterThanOrEqual(24);
+    expect(result.token!).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 
   it('reuses an existing share token when the permission is unchanged', async () => {
@@ -66,26 +69,49 @@ describe('ShareService.upsertShareToken', () => {
     const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view');
 
     expect(result).toEqual({ kind: 'ok', token: 'existing-token-abc' });
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('rotates an expired token instead of reusing it', async () => {
+    mockFindFirst.mockResolvedValue(
+      fileMock({
+        shareToken: 'expired-token',
+        sharePermission: 'view',
+        shareExpiresAt: new Date(Date.now() - 1_000),
+      })
+    );
+    mockUpdate.mockResolvedValue({ id: FILE_ID } as never);
+
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view');
+
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') throw new Error('expected ok');
+    expect(result.token).not.toBe('expired-token');
+    expect(mockUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ shareExpiresAt: null }),
+      })
+    );
   });
 
   it('rotates the token when the permission changes', async () => {
     mockFindFirst.mockResolvedValue(
       fileMock({ shareToken: 'old-view-token', sharePermission: 'view' })
     );
-    mockUpdate.mockResolvedValue({ id: FILE_ID });
+    mockUpdate.mockResolvedValue({ id: FILE_ID } as never);
 
     const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'edit');
 
     expect(result).toEqual({ kind: 'ok', token: expect.any(String) });
     if (result?.kind !== 'ok') throw new Error('expected ok');
     expect(result.token).not.toBe('old-view-token');
-    expect(mockUpdate).toHaveBeenCalledWith(
+    expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: FILE_ID },
+        where: expect.objectContaining({ id: FILE_ID, userId: USER_ID }),
         data: expect.objectContaining({
           sharePermission: 'edit',
           shareToken: result.token,
+          shareExpiresAt: null,
         }),
       })
     );
@@ -93,14 +119,12 @@ describe('ShareService.upsertShareToken', () => {
 
   it('clears the share token when called with a null permission', async () => {
     mockFindFirst.mockResolvedValue(fileMock({ shareToken: 'old-token', sharePermission: 'edit' }));
-    mockUpdate.mockResolvedValue({ id: FILE_ID });
 
     const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, null);
 
     expect(result).toEqual({ kind: 'ok', token: null });
-    expect(mockUpdate).toHaveBeenCalledWith(
+    expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: FILE_ID },
         data: expect.objectContaining({
           sharePermission: null,
           shareToken: null,

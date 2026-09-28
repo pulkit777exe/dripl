@@ -26,10 +26,6 @@
       "types": "./dist/schemas.d.ts",
       "default": "./dist/schemas.js"
     },
-    "./scene": {
-      "types": "./dist/scene.d.ts",
-      "default": "./dist/scene.js"
-    },
     "./pointer": {
       "types": "./dist/pointer.d.ts",
       "default": "./dist/pointer.js"
@@ -41,24 +37,28 @@
     "./cascade-delete": {
       "types": "./dist/cascade-delete.d.ts",
       "default": "./dist/cascade-delete.js"
+    },
+    "./reconciliation": {
+      "types": "./dist/reconciliation.d.ts",
+      "default": "./dist/reconciliation.js"
     }
   },
   "scripts": {
     "build": "tsc -b --force",
     "lint": "eslint .",
     "test": "vitest run",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit -p tsconfig.check.json"
   },
   "devDependencies": {
     "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
-    "@eslint/js": "^10.0.1",
-    "eslint": "^9.39.4",
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.61.0",
-    "vitest": "^4.1.9"
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^4.1.11"
   },
   "dependencies": {
-    "zod": "^4.4.3"
+    "zod": "^4.6.5"
   }
 }

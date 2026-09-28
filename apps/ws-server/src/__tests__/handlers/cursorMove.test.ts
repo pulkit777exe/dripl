@@ -42,6 +42,7 @@ function makeRoom(): RoomState {
     loadedFromDb: true,
     saving: false,
     dirty: false,
+    mutationVersion: 0,
   };
 }
 

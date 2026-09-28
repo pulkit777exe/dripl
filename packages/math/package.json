@@ -18,7 +18,7 @@
     "build": "tsc -b --force",
     "lint": "eslint .",
     "test": "vitest run",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit -p tsconfig.check.json"
   },
   "dependencies": {
     "@dripl/common": "workspace:*"

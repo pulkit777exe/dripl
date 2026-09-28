@@ -27,6 +27,21 @@ describe('ShareService', () => {
       expect(result).toBeNull();
     });
 
+    it('rejects a revoked share with no permission', async () => {
+      const { db } = await import('@dripl/db');
+      vi.mocked(db.file.findFirst).mockResolvedValue({
+        id: 'file-3',
+        name: 'Canvas',
+        content: '[]',
+        sharePermission: null,
+        shareExpiresAt: null,
+        updatedAt: new Date('2025-01-01'),
+      } as never);
+
+      const result = await ShareService.resolveShare('token');
+      expect(result).toBeNull();
+    });
+
     it('resolves a valid share token', async () => {
       const { db } = await import('@dripl/db');
       const { parseStoredFileContent } = await import('../../lib/encrypt');
@@ -42,7 +57,16 @@ describe('ShareService', () => {
 
       vi.mocked(db.file.findFirst).mockResolvedValue(mockFile as never);
       vi.mocked(parseStoredFileContent).mockReturnValue({
-        elements: [{ id: 'el-1' }],
+        elements: [
+          {
+            id: 'el-1',
+            type: 'rectangle',
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 80,
+          },
+        ],
         encryptedPayload: null,
         encryptedAt: null,
       });
@@ -53,7 +77,16 @@ describe('ShareService', () => {
       expect(result?.file.id).toBe('file-1');
       expect(result?.permission).toBe('view');
       expect(result?.expired).toBe(false);
-      expect(result?.elements).toEqual([{ id: 'el-1' }]);
+      expect(result?.elements).toEqual([
+        expect.objectContaining({
+          id: 'el-1',
+          type: 'rectangle',
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 80,
+        }),
+      ]);
     });
 
     it('marks expired shares correctly', async () => {

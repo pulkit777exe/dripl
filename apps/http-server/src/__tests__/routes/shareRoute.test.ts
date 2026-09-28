@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import type { AuthRequest } from '../src/middlewares/authMiddleware';
+import type { AuthRequest } from '../../middlewares/authMiddleware';
 
 // Mock the rate limiter so tests don't hit a real Redis instance.
 vi.mock('@upstash/ratelimit', () => ({
@@ -23,18 +23,22 @@ vi.mock('@dripl/db', () => ({
   db: {
     file: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }));
 
 import { db } from '@dripl/db';
-import { shareRouter } from '../src/routes/share';
+import { shareRouter } from '../../routes/share';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
 
 const mockFindFirst = vi.mocked(db.file.findFirst);
+const mockFindUnique = vi.mocked(db.file.findUnique);
 const mockUpdate = vi.mocked(db.file.update);
+const mockUpdateMany = vi.mocked(db.file.updateMany);
 
 const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -59,6 +63,13 @@ function createTestApp(): Express {
   return app;
 }
 
+function createPublicShareApp(): Express {
+  const app = express();
+  app.use(express.json());
+  app.use('/api/share', shareRouter);
+  return app;
+}
+
 function tokenFor(userId: string): string {
   return jwt.sign({ userId }, JWT_SECRET);
 }
@@ -75,6 +86,7 @@ const fileMock = (overrides: Record<string, unknown>): any => ({
 describe('POST /api/share', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUpdateMany.mockResolvedValue({ count: 1 });
   });
 
   it('returns 401 when the request has no auth token', async () => {
@@ -83,6 +95,13 @@ describe('POST /api/share', () => {
       .post('/api/share')
       .send({ fileId: 'file-1', permission: 'view' });
     expect(res.status).toBe(401);
+  });
+
+  it('does not rely on the outer mount for share creation auth', async () => {
+    const response = await request(createPublicShareApp())
+      .post('/api/share')
+      .send({ fileId: 'file-1', permission: 'view' });
+    expect(response.status).toBe(401);
   });
 
   it('returns 400 when the body is missing fileId or permission', async () => {
@@ -125,7 +144,7 @@ describe('POST /api/share', () => {
 
   it('returns 200 with a token when the file has no share state yet', async () => {
     mockFindFirst.mockResolvedValue(fileMock({ shareToken: null }));
-    mockUpdate.mockResolvedValue({ id: 'file-1' });
+    mockUpdate.mockResolvedValue({ id: 'file-1' } as never);
 
     const app = createTestApp();
     const res = await request(app)
@@ -152,12 +171,12 @@ describe('POST /api/share', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ token: 'kept-token-xyz' });
     // No rotation: no DB update
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockUpdateMany).not.toHaveBeenCalled();
   });
 
   it('rotates the token when the permission changes', async () => {
     mockFindFirst.mockResolvedValue(fileMock({ shareToken: 'old-view', sharePermission: 'view' }));
-    mockUpdate.mockResolvedValue({ id: 'file-1' });
+    mockUpdate.mockResolvedValue({ id: 'file-1' } as never);
 
     const app = createTestApp();
     const res = await request(app)
@@ -167,11 +186,49 @@ describe('POST /api/share', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.token).not.toBe('old-view');
-    expect(mockUpdate).toHaveBeenCalledWith(
+    expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'file-1' },
-        data: expect.objectContaining({ sharePermission: 'edit' }),
+        where: expect.objectContaining({ id: 'file-1', userId: 'user-1' }),
+        data: expect.objectContaining({ sharePermission: 'edit', shareExpiresAt: null }),
       })
     );
+  });
+});
+
+describe('GET /api/share/:token/ws-ticket', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('issues a scoped ticket without requiring a session', async () => {
+    mockFindUnique.mockResolvedValue({
+      id: 'file-1',
+      sharePermission: 'edit',
+      shareExpiresAt: null,
+    } as never);
+
+    const res = await request(createPublicShareApp()).get('/api/share/share-token/ws-ticket');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.body).toEqual({
+      ticket: expect.any(String),
+      fileId: 'file-1',
+      permission: 'edit',
+    });
+  });
+
+  it('rejects unknown and expired share tokens', async () => {
+    mockFindUnique.mockResolvedValue(null);
+    const missing = await request(createPublicShareApp()).get('/api/share/missing/ws-ticket');
+    expect(missing.status).toBe(404);
+
+    mockFindUnique.mockResolvedValue({
+      id: 'file-1',
+      sharePermission: 'view',
+      shareExpiresAt: new Date(Date.now() - 1_000),
+    } as never);
+    const expired = await request(createPublicShareApp()).get('/api/share/expired/ws-ticket');
+    expect(expired.status).toBe(410);
   });
 });

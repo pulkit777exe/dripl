@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseStoredFileContent, serializeStoredFileContent } from '../src/lib/encrypt';
+import { parseStoredFileContent, serializeStoredFileContent } from '../lib/encrypt';
 
 describe('parseStoredFileContent', () => {
   it('returns empty elements for null/undefined/empty', () => {

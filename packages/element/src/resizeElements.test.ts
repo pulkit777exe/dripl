@@ -21,12 +21,14 @@ import {
 // surface that resizeElements uses so the text-measurement fallback is
 // exercised without throwing.
 if (typeof HTMLCanvasElement !== 'undefined') {
-  HTMLCanvasElement.prototype.getContext = function getContextStub() {
+  const getContextStub = (_contextId: string) => {
     return {
       font: '',
       measureText: (_text: string) => ({ width: 0 }),
     } as unknown as CanvasRenderingContext2D;
   };
+  HTMLCanvasElement.prototype.getContext =
+    getContextStub as unknown as typeof HTMLCanvasElement.prototype.getContext;
 }
 
 vi.mock('./resizeElements', async importOriginal => {
