@@ -31,8 +31,11 @@ cp .env.example .env
 ```
 
 Required variables:
+
 - `DATABASE_URL` — PostgreSQL connection string
 - `JWT_SECRET` — Minimum 32 characters
+- `INTERNAL_SECRET` — Distinct server-to-server secret (required in production)
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Required by the current HTTP auth route
 - `FRONTEND_URL` — Usually `http://localhost:3000`
 
 ### 3. Database Setup
@@ -70,7 +73,6 @@ dripl/
 ├── packages/
 │   ├── common/          # Shared types & Zod schemas
 │   ├── db/              # Prisma ORM client
-│   ├── dripl/           # Core canvas library
 │   ├── element/         # Element factory & rendering
 │   ├── math/            # Geometry utilities
 │   ├── utils/           # Shared utilities
@@ -90,7 +92,7 @@ dripl/
 - **Strict mode** is enabled across all packages
 - **ESM only** — use `import`/`export`, never `require()`
 - **No `any` types** — use `unknown` + type narrowing
-- **No barrel files** in packages — use granular `exports` in `package.json`
+- **No barrel files** in packages — use granular `exports` in `package.json` where practical; the current workspace still has some root barrels, so avoid expanding that debt.
 
 ### Code Style
 
@@ -112,6 +114,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
 
 **Examples:**
+
 ```
 feat(canvas): add multi-select with marquee
 fix(ws-server): prevent overlapping periodic saves
@@ -139,6 +142,121 @@ pnpm test -- --watch   # Watch mode
 turbo run test --filter=@dripl/element
 turbo run test --filter=http-server
 ```
+
+### Database-backed tests (opt-in)
+
+Two suites run against a **real, migrated PostgreSQL** rather than mocks. They
+are skipped by `pnpm test`, so an ordinary run never needs a database.
+
+```bash
+# 1. Disposable database
+docker run -d --name dripl-pg-test \
+  -e POSTGRES_PASSWORD=dripl -e POSTGRES_USER=dripl -e POSTGRES_DB=dripl_test \
+  -p 55432:5432 postgres:latest
+
+# 2. Migrations. Run from packages/db so prisma.config.ts is discovered.
+(cd packages/db && DATABASE_URL="postgresql://dripl:dripl@127.0.0.1:55432/dripl_test?schema=public" \
+  pnpm exec prisma migrate deploy)
+
+# 3. The suites
+RUN_DB_INTEGRATION=true RUN_WS_DB_INTEGRATION=true \
+  DATABASE_URL="postgresql://dripl:dripl@127.0.0.1:55432/dripl_test?schema=public" \
+  pnpm --filter http-server --filter ws-server test
+```
+
+| Suite                                                          | What it proves                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `http-server/src/__tests__/integration/fileService.db.test.ts` | Owner scoping, scene validation, and stale-save rejection through real Prisma queries                                                                                                                                                                                                                     |
+| `ws-server/src/__tests__/production-db.test.ts`                | Two real WebSocket clients over a real database: stored-scene load, debounced persistence read back from the column, read-only denial, denial for an unrelated user, share revocation, replayed-version rejection, newer-version-wins, and the optimistic-concurrency fence losing to a concurrent writer |
+
+The WebSocket suite stubs the HTTP ticket exchange; everything else in it,
+including all seven migrations and every authorization query, is real. That stub
+is the one thing it does not cover, and it is named in the suite's `describe`
+block so it cannot be mistaken for full end-to-end coverage.
+
+Tear down with `docker rm -f dripl-pg-test`.
+
+### Running the built servers
+
+Servers are bundled with esbuild (`pnpm --filter ws-server build`), which
+resolves every relative import at build time — the output is a single
+`dist/index.js` with no relative specifiers left for Node to fail on. The CI
+lint job asserts that property statically. The direct smoke below is what
+covers "the artifact actually boots":
+
+```bash
+# Boot each server from dist/ and hit its health endpoint.
+JWT_SECRET=aaa INTERNAL_SECRET=bbb \
+  DATABASE_URL=postgresql://user:pass@127.0.0.1:5432/db \
+  HTTP_SERVER_URL=http://127.0.0.1:3002 HTTP_PORT=3002 \
+  node apps/ws-server/dist/index.js
+```
+
+Both secrets must differ and, with `NODE_ENV=production`, both must be at least 32
+characters. Those checks are deliberate; they are what a deployment hits first.
+
+### Browser tests against a running server
+
+By default the Playwright config starts its own dev server. Point it at an
+already-running instance instead, optionally at a different pixel density:
+
+```bash
+E2E_BASE_URL=http://127.0.0.1:3000 pnpm exec playwright test
+E2E_DEVICE_SCALE_FACTOR=2 E2E_PORT=3400 pnpm exec playwright test
+```
+
+`E2E_DEVICE_SCALE_FACTOR` matters because frame cost scales with backing-store
+pixels; a DPR-1 run says nothing about a retina display.
+
+### Browser performance evidence
+
+The canvas performance spec is opt-in because it records machine-specific
+frame and input data:
+
+```bash
+# Install the browser once if it is not already present
+pnpm exec playwright install chromium
+
+# One scene size (default 1000 and 5000)
+RUN_PERF_E2E=true pnpm --filter dripl-app test:e2e e2e/performance.spec.ts
+
+# Explicit scene sizes
+RUN_PERF_E2E=true PERF_SCENE_SIZES=1000,5000 \
+  pnpm --filter dripl-app test:e2e e2e/performance.spec.ts
+```
+
+The spec starts its own dev server. It prints a per-phase summary to stdout and
+attaches raw measurements to the Playwright report; it does not assert a
+universal FPS target. Local persistence is budgeted by serialized size for
+`localStorage` and capped at 50,000 elements for IndexedDB
+(`MAX_PERSISTED_ELEMENTS` in `apps/dripl-app/lib/canvas-db.ts`); the perf
+harness seeds the scene into IndexedDB only, so 10k/50k scenes are measurable
+through the local path.
+
+> **Rebuild packages before measuring.** The app imports `@dripl/common`,
+> `@dripl/element`, `@dripl/math`, and `@dripl/utils` from each package's built
+> `dist/`, not from source. Editing `packages/*/src` has no effect in the browser
+> until that package is rebuilt:
+>
+> ```bash
+> pnpm --filter @dripl/element build
+> ```
+>
+> Skipping this silently measures stale code, which is easy to mistake for a real
+> result. Run it before any browser measurement or A/B of package code, and
+> between the two arms of an A/B.
+
+> **Interleave A/B arms.** Do not measure "all of A, then all of B". On a shared
+> or loaded machine the drift between two batches is larger than most real
+> effects. Alternate the arms and measure a control the change cannot affect: the
+> performance spec's `load` phase renders roughly 60 elements regardless of scene
+> size, so its variance is the noise floor. One claim in
+> `docs/performance-benchmark.md` was withdrawn after identical code turned out
+> to vary by 2.5× run to run.
+
+Results, environment, and their limits are recorded in
+[`docs/performance-benchmark.md`](docs/performance-benchmark.md). The pinned
+comparison is in [`docs/excalidraw-performance-research.md`](docs/excalidraw-performance-research.md).
 
 ### Writing Tests
 
@@ -206,6 +324,7 @@ pnpm test         # Ensure tests pass
 ## Architecture Decisions
 
 For major architectural decisions, see:
+
 - `TODOS.md` — Engineering roadmap and active work
 - `Problems.md` — Security audit findings
 - `AGENTS.md` — Domain terminology and decisions
@@ -227,7 +346,7 @@ For major architectural decisions, see:
 1. Create route file in `apps/http-server/src/routes/`
 2. Add Zod schema for request validation
 3. Add `authMiddleware` for protected routes
-4. Mount router in `apps/http-server/src/index.ts`
+4. Mount router in `apps/http-server/src/app.ts` (the current Express composition root)
 5. Add tests
 
 ### Adding a New Canvas Element

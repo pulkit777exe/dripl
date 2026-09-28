@@ -6,7 +6,7 @@ This is the **root-level guide** for the Dripl monorepo. Read this first before 
 
 ## What Is Dripl?
 
-Dripl is a real-time collaborative canvas application (think Excalidraw/Figma). It consists of three deployable apps and seven shared library packages, all managed in a Turborepo monorepo.
+Dripl is a real-time collaborative canvas application (think Excalidraw/Figma). It consists of three deployable apps and six shared library packages, plus two tooling packages, all managed in a Turborepo monorepo.
 
 ---
 
@@ -30,8 +30,8 @@ The workspace is declared in `pnpm-workspace.yaml`. Lock file: `pnpm-lock.yaml`.
 dripl/
 ├── CLAUDE.md                    # Root monorepo guide (read first)
 ├── AGENTS.md                    # Agent configuration & domain terminology
-├── TODOS.md                     # Engineering roadmap (36 items)
-├── Problems.md                  # Security audit report (23 findings)
+├── TODOS.md                     # Historical engineering roadmap; current overlay near top
+├── Problems.md                  # Historical security report; current reconciliation at top
 ├── DESIGN.md                    # Visual design system
 ├── PRODUCT.md                   # Product definition
 ├── CHANGELOG.md                 # Version history
@@ -75,14 +75,14 @@ ws-server   ──► @dripl/common, @dripl/db, @dripl/utils
 
 ## Turborepo Task Pipeline
 
-| Task | Runs in | DependsOn | Cached? |
-|---|---|---|---|
-| `build` | All packages | `^build` (deps first) | ✅ Yes |
-| `dev` | All apps | `^build` | ❌ No (persistent) |
-| `lint` | All packages | `transit` | ✅ Yes |
-| `test` | All packages | `^build`, `build` | ✅ Yes |
-| `check-types` | All packages | `transit` | ✅ Yes |
-| `transit` | All packages | `^transit` | ✅ Yes |
+| Task          | Runs in      | DependsOn             | Cached?            |
+| ------------- | ------------ | --------------------- | ------------------ |
+| `build`       | All packages | `^build` (deps first) | ✅ Yes             |
+| `dev`         | All apps     | `^build`              | ❌ No (persistent) |
+| `lint`        | All packages | `transit`             | ✅ Yes             |
+| `test`        | All packages | `^build`, `build`     | ✅ Yes             |
+| `check-types` | All packages | `transit`             | ✅ Yes             |
+| `transit`     | All packages | `^transit`            | ✅ Yes             |
 
 The `transit` task is a dependency-ordering shim that allows `lint` and `check-types` to run in parallel while respecting package build order.
 
@@ -90,12 +90,12 @@ The `transit` task is a dependency-ordering shim that allows `lint` and `check-t
 
 Packages are tagged to enforce architectural boundaries:
 
-| Tag | Applied To | Cannot depend on |
-|---|---|---|
-| `app:web` | `dripl-app` | other apps |
-| `app:server` | `http-server`, `ws-server` | other apps |
-| `pkg:core` | `dripl`, `element`, `math`, `utils` | apps |
-| `pkg:data` | `db`, `common` | apps, `pkg:core` |
+| Tag          | Applied To                           | Cannot depend on |
+| ------------ | ------------------------------------ | ---------------- |
+| `app:web`    | `dripl-app`                          | other apps       |
+| `app:server` | `http-server`, `ws-server`           | other apps       |
+| `pkg:core`   | `common`, `element`, `math`, `utils` | apps             |
+| `pkg:data`   | `db`                                 | apps, `pkg:core` |
 
 Run `pnpm boundaries` / `turbo boundaries` to verify.
 
@@ -123,7 +123,7 @@ pnpm boundaries   # Validate package boundary tags
 All packages in `packages/` use the **compiled** strategy:
 
 - **Source**: `src/`
-- **Output**: `dist/`  (produced by `tsc -b --force`)
+- **Output**: `dist/` (produced by `tsc -b --force`)
 - **Exports**: `dist/index.js` + `dist/index.d.ts`
 
 The `dist/` output is listed in `turbo.json` `outputs: ["dist/**"]` so Turborepo can cache and restore builds.
@@ -136,14 +136,14 @@ The `dist/` output is listed in `turbo.json` `outputs: ["dist/**"]` so Turborepo
 
 Shared configs live in `tooling/typescript-config/`. Each package extends one of:
 
-| Config file | Used by |
-|---|---|
-| `base.json` | Node/server packages |
-| `nextjs.json` | `dripl-app` |
-| `react-library.json` | `@dripl/dripl` |
-| `tsconfig.json` | Generic fallback |
+| Config file          | Used by                                        |
+| -------------------- | ---------------------------------------------- |
+| `base.json`          | Node/server packages                           |
+| `nextjs.json`        | `dripl-app`                                    |
+| `react-library.json` | Reserved for a future standalone React package |
+| `tsconfig.json`      | Generic fallback                               |
 
-The root `tsconfig.json` only contains `references` for IDE project-wide go-to-definition — **do not add compiler options there**.
+The root `tsconfig.json` is a solution-style project reference file. Keep package-specific compiler options in each package's `tsconfig.json`; the root file also owns only the shared incremental build metadata.
 
 ---
 
@@ -163,23 +163,24 @@ dotenv -e ../../.env -- <command>    # http-server, ws-server
 
 `dripl-app` reads it natively through Next.js.
 
-| Variable | Used By |
-|---|---|
-| `DATABASE_URL` | `@dripl/db`, `http-server` |
-| `JWT_SECRET` | `http-server` (signs session JWTs), `ws-server` (must differ from `INTERNAL_SECRET`) |
-| `GEMINI_API_KEY` | `dripl-app` |
-| `GOOGLE_CLIENT_ID` | `http-server` |
-| `GOOGLE_CLIENT_SECRET` | `http-server` |
-| `HTTP_SERVER_URL` | `ws-server` (internal HTTP calls), `dripl-app` (Google OAuth callback) |
-| `UPSTASH_REDIS_REST_URL` | `ws-server` (pub/sub for multi-instance sync) |
-| `UPSTASH_REDIS_REST_TOKEN` | `ws-server` (pub/sub auth) |
-| `NEXT_PUBLIC_*` | `dripl-app` (client-side) |
-| `FRONTEND_URL` | `http-server`, `ws-server` (CORS origins) |
-| `INTERNAL_SECRET` | `http-server`, `ws-server` (server-to-server auth) |
-| `PORT` | `http-server` (default 3002), `ws-server` (default 3001) |
-| `SMTP_USER` / `SMTP_PASS` | `http-server` |
+| Variable                   | Used By                                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------ |
+| `DATABASE_URL`             | `@dripl/db`, `http-server`, `ws-server`                                              |
+| `JWT_SECRET`               | `http-server` (signs session JWTs), `ws-server` (must differ from `INTERNAL_SECRET`) |
+| `GEMINI_API_KEY`           | `dripl-app`                                                                          |
+| `GOOGLE_CLIENT_ID`         | `http-server`                                                                        |
+| `GOOGLE_CLIENT_SECRET`     | `http-server`                                                                        |
+| `HTTP_SERVER_URL`          | `ws-server` (internal HTTP calls), `dripl-app` (Google OAuth callback)               |
+| `UPSTASH_REDIS_REST_URL`   | `ws-server` (pub/sub for multi-instance fan-out)                                     |
+| `UPSTASH_REDIS_REST_TOKEN` | `ws-server` (pub/sub auth)                                                           |
+| `NEXT_PUBLIC_*`            | `dripl-app` (client-side)                                                            |
+| `FRONTEND_URL`             | `http-server`, `ws-server` (CORS origins)                                            |
+| `INTERNAL_SECRET`          | `http-server`, `ws-server` (server-to-server auth)                                   |
+| `HTTP_PORT`                | `http-server` (default 3002)                                                         |
+| `WS_PORT`                  | `ws-server` (default 3001)                                                           |
+| `SMTP_USER` / `SMTP_PASS`  | `http-server`                                                                        |
 
-See `.env.example` for the full list with descriptions.
+See `.env.example` and the app-specific guides for the current environment variables.
 
 ---
 
@@ -209,8 +210,8 @@ See `.env.example` for the full list with descriptions.
 - **`workspace:*`** for all internal package deps (pnpm protocol)
 - **Conventional Commits** enforced by `commitlint.config.js` — run `pnpm commitlint` locally before pushing
 - **`private: true`** on every package/app — nothing in this repo is published to npm
-- **No barrel files** in packages — use granular `exports` in `package.json` instead (note: currently violated by all 7 packages — see TODOS #18)
-- **All console output must be structured JSON** — no plain `console.log` in server code
+- **No barrel files** in packages — use granular `exports` in `package.json` instead. This remains an aspiration: `common`, `db`, `utils`, and `test-utils` still expose root `index.ts` files, while other packages have moved toward subpath exports (see TODOS #18/#48).
+- **Server logging convention:** use structured JSON for new server logs; a few legacy/utility plain `console` calls remain and are tracked as cleanup, so this is not a claim of uniform compliance.
 
 ---
 
@@ -256,8 +257,7 @@ All three apps have Dockerfiles in `docker/`. Use `docker-compose.yml` at the ro
 
 ## CI/CD
 
-GitHub Actions workflows live in `.github/`. The pipeline runs:
-1. `lint` → `check-types` → `build` → `test` (in dependency order via Turbo)
+GitHub Actions workflows live in `.github/`. The workflow defines four independent jobs: `lint`, `build`, `test` (with PostgreSQL), and `check-types`.
 
 Turbo remote caching is configured via `TURBO_TOKEN` + `TURBO_TEAM` env vars in CI.
 
@@ -276,13 +276,11 @@ Turbo remote caching is configured via `TURBO_TOKEN` + `TURBO_TEAM` env vars in 
 
 ## Known Gaps & Active Work
 
-For the full engineering roadmap, see `TODOS.md`. Key active items:
+For the current evidence-weighted assessment, see [`docs/codebase-audit.md`](docs/codebase-audit.md); `TODOS.md` and `Problems.md` retain historical planning context. Current caveats and stale-claim reconciliation include:
 
-- **ws-server is a 950-line monolith** — documented module structure in `ws-server/CLAUDE.md` includes `rooms.ts` (exists), `handlers.ts` (doesn't exist yet)
-- **Redis is now used** — `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` required by ws-server for pub/sub (multi-instance sync)
-- **Barrel files in all 7 packages** — violates the "no barrel files" rule above
-- **Duplicate `.env` files** — app-level `.env` files exist and may contain real credentials
-- **TypeScript version mismatch** — root at `^6.0.3`, apps at `^5.x`, some packages at `latest`
-- **Docker runs dev in production** — all Dockerfiles use `CMD pnpm run dev`
-
-See `Problems.md` for the full security audit (23 findings, 19 fixed).
+- **ws-server is a large coordinator** — `apps/ws-server/src/index.ts` is currently about 1,500 lines; auth, broadcast, rooms, rate limiting, and handlers are extracted, but the composition root still coordinates most protocol concerns.
+- **Redis fan-out is optional, not shared state** — Upstash pub/sub can forward mutations, but room state, WS tickets, and fallback limiter state remain process-local; multi-instance behavior is unverified.
+- **Barrel cleanup is partial** — `common`, `db`, `utils`, and `test-utils` still expose root `index.ts`; the workspace currently has six shared library packages, not seven.
+- **Schema duplication remains** — the WS server uses the shared element schema at the element boundary but keeps a local schema in `validation.ts`.
+- **Yjs adapter removed (2026-09-28)** — the dormant adapter is deleted from both client and server (~400 lines plus deps); active collaboration is JSON deltas, not CRDT wire sync.
+- **Deployment evidence is incomplete** — Docker/CI configuration exists and a disposable PostgreSQL migration/HTTP run passed, but image builds, production/remote PostgreSQL/Redis, browser QA, and production-scale tests were not run.

@@ -1,41 +1,44 @@
 # Dripl Architecture
 
-> Collaborative canvas drawing app with real-time multi-user editing. Three-service monorepo: Next.js frontend, Express REST API, WebSocket collaboration server. PostgreSQL for persistence, optional Redis for rate limiting and cross-instance pub/sub.
+> **Partially archived architecture note.** The service boundaries remain
+> useful, but several version, line-count, package, and Yjs claims below are
+> historical. The current source manifests and
+> [`docs/codebase-audit.md`](docs/codebase-audit.md) are authoritative.
 
 ---
 
 ## 1. Tech Stack
 
-| Layer            | Technology            | Version            | Source                                               |
-| ---------------- | --------------------- | ------------------ | ---------------------------------------------------- |
-| Runtime          | Node.js               | 20                 | `.nvmrc`                                             |
-| Package manager  | pnpm                  | 10.33.0            | `package.json`                                       |
-| Monorepo tool    | Turborepo             | ^2.9.18            | `package.json` devDeps                               |
-| Language         | TypeScript            | ^5.9.3             | `package.json` devDeps                               |
-| Frontend         | Next.js (App Router)  | ^16.2.9            | `dripl-app/package.json`                             |
-| UI framework     | React                 | ^19.2.7            | `dripl-app/package.json`                             |
-| Styling          | Tailwind CSS          | ^4.3.1             | `dripl-app/package.json`                             |
-| State management | Zustand               | ^5.0.14            | `dripl-app/package.json`                             |
-| Canvas rendering | Rough.js              | ^4.6.6             | `element/package.json`                               |
-| Spatial index    | RBush                 | ^4.0.1             | `dripl-app/package.json`                             |
-| CRDT sync        | Yjs                   | ^13.6.31           | `dripl-app/package.json`, `ws-server/package.json`   |
-| REST API         | Express               | ^5.2.1             | `http-server/package.json`                           |
-| WebSocket        | ws                    | ^8.21.0            | `ws-server/package.json`                             |
-| ORM              | Prisma                | ^7.8.0             | `db/package.json`                                    |
-| Database         | PostgreSQL            | 16                 | `docker-compose.yml`                                 |
-| Cache/queue      | Upstash Redis (REST)  | ^1.38.0            | `http-server/package.json`, `ws-server/package.json` |
-| Rate limiting    | @upstash/ratelimit    | ^2.0.8             | `http-server/package.json`, `ws-server/package.json` |
-| Validation       | Zod                   | ^4.4.3             | `common/package.json`                                |
-| Auth (JWT)       | jsonwebtoken          | ^9.0.3             | `utils/package.json`                                 |
-| Auth (Google)    | google-auth-library   | ^10.7.0            | `http-server/package.json`                           |
-| Email            | Nodemailer            | ^8.0.11            | `http-server/package.json`                           |
-| AI               | @google/generative-ai | ^0.24.1            | `dripl-app/package.json`                             |
-| Error tracking   | @sentry/nextjs        | ^10.63.0           | `dripl-app/package.json`                             |
-| Logging          | pino                  | (via @dripl/utils) | `utils/src/logger.ts`                                |
-| Testing          | Vitest                | ^4.1.9             | `package.json` devDeps                               |
-| E2E testing      | Playwright            | ^1.61.0            | `dripl-app/package.json` devDeps                     |
-| CSS animations   | Framer Motion         | ^12.40.0           | `dripl-app/package.json`                             |
-| UI primitives    | Radix UI              | various            | `dripl-app/package.json` (15+ packages)              |
+| Layer            | Technology            | Version          | Source                            |
+| ---------------- | --------------------- | ---------------- | --------------------------------- |
+| Runtime          | Node.js               | 20               | `.nvmrc`                          |
+| Package manager  | pnpm                  | 10.33.0          | `package.json`                    |
+| Monorepo tool    | Turborepo             | ^2.11.4          | `package.json` devDeps            |
+| Language         | TypeScript            | ^5.9.3           | workspace manifests               |
+| Frontend         | Next.js (App Router)  | ^16.3.6          | `dripl-app/package.json`          |
+| UI framework     | React                 | ^19.3.0          | `dripl-app/package.json`          |
+| Styling          | Tailwind CSS          | ^4.3.3           | `dripl-app/package.json`          |
+| State management | Zustand               | ^5.0.15          | `dripl-app/package.json`          |
+| Canvas rendering | Rough.js              | ^4.6.6           | `element/package.json`            |
+| Spatial index    | RBush                 | ^4.0.1           | `dripl-app/package.json`          |
+| CRDT adapter     | Yjs                   | ^13.6.33         | dependency present; wire disabled |
+| REST API         | Express               | ^5.2.1           | `http-server/package.json`        |
+| WebSocket        | ws                    | ^8.21.3          | `ws-server/package.json`          |
+| ORM              | Prisma                | ^7.10.0          | `db/package.json`                 |
+| Database         | PostgreSQL            | 16               | `docker-compose.yml`              |
+| Cache/queue      | Upstash Redis (REST)  | ^1.39.0          | HTTP/WS manifests                 |
+| Rate limiting    | @upstash/ratelimit    | ^2.2.0           | HTTP/WS manifests                 |
+| Validation       | Zod                   | ^4.6.5           | `common/package.json`             |
+| Auth (JWT)       | jsonwebtoken          | ^9.0.3           | `utils/package.json`              |
+| Auth (Google)    | google-auth-library   | ^10.9.1          | `http-server/package.json`        |
+| Email            | Nodemailer            | ^9.1.1           | `http-server/package.json`        |
+| AI               | @google/generative-ai | ^0.24.1          | `dripl-app/package.json`          |
+| Error tracking   | @sentry/nextjs        | ^10.75.3         | `dripl-app/package.json`          |
+| Logging          | pino                  | via @dripl/utils | `utils/src/logger.ts`             |
+| Testing          | Vitest                | ^4.1.11          | workspace manifests               |
+| E2E testing      | Playwright            | ^1.63.0          | `dripl-app/package.json` devDeps  |
+| CSS animations   | Framer Motion         | ^12.43.0         | `dripl-app/package.json`          |
+| UI primitives    | Radix UI              | various          | `dripl-app/package.json`          |
 
 ---
 
@@ -67,11 +70,11 @@
 
 ### Services
 
-| Service       | Port | Role                                                 | State                     |
-| ------------- | ---- | ---------------------------------------------------- | ------------------------- |
-| `dripl-app`   | 3000 | Frontend, SSR, Server Actions, AI proxy, image proxy | Stateless                 |
-| `http-server` | 3002 | REST API, auth, file/folder CRUD, rooms, sharing     | Stateless (DB)            |
-| `ws-server`   | 3001 | Real-time collaboration, room state, Yjs sync        | In-memory + Redis pub/sub |
+| Service       | Port | Role                                                      | State                              |
+| ------------- | ---- | --------------------------------------------------------- | ---------------------------------- |
+| `dripl-app`   | 3000 | Frontend, SSR, Server Actions, AI proxy, image proxy      | Stateless                          |
+| `http-server` | 3002 | REST API, auth, file/folder CRUD, rooms, sharing          | Stateless (DB)                     |
+| `ws-server`   | 3001 | Real-time collaboration, room state, optional Yjs adapter | In-memory + optional Redis fan-out |
 
 ### Shared Packages
 
@@ -97,27 +100,29 @@ dripl/
 │   │   ├── components/     # React components
 │   │   │   └── canvas/     # Canvas UI (RoughCanvas, StaticCanvas, etc.)
 │   │   ├── hooks/          # React hooks (useCollaboration, useDrawingTools, etc.)
-│   │   ├── lib/store/      # Zustand store (4 slices + index + helpers)
+│   │   ├── lib/store/      # Zustand slices (canvas, history, collab, UI) + helpers
 │   │   ├── renderer/       # InteractiveScene rendering
-│   │   ├── workers/        # Web Workers (spatial index, hit testing)
 │   │   └── utils/          # Canvas math, export, perf tracing
 │   ├── http-server/        # Express 5 REST API
 │   │   ├── src/
-│   │   │   ├── routes/     # auth, files, folders, rooms, share, images
-│   │   │   ├── controllers/# Business logic per resource
+│   │   │   ├── routes/     # auth, files, folders, rooms, share, images (validation + response mapping)
 │   │   │   ├── middlewares/# authMiddleware, csrfMiddleware
 │   │   │   └── services/   # AuthService, FileService, etc.
 │   │   └── tests/          # Vitest tests
 │   └── ws-server/          # WebSocket collaboration server
 │       └── src/
-│           ├── index.ts    # Main server: message dispatch, lifecycle
+│           ├── index.ts    # Entry point: bootstrap, dispatch, sweeps, shutdown
+│           ├── sceneMutation.ts # Element acceptance, capacity, remote-apply
+│           ├── handlers/   # cursorMove, locks, presence handlers + types
 │           ├── auth.ts     # Ticket-based WS auth
 │           ├── rooms.ts    # Room state management, DB save
+│           ├── roomAccess.ts # Room access policy
 │           ├── broadcast.ts# Local broadcast helpers
 │           ├── redis.ts    # Upstash Redis pub/sub
-│           ├── validation.ts# Zod schemas for WS messages
-│           ├── yjsManager.ts# Yjs document management
+│           ├── validation.ts# Zod message schemas (element wire format owned by @dripl/common)
 │           ├── rateLimiter.ts# Upstash rate limiter
+│           ├── env.ts      # Env validation
+│           ├── logger.ts   # Structured logger
 │           └── types.ts    # TypeScript interfaces
 ├── packages/
 │   ├── common/             # Shared types, Zod schemas
@@ -127,7 +132,7 @@ dripl/
 │   ├── utils/              # Encryption, auth, env, logger
 │   └── test-utils/         # Shared test helpers
 ├── docker/                 # Dockerfiles for each service
-├── docker-compose.yml      # Local dev: Postgres + Redis + all services
+├── docker-compose.yml      # Local dev: Postgres + three application services
 ├── scripts/                # Build & deploy scripts
 └── tooling/                # Shared ESLint & TypeScript configs
 ```
@@ -184,15 +189,14 @@ Canvas elements are stored as **JSON strings** in `File.content` and `CanvasRoom
    ├─► pushHistory() for undo (full snapshot, max 100)
    ├─► invalidateElementCache() for Rough.js canvas cache
    └─► broadcastElements() in useCollaboration hook
-       ├─► Updates local Y.Doc
-       ├─► Sends binary Yjs packet (0x01 prefix + Y.encodeStateAsUpdate)
+       ├─► Updates local state; the Yjs adapter is currently disabled on the wire
        └─► Sends JSON scene-delta { added, updated, deleted }
 4. ws-server receives message
    ├─► Zod validates payload (validation.ts)
-   ├─► Rate limit check (Upstash sliding window)
-   ├─► Applies to room.elements Map + Yjs Doc
+   ├─► Rate limit check (Upstash when configured, bounded local fallback)
+   ├─► Applies to room.elements Map
    ├─► Broadcasts to other clients in room
-   ├─► Publishes to Redis (for cross-instance sync)
+   ├─► Publishes to Redis when configured (fan-out, not shared state)
    └─► Schedules debounced DB save (2s)
 5. Periodic save (every 15s) writes full elements array to PostgreSQL
 ```
@@ -210,8 +214,8 @@ Canvas elements are stored as **JSON strings** in `File.content` and `CanvasRoom
    ├─► Sends X-Internal-Secret header
    ├─► http-server verifies INTERNAL_SECRET, looks up ticket
    ├─► Deletes ticket from wsTicketStore (one-time use)
-   └─► Returns { userId }
-5. ws-server attaches userId to connection, client joins room
+   └─► Returns a user principal or a scoped file-share principal
+5. ws-server attaches the verified principal, and the client joins a room
 ```
 
 ### Flow 3: File Share Link
@@ -225,7 +229,7 @@ Canvas elements are stored as **JSON strings** in `File.content` and `CanvasRoom
 
 2. Recipient visits: GET /api/share/:token
    ├─► No auth required (public route)
-   ├─► Rate limited (30 req/15m per IP via Upstash)
+   ├─► Rate limited (30 req/15m per IP via Upstash when configured, bounded local fallback)
    ├─► ShareService.resolveShare() validates token + expiry
    └─► Returns file content + permission level
 
@@ -239,7 +243,7 @@ Canvas elements are stored as **JSON strings** in `File.content` and `CanvasRoom
 
 ### Session-Based Auth (http-server)
 
-- **Session cookie:** `dripl-session`, httpOnly, secure, sameSite: `none`, 7-day expiry
+- **Session cookie:** `dripl-session`, httpOnly, with environment-dependent `secure`/`sameSite` settings and a 7-day expiry
 - **JWT signing:** `jsonwebtoken` with `JWT_SECRET`
 - **JWT payload:** `{ userId }`
 - **Middleware:** `authMiddleware` reads from cookie or `Authorization: Bearer` header, calls `verifyToken()` from `@dripl/utils/auth`
@@ -254,7 +258,9 @@ The WS server does **not** use JWT. Instead:
 3. WS server validates ticket via internal HTTP call to http-server
 4. Both services share `INTERNAL_SECRET` for server-to-server auth
 
-This is verified in `ws-server/src/auth.ts` (45 lines) and `http-server/src/routes/auth.ts` (lines 470-498, `createInternalRouter()`).
+This is implemented in `ws-server/src/auth.ts` and
+`http-server/src/routes/auth.ts:354-379` (`createInternalRouter()`). Ticket
+storage remains process-local.
 
 ### Google OAuth
 
@@ -272,15 +278,15 @@ This is verified in `ws-server/src/auth.ts` (45 lines) and `http-server/src/rout
 
 ## 7. External Dependencies & Integrations
 
-| Service          | Purpose                                     | Where Configured                                                  |
-| ---------------- | ------------------------------------------- | ----------------------------------------------------------------- |
-| Google OAuth     | User authentication                         | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` in http-server         |
-| Google Gemini AI | Canvas generation from prompts              | `GEMINI_API_KEY` in dripl-app (`app/api/ai/generate/route.ts`)    |
-| Upstash Redis    | Rate limiting (sliding window) + WS pub/sub | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`              |
-| Nodemailer       | Email verification + password reset         | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` in http-server |
-| Sentry           | Error monitoring (dripl-app only)           | `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN` in dripl-app `.env.local`  |
-| Vercel           | Frontend hosting + serverless               | dripl-app deployed there                                          |
-| Render           | Backend hosting (http-server + ws-server)   | `render.yaml` blueprint                                           |
+| Service          | Purpose                                                      | Where Configured                                                                                 |
+| ---------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Google OAuth     | User authentication                                          | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` in http-server                                        |
+| Google Gemini AI | Canvas generation from prompts                               | `GEMINI_API_KEY` in dripl-app (`app/api/ai/generate/route.ts`)                                   |
+| Upstash Redis    | Rate limiting (sliding window) + WS pub/sub                  | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`                                             |
+| Nodemailer       | Email verification + password reset                          | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` in http-server                                |
+| Sentry           | Error monitoring (frontend and optional server integrations) | `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN` in app env; HTTP/WS manifests also include `@sentry/node` |
+| Vercel           | Frontend hosting + serverless                                | dripl-app deployed there                                                                         |
+| Render           | Backend hosting (http-server + ws-server)                    | `render.yaml` blueprint                                                                          |
 
 ---
 
@@ -289,13 +295,15 @@ This is verified in `ws-server/src/auth.ts` (45 lines) and `http-server/src/rout
 ### Local Development
 
 ```bash
-# Start all services via docker-compose
-docker-compose up
-# Postgres: localhost:5432, Redis: localhost:6379
+# Start all services via docker compose
+docker compose up
+# Postgres: localhost:5432
 # App: localhost:3000, http-server: localhost:3002, ws-server: localhost:3001
 ```
 
-`docker-compose.yml` defines 5 services: `postgres` (16-alpine), `redis` (7-alpine), `ws-server`, `http-server`, `dripl-app`.
+`docker-compose.yml` currently defines 4 services: `postgres` (16-alpine),
+`ws-server`, `http-server`, and `dripl-app`. Upstash Redis is optional
+external configuration, not a local Compose service.
 
 ### Production Deployment
 
@@ -319,11 +327,11 @@ docker-compose up
 
 ### CI/CD
 
-`.github/workflows/ci.yml` runs on push to `main` and PRs:
+`.github/workflows/ci.yml` runs four independent jobs on pushes to `main` and pull requests:
 
 1. **lint** — ESLint across affected packages
 2. **build** — TypeScript compilation
-3. **test** — Vitest with PostgreSQL service container
+3. **test** — Vitest with the PostgreSQL service container
 4. **type-check** — `tsc --noEmit`
 
 `.github/workflows/keepalive.yml` — Pings both backend `/health` endpoints every 10 minutes to prevent Render spin-down.
@@ -335,24 +343,26 @@ docker-compose up
 - `Dockerfile.dripl-app` — Multi-stage, node:20-alpine, port 3000
 - `Dockerfile.http-server` — Multi-stage, node:20-alpine, port 3002
 - `Dockerfile.ws-server` — Multi-stage, node:20-alpine, port 3001
-- `Dockerfile.cloudrun` — Combined http+ws for Cloud Run, port 8080
+- `Dockerfile.cloudrun` — Optional/unverified Cloud Run path; no production topology or image-build evidence is claimed
 
 ---
 
 ## 9. Key Architectural Decisions
 
-### Dual Data Model in ws-server
+### Yjs Adapter Removed from ws-server
 
-The ws-server maintains **two parallel representations** of room state:
-
-1. `Map<string, DriplElement>` — Legacy JSON protocol (used by `scene-update`, `scene-delta`, `element-update` messages)
-2. Yjs `Doc` — Binary CRDT protocol (used by binary WebSocket messages)
-
-Both are kept in sync. The server handles both JSON and binary clients simultaneously. This is verified in `ws-server/src/index.ts` lines 248-265 (binary Yjs handling) and the message dispatch switch statement.
+The ws-server previously retained a Yjs adapter alongside the active JSON room
+map behind `YJS_WIRE_ENABLED = false`. The flag gated only reads while the
+write path duplicated every element into a `Y.Doc`, so the adapter was removed
+outright (2026-09-28, ~400 lines across server and client, plus the `yjs`,
+`y-protocols`, and `y-websocket` dependencies). The server does **not** handle
+binary clients or claim CRDT wire convergence. JSON
+`scene-update`/`scene-delta` messages are authoritative. Reintroducing Yjs is
+a protocol project, not a flag flip.
 
 ### In-Memory Room State
 
-Room state (`elements`, `users`, `cursors`) lives in `Map<string, RoomState>` within a single ws-server process. Redis pub/sub (`redis.ts`) enables cross-instance message forwarding, but room state itself is not shared — it's rebuilt from DB on reconnect.
+Room state (`elements`, `users`, `cursors`) lives in `Map<string, RoomState>` within a single ws-server process. Redis pub/sub (`redis.ts`) enables cross-instance message forwarding, but room state itself is not shared; a new process or a different instance loads persisted elements from the database, while live presence and cursors remain process-local.
 
 ### Element Canvas Cache
 
@@ -362,18 +372,19 @@ Room state (`elements`, `users`, `cursors`) lives in `Map<string, RoomState>` wi
 
 The canvas store is split into 4 slices:
 
-- `canvasSlice.ts` (608 lines) — Elements, selection, tools, viewport
-- `historySlice.ts` (83 lines) — Undo/redo (full snapshots, max 100)
-- `collabSlice.ts` (63 lines) — Room, connection, remote users/cursors
-- `uiSlice.ts` (35 lines) — Theme, file metadata, saving status
+- `canvasSlice.ts` (current ~745 lines) — Elements, selection, tools, viewport
+- `historySlice.ts` (current ~85 lines) — Undo/redo (snapshot/byte-budget bounded)
+- `collabSlice.ts` (current ~63 lines) — Room, connection, remote users/cursors
+- `uiSlice.ts` (current ~35 lines) — Theme, file metadata, saving status
 
-Plus `helpers.ts` (151 lines), `types.ts` (175 lines), and `index.ts` (20 lines).
+Plus `helpers.ts` (~180 lines), `types.ts` (~203 lines), and `index.ts` (~20 lines).
 
 ### Ticket-Based WS Auth
 
 Chosen over JWT-at-upgrade because:
 
-- http-server owns session state; ws-server doesn't need JWT secret
+- http-server owns session state; the WS connection uses a ticket, although the
+  current WS env schema still validates `JWT_SECRET` for compatibility
 - One-time tickets prevent replay attacks
 - Internal HTTP call allows http-server to control ticket lifecycle
 
@@ -383,14 +394,19 @@ Chosen over JWT-at-upgrade because:
 
 ### Active Issues
 
-1. **Full-element serialization on save** — Every DB write serializes the entire `DriplElement[]` array as a JSON string. With 5K elements, this is ~1.5MB per save. No element-level table or partial updates exist.
+1. **Full-element serialization on save** — Every DB write serializes the entire `DriplElement[]` array as a JSON string. A 5K-element payload may be large, but its exact size and write cost are workload-dependent and were not measured here. No element-level table or partial updates exist.
 
-2. **In-memory room state** — Process restart loses all room state. Redis pub/sub enables message forwarding but not state sharing. Room state is rebuilt from DB on reconnect, but cursor/user presence is lost.
+2. **In-memory room state** — Process restart loses all room state. Redis pub/sub enables message forwarding but not state sharing. A new process or different instance loads persisted elements from the database, while cursor/user presence is lost.
 
-3. **CLAUDE.md is stale** — Multiple claims in `CLAUDE.md` are contradicted by the actual code:
-   - Claims RoughCanvas is 2,332 lines (actually 974)
-   - Claims canvas-store.ts is 803 lines (actually a 4-line barrel)
-   - Claims `@dripl/dripl` package exists (it doesn't)
+3. **Documentation drift remains** — this file and the app-level guides retain
+   archived line counts and package references. Current source facts
+   (verified 2026-09-27 with `wc -l`):
+   - `RoughCanvas.tsx` is 923 lines after extracting `useSpatialIndex`, and remains an orchestrator
+   - `packages/element/src/staticScene.ts` is 918 lines
+   - the canvas store is split under `apps/dripl-app/lib/store/`
+   - `@dripl/dripl` does not exist
+   - `ws-server/src/index.ts` is a roughly 1,600-line coordinator, not the
+     historical 668/737-line monolith description
 
 ### Resolved Issues (Fixed)
 
@@ -402,32 +418,33 @@ Chosen over JWT-at-upgrade because:
 
 ### Tech Debt
 
-- **Full-snapshot history** — `historySlice.ts` stores full element arrays for undo. Capped at 10 MB byte budget (was flat 100 snapshots). With 5K elements, each snapshot is ~1.5MB, so budget allows ~6-7 snapshots at that size.
-- **No binary WS protocol for element data** — JSON serialization for `scene-update`/`scene-delta` messages. Yjs binary protocol is used but runs alongside JSON, not instead of it.
-- **Single-file route modules** — `http-server/src/routes/auth.ts` is 498 lines. Could be split by concern (register, login, OAuth, password reset, ticket).
+- **Full-snapshot history** — `historySlice.ts` stores full element arrays for undo. It has a count limit and a coarse 10 MB byte budget; actual serialized/object memory is not measured here.
+- **Yjs binary protocol is not active** — JSON `scene-update`/`scene-delta` is the wire path; a dormant adapter remains for future work.
+- **Large auth route module** — `http-server/src/routes/auth.ts` is currently about 380 lines. Could be split by concern (register, login, OAuth, password reset, ticket).
 
 ---
 
 ## 11. How to Verify This Document
 
-| Claim                            | Verification                                                                                 |
-| -------------------------------- | -------------------------------------------------------------------------------------------- |
-| Next.js ^16.2.9                  | `apps/dripl-app/package.json` line: `"next": "^16.2.9"`                                      |
-| React ^19.2.7                    | `apps/dripl-app/package.json` line: `"react": "^19.2.7"`                                     |
-| Express ^5.2.1                   | `apps/http-server/package.json` line: `"express": "^5.2.1"`                                  |
-| Prisma ^7.8.0                    | `packages/db/package.json` line: `"@prisma/client": "^7.8.0"`                                |
-| WS auth is ticket-based          | `apps/ws-server/src/auth.ts` lines 16-44                                                     |
-| CSRF on logout                   | `apps/http-server/src/app.ts` line: `app.use('/api/auth/logout', validateCsrfToken)`         |
-| Sentry only in dripl-app         | `apps/dripl-app/sentry.client.config.ts` (9 lines), no sentry files in http-server/ws-server |
-| OffscreenCanvas in element cache | `packages/element/src/staticScene.ts` line 291: `typeof OffscreenCanvas !== 'undefined'`     |
-| Redis pub/sub implemented        | `apps/ws-server/src/redis.ts` (71 lines)                                                     |
-| Pino logger                      | `packages/utils/src/logger.ts` (22 lines)                                                    |
-| RoughCanvas is 972 lines         | `wc -l apps/dripl-app/components/canvas/RoughCanvas.tsx` → 972                               |
-| staticScene.ts is 358 lines      | `wc -l packages/element/src/staticScene.ts` → 358                                            |
-| ws-server index.ts is 913 lines   | `wc -l apps/ws-server/src/index.ts` → 913                                                    |
-| No @dripl/dripl package          | `ls packages/` → common, db, element, math, test-utils, utils                                |
-| Keepalive cron exists            | `.github/workflows/keepalive.yml` — `*/10 * * * *` schedule                                  |
+| Claim                              | Verification                                                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Next.js ^16.3.6                    | `apps/dripl-app/package.json`                                                                                     |
+| React ^19.3.0                      | `apps/dripl-app/package.json`                                                                                     |
+| Express ^5.2.1                     | `apps/http-server/package.json`                                                                                   |
+| Prisma ^7.10.0                     | `packages/db/package.json`                                                                                        |
+| WS auth is ticket-based            | `apps/ws-server/src/auth.ts` lines 16-44                                                                          |
+| CSRF on logout                     | `apps/http-server/src/app.ts` line: `app.use('/api/auth/logout', validateCsrfToken)`                              |
+| Sentry configuration               | `apps/dripl-app/sentry.client.config.ts` plus optional server initialization in `app.ts`/`ws-server/src/index.ts` |
+| OffscreenCanvas in element cache   | `packages/element/src/staticScene.ts:320-323` (`typeof OffscreenCanvas !== 'undefined'`)                          |
+| Redis pub/sub implemented          | `apps/ws-server/src/redis.ts` (current ~83 lines)                                                                 |
+| Pino logger                        | `packages/utils/src/logger.ts` (22 lines)                                                                         |
+| RoughCanvas is 923 lines           | `wc -l apps/dripl-app/components/canvas/RoughCanvas.tsx` (verified 2026-09-27)                                    |
+| staticScene.ts is 918 lines        | `wc -l packages/element/src/staticScene.ts` (verified 2026-09-27)                                                 |
+| ws-server index.ts is ~1,600 lines | `wc -l apps/ws-server/src/index.ts` (verified 2026-09-27)                                                         |
+| No @dripl/dripl package            | `ls packages/` → common, db, element, math, test-utils, utils                                                     |
+| Keepalive cron exists              | `.github/workflows/keepalive.yml` — `*/10 * * * *` schedule                                                       |
 
 ---
 
-> Last verified: 2026-07-02, against commit `07aadec`
+> Last static source reconciliation: 2026-09-25. Runtime/build claims in
+> older review material are historical unless explicitly marked as unverified.

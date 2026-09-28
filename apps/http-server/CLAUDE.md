@@ -1,6 +1,9 @@
 # http-server — Express REST API
 
-> Part of the Dripl monorepo. Read the root `CLAUDE.md` first.
+> **Partially archived app guide.** Service boundaries remain useful, but old
+> package/route names, auth-controller references, middleware order, and test
+> imports below are not current source-of-truth. Follow the current code and
+> root `CLAUDE.md`; use `docs/codebase-audit.md` for integration caveats.
 
 ---
 
@@ -12,7 +15,7 @@
 - **File management** — CRUD for canvas files and folders
 - **Collaboration rooms** — room creation and access control
 - **Share links** — create/resolve public share tokens
-- **Rate limiting** — per-user request throttling (HTTP layer)
+- **Rate limiting** — session/IP request throttling with bounded local fallback
 - **Security** — CSRF protection, Helmet headers, JWT validation
 
 Runs on **port 3002** in development.
@@ -21,17 +24,17 @@ Runs on **port 3002** in development.
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Express 5 |
-| Language | TypeScript 5 (ESM) |
-| Runtime | Node.js (tsx for dev, compiled JS for prod) |
-| Database | PostgreSQL via `@dripl/db` (Prisma) |
-| Auth | JWT (`jsonwebtoken`) + Google OAuth (`google-auth-library`) |
-| Email | Nodemailer |
-| Validation | Zod v4 |
-| Security | Helmet, express-rate-limit, csurf, bcryptjs |
-| Testing | Vitest + Supertest |
+| Layer      | Technology                                                         |
+| ---------- | ------------------------------------------------------------------ |
+| Framework  | Express 5                                                          |
+| Language   | TypeScript 5 (ESM)                                                 |
+| Runtime    | Node.js (tsx for dev, compiled JS for prod)                        |
+| Database   | PostgreSQL via `@dripl/db` (Prisma)                                |
+| Auth       | JWT (`jsonwebtoken`) + Google OAuth (`google-auth-library`)        |
+| Email      | Nodemailer                                                         |
+| Validation | Zod v4                                                             |
+| Security   | Helmet, custom bounded rate limiters, double-submit CSRF, bcryptjs |
+| Testing    | Vitest + Supertest                                                 |
 
 ---
 
@@ -40,26 +43,27 @@ Runs on **port 3002** in development.
 ```
 apps/http-server/
 ├── src/
-│   ├── index.ts              # Entry point — creates Express app, mounts routers
+│   ├── app.ts                # Express app, middleware, and route mounting
+│   ├── index.ts              # DB initialization, cleanup interval, listen/shutdown
 │   ├── middlewares/
-│   │   ├── authMiddleware.ts  # JWT verification middleware
-│   │   ├── csrfMiddleware.ts  # CSRF token generation/validation
-│   │   └── (rate limiter inline in index.ts)
+│   │   ├── authMiddleware.ts  # JWT session verification
+│   │   └── csrfMiddleware.ts  # CSRF token generation/validation
+│   ├── lib/rateLimiter.ts    # Upstash or bounded process-local limiter
 │   ├── routes/
-│   │   ├── auth.ts           # POST /api/auth/login, /register, /logout, /google
+│   │   ├── auth.ts           # Auth routes and internal ticket validator
 │   │   ├── files.ts          # CRUD /api/files
 │   │   ├── folders.ts        # CRUD /api/folders
-│   │   ├── share.ts          # POST/GET /api/share
-│   │   └── roomRoutes.ts     # CRUD /api/rooms
+│   │   ├── share.ts          # POST/GET /api/share and scoped WS tickets
+│   │   └── roomRoutes.ts     # Public room capability route + protected CRUD
 │   ├── services/
-│   │   ├── authService.ts    # Auth business logic (register, login, OAuth, password)
-│   │   ├── fileService.ts    # File business logic (CRUD, shares, folder ownership)
-│   │   └── shareService.ts   # Share resolution logic
-│   ├── controllers/
-│   │   └── roomController.ts # Room business logic
-│   └── lib/
-│       └── mailer.ts         # Nodemailer wrapper
-├── tests/                    # Vitest + Supertest integration tests
+│   │   ├── authService.ts    # Auth business logic
+│   │   ├── fileService.ts    # File business logic and persistence fencing
+│   │   ├── folderService.ts  # Folder hierarchy, cycle guard, cascade delete
+│   │   ├── roomService.ts    # Room CRUD, quota, slug retry, share links
+│   │   └── shareService.ts   # Share resolution/revocation
+│   └── lib/                  # Scene validation, encryption, response, mailer
+├── src/__tests__/            # Route, middleware, service, and opt-in DB tests
+└── tests/                    # Supertest/service/share tests
 ├── tsconfig.json
 └── package.json
 ```
@@ -96,46 +100,48 @@ pnpm test     # Vitest test suite
 
 ### Auth (`/api/auth`)
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/auth/register` | Create account (email + password) |
-| `POST` | `/api/auth/login` | Login → set session cookie |
-| `POST` | `/api/auth/logout` | Clear session cookie |
-| `POST` | `/api/auth/google` | Exchange Google ID token |
-| `GET` | `/api/auth/verify` | Verify email via token |
-| `GET` | `/api/auth/me` | Get current user (JWT required) |
+| Method | Path                     | Description                       |
+| ------ | ------------------------ | --------------------------------- |
+| `POST` | `/api/auth/register`     | Create account (email + password) |
+| `POST` | `/api/auth/login`        | Login → set session cookie        |
+| `POST` | `/api/auth/logout`       | Clear session cookie              |
+| `POST` | `/api/auth/google`       | Exchange Google ID token          |
+| `POST` | `/api/auth/verify-email` | Verify email via token            |
+| `GET`  | `/api/auth/me`           | Get current user (JWT required)   |
 
 ### Files (`/api/files`)
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/files` | List user's files |
-| `POST` | `/api/files` | Create new canvas file |
-| `GET` | `/api/files/:id` | Get file metadata |
-| `PATCH` | `/api/files/:id` | Update file (name, elements) |
-| `DELETE` | `/api/files/:id` | Delete file |
+| Method   | Path             | Description                  |
+| -------- | ---------------- | ---------------------------- |
+| `GET`    | `/api/files`     | List user's files            |
+| `POST`   | `/api/files`     | Create new canvas file       |
+| `GET`    | `/api/files/:id` | Get file metadata            |
+| `PATCH`  | `/api/files/:id` | Update file (name, elements) |
+| `DELETE` | `/api/files/:id` | Delete file                  |
 
-> **IDOR protection**: every file route verifies `file.userId === req.user.id` before proceeding.
+> **IDOR protection**: every file route verifies ownership through `file.userId === req.userId` (or the equivalent service query) before proceeding.
 
-### Canvas Rooms (`/api/canvas/rooms`)
+### Canvas Rooms (`/api/rooms`)
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/canvas/rooms` | Create collaboration room for a file |
-| `GET` | `/api/canvas/rooms/:roomId` | Get room metadata + access check |
+| Method | Path                      | Description                                     |
+| ------ | ------------------------- | ----------------------------------------------- |
+| `POST` | `/api/rooms`              | Create a collaboration room                     |
+| `GET`  | `/api/rooms/:slug`        | Get room metadata + access check                |
+| `GET`  | `/api/rooms/share/:token` | Public room capability resolution (before auth) |
 
 ### Share (`/api/share`)
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/share` | Create share link token |
-| `GET` | `/api/share/:token` | Resolve token → file |
+| Method | Path                          | Description                          |
+| ------ | ----------------------------- | ------------------------------------ |
+| `POST` | `/api/share`                  | Create share link token              |
+| `GET`  | `/api/share/:token`           | Resolve token → file                 |
+| `GET`  | `/api/share/:token/ws-ticket` | Issue a scoped short-lived WS ticket |
 
 ### Health
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/health` | Uptime + version check |
+| Method | Path      | Description                                      |
+| ------ | --------- | ------------------------------------------------ |
+| `GET`  | `/health` | Database-backed health, uptime, and memory check |
 
 ---
 
@@ -143,16 +149,17 @@ pnpm test     # Vitest test suite
 
 ```
 Client POSTs /api/auth/login
-  └─► authController validates credentials (bcryptjs)
-        └─► signs JWT (jsonwebtoken) with JWT_SECRET
-              └─► sets HttpOnly cookie (+ CSRF token header)
+  └─► auth route validates credentials (bcryptjs)
+        └─► signs a session JWT (jsonwebtoken) with JWT_SECRET
+              └─► sets HttpOnly `dripl-session` cookie
                     └─► subsequent requests attach cookie automatically
 ```
 
 Protected routes use the `auth` middleware which:
-1. Reads the JWT from the cookie
-2. Verifies signature with `JWT_SECRET`
-3. Attaches `req.user` for downstream use
+
+1. Reads the JWT from the `dripl-session` cookie or an `Authorization: Bearer` header
+2. Verifies the signature with `JWT_SECRET`
+3. Attaches the verified `req.userId` for downstream use
 
 ---
 
@@ -160,21 +167,24 @@ Protected routes use the `auth` middleware which:
 
 ```
 Helmet (security headers)
-  └─► Compression (gzip)
-        └─► CORS (allow FRONTEND_URL origin + credentials)
-              └─► Cookie parser
-                    └─► JSON body parser (5mb limit)
-                          └─► CSRF protection (on mutation endpoints)
-                                └─► Rate limiter (per user/IP)
-                                      └─► Routes
-                                            └─► Global error handler
+  └─► Compression
+        └─► Global rate limit
+              └─► CORS (exact configured origins + credentials)
+                    └─► Cookie parser
+                          └─► JSON/urlencoded body parsers (5mb limit)
+                                └─► CSRF protection on mounted mutation paths
+                                      └─► Auth/route middleware
+                                            └─► Routes
+                                                  └─► Global error handler
 ```
 
 ---
 
 ## Validation Pattern
 
-All route handlers validate request bodies with **Zod** before any DB interaction:
+Most input-bearing route handlers validate request bodies with **Zod** before
+DB interaction. A few legacy auth handlers still perform manual checks; do not
+assume every endpoint has the same validation depth:
 
 ```typescript
 // Example pattern
@@ -190,15 +200,16 @@ if (!parsed.success) {
 ## Service Layer
 
 Business logic is extracted into service classes in `src/services/`. Route handlers are thin HTTP adapters that:
+
 1. Validate request input (Zod schemas)
 2. Delegate to service methods
 3. Map service results to HTTP responses
 
-| Service | Responsibilities |
-|---|---|
-| `AuthService` | Registration, login, Google OAuth, email verification, password reset/change, profile updates |
-| `FileService` | File CRUD, folder ownership checks, share creation/revocation, plan limits |
-| `ShareService` | Share token resolution, expiry checks |
+| Service        | Responsibilities                                                                              |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| `AuthService`  | Registration, login, Google OAuth, email verification, password reset/change, profile updates |
+| `FileService`  | File CRUD, folder ownership checks, share creation/revocation, plan limits                    |
+| `ShareService` | Share token resolution, expiry checks                                                         |
 
 Services are static classes that import `db` from `@dripl/db` directly. They return typed result objects (discriminated unions) that routes map to HTTP status codes.
 
@@ -206,10 +217,13 @@ Services are static classes that import `db` from `@dripl/db` directly. They ret
 
 ## Error Handling
 
-- All controllers use `try/catch` and pass errors to `next(err)`
-- The global error handler in `src/index.ts` formats all errors as JSON
-- **No empty catch blocks** — every caught error must be logged or rethrown
-- Use structured JSON logging (no plain `console.log`)
+- Route/service handlers use `try/catch`, but the current code generally maps
+  errors directly to JSON responses rather than calling `next(err)`.
+- The global error handler is mounted in `src/app.ts`; it is not defined in
+  `src/index.ts`.
+- Structured JSON logging is used in server paths, but a few utility/legacy
+  console calls remain.
+- Avoid empty catch blocks; preserve or log the error context.
 
 ---
 
@@ -217,16 +231,17 @@ Services are static classes that import `db` from `@dripl/db` directly. They ret
 
 Loaded from the **root** `.env` via `dotenv -e ../../.env`.
 
-| Variable | Required | Purpose |
-|---|---|---|
-| `DATABASE_URL` | ✅ | PostgreSQL connection string |
-| `JWT_SECRET` | ✅ | Token signing key (min 32 chars) |
-| `PORT` | ✅ | Server port (default `3002`) |
-| `FRONTEND_URL` | ✅ | CORS allowed origin |
-| `GOOGLE_CLIENT_ID` | ✅ | Google OAuth client ID |
-| `REDIS_URL` | Optional | Rate-limit store (falls back to memory) |
-| `SMTP_USER` | Optional | Email sender address |
-| `SMTP_PASS` | Optional | Email sender password |
+| Variable                                              | Required               | Purpose                                             |
+| ----------------------------------------------------- | ---------------------- | --------------------------------------------------- |
+| `DATABASE_URL`                                        | ✅                     | PostgreSQL connection string                        |
+| `JWT_SECRET`                                          | ✅                     | Token signing key (min 32 chars)                    |
+| `HTTP_PORT`                                           | ✅                     | Server port (default `3002`)                        |
+| `FRONTEND_URL`                                        | ✅                     | CORS allowed origin                                 |
+| `GOOGLE_CLIENT_ID`                                    | ✅                     | Google OAuth client ID                              |
+| `INTERNAL_SECRET`                                     | Required in production | Server-to-server ticket validation secret           |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Optional               | Distributed limiter; bounded process-local fallback |
+| `SMTP_USER`                                           | Optional               | Email sender address                                |
+| `SMTP_PASS`                                           | Optional               | Email sender password                               |
 
 > `JWT_SECRET` **throws at startup** if missing — this is intentional.
 
@@ -238,14 +253,18 @@ Loaded from the **root** `.env` via `dotenv -e ../../.env`.
 pnpm test          # All tests (Vitest)
 ```
 
-Tests in `tests/` use **Supertest** to make real HTTP requests against an in-process Express app. The test DB is controlled via `DATABASE_URL` in `.env.test`.
+Tests use a mixture of route/service unit tests and Supertest requests. The
+in-process app is created through `createApp()`; database-backed tests are
+opt-in via `RUN_DB_INTEGRATION=true` and require a migrated PostgreSQL
+instance.
 
 **Pattern for new route tests:**
 
 ```typescript
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import app from '../src/index';
+import { createApp } from '../src/app';
+const app = createApp();
 
 describe('POST /api/auth/login', () => {
   it('returns 400 for missing body', async () => {
@@ -259,19 +278,19 @@ describe('POST /api/auth/login', () => {
 
 ## Adding a New Route
 
-1. Create controller in `src/controllers/<name>Controller.ts`
-2. Create route file in `src/routes/<name>.ts`, mount the controller
-3. Register router in `src/index.ts`: `app.use('/api/<name>', <name>Router)`
-4. Add Zod schema for request body validation
+1. Create service in `src/services/<name>Service.ts` returning result unions (`{ kind: ... }`)
+2. Create route file in `src/routes/<name>.ts`: Zod validation, service call, response mapping
+3. Register router in `src/app.ts`: `app.use('/api/<name>', <name>Router)` (the current Express composition root is `app.ts`)
+4. Add Zod schema for request body validation (module scope in the route file)
 5. Apply `auth` middleware for protected endpoints
-6. Write at least one Vitest test
+6. Write at least one Vitest test (mock `@dripl/db`; see `src/__tests__/services/`)
 
 ---
 
 ## Common Gotchas
 
-- **ESM only** — `"type": "module"` in `package.json`. Use `import`/`export`, never `require()`. Relative imports in compiled output need `.js` extensions (handled by `tsc` paths).
-- **`tsx watch`** vs **compiled** — dev uses `tsx` (no emit), prod uses compiled `dist/`. If you see module resolution errors in prod but not dev, check `dist/` exists and is up-to-date.
+- **ESM only** — `"type": "module"` in `package.json`. Use `import`/`export`, never `require()`. Imports are standard extensionless; servers bundle with esbuild (`scripts/bundle-server.mjs`) so `dist/` is a single `index.js` with no relative specifiers left.
+- **`tsx watch`** vs **bundled** — dev uses `tsx` (no emit), prod runs the esbuild bundle in `dist/`. If you see module resolution errors in prod but not dev, rebuild: `pnpm --filter http-server build`.
 - **CSRF** — mutation endpoints require the CSRF token header. Integration tests must obtain and send it.
-- **Rate limiter** — Redis-backed in prod, in-memory in dev/test. Don't rely on specific memory state between requests in tests.
+- **Rate limiter** — Upstash-backed when configured, with a bounded in-memory fallback. Don't rely on specific fallback state between requests in tests.
 - **Prisma** — all DB access goes through `@dripl/db`, not a local Prisma instance. Never add a second `prisma` dependency here.

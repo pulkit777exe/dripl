@@ -8,6 +8,13 @@
 
 Real-time collaborative whiteboard with hand-drawn rendering, live cursors, and shareable links.
 
+The current evidence-weighted parity/security assessment is maintained in
+[`docs/codebase-audit.md`](docs/codebase-audit.md). It distinguishes implemented,
+integrated, tested, runtime-verified, and production-ready behavior; this project
+is not yet an Excalidraw-compatible or production-ready replacement. The pinned
+Excalidraw v0.18.1 performance comparison and browser-measurement plan are in
+[`docs/excalidraw-performance-research.md`](docs/excalidraw-performance-research.md).
+
 ---
 
 ## Quick Start
@@ -45,7 +52,7 @@ Open `http://localhost:3000`
 │  Next.js 16  │  │  Express 5   │  │    ws      │
 │  Port 3000   │  │  Port 3002   │  │ Port 3001   │
 └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-       │  REST (cookie)  │                 │  WebSocket (JWT)
+       │  REST (cookie)  │                 │  WebSocket (short-lived ticket)
        └─────────────────┼─────────────────┘
                          ▼
                   ┌──────────────┐
@@ -61,19 +68,18 @@ Open `http://localhost:3000`
 | Rendering | RoughJS, HTML5 Canvas, RBush (spatial index)  |
 | Backend   | Express 5, WebSocket (ws), Prisma 7           |
 | Database  | PostgreSQL                                    |
-| Testing   | Vitest + Supertest + Testing Library           |
+| Testing   | Vitest + Supertest + Testing Library          |
 
 ### Shared Packages
 
-| Package | Purpose |
-|---------|---------|
-| `@dripl/common` | Shared types, Zod schemas |
-| `@dripl/db` | Prisma ORM client + migrations |
-| `@dripl/dripl` | Core canvas lib, hooks, state |
-| `@dripl/element` | Element factory & rendering |
-| `@dripl/math` | Geometry & intersection utils |
-| `@dripl/utils` | Encryption, storage, throttle |
-| `@dripl/test-utils` | Shared test factories |
+| Package             | Purpose                        |
+| ------------------- | ------------------------------ |
+| `@dripl/common`     | Shared types, Zod schemas      |
+| `@dripl/db`         | Prisma ORM client + migrations |
+| `@dripl/element`    | Element factory & rendering    |
+| `@dripl/math`       | Geometry & intersection utils  |
+| `@dripl/utils`      | Encryption, storage, throttle  |
+| `@dripl/test-utils` | Shared test factories          |
 
 ### Dependency Graph
 
@@ -90,7 +96,7 @@ ws-server   ──► @dripl/common, @dripl/db, @dripl/utils
 ### Canvas Tools
 
 - **Shapes**: Rectangle, ellipse, diamond, arrow, line, text, frame, freedraw, eraser
-- **Editing**: Selection, resize, rotate, undo/redo (100 steps)
+- **Editing**: Selection, resize, rotate, undo/redo (up to 100 snapshots, also byte-budget bounded)
 - **View**: Zoom (+/-), grid toggle, dark/light theme
 
 ### Collaboration
@@ -99,35 +105,38 @@ ws-server   ──► @dripl/common, @dripl/db, @dripl/utils
 - **Remote cursors**: See where others are pointing
 - **Presence**: Who's in the room
 - **Message subtypes**:
-  - `scene-update` with `subtype: 'init'` — Full sync on join
-  - `scene-update` with `subtype: 'update'` — Live element changes
+  - `sync_room_state` — Authenticated initial scene and presence
+  - `scene-delta` — Coalesced JSON element additions, updates, and deletes
   - `cursor-move` — Real-time cursor positions
   - `user-join` / `user-leave` — Presence updates
+  - Reconnect queues are replayed only after the server acknowledges the room sync. Yjs binary traffic is currently disabled; JSON deltas are not a CRDT guarantee.
 
 ### Sharing
 
-- **Public links**: Share canvas via URL
+- **Public links**: Share a canvas via URL. File shares support owner-scoped view/edit capabilities; room capability pages are read-only previews.
 - **Permissions**: View/edit access
-- **Export**: PNG, SVG, JSON
+- **Export**: PNG, SVG, PDF, JSON, and basic `.excalidraw` interchange
 
 ### Keyboard Shortcuts
 
-| Key          | Action                      |
-| ------------ | --------------------------- |
-| V            | Select                      |
-| R            | Rectangle                   |
-| E/O          | Ellipse                     |
-| D            | Diamond                     |
-| P            | Freehand draw               |
-| L            | Line                        |
-| A            | Arrow                       |
-| T            | Text                        |
-| F            | Frame                       |
-| X            | Eraser                      |
-| H            | Hand (pan)                  |
-| Ctrl+Z       | Undo                        |
-| Ctrl+Shift+Z | Redo                        |
-| Ctrl+G       | Toggle grid                 |
+| Key          | Action        |
+| ------------ | ------------- |
+| V            | Select        |
+| R            | Rectangle     |
+| E/O          | Ellipse       |
+| D            | Diamond       |
+| P            | Freehand draw |
+| L            | Line          |
+| A            | Arrow         |
+| T            | Text          |
+| F            | Frame         |
+| X            | Eraser        |
+| H            | Hand (pan)    |
+| 1–0          | Select tools  |
+| +/-          | Zoom          |
+| Ctrl+Z       | Undo          |
+| Ctrl+Shift+Z | Redo          |
+| Ctrl+Alt+G   | Toggle grid   |
 
 ---
 
@@ -140,7 +149,7 @@ User A draws element
 broadcastElements(prev, next)
         │
         ▼
-send({ type: 'scene-update', subtype: 'update', elements: [...] })
+send({ type: 'scene-delta', added: [...], updated: [...], deleted: [...] })
         │
         ▼
 ws-server receives → broadcasts to all clients (except sender)
@@ -151,12 +160,12 @@ Client B receives → onRemoteElements() → updates canvas
 
 **Key Components:**
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| `useCollaboration` | `hooks/useCollaboration.ts` | WebSocket client |
-| `index.ts` | `ws-server/src/index.ts` | Message handling |
-| `validation.ts` | `ws-server/src/validation.ts` | Schema validation |
-| `CollaboratorsList` | `components/canvas/CollaboratorsList.tsx` | User presence UI |
+| Component           | File                                      | Purpose           |
+| ------------------- | ----------------------------------------- | ----------------- |
+| `useCollaboration`  | `hooks/useCollaboration.ts`               | WebSocket client  |
+| `index.ts`          | `ws-server/src/index.ts`                  | Message handling  |
+| `validation.ts`     | `ws-server/src/validation.ts`             | Schema validation |
+| `CollaboratorsList` | `components/canvas/CollaboratorsList.tsx` | User presence UI  |
 
 ---
 
@@ -165,7 +174,11 @@ Client B receives → onRemoteElements() → updates canvas
 ```bash
 pnpm dev          # Start all services
 pnpm build        # Build for production
-pnpm test         # Run tests (200+ passing)
+pnpm test         # Run all unit/component tests (DB integration is opt-in)
+# The default WS suite boots the real process with two clients (mocked DB);
+# only the real-PostgreSQL suites stay opt-in:
+RUN_WS_DB_INTEGRATION=true pnpm --filter ws-server test  # Requires migrated PostgreSQL
+RUN_DB_INTEGRATION=true pnpm --filter @dripl/db test   # Requires migrated PostgreSQL
 pnpm lint         # Lint code
 pnpm format       # Format with Prettier
 pnpm db:migrate   # Database migrations
@@ -186,11 +199,26 @@ cd apps/ws-server && pnpm dev     # Port 3001
 ### Docker
 
 ```bash
-# Start all services with Docker Compose
-docker-compose up --build
+# Set the required secrets before starting
+export JWT_SECRET="a-long-random-secret-at-least-32-characters"
+export INTERNAL_SECRET="a-different-long-random-internal-secret"
+export GOOGLE_CLIENT_ID="your-oauth-client-id"
+export GOOGLE_CLIENT_SECRET="your-oauth-client-secret"
+
+# Apply migrations once the PostgreSQL service is healthy
+docker compose up -d postgres
+pnpm --filter @dripl/db exec prisma migrate deploy
+
+# Build and start the three application services
+docker compose up --build
 ```
 
-Dockerfiles are located in `docker/` directory.
+Dockerfiles are located in `docker/` directory. The Compose stack uses the
+canonical ports `3000` (Next), `3001` (WebSocket), and `3002` (HTTP). The
+`GEMINI_API_KEY` and Upstash variables are optional for local startup but should
+be configured for the corresponding production features. The stack does not
+replace a managed secret store, TLS termination, or a multi-instance
+collaboration deployment.
 
 ---
 
@@ -218,7 +246,6 @@ dripl/
 ├── packages/
 │   ├── common/         # Shared types & schemas
 │   ├── db/             # Prisma schema & client
-│   ├── dripl/          # Core canvas library
 │   ├── element/        # Element factory & rendering
 │   ├── math/           # Geometry utilities
 │   ├── utils/          # Shared utilities
@@ -236,11 +263,12 @@ dripl/
 
 See `TODOS.md` for the full engineering roadmap. Key current limitations:
 
-- **Single-process WebSocket server** — room state is in-memory, no horizontal scaling yet
-- **Full-state broadcast** — every element change sends the entire array to all clients
-- **Base64 images in DB** — images stored as data URLs in JSON text columns
-- **No cursor-based pagination** — offset-based pagination only
-- **Docker runs dev mode** — Dockerfiles use `pnpm run dev` instead of production builds
+- **Single-process WebSocket server** — room state, short-lived HTTP tickets, and fallback rate-limit state are process-local; no horizontal scaling yet
+- **JSON collaboration is not CRDT convergence** — the active wire path uses versioned JSON deltas; Yjs binary sync remains disabled
+- **Image storage is local** — authenticated uploads use the configured filesystem directory and capability URLs; no object storage/CDN or image-capability revocation yet
+- **Public snapshots are process-local** — links expire and are bounded in one process, but are not durable across instances/restarts
+- **WebSocket payload bound** — the active shared message limit is 200 KB; this is a protocol/application bound, not the historical 10 MB claim
+- **Deployment evidence is incomplete** — Docker/CI configuration exists, but image builds, live PostgreSQL/Redis, browser QA, and production-scale tests are not verified here
 
 ---
 
