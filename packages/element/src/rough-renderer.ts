@@ -1,6 +1,15 @@
 import rough from 'roughjs';
-import type { DriplElement, LinearElement, ArrowheadType, FrameElement, EmbedElement, Point, TextElement, ImageElement } from '@dripl/common';
-import { getShapeFromCache, setShapeInCache, pruneShapeCache } from './shape-cache';
+import type {
+  DriplElement,
+  LinearElement,
+  ArrowheadType,
+  FrameElement,
+  EmbedElement,
+  Point,
+  TextElement,
+  ImageElement,
+} from '@dripl/common';
+import { getShapeFromCache, setShapeInCache } from './shape-cache';
 import type { RoughCanvas as _RoughCanvas } from 'roughjs/bin/canvas';
 import type { Drawable as _Drawable } from 'roughjs/bin/core';
 export type { RoughCanvas } from 'roughjs/bin/canvas';
@@ -8,7 +17,11 @@ export type { Drawable } from 'roughjs/bin/core';
 
 // Arrow routing functions (inline to avoid circular deps)
 
-function calculateCurvedPath(start: { x: number; y: number }, end: { x: number; y: number }, curvature: number = 0.5): { x: number; y: number }[] {
+function calculateCurvedPath(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  curvature: number = 0.5
+): { x: number; y: number }[] {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
   const midX = (start.x + end.x) / 2;
@@ -20,7 +33,10 @@ function calculateCurvedPath(start: { x: number; y: number }, end: { x: number; 
   return [start, { x: midX + offsetX, y: midY + offsetY }, end];
 }
 
-function calculateElbowPath(start: { x: number; y: number }, end: { x: number; y: number }): { x: number; y: number }[] {
+function calculateElbowPath(
+  start: { x: number; y: number },
+  end: { x: number; y: number }
+): { x: number; y: number }[] {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
   if (Math.abs(dx) > Math.abs(dy)) {
@@ -54,18 +70,29 @@ function drawArrowhead(
       const y1 = tip.y - size * ny + size * 0.4 * perpY;
       const x2 = tip.x - size * nx - size * 0.4 * perpX;
       const y2 = tip.y - size * ny - size * 0.4 * perpY;
-      rc.draw(getGenerator().polygon(
-        [[tip.x, tip.y], [x1, y1], [x2, y2]],
-        options
-      ));
+      rc.draw(
+        getGenerator().polygon(
+          [
+            [tip.x, tip.y],
+            [x1, y1],
+            [x2, y2],
+          ],
+          options
+        )
+      );
       break;
     }
     case 'dot': {
-      const circle = getGenerator().circle(tip.x - size * 0.5 * nx, tip.y - size * 0.5 * ny, size * 0.6, {
-        ...options,
-        fill: options.stroke as string,
-        fillStyle: 'solid',
-      });
+      const circle = getGenerator().circle(
+        tip.x - size * 0.5 * nx,
+        tip.y - size * 0.5 * ny,
+        size * 0.6,
+        {
+          ...options,
+          fill: options.stroke as string,
+          fillStyle: 'solid',
+        }
+      );
       rc.draw(circle);
       break;
     }
@@ -83,18 +110,38 @@ function drawArrowhead(
       const midY = tip.y - size * 0.5 * ny;
       const baseX = tip.x - size * nx;
       const baseY = tip.y - size * ny;
-      rc.draw(getGenerator().polygon(
-        [
-          [tip.x, tip.y],
-          [midX + perpX * size * 0.35, midY + perpY * size * 0.35],
-          [baseX, baseY],
-          [midX - perpX * size * 0.35, midY - perpY * size * 0.35],
-        ],
-        options
-      ));
+      rc.draw(
+        getGenerator().polygon(
+          [
+            [tip.x, tip.y],
+            [midX + perpX * size * 0.35, midY + perpY * size * 0.35],
+            [baseX, baseY],
+            [midX - perpX * size * 0.35, midY - perpY * size * 0.35],
+          ],
+          options
+        )
+      );
       break;
     }
   }
+}
+
+const elementLookupCache = new WeakMap<
+  readonly DriplElement[],
+  ReadonlyMap<string, DriplElement>
+>();
+
+function getElementById(
+  elements: readonly DriplElement[] | undefined,
+  id: string
+): DriplElement | undefined {
+  if (!elements) return undefined;
+  let lookup = elementLookupCache.get(elements);
+  if (!lookup) {
+    lookup = new Map(elements.map(element => [element.id, element]));
+    elementLookupCache.set(elements, lookup);
+  }
+  return lookup.get(id);
 }
 
 let generator: ReturnType<typeof rough.generator> | null = null;
@@ -103,30 +150,43 @@ function getGenerator() {
   return generator;
 }
 
-let offscreenCanvas: HTMLCanvasElement | null = null;
-let offscreenContext: CanvasRenderingContext2D | null = null;
-let offscreenRoughCanvas: _RoughCanvas | null = null;
-let cacheOperationCount = 0;
+/**
+ * Deterministic fallback seed for elements that carry none.
+ *
+ * `seed` is optional in the element schema, so imported, legacy, or
+ * hand-authored scenes can reach the renderer without one. Rough.js then picks a
+ * random seed on every generation, which means an element's sketch visibly
+ * changes each time its cached bitmap is regenerated (theme change, cache
+ * eviction). Deriving the seed from the element id keeps those shapes stable
+ * across renders and makes the rendered output deterministic.
+ *
+ * Deliberately not memoized: hashing a short id costs less than the string
+ * hashing a Map lookup needs, and a cache here would retain every id ever
+ * rendered for the life of the page.
+ */
+function stableSeedFor(elementId: string): number {
+  // FNV-1a: small, fast, and stable across runs and platforms.
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < elementId.length; index += 1) {
+    hash ^= elementId.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  // Keep it inside Rough.js's positive 32-bit seed range.
+  return (hash >>> 0) % 2_147_483_647;
+}
+
+export function resolveElementSeed(element: DriplElement): number {
+  return typeof element.seed === 'number' ? element.seed : stableSeedFor(element.id);
+}
 
 export function createRoughCanvas(canvas: HTMLCanvasElement): _RoughCanvas | null {
   try {
-    if (!offscreenCanvas) {
-      offscreenCanvas = document.createElement('canvas');
-      offscreenContext = offscreenCanvas.getContext('2d');
-      offscreenRoughCanvas = rough.canvas(offscreenCanvas);
-    }
-
-    if (
-      (offscreenCanvas && canvas.width !== offscreenCanvas.width) ||
-      canvas.height !== offscreenCanvas.height
-    ) {
-      offscreenCanvas.width = canvas.width;
-      offscreenCanvas.height = canvas.height;
-    }
-
     return rough.canvas(canvas);
   } catch (e) {
-    console.error('Failed to create Rough canvas', e);
+    // eslint-disable-next-line no-console -- renderer fallback is intentionally non-fatal
+    console.error(
+      JSON.stringify({ level: 'error', event: 'rough_canvas_init_failed', error: String(e) })
+    );
     return null;
   }
 }
@@ -135,12 +195,16 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
   const width = element.width;
   const height = element.height;
   const strokeColor = element.strokeColor;
-  const backgroundColor = element.backgroundColor;
+  const backgroundColor =
+    element.backgroundColor ??
+    ('fillColor' in element && typeof element.fillColor === 'string'
+      ? element.fillColor
+      : 'transparent');
   const strokeWidth = element.strokeWidth;
   const roughness = element.roughness ?? 1;
   const strokeStyle = element.strokeStyle ?? 'solid';
   const fillStyle = element.fillStyle ?? 'hachure';
-  const seed = element.seed;
+  const seed = resolveElementSeed(element);
   const roundness = element.roundness ?? 0;
 
   const options: Record<string, unknown> = {
@@ -201,9 +265,15 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
         const arrowStyle = linearEl.arrowStyle ?? 'straight';
         const firstPt = pts[0];
         const secondPt = pts[1];
-        
+
         // For curved arrows, use quadratic bezier with control point
-        if (element.type === 'arrow' && arrowStyle === 'curved' && pts.length === 2 && firstPt && secondPt) {
+        if (
+          element.type === 'arrow' &&
+          arrowStyle === 'curved' &&
+          pts.length === 2 &&
+          firstPt &&
+          secondPt
+        ) {
           const start = { x: firstPt[0], y: firstPt[1] };
           const end = { x: secondPt[0], y: secondPt[1] };
           const curvedPoints = calculateCurvedPath(start, end, 0.5);
@@ -213,9 +283,15 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
             options
           );
         }
-        
+
         // For elbow arrows, generate rounded corner path
-        if (element.type === 'arrow' && arrowStyle === 'elbow' && pts.length === 2 && firstPt && secondPt) {
+        if (
+          element.type === 'arrow' &&
+          arrowStyle === 'elbow' &&
+          pts.length === 2 &&
+          firstPt &&
+          secondPt
+        ) {
           const start = { x: firstPt[0], y: firstPt[1] };
           const end = { x: secondPt[0], y: secondPt[1] };
           const elbowPoints = calculateElbowPath(start, end);
@@ -226,7 +302,7 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
             options
           );
         }
-        
+
         // Default: straight line
         return getGenerator().linearPath(pts, options);
       }
@@ -268,15 +344,7 @@ export function renderRoughElement(
   ctx.save();
   ctx.globalAlpha = element.opacity ?? 1;
 
-  const { x, y, width, height, angle = 0 } = element;
-
-  if (angle !== 0) {
-    const cx = x + width / 2;
-    const cy = y + height / 2;
-    ctx.translate(cx, cy);
-    ctx.rotate(angle);
-    ctx.translate(-cx, -cy);
-  }
+  const { x, y, width, height } = element;
 
   // Handle text elements specially (they don't use Rough.js)
   if (element.type === 'text') {
@@ -285,13 +353,25 @@ export function renderRoughElement(
     ctx.fillStyle = element.strokeColor || (theme === 'dark' ? '#ffffff' : '#000000');
     ctx.font = `${textEl.fontSize || 16}px ${textEl.fontFamily || 'Inter'}`;
     ctx.textBaseline = 'top';
+    ctx.textAlign =
+      textEl.textAlign === 'center' || textEl.textAlign === 'right' ? textEl.textAlign : 'left';
 
     const text = textEl.text || '';
     const lines = text.split('\n');
-    const lineHeight = (textEl.fontSize || 16) * 1.2;
+    const fontSize = textEl.fontSize || 16;
+    const lineHeight = fontSize * 1.2;
+    const totalHeight = lines.length * lineHeight;
+    const startY =
+      textEl.verticalAlign === 'middle'
+        ? Math.max(0, (height - totalHeight) / 2)
+        : textEl.verticalAlign === 'bottom'
+          ? Math.max(0, height - totalHeight)
+          : 0;
+    const anchorX =
+      textEl.textAlign === 'center' ? width / 2 : textEl.textAlign === 'right' ? width : 0;
 
     lines.forEach((line: string, index: number) => {
-      ctx.fillText(line, 0, index * lineHeight);
+      ctx.fillText(line, anchorX, startY + index * lineHeight);
     });
 
     ctx.restore();
@@ -313,25 +393,25 @@ export function renderRoughElement(
   if (element.type === 'frame') {
     const frameEl = element as FrameElement;
     ctx.translate(x, y);
-    
+
     // Draw outer rectangle
     ctx.strokeStyle = element.strokeColor || '#000000';
     ctx.lineWidth = element.strokeWidth || 2;
     ctx.strokeRect(0, 0, width, height);
-    
+
     // Draw inner padding rectangle (dashed)
     const padding = frameEl.padding || 20;
     ctx.setLineDash([5, 5]);
     ctx.strokeRect(padding, padding, width - 2 * padding, height - 2 * padding);
     ctx.setLineDash([]);
-    
+
     // Draw title above frame
     if (frameEl.title) {
       ctx.fillStyle = element.strokeColor || '#000000';
       ctx.font = '14px "Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
       ctx.fillText(frameEl.title, 10, -10);
     }
-    
+
     ctx.restore();
     return;
   }
@@ -340,23 +420,23 @@ export function renderRoughElement(
   if (element.type === 'embed') {
     const embedEl = element as EmbedElement;
     ctx.translate(x, y);
-    
+
     // Draw outer rectangle
     ctx.strokeStyle = element.strokeColor || '#6B6860';
     ctx.lineWidth = element.strokeWidth || 1;
     ctx.strokeRect(0, 0, width, height);
-    
+
     // Fill background
     ctx.fillStyle = element.backgroundColor || '#FAFAF7';
     ctx.fillRect(0, 0, width, height);
-    
+
     // Draw globe icon placeholder
     ctx.fillStyle = '#6B6860';
     ctx.font = '24px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('🌐', width / 2, height / 2 - 15);
-    
+
     // Draw URL or title
     ctx.font = '12px sans-serif';
     ctx.fillStyle = '#6B6860';
@@ -365,14 +445,14 @@ export function renderRoughElement(
     const textWidth = ctx.measureText(displayText).width;
     const truncatedText = textWidth > maxWidth ? displayText.slice(0, 30) + '...' : displayText;
     ctx.fillText(truncatedText, width / 2, height / 2 + 15);
-    
+
     ctx.textAlign = 'start';
     ctx.textBaseline = 'alphabetic';
     ctx.restore();
     return;
   }
 
-  // isExporting bypasses the cache to guarantee latest state on export (TODO #32)
+  // Export bypasses the cache so the latest committed state is rendered.
   let shape: ReturnType<typeof generateShape> | undefined = isExporting
     ? undefined
     : getShapeFromCache(element, theme);
@@ -380,17 +460,13 @@ export function renderRoughElement(
     shape = generateShape(element);
     if (!isExporting) {
       setShapeInCache(element, shape, theme);
-      cacheOperationCount++;
-      if (cacheOperationCount % 1000 === 0) {
-        pruneShapeCache();
-      }
     }
   }
 
   ctx.translate(x, y);
 
   if (element.type === 'arrow' && (element as LinearElement).labelId && elements) {
-    const label = elements.find(el => el.id === (element as LinearElement).labelId);
+    const label = getElementById(elements, (element as LinearElement).labelId!);
 
     if (label && label.type === 'text') {
       const labelBounds = {
@@ -415,11 +491,15 @@ export function renderRoughElement(
   }
 
   // Render arrowheads for arrow elements
-  if (element.type === 'arrow' && (element as LinearElement).points && (element as LinearElement).points.length > 1) {
+  if (
+    element.type === 'arrow' &&
+    (element as LinearElement).points &&
+    (element as LinearElement).points.length > 1
+  ) {
     const points = (element as LinearElement).points;
     const linearEl = element as LinearElement;
     const arrowHeads = linearEl.arrowHeads ?? { start: 'none', end: 'triangle' };
-    
+
     const arrowHeadOptions: Record<string, unknown> = {
       stroke: element.strokeColor,
       strokeWidth: element.strokeWidth,
@@ -456,34 +536,4 @@ export function renderRoughElement(
   }
 
   ctx.restore();
-}
-
-export function renderRoughElements(
-  rc: _RoughCanvas,
-  ctx: CanvasRenderingContext2D,
-  elements: DriplElement[],
-  theme: 'light' | 'dark' = 'dark'
-): void {
-  // Get the actual canvas dimensions from the context
-  const canvas = ctx.canvas;
-
-  if (offscreenCanvas && offscreenContext && offscreenRoughCanvas) {
-    // Ensure offscreen canvas matches actual canvas size
-    if (offscreenCanvas.width !== canvas.width || offscreenCanvas.height !== canvas.height) {
-      offscreenCanvas.width = canvas.width;
-      offscreenCanvas.height = canvas.height;
-    }
-
-    offscreenContext.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-
-    for (const el of elements) {
-      renderRoughElement(offscreenRoughCanvas, offscreenContext, el, elements, theme);
-    }
-
-    ctx.drawImage(offscreenCanvas, 0, 0);
-  } else {
-    for (const el of elements) {
-      renderRoughElement(rc, ctx, el, elements, theme);
-    }
-  }
 }

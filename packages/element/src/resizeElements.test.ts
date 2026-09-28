@@ -29,104 +29,44 @@ if (typeof HTMLCanvasElement !== 'undefined') {
   };
 }
 
-vi.mock('./resizeElements', async (importOriginal) => {
+vi.mock('./resizeElements', async importOriginal => {
   const actual = await importOriginal<typeof import('./resizeElements')>();
   return actual;
 });
 
 describe('getResizedOrigin', () => {
   it('returns previous origin for no change', () => {
-    const origin = getResizedOrigin(
-      { x: 100, y: 100 },
-      100,
-      100,
-      100,
-      100,
-      0,
-      'se',
-      false,
-      false
-    );
+    const origin = getResizedOrigin({ x: 100, y: 100 }, 100, 100, 100, 100, 0, 'se', false, false);
     expect(origin.x).toBe(100);
     expect(origin.y).toBe(100);
   });
 
   it('keeps origin when resizing from bottom-right (se)', () => {
-    const origin = getResizedOrigin(
-      { x: 100, y: 100 },
-      100,
-      100,
-      200,
-      200,
-      0,
-      'se',
-      false,
-      false
-    );
-    expect(origin.x).toBe(0);
-    expect(origin.y).toBe(0);
+    const origin = getResizedOrigin({ x: 100, y: 100 }, 100, 100, 200, 200, 0, 'se', false, false);
+    expect(origin.x).toBe(100);
+    expect(origin.y).toBe(100);
   });
 
   it('keeps origin when resizing from top-left (nw)', () => {
-    const origin = getResizedOrigin(
-      { x: 100, y: 100 },
-      100,
-      100,
-      200,
-      200,
-      0,
-      'nw',
-      false,
-      false
-    );
-    expect(origin.x).toBe(100);
-    expect(origin.y).toBe(100);
+    const origin = getResizedOrigin({ x: 100, y: 100 }, 100, 100, 200, 200, 0, 'nw', false, false);
+    expect(origin.x).toBe(0);
+    expect(origin.y).toBe(0);
   });
 
   it('moves origin when resizing from top-right (ne)', () => {
-    const origin = getResizedOrigin(
-      { x: 100, y: 100 },
-      100,
-      100,
-      200,
-      200,
-      0,
-      'ne',
-      false,
-      false
-    );
-    expect(origin.x).toBe(0);
-    expect(origin.y).toBe(100);
-  });
-
-  it('moves origin when resizing from bottom-left (sw)', () => {
-    const origin = getResizedOrigin(
-      { x: 100, y: 100 },
-      100,
-      100,
-      200,
-      200,
-      0,
-      'sw',
-      false,
-      false
-    );
+    const origin = getResizedOrigin({ x: 100, y: 100 }, 100, 100, 200, 200, 0, 'ne', false, false);
     expect(origin.x).toBe(100);
     expect(origin.y).toBe(0);
   });
 
+  it('moves origin when resizing from bottom-left (sw)', () => {
+    const origin = getResizedOrigin({ x: 100, y: 100 }, 100, 100, 200, 200, 0, 'sw', false, false);
+    expect(origin.x).toBe(0);
+    expect(origin.y).toBe(100);
+  });
+
   it('adjusts origin for center resize', () => {
-    const origin = getResizedOrigin(
-      { x: 100, y: 100 },
-      100,
-      100,
-      200,
-      200,
-      0,
-      'se',
-      false,
-      true
-    );
+    const origin = getResizedOrigin({ x: 100, y: 100 }, 100, 100, 200, 200, 0, 'se', false, true);
     expect(origin.x).toBe(50);
     expect(origin.y).toBe(50);
   });
@@ -144,87 +84,37 @@ describe('getResizedOrigin', () => {
       false
     );
     expect(origin.x).toBeCloseTo(75, 0);
-    expect(origin.y).toBeCloseTo(110, 0);
+    expect(origin.y).toBeCloseTo(40, 0);
   });
 
   it('handles east-side resize', () => {
-    const origin = getResizedOrigin(
-      { x: 100, y: 100 },
-      100,
-      100,
-      200,
-      100,
-      0,
-      'e',
-      false,
-      false
-    );
-    expect(origin.x).toBe(0);
+    const origin = getResizedOrigin({ x: 100, y: 100 }, 100, 100, 200, 100, 0, 'e', false, false);
+    expect(origin.x).toBe(100);
     expect(origin.y).toBe(100);
   });
 
   it('handles west-side resize', () => {
-    const origin = getResizedOrigin(
-      { x: 100, y: 100 },
-      100,
-      100,
-      200,
-      100,
-      0,
-      'w',
-      false,
-      false
-    );
-    expect(origin.x).toBe(100);
+    const origin = getResizedOrigin({ x: 100, y: 100 }, 100, 100, 200, 100, 0, 'w', false, false);
+    expect(origin.x).toBe(0);
     expect(origin.y).toBe(100);
   });
 
   it('handles north-side resize', () => {
-    const origin = getResizedOrigin(
-      { x: 100, y: 100 },
-      100,
-      100,
-      100,
-      200,
-      0,
-      'n',
-      false,
-      false
-    );
-    expect(origin.x).toBe(100);
-    expect(origin.y).toBe(100);
-  });
-
-  it('handles south-side resize', () => {
-    const origin = getResizedOrigin(
-      { x: 100, y: 100 },
-      100,
-      100,
-      100,
-      200,
-      0,
-      's',
-      false,
-      false
-    );
+    const origin = getResizedOrigin({ x: 100, y: 100 }, 100, 100, 100, 200, 0, 'n', false, false);
     expect(origin.x).toBe(100);
     expect(origin.y).toBe(0);
   });
 
-  it('maintains aspect ratio for corner handles', () => {
-    const origin = getResizedOrigin(
-      { x: 100, y: 100 },
-      100,
-      100,
-      200,
-      200,
-      0,
-      'ne',
-      true,
-      false
-    );
-    expect(origin.x).toBe(0);
+  it('handles south-side resize', () => {
+    const origin = getResizedOrigin({ x: 100, y: 100 }, 100, 100, 100, 200, 0, 's', false, false);
+    expect(origin.x).toBe(100);
     expect(origin.y).toBe(100);
+  });
+
+  it('maintains aspect ratio for corner handles', () => {
+    const origin = getResizedOrigin({ x: 100, y: 100 }, 100, 100, 200, 200, 0, 'ne', true, false);
+    expect(origin.x).toBe(100);
+    expect(origin.y).toBe(0);
   });
 });
 
@@ -238,8 +128,8 @@ describe('resizeSingleElement', () => {
       const orig = createRectangleElement({ x: 0, y: 0, width: 100, height: 100 });
       const latest = { ...orig };
       const result = resizeSingleElement(200, 200, latest, orig, 'se');
-      expect(result.x).toBe(-100);
-      expect(result.y).toBe(-100);
+      expect(result.x).toBe(0);
+      expect(result.y).toBe(0);
       expect(result.width).toBe(200);
       expect(result.height).toBe(200);
     });
@@ -250,8 +140,8 @@ describe('resizeSingleElement', () => {
       const result = resizeSingleElement(200, 200, latest, orig, 'nw');
       expect(result.width).toBe(200);
       expect(result.height).toBe(200);
-      expect(result.x).toBe(100);
-      expect(result.y).toBe(100);
+      expect(result.x).toBe(0);
+      expect(result.y).toBe(0);
     });
 
     it('resizes rectangle from center', () => {
@@ -302,8 +192,8 @@ describe('resizeSingleElement', () => {
       const orig = createEllipseElement({ x: 0, y: 0, width: 100, height: 80 });
       const latest = { ...orig };
       const result = resizeSingleElement(200, 160, latest, orig, 'se');
-      expect(result.x).toBe(-100);
-      expect(result.y).toBe(-80);
+      expect(result.x).toBe(0);
+      expect(result.y).toBe(0);
       expect(result.width).toBe(200);
       expect(result.height).toBe(160);
     });
@@ -314,8 +204,8 @@ describe('resizeSingleElement', () => {
       const result = resizeSingleElement(200, 160, latest, orig, 'nw');
       expect(result.width).toBe(200);
       expect(result.height).toBe(160);
-      expect(result.x).toBe(100);
-      expect(result.y).toBe(100);
+      expect(result.x).toBe(0);
+      expect(result.y).toBe(20);
     });
   });
 
@@ -324,8 +214,8 @@ describe('resizeSingleElement', () => {
       const orig = createDiamondElement({ x: 0, y: 0, width: 100, height: 100 });
       const latest = { ...orig };
       const result = resizeSingleElement(200, 200, latest, orig, 'se');
-      expect(result.x).toBe(-100);
-      expect(result.y).toBe(-100);
+      expect(result.x).toBe(0);
+      expect(result.y).toBe(0);
       expect(result.width).toBe(200);
       expect(result.height).toBe(200);
     });
@@ -414,8 +304,8 @@ describe('resizeSingleElement', () => {
       const orig = createArrowElement(points, { x: 0, y: 0, width: 100, height: 100 });
       const latest = { ...orig };
       const result = resizeSingleLinearElement(orig, latest, 'se', false, 200, 200);
-      expect(result.x).toBe(-100);
-      expect(result.y).toBe(-100);
+      expect(result.x).toBe(0);
+      expect(result.y).toBe(0);
       expect(result.width).toBe(200);
       expect(result.height).toBe(200);
       expect(result.points).toBeDefined();
@@ -433,8 +323,9 @@ describe('resizeSingleElement', () => {
       expect(result.points).toBeDefined();
       expect(result.points).toHaveLength(3);
       if (result.points) {
-        expect(result.points[0]).toEqual({ x: -200, y: -100 });
-        expect(result.points[2]).toEqual({ x: 0, y: -100 });
+        expect(result.points[0]).toEqual({ x: 0, y: 0 });
+        expect(result.points[1]).toEqual({ x: 100, y: 100 });
+        expect(result.points[2]).toEqual({ x: 200, y: 0 });
       }
     });
 
@@ -475,8 +366,8 @@ describe('resizeSingleElement', () => {
       const result = resizeSingleLinearElement(orig, latest, 'se', false, 200, 200);
       expect(result.points).toBeDefined();
       if (result.points) {
-        expect(result.points[0]).toEqual({ x: -200, y: -200 });
-        expect(result.points[1]).toEqual({ x: 0, y: 0 });
+        expect(result.points[0]).toEqual({ x: 0, y: 0 });
+        expect(result.points[1]).toEqual({ x: 200, y: 200 });
       }
     });
   });
@@ -508,8 +399,9 @@ describe('resizeSingleElement', () => {
       expect(result.points).toBeDefined();
       if (result.points) {
         expect(result.points).toHaveLength(3);
-        expect(result.points[0]).toEqual({ x: -40, y: -20 });
-        expect(result.points[2]).toEqual({ x: 0, y: -20 });
+        expect(result.points[0]).toEqual({ x: 0, y: 0 });
+        expect(result.points[1]).toEqual({ x: 20, y: 20 });
+        expect(result.points[2]).toEqual({ x: 40, y: 0 });
       }
     });
 
@@ -689,4 +581,70 @@ describe('edge cases', () => {
     const result = resizeSingleElement(200, 200, latest, orig, 'se');
     expect(result.type).toBeUndefined();
   });
+});
+
+describe('getResizedOrigin fixed-corner invariance', () => {
+  // The corner opposite the drag handle must not move in world space,
+  // at any angle. This is independent of every hand-derived expectation
+  // above: it fails if the anchor mapping is mirrored back.
+  const cases = [
+    { handle: 'se', fixed: 'tl' },
+    { handle: 'nw', fixed: 'br' },
+    { handle: 'ne', fixed: 'bl' },
+    { handle: 'sw', fixed: 'tr' },
+    { handle: 'n', fixed: 'b' },
+    { handle: 's', fixed: 't' },
+    { handle: 'e', fixed: 'l' },
+    { handle: 'w', fixed: 'r' },
+  ] as const;
+
+  const localPoint = (
+    corner: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ): { x: number; y: number } => {
+    switch (corner) {
+      case 'tl':
+        return { x, y };
+      case 'tr':
+        return { x: x + w, y };
+      case 'bl':
+        return { x, y: y + h };
+      case 'br':
+        return { x: x + w, y: y + h };
+      case 't':
+        return { x: x + w / 2, y };
+      case 'b':
+        return { x: x + w / 2, y: y + h };
+      case 'l':
+        return { x, y: y + h / 2 };
+      default:
+        return { x: x + w, y: y + h / 2 };
+    }
+  };
+
+  for (const angle of [0, Math.PI / 6, Math.PI / 4, Math.PI / 2]) {
+    for (const { handle, fixed } of cases) {
+      it(`keeps ${fixed} fixed for ${handle} at angle ${angle.toFixed(2)}`, async () => {
+        const { rotatePoint } = await import('@dripl/math/geometry');
+        const x = 100;
+        const y = 100;
+        const w = 100;
+        const h = 80;
+        const nw = 160;
+        const nh = 130;
+        const world = (px: number, py: number, ox: number, oy: number, ow: number, oh: number) =>
+          rotatePoint({ x: px, y: py }, ox + ow / 2, oy + oh / 2, angle);
+        const beforeLocal = localPoint(fixed, x, y, w, h);
+        const beforeWorld = world(beforeLocal.x, beforeLocal.y, x, y, w, h);
+        const origin = getResizedOrigin({ x, y }, w, h, nw, nh, angle, handle, false, false);
+        const afterLocal = localPoint(fixed, origin.x, origin.y, nw, nh);
+        const afterWorld = world(afterLocal.x, afterLocal.y, origin.x, origin.y, nw, nh);
+        expect(afterWorld.x).toBeCloseTo(beforeWorld.x, 6);
+        expect(afterWorld.y).toBeCloseTo(beforeWorld.y, 6);
+      });
+    }
+  }
 });

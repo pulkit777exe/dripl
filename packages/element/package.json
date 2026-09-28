@@ -13,10 +13,6 @@
       "types": "./dist/resizeElements.d.ts",
       "default": "./dist/resizeElements.js"
     },
-    "./renderElement": {
-      "types": "./dist/renderElement.d.ts",
-      "default": "./dist/renderElement.js"
-    },
     "./shape-cache": {
       "types": "./dist/shape-cache.d.ts",
       "default": "./dist/shape-cache.js"
@@ -39,17 +35,16 @@
   "dependencies": {
     "@dripl/common": "workspace:*",
     "@dripl/math": "workspace:*",
-    "@dripl/utils": "workspace:*",
     "roughjs": "^4.6.6"
   },
   "devDependencies": {
     "@dripl/eslint-config": "workspace:*",
     "@dripl/test-utils": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
-    "@eslint/js": "^10.0.1",
-    "eslint": "^9.39.4",
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.61.0",
-    "vitest": "^4.1.9"
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^4.1.11"
   }
 }

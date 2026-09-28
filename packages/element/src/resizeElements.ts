@@ -58,7 +58,7 @@ export const getResizedOrigin = (
         y:
           y +
           ((prevHeight - newHeight) / 2) * (Math.cos(angle) + 1) +
-          ((prevWidth - newWidth) / 2) * Math.sin(angle),
+          ((newWidth - prevWidth) / 2) * Math.sin(angle),
       };
     case 'bottom-right':
       return {
@@ -111,20 +111,20 @@ const getResizeAnchor = (
   }
 
   if (shouldMaintainAspectRatio) {
-    if (handleDirection.includes('n') && handleDirection.includes('e')) return 'top-right';
-    if (handleDirection.includes('n') && handleDirection.includes('w')) return 'top-left';
-    if (handleDirection.includes('s') && handleDirection.includes('e')) return 'bottom-right';
-    if (handleDirection.includes('s') && handleDirection.includes('w')) return 'bottom-left';
+    if (handleDirection.includes('n') && handleDirection.includes('e')) return 'bottom-left';
+    if (handleDirection.includes('n') && handleDirection.includes('w')) return 'bottom-right';
+    if (handleDirection.includes('s') && handleDirection.includes('e')) return 'top-left';
+    if (handleDirection.includes('s') && handleDirection.includes('w')) return 'top-right';
   }
 
-  if (handleDirection.includes('n') && handleDirection.includes('e')) return 'top-right';
-  if (handleDirection.includes('n') && handleDirection.includes('w')) return 'top-left';
-  if (handleDirection.includes('s') && handleDirection.includes('e')) return 'bottom-right';
-  if (handleDirection.includes('s') && handleDirection.includes('w')) return 'bottom-left';
-  if (handleDirection.includes('n')) return 'north-side';
-  if (handleDirection.includes('s')) return 'south-side';
-  if (handleDirection.includes('e')) return 'east-side';
-  if (handleDirection.includes('w')) return 'west-side';
+  if (handleDirection.includes('n') && handleDirection.includes('e')) return 'bottom-left';
+  if (handleDirection.includes('n') && handleDirection.includes('w')) return 'bottom-right';
+  if (handleDirection.includes('s') && handleDirection.includes('e')) return 'top-left';
+  if (handleDirection.includes('s') && handleDirection.includes('w')) return 'top-right';
+  if (handleDirection.includes('n')) return 'south-side';
+  if (handleDirection.includes('s')) return 'north-side';
+  if (handleDirection.includes('e')) return 'west-side';
+  if (handleDirection.includes('w')) return 'east-side';
 
   return 'center';
 };
@@ -135,7 +135,10 @@ const measureFontSizeFromWidth = (
 ): { size: number; height: number } => {
   const maxFontSize = 200;
   const minFontSize = 8;
-  const text = element.type === 'text' ? ((element as TextElement).originalText || element.text || 'A') : (element.text || 'A');
+  const text =
+    element.type === 'text'
+      ? (element as TextElement).originalText || element.text || 'A'
+      : element.text || 'A';
 
   for (let fontSize = maxFontSize; fontSize >= minFontSize; fontSize -= 1) {
     const canvas = document.createElement('canvas');
@@ -159,7 +162,6 @@ const measureFontSizeFromWidth = (
   };
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getMinTextElementWidth = (fontString: string, _lineHeight: number): number => {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -254,7 +256,7 @@ export const resizeSingleTextElement = (
   if (handleDirection === 'e' || handleDirection === 'w') {
     const minWidth = getMinTextElementWidth(fontString, lineHeight);
     const newWidth = Math.max(minWidth, nextWidth);
-    const sourceText = ((element as TextElement).originalText) || element.text || '';
+    const sourceText = (element as TextElement).originalText || element.text || '';
     const text = wrapText(sourceText, fontString, Math.abs(newWidth));
     const metrics = measureText(text, fontString, lineHeight);
     // Do NOT return x/y — let the pointer handler's origin computation take effect
@@ -277,7 +279,13 @@ export const resizeSingleLinearElement = (
   nextWidth: number,
   nextHeight: number
 ): Partial<DriplElement> => {
-  if (!('points' in element) || !element.points) return {};
+  if (
+    !('points' in element) ||
+    !element.points ||
+    !('points' in origElement) ||
+    !origElement.points
+  )
+    return {};
 
   const prevWidth = origElement.width;
   const prevHeight = origElement.height;
@@ -297,14 +305,19 @@ export const resizeSingleLinearElement = (
     shouldResizeFromCenter
   );
 
+  // Points are stored relative to the element origin, and a corner-fixed
+  // resize maps the old origin to the new one, so relative points scale about
+  // the local origin regardless of which handle moves. Scale the
+  // gesture-start points (not the latest transient) so repeated moves do not
+  // accumulate error.
   return {
     x: newOrigin.x,
     y: newOrigin.y,
     width: nextWidth,
     height: nextHeight,
-    points: element.points.map((p: Point) => ({
-      x: (p.x - previousOrigin.x + newOrigin.x) * scaleX,
-      y: (p.y - previousOrigin.y + newOrigin.y) * scaleY,
+    points: origElement.points.map((p: Point) => ({
+      x: p.x * scaleX,
+      y: p.y * scaleY,
     })),
   };
 };
@@ -317,7 +330,13 @@ export const resizeSingleFreeDrawElement = (
   nextWidth: number,
   nextHeight: number
 ): Partial<DriplElement> => {
-  if (!('points' in element) || !element.points) return {};
+  if (
+    !('points' in element) ||
+    !element.points ||
+    !('points' in origElement) ||
+    !origElement.points
+  )
+    return {};
 
   const prevWidth = origElement.width;
   const prevHeight = origElement.height;
@@ -337,14 +356,16 @@ export const resizeSingleFreeDrawElement = (
     shouldResizeFromCenter
   );
 
+  // Same relative-point argument as the linear case: scale gesture-start
+  // points about the local origin.
   return {
     x: newOrigin.x,
     y: newOrigin.y,
     width: nextWidth,
     height: nextHeight,
-    points: element.points.map((p: Point) => ({
-      x: (p.x - previousOrigin.x + newOrigin.x) * scaleX,
-      y: (p.y - previousOrigin.y + newOrigin.y) * scaleY,
+    points: origElement.points.map((p: Point) => ({
+      x: p.x * scaleX,
+      y: p.y * scaleY,
     })),
   };
 };

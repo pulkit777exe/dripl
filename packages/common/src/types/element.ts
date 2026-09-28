@@ -28,7 +28,7 @@ export interface ElementBase {
   updated?: number; // Timestamp of last update
 
   // Rough.js properties for sketchy aesthetic
-  roughness?: number; // 0-3, default 1
+  roughness?: number; // 0-2, default 1
   strokeStyle?: 'solid' | 'dashed' | 'dotted';
   fillStyle?: 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
   seed?: number; // For consistent randomness across renders
@@ -155,29 +155,6 @@ export type DriplElement =
   | FrameElement
   | EmbedElement;
 
-// Shape definition interface for registration
-export interface ShapeDefinition<T extends DriplElement = DriplElement> {
-  type: string;
-  name: string;
-  icon?: string; // Use string for icon name instead of React node
-  category: string;
-  create: (props: Partial<T>) => T;
-  validate: (element: unknown) => boolean;
-  render: (ctx: CanvasRenderingContext2D, element: T) => void;
-  getProperties: (element: T) => Record<string, unknown>;
-  setProperties: (element: T, properties: Record<string, unknown>) => T;
-}
-
-// Type guard for shape validation
-export function isDriplElement(element: unknown): element is DriplElement {
-  if (typeof element !== 'object' || element === null) return false;
-  const el = element as Record<string, unknown>;
-  return (
-    typeof el.id === 'string' &&
-    typeof el.type === 'string' &&
-    typeof el.x === 'number' &&
-    typeof el.y === 'number' &&
-    typeof el.width === 'number' &&
-    typeof el.height === 'number'
-  );
-}
+// (ShapeDefinition registry and the isDriplElement guard were removed
+// 2026-09-27: zero production importers, test-only. Zod parsing via
+// DriplElementSchema is the validation path.)
