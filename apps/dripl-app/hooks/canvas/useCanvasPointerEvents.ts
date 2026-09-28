@@ -1,13 +1,18 @@
 import { useCallback, useRef, useState } from 'react';
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/store';
-import { getElementBounds, isPointInElement, inverseRotatePoint, getDistanceToBounds, isPointNearElement } from '@dripl/math/intersection';
+import { getElementBounds, inverseRotatePoint, isPointNearElement } from '@dripl/math/intersection';
 import type { DriplElement, LinearElement, TextElement } from '@dripl/common';
 import { resizeSingleElement } from '@dripl/element/resizeElements';
 import { uploadImageToServer, loadImage } from '@/utils/tools/image';
 import { v4 as uuidv4 } from 'uuid';
 import { recalculateBinding, calculateArrowBinding } from '@/utils/arrow-routing';
-import { findBindableElementAtPoint, bindArrowToElement, unbindArrowFromElement } from '@/utils/arrow-binding';
+import { updateBoundTextPosition, updateArrowLabelPosition } from '@/utils/textBindingUtils';
+import {
+  findBindableElementAtPoint,
+  bindArrowToElement,
+  unbindArrowFromElement,
+} from '@/utils/arrow-binding';
 import { createArrowLabel } from '@/utils/tools/arrow';
 import type { ToolType } from '@/hooks/useDrawingTools';
 
@@ -30,6 +35,8 @@ interface InteractionState {
   pinchStartMid: { x: number; y: number } | null;
   pinchStartZoom: number;
   pinchStartPan: { x: number; y: number };
+  boundArrowsByShape: Map<string, Set<string>>;
+  bindingIndexReady: boolean;
 }
 
 interface CanvasPointerEventsProps {
@@ -41,6 +48,7 @@ interface CanvasPointerEventsProps {
   getElementAtPosition: (x: number, y: number) => DriplElement | null | undefined;
   getElementsAtPosition: (x: number, y: number) => DriplElement[];
   updateElementTransient: (id: string, element: DriplElement) => void;
+  updateElementsTransient: (updates: ReadonlyMap<string, Partial<DriplElement>>) => void;
   updateElement: (id: string, updates: Partial<DriplElement>) => void;
   pushHistory: () => void;
   lockElementsForGesture: (ids: Iterable<string>) => void;
@@ -59,6 +67,7 @@ interface CanvasPointerEventsProps {
       roughness: number;
       strokeStyle: 'solid' | 'dashed' | 'dotted';
       fillStyle: 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
+      arrowStyle?: 'straight' | 'curved' | 'elbow';
     },
     elements?: DriplElement[]
   ) => void;
@@ -72,36 +81,46 @@ interface CanvasPointerEventsProps {
   finishDrawing: () => DriplElement | null;
   applyFrameGrouping: (frameElement: DriplElement) => void;
   spatialIndex: {
-    tree: { search: (bbox: { minX: number; minY: number; maxX: number; maxY: number }) => Array<{ id: string }> };
+    tree: {
+      search: (bbox: {
+        minX: number;
+        minY: number;
+        maxX: number;
+        maxY: number;
+      }) => Array<{ id: string }>;
+    };
     byId: Map<string, DriplElement>;
   };
 }
 
-function updateBoundArrows(
-  movedElementIds: Set<string>,
-  elements: DriplElement[],
-  updateElementTransient: (id: string, element: DriplElement) => void
-) {
-  const elementsById = new Map(elements.map(e => [e.id, e]));
-  
-  // Build reverse index: shapeId -> Set<arrowId> using boundElements
+function buildBoundArrowsByShape(elements: Iterable<DriplElement>): Map<string, Set<string>> {
   const boundArrowsByShape = new Map<string, Set<string>>();
   for (const el of elements) {
-    const bounds = (el as DriplElement & { boundElements?: Array<{ id: string; type: 'arrow' | 'text' }> }).boundElements;
-    if (bounds) {
-      for (const bound of bounds) {
-        if (bound.type === 'arrow') {
-          let arrowSet = boundArrowsByShape.get(el.id);
-          if (!arrowSet) {
-            arrowSet = new Set();
-            boundArrowsByShape.set(el.id, arrowSet);
-          }
-          arrowSet.add(bound.id);
-        }
+    const boundElements = (
+      el as DriplElement & {
+        boundElements?: Array<{ id: string; type: 'arrow' | 'text' }>;
       }
+    ).boundElements;
+    if (!boundElements) continue;
+    for (const bound of boundElements) {
+      if (bound.type !== 'arrow') continue;
+      let arrowSet = boundArrowsByShape.get(el.id);
+      if (!arrowSet) {
+        arrowSet = new Set();
+        boundArrowsByShape.set(el.id, arrowSet);
+      }
+      arrowSet.add(bound.id);
     }
   }
+  return boundArrowsByShape;
+}
 
+function updateBoundArrows(
+  movedElementIds: Set<string>,
+  elementsById: ReadonlyMap<string, DriplElement>,
+  boundArrowsByShape: ReadonlyMap<string, ReadonlySet<string>>,
+  updates: Map<string, Partial<DriplElement>>
+) {
   // Only process arrows that are bound to moved shapes (O(k) where k = number of bound arrows)
   const arrowsToUpdate = new Set<string>();
   for (const movedId of movedElementIds) {
@@ -117,6 +136,7 @@ function updateBoundArrows(
     const el = elementsById.get(arrowId);
     if (!el || (el.type !== 'arrow' && el.type !== 'line')) continue;
     const linearEl = el as LinearElement;
+    let updatedLinear = linearEl;
 
     let needsUpdate = false;
 
@@ -129,9 +149,9 @@ function updateBoundArrows(
         );
         const relStart = { x: startPoint.x - el.x, y: startPoint.y - el.y };
         if (el.points.length > 0) {
-          const newPoints = [...el.points];
+          const newPoints = [...updatedLinear.points];
           newPoints[0] = relStart;
-          linearEl.points = newPoints;
+          updatedLinear = { ...updatedLinear, points: newPoints };
           needsUpdate = true;
         }
       }
@@ -145,17 +165,42 @@ function updateBoundArrows(
           targetEl
         );
         const relEnd = { x: endPoint.x - el.x, y: endPoint.y - el.y };
-        if (el.points.length > 1) {
-          const newPoints = [...el.points];
+        if (updatedLinear.points.length > 1) {
+          const newPoints = [...updatedLinear.points];
           newPoints[newPoints.length - 1] = relEnd;
-          linearEl.points = newPoints;
+          updatedLinear = { ...updatedLinear, points: newPoints };
           needsUpdate = true;
         }
       }
     }
 
     if (needsUpdate) {
-      updateElementTransient(el.id, { ...linearEl });
+      updates.set(el.id, updatedLinear);
+    }
+  }
+}
+
+function updateBoundLabels(
+  movedElementIds: Set<string>,
+  elementsById: ReadonlyMap<string, DriplElement>,
+  updates: Map<string, Partial<DriplElement>>
+): void {
+  for (const ownerId of movedElementIds) {
+    const owner = elementsById.get(ownerId);
+    if (!owner) continue;
+    const labelIds = new Set<string>();
+    if (owner.labelId) labelIds.add(owner.labelId);
+    for (const bound of owner.boundElements ?? []) {
+      if (bound.type === 'text') labelIds.add(bound.id);
+    }
+    for (const labelId of labelIds) {
+      const label = elementsById.get(labelId);
+      if (!label || label.type !== 'text') continue;
+      const updatedLabel =
+        owner.type === 'arrow' || owner.type === 'line'
+          ? updateArrowLabelPosition(owner as LinearElement, label)
+          : updateBoundTextPosition(owner, label);
+      updates.set(labelId, updatedLabel);
     }
   }
 }
@@ -169,6 +214,7 @@ export function useCanvasPointerEvents({
   getElementAtPosition,
   getElementsAtPosition,
   updateElementTransient,
+  updateElementsTransient,
   updateElement,
   pushHistory,
   lockElementsForGesture,
@@ -177,7 +223,6 @@ export function useCanvasPointerEvents({
   setEditingElementId,
   startDrawing,
   updateDrawing,
-  setDrawingState,
   maybeRevertToSelectTool,
   finishDrawing,
   applyFrameGrouping,
@@ -202,6 +247,8 @@ export function useCanvasPointerEvents({
     pinchStartMid: null,
     pinchStartZoom: 1,
     pinchStartPan: { x: 0, y: 0 },
+    boundArrowsByShape: new Map(),
+    bindingIndexReady: false,
   });
 
   const lastToolBeforeSpaceRef = useRef<string | null>(null);
@@ -210,7 +257,7 @@ export function useCanvasPointerEvents({
   const startPointBindingIdRef = useRef<string | null>(null);
   const [hoveredBindingId, setHoveredBindingId] = useState<string | null>(null);
   const [startPointBindingId, setStartPointBindingId] = useState<string | null>(null);
-  const [bindMode, setBindMode] = useState<'orbit' | 'inside'>('orbit');
+  const [bindMode] = useState<'orbit' | 'inside'>('orbit');
 
   // Helper to update both ref and state for hoveredBindingId
   const updateHoveredBindingId = useCallback((id: string | null) => {
@@ -222,6 +269,16 @@ export function useCanvasPointerEvents({
   const updateStartPointBindingId = useCallback((id: string | null) => {
     startPointBindingIdRef.current = id;
     setStartPointBindingId(id);
+  }, []);
+
+  const getGestureBoundArrows = useCallback((): ReadonlyMap<string, ReadonlySet<string>> => {
+    if (!interactionRef.current.bindingIndexReady) {
+      interactionRef.current.boundArrowsByShape.clear();
+      const nextIndex = buildBoundArrowsByShape(useCanvasStore.getState().elements);
+      interactionRef.current.boundArrowsByShape = nextIndex;
+      interactionRef.current.bindingIndexReady = true;
+    }
+    return interactionRef.current.boundArrowsByShape;
   }, []);
 
   const {
@@ -260,11 +317,17 @@ export function useCanvasPointerEvents({
     }))
   );
 
-  const handleDragOver = useCallback((e: React.DragEvent) => e.preventDefault(), []);
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!readOnly) e.preventDefault();
+    },
+    [readOnly]
+  );
 
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault();
+      if (readOnly) return;
       const { x, y } = getCanvasCoordinates(e);
       const files = Array.from(e.dataTransfer.files);
 
@@ -288,12 +351,13 @@ export function useCanvasPointerEvents({
             };
             addElement(element);
           } catch (error) {
+            // eslint-disable-next-line no-console -- client upload failure telemetry
             console.error('Failed to upload image:', error);
           }
         }
       }
     },
-    [getCanvasCoordinates, addElement]
+    [addElement, getCanvasCoordinates, readOnly]
   );
 
   const handlePointerDown = useCallback(
@@ -301,6 +365,8 @@ export function useCanvasPointerEvents({
       const target = e.target as HTMLElement;
       if (target.classList.contains('pointer-events-auto')) return;
       e.currentTarget.setPointerCapture(e.pointerId);
+      interactionRef.current.boundArrowsByShape.clear();
+      interactionRef.current.bindingIndexReady = false;
 
       if (e.pointerType === 'touch') {
         interactionRef.current.touchPointers.set(e.pointerId, {
@@ -374,16 +440,17 @@ export function useCanvasPointerEvents({
             });
             return;
           }
-          
+
           // Handle double-click on arrows to create/edit labels
           if (doubleClicked?.type === 'arrow') {
             const arrow = doubleClicked as LinearElement;
             const elements = useCanvasStore.getState().elements;
-            
+
             // Check if arrow already has a label
             if (arrow.labelId) {
               // Find the existing label text element
-              const labelElement = elements.find(el => el.id === arrow.labelId) as TextElement | undefined;
+              const labelElement = elements.find(el => el.id === arrow.labelId) as
+                TextElement | undefined;
               if (labelElement) {
                 // Open text editor for existing label
                 setTextInput({
@@ -396,20 +463,20 @@ export function useCanvasPointerEvents({
                 return;
               }
             }
-            
+
             // Create a new label for the arrow
             const label = createArrowLabel(arrow, '');
-            
+
             // Update the arrow to have the label
             const updatedArrow: LinearElement = {
               ...arrow,
               labelId: label.id,
             };
-            
+
             // Add the label to the elements array
             useCanvasStore.getState().addElement(label);
             useCanvasStore.getState().updateElement(arrow.id, updatedArrow);
-            
+
             // Open text editor for the new label
             setTextInput({
               x: label.x,
@@ -424,14 +491,15 @@ export function useCanvasPointerEvents({
 
         // Get all elements at this point for overlap resolution
         const allHitElements = getElementsAtPosition(x, y);
-        // preferSelected: if any hit element is already selected, prefer it
-        // over the topmost element. This lets you start dragging a selected element
-        // even when a higher-z element overlaps it.
+        // `getElementsAtPosition` returns hits from top z-order to bottom.
+        // Prefer an already-selected hit so a selected object can be dragged
+        // through an overlapping object; otherwise select the first (topmost)
+        // hit rather than the bottom-most one.
         let element: DriplElement | null = null;
         if (allHitElements.length > 0) {
           const state = useCanvasStore.getState();
           const selectedHit = allHitElements.find(el => state.selectedIds.has(el.id));
-          element = selectedHit ?? allHitElements[allHitElements.length - 1]!;
+          element = selectedHit ?? allHitElements[0]!;
         }
         if (element && element.id) {
           const state = useCanvasStore.getState();
@@ -534,6 +602,7 @@ export function useCanvasPointerEvents({
                 maybeRevertToSelectTool('image');
               }
             } catch (error) {
+              // eslint-disable-next-line no-console -- client upload failure telemetry
               console.error('Failed to upload image:', error);
             }
           }
@@ -556,7 +625,8 @@ export function useCanvasPointerEvents({
         currentTool === 'arrow' ||
         currentTool === 'line' ||
         currentTool === 'freedraw' ||
-        currentTool === 'frame'
+        currentTool === 'frame' ||
+        currentTool === 'embed'
       ) {
         const state = useCanvasStore.getState();
         startDrawing(
@@ -571,6 +641,7 @@ export function useCanvasPointerEvents({
             roughness: state.currentRoughness,
             strokeStyle: state.currentStrokeStyle,
             fillStyle: state.currentFillStyle,
+            arrowStyle: state.currentArrowStyle,
           },
           state.elements
         );
@@ -612,7 +683,10 @@ export function useCanvasPointerEvents({
           y: e.clientY,
         });
 
-        if (interactionRef.current.touchPointers.size === 2 && interactionRef.current.pinchStartMid) {
+        if (
+          interactionRef.current.touchPointers.size === 2 &&
+          interactionRef.current.pinchStartMid
+        ) {
           const points = Array.from(interactionRef.current.touchPointers.values());
           const first = points[0];
           const second = points[1];
@@ -635,7 +709,9 @@ export function useCanvasPointerEvents({
               Math.min(20, startZoom * (distance / interactionRef.current.pinchStartDistance))
             );
 
-            useCanvasStore.getState().setViewport(scaledZoom, mid.x - worldX * scaledZoom, mid.y - worldY * scaledZoom);
+            useCanvasStore
+              .getState()
+              .setViewport(scaledZoom, mid.x - worldX * scaledZoom, mid.y - worldY * scaledZoom);
             return;
           }
         }
@@ -681,32 +757,34 @@ export function useCanvasPointerEvents({
         }
 
         const isArrowEndpoint = handle === 'arrow-start' || handle === 'arrow-end';
-        const arrowPointMatch = typeof handle === 'string' && handle.startsWith('arrow-point-')
-          ? parseInt(handle.slice('arrow-point-'.length), 10)
-          : -1;
-        const arrowInsertMatch = typeof handle === 'string' && handle.startsWith('arrow-insert-')
-          ? parseInt(handle.slice('arrow-insert-'.length), 10)
-          : -1;
+        const arrowPointMatch =
+          typeof handle === 'string' && handle.startsWith('arrow-point-')
+            ? parseInt(handle.slice('arrow-point-'.length), 10)
+            : -1;
+        const arrowInsertMatch =
+          typeof handle === 'string' && handle.startsWith('arrow-insert-')
+            ? parseInt(handle.slice('arrow-insert-'.length), 10)
+            : -1;
 
         // Handle midpoint insertion - insert a new point at the midpoint of the segment
         if (arrowInsertMatch >= 0) {
           if (!('points' in el) || !el.points || el.points.length < 2) return;
           const pts = el.points as Array<{ x: number; y: number }>;
           if (arrowInsertMatch < 1 || arrowInsertMatch >= pts.length) return;
-          
+
           // Get the two points of the segment
           const p1 = pts[arrowInsertMatch - 1];
           const p2 = pts[arrowInsertMatch];
           if (!p1 || !p2) return;
-          
+
           // Calculate midpoint in absolute coordinates
           const midX = el.x + (p1.x + p2.x) / 2;
           const midY = el.y + (p1.y + p2.y) / 2;
-          
+
           // Insert the new point at the specified index
           const newPts = [...pts];
           newPts.splice(arrowInsertMatch, 0, { x: midX - el.x, y: midY - el.y });
-          
+
           // Recalculate bounding box
           const allX = newPts.map(p => el.x + p.x);
           const allY = newPts.map(p => el.y + p.y);
@@ -715,7 +793,7 @@ export function useCanvasPointerEvents({
           const newMaxX = Math.max(...allX);
           const newMaxY = Math.max(...allY);
           const relPts = newPts.map(p => ({ x: p.x + el.x - newMinX, y: p.y + el.y - newMinY }));
-          
+
           const updatedElement: DriplElement = {
             ...el,
             x: newMinX,
@@ -724,9 +802,9 @@ export function useCanvasPointerEvents({
             height: Math.max(4, newMaxY - newMinY),
             points: relPts,
           };
-          
+
           if (el.id) updateElementTransient(el.id, updatedElement);
-          
+
           // Set up for dragging the newly inserted point
           interactionRef.current.resizeHandle = `arrow-point-${arrowInsertMatch}` as string;
           interactionRef.current.resizeInitialEl = updatedElement;
@@ -738,10 +816,13 @@ export function useCanvasPointerEvents({
         if (isArrowEndpoint || arrowPointMatch >= 0) {
           if (!('points' in el) || !el.points || el.points.length < 2) return;
           const pts = el.points as Array<{ x: number; y: number }>;
-          const absPts = pts.map((p) => ({ x: el.x + p.x, y: el.y + p.y }));
-          const idx = handle === 'arrow-start' ? 0
-            : handle === 'arrow-end' ? pts.length - 1
-            : arrowPointMatch;
+          const absPts = pts.map(p => ({ x: el.x + p.x, y: el.y + p.y }));
+          const idx =
+            handle === 'arrow-start'
+              ? 0
+              : handle === 'arrow-end'
+                ? pts.length - 1
+                : arrowPointMatch;
           const target = absPts[idx];
           if (!target) return;
           const angle = el.angle ?? 0;
@@ -772,18 +853,20 @@ export function useCanvasPointerEvents({
           // Dynamic binding detection for arrow endpoints
           const allElements = useCanvasStore.getState().elements;
           const arrowEl = updatedElement as LinearElement;
-          const startOrEnd = handle === 'arrow-start' ? 'start' : handle === 'arrow-end' ? 'end' : null;
-          
+          const startOrEnd =
+            handle === 'arrow-start' ? 'start' : handle === 'arrow-end' ? 'end' : null;
+
           if (startOrEnd) {
-            const currentBinding = startOrEnd === 'start' ? arrowEl.startBinding : arrowEl.endBinding;
+            const currentBinding =
+              startOrEnd === 'start' ? arrowEl.startBinding : arrowEl.endBinding;
             const nearbyShape = findBindableElementAtPoint(target, allElements, el.id, 20);
-            
+
             if (nearbyShape) {
               // Bind to the nearby shape
               updateHoveredBindingId(nearbyShape.id);
               if (!currentBinding || currentBinding.elementId !== nearbyShape.id) {
                 // Unbind from current target if different
-                let newElements = currentBinding 
+                let newElements = currentBinding
                   ? unbindArrowFromElement(arrowEl, startOrEnd, allElements)
                   : allElements;
                 // Bind to new target
@@ -885,6 +968,41 @@ export function useCanvasPointerEvents({
           newHeight = Math.max(4, Math.round(newHeight / gridSize) * gridSize);
         }
 
+        const origEl = interactionRef.current.resizeInitialEl || el;
+        const resizeHandle = handle as 'n' | 'e' | 's' | 'w' | 'ne' | 'se' | 'sw' | 'nw';
+        const resizeFlags = {
+          shouldMaintainAspectRatio: e.shiftKey,
+          shouldResizeFromCenter: e.altKey,
+        };
+
+        // Rotation-aware origin and point mapping live in @dripl/element.
+        // For unrotated shapes the package origin coincides with the
+        // axis-aligned computation above, so only rotated shapes take the
+        // package origin. Linear/freedraw points always come from the package,
+        // scaled once from the gesture-start snapshot instead of
+        // re-scaling transient points on every move.
+        const isLinearElement =
+          (el.type === 'arrow' || el.type === 'line' || el.type === 'freedraw') &&
+          el.points &&
+          el.points.length > 0 &&
+          el.width !== 0 &&
+          el.height !== 0;
+        let packageResize: Partial<DriplElement> | null = null;
+        if (el.type !== 'text') {
+          packageResize = resizeSingleElement(
+            newWidth,
+            newHeight,
+            el,
+            origEl,
+            resizeHandle,
+            resizeFlags
+          );
+          if ((el.angle || 0) !== 0) {
+            if (typeof packageResize.x === 'number') newX = packageResize.x;
+            if (typeof packageResize.y === 'number') newY = packageResize.y;
+          }
+        }
+
         const updatedElement: DriplElement = {
           ...el,
           x: newX,
@@ -903,26 +1021,18 @@ export function useCanvasPointerEvents({
             { shouldMaintainAspectRatio: e.shiftKey, shouldResizeFromCenter: e.altKey }
           );
           Object.assign(updatedElement, resizedProps);
-        }
-
-        if (
-          (el.type === 'arrow' || el.type === 'line' || el.type === 'freedraw') &&
-          el.points &&
-          el.points.length > 0 &&
-          el.width !== 0 &&
-          el.height !== 0
-        ) {
-          const pts = el.points as Array<{ x: number; y: number }>;
-          const sx = newWidth / el.width;
-          const sy = newHeight / el.height;
-          updatedElement.points = pts.map(p => ({ x: p.x * sx, y: p.y * sy }));
+        } else if (isLinearElement && packageResize?.points) {
+          updatedElement.points = packageResize.points;
         }
 
         if (el.id) {
           updateElementTransient(el.id, updatedElement);
-          // Update arrows bound to the resized element
-          const allElements = useCanvasStore.getState().elements;
-          updateBoundArrows(new Set([el.id]), allElements, updateElementTransient);
+          // Update arrows bound to the resized element in one state batch.
+          const elementsById = useCanvasStore.getState().elementsById;
+          const boundUpdates = new Map<string, Partial<DriplElement>>();
+          updateBoundArrows(new Set([el.id]), elementsById, getGestureBoundArrows(), boundUpdates);
+          updateBoundLabels(new Set([el.id]), elementsById, boundUpdates);
+          updateElementsTransient(boundUpdates);
         }
         return;
       }
@@ -937,11 +1047,21 @@ export function useCanvasPointerEvents({
           interactionRef.current.historyPushed = true;
         }
         const updatedElement: DriplElement = { ...el, angle };
-        if (el.id) updateElementTransient(el.id, updatedElement);
+        if (el.id) {
+          updateElementTransient(el.id, updatedElement);
+          const elementsById = useCanvasStore.getState().elementsById;
+          const boundUpdates = new Map<string, Partial<DriplElement>>();
+          updateBoundLabels(new Set([el.id]), elementsById, boundUpdates);
+          updateElementsTransient(boundUpdates);
+        }
         return;
       }
 
-      if (interactionRef.current.dragging && interactionRef.current.dragInitialElements && interactionRef.current.dragStartCanvasPos) {
+      if (
+        interactionRef.current.dragging &&
+        interactionRef.current.dragInitialElements &&
+        interactionRef.current.dragStartCanvasPos
+      ) {
         const totalDeltaX = x - interactionRef.current.dragStartCanvasPos.x;
         const totalDeltaY = y - interactionRef.current.dragStartCanvasPos.y;
 
@@ -954,6 +1074,7 @@ export function useCanvasPointerEvents({
         }
 
         const movedIds = new Set<string>();
+        const primaryUpdates = new Map<string, Partial<DriplElement>>();
         interactionRef.current.dragInitialElements.forEach((initialEl, id) => {
           const updatedEl: DriplElement = {
             ...initialEl,
@@ -961,13 +1082,17 @@ export function useCanvasPointerEvents({
             y: initialEl.y + totalDeltaY,
           };
 
-          updateElementTransient(id, updatedEl);
+          primaryUpdates.set(id, updatedEl);
           movedIds.add(id);
         });
+        updateElementsTransient(primaryUpdates);
 
-        // Update arrows bound to moved elements
-        const allElements = useCanvasStore.getState().elements;
-        updateBoundArrows(movedIds, allElements, updateElementTransient);
+        // Update arrows bound to moved elements in one state batch.
+        const elementsById = useCanvasStore.getState().elementsById;
+        const boundUpdates = new Map<string, Partial<DriplElement>>();
+        updateBoundArrows(movedIds, elementsById, getGestureBoundArrows(), boundUpdates);
+        updateBoundLabels(movedIds, elementsById, boundUpdates);
+        updateElementsTransient(boundUpdates);
 
         return;
       }
@@ -1002,7 +1127,8 @@ export function useCanvasPointerEvents({
         currentTool === 'arrow' ||
         currentTool === 'line' ||
         currentTool === 'freedraw' ||
-        currentTool === 'frame'
+        currentTool === 'frame' ||
+        currentTool === 'embed'
       ) {
         const snapped = snapPointToGrid({ x, y });
         updateDrawing(
@@ -1019,39 +1145,54 @@ export function useCanvasPointerEvents({
         if (currentTool === 'arrow') {
           const allElements = useCanvasStore.getState().elements;
           const draftEl = useCanvasStore.getState().draftElement;
-          
-          if (draftEl && 'points' in draftEl && Array.isArray(draftEl.points) && draftEl.points.length >= 2) {
+
+          if (
+            draftEl &&
+            'points' in draftEl &&
+            Array.isArray(draftEl.points) &&
+            draftEl.points.length >= 2
+          ) {
             // Get the current endpoint position (last point)
             const points = draftEl.points as Array<{ x: number; y: number }>;
             const endPoint = points[points.length - 1];
             const startPoint = points[0];
-            
-              if (endPoint) {
-                const globalEndPoint = { x: draftEl.x + endPoint.x, y: draftEl.y + endPoint.y };
-                const nearbyShape = findBindableElementAtPoint(globalEndPoint, allElements, draftEl.id, 20);
-                
-                if (nearbyShape) {
-                  updateHoveredBindingId(nearbyShape.id);
-                } else {
-                  updateHoveredBindingId(null);
-                }
-              }
 
-              // Also detect binding at start point
-              if (startPoint) {
-                const globalStartPoint = { x: draftEl.x + startPoint.x, y: draftEl.y + startPoint.y };
-                const nearbyStartShape = findBindableElementAtPoint(globalStartPoint, allElements, draftEl.id, 20);
-                
-                if (nearbyStartShape) {
-                  updateStartPointBindingId(nearbyStartShape.id);
-                } else {
-                  updateStartPointBindingId(null);
-                }
+            if (endPoint) {
+              const globalEndPoint = { x: draftEl.x + endPoint.x, y: draftEl.y + endPoint.y };
+              const nearbyShape = findBindableElementAtPoint(
+                globalEndPoint,
+                allElements,
+                draftEl.id,
+                20
+              );
+
+              if (nearbyShape) {
+                updateHoveredBindingId(nearbyShape.id);
+              } else {
+                updateHoveredBindingId(null);
               }
-            } else {
-              updateHoveredBindingId(null);
-              updateStartPointBindingId(null);
             }
+
+            // Also detect binding at start point
+            if (startPoint) {
+              const globalStartPoint = { x: draftEl.x + startPoint.x, y: draftEl.y + startPoint.y };
+              const nearbyStartShape = findBindableElementAtPoint(
+                globalStartPoint,
+                allElements,
+                draftEl.id,
+                20
+              );
+
+              if (nearbyStartShape) {
+                updateStartPointBindingId(nearbyStartShape.id);
+              } else {
+                updateStartPointBindingId(null);
+              }
+            }
+          } else {
+            updateHoveredBindingId(null);
+            updateStartPointBindingId(null);
+          }
         }
 
         return;
@@ -1064,8 +1205,10 @@ export function useCanvasPointerEvents({
       broadcastCursor,
       setCursorPosition,
       updateElementTransient,
+      updateElementsTransient,
       pushHistory,
       updateDrawing,
+      getGestureBoundArrows,
     ]
   );
 
@@ -1111,12 +1254,17 @@ export function useCanvasPointerEvents({
         state.elements.forEach(element => {
           if (!candidateIds.has(element.id)) return;
           const bounds = getElementBounds(element);
-          if (
+          const intersects =
             bounds.x < rect.maxX &&
             bounds.x + bounds.width > rect.minX &&
             bounds.y < rect.maxY &&
-            bounds.y + bounds.height > rect.minY
-          ) {
+            bounds.y + bounds.height > rect.minY;
+          const contained =
+            bounds.x >= rect.minX &&
+            bounds.y >= rect.minY &&
+            bounds.x + bounds.width <= rect.maxX &&
+            bounds.y + bounds.height <= rect.maxY;
+          if (state.marqueeSelectionMode === 'contained' ? contained : intersects) {
             hitIds.add(element.id);
           }
         });
@@ -1124,7 +1272,10 @@ export function useCanvasPointerEvents({
 
         if (e?.shiftKey) {
           setSelectedIds(
-            expandSelectionWithGroups(new Set([...state.selectedIds, ...expandedHitIds]), state.elements)
+            expandSelectionWithGroups(
+              new Set([...state.selectedIds, ...expandedHitIds]),
+              state.elements
+            )
           );
         } else {
           setSelectedIds(expandedHitIds);
@@ -1138,6 +1289,8 @@ export function useCanvasPointerEvents({
         const editingId = state.isEditingElementId;
         const resizedId = interactionRef.current.resizeInitialEl?.id;
         interactionRef.current.resizing = false;
+        interactionRef.current.boundArrowsByShape.clear();
+        interactionRef.current.bindingIndexReady = false;
         interactionRef.current.historyPushed = false;
         interactionRef.current.resizeHandle = null;
         interactionRef.current.resizeStartCanvasPos = null;
@@ -1154,6 +1307,8 @@ export function useCanvasPointerEvents({
       if (interactionRef.current.rotating) {
         const editingId = useCanvasStore.getState().isEditingElementId;
         interactionRef.current.rotating = false;
+        interactionRef.current.boundArrowsByShape.clear();
+        interactionRef.current.bindingIndexReady = false;
         interactionRef.current.historyPushed = false;
         interactionRef.current.rotateInitialEl = null;
         setIsRotating(false);
@@ -1166,6 +1321,8 @@ export function useCanvasPointerEvents({
       if (interactionRef.current.dragging) {
         const editingId = useCanvasStore.getState().isEditingElementId;
         interactionRef.current.dragging = false;
+        interactionRef.current.boundArrowsByShape.clear();
+        interactionRef.current.bindingIndexReady = false;
         interactionRef.current.historyPushed = false;
         interactionRef.current.dragStartCanvasPos = null;
         interactionRef.current.dragInitialElements = null;

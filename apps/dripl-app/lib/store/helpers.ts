@@ -4,7 +4,6 @@ import { sortElementsByZIndex } from '@/utils/zIndexUtils';
 
 export const MAX_HISTORY = 100;
 export const MAX_HISTORY_BYTES = 10 * 1024 * 1024; // 10 MB budget for undo history
-export { sortElementsByZIndex as sortByFractionalIndex } from '@/utils/zIndexUtils';
 
 export type DrawingLifecycle = 'idle' | 'drawing' | 'committing';
 
@@ -40,7 +39,8 @@ export type ActiveTool =
   | 'eraser'
   | 'laser';
 
-export type FillStyle = 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
+export type FillStyle =
+  'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted';
 
 export interface HistoryState {
@@ -63,7 +63,7 @@ export function ensureFractionalIndexes(elements: DriplElement[]): DriplElement[
   if (!needsMigration) return elements;
 
   let lastKey: string | null = null;
-  return sortElementsByZIndex(elements).map((el) => {
+  return sortElementsByZIndex(elements).map(el => {
     if (el.fractionalIndex != null) {
       lastKey = el.fractionalIndex;
       return el;
@@ -77,10 +77,10 @@ export function ensureFractionalIndexes(elements: DriplElement[]): DriplElement[
 export function generateFractionalIndexBetween(
   elements: readonly DriplElement[],
   beforeId: string | null,
-  afterId: string | null,
+  afterId: string | null
 ): string {
-  const before = beforeId ? elements.find(e => e.id === beforeId)?.fractionalIndex ?? null : null;
-  const after = afterId ? elements.find(e => e.id === afterId)?.fractionalIndex ?? null : null;
+  const before = beforeId ? (elements.find(e => e.id === beforeId)?.fractionalIndex ?? null) : null;
+  const after = afterId ? (elements.find(e => e.id === afterId)?.fractionalIndex ?? null) : null;
   return generateKeyBetween(before, after);
 }
 
@@ -171,7 +171,7 @@ export function withHistoryBeforeMutation(
 
 export function commitPresentFromHistory(
   past: readonly DriplElement[][],
-  future: readonly DriplElement[][],
+  future: readonly DriplElement[][]
 ) {
   return {
     past: [...past],

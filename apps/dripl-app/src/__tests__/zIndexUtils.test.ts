@@ -1,13 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   sortElementsByZIndex,
-  sortElementsByZIndexDescending,
   bringToFront,
   sendToBack,
   bringForward,
   sendBackward,
-  getZIndexRange,
-  normalizeZIndices,
 } from '../../utils/zIndexUtils';
 import type { DriplElement } from '@dripl/common';
 
@@ -24,11 +21,7 @@ function rect(id: string, fractionalIndex: string): DriplElement {
 }
 
 describe('zIndexUtils', () => {
-  const elements = [
-    rect('a', 'a0'),
-    rect('b', 'a1'),
-    rect('c', 'a2'),
-  ];
+  const elements = [rect('a', 'a0'), rect('b', 'a1'), rect('c', 'a2')];
 
   describe('sortElementsByZIndex', () => {
     it('sorts by fractional index ascending', () => {
@@ -40,13 +33,6 @@ describe('zIndexUtils', () => {
       const withEmpty = [rect('x', ''), rect('a', 'a0')];
       const sorted = sortElementsByZIndex(withEmpty);
       expect(sorted[0]!.id).toBe('x');
-    });
-  });
-
-  describe('sortElementsByZIndexDescending', () => {
-    it('sorts by fractional index descending', () => {
-      const sorted = sortElementsByZIndexDescending(elements);
-      expect(sorted.map(e => e.id)).toEqual(['c', 'b', 'a']);
     });
   });
 
@@ -97,28 +83,6 @@ describe('zIndexUtils', () => {
       const result = sendBackward(elements[0]!, elements);
       expect(result.id).toBe('a');
       expect(result).toBe(elements[0]);
-    });
-  });
-
-  describe('getZIndexRange', () => {
-    it('returns min/max range', () => {
-      const range = getZIndexRange(elements);
-      expect(range).toEqual({ min: 0, max: 2 });
-    });
-
-    it('returns 0/0 for single element', () => {
-      const range = getZIndexRange([elements[0]!]);
-      expect(range).toEqual({ min: 0, max: 0 });
-    });
-  });
-
-  describe('normalizeZIndices', () => {
-    it('reindexes elements with no gaps', () => {
-      const result = normalizeZIndices(elements);
-      expect(result).toHaveLength(3);
-      result.forEach(el => {
-        expect(el.fractionalIndex).toBeTruthy();
-      });
     });
   });
 });

@@ -3,14 +3,14 @@ import type { DriplElement, LinearElement, TextElement } from '@dripl/common';
 import { collectCascadeDeleteIds } from '@dripl/common/cascade-delete';
 import { generateKeyBetween } from 'fractional-indexing';
 import { invalidateElementCache } from '@dripl/element/staticScene';
-import { clearShapeFromCache, clearAllShapeCache } from '@dripl/element/shape-cache';
+import { sortElementsByZIndex } from '@/utils/zIndexUtils';
+import { clearShapeFromCache } from '@dripl/element/shape-cache';
 import { mutateElement } from '@dripl/element/mutateElement';
 import { getElementBounds } from '@dripl/math/intersection';
 import type { CanvasStoreState, CanvasSlice } from './types';
 import {
   cloneElements,
   sortedInsert,
-  sortByFractionalIndex,
   buildElementsById,
   ensureFractionalIndexes,
   generateFractionalIndexAfterAll,
@@ -21,7 +21,16 @@ import {
 import { unbindAffectedByDeletion, unbindArrowFromElement } from '@/utils/arrow-binding';
 import { updateArrowLabelPosition } from '@/utils/textBindingUtils';
 
-export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSlice> = (set, get) => ({
+function mergeTransientChangedIds(state: CanvasStoreState, ids: Iterable<string>): string[] {
+  const previous =
+    state.spatialChangedIdsVersion === state.spatialVersion ? state.spatialChangedIds : [];
+  return Array.from(new Set([...previous, ...ids]));
+}
+
+export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSlice> = (
+  set,
+  get
+) => ({
   elements: [],
   elementsById: new Map(),
   selectedIds: new Set<string>(),
@@ -47,6 +56,8 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
   shouldCacheIgnoreZoom: false,
   pendingEmbed: null,
   spatialVersion: 0,
+  spatialChangedIds: [],
+  spatialChangedIdsVersion: 0,
 
   setElements: (elements, options) =>
     set(state => {
@@ -58,18 +69,29 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
           }
         });
         const withIndexes = ensureFractionalIndexes(elements);
-        const sorted = sortByFractionalIndex(withIndexes);
+        const sorted = sortElementsByZIndex(withIndexes);
         const next = cloneElements(sorted);
-        return { elements: next, elementsById: buildElementsById(next), spatialVersion: state.spatialVersion + 1 };
+        const nextIds = new Set(next.map(element => element.id));
+        for (const id of state.elementsById.keys()) {
+          if (!nextIds.has(id)) invalidateElementCache(id);
+        }
+        return {
+          elements: next,
+          elementsById: buildElementsById(next),
+          spatialVersion: state.spatialVersion + 1,
+        };
       }
-      clearAllShapeCache();
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
       );
       const withIndexes = ensureFractionalIndexes(elements);
-      const sorted = sortByFractionalIndex(withIndexes);
+      const sorted = sortElementsByZIndex(withIndexes);
       const nextElements = cloneElements(sorted);
+      const nextIds = new Set(nextElements.map(element => element.id));
+      for (const id of state.elementsById.keys()) {
+        if (!nextIds.has(id)) invalidateElementCache(id);
+      }
       const historyPayload = commitPresentFromHistory(history.past, history.future);
       return {
         elements: nextElements,
@@ -89,9 +111,10 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         { past: state.past, future: state.future },
         state.elements
       );
-      const withIndex = element.fractionalIndex != null
-        ? element
-        : { ...element, fractionalIndex: generateFractionalIndexAfterAll(state.elements) };
+      const withIndex =
+        element.fractionalIndex != null
+          ? element
+          : { ...element, fractionalIndex: generateFractionalIndexAfterAll(state.elements) };
       const nextElements = sortedInsert(state.elements, withIndex);
       const nextMap = new Map(state.elementsById);
       nextMap.set(withIndex.id, withIndex);
@@ -115,14 +138,16 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         { past: state.past, future: state.future },
         state.elements
       );
-      let currentElements = state.elements;
+      let lastKey = state.elements[state.elements.length - 1]?.fractionalIndex ?? null;
+      const prepared = deduped.map(element => {
+        if (element.fractionalIndex != null) return element;
+        lastKey = generateKeyBetween(lastKey, null);
+        return { ...element, fractionalIndex: lastKey };
+      });
+      const currentElements = sortElementsByZIndex([...state.elements, ...prepared]);
       const nextMap = new Map(state.elementsById);
-      for (const el of deduped) {
-        const withIndex = el.fractionalIndex != null
-          ? el
-          : { ...el, fractionalIndex: generateFractionalIndexAfterAll(currentElements) };
-        currentElements = sortedInsert(currentElements, withIndex);
-        nextMap.set(withIndex.id, withIndex);
+      for (const element of prepared) {
+        nextMap.set(element.id, element);
       }
       const historyPayload = commitPresentFromHistory(history.past, history.future);
 
@@ -160,9 +185,25 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         if (pointsChanged) {
           const labelElement = state.elementsById.get(updated.labelId) as TextElement | undefined;
           if (labelElement) {
-            const repositioned = updateArrowLabelPosition(updated as LinearElement, labelElement);
-            if (repositioned !== labelElement) {
-              nextElements.push(repositioned);
+            const positionedLabel = updateArrowLabelPosition(
+              updated as LinearElement,
+              labelElement
+            );
+            if (positionedLabel !== labelElement) {
+              // Keep the label as a single scene element. Appending the
+              // repositioned label created a duplicate on every arrow move,
+              // while the id-to-element map silently contained only the last
+              // copy. Update the existing entry in both representations.
+              const repositioned = mutateElement(labelElement, {
+                x: positionedLabel.x,
+                y: positionedLabel.y,
+              });
+              const labelIndex = nextElements.findIndex(element => element.id === repositioned.id);
+              if (labelIndex === -1) {
+                nextElements.push(repositioned);
+              } else {
+                nextElements[labelIndex] = repositioned;
+              }
               nextMap.set(repositioned.id, repositioned);
             }
           }
@@ -190,13 +231,49 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       if (updated === previous) return state;
 
       const nextElements = state.elements.map(e => (e.id === id ? updated : e));
-      const nextMap = new Map(state.elementsById);
-      nextMap.set(id, updated);
+      // Transient gestures update the same map in place. The array identity
+      // still changes (and drives React/render invalidation), while avoiding a
+      // full O(n) Map clone for every pointer move.
+      state.elementsById.set(id, updated);
 
       return {
         elements: nextElements,
-        elementsById: nextMap,
+        elementsById: state.elementsById,
         spatialVersion: state.spatialVersion + 1,
+        spatialChangedIds: mergeTransientChangedIds(state, [id]),
+        spatialChangedIdsVersion: state.spatialVersion + 1,
+      };
+    }),
+
+  updateElementsTransient: updates =>
+    set(state => {
+      if (updates.size === 0) return state;
+
+      const nextElements = state.elements.slice();
+      const indexById = new Map(state.elements.map((element, index) => [element.id, index]));
+      let changed = false;
+
+      for (const [id, elementUpdates] of updates) {
+        const previous = state.elementsById.get(id);
+        const index = indexById.get(id);
+        if (!previous || index === undefined) continue;
+
+        const updated = mutateElement(previous, elementUpdates);
+        if (updated === previous) continue;
+
+        nextElements[index] = updated;
+        state.elementsById.set(id, updated);
+        changed = true;
+      }
+
+      if (!changed) return state;
+      const nextSpatialVersion = state.spatialVersion + 1;
+      return {
+        elements: nextElements,
+        elementsById: state.elementsById,
+        spatialVersion: nextSpatialVersion,
+        spatialChangedIds: mergeTransientChangedIds(state, updates.keys()),
+        spatialChangedIdsVersion: nextSpatialVersion,
       };
     }),
 
@@ -250,7 +327,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
     set(state => {
       if (ids.length === 0) return state;
       const selected = new Set(ids);
-      const sorted = sortByFractionalIndex(state.elements);
+      const sorted = sortElementsByZIndex(state.elements);
       const nextElements = sorted.map(el => ({ ...el }));
       let changed = false;
 
@@ -261,7 +338,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         if (selected.has(current.id) && !selected.has(above.id)) {
           const newIdx = generateKeyBetween(
             above.fractionalIndex ?? null,
-            (i + 2 < nextElements.length ? nextElements[i + 2]?.fractionalIndex : null) ?? null,
+            (i + 2 < nextElements.length ? nextElements[i + 2]?.fractionalIndex : null) ?? null
           );
           // Use mutateElement to bump version and invalidate caches
           const updated = mutateElement(current, { fractionalIndex: newIdx });
@@ -273,7 +350,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       }
       if (!changed) return state;
 
-      const reordered = sortByFractionalIndex(nextElements);
+      const reordered = sortElementsByZIndex(nextElements);
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
@@ -282,6 +359,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       return {
         elements: reordered,
         elementsById: buildElementsById(reordered),
+        spatialVersion: state.spatialVersion + 1,
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -291,7 +369,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
     set(state => {
       if (ids.length === 0) return state;
       const selected = new Set(ids);
-      const sorted = sortByFractionalIndex(state.elements);
+      const sorted = sortElementsByZIndex(state.elements);
       const nextElements = sorted.map(el => ({ ...el }));
       let changed = false;
 
@@ -302,7 +380,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         if (selected.has(current.id) && !selected.has(below.id)) {
           const newIdx = generateKeyBetween(
             (i - 2 >= 0 ? nextElements[i - 2]?.fractionalIndex : null) ?? null,
-            below.fractionalIndex ?? null,
+            below.fractionalIndex ?? null
           );
           // Use mutateElement to bump version and invalidate caches
           const updated = mutateElement(current, { fractionalIndex: newIdx });
@@ -314,7 +392,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       }
       if (!changed) return state;
 
-      const reordered = sortByFractionalIndex(nextElements);
+      const reordered = sortElementsByZIndex(nextElements);
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
@@ -323,6 +401,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       return {
         elements: reordered,
         elementsById: buildElementsById(reordered),
+        spatialVersion: state.spatialVersion + 1,
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -332,7 +411,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
     set(state => {
       if (ids.length === 0) return state;
       const selected = new Set(ids);
-      const sorted = sortByFractionalIndex(state.elements);
+      const sorted = sortElementsByZIndex(state.elements);
       const moving = sorted.filter(el => selected.has(el.id));
       if (moving.length === 0) return state;
 
@@ -346,7 +425,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         return { ...el };
       });
 
-      const reordered = sortByFractionalIndex(nextElements);
+      const reordered = sortElementsByZIndex(nextElements);
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
@@ -355,6 +434,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       return {
         elements: reordered,
         elementsById: buildElementsById(reordered),
+        spatialVersion: state.spatialVersion + 1,
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -364,7 +444,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
     set(state => {
       if (ids.length === 0) return state;
       const selected = new Set(ids);
-      const sorted = sortByFractionalIndex(state.elements);
+      const sorted = sortElementsByZIndex(state.elements);
       const moving = sorted.filter(el => selected.has(el.id));
       if (moving.length === 0) return state;
 
@@ -378,7 +458,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
         return { ...el };
       });
 
-      const reordered = sortByFractionalIndex(nextElements);
+      const reordered = sortElementsByZIndex(nextElements);
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },
         state.elements
@@ -387,6 +467,122 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
       return {
         elements: reordered,
         elementsById: buildElementsById(reordered),
+        spatialVersion: state.spatialVersion + 1,
+        past: historyPayload.past,
+        future: historyPayload.future,
+      };
+    }),
+
+  alignElements: mode =>
+    set(state => {
+      const selected = new Set(state.selectedIds);
+      const selectedElements = state.elements.filter(element => selected.has(element.id));
+      if (selectedElements.length < 2) return state;
+
+      const bounds = selectedElements.map(element => ({
+        element,
+        bounds: getElementBounds(element),
+      }));
+      const minX = Math.min(...bounds.map(item => item.bounds.x));
+      const minY = Math.min(...bounds.map(item => item.bounds.y));
+      const maxX = Math.max(...bounds.map(item => item.bounds.x + item.bounds.width));
+      const maxY = Math.max(...bounds.map(item => item.bounds.y + item.bounds.height));
+      const nextById = new Map<string, DriplElement>();
+      let changed = false;
+
+      for (const { element, bounds: elementBounds } of bounds) {
+        let deltaX = 0;
+        let deltaY = 0;
+        if (mode === 'left') deltaX = minX - elementBounds.x;
+        if (mode === 'center') {
+          deltaX = (minX + maxX) / 2 - (elementBounds.x + elementBounds.width / 2);
+        }
+        if (mode === 'right') deltaX = maxX - (elementBounds.x + elementBounds.width);
+        if (mode === 'top') deltaY = minY - elementBounds.y;
+        if (mode === 'middle') {
+          deltaY = (minY + maxY) / 2 - (elementBounds.y + elementBounds.height / 2);
+        }
+        if (mode === 'bottom') deltaY = maxY - (elementBounds.y + elementBounds.height);
+        if (deltaX === 0 && deltaY === 0) {
+          nextById.set(element.id, element);
+          continue;
+        }
+        const updated = mutateElement(element, { x: element.x + deltaX, y: element.y + deltaY });
+        nextById.set(element.id, updated);
+        changed ||= updated !== element;
+      }
+
+      if (!changed) return state;
+      const nextElements = state.elements.map(element => nextById.get(element.id) ?? element);
+      const history = withHistoryBeforeMutation(
+        { past: state.past, future: state.future },
+        state.elements
+      );
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
+      return {
+        elements: nextElements,
+        elementsById: buildElementsById(nextElements),
+        spatialVersion: state.spatialVersion + 1,
+        past: historyPayload.past,
+        future: historyPayload.future,
+      };
+    }),
+
+  distributeElements: axis =>
+    set(state => {
+      const selected = new Set(state.selectedIds);
+      const selectedElements = state.elements.filter(element => selected.has(element.id));
+      if (selectedElements.length < 3) return state;
+
+      const ordered = selectedElements
+        .map(element => ({ element, bounds: getElementBounds(element) }))
+        .sort((a, b) =>
+          axis === 'horizontal' ? a.bounds.x - b.bounds.x : a.bounds.y - b.bounds.y
+        );
+      const first = ordered[0]!.bounds;
+      const last = ordered[ordered.length - 1]!.bounds;
+      const totalSize = ordered.reduce(
+        (sum, item) => sum + item.bounds.width + item.bounds.height,
+        0
+      );
+      const outerSpan =
+        axis === 'horizontal' ? last.x + last.width - first.x : last.y + last.height - first.y;
+      const totalPrimarySize = ordered.reduce(
+        (sum, item) => sum + (axis === 'horizontal' ? item.bounds.width : item.bounds.height),
+        0
+      );
+      const gap = (outerSpan - totalPrimarySize) / (ordered.length - 1);
+      const nextById = new Map<string, DriplElement>();
+      let cursor = axis === 'horizontal' ? first.x : first.y;
+      let changed = false;
+
+      for (const item of ordered) {
+        const current = axis === 'horizontal' ? item.bounds.x : item.bounds.y;
+        const delta = cursor - current;
+        if (delta === 0) {
+          nextById.set(item.element.id, item.element);
+        } else {
+          const updated = mutateElement(
+            item.element,
+            axis === 'horizontal' ? { x: item.element.x + delta } : { y: item.element.y + delta }
+          );
+          nextById.set(item.element.id, updated);
+          changed ||= updated !== item.element;
+        }
+        cursor += (axis === 'horizontal' ? item.bounds.width : item.bounds.height) + gap;
+      }
+
+      if (!changed || !Number.isFinite(totalSize) || !Number.isFinite(gap)) return state;
+      const nextElements = state.elements.map(element => nextById.get(element.id) ?? element);
+      const history = withHistoryBeforeMutation(
+        { past: state.past, future: state.future },
+        state.elements
+      );
+      const historyPayload = commitPresentFromHistory(history.past, history.future);
+      return {
+        elements: nextElements,
+        elementsById: buildElementsById(nextElements),
+        spatialVersion: state.spatialVersion + 1,
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -448,7 +644,7 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
     };
     clearShapeFromCache(committed);
     invalidateElementCache(committed.id);
-    const elements = sortByFractionalIndex([...state.elements, committed]);
+    const elements = sortElementsByZIndex([...state.elements, committed]);
     const historyPayload = commitPresentFromHistory(history.past, history.future);
 
     set({
@@ -581,7 +777,10 @@ export const createCanvasSlice: StateCreator<CanvasStoreState, [], [], CanvasSli
 
       const nextElements = state.elements.map(element => {
         if (ids.includes(element.id) && element.groupId) {
+          /* eslint-disable @typescript-eslint/no-unused-vars -- groupId is
+             destructured out to ungroup the element */
           const { groupId, ...rest } = element;
+          /* eslint-enable @typescript-eslint/no-unused-vars */
           const updated = {
             ...rest,
             version: (rest.version ?? 0) + 1,

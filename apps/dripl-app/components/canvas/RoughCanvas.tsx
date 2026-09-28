@@ -4,21 +4,19 @@ import { useRef, useEffect, useState, useCallback, useMemo, lazy, Suspense } fro
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/store';
 import { useCollaboration } from '@/hooks/useCollaboration';
-import { useCanvasWorker } from '@/hooks/useCanvasWorker';
 import {
   getElementBounds,
-  isPointInElement,
   isPointNearElement,
   shouldTestInside,
   isPointOnElementOutline,
 } from '@dripl/math/intersection';
 import { type DriplElement } from '@dripl/common';
+import { shouldAcceptElement } from '@dripl/common/reconciliation';
 import { collectCascadeDeleteIds } from '@dripl/common/cascade-delete';
 import { getOrCreateCollaboratorName } from '@/utils/username';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
 import { useAuth } from '@/app/context/AuthContext';
-import RBush from 'rbush';
-import { SelectionOverlay, MemoizedSelectionOverlay, ResizeHandle } from './SelectionOverlay';
+import { MemoizedSelectionOverlay, ResizeHandle } from './SelectionOverlay';
 import { MemoizedRemoteCursors } from './RemoteCursors';
 import { LaserCanvas } from './LaserCanvas';
 import DualCanvas from './DualCanvas';
@@ -27,6 +25,7 @@ import { useDrawingTools } from '@/hooks/useDrawingTools';
 import { useCanvasPersistence } from '@/hooks/canvas/useCanvasPersistence';
 import { perfMark, perfMeasure } from '@/utils/performance';
 import { useCanvasViewport } from '@/hooks/canvas/useCanvasViewport';
+import { useSpatialIndex } from '@/hooks/canvas/useSpatialIndex';
 import { useCanvasClipboard } from '@/hooks/canvas/useCanvasClipboard';
 import { useCanvasPointerEvents } from '@/hooks/canvas/useCanvasPointerEvents';
 import { useCanvasKeyboard } from '@/hooks/canvas/useCanvasKeyboard';
@@ -51,23 +50,10 @@ interface Point {
 interface CanvasProps {
   roomSlug: string | null;
   theme: 'light' | 'dark';
+  shareToken?: string | null;
 }
 
-interface SpatialItem {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-  id: string;
-}
-
-interface SpatialIndexState {
-  tree: RBush<SpatialItem>;
-  byId: Map<string, DriplElement>;
-  elementIds: Set<string>;
-}
-
-export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
+export default function RoughCanvas({ roomSlug, theme, shareToken = null }: CanvasProps) {
   perfMark('RoughCanvas:render:start');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerReady, setContainerReady] = useState(false);
@@ -113,9 +99,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const isDrawing = useCanvasStore(s => s.isDrawing);
   const isDrawingRef = useRef(false);
   const isDragging = useCanvasStore(s => s.isDragging);
-  const isPanning = useCanvasStore(s => s.isPanning);
   const isResizing = useCanvasStore(s => s.isResizing);
-  const isRotating = useCanvasStore(s => s.isRotating);
   const textInput = useCanvasStore(s => s.textInput);
   const eraserPath = useCanvasStore(state => state.eraserPath);
   const cursorPosition = useCanvasStore(state => state.cursorPosition);
@@ -142,15 +126,12 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const toolLocked = useCanvasStore(state => state.toolLocked);
   const selectedIds = useCanvasStore(useShallow(state => state.selectedIds));
   const currentStrokeColor = useCanvasStore(state => state.currentStrokeColor);
-  const currentStrokeWidth = useCanvasStore(state => state.currentStrokeWidth);
-  const currentRoughness = useCanvasStore(state => state.currentRoughness);
-  const currentBackgroundColor = useCanvasStore(state => state.currentBackgroundColor);
-  const currentStrokeStyle = useCanvasStore(state => state.currentStrokeStyle);
-  const currentFillStyle = useCanvasStore(state => state.currentFillStyle);
   const readOnly = useCanvasStore(state => state.readOnly);
+  useEffect(() => {
+    if (readOnly) setContextMenuState(null);
+  }, [readOnly]);
   const gridEnabled = useCanvasStore(state => state.gridEnabled);
   const gridSize = useCanvasStore(state => state.gridSize);
-  const marqueeSelectionMode = useCanvasStore(state => state.marqueeSelectionMode);
   const elementLocks = useCanvasStore(state => state.elementLocks);
   const userId = useCanvasStore(state => state.userId);
   const shouldCacheIgnoreZoom = useCanvasStore(state => state.shouldCacheIgnoreZoom);
@@ -159,59 +140,79 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const addElement = useCanvasStore(state => state.addElement);
   const updateElement = useCanvasStore(state => state.updateElement);
   const updateElementTransient = useCanvasStore(state => state.updateElementTransient);
+  const updateElementsTransient = useCanvasStore(state => state.updateElementsTransient);
   const deleteElements = useCanvasStore(state => state.deleteElements);
   const setSelectedIds = useCanvasStore(state => state.setSelectedIds);
   const clearSelection = useCanvasStore(state => state.clearSelection);
   const setEditingElementId = useCanvasStore(state => state.setEditingElementId);
   const setActiveTool = useCanvasStore(state => state.setActiveTool);
-  const setGridEnabled = useCanvasStore(state => state.setGridEnabled);
-  const bringForward = useCanvasStore(state => state.bringForward);
-  const sendBackward = useCanvasStore(state => state.sendBackward);
   const bringToFront = useCanvasStore(state => state.bringToFront);
   const sendToBack = useCanvasStore(state => state.sendToBack);
-  const undo = useCanvasStore(state => state.undo);
-  const redo = useCanvasStore(state => state.redo);
   const pushHistory = useCanvasStore(state => state.pushHistory);
-  const groupElements = useCanvasStore(state => state.groupElements);
-  const ungroupElements = useCanvasStore(state => state.ungroupElements);
 
   const zoom = useCanvasStore(state => state.zoom);
   const panX = useCanvasStore(state => state.panX);
   const panY = useCanvasStore(state => state.panY);
-  const setPan = useCanvasStore(state => state.setPan);
-  const setZoom = useCanvasStore(state => state.setZoom);
 
   const suppressRemoteBroadcastRef = useRef(false);
-  const prevElementsRef = useRef<DriplElement[]>([]);
-  const { collaborators, broadcastElements, broadcastCursor, lockElement, unlockElement } =
-    useCollaboration(roomSlug, {
-      displayName: userName,
-      onFullSync: elements => {
+  const hasReceivedInitialSyncRef = useRef(false);
+  useEffect(() => {
+    hasReceivedInitialSyncRef.current = false;
+    suppressRemoteBroadcastRef.current = false;
+  }, [roomSlug, shareToken]);
+  const {
+    collaborators,
+    broadcastElements,
+    broadcastCursor,
+    lockElement,
+    unlockElement,
+    isConnected,
+    connectionMessage,
+  } = useCollaboration(roomSlug, {
+    displayName: userName,
+    shareToken,
+    onFullSync: elements => {
+      hasReceivedInitialSyncRef.current = true;
+      suppressRemoteBroadcastRef.current = true;
+      setElements(elements, { skipHistory: true });
+    },
+    onRemoteElements: (added, updated, deleted) => {
+      const state = useCanvasStore.getState();
+      const nextById = new Map(state.elementsById);
+      const draftId = state.draftElement?.id;
+      let changed = false;
+      const isLocallyEditing = (id: string) =>
+        activeGestureLocksRef.current.has(id) || id === draftId;
+
+      for (const el of added) {
+        if (isLocallyEditing(el.id)) continue;
+        const current = nextById.get(el.id);
+        if (!current || shouldAcceptElement(el, current)) {
+          nextById.set(el.id, el);
+          changed = true;
+        }
+      }
+      for (const el of updated) {
+        if (isLocallyEditing(el.id)) continue;
+        const current = nextById.get(el.id);
+        if (!current || shouldAcceptElement(el, current)) {
+          nextById.set(el.id, el);
+          changed = true;
+        }
+      }
+      if (deleted.length > 0) {
+        const deletedSet = new Set(deleted);
+        for (const id of deletedSet) {
+          if (isLocallyEditing(id)) continue;
+          if (nextById.delete(id)) changed = true;
+        }
+      }
+      if (changed) {
         suppressRemoteBroadcastRef.current = true;
-        setElements(elements, { skipHistory: true });
-      },
-      onRemoteElements: (added, updated, deleted) => {
-        suppressRemoteBroadcastRef.current = true;
-        const state = useCanvasStore.getState();
-        let nextElements = [...state.elements];
-        for (const el of added) {
-          if (!nextElements.some(e => e.id === el.id)) {
-            nextElements.push(el);
-          }
-        }
-        for (const el of updated) {
-          const idx = nextElements.findIndex(e => e.id === el.id);
-          if (idx !== -1) {
-            nextElements[idx] = el;
-          }
-        }
-        if (deleted.length > 0) {
-          const deletedSet = new Set(deleted);
-          nextElements = nextElements.filter(e => !deletedSet.has(e.id));
-        }
-        state.setElements(nextElements, { skipHistory: true });
-      },
-    });
+        state.setElements(Array.from(nextById.values()), { skipHistory: true });
+      }
+    },
+  });
 
   const lockElementsForGesture = useCallback(
     (ids: Iterable<string>) => {
@@ -234,16 +235,22 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     if (!roomSlug) return;
     if (suppressRemoteBroadcastRef.current) {
       suppressRemoteBroadcastRef.current = false;
-      prevElementsRef.current = [...elements];
       return;
     }
-    const prev = prevElementsRef.current;
-    prevElementsRef.current = [...elements];
-    broadcastElements(prev, elements);
+    broadcastElements(elements);
   }, [broadcastElements, elements, roomSlug]);
 
+  useEffect(() => {
+    if (roomSlug && !hasReceivedInitialSyncRef.current) {
+      // Do not let a room page create local edits before the authenticated
+      // initial sync. Once sync has arrived, the server's readOnly flag owns
+      // the state and offline edits remain queueable.
+      useCanvasStore.getState().setReadOnly(true);
+    }
+  }, [isConnected, roomSlug, shareToken]);
+
   // ── Persist local canvas ─────────────────────────────────────────────────
-  useCanvasPersistence({ roomSlug, theme, isDrawingRef });
+  useCanvasPersistence({ roomSlug, theme, isDrawingRef, readOnly });
 
   useEffect(() => {
     const stored = getOrCreateCollaboratorName();
@@ -285,129 +292,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const { duplicateSelection, copySelectedToClipboard, pasteFromClipboard, findOnCanvas } =
     useCanvasClipboard();
 
-  // ── Spatial index (worker-accelerated rebuild) ──────────────────────────────
-  const spatialIndexRef = useRef<SpatialIndexState>({
-    tree: new RBush<SpatialItem>(),
-    byId: new Map<string, DriplElement>(),
-    elementIds: new Set<string>(),
-  });
-
-  const spatialVersion = useCanvasStore(s => s.spatialVersion);
-  const { buildIndex, isReady: workerReady } = useCanvasWorker();
-  const workerBusyRef = useRef(false);
-
-  // Worker-based spatial index rebuild — offloads getElementBounds + tree construction
-  useEffect(() => {
-    if (!workerReady) return;
-
-    // Debounce: skip if previous worker build still in progress
-    if (workerBusyRef.current) return;
-    workerBusyRef.current = true;
-
-    buildIndex(elements)
-      .then(() => {
-        workerBusyRef.current = false;
-      })
-      .catch(() => {
-        workerBusyRef.current = false;
-      });
-  }, [elements, workerReady, buildIndex]);
-
-  // Synchronous local RBush for hit testing (loaded from worker result)
-  // Synchronous fallback: returns last committed index.
-  // Safe because stale worker responses are rejected by generation check.
-  const spatialIndex = useMemo<SpatialIndexState>(() => {
-    const prev = spatialIndexRef.current;
-
-    const prevIds = prev.elementIds;
-    const currentIds = new Set(elements.map(e => e.id));
-
-    const added = elements.filter(e => !prevIds.has(e.id));
-    const removed = [...prevIds].filter(id => !currentIds.has(id));
-    const updated = elements.filter(e => {
-      if (!prevIds.has(e.id)) return false;
-      const prevEl = prev.byId.get(e.id);
-      if (!prevEl) return true;
-      return (
-        prevEl.x !== e.x ||
-        prevEl.y !== e.y ||
-        prevEl.width !== e.width ||
-        prevEl.height !== e.height ||
-        prevEl.angle !== e.angle
-      );
-    });
-
-    if (added.length + removed.length + updated.length > elements.length * 0.4) {
-      const tree = new RBush<SpatialItem>();
-      const byId = new Map<string, DriplElement>();
-      const elementIds = new Set<string>();
-      elements.forEach(element => {
-        const bounds = getElementBounds(element);
-        tree.insert({
-          minX: bounds.x,
-          minY: bounds.y,
-          maxX: bounds.x + bounds.width,
-          maxY: bounds.y + bounds.height,
-          id: element.id,
-        });
-        byId.set(element.id, element);
-        elementIds.add(element.id);
-      });
-      spatialIndexRef.current = { tree, byId, elementIds };
-    } else {
-      for (const id of removed) {
-        const prevEl = prev.byId.get(id);
-        if (prevEl) {
-          const bounds = getElementBounds(prevEl);
-          prev.tree.remove({
-            minX: bounds.x,
-            minY: bounds.y,
-            maxX: bounds.x + bounds.width,
-            maxY: bounds.y + bounds.height,
-            id,
-          });
-          prev.byId.delete(id);
-          prevIds.delete(id);
-        }
-      }
-      for (const el of added) {
-        const bounds = getElementBounds(el);
-        prev.tree.insert({
-          minX: bounds.x,
-          minY: bounds.y,
-          maxX: bounds.x + bounds.width,
-          maxY: bounds.y + bounds.height,
-          id: el.id,
-        });
-        prev.byId.set(el.id, el);
-        prevIds.add(el.id);
-      }
-      for (const el of updated) {
-        const prevEl = prev.byId.get(el.id);
-        if (prevEl) {
-          const prevBounds = getElementBounds(prevEl);
-          prev.tree.remove({
-            minX: prevBounds.x,
-            minY: prevBounds.y,
-            maxX: prevBounds.x + prevBounds.width,
-            maxY: prevBounds.y + prevBounds.height,
-            id: el.id,
-          });
-        }
-        const bounds = getElementBounds(el);
-        prev.tree.insert({
-          minX: bounds.x,
-          minY: bounds.y,
-          maxX: bounds.x + bounds.width,
-          maxY: bounds.y + bounds.height,
-          id: el.id,
-        });
-        prev.byId.set(el.id, el);
-      }
-    }
-
-    return spatialIndexRef.current;
-  }, [spatialVersion, elements]);
+  const { spatialIndex, visibleElements } = useSpatialIndex(elements, viewport);
 
   // ── Coordinate helpers ────────────────────────────────────────────────────
   const getCanvasCoordinates = useCallback(
@@ -438,22 +323,28 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     [gridEnabled, gridSize]
   );
 
+  const getOrderedSpatialCandidates = useCallback(
+    (bounds: { minX: number; minY: number; maxX: number; maxY: number }): DriplElement[] =>
+      spatialIndex.tree
+        .search(bounds)
+        .sort((a, b) => (spatialIndex.order.get(b.id) ?? 0) - (spatialIndex.order.get(a.id) ?? 0))
+        .map(candidate => spatialIndex.byId.get(candidate.id))
+        .filter((element): element is DriplElement => Boolean(element && !element.isDeleted)),
+    [spatialIndex]
+  );
+
   const getElementAtPosition = useCallback(
     (x: number, y: number): DriplElement | null => {
       const state = useCanvasStore.getState();
-      // Zoom-aware hit threshold: wider tolerance at low zoom, narrower at high zoom (TODO #34)
+      // Zoom-aware hit threshold: wider tolerance at low zoom, narrower at high zoom
       const hitThreshold = Math.max(2, 8 / state.zoom);
-      const candidates = spatialIndex.tree.search({
+      const candidates = getOrderedSpatialCandidates({
         minX: x - hitThreshold,
         minY: y - hitThreshold,
         maxX: x + hitThreshold,
         maxY: y + hitThreshold,
       });
-      const candidateIds = new Set(candidates.map(candidate => candidate.id));
-      for (let i = state.elements.length - 1; i >= 0; i -= 1) {
-        const element = state.elements[i];
-        if (!element) continue;
-        if (!candidateIds.has(element.id)) continue;
+      for (const element of candidates) {
         // Skip elements locked by other users (collaborative locks)
         if (
           state.elementLocks.has(element.id) &&
@@ -475,7 +366,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
             ('boundElementId' in element ? element.boundElementId : undefined) ??
             ('containerId' in element ? element.containerId : undefined);
           if (containerId) {
-            const container = state.elements.find(candidate => candidate.id === containerId);
+            const container = state.elementsById.get(containerId);
             if (
               container &&
               !container.locked &&
@@ -490,29 +381,25 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       }
       return null;
     },
-    [isPointNearElement, spatialIndex.tree]
+    [getOrderedSpatialCandidates, isPointNearElement]
   );
 
   /**
-   * Returns ALL elements at a given point, ordered from lowest to highest z-index.
+   * Returns ALL elements at a given point, ordered from highest to lowest z-index.
    * Used for overlap resolution (preferSelected, bounding-box tiebreak).
    */
   const getElementsAtPosition = useCallback(
     (x: number, y: number): DriplElement[] => {
       const state = useCanvasStore.getState();
       const hitThreshold = Math.max(2, 8 / state.zoom);
-      const candidates = spatialIndex.tree.search({
+      const candidates = getOrderedSpatialCandidates({
         minX: x - hitThreshold,
         minY: y - hitThreshold,
         maxX: x + hitThreshold,
         maxY: y + hitThreshold,
       });
-      const candidateIds = new Set(candidates.map(candidate => candidate.id));
       const hits: DriplElement[] = [];
-      for (let i = state.elements.length - 1; i >= 0; i -= 1) {
-        const element = state.elements[i];
-        if (!element) continue;
-        if (!candidateIds.has(element.id)) continue;
+      for (const element of candidates) {
         if (
           state.elementLocks.has(element.id) &&
           state.elementLocks.get(element.id) !== state.userId
@@ -533,7 +420,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       }
       return hits;
     },
-    [isPointNearElement, spatialIndex.tree]
+    [getOrderedSpatialCandidates, isPointNearElement]
   );
 
   const collectCascadeDeleteIdsCallback = useCallback(
@@ -554,7 +441,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
 
   const applyFrameGrouping = useCallback(
     (frameElement: DriplElement) => {
-      if (frameElement.type !== 'frame') return;
+      if (readOnly || frameElement.type !== 'frame') return;
 
       const state = useCanvasStore.getState();
       const frameBounds = getElementBounds(frameElement);
@@ -587,17 +474,15 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       state.setElements(nextElements);
       setSelectedIds(new Set([frameElement.id, ...groupedIds]));
     },
-    [setSelectedIds]
+    [readOnly, setSelectedIds]
   );
 
   // ── Pointer events hook ──────────────────────────────────────────────────
   const {
     interactionRef,
     lastToolBeforeSpaceRef,
-    eraserHitIdsRef,
     hoveredBindingId,
     startPointBindingId,
-    bindMode,
     handleDragOver,
     handleDrop: hookHandleDrop,
     handlePointerDown,
@@ -612,6 +497,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     getElementAtPosition,
     getElementsAtPosition,
     updateElementTransient,
+    updateElementsTransient,
     updateElement,
     pushHistory,
     lockElementsForGesture,
@@ -634,6 +520,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   const handleResizeStart = useCallback(
     (handle: ResizeHandle, e: React.PointerEvent) => {
       e.stopPropagation();
+      if (readOnly) return;
       const state = useCanvasStore.getState();
       const selectedIdsArray = Array.from(state.selectedIds);
       if (selectedIdsArray.length !== 1) return;
@@ -665,13 +552,14 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       ) as HTMLCanvasElement | null;
       if (canvas) canvas.setPointerCapture(e.pointerId);
     },
-    [getCanvasCoordinates, lockElementsForGesture, setEditingElementId]
+    [getCanvasCoordinates, lockElementsForGesture, readOnly, setEditingElementId]
   );
 
   // ── Rotate start ──────────────────────────────────────────────────────────
   const handleRotateStart = useCallback(
     (e: React.PointerEvent) => {
       e.stopPropagation();
+      if (readOnly) return;
       const state = useCanvasStore.getState();
       const selectedIdsArray = Array.from(state.selectedIds);
       if (selectedIdsArray.length !== 1) return;
@@ -697,7 +585,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
       ) as HTMLCanvasElement | null;
       if (canvas) canvas.setPointerCapture(e.pointerId);
     },
-    [lockElementsForGesture, setEditingElementId]
+    [lockElementsForGesture, readOnly, setEditingElementId]
   );
 
   useEffect(() => {
@@ -707,6 +595,10 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   }, [unlockGestureElements]);
 
   const handleTextSubmit = (text: string) => {
+    if (readOnly) {
+      useCanvasStore.getState().setTextInput(null);
+      return;
+    }
     if (!textInput || !text.trim()) {
       useCanvasStore.getState().setTextInput(null);
       if (activeTool === 'text') {
@@ -794,7 +686,6 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
     lastToolBeforeSpaceRef,
     activeTool,
     readOnly,
-    elements,
     setTextInput: useCanvasStore.getState().setTextInput as (
       state: { x: number; y: number; id: string; value?: string; existingElementId?: string } | null
     ) => void,
@@ -809,7 +700,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   });
 
   // ── Mouse wheel zoom & momentum ───────────────────────────────────────
-  const { stopMomentum } = useCanvasWheel({ containerRef, containerReady });
+  useCanvasWheel({ containerRef, containerReady });
 
   const collaboratorCursors = collaborators;
   const shouldShowPropertiesPanel = activeTool === 'select' && selectedIds.size > 0; // RULE: Sidebar Visibility
@@ -825,16 +716,35 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
   return (
     <div
       ref={setContainerRef}
-      className="relative w-full h-full"
+      className="canvas-surface relative w-full h-full"
+      role="application"
+      aria-label="Dripl drawing canvas"
+      aria-describedby="dripl-canvas-instructions"
+      tabIndex={0}
       onDragOver={handleDragOver}
       onDrop={hookHandleDrop}
       onContextMenu={openContextMenu}
       style={{ backgroundColor: 'var(--color-canvas-bg)' }}
     >
+      <p id="dripl-canvas-instructions" className="sr-only">
+        Drawing canvas. Choose a tool from the toolbar. Press V for selection, R for a rectangle, or
+        H for the hand tool. Hold Space to pan temporarily and press Escape to cancel the current
+        gesture.
+      </p>
+      {roomSlug && (!isConnected || connectionMessage !== 'Connected' || readOnly) && (
+        <div
+          className="pointer-events-none absolute left-1/2 top-16 z-30 -translate-x-1/2 rounded-full border border-[#D4D0C9] bg-white/95 px-3 py-1.5 text-xs text-[#6B6860] shadow"
+          role="status"
+          aria-live="polite"
+        >
+          {readOnly ? 'View only' : connectionMessage}
+        </div>
+      )}
       {containerReady && (
         <DualCanvas
           containerRef={containerRef as React.RefObject<HTMLDivElement>}
           elements={elements}
+          visibleElements={visibleElements}
           selectedIds={selectedIds}
           draftElement={draftElement}
           eraserPath={eraserPath}
@@ -856,6 +766,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
           hoveredBindingId={hoveredBindingId}
           startPointBindingId={startPointBindingId}
           shouldCacheIgnoreZoom={shouldCacheIgnoreZoom}
+          preservePointerSamples={activeTool === 'freedraw' || activeTool === 'eraser'}
         />
       )}
 
@@ -888,7 +799,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         </Suspense>
       )}
 
-      {shouldShowPropertiesPanel && (
+      {shouldShowPropertiesPanel && !readOnly && (
         <div className="absolute top-20 left-4 z-20">
           <Suspense fallback={null}>
             <PropertiesPanel
@@ -898,12 +809,20 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
                   updateElement(updatedElement.id, updatedElement);
                 }
               }}
+              onDuplicateElement={duplicateSelection}
+              onDeleteElement={() => {
+                const ids = collectCascadeDeleteIdsCallback(
+                  Array.from(useCanvasStore.getState().selectedIds)
+                );
+                deleteElements(ids);
+                clearSelection();
+              }}
             />
           </Suspense>
         </div>
       )}
 
-      {textInput && (
+      {textInput && !readOnly && (
         <textarea
           ref={el => el?.focus()}
           defaultValue={textInput.value ?? ''}
@@ -951,7 +870,7 @@ export default function RoughCanvas({ roomSlug, theme }: CanvasProps) {
         />
       )}
 
-      {contextMenuState && (
+      {contextMenuState && !readOnly && (
         <Suspense fallback={null}>
           <ContextMenu
             x={contextMenuState.x}

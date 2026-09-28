@@ -14,6 +14,8 @@ import { useCanvasStore } from '@/lib/store';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { saveLocalCanvasToStorage, type LocalCanvasState } from '@/utils/localCanvasStorage';
+import { DriplElementSchema, MAX_SCENE_ELEMENTS, type DriplElement } from '@dripl/common';
+import { z } from 'zod';
 import { LoadingState, WarningBanner, ErrorState } from '@/components/ui/ErrorState';
 
 const CommandPalette = dynamic(
@@ -147,23 +149,6 @@ function CanvasContent() {
           />
         </div>
       )}
-      {snapshotError && (
-        <div className="absolute inset-0 z-220 flex items-center justify-center bg-black/30">
-          <div className="w-full max-w-md rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] p-5">
-            <p className="text-[14px] font-medium text-[#1A1917]">{snapshotError}</p>
-            <button
-              type="button"
-              className="mt-4 rounded-md bg-[#E8462A] px-4 py-2 text-[13px] text-white"
-              onClick={() => {
-                setSnapshotError(null);
-                router.replace('/canvas');
-              }}
-            >
-              Go to canvas
-            </button>
-          </div>
-        </div>
-      )}
       {snapshotPayload && (
         <div className="absolute inset-0 z-220 flex items-center justify-center bg-black/30">
           <div className="w-full max-w-md rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] p-5">
@@ -177,7 +162,10 @@ function CanvasContent() {
                 className="rounded-md bg-[#E8462A] px-4 py-2 text-[13px] text-white"
                 onClick={() => {
                   try {
-                    const parsed = JSON.parse(snapshotPayload) as unknown[];
+                    const parsed = z
+                      .array(DriplElementSchema)
+                      .max(MAX_SCENE_ELEMENTS)
+                      .parse(JSON.parse(snapshotPayload)) as DriplElement[];
                     const state = useCanvasStore.getState();
                     const appState: LocalCanvasState = {
                       theme: effectiveTheme === 'dark' ? 'dark' : 'light',
@@ -192,9 +180,9 @@ function CanvasContent() {
                       currentFillStyle: state.currentFillStyle,
                       activeTool: state.activeTool,
                     };
-                    setElements(parsed as never[], { skipHistory: true });
+                    setElements(parsed, { skipHistory: true });
                     setSelectedIds(new Set<string>());
-                    saveLocalCanvasToStorage(parsed as never[], appState);
+                    saveLocalCanvasToStorage(parsed, appState);
                   } catch {
                     setSnapshotError('This shared canvas link is invalid or has expired.');
                   } finally {
@@ -209,9 +197,9 @@ function CanvasContent() {
                 type="button"
                 className="rounded-md border border-[#D4D0C9] px-4 py-2 text-[13px] text-[#1A1917]"
                 onClick={() => {
+                  // Cancel only dismisses the capability prompt; the current
+                  // local scene and its persistence state must remain intact.
                   setSnapshotPayload(null);
-                  setElements([], { skipHistory: true });
-                  setSelectedIds(new Set<string>());
                   router.replace('/canvas');
                 }}
               >
@@ -226,7 +214,7 @@ function CanvasContent() {
       </CanvasErrorBoundary>
       <CanvasBootstrap mode="local" theme={effectiveTheme} />
 
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
+      <div className="absolute left-1/2 top-16 z-30 -translate-x-1/2 sm:top-4">
         <CanvasErrorBoundary name="CanvasToolbar">
           <CanvasToolbar />
         </CanvasErrorBoundary>
@@ -258,14 +246,14 @@ function CanvasContent() {
         >
           <HelpCircle className="size-5" />
         </button>
-        <button
-          type="button"
+        <span
           className="canvas-chrome-btn size-10"
           aria-label="Verification status"
           title="Verified"
+          role="status"
         >
           <ShieldCheck className="size-5" />
-        </button>
+        </span>
       </div>
 
       <CanvasErrorBoundary name="CommandPalette">

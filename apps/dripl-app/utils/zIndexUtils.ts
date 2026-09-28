@@ -1,27 +1,17 @@
 import type { DriplElement } from '@dripl/common';
+import { compareFractionalIndex } from '@dripl/common/reconciliation';
 import { generateKeyBetween } from 'fractional-indexing';
 
 /**
  * Sort elements by fractional index (ascending = back-to-front)
  */
 export function sortElementsByZIndex(elements: DriplElement[]): DriplElement[] {
-  return [...elements].sort((a, b) => {
-    const ai = a.fractionalIndex ?? '';
-    const bi = b.fractionalIndex ?? '';
-    if (ai === bi) return 0;
-    if (ai === '') return -1;
-    if (bi === '') return 1;
-    return ai < bi ? -1 : ai > bi ? 1 : 0;
-  });
+  return [...elements].sort((a, b) => compareFractionalIndex(a.fractionalIndex, b.fractionalIndex));
 }
 
 /**
  * Sort elements by fractional index (descending = front-to-back)
  */
-export function sortElementsByZIndexDescending(elements: DriplElement[]): DriplElement[] {
-  return sortElementsByZIndex(elements).reverse();
-}
-
 /**
  * Bring an element to the front (highest fractional index)
  */
@@ -59,7 +49,7 @@ export function bringForward(element: DriplElement, elements: DriplElement[]): D
 
   const newIdx = generateKeyBetween(
     nextElement.fractionalIndex ?? null,
-    afterNext?.fractionalIndex ?? null,
+    afterNext?.fractionalIndex ?? null
   );
   return { ...element, fractionalIndex: newIdx };
 }
@@ -81,35 +71,7 @@ export function sendBackward(element: DriplElement, elements: DriplElement[]): D
 
   const newIdx = generateKeyBetween(
     beforePrev?.fractionalIndex ?? null,
-    prevElement.fractionalIndex ?? null,
+    prevElement.fractionalIndex ?? null
   );
   return { ...element, fractionalIndex: newIdx };
-}
-
-/**
- * Get z-index range of selected elements (by fractional index position)
- */
-export function getZIndexRange(selectedElements: DriplElement[]): {
-  min: number;
-  max: number;
-} {
-  const sorted = sortElementsByZIndex(selectedElements);
-  return {
-    min: 0,
-    max: sorted.length - 1,
-  };
-}
-
-/**
- * Normalize fractional index values to eliminate gaps
- */
-export function normalizeZIndices(elements: DriplElement[]): DriplElement[] {
-  const sorted = sortElementsByZIndex(elements);
-  return sorted.map((element, index) => ({
-    ...element,
-    fractionalIndex: generateKeyBetween(
-      index === 0 ? null : sorted[index - 1]?.fractionalIndex ?? null,
-      null,
-    ),
-  }));
 }

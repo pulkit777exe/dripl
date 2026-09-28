@@ -7,7 +7,6 @@ import {
   sendToBack,
   bringForward,
   sendBackward,
-  normalizeZIndices,
 } from '../../utils/zIndexUtils';
 
 function el(id: string, fractionalIndex?: string): DriplElement {
@@ -36,11 +35,7 @@ describe('fractional index sorting', () => {
     const i0 = indexes[0]!;
     const i1 = indexes[1]!;
     const i2 = indexes[2]!;
-    const elements = [
-      el('c', i2),
-      el('a', i0),
-      el('b', i1),
-    ];
+    const elements = [el('c', i2), el('a', i0), el('b', i1)];
     const sorted = sortElementsByZIndex(elements);
     expect(sorted.map(e => e.id)).toEqual(['a', 'b', 'c']);
   });
@@ -49,11 +44,7 @@ describe('fractional index sorting', () => {
     const indexes = generateIndexes(2);
     const i0 = indexes[0]!;
     const i1 = indexes[1]!;
-    const elements = [
-      el('b', i1),
-      el('a'),
-      el('c', i0),
-    ];
+    const elements = [el('b', i1), el('a'), el('c', i0)];
     const sorted = sortElementsByZIndex(elements);
     expect(sorted.map(e => e.id)).toEqual(['a', 'c', 'b']);
   });
@@ -76,11 +67,7 @@ describe('bringToFront', () => {
     const i0 = indexes[0]!;
     const i1 = indexes[1]!;
     const i2 = indexes[2]!;
-    const elements = [
-      el('a', i0),
-      el('b', i1),
-      el('c', i2),
-    ];
+    const elements = [el('a', i0), el('b', i1), el('c', i2)];
     const result = bringToFront(elements[1]!, elements);
     expect(result.fractionalIndex).toBeDefined();
     expect(result.fractionalIndex! > i2).toBe(true);
@@ -90,10 +77,7 @@ describe('bringToFront', () => {
     const indexes = generateIndexes(2);
     const i0 = indexes[0]!;
     const i1 = indexes[1]!;
-    const elements = [
-      el('a', i0),
-      el('b', i1),
-    ];
+    const elements = [el('a', i0), el('b', i1)];
     const result = bringToFront(elements[1]!, elements);
     expect(result.fractionalIndex).toBeDefined();
     const sorted = sortElementsByZIndex([elements[0]!, result]);
@@ -107,11 +91,7 @@ describe('sendToBack', () => {
     const i0 = indexes[0]!;
     const i1 = indexes[1]!;
     const i2 = indexes[2]!;
-    const elements = [
-      el('a', i0),
-      el('b', i1),
-      el('c', i2),
-    ];
+    const elements = [el('a', i0), el('b', i1), el('c', i2)];
     const result = sendToBack(elements[2]!, elements);
     expect(result.fractionalIndex).toBeDefined();
     expect(result.fractionalIndex! < i0).toBe(true);
@@ -124,11 +104,7 @@ describe('bringForward', () => {
     const i0 = indexes[0]!;
     const i1 = indexes[1]!;
     const i2 = indexes[2]!;
-    const elements = [
-      el('a', i0),
-      el('b', i1),
-      el('c', i2),
-    ];
+    const elements = [el('a', i0), el('b', i1), el('c', i2)];
     const result = bringForward(elements[0]!, elements);
     expect(result.fractionalIndex).toBeDefined();
     expect(result.fractionalIndex! > i0).toBe(true);
@@ -144,10 +120,7 @@ describe('bringForward', () => {
     const indexes = generateIndexes(2);
     const i0 = indexes[0]!;
     const i1 = indexes[1]!;
-    const elements = [
-      el('a', i0),
-      el('b', i1),
-    ];
+    const elements = [el('a', i0), el('b', i1)];
     const result = bringForward(elements[1]!, elements);
     expect(result.fractionalIndex).toBe(i1);
   });
@@ -159,11 +132,7 @@ describe('sendBackward', () => {
     const i0 = indexes[0]!;
     const i1 = indexes[1]!;
     const i2 = indexes[2]!;
-    const elements = [
-      el('a', i0),
-      el('b', i1),
-      el('c', i2),
-    ];
+    const elements = [el('a', i0), el('b', i1), el('c', i2)];
     const result = sendBackward(elements[2]!, elements);
     expect(result.fractionalIndex).toBeDefined();
     expect(result.fractionalIndex! < i2).toBe(true);
@@ -179,32 +148,9 @@ describe('sendBackward', () => {
     const indexes = generateIndexes(2);
     const i0 = indexes[0]!;
     const i1 = indexes[1]!;
-    const elements = [
-      el('a', i0),
-      el('b', i1),
-    ];
+    const elements = [el('a', i0), el('b', i1)];
     const result = sendBackward(elements[0]!, elements);
     expect(result.fractionalIndex).toBe(i0);
-  });
-});
-
-describe('normalizeZIndices', () => {
-  it('reassigns compact fractional indexes', () => {
-    const indexes = generateIndexes(3);
-    const i0 = indexes[0]!;
-    const i1 = indexes[1]!;
-    const i2 = indexes[2]!;
-    const elements = [
-      el('a', i0),
-      el('b', i1),
-      el('c', i2),
-    ];
-    const normalized = normalizeZIndices(elements);
-    const sorted = sortElementsByZIndex(normalized);
-    expect(sorted.map(e => e.id)).toEqual(['a', 'b', 'c']);
-    for (const elem of sorted) {
-      expect(typeof elem.fractionalIndex).toBe('string');
-    }
   });
 });
 
@@ -236,7 +182,7 @@ describe('generateKeyBetween', () => {
 
   it('generates many keys between two keys without overflow', () => {
     let a = generateKeyBetween(null, null);
-    let b = generateKeyBetween(a, null);
+    const b = generateKeyBetween(a, null);
     for (let i = 0; i < 100; i++) {
       const mid = generateKeyBetween(a, b);
       expect(mid > a).toBe(true);

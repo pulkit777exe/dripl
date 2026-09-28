@@ -3,7 +3,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { base64ToKey, decrypt } from '@dripl/utils';
-import type { DriplElement } from '@dripl/common';
+import { DriplElementSchema, MAX_SCENE_ELEMENTS, type DriplElement } from '@dripl/common';
+import { z } from 'zod';
 import { useCanvasStore } from '@/lib/store';
 import { apiClient } from '@/lib/api';
 import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
@@ -69,7 +70,14 @@ export default function SharedCanvasPage({ params }: SharePageProps): React.Reac
           nextElements = Array.isArray(response.elements) ? response.elements : [];
         }
 
-        const typedElements = nextElements as DriplElement[];
+        const parsedElements = z
+          .array(DriplElementSchema)
+          .max(MAX_SCENE_ELEMENTS)
+          .safeParse(nextElements);
+        if (!parsedElements.success) {
+          throw new Error('Shared scene contains invalid elements.');
+        }
+        const typedElements = parsedElements.data as DriplElement[];
         setElements(typedElements, { skipHistory: true });
         setSelectedIds(new Set<string>());
         setFileMetadata(response.file.id, response.file.name);
@@ -113,19 +121,25 @@ export default function SharedCanvasPage({ params }: SharePageProps): React.Reac
 
   return (
     <div className="relative h-dvh w-screen overflow-hidden bg-[#f5f0e8]">
-      <TopBar />
-      <CanvasBootstrap mode="room" roomSlug={roomSlug} theme="light" readOnly={readOnly} />
+      {!readOnly && <TopBar />}
+      <CanvasBootstrap
+        mode="room"
+        roomSlug={roomSlug}
+        shareToken={token}
+        theme="light"
+        readOnly={readOnly}
+      />
       {!readOnly && (
-        <div className="absolute left-1/2 top-6 z-20 -translate-x-1/2">
+        <div className="absolute left-1/2 top-16 z-20 -translate-x-1/2 sm:top-6">
           <CanvasToolbar />
         </div>
       )}
       <div className="absolute bottom-6 left-6 z-20">
         <CanvasControls />
       </div>
-      <CommandPalette />
+      {!readOnly && <CommandPalette />}
       <div className="absolute bottom-6 right-6 z-20 rounded-lg bg-white/95 px-4 py-2 text-sm font-medium text-[#1a1a1a] shadow">
-        {readOnly ? 'View only' : 'Shared edit mode'}
+        {readOnly ? 'View only' : 'Shared edit mode · transport is not E2EE'}
       </div>
     </div>
   );

@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DriplElement } from '@dripl/common';
 import { useCanvasStore } from '@/lib/store';
-import * as Y from 'yjs';
+import { apiClient } from '@/lib/api';
 
-const YJS_MSG_UPDATE = 1;
-const YJS_MSG_SYNC = 2;
+// JSON scene deltas are the wire protocol. A previous revision kept a dormant
+// Yjs adapter behind YJS_WIRE_ENABLED=false; it gated only reads while write
+// paths duplicated state into a Y.Doc, so it was removed outright (2026-09-27)
+// rather than left to rot. Reintroducing Yjs is a protocol project, not a
+// flag flip — see docs/collaboration-crdt-e2ee-decision.md.
 
 export interface CollabUser {
   userId: string;
@@ -21,6 +24,8 @@ interface UseCollaborationOptions {
   onRemoteElements?: (added: DriplElement[], updated: DriplElement[], deleted: string[]) => void;
   onFullSync?: (elements: DriplElement[]) => void;
   displayName?: string | null;
+  /** Public file-share token; it is exchanged for a short-lived WS ticket. */
+  shareToken?: string | null;
 }
 
 type ServerMessage =
@@ -28,7 +33,16 @@ type ServerMessage =
       type: 'room-state' | 'sync_room_state';
       elements: DriplElement[];
       users: { userId: string; userName?: string; displayName?: string; color: string }[];
+      cursors?: Array<{
+        userId: string;
+        x: number;
+        y: number;
+        userName?: string;
+        displayName?: string;
+        color: string;
+      }>;
       yourUserId?: string;
+      readOnly?: boolean;
     }
   | {
       type: 'scene-update';
@@ -76,7 +90,12 @@ type ClientMessage =
       color: string;
     }
   | { type: 'leave' }
-  | { type: 'scene-update'; subtype: 'init' | 'update'; elements: DriplElement[]; clientMsgId?: string }
+  | {
+      type: 'scene-update';
+      subtype: 'init' | 'update';
+      elements: DriplElement[];
+      clientMsgId?: string;
+    }
   | {
       type: 'scene-delta';
       added?: DriplElement[];
@@ -103,7 +122,7 @@ export interface UseCollaborationReturn {
   isConnected: boolean;
   connectionMessage: string;
   collaborators: CollabUser[];
-  broadcastElements: (_prevElements: DriplElement[], nextElements: DriplElement[]) => void;
+  broadcastElements: (nextElements: DriplElement[]) => void;
   broadcastCursor: (x: number, y: number) => void;
   lockElement: (_elementId: string) => void;
   unlockElement: (_elementId: string) => void;
@@ -113,18 +132,16 @@ export interface UseCollaborationReturn {
   disconnect: () => void;
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3002';
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001';
 
-async function getWsTicket(): Promise<string> {
-  const res = await fetch(`${API_URL}/auth/ws-ticket`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!res.ok) throw new Error('Failed to get WS ticket');
-  const { ticket } = (await res.json()) as { ticket: string };
-  return ticket;
+function safeColor(value: string | null | undefined, fallback: string): string {
+  return value && /^#[0-9a-f]{3,8}$/i.test(value) ? value : fallback;
+}
+
+async function getWsTicket(shareToken?: string | null, signal?: AbortSignal): Promise<string> {
+  return shareToken
+    ? apiClient.getShareWsTicket(shareToken, signal)
+    : apiClient.getWsTicket(signal);
 }
 
 export function useCollaboration(
@@ -135,6 +152,7 @@ export function useCollaboration(
   const reconnectTimerRef = useRef<number | null>(null);
   const heartbeatTimerRef = useRef<number | null>(null);
   const pendingElementsRef = useRef<DriplElement[] | null>(null);
+  const elementBroadcastTimerRef = useRef<number | null>(null);
   const prevElementsRef = useRef<DriplElement[]>([]);
   const isFirstSyncRef = useRef(true);
   const shouldReconnectRef = useRef(true);
@@ -149,17 +167,14 @@ export function useCollaboration(
   const followedUserIdRef = useRef<string | null>(null);
   const viewportBroadcastThrottleRef = useRef(0);
 
-  // Yjs refs
-  const yDocRef = useRef<Y.Doc | null>(null);
-  const yElementsRef = useRef<Y.Map<DriplElement> | null>(null);
-  const ySyncedRef = useRef(false);
-
   const [isConnected, setIsConnected] = useState(false);
   const [connectionMessage, setConnectionMessage] = useState('Reconnecting...');
   const [collaboratorsMap, setCollaboratorsMap] = useState<Map<string, CollabUser>>(new Map());
 
   const fallbackUserIdRef = useRef(crypto.randomUUID());
   const userId = useCanvasStore(state => state.userId) ?? fallbackUserIdRef.current;
+  const activeUserIdRef = useRef(userId);
+  const setUserId = useCanvasStore(state => state.setUserId);
   const setIsStoreConnected = useCanvasStore(state => state.setIsConnected);
   const setRemoteUsers = useCanvasStore(state => state.setRemoteUsers);
   const addRemoteUser = useCanvasStore(state => state.addRemoteUser);
@@ -169,7 +184,8 @@ export function useCollaboration(
   const setElementLock = useCanvasStore(state => state.setElementLock);
   const releaseElementLock = useCanvasStore(state => state.releaseElementLock);
 
-  const displayNameRef = useRef(options.displayName?.trim() || 'Guest');
+  const displayNameRef = useRef((options.displayName?.trim() || 'Guest').slice(0, 50));
+  const shareToken = options.shareToken ?? null;
   const colorRef = useRef('#6965db');
   const onRemoteElementsRef = useRef(options.onRemoteElements);
   const onFullSyncRef = useRef(options.onFullSync);
@@ -181,61 +197,9 @@ export function useCollaboration(
 
   useEffect(() => {
     if (options.displayName?.trim()) {
-      displayNameRef.current = options.displayName.trim();
+      displayNameRef.current = options.displayName.trim().slice(0, 50);
     }
   }, [options.displayName]);
-
-  // Initialize Y.Doc
-  useEffect(() => {
-    const doc = new Y.Doc();
-    const elements = doc.getMap<DriplElement>('elements');
-    yDocRef.current = doc;
-    yElementsRef.current = elements;
-
-    return () => {
-      doc.destroy();
-      yDocRef.current = null;
-      yElementsRef.current = null;
-    };
-  }, []);
-
-  // Observe Y.Doc element changes → sync to Zustand store
-  useEffect(() => {
-    const elements = yElementsRef.current;
-    if (!elements) return;
-
-    const observer = (event: Y.YMapEvent<DriplElement>) => {
-      if (!ySyncedRef.current) return;
-
-      const storeElements = useCanvasStore.getState().elements;
-      const storeMap = new Map(storeElements.map(el => [el.id, el]));
-      let changed = false;
-
-      event.changes.keys.forEach((change, key) => {
-        if (change.action === 'add' || change.action === 'update') {
-          const yEl = elements.get(key);
-          if (yEl) {
-            storeMap.set(key, yEl);
-            changed = true;
-          }
-        } else if (change.action === 'delete') {
-          if (storeMap.has(key)) {
-            storeMap.delete(key);
-            changed = true;
-          }
-        }
-      });
-
-      if (changed) {
-        useCanvasStore.getState().setElements(Array.from(storeMap.values()));
-      }
-    };
-
-    elements.observe(observer);
-    return () => {
-      elements.unobserve(observer);
-    };
-  }, []);
 
   const send = useCallback((message: ClientMessage) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) {
@@ -251,48 +215,23 @@ export function useCollaboration(
     wsRef.current.send(JSON.stringify(message));
   }, []);
 
-  const sendBinary = useCallback((data: Uint8Array) => {
-    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
-    wsRef.current.send(data);
-  }, []);
-
   const flushElementBroadcast = useCallback(() => {
+    if (elementBroadcastTimerRef.current !== null) {
+      window.clearTimeout(elementBroadcastTimerRef.current);
+      elementBroadcastTimerRef.current = null;
+    }
     const pending = pendingElementsRef.current;
     if (!pending || !roomId) return;
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
 
-    // Update local Y.Doc with the pending elements
-    const yElements = yElementsRef.current;
-    const yDoc = yDocRef.current;
-    if (yElements && yDoc) {
-      yDoc.transact(() => {
-        const yIds = new Set(yElements.keys());
-        const pendingIds = new Set(pending.map(el => el.id));
-
-        // Add/update elements in Yjs
-        for (const el of pending) {
-          yElements.set(el.id, el);
-        }
-
-        // Delete elements no longer in the local state
-        for (const id of yIds) {
-          if (!pendingIds.has(id)) {
-            yElements.delete(id);
-          }
-        }
-      });
-
-      // Send Yjs binary update to server
-      const update = Y.encodeStateAsUpdate(yDoc);
-      const packet = new Uint8Array(1 + update.length);
-      packet[0] = YJS_MSG_UPDATE;
-      packet.set(update, 1);
-      sendBinary(packet);
-    }
-
     if (isFirstSyncRef.current) {
       // First sync: send full state via JSON (for backward compat)
-      send({ type: 'scene-update', subtype: 'init', elements: pending });
+      send({
+        type: 'scene-update',
+        subtype: 'init',
+        elements: pending,
+        clientMsgId: crypto.randomUUID(),
+      });
       isFirstSyncRef.current = false;
     } else {
       // Subsequent syncs: compute and send delta via JSON
@@ -325,18 +264,32 @@ export function useCollaboration(
           added: added.length > 0 ? added : undefined,
           updated: updated.length > 0 ? updated : undefined,
           deleted: deleted.length > 0 ? deleted : undefined,
+          clientMsgId: crypto.randomUUID(),
         });
       }
     }
 
     prevElementsRef.current = pending;
     pendingElementsRef.current = null;
-  }, [roomId, send, sendBinary]);
+  }, [roomId, send]);
 
   const broadcastElements = useCallback(
-    (_prevElements: DriplElement[], nextElements: DriplElement[]) => {
+    (nextElements: DriplElement[]) => {
+      // A room page mounts with whatever scene is already in the global store.
+      // Never turn that pre-join snapshot into a delete/update message: the
+      // server's initial sync is authoritative, and the local scene may belong
+      // to a previously opened canvas.
+      if (isFirstSyncRef.current) return;
       pendingElementsRef.current = nextElements;
-      flushElementBroadcast();
+      // Coalesce pointer-move updates into a bounded stream. JSON remains the
+      // authoritative protocol; the old immediate path could send two large
+      // messages per frame and exceed the 30-message/s server budget.
+      if (elementBroadcastTimerRef.current === null) {
+        elementBroadcastTimerRef.current = window.setTimeout(() => {
+          elementBroadcastTimerRef.current = null;
+          flushElementBroadcast();
+        }, 50);
+      }
     },
     [flushElementBroadcast]
   );
@@ -358,30 +311,53 @@ export function useCollaboration(
     [send]
   );
 
-  const lockElement = useCallback((elementId: string) => {
-    send({ type: 'element-lock', elementId });
-  }, [send]);
+  const lockElement = useCallback(
+    (elementId: string) => {
+      send({ type: 'element-lock', elementId });
+    },
+    [send]
+  );
 
-  const unlockElement = useCallback((elementId: string) => {
-    send({ type: 'element-unlock', elementId });
-  }, [send]);
+  const unlockElement = useCallback(
+    (elementId: string) => {
+      send({ type: 'element-unlock', elementId });
+    },
+    [send]
+  );
 
-  const followUser = useCallback((targetUserId: string) => {
-    followedUserIdRef.current = targetUserId;
-    send({ type: 'follow-user', targetUserId });
-  }, [send]);
+  const followUser = useCallback(
+    (targetUserId: string) => {
+      followedUserIdRef.current = targetUserId;
+      send({ type: 'follow-user', targetUserId });
+    },
+    [send]
+  );
 
   const unfollowUser = useCallback(() => {
     followedUserIdRef.current = null;
     send({ type: 'unfollow-user' });
   }, [send]);
 
-  const broadcastViewport = useCallback((panX: number, panY: number, zoom: number) => {
-    const now = Date.now();
-    if (now - viewportBroadcastThrottleRef.current < 100) return;
-    viewportBroadcastThrottleRef.current = now;
-    send({ type: 'viewport-update', panX, panY, zoom });
-  }, [send]);
+  const broadcastViewport = useCallback(
+    (panX: number, panY: number, zoom: number) => {
+      const now = Date.now();
+      if (now - viewportBroadcastThrottleRef.current < 100) return;
+      viewportBroadcastThrottleRef.current = now;
+      send({ type: 'viewport-update', panX, panY, zoom });
+    },
+    [send]
+  );
+
+  useEffect(() => {
+    // Refs survive a route change because the hook component may be reused.
+    // Reset all room-scoped outbound state before the new socket can join;
+    // otherwise a previous room's pending snapshot can delete the new room's
+    // elements when its first sync arrives.
+    isFirstSyncRef.current = true;
+    pendingElementsRef.current = null;
+    offlineQueueRef.current = [];
+    prevElementsRef.current = [];
+  }, [roomId, shareToken]);
 
   useEffect(() => {
     if (!roomId) {
@@ -390,6 +366,10 @@ export function useCollaboration(
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
+      if (elementBroadcastTimerRef.current !== null) {
+        window.clearTimeout(elementBroadcastTimerRef.current);
+        elementBroadcastTimerRef.current = null;
+      }
       if (heartbeatTimerRef.current) {
         window.clearInterval(heartbeatTimerRef.current);
         heartbeatTimerRef.current = null;
@@ -397,31 +377,52 @@ export function useCollaboration(
       setIsConnected(false);
       setConnectionMessage('Disconnected');
       setIsStoreConnected(false);
+      useCanvasStore.getState().setReadOnly(false);
       setRemoteUsers(new Map());
       setCollaboratorsMap(new Map());
       clearElementLocks();
-      ySyncedRef.current = false;
       return;
     }
 
     shouldReconnectRef.current = true;
-    ySyncedRef.current = false;
+    // A room is read-only until the authoritative sync has arrived. This keeps
+    // pre-sync local mutations (including AI output) from being silently
+    // replaced by the server snapshot.
+    useCanvasStore.getState().setReadOnly(true);
+    let disposed = false;
+    let ticketAbortController: AbortController | null = null;
 
     const savedColor = localStorage.getItem('dripl_cursor_color');
-    if (savedColor) colorRef.current = savedColor;
+    if (savedColor) colorRef.current = safeColor(savedColor, colorRef.current);
 
     const connect = async () => {
+      if (disposed) return;
+      ticketAbortController?.abort();
+      const controller = new AbortController();
+      ticketAbortController = controller;
       let ws: WebSocket;
       try {
-        const ticket = await getWsTicket();
-        ws = new WebSocket(`${WS_URL}?ticket=${ticket}`);
+        const ticket = await getWsTicket(shareToken, controller.signal);
+        if (disposed || controller.signal.aborted || !shouldReconnectRef.current) return;
+        ws = new WebSocket(`${WS_URL}?ticket=${encodeURIComponent(ticket)}`);
       } catch {
+        if (disposed || controller.signal.aborted || !shouldReconnectRef.current) return;
         setConnectionMessage('Failed to authenticate — refresh to retry');
+        return;
+      } finally {
+        if (ticketAbortController === controller) ticketAbortController = null;
+      }
+      if (disposed || !shouldReconnectRef.current) {
+        ws.close();
         return;
       }
       wsRef.current = ws;
 
       ws.onopen = () => {
+        if (disposed || wsRef.current !== ws) {
+          ws.close();
+          return;
+        }
         reconnectAttemptRef.current = 0;
         setIsConnected(true);
         setConnectionMessage('Connected');
@@ -429,22 +430,15 @@ export function useCollaboration(
         send({
           type: 'join',
           roomId,
-          userId,
+          userId: activeUserIdRef.current,
           displayName: displayNameRef.current,
           color: colorRef.current,
         });
 
-        // Replay offline queue
-        const queue = offlineQueueRef.current;
-        if (queue.length > 0) {
-          for (const { msg } of queue) {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify(msg));
-            }
-          }
-          offlineQueueRef.current = [];
-        }
-
+        // Scene messages are replayed only after the server has acknowledged
+        // the join with `sync_room_state`. Sending them immediately after the
+        // join frame races the server's async authorization/load handler and
+        // can silently drop offline edits.
         if (heartbeatTimerRef.current) {
           window.clearInterval(heartbeatTimerRef.current);
         }
@@ -454,43 +448,10 @@ export function useCollaboration(
       };
 
       ws.onmessage = (event: MessageEvent) => {
-        // Handle binary Yjs messages
+        if (wsRef.current !== ws) return;
+        // The server speaks JSON only. Binary frames have no protocol left
+        // (the Yjs wire format was removed), so ignore them outright.
         if (event.data instanceof ArrayBuffer || event.data instanceof Blob) {
-          const handleBinary = (data: ArrayBuffer) => {
-            const bytes = new Uint8Array(data);
-            if (bytes.length === 0) return;
-
-            const msgType = bytes[0];
-
-            if (msgType === YJS_MSG_UPDATE) {
-              const update = bytes.slice(1);
-              const yDoc = yDocRef.current;
-              if (yDoc) {
-                Y.applyUpdate(yDoc, update);
-                ySyncedRef.current = true;
-              }
-              return;
-            }
-
-            if (msgType === YJS_MSG_SYNC) {
-              // Format: [type][stateVector...][yjsState...]
-              // Server sends full state on join; we apply it and don't reply
-              // (server already has our state since we just joined)
-              const payload = bytes.slice(1);
-              const yDoc = yDocRef.current;
-              if (yDoc && payload.length > 0) {
-                Y.applyUpdate(yDoc, payload);
-                ySyncedRef.current = true;
-              }
-              return;
-            }
-          };
-
-          if (event.data instanceof ArrayBuffer) {
-            handleBinary(event.data);
-          } else if (event.data instanceof Blob) {
-            event.data.arrayBuffer().then(handleBinary);
-          }
           return;
         }
 
@@ -503,26 +464,122 @@ export function useCollaboration(
         }
         if (!message) return;
 
+        if (message.type === 'sync_room_state' || message.type === 'room-state') {
+          const previousLocalElements = prevElementsRef.current;
+          const synchronizedUserId =
+            typeof message.yourUserId === 'string' && message.yourUserId.length > 0
+              ? message.yourUserId
+              : activeUserIdRef.current;
+          activeUserIdRef.current = synchronizedUserId;
+          setUserId(synchronizedUserId);
+          onFullSyncRef.current?.(message.elements);
+          prevElementsRef.current = message.elements;
+          isFirstSyncRef.current = false;
+          setIsStoreConnected(true);
+          if (typeof message.readOnly === 'boolean') {
+            useCanvasStore.getState().setReadOnly(message.readOnly);
+          }
+
+          const initialUsers = message.users.filter(user => user.userId !== synchronizedUserId);
+          setRemoteUsers(
+            new Map(
+              initialUsers.map(user => [
+                user.userId,
+                {
+                  userId: user.userId,
+                  userName: user.displayName ?? user.userName ?? 'Guest',
+                  color: user.color,
+                },
+              ])
+            )
+          );
+          setCollaboratorsMap(
+            new Map(
+              initialUsers.map(user => [
+                user.userId,
+                {
+                  userId: user.userId,
+                  displayName: user.displayName ?? user.userName ?? 'Guest',
+                  color: user.color,
+                  x: 0,
+                  y: 0,
+                  updatedAt: Date.now(),
+                },
+              ])
+            )
+          );
+          for (const cursor of message.cursors ?? []) {
+            if (cursor.userId === synchronizedUserId) continue;
+            updateRemoteCursor(cursor.userId, {
+              x: cursor.x,
+              y: cursor.y,
+              userName: cursor.displayName ?? cursor.userName ?? 'Guest',
+              color: cursor.color,
+            });
+          }
+
+          // The server has now completed join authorization and loaded the
+          // room. Replay queued scene messages in order, then send the latest
+          // coalesced snapshot if one is waiting. If an element that existed
+          // in our last local snapshot is absent from the authoritative sync,
+          // treat queued updates to that ID as stale rather than resurrecting
+          // a server-side deletion. This is a conservative reconnect guard;
+          // the server still needs durable tombstones for a complete CRDT-
+          // style convergence guarantee.
+          const serverIds = new Set(message.elements.map(element => element.id));
+          const previousIds = new Set(previousLocalElements.map(element => element.id));
+          const queuedMessages = offlineQueueRef.current.splice(0);
+          for (const { msg } of queuedMessages) {
+            let messageToSend = msg;
+            if (msg.type === 'scene-delta') {
+              const added = msg.added?.filter(element => !previousIds.has(element.id));
+              const updated = msg.updated?.filter(
+                element => !previousIds.has(element.id) || serverIds.has(element.id)
+              );
+              if (
+                msg.added &&
+                !added?.length &&
+                msg.updated &&
+                !updated?.length &&
+                !msg.deleted?.length
+              ) {
+                continue;
+              }
+              messageToSend = { ...msg, added, updated };
+            } else if (msg.type === 'scene-update') {
+              const elements = msg.elements.filter(
+                element => !previousIds.has(element.id) || serverIds.has(element.id)
+              );
+              if (elements.length === 0) continue;
+              messageToSend = { ...msg, elements };
+            }
+            if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(messageToSend));
+          }
+          if (pendingElementsRef.current) {
+            const filteredPending = pendingElementsRef.current.filter(
+              element => !previousIds.has(element.id) || serverIds.has(element.id)
+            );
+            pendingElementsRef.current = filteredPending.length > 0 ? filteredPending : null;
+            if (pendingElementsRef.current) flushElementBroadcast();
+          }
+          return;
+        }
+
         if (message.type === 'scene-update') {
           if (message.subtype === 'init') {
-            onFullSyncRef.current?.(message.elements);
-            prevElementsRef.current = message.elements;
-
-            // Also populate local Y.Doc from full sync
-            const yElements = yElementsRef.current;
-            const yDoc = yDocRef.current;
-            if (yElements && yDoc) {
-              yDoc.transact(() => {
-                yElements.clear();
-                for (const el of message.elements) {
-                  yElements.set(el.id, el);
-                }
-              });
-              ySyncedRef.current = true;
-            }
-          } else {
+            // Legacy init packets are treated as a merge, matching the active
+            // server's versioned reconciliation semantics. The authoritative
+            // replacement path is sync_room_state above; treating init as a
+            // blind local replacement can make the client and server diverge
+            // when a stale packet omits newer elements.
             onRemoteElementsRef.current?.(message.elements, [], []);
-            prevElementsRef.current = message.elements;
+            prevElementsRef.current = useCanvasStore.getState().elements;
+          } else {
+            // Legacy `update` packets may contain only the accepted subset.
+            // Treat them as a delta and keep the full local baseline used to
+            // compute the next outgoing delta.
+            onRemoteElementsRef.current?.(message.elements, [], []);
+            prevElementsRef.current = useCanvasStore.getState().elements;
           }
           return;
         }
@@ -533,12 +590,13 @@ export function useCollaboration(
           const deleted = message.deleted || [];
           if (added.length > 0 || updated.length > 0 || deleted.length > 0) {
             onRemoteElementsRef.current?.(added, updated, deleted);
+            prevElementsRef.current = useCanvasStore.getState().elements;
           }
           return;
         }
 
         if (message.type === 'cursor_move' || message.type === 'cursor-move') {
-          if (message.userId === userId) return;
+          if (message.userId === activeUserIdRef.current) return;
           const displayName = message.displayName ?? message.userName ?? 'Guest';
           updateRemoteCursor(message.userId, {
             x: message.x,
@@ -562,7 +620,7 @@ export function useCollaboration(
         }
 
         if (message.type === 'user_join' || message.type === 'user-join') {
-          if (message.userId === userId) return;
+          if (message.userId === activeUserIdRef.current) return;
           const displayName = message.displayName ?? message.userName ?? 'Guest';
           addRemoteUser({
             userId: message.userId,
@@ -614,13 +672,25 @@ export function useCollaboration(
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = event => {
+        if (wsRef.current !== ws) return;
+        if (event.code === 4003) {
+          shouldReconnectRef.current = false;
+          offlineQueueRef.current = [];
+          pendingElementsRef.current = null;
+          setConnectionMessage('Access denied');
+          setIsStoreConnected(false);
+          if (heartbeatTimerRef.current) {
+            window.clearInterval(heartbeatTimerRef.current);
+            heartbeatTimerRef.current = null;
+          }
+          return;
+        }
         setIsConnected(false);
         setIsStoreConnected(false);
         setRemoteUsers(new Map());
         setCollaboratorsMap(new Map());
         clearElementLocks();
-        ySyncedRef.current = false;
 
         if (heartbeatTimerRef.current) {
           window.clearInterval(heartbeatTimerRef.current);
@@ -672,11 +742,18 @@ export function useCollaboration(
     window.addEventListener('online', handleOnline);
 
     return () => {
+      disposed = true;
       shouldReconnectRef.current = false;
+      ticketAbortController?.abort();
+      ticketAbortController = null;
       window.removeEventListener('online', handleOnline);
       window.clearInterval(cursorCleanupTimer);
       if (reconnectTimerRef.current) {
         window.clearTimeout(reconnectTimerRef.current);
+      }
+      if (elementBroadcastTimerRef.current !== null) {
+        window.clearTimeout(elementBroadcastTimerRef.current);
+        elementBroadcastTimerRef.current = null;
       }
       if (heartbeatTimerRef.current) {
         window.clearInterval(heartbeatTimerRef.current);
@@ -687,20 +764,20 @@ export function useCollaboration(
       setConnectionMessage('Disconnected');
       setRemoteUsers(new Map());
       setCollaboratorsMap(new Map());
-      ySyncedRef.current = false;
     };
   }, [
     WS_URL,
     addRemoteUser,
     clearElementLocks,
+    flushElementBroadcast,
     removeRemoteUser,
     roomId,
+    shareToken,
     send,
-    sendBinary,
     setIsStoreConnected,
     setRemoteUsers,
+    setUserId,
     updateRemoteCursor,
-    userId,
   ]);
 
   const collaborators = useMemo(() => Array.from(collaboratorsMap.values()), [collaboratorsMap]);
