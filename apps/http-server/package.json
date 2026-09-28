@@ -5,34 +5,36 @@
   "type": "module",
   "scripts": {
     "start": "node dist/index.js",
-    "build": "tsc -b --force",
+    "build": "node ../../scripts/bundle-server.mjs",
     "dev": "dotenv -e ../../.env -- tsx watch src/index.ts",
+    "lint": "eslint .",
     "test": "vitest run",
     "check-types": "tsc --noEmit",
-    "health": "curl -f http://localhost:${HTTP_PORT:-3001}/health || exit 1"
+    "health": "curl -f http://localhost:${HTTP_PORT:-3002}/health || exit 1"
   },
   "dependencies": {
     "@dripl/common": "workspace:*",
     "@dripl/db": "workspace:*",
     "@dripl/utils": "workspace:*",
-    "@sentry/node": "^10.63.0",
-    "@upstash/ratelimit": "^2.0.8",
-    "@upstash/redis": "^1.38.0",
+    "@sentry/node": "^10.75.3",
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.39.0",
     "bcryptjs": "^3.0.3",
-    "compression": "^1.8.1",
+    "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
-    "google-auth-library": "^10.7.0",
-    "helmet": "^8.2.0",
+    "google-auth-library": "^10.9.1",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
-    "nodemailer": "^8.0.11",
-    "ws": "^8.21.0",
-    "zod": "^4.4.3"
+    "nodemailer": "^9.1.1",
+    "ws": "^8.21.3",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
     "@types/bcryptjs": "^3.0.0",
     "@types/cookie-parser": "^1.4.10",
@@ -40,14 +42,13 @@
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.19.0",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/nodemailer": "^8.0.1",
+    "@types/nodemailer": "^8.0.2",
     "@types/supertest": "^6.0.3",
     "@types/ws": "^8.18.1",
     "dotenv-cli": "^8.0.0",
-    "esbuild": "^0.25.0",
-    "supertest": "^7.2.2",
-    "tsx": "^4.22.4",
+    "supertest": "^7.3.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   }
 }

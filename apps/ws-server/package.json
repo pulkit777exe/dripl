@@ -4,38 +4,35 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -b --force",
+    "build": "node ../../scripts/bundle-server.mjs",
     "start": "node dist/index.js",
     "dev": "dotenv -e ../../.env -- tsx src/index.ts",
+    "lint": "eslint .",
     "test": "vitest run",
     "check-types": "tsc --noEmit",
-    "health": "curl -f http://localhost:${WS_PORT:-3002}/health || exit 1"
+    "health": "curl -f http://localhost:${WS_PORT:-3001}/health || exit 1"
   },
   "dependencies": {
     "@dripl/common": "workspace:*",
     "@dripl/db": "workspace:*",
     "@dripl/utils": "workspace:*",
-    "@sentry/node": "^10.63.0",
-    "@upstash/ratelimit": "^2.0.8",
-    "@upstash/redis": "^1.38.0",
+    "@sentry/node": "^10.75.3",
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.39.0",
     "dotenv": "^17.4.2",
-    "jsonwebtoken": "^9.0.3",
-    "uuid": "^14.0.0",
-    "ws": "^8.21.0",
-    "y-protocols": "^1.0.7",
-    "yjs": "^13.6.31",
-    "zod": "^4.4.3"
+    "uuid": "^14.0.2",
+    "ws": "^8.21.3",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.13.2",
+    "@types/node": "^25.9.8",
     "@types/ws": "^8.18.1",
     "dotenv-cli": "^8.0.0",
-    "esbuild": "^0.25.0",
-    "eslint": "^9.39.4",
-    "tsx": "^4.22.4",
+    "eslint": "^9.39.5",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   }
 }

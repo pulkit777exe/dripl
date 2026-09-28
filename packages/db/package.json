@@ -15,26 +15,28 @@
   "scripts": {
     "build": "pnpm run db:generate && tsc -b --force",
     "lint": "eslint .",
+    "test": "vitest run",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.8.0",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "dotenv": "^17.4.2",
-    "pg": "^8.21.0"
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
-    "@eslint/js": "^10.0.1",
-    "@types/node": "^25.9.3",
-    "@types/pg": "^8.20.0",
-    "eslint": "^9.39.4",
-    "prisma": "^7.8.0",
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^25.9.8",
+    "@types/pg": "^8.23.1",
+    "eslint": "^9.39.5",
+    "prisma": "^7.10.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.61.0"
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^4.1.11"
   }
 }

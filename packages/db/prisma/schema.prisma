@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated"
 }
 
 datasource db {
@@ -7,14 +8,14 @@ datasource db {
 }
 
 model User {
-  id        String   @id
-  email     String   @unique
-  name      String?
-  password  String?
-  image     String?
-  emailVerified Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id
+  email         String   @unique
+  name          String?
+  password      String?
+  image         String?
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   teams             TeamMember[]
   files             File[]
@@ -74,18 +75,18 @@ model Folder {
 }
 
 model File {
-  id        String   @id @default(cuid())
-  name      String
-  content   String   @default("[]")
-  preview   String?
-  shareToken String?  @unique
-  sharePermission String? @default("view")
-  shareExpiresAt DateTime?
-  folderId  String?
-  teamId    String?
-  userId   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String    @id @default(cuid())
+  name            String
+  content         String    @default("[]")
+  preview         String?
+  shareToken      String?   @unique
+  sharePermission String?   @default("view")
+  shareExpiresAt  DateTime?
+  folderId        String?
+  teamId          String?
+  userId          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   folder Folder? @relation(fields: [folderId], references: [id])
   team   Team?   @relation(fields: [teamId], references: [id])
@@ -123,8 +124,8 @@ model CanvasRoom {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  owner   User               @relation(fields: [ownerId], references: [id])
-  members CanvasRoomMember[]
+  owner      User               @relation(fields: [ownerId], references: [id])
+  members    CanvasRoomMember[]
   shareLinks ShareLink[]
 
   @@index([ownerId])
@@ -135,7 +136,7 @@ model CanvasRoom {
 model CanvasRoomMember {
   id        String   @id @default(cuid())
   roomId    String
-  userId   String
+  userId    String
   role      String   @default("EDITOR")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -157,8 +158,8 @@ model ShareLink {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  room    CanvasRoom @relation(fields: [roomId], references: [id])
-  createdBy User     @relation(fields: [createdById], references: [id])
+  room      CanvasRoom @relation(fields: [roomId], references: [id])
+  createdBy User       @relation(fields: [createdById], references: [id])
 
   @@index([roomId])
   @@index([expiresAt])

@@ -22,24 +22,39 @@ jobs:
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       TURBO_LOG_ORDER: grouped
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
-          version: 10
-      - uses: actions/setup-node@v4
+          version: 10.33.0
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - name: "Lint (PR: affected / Main: full)"
+      - name: 'Lint (PR: affected / Main: full)'
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             pnpm turbo run lint --affected
           else
             pnpm turbo run lint
           fi
+      - name: Check package boundaries
+        run: pnpm boundaries
+      - name: Check bundled servers have no relative imports
+        # esbuild resolves every relative import at build time, so the bundle
+        # must contain zero relative specifiers for Node to fail on. This is
+        # the static replacement for the old check-esm gate: it guards the
+        # exact ERR_MODULE_NOT_FOUND-on-boot class without needing a database.
+        # (Full boot smoke lives in CONTRIBUTING.md and needs postgres.)
+        run: |
+          pnpm turbo run build --filter=ws-server --filter=http-server
+          if grep -Eo "from['\"]\.[^'\"]*['\"]" apps/ws-server/dist/index.js apps/http-server/dist/index.js | head -5; then
+            echo "bundled dist contains relative imports" >&2
+            exit 1
+          fi
+          echo "no relative imports in server bundles"
 
   build:
     name: Build
@@ -49,18 +64,18 @@ jobs:
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       TURBO_LOG_ORDER: grouped
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
-          version: 10
-      - uses: actions/setup-node@v4
+          version: 10.33.0
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - name: "Build (PR: affected / Main: full)"
+      - name: 'Build (PR: affected / Main: full)'
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             pnpm turbo run build --affected
@@ -71,6 +86,19 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      TURBO_LOG_ORDER: grouped
+      DATABASE_URL: postgresql://test:test@localhost:5432/test
+      JWT_SECRET: test-secret-for-ci
+      RUN_DB_INTEGRATION: 'true'
+      RUN_WS_INTEGRATION: 'true'
+      # Enables production-db.test.ts, the two-client WebSocket suite that runs
+      # against this job's real postgres service. Without it the suite skips and
+      # CI would report green while never touching the database from the
+      # collaboration path.
+      RUN_WS_DB_INTEGRATION: 'true'
     services:
       postgres:
         image: postgres:16
@@ -85,23 +113,23 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-    env:
-      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-      TURBO_LOG_ORDER: grouped
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
-          version: 10
-      - uses: actions/setup-node@v4
+          version: 10.33.0
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - name: "Test (PR: affected / Main: full)"
+      - name: Generate Prisma client
+        run: pnpm db:generate
+      - name: Apply database migrations
+        run: pnpm --filter @dripl/db exec prisma migrate deploy
+      - name: 'Test (PR: affected / Main: full)'
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             pnpm turbo run test --affected
@@ -120,20 +148,20 @@ jobs:
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       TURBO_LOG_ORDER: grouped
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
-          version: 10
-      - uses: actions/setup-node@v4
+          version: 10.33.0
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - name: Build packages (required for type resolution)
         run: pnpm turbo run build --filter=!dripl-app --filter=!http-server --filter=!ws-server
-      - name: "Type check (PR: affected / Main: full)"
+      - name: 'Type check (PR: affected / Main: full)'
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             pnpm turbo run check-types --affected

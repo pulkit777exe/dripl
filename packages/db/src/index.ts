@@ -1,7 +1,8 @@
-import { PrismaClient } from '@prisma/client';
-export * from '@prisma/client';
+import type { PrismaClient } from './generated/client';
+import * as PrismaClientModule from './generated/client';
+export type { Prisma } from './generated/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
+import * as PgModule from 'pg';
 import { URL } from 'url';
 
 let prismaInstance: PrismaClient | null = null;
@@ -16,32 +17,42 @@ async function createPrismaClient(): Promise<PrismaClient> {
   }
 
   const isLocalhost = dbUrl.includes('localhost');
-  const isNeon = dbUrl.includes('neon.tech');
-  const shouldDisableSsl = isLocalhost && !isNeon && process.env.NODE_ENV !== 'production';
+  const shouldDisableSsl = isLocalhost && process.env.NODE_ENV !== 'production';
+  const allowInsecureRemoteTls =
+    process.env.NODE_ENV !== 'production' && process.env.DB_ALLOW_INSECURE_TLS === 'true';
 
   const url = new URL(dbUrl);
   const poolConfig = {
+    // Preserve query parameters such as sslmode from managed PostgreSQL URLs;
+    // reconstructing only host/user/password silently downgraded TLS.
+    connectionString: dbUrl,
     host: url.hostname,
     port: parseInt(url.port) || 5432,
     user: url.username,
     password: url.password,
     database: url.pathname.replace('/', ''),
-    ssl: shouldDisableSsl ? false : { rejectUnauthorized: false },
+    // Keep certificate verification enabled by default. Insecure remote TLS
+    // is an explicit development-only escape hatch, never a production
+    // default.
+    ssl: shouldDisableSsl
+      ? false
+      : allowInsecureRemoteTls
+        ? { rejectUnauthorized: false }
+        : undefined,
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 30000,
-    max: parseInt(process.env.DB_POOL_SIZE || '20'),
+    max: Math.max(1, parseInt(process.env.DB_POOL_SIZE || '20', 10) || 20),
   };
 
-  const pool = new Pool(poolConfig);
+  const pool = new PgModule.Pool(poolConfig);
 
   pool.on('error', err => {
+    // eslint-disable-next-line no-console -- pool errors fire outside any request/logger context
     console.error('[db] Pool error:', err);
   });
 
-  pool.on('connect', () => {});
-
   const adapter = new PrismaPg(pool);
-  return new PrismaClient({
+  return new PrismaClientModule.PrismaClient({
     adapter,
     log: process.env.DEBUG_PRISMA ? ['query', 'error', 'warn'] : ['error'],
   });
