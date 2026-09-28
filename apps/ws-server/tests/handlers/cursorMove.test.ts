@@ -53,6 +53,7 @@ function makeCtx(overrides: Partial<HandlerCtx> = {}): HandlerCtx {
     roomId: 'room-1',
     room: makeRoom(),
     logger: makeLogger(),
+    rejectReadOnlyMutation: () => false,
     ...overrides,
   };
 }

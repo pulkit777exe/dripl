@@ -1,6 +1,5 @@
 import { WebSocket } from 'ws';
 import type { DriplElement } from '@dripl/common';
-import type { YjsRoomState } from './yjsManager';
 
 export interface UserConnection {
   userId: string;
@@ -8,6 +7,8 @@ export interface UserConnection {
   color: string;
   ws: WebSocket;
   isAlive: boolean;
+  /** Re-check the connection's room authorization during passive sweeps. */
+  revalidate?: () => Promise<boolean>;
 }
 
 export interface Cursor {
@@ -32,17 +33,16 @@ export interface RoomState {
   users: Map<string, UserConnection>;
   cursors: Map<string, Cursor>;
   loadedFromDb: boolean;
+  loadingPromise?: Promise<Map<string, DriplElement>>;
   saving: boolean;
   recordType?: 'file' | 'canvasRoom';
-  yjs?: YjsRoomState;
+  /** Database version used as an optimistic persistence fence. */
+  lastPersistedUpdatedAt?: Date;
   dirty: boolean;
+  /** Monotonic mutation generation used to prevent an in-flight save from clearing newer work. */
+  mutationVersion: number;
   recentMsgIds: Set<string>;
   elementLocks: Map<string, ElementLock>;
   following: Map<string, string>;
   viewports: Map<string, UserViewport>;
-}
-
-export interface RateLimitInfo {
-  count: number;
-  resetAt: number;
 }

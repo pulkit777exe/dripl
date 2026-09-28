@@ -1,7 +1,8 @@
-import { env } from './env.js';
+import { randomUUID } from 'node:crypto';
+import { env } from './env';
 
 import * as Sentry from '@sentry/node';
-import { logger } from './logger.js';
+import { logger } from './logger';
 export { logger };
 
 if (env.SENTRY_DSN) {
@@ -14,42 +15,57 @@ if (env.SENTRY_DSN) {
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { DriplElement } from '@dripl/common';
-import { pickUserColor, DriplElementSchema, MAX_ELEMENTS_PER_ROOM } from '@dripl/common';
+import { pickUserColor, MAX_MESSAGE_BYTES } from '@dripl/common';
 import { initializeDb, db } from '@dripl/db';
 import { messageSchema, validateMessageSize } from './validation';
-import type { UserConnection } from './types';
-import {
-  applyElementToYjs,
-  applyElementsToYjs,
-  deleteElementFromYjs,
-  deleteElementsFromYjs,
-  deleteYjsRoom,
-  getElementsFromYjs,
-  getYjsUpdate,
-  applyYjsUpdate,
-  getStateVector,
-  encodeYjsDoc,
-} from './yjsManager';
+import type { RoomState, UserConnection } from './types';
+import type { HandlerCtx } from './handlers/types';
 import { resolveTicketFromUrl, validateTicket } from './auth';
 import { send, broadcast, roomUsersPayload, roomCursorsPayload } from './broadcast';
-import { cursorMoveHandler } from './handlers/cursorMove.js';
+import { cursorMoveHandler } from './handlers/cursorMove';
+import {
+  elementLockHandler,
+  elementUnlockHandler,
+  elementLockHeartbeatHandler,
+} from './handlers/locks';
+import { viewportUpdateHandler, followUserHandler, unfollowUserHandler } from './handlers/presence';
+import {
+  runHeartbeatTick,
+  runAuthorizationSweep,
+  runPeriodicSave,
+  runLockSweep,
+  runReconciliation,
+} from './lifecycle';
 import {
   rooms,
   saveTimeouts,
   roomLastEmptyAt,
   userToRoomMap,
+  wsToRoomMap,
   MAX_ELEMENTS_PER_SCENE,
-  MAX_EMPTY_ROOM_TTL_MS,
   getOrCreateRoom,
   loadRoomElements,
   saveRoomElements,
+  markRoomDirty,
   scheduleSave,
-  parseStoredElements,
 } from './rooms';
 import { checkRateLimit, setRateLimitIdentity, removeRateLimitIdentity } from './rateLimiter';
-import { subscribeToRoom, unsubscribeFromRoom, publishToRoom, isRedisAvailable } from './redis';
+import { subscribeToRoom, publishToRoom, isRedisAvailable } from './redis';
+import { authorizeRoomAccess, authorizeShareRoomAccess, type RoomAccess } from './roomAccess';
+import { shouldAcceptElement } from '@dripl/common/reconciliation';
+import {
+  toDriplElement,
+  acceptAll,
+  wouldExceedSceneCapacity,
+  noteClientMsgId,
+  sceneCapacityMessage,
+  applyRemoteSceneMessage,
+} from './sceneMutation';
 
-async function start() {
+const MAX_EARLY_BUFFER_BYTES = 1_000_000;
+const MAX_SERIALIZED_QUEUE_BYTES = 2_000_000;
+
+export async function start() {
   try {
     await initializeDb();
     logger.info({ event: 'db_connected' });
@@ -59,41 +75,23 @@ async function start() {
   }
 }
 
-function toDriplElement(el: unknown): DriplElement {
-  const parsed = DriplElementSchema.safeParse(el);
-  if (!parsed.success) {
-    throw new Error('Invalid element structure');
-  }
-  return parsed.data as DriplElement;
-}
-
-const YJS_MSG_UPDATE = 1;
-const YJS_MSG_SYNC = 2;
-
-function broadcastYjsUpdate(
-  room: { users: Map<string, UserConnection> },
-  yjsUpdate: Uint8Array,
-  exceptUserId?: string
-): void {
-  const packet = new Uint8Array(1 + yjsUpdate.length);
-  packet[0] = YJS_MSG_UPDATE;
-  packet.set(yjsUpdate, 1);
-  room.users.forEach(user => {
-    if (exceptUserId && user.userId === exceptUserId) return;
-    if (user.ws.readyState !== WebSocket.OPEN) return;
-    user.ws.send(packet);
-  });
-}
-
-function sendYjsSync(ws: WebSocket, stateVector: Uint8Array, yjsState: Uint8Array): void {
-  const packet = new Uint8Array(1 + stateVector.length + yjsState.length);
-  packet[0] = YJS_MSG_SYNC;
-  packet.set(stateVector, 1);
-  packet.set(yjsState, 1 + stateVector.length);
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(packet);
-  }
-}
+const ROOM_MUTATION_TYPES = new Set([
+  'add_element',
+  'update_element',
+  'delete_element',
+  'element-update',
+  'scene-update',
+  'scene-delta',
+  'element-lock',
+  'element-unlock',
+  'element-lock-heartbeat',
+]);
+// JSON scene snapshots/deltas are the wire protocol. A previous revision kept
+// a dormant Yjs adapter behind YJS_WIRE_ENABLED=false; it gated only reads
+// while the write path duplicated every element into a Y.Doc, so it was
+// removed outright (2026-09-27) rather than left to rot. Reintroducing Yjs is
+// a protocol project, not a flag flip — see
+// docs/collaboration-crdt-e2ee-decision.md.
 
 function handleRedisMessage(roomId: string, payload: unknown): void {
   const room = rooms.get(roomId);
@@ -121,9 +119,14 @@ function handleRedisMessage(roomId: string, payload: unknown): void {
     case 'delete_element':
     case 'element-update':
     case 'scene-update':
-    case 'scene-delta':
-      broadcast(room, msg, undefined);
+    case 'scene-delta': {
+      // Apply the remote mutation to this process's room before forwarding it.
+      // Broadcasting without applying leaves replicas with stale state and can
+      // make the next join/save resurrect an older scene.
+      const changed = applyRemoteSceneMessage(room, msg as unknown as Record<string, unknown>);
+      if (changed) broadcast(room, msg, undefined);
       break;
+    }
     case 'cursor_move':
       broadcast(room, msg, undefined);
       break;
@@ -132,11 +135,14 @@ function handleRedisMessage(roomId: string, payload: unknown): void {
   }
 }
 
-const WS_PORT = Number(process.env.PORT || env.WS_PORT) || 3001;
+const configuredWsPort = Number(process.env.PORT ?? env.WS_PORT);
+const WS_PORT =
+  Number.isInteger(configuredWsPort) && configuredWsPort >= 0 ? configuredWsPort : 3001;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;
+let shuttingDown = false;
 
-const server = createServer(async (req, res) => {
+export const server = createServer(async (req, res) => {
   if (req.url === '/health') {
     try {
       await db.$queryRaw`SELECT 1`;
@@ -174,17 +180,29 @@ const server = createServer(async (req, res) => {
   }
 });
 
-const ALLOWED_ORIGINS = [env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL].filter(
-  Boolean
-) as string[];
+function normalizeOrigin(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
 
-if (process.env.NODE_ENV !== 'production') {
+const ALLOWED_ORIGINS = [env.FRONTEND_URL, env.NEXT_PUBLIC_APP_URL, process.env.NEXT_PUBLIC_APP_URL]
+  .flatMap(value => value?.split(',') ?? [])
+  .map(normalizeOrigin)
+  .filter((value): value is string => value !== null);
+
+if (process.env.NODE_ENV !== 'production' && !ALLOWED_ORIGINS.includes('http://localhost:3000')) {
   ALLOWED_ORIGINS.push('http://localhost:3000');
 }
 
-const wss = new WebSocketServer({
+export const wss = new WebSocketServer({
   server,
-  maxPayload: 10 * 1024 * 1024,
+  maxPayload: MAX_MESSAGE_BYTES,
   verifyClient: (
     { origin }: { origin: string },
     cb: (result: boolean, code?: number, message?: string) => void
@@ -200,35 +218,118 @@ const wss = new WebSocketServer({
   },
 });
 
-const wsToRoomMap = new Map<WebSocket, string>();
-
 wss.on('connection', async (ws, req) => {
+  if (shuttingDown) {
+    ws.close(1012, 'Server restarting');
+    return;
+  }
+  // The connection callback authenticates asynchronously. Buffer the small
+  // burst a browser can send immediately after `open` so join/mutation packets
+  // are not dropped before the validated handler is installed.
+  const earlyMessages: Buffer[] = [];
+  let earlyMessageBytes = 0;
+  const onEarlyMessage = (raw: Buffer) => {
+    if (
+      earlyMessages.length >= 100 ||
+      earlyMessageBytes + raw.byteLength > MAX_EARLY_BUFFER_BYTES
+    ) {
+      ws.close(4000, 'Message queue exceeded');
+      return;
+    }
+    earlyMessageBytes += raw.byteLength;
+    earlyMessages.push(raw);
+  };
+  ws.on('message', onEarlyMessage);
+
   const ticket = resolveTicketFromUrl(req.url, req.headers.host);
   if (!ticket) {
+    ws.off('message', onEarlyMessage);
     ws.close(4001, 'Authentication required');
     logger.warn({ event: 'ws_auth_rejected', reason: 'no_ticket', url: req.url });
     return;
   }
 
-  const authUserId = await validateTicket(ticket);
+  const ticketPrincipal = await validateTicket(ticket);
 
-  if (!authUserId) {
+  if (!ticketPrincipal) {
+    ws.off('message', onEarlyMessage);
     ws.close(4001, 'Authentication required');
     logger.warn({ event: 'ws_auth_rejected', reason: 'invalid_ticket' });
     return;
   }
+  // Keep a non-null local for the nested serialized message handler; TypeScript
+  // cannot preserve the outer closure's discriminated-union narrowing.
+  const principal = ticketPrincipal;
 
-  setRateLimitIdentity(ws, authUserId);
+  const authUserId = principal.kind === 'user' ? principal.userId : null;
+  const rateLimitIdentity =
+    principal.kind === 'user' ? principal.userId : `share:${principal.fileId}:${principal.token}`;
+  setRateLimitIdentity(ws, rateLimitIdentity);
 
   let currentRoomId: string | null = null;
   let currentUserId: string | null = null;
+  let currentRoomAccess: RoomAccess = { allowed: false, canEdit: false };
+
+  const rejectReadOnlyMutation = (): boolean => {
+    if (currentRoomAccess.canEdit) return false;
+    send(ws, { type: 'error', message: 'You have view-only access to this room' });
+    return true;
+  };
+
+  // Every delegated handler needs the same context shape; the user fallback
+  // mirrors what the inline cases synthesized before extraction.
+  const toHandlerCtx = (room: RoomState, userId: string): HandlerCtx => ({
+    ws,
+    user: room.users.get(userId) ?? {
+      userId,
+      displayName: 'Unknown',
+      color: '#000000',
+      ws,
+      isAlive: true,
+    },
+    userId,
+    roomId: room.roomId,
+    room,
+    logger,
+    rejectReadOnlyMutation,
+  });
+
+  const revalidateRoomAccess = async (): Promise<boolean> => {
+    if (!currentRoomId) return true;
+    const access =
+      principal.kind === 'share'
+        ? await authorizeShareRoomAccess(
+            principal.fileId,
+            currentRoomId,
+            principal.permission,
+            principal.token
+          )
+        : await authorizeRoomAccess(principal.userId, currentRoomId);
+    currentRoomAccess = access;
+    if (!access.allowed) {
+      send(ws, { type: 'error', message: 'Room access has been revoked' });
+      ws.close(4003, 'Room access revoked');
+      return false;
+    }
+    return true;
+  };
+
+  const refreshRoomAccess = async (): Promise<boolean> => {
+    if (!(await revalidateRoomAccess())) return false;
+    if (!currentRoomAccess.canEdit) {
+      send(ws, { type: 'error', message: 'You have view-only access to this room' });
+      return false;
+    }
+    return true;
+  };
 
   ws.on('pong', () => {
     const user = (ws as WebSocket & { __user?: UserConnection }).__user;
     if (user) user.isAlive = true;
   });
 
-  ws.on('message', async (raw: Buffer) => {
+  async function handleMessage(raw: Buffer, isBinary = false): Promise<void> {
+    if (shuttingDown) return;
     try {
       // Rate limit all messages including binary
       if (!(await checkRateLimit(ws))) {
@@ -237,22 +338,14 @@ wss.on('connection', async (ws, req) => {
         return;
       }
 
-      // Handle binary Yjs messages
-      if (raw instanceof Buffer && raw.length > 0 && raw[0] === YJS_MSG_UPDATE) {
-        if (!currentRoomId) return;
-        const room = rooms.get(currentRoomId);
-        if (!room?.yjs) return;
-        const yjsUpdate = raw.slice(1);
-        applyYjsUpdate(room.yjs, yjsUpdate);
-        // Sync Yjs state back to the legacy elements Map
-        const yjsElements = getElementsFromYjs(room.yjs);
-        room.elements.clear();
-        for (const el of yjsElements) {
-          room.elements.set(el.id, el);
-        }
-        broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-        room.dirty = true;
-        scheduleSave(currentRoomId);
+      // Binary collaboration updates were only ever the disabled Yjs wire
+      // protocol. Reject binary frames outright rather than sniffing a
+      // discriminator for a protocol that no longer exists. NOTE: `ws`
+      // delivers text frames as Buffer too, so the frame opcode (`isBinary`)
+      // — not `instanceof Buffer` — is the discriminator. Checking
+      // `instanceof` here would reject every message on the socket.
+      if (isBinary) {
+        send(ws, { type: 'error', message: 'Binary collaboration updates are not enabled' });
         return;
       }
 
@@ -282,24 +375,66 @@ wss.on('connection', async (ws, req) => {
       }
 
       const message = validation.data;
+      if (ROOM_MUTATION_TYPES.has(message.type) && !(await refreshRoomAccess())) {
+        return;
+      }
 
       switch (message.type) {
         case 'join_room':
         case 'join': {
           const roomId = message.roomId;
+          if (currentRoomId && currentRoomId !== roomId) {
+            send(ws, {
+              type: 'error',
+              message: 'Leave the current room before joining another room',
+            });
+            break;
+          }
+          if (currentRoomId === roomId) break;
+          const access =
+            principal.kind === 'share'
+              ? await authorizeShareRoomAccess(
+                  principal.fileId,
+                  roomId,
+                  principal.permission,
+                  principal.token
+                )
+              : await authorizeRoomAccess(principal.userId, roomId);
+          if (!access.allowed) {
+            send(ws, { type: 'error', message: 'You do not have access to this room' });
+            ws.close(4003, 'Room access denied');
+            return;
+          }
+          currentRoomAccess = access;
           const room = getOrCreateRoom(roomId);
 
           if (!room.loadedFromDb) {
-            room.elements = await loadRoomElements(roomId);
-            room.loadedFromDb = true;
+            if (!room.loadingPromise) {
+              room.loadingPromise = loadRoomElements(roomId);
+            }
+            try {
+              room.elements = await room.loadingPromise;
+              room.loadedFromDb = true;
+            } finally {
+              room.loadingPromise = undefined;
+            }
           }
 
           const requestedName = message.type === 'join' ? message.displayName : message.userName;
           const requestedColor = message.type === 'join' ? message.color : undefined;
 
-          const userId = authUserId;
+          const userId = authUserId ?? `guest:${randomUUID()}`;
           const displayName = requestedName || `User-${userId.slice(0, 4)}`;
           const color = requestedColor || pickUserColor();
+
+          if (room.users.has(userId)) {
+            send(ws, {
+              type: 'error',
+              message: 'This account is already connected in another tab',
+            });
+            ws.close(4009, 'Duplicate connection');
+            return;
+          }
 
           currentRoomId = roomId;
           currentUserId = userId;
@@ -312,6 +447,7 @@ wss.on('connection', async (ws, req) => {
             color,
             ws,
             isAlive: true,
+            revalidate: revalidateRoomAccess,
           };
           room.users.set(userId, connection);
           (ws as WebSocket & { __user?: UserConnection }).__user = connection;
@@ -323,6 +459,7 @@ wss.on('connection', async (ws, req) => {
             users: roomUsersPayload(room),
             cursors: roomCursorsPayload(room),
             yourUserId: userId,
+            readOnly: !currentRoomAccess.canEdit,
             timestamp: Date.now(),
           });
 
@@ -340,13 +477,6 @@ wss.on('connection', async (ws, req) => {
             userId
           );
 
-          // Send Yjs sync state to the new client
-          if (room.yjs) {
-            const stateVector = getStateVector(room.yjs);
-            const yjsState = encodeYjsDoc(room.yjs);
-            sendYjsSync(ws, stateVector, yjsState);
-          }
-
           if (isRedisAvailable()) {
             subscribeToRoom(roomId, payload => handleRedisMessage(roomId, payload));
           }
@@ -362,7 +492,9 @@ wss.on('connection', async (ws, req) => {
           room.users.delete(currentUserId);
           room.cursors.delete(currentUserId);
           wsToRoomMap.delete(ws);
-          userToRoomMap.delete(currentUserId);
+          if (userToRoomMap.get(currentUserId) === currentRoomId) {
+            userToRoomMap.delete(currentUserId);
+          }
 
           broadcast(room, {
             type: 'user-leave',
@@ -372,7 +504,7 @@ wss.on('connection', async (ws, req) => {
           });
 
           if (room.users.size === 0) {
-            if (room.elements.size > 0 && !room.saving) {
+            if (room.dirty && !room.saving) {
               room.saving = true;
               saveRoomElements(currentRoomId, room.elements)
                 .then(success => {
@@ -385,40 +517,34 @@ wss.on('connection', async (ws, req) => {
                 });
             }
             roomLastEmptyAt.set(currentRoomId, Date.now());
-            if (isRedisAvailable()) {
-              unsubscribeFromRoom(currentRoomId);
-            }
           }
 
           currentRoomId = null;
           currentUserId = null;
+          currentRoomAccess = { allowed: false, canEdit: false };
           break;
         }
 
         case 'add_element': {
           if (!currentRoomId) break;
+          if (rejectReadOnlyMutation()) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
           const existingElement = room.elements.get(message.element.id);
-          if (!existingElement && room.elements.size >= MAX_ELEMENTS_PER_ROOM) {
+          if (!existingElement && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
             send(ws, {
               type: 'error',
-              message: `Room is at capacity (${MAX_ELEMENTS_PER_ROOM} elements max)`,
+              message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
             });
             break;
           }
           try {
             const element = toDriplElement(message.element);
             const existing = room.elements.get(element.id);
-            if (existing && (element.version ?? 0) <= (existing.version ?? 0)) break;
+            if (existing && !shouldAcceptElement(element, existing)) break;
             room.elements.set(element.id, element);
-            if (room.yjs) {
-              applyElementToYjs(room.yjs, element);
-              const yjsUpdate = getYjsUpdate(room.yjs);
-              broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-            }
             broadcast(room, message, currentUserId ?? undefined);
-            room.dirty = true;
+            markRoomDirty(currentRoomId);
             scheduleSave(currentRoomId);
             publishToRoom(currentRoomId, message);
           } catch (err) {
@@ -434,20 +560,23 @@ wss.on('connection', async (ws, req) => {
 
         case 'update_element': {
           if (!currentRoomId) break;
+          if (rejectReadOnlyMutation()) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
           try {
             const element = toDriplElement(message.element);
             const existing = room.elements.get(element.id);
-            if (existing && (element.version ?? 0) < (existing.version ?? 0)) break;
-            room.elements.set(element.id, element);
-            if (room.yjs) {
-              applyElementToYjs(room.yjs, element);
-              const yjsUpdate = getYjsUpdate(room.yjs);
-              broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+            if (!existing && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
+              send(ws, {
+                type: 'error',
+                message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
+              });
+              break;
             }
+            if (existing && !shouldAcceptElement(element, existing)) break;
+            room.elements.set(element.id, element);
             broadcast(room, message, currentUserId ?? undefined);
-            room.dirty = true;
+            markRoomDirty(currentRoomId);
             scheduleSave(currentRoomId);
             publishToRoom(currentRoomId, message);
           } catch (err) {
@@ -463,16 +592,13 @@ wss.on('connection', async (ws, req) => {
 
         case 'delete_element': {
           if (!currentRoomId) break;
+          if (rejectReadOnlyMutation()) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-          room.elements.delete(message.elementId);
-          if (room.yjs) {
-            deleteElementFromYjs(room.yjs, message.elementId);
-            const yjsUpdate = getYjsUpdate(room.yjs);
-            broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-          }
+          const deleted = room.elements.delete(message.elementId);
+          if (!deleted) break;
           broadcast(room, message, currentUserId ?? undefined);
-          room.dirty = true;
+          markRoomDirty(currentRoomId);
           scheduleSave(currentRoomId);
           publishToRoom(currentRoomId, message);
           break;
@@ -480,13 +606,17 @@ wss.on('connection', async (ws, req) => {
 
         case 'scene-update': {
           if (!currentRoomId) break;
+          if (rejectReadOnlyMutation()) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
           if (!Array.isArray(message.elements)) break;
-          if (message.elements.length > MAX_ELEMENTS_PER_SCENE) {
+          if (
+            message.elements.length > MAX_ELEMENTS_PER_SCENE ||
+            wouldExceedSceneCapacity(room, message.elements)
+          ) {
             send(ws, {
               type: 'error',
-              message: `Too many elements (max ${MAX_ELEMENTS_PER_SCENE})`,
+              message: sceneCapacityMessage(),
             });
             break;
           }
@@ -496,83 +626,44 @@ wss.on('connection', async (ws, req) => {
             'clientMsgId' in message
               ? (message as { clientMsgId?: string }).clientMsgId
               : undefined;
-          if (sceneUpdateMsgId) {
-            if (room.recentMsgIds.has(sceneUpdateMsgId)) {
-              send(ws, { type: 'pong', timestamp: Date.now() });
-              break;
-            }
-            room.recentMsgIds.add(sceneUpdateMsgId);
-            if (room.recentMsgIds.size > 500) {
-              const first = room.recentMsgIds.values().next().value;
-              if (first !== undefined) room.recentMsgIds.delete(first);
-            }
+          if (noteClientMsgId(room, sceneUpdateMsgId)) {
+            send(ws, { type: 'pong', timestamp: Date.now() });
+            break;
           }
 
           const acceptedElements: DriplElement[] = [];
-          const incomingIds = new Set<string>();
-          for (const rawEl of message.elements) {
-            try {
-              const element = toDriplElement(rawEl);
-              incomingIds.add(element.id);
-              const existing = room.elements.get(element.id);
-              if (existing && (element.version ?? 0) <= (existing.version ?? 0)) {
-                continue;
-              }
-              room.elements.set(element.id, element);
-              acceptedElements.push(element);
-            } catch (err) {
-              logger.debug({
-                event: 'invalid_element',
-                roomId: currentRoomId,
-                elementId: (rawEl as { id?: string })?.id,
-                error: String(err),
-              });
-            }
-          }
+          acceptAll(room, message.elements, acceptedElements, (rawEl, err) => {
+            logger.debug({
+              event: 'invalid_element',
+              roomId: currentRoomId,
+              elementId: (rawEl as { id?: string })?.id,
+              error: String(err),
+            });
+          });
 
-          // Remove elements not in the incoming set (full state replacement)
-          if (message.subtype === 'init') {
-            const toRemove: string[] = [];
-            for (const [id] of room.elements) {
-              if (!incomingIds.has(id)) {
-                toRemove.push(id);
-              }
-            }
-            for (const id of toRemove) {
-              room.elements.delete(id);
-            }
-            if (room.yjs && toRemove.length > 0) {
-              deleteElementsFromYjs(room.yjs, toRemove);
-            }
-          }
-
-          if (room.yjs && acceptedElements.length > 0) {
-            applyElementsToYjs(room.yjs, acceptedElements);
-            const yjsUpdate = getYjsUpdate(room.yjs);
-            broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-          }
-
-          broadcast(
-            room,
-            {
-              type: 'scene-update',
+          // `init` is an initial snapshot, not an implicit delete-all
+          // instruction. A newly connected client can legitimately have an
+          // incomplete/local scene; deleting IDs absent from that payload
+          // would erase the room before the first collaboration update.
+          // Destructive replacement is an explicit operation and is not
+          // accepted through this transport message.
+          if (acceptedElements.length > 0) {
+            const filteredUpdate = {
+              type: 'scene-update' as const,
               subtype: message.subtype,
               elements: acceptedElements,
-            },
-            currentUserId ?? undefined
-          );
-          room.dirty = true;
-          scheduleSave(currentRoomId);
-          publishToRoom(currentRoomId, {
-            type: 'scene-update',
-            subtype: message.subtype,
-            elements: acceptedElements,
-          });
+            };
+            broadcast(room, filteredUpdate, currentUserId ?? undefined);
+            markRoomDirty(currentRoomId);
+            scheduleSave(currentRoomId);
+            publishToRoom(currentRoomId, filteredUpdate);
+          }
           break;
         }
 
         case 'scene-delta': {
           if (!currentRoomId) break;
+          if (rejectReadOnlyMutation()) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
 
@@ -581,132 +672,102 @@ wss.on('connection', async (ws, req) => {
             'clientMsgId' in message
               ? (message as { clientMsgId?: string }).clientMsgId
               : undefined;
-          if (clientMsgId) {
-            if (room.recentMsgIds.has(clientMsgId)) {
-              // Already processed, ack silently
-              send(ws, { type: 'pong', timestamp: Date.now() });
-              break;
-            }
-            room.recentMsgIds.add(clientMsgId);
-            // Evict old entries (keep last 500)
-            if (room.recentMsgIds.size > 500) {
-              const first = room.recentMsgIds.values().next().value;
-              if (first !== undefined) room.recentMsgIds.delete(first);
-            }
+          if (noteClientMsgId(room, clientMsgId)) {
+            // Already processed, ack silently
+            send(ws, { type: 'pong', timestamp: Date.now() });
+            break;
           }
 
-          const acceptedAdded: unknown[] = [];
-          const acceptedUpdated: unknown[] = [];
-          const yjsChangedElements: DriplElement[] = [];
+          const acceptedAdded: DriplElement[] = [];
+          const acceptedUpdated: DriplElement[] = [];
+          const acceptedDeleted: string[] = [];
+
+          const prospectiveElements = [
+            ...(Array.isArray(message.added) ? message.added : []),
+            ...(Array.isArray(message.updated) ? message.updated : []),
+          ];
+          if (wouldExceedSceneCapacity(room, prospectiveElements)) {
+            send(ws, {
+              type: 'error',
+              message: sceneCapacityMessage(),
+            });
+            break;
+          }
 
           if (message.added && Array.isArray(message.added)) {
-            for (const rawEl of message.added) {
-              try {
-                const element = toDriplElement(rawEl);
-                const existing = room.elements.get(element.id);
-                if (existing && (element.version ?? 0) <= (existing.version ?? 0)) {
-                  continue;
-                }
-                room.elements.set(element.id, element);
-                acceptedAdded.push(element);
-                yjsChangedElements.push(element);
-              } catch (err) {
-                logger.debug({
-                  event: 'invalid_element',
-                  roomId: currentRoomId,
-                  elementId: (rawEl as { id?: string })?.id,
-                  error: String(err),
-                });
-              }
-            }
+            acceptAll(room, message.added, acceptedAdded, (rawEl, err) => {
+              logger.debug({
+                event: 'invalid_element',
+                roomId: currentRoomId,
+                elementId: (rawEl as { id?: string })?.id,
+                error: String(err),
+              });
+            });
           }
 
           if (message.updated && Array.isArray(message.updated)) {
-            for (const rawEl of message.updated) {
-              try {
-                const element = toDriplElement(rawEl);
-                const existing = room.elements.get(element.id);
-                if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
-                  continue;
-                }
-                room.elements.set(element.id, element);
-                acceptedUpdated.push(element);
-                yjsChangedElements.push(element);
-              } catch (err) {
-                logger.debug({
-                  event: 'invalid_element',
-                  roomId: currentRoomId,
-                  elementId: (rawEl as { id?: string })?.id,
-                  error: String(err),
-                });
-              }
-            }
+            acceptAll(room, message.updated, acceptedUpdated, (rawEl, err) => {
+              logger.debug({
+                event: 'invalid_element',
+                roomId: currentRoomId,
+                elementId: (rawEl as { id?: string })?.id,
+                error: String(err),
+              });
+            });
           }
 
           if (message.deleted && Array.isArray(message.deleted)) {
             for (const id of message.deleted) {
-              room.elements.delete(id);
-            }
-            if (room.yjs) {
-              deleteElementsFromYjs(room.yjs, message.deleted);
+              if (room.elements.delete(id)) acceptedDeleted.push(id);
             }
           }
 
-          if (room.yjs && yjsChangedElements.length > 0) {
-            applyElementsToYjs(room.yjs, yjsChangedElements);
-          }
+          if (
+            acceptedAdded.length > 0 ||
+            acceptedUpdated.length > 0 ||
+            acceptedDeleted.length > 0
+          ) {
+            const filteredDelta: Record<string, unknown> = { type: 'scene-delta' };
+            if (acceptedAdded.length > 0) filteredDelta.added = acceptedAdded;
+            if (acceptedUpdated.length > 0) filteredDelta.updated = acceptedUpdated;
+            if (acceptedDeleted.length > 0) filteredDelta.deleted = acceptedDeleted;
 
-          if (room.yjs && yjsChangedElements.length > 0) {
-            const yjsUpdate = getYjsUpdate(room.yjs);
-            broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
+            broadcast(room, filteredDelta, currentUserId ?? undefined);
+            markRoomDirty(currentRoomId);
+            scheduleSave(currentRoomId);
+            publishToRoom(currentRoomId, filteredDelta);
           }
-
-          const filteredDelta: Record<string, unknown> = { type: 'scene-delta' };
-          if (acceptedAdded.length > 0) filteredDelta.added = acceptedAdded;
-          if (acceptedUpdated.length > 0) filteredDelta.updated = acceptedUpdated;
-          if (message.deleted && Array.isArray(message.deleted) && message.deleted.length > 0) {
-            filteredDelta.deleted = message.deleted;
-          }
-
-          broadcast(room, filteredDelta, currentUserId ?? undefined);
-          room.dirty = true;
-          scheduleSave(currentRoomId);
-          publishToRoom(currentRoomId, filteredDelta);
           break;
         }
 
         case 'element-update': {
           if (!currentRoomId) break;
+          if (rejectReadOnlyMutation()) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
 
+          let acceptedCount = 0;
+          const filteredElementUpdate: Record<string, unknown> = { type: 'element-update' };
+
           if (Array.isArray(message.elements)) {
-            const accepted: unknown[] = [];
-            const yjsElements: DriplElement[] = [];
-            for (const rawEl of message.elements) {
-              try {
-                const element = toDriplElement(rawEl);
-                const existing = room.elements.get(element.id);
-                if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
-                  continue;
-                }
-                room.elements.set(element.id, element);
-                accepted.push(element);
-                yjsElements.push(element);
-              } catch (err) {
-                logger.debug({
-                  event: 'invalid_element',
-                  roomId: currentRoomId,
-                  elementId: (rawEl as { id?: string })?.id,
-                  error: String(err),
-                });
-              }
+            if (wouldExceedSceneCapacity(room, message.elements)) {
+              send(ws, {
+                type: 'error',
+                message: sceneCapacityMessage(),
+              });
+              break;
             }
-            if (room.yjs && yjsElements.length > 0) {
-              applyElementsToYjs(room.yjs, yjsElements);
-              const yjsUpdate = getYjsUpdate(room.yjs);
-              broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-            }
+            const accepted: DriplElement[] = [];
+            acceptAll(room, message.elements, accepted, (rawEl, err) => {
+              logger.debug({
+                event: 'invalid_element',
+                roomId: currentRoomId,
+                elementId: (rawEl as { id?: string })?.id,
+                error: String(err),
+              });
+            });
+            acceptedCount = accepted.length;
+            if (acceptedCount > 0) filteredElementUpdate.elements = accepted;
             if (accepted.length > 0) {
               broadcast(
                 room,
@@ -720,15 +781,19 @@ wss.on('connection', async (ws, req) => {
             try {
               const element = toDriplElement(rawElement);
               const existing = room.elements.get(element.id);
-              if (existing && (element.version ?? 0) < (existing.version ?? 0)) {
+              if (!existing && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
+                send(ws, {
+                  type: 'error',
+                  message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
+                });
+                break;
+              }
+              if (existing && !shouldAcceptElement(element, existing)) {
                 break;
               }
               room.elements.set(element.id, element);
-              if (room.yjs) {
-                applyElementToYjs(room.yjs, element);
-                const yjsUpdate = getYjsUpdate(room.yjs);
-                broadcastYjsUpdate(room, yjsUpdate, currentUserId ?? undefined);
-              }
+              acceptedCount = 1;
+              filteredElementUpdate.element = element;
               broadcast(room, { type: 'element-update', element }, currentUserId ?? undefined);
             } catch (err) {
               logger.debug({
@@ -740,13 +805,11 @@ wss.on('connection', async (ws, req) => {
             }
           }
 
-          room.dirty = true;
-          scheduleSave(currentRoomId);
-          publishToRoom(currentRoomId, {
-            type: 'element-update',
-            elements: Array.isArray(message.elements) ? message.elements : undefined,
-            element: !Array.isArray(message.elements) ? message.element : undefined,
-          });
+          if (acceptedCount > 0) {
+            markRoomDirty(currentRoomId);
+            scheduleSave(currentRoomId);
+            publishToRoom(currentRoomId, filteredElementUpdate);
+          }
           break;
         }
 
@@ -759,45 +822,16 @@ wss.on('connection', async (ws, req) => {
           const parsed = cursorMoveHandler.schema.safeParse(message);
           if (!parsed.success) break;
 
-          await cursorMoveHandler.apply(parsed.data, {
-            ws,
-            user: room.users.get(currentUserId) ?? {
-              userId: currentUserId,
-              displayName: 'Unknown',
-              color: '#000000',
-              ws,
-              isAlive: true,
-            },
-            userId: currentUserId,
-            roomId: currentRoomId,
-            room,
-            logger,
-          });
+          await cursorMoveHandler.apply(parsed.data, toHandlerCtx(room, currentUserId));
           break;
         }
 
         case 'element-lock': {
           if (!currentRoomId || !currentUserId) break;
+          if (rejectReadOnlyMutation()) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-          const existingLock = room.elementLocks.get(message.elementId);
-          if (existingLock && existingLock.userId !== currentUserId) {
-            send(ws, { type: 'error', message: 'Element is locked by another user' });
-            break;
-          }
-          room.elementLocks.set(message.elementId, {
-            userId: currentUserId,
-            lastHeartbeat: Date.now(),
-          });
-          broadcast(
-            room,
-            {
-              type: 'element-lock',
-              elementId: message.elementId,
-              userId: currentUserId,
-            },
-            currentUserId
-          );
+          await elementLockHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
 
@@ -805,19 +839,7 @@ wss.on('connection', async (ws, req) => {
           if (!currentRoomId || !currentUserId) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-          const lock = room.elementLocks.get(message.elementId);
-          if (lock && lock.userId === currentUserId) {
-            room.elementLocks.delete(message.elementId);
-            broadcast(
-              room,
-              {
-                type: 'element-unlock',
-                elementId: message.elementId,
-                userId: currentUserId,
-              },
-              currentUserId
-            );
-          }
+          await elementUnlockHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
 
@@ -825,10 +847,7 @@ wss.on('connection', async (ws, req) => {
           if (!currentRoomId || !currentUserId) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-          const lock = room.elementLocks.get(message.elementId);
-          if (lock && lock.userId === currentUserId) {
-            lock.lastHeartbeat = Date.now();
-          }
+          await elementLockHeartbeatHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
 
@@ -841,26 +860,7 @@ wss.on('connection', async (ws, req) => {
           if (!currentRoomId || !currentUserId) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-          room.viewports.set(currentUserId, {
-            panX: message.panX,
-            panY: message.panY,
-            zoom: message.zoom,
-          });
-          // Broadcast only to followers of this user
-          for (const [followerId, leaderId] of room.following) {
-            if (leaderId === currentUserId && followerId !== currentUserId) {
-              const follower = room.users.get(followerId);
-              if (follower) {
-                send(follower.ws, {
-                  type: 'viewport-update',
-                  userId: currentUserId,
-                  panX: message.panX,
-                  panY: message.panY,
-                  zoom: message.zoom,
-                });
-              }
-            }
-          }
+          await viewportUpdateHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
 
@@ -868,16 +868,7 @@ wss.on('connection', async (ws, req) => {
           if (!currentRoomId || !currentUserId) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-          room.following.set(currentUserId, message.targetUserId);
-          // Send current viewport of target to follower
-          const targetViewport = room.viewports.get(message.targetUserId);
-          if (targetViewport) {
-            send(ws, {
-              type: 'viewport-update',
-              userId: message.targetUserId,
-              ...targetViewport,
-            });
-          }
+          await followUserHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
 
@@ -885,7 +876,7 @@ wss.on('connection', async (ws, req) => {
           if (!currentRoomId || !currentUserId) break;
           const room = rooms.get(currentRoomId);
           if (!room) break;
-          room.following.delete(currentUserId);
+          await unfollowUserHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
       }
@@ -893,7 +884,41 @@ wss.on('connection', async (ws, req) => {
       logger.error({ event: 'ws_message_handler_error', err });
       Sentry.captureException(err);
     }
+  }
+
+  // The ws EventEmitter does not await async listeners. Serialize messages per
+  // connection so a burst cannot reorder a join, delta, and delete while a
+  // room is being loaded or a remote Redis mutation is being applied.
+  let messageQueue = Promise.resolve();
+  let queuedMessages = 0;
+  let queuedMessageBytes = 0;
+  const MAX_QUEUED_MESSAGES = 100;
+  ws.on('message', (raw: Buffer, isBinary: boolean) => {
+    if (
+      queuedMessages >= MAX_QUEUED_MESSAGES ||
+      queuedMessageBytes + raw.byteLength > MAX_SERIALIZED_QUEUE_BYTES
+    ) {
+      ws.close(4000, 'Message queue exceeded');
+      return;
+    }
+    queuedMessages += 1;
+    queuedMessageBytes += raw.byteLength;
+    messageQueue = messageQueue
+      .then(() => handleMessage(raw, isBinary))
+      .catch(err => {
+        logger.error({ event: 'ws_message_queue_error', err });
+        Sentry.captureException(err);
+      })
+      .finally(() => {
+        queuedMessages -= 1;
+        queuedMessageBytes -= raw.byteLength;
+      });
   });
+
+  ws.off('message', onEarlyMessage);
+  for (const raw of earlyMessages.splice(0)) {
+    ws.emit('message', raw);
+  }
 
   ws.on('close', () => {
     removeRateLimitIdentity(ws);
@@ -901,213 +926,89 @@ wss.on('connection', async (ws, req) => {
     const room = rooms.get(currentRoomId);
     if (!room) return;
 
-    room.users.delete(currentUserId);
-    room.cursors.delete(currentUserId);
-    room.following.delete(currentUserId);
-    room.viewports.delete(currentUserId);
-    // Remove this user as a leader from anyone following them
-    for (const [followerId, leaderId] of room.following) {
-      if (leaderId === currentUserId) {
-        room.following.delete(followerId);
+    const registeredConnection = room.users.get(currentUserId);
+    const ownsRegistration = registeredConnection?.ws === ws;
+    if (ownsRegistration) {
+      room.users.delete(currentUserId);
+      room.cursors.delete(currentUserId);
+      room.following.delete(currentUserId);
+      room.viewports.delete(currentUserId);
+      // Remove this user as a leader from anyone following them
+      for (const [followerId, leaderId] of room.following) {
+        if (leaderId === currentUserId) {
+          room.following.delete(followerId);
+        }
       }
     }
     wsToRoomMap.delete(ws);
-    userToRoomMap.delete(currentUserId);
+    if (ownsRegistration && userToRoomMap.get(currentUserId) === currentRoomId) {
+      userToRoomMap.delete(currentUserId);
+    }
 
-    broadcast(room, {
-      type: 'user-leave',
-      roomId: currentRoomId,
-      userId: currentUserId,
-      timestamp: Date.now(),
-    });
+    if (ownsRegistration) {
+      broadcast(room, {
+        type: 'user-leave',
+        roomId: currentRoomId,
+        userId: currentUserId,
+        timestamp: Date.now(),
+      });
 
-    if (room.users.size === 0) {
-      roomLastEmptyAt.set(currentRoomId, Date.now());
+      if (room.users.size === 0) {
+        roomLastEmptyAt.set(currentRoomId, Date.now());
+      }
     }
   });
 });
 
 const heartbeat = setInterval(() => {
-  wss.clients.forEach(ws => {
-    const user = (ws as WebSocket & { __user?: UserConnection }).__user;
-    if (!user) return;
-    if (!user.isAlive) {
-      const roomId = wsToRoomMap.get(ws);
-      if (roomId) {
-        const room = rooms.get(roomId);
-        if (room) {
-          broadcast(room, {
-            type: 'user-leave',
-            roomId,
-            userId: user.userId,
-            timestamp: Date.now(),
-          });
-          room.users.delete(user.userId);
-          room.cursors.delete(user.userId);
-          scheduleSave(roomId);
-          if (room.users.size === 0) {
-            roomLastEmptyAt.set(roomId, Date.now());
-          }
-        }
-      }
-      wsToRoomMap.delete(ws);
-      userToRoomMap.delete(user.userId);
-      ws.terminate();
-      return;
-    }
-    user.isAlive = false;
-    ws.ping();
-  });
+  runHeartbeatTick(wss.clients);
 }, HEARTBEAT_INTERVAL_MS);
 
-const periodicSave = setInterval(async () => {
-  const activeRooms = Array.from(rooms.entries());
-  const now = Date.now();
-  const savePromises: Promise<{ roomId: string; success: boolean }>[] = [];
+const AUTHORIZATION_SWEEP_INTERVAL_MS = 15_000;
+const authorizationSweep = setInterval(() => {
+  runAuthorizationSweep();
+}, AUTHORIZATION_SWEEP_INTERVAL_MS);
+authorizationSweep.unref();
 
-  for (const [roomId, room] of activeRooms) {
-    if (room.users.size > 0) {
-      roomLastEmptyAt.delete(roomId);
-      if (!room.saving && room.dirty) {
-        room.saving = true;
-        savePromises.push(
-          saveRoomElements(roomId, room.elements).then(success => {
-            if (success) room.dirty = false;
-            room.saving = false;
-            return { roomId, success };
-          })
-        );
-      }
-    } else {
-      const emptySince = roomLastEmptyAt.get(roomId);
-      if (!emptySince) {
-        roomLastEmptyAt.set(roomId, now);
-        continue;
-      }
-      if (now - emptySince > MAX_EMPTY_ROOM_TTL_MS) {
-        if (!room.saving && room.elements.size > 0 && room.dirty) {
-          room.saving = true;
-          savePromises.push(
-            saveRoomElements(roomId, room.elements).then(success => {
-              if (success) room.dirty = false;
-              room.saving = false;
-              return { roomId, success };
-            })
-          );
-        }
-        if (room.users.size === 0) {
-          rooms.delete(roomId);
-          roomLastEmptyAt.delete(roomId);
-          if (room.yjs) {
-            deleteYjsRoom(roomId);
-          }
-        }
-      }
-    }
-  }
-
-  if (savePromises.length > 0) {
-    const results = await Promise.allSettled(savePromises);
-    for (const result of results) {
-      if (result.status === 'fulfilled' && !result.value.success) {
-        logger.error({ event: 'periodic_save_failure', roomId: result.value.roomId });
-      }
-    }
-  }
+const periodicSave = setInterval(() => {
+  void runPeriodicSave();
 }, PERIODIC_SAVE_INTERVAL_MS);
 
-const LOCK_HEARTBEAT_TIMEOUT_MS = 10_000;
 const LOCK_SWEEP_INTERVAL_MS = 5_000;
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [, room] of rooms) {
-    if (room.elementLocks.size === 0) continue;
-    const expiredLocks: string[] = [];
-    for (const [elementId, lock] of room.elementLocks) {
-      if (now - lock.lastHeartbeat > LOCK_HEARTBEAT_TIMEOUT_MS) {
-        expiredLocks.push(elementId);
-      }
-    }
-    for (const elementId of expiredLocks) {
-      const lock = room.elementLocks.get(elementId);
-      room.elementLocks.delete(elementId);
-      if (lock) {
-        broadcast(room, {
-          type: 'element-unlock',
-          elementId,
-          userId: lock.userId,
-        });
-      }
-    }
-  }
+const lockSweep = setInterval(() => {
+  runLockSweep();
 }, LOCK_SWEEP_INTERVAL_MS);
 
 const RECONCILIATION_INTERVAL_MS = 60_000;
 
-const reconciliation = setInterval(async () => {
-  for (const [roomId, room] of rooms) {
-    if (room.users.size === 0) continue;
-    if (room.saving) continue;
-
-    try {
-      let dbContent: string | null = null;
-
-      if (room.recordType === 'canvasRoom') {
-        const dbRoom = await db.canvasRoom.findUnique({
-          where: { slug: roomId },
-          select: { content: true },
-        });
-        dbContent = dbRoom?.content ?? null;
-      } else {
-        const dbFile = await db.file.findUnique({
-          where: { id: roomId },
-          select: { content: true },
-        });
-        dbContent = dbFile?.content ?? null;
-      }
-
-      if (dbContent === null) continue;
-
-      const dbParsed = parseStoredElements(dbContent);
-      const dbIds = new Set(dbParsed.map((e: DriplElement) => e.id));
-      const memIds = new Set(room.elements.keys());
-
-      const addedInMem = [...memIds].filter(id => !dbIds.has(id));
-      const addedInDb = [...dbIds].filter(id => !memIds.has(id));
-
-      if (addedInMem.length > 0 || addedInDb.length > 0) {
-        logger.warn({
-          event: 'state_divergence',
-          roomId,
-          memCount: memIds.size,
-          dbCount: dbIds.size,
-          onlyInMem: addedInMem.length,
-          onlyInDb: addedInDb.length,
-        });
-        room.saving = true;
-        const success = await saveRoomElements(roomId, room.elements);
-        room.saving = false;
-        if (!success) {
-          logger.error({ event: 'reconciliation_save_failure', roomId });
-        }
-      }
-    } catch (err) {
-      logger.error({ event: 'reconciliation_check_error', roomId, err });
-      Sentry.captureException(err);
-    }
-  }
+const reconciliation = setInterval(() => {
+  void runReconciliation();
 }, RECONCILIATION_INTERVAL_MS);
 
 async function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
   clearInterval(heartbeat);
   clearInterval(periodicSave);
+  clearInterval(lockSweep);
   clearInterval(reconciliation);
+  clearInterval(authorizationSweep);
+
+  // Stop accepting new HTTP/WebSocket work before the final persistence pass.
+  const httpClosePromise = new Promise<void>(resolve => {
+    if (!server.listening) {
+      resolve();
+      return;
+    }
+    server.close(() => resolve());
+  });
 
   const savePromises: Promise<void>[] = [];
   const savedRoomIds = new Set<string>();
+  let saveFailed = false;
 
-  // Save rooms with pending debounced saves
+  // Save rooms with pending debounced saves.
   for (const [roomId, timeout] of saveTimeouts.entries()) {
     clearTimeout(timeout);
     const room = rooms.get(roomId);
@@ -1116,6 +1017,7 @@ async function shutdown() {
       savePromises.push(
         saveRoomElements(roomId, room.elements).then(success => {
           if (!success) {
+            saveFailed = true;
             logger.error({ event: 'shutdown_save_failure', roomId });
           }
         })
@@ -1123,12 +1025,14 @@ async function shutdown() {
     }
   }
 
-  // Also save any dirty rooms not already queued
+  // Also save any dirty rooms not already queued, but do not overlap an
+  // in-flight periodic save that is already responsible for the same room.
   for (const [roomId, room] of rooms.entries()) {
-    if (!savedRoomIds.has(roomId) && room.dirty && room.elements.size > 0) {
+    if (!savedRoomIds.has(roomId) && room.dirty && !room.saving) {
       savePromises.push(
         saveRoomElements(roomId, room.elements).then(success => {
           if (!success) {
+            saveFailed = true;
             logger.error({ event: 'shutdown_save_failure', roomId });
           }
         })
@@ -1137,16 +1041,55 @@ async function shutdown() {
   }
 
   const SHUTDOWN_TIMEOUT_MS = 10_000;
-  const timeout = new Promise<void>(resolve => {
+  const timeout = new Promise<boolean>(resolve => {
     setTimeout(() => {
       logger.error({ event: 'shutdown_timeout' });
-      resolve();
+      resolve(false);
     }, SHUTDOWN_TIMEOUT_MS);
   });
+  const savesCompleted = await Promise.race([Promise.all(savePromises).then(() => true), timeout]);
+  if (!savesCompleted) saveFailed = true;
 
-  await Promise.race([Promise.all(savePromises), timeout]);
+  // Closing clients after the save pass prevents new mutations from racing the
+  // final snapshot. The close is bounded because a peer may not answer the
+  // WebSocket close handshake.
+  for (const client of wss.clients) client.close(1001, 'Server shutting down');
+  await Promise.race([
+    new Promise<void>(resolve => wss.close(() => resolve())),
+    new Promise<void>(resolve => setTimeout(resolve, 2_000)),
+  ]);
+  await httpClosePromise;
   await db.$disconnect();
-  process.exit(0);
+  process.exit(saveFailed ? 1 : 0);
+}
+
+export async function stopForTests(): Promise<void> {
+  clearInterval(heartbeat);
+  clearInterval(periodicSave);
+  clearInterval(lockSweep);
+  clearInterval(reconciliation);
+  clearInterval(authorizationSweep);
+  for (const client of wss.clients) client.terminate();
+  await new Promise<void>(resolve => {
+    if (!wss) {
+      resolve();
+      return;
+    }
+    wss.close(() => resolve());
+  });
+  if (server.listening) {
+    await new Promise<void>(resolve => server.close(() => resolve()));
+  }
+  rooms.clear();
+  saveTimeouts.forEach(timeout => clearTimeout(timeout));
+  saveTimeouts.clear();
+  roomLastEmptyAt.clear();
+  userToRoomMap.clear();
+  // `wsToRoomMap` is keyed by socket, so a stale entry lets the heartbeat read
+  // a roomId for a socket that has already been reaped.
+  wsToRoomMap.clear();
+  await db.$disconnect();
+  shuttingDown = false;
 }
 
 process.on('SIGINT', () => {
@@ -1156,8 +1099,10 @@ process.on('SIGTERM', () => {
   void shutdown();
 });
 
-start().then(() => {
-  server.listen(WS_PORT, () => {
-    logger.info({ event: 'websocket_server_started', port: WS_PORT });
+if (process.env.NODE_ENV !== 'test' || process.env.RUN_WS_INTEGRATION === 'true') {
+  start().then(() => {
+    server.listen(WS_PORT, () => {
+      logger.info({ event: 'websocket_server_started', port: WS_PORT });
+    });
   });
-});
+}

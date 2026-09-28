@@ -1,25 +1,13 @@
 import { z } from 'zod';
-import type { Handler } from './types.js';
-import { broadcast } from '../broadcast.js';
+import type { Handler } from './types';
+import { broadcast } from '../broadcast';
+import { cursorMoveSchema, cursorMoveKebabSchema } from '../validation';
 
-const cursorMoveSnakeSchema = z.object({
-  type: z.literal('cursor_move'),
-  x: z.number(),
-  y: z.number(),
-  userName: z.string().optional(),
-  color: z.string().optional(),
-});
-
-const cursorMoveKebabSchema = z.object({
-  type: z.literal('cursor-move'),
-  x: z.number(),
-  y: z.number(),
-  userName: z.string().optional(),
-  displayName: z.string().optional(),
-  color: z.string().optional(),
-});
-
-const schema = z.union([cursorMoveSnakeSchema, cursorMoveKebabSchema]);
+// No local schema copy: the message already passed `messageSchema` in the
+// dispatch prologue, and these are the same bounded schemas it was validated
+// against. A third, looser copy here could never reject anything the first
+// pass accepted — it was pure redundancy.
+const schema = z.union([cursorMoveSchema, cursorMoveKebabSchema]);
 
 type CursorMove = z.infer<typeof schema>;
 
@@ -33,15 +21,6 @@ export const cursorMoveHandler: Handler<typeof schema, CursorMove> = {
     const displayName = msg.type === 'cursor-move' ? msg.displayName : msg.userName;
     const resolvedName = displayName ?? user?.displayName ?? 'Unknown';
     const resolvedColor = msg.color ?? user?.color ?? '#000000';
-
-    if (ctx.room.yjs) {
-      ctx.room.yjs.awareness.setLocalStateField('cursor', { x: msg.x, y: msg.y });
-      ctx.room.yjs.awareness.setLocalStateField('user', {
-        id: ctx.userId,
-        name: resolvedName,
-        color: resolvedColor,
-      });
-    }
 
     broadcast(
       ctx.room,

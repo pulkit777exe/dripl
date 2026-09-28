@@ -1,6 +1,6 @@
 import type { WebSocket } from 'ws';
 import type { z } from 'zod';
-import type { RoomState, UserConnection } from '../types.js';
+import type { RoomState, UserConnection } from '../types';
 
 export type HandlerLogger = {
   debug: (entry: Record<string, unknown>) => void;
@@ -16,6 +16,9 @@ export interface HandlerCtx {
   userId: string;
   room: RoomState;
   logger: HandlerLogger;
+  /** Read-only shares reject mutations with an error reply. Passed as a
+   * closure because access lives in per-connection state. */
+  rejectReadOnlyMutation: () => boolean;
 }
 
 export interface Handler<TSchema extends z.ZodTypeAny, TPayload = z.infer<TSchema>> {

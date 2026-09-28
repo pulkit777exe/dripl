@@ -32,7 +32,10 @@ const validArrow = {
   y: 0,
   width: 200,
   height: 100,
-  points: [{ x: 0, y: 0 }, { x: 200, y: 100 }],
+  points: [
+    { x: 0, y: 0 },
+    { x: 200, y: 100 },
+  ],
 };
 
 const validText = {
@@ -504,7 +507,11 @@ describe('element type validation', () => {
         y: 0,
         width: 200,
         height: 100,
-        points: [{ x: 0, y: 0 }, { x: 50, y: 50 }, { x: 200, y: 100 }],
+        points: [
+          { x: 0, y: 0 },
+          { x: 50, y: 50 },
+          { x: 200, y: 100 },
+        ],
       },
     });
     expect(result.success).toBe(true);
@@ -550,12 +557,15 @@ describe('element type validation', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects element with angle > 360', () => {
+  it('accepts element with angle > 360 (radians are unbounded)', () => {
+    // The old wire schema bounded angle to ±360; the canonical schema leaves
+    // it unbounded because angles are radians. Stroke width, by contrast,
+    // stays bounded (max 100) as a renderer-sanity cap — see the test below.
     const result = addElementSchema.safeParse({
       type: 'add_element',
       element: { ...validRectangle, angle: 361 },
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('rejects element with opacity > 1', () => {

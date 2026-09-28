@@ -1,120 +1,17 @@
 import { z } from 'zod';
-import { MAX_MESSAGE_BYTES } from '@dripl/common';
+import {
+  DriplElementSchema as driplElementSchema,
+  MAX_MESSAGE_BYTES,
+  MAX_SCENE_ELEMENTS,
+} from '@dripl/common';
 
-const pointSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-});
+const colorSchema = z.string().regex(/^#[0-9a-f]{3,8}$/i, 'Invalid color');
 
-const bindingSchema = z.object({
-  elementId: z.string(),
-  fixedPoint: pointSchema,
-  mode: z.enum(['inside', 'orbit']),
-}).optional();
-
-const elementBaseSchema = z
-  .object({
-    id: z.string().min(1).max(100),
-    type: z.string(),
-    x: z.number().min(-100000).max(100000),
-    y: z.number().min(-100000).max(100000),
-    width: z.number().min(0).max(50000),
-    height: z.number().min(0).max(50000),
-    strokeColor: z.string().optional(),
-    backgroundColor: z.string().optional(),
-    strokeWidth: z.number().min(0).max(100).optional(),
-    opacity: z.number().min(0).max(1).optional(),
-    isDeleted: z.boolean().optional(),
-    roughness: z.number().min(0).max(10).optional(),
-    strokeStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
-    fillStyle: z
-      .enum(['hachure', 'solid', 'zigzag', 'cross-hatch', 'dots', 'dashed', 'zigzag-line'])
-      .optional(),
-    seed: z.number().optional(),
-    angle: z.number().min(-360).max(360).optional(),
-    locked: z.boolean().optional(),
-    groupId: z.string().optional(),
-    zIndex: z.number().optional(),
-    rotation: z.number().min(-360).max(360).optional(),
-    flipHorizontal: z.number().optional(),
-    flipVertical: z.number().optional(),
-  })
-  .strip(); // Remove unknown properties instead of passing them through
-
-const rectangleElementSchema = elementBaseSchema.extend({
-  type: z.literal('rectangle'),
-});
-
-const ellipseElementSchema = elementBaseSchema.extend({
-  type: z.literal('ellipse'),
-});
-
-const diamondElementSchema = elementBaseSchema.extend({
-  type: z.literal('diamond'),
-});
-
-const linearElementSchema = elementBaseSchema.extend({
-  type: z.enum(['arrow', 'line']),
-  points: z.array(pointSchema),
-  labelId: z.string().optional(),
-  arrowHeads: z
-    .object({
-      start: z.boolean().optional(),
-      end: z.boolean().optional(),
-    })
-    .optional(),
-  startBinding: bindingSchema,
-  endBinding: bindingSchema,
-});
-
-const freedrawElementSchema = elementBaseSchema.extend({
-  type: z.literal('freedraw'),
-  points: z.array(pointSchema),
-  brushSize: z.number().optional(),
-  pressureValues: z.array(z.number()).optional(),
-  widths: z.array(z.number()).optional(),
-});
-
-const textElementSchema = elementBaseSchema.extend({
-  type: z.literal('text'),
-  text: z.string().max(10000),
-  fontSize: z.number().min(1).max(500),
-  fontFamily: z.string().max(100),
-  textAlign: z.enum(['left', 'center', 'right']).optional(),
-  verticalAlign: z.enum(['top', 'middle', 'bottom']).optional(),
-  boundElementId: z.string().optional(),
-  containerId: z.string().optional(),
-});
-
-const imageElementSchema = elementBaseSchema.extend({
-  type: z.literal('image'),
-  src: z.string(),
-});
-
-const frameElementSchema = elementBaseSchema.extend({
-  type: z.literal('frame'),
-  title: z.string().optional(),
-  padding: z.number().optional(),
-});
-
-const embedElementSchema = elementBaseSchema.extend({
-  type: z.literal('embed'),
-  url: z.string(),
-  title: z.string().optional(),
-  cachedPreview: z.string().optional(),
-});
-
-const driplElementSchema = z.union([
-  rectangleElementSchema,
-  ellipseElementSchema,
-  diamondElementSchema,
-  linearElementSchema,
-  freedrawElementSchema,
-  textElementSchema,
-  imageElementSchema,
-  frameElementSchema,
-  embedElementSchema,
-]);
+// Element wire format is owned by @dripl/common. A previous revision kept a
+// second, looser copy of this union here; the two drifted (roughness 10 vs 2,
+// image src with no protocol check vs ImageSourceSchema, unbounded
+// angle/strokeWidth vs bounded) while only the inner strict parse in
+// toDriplElement actually protected storage. One schema now.
 
 export const joinRoomSchema = z.object({
   type: z.literal('join_room'),
@@ -125,9 +22,9 @@ export const joinRoomSchema = z.object({
 export const joinSchema = z.object({
   type: z.literal('join'),
   roomId: z.string().min(1).max(100),
-  userId: z.string().optional(),
+  userId: z.string().max(100).optional(),
   displayName: z.string().min(1).max(50).optional(),
-  color: z.string().optional(),
+  color: colorSchema.optional(),
 });
 
 export const addElementSchema = z.object({
@@ -142,24 +39,24 @@ export const updateElementSchema = z.object({
 
 export const deleteElementSchema = z.object({
   type: z.literal('delete_element'),
-  elementId: z.string(),
+  elementId: z.string().min(1).max(100),
 });
 
 export const cursorMoveSchema = z.object({
   type: z.literal('cursor_move'),
-  x: z.number(),
-  y: z.number(),
+  x: z.number().finite().min(-100000).max(100000),
+  y: z.number().finite().min(-100000).max(100000),
   userName: z.string().optional(),
-  color: z.string().optional(),
+  color: colorSchema.optional(),
 });
 
 export const cursorMoveKebabSchema = z.object({
   type: z.literal('cursor-move'),
-  x: z.number(),
-  y: z.number(),
+  x: z.number().finite().min(-100000).max(100000),
+  y: z.number().finite().min(-100000).max(100000),
   userName: z.string().optional(),
   displayName: z.string().optional(),
-  color: z.string().optional(),
+  color: colorSchema.optional(),
 });
 
 export const elementUpdateSchema = z.object({
@@ -171,7 +68,8 @@ export const elementUpdateSchema = z.object({
 export const sceneUpdateSchema = z.object({
   type: z.literal('scene-update'),
   subtype: z.enum(['init', 'update']),
-  elements: z.array(driplElementSchema).max(5000),
+  elements: z.array(driplElementSchema).max(MAX_SCENE_ELEMENTS),
+  clientMsgId: z.string().min(1).max(100).optional(),
 });
 
 export const sceneDeltaSchema = z.object({
@@ -179,7 +77,35 @@ export const sceneDeltaSchema = z.object({
   added: z.array(driplElementSchema).max(1000).optional(),
   updated: z.array(driplElementSchema).max(1000).optional(),
   deleted: z.array(z.string()).max(1000).optional(),
+  clientMsgId: z.string().min(1).max(100).optional(),
 });
+
+export const leaveRoomSchema = z.object({ type: z.literal('leave_room') });
+export const leaveSchema = z.object({ type: z.literal('leave') });
+export const pingSchema = z.object({ type: z.literal('ping') });
+export const elementLockSchema = z.object({
+  type: z.literal('element-lock'),
+  elementId: z.string().min(1).max(100),
+});
+export const elementUnlockSchema = z.object({
+  type: z.literal('element-unlock'),
+  elementId: z.string().min(1).max(100),
+});
+export const elementLockHeartbeatSchema = z.object({
+  type: z.literal('element-lock-heartbeat'),
+  elementId: z.string().min(1).max(100),
+});
+export const viewportUpdateSchema = z.object({
+  type: z.literal('viewport-update'),
+  panX: z.number().finite().min(-1000000).max(1000000),
+  panY: z.number().finite().min(-1000000).max(1000000),
+  zoom: z.number().finite().min(0.01).max(100),
+});
+export const followUserSchema = z.object({
+  type: z.literal('follow-user'),
+  targetUserId: z.string().min(1).max(100),
+});
+export const unfollowUserSchema = z.object({ type: z.literal('unfollow-user') });
 
 export const messageSchema = z.discriminatedUnion('type', [
   joinRoomSchema,
@@ -192,15 +118,15 @@ export const messageSchema = z.discriminatedUnion('type', [
   elementUpdateSchema,
   sceneUpdateSchema,
   sceneDeltaSchema,
-  z.object({ type: z.literal('leave_room') }),
-  z.object({ type: z.literal('leave') }),
-  z.object({ type: z.literal('ping') }),
-  z.object({ type: z.literal('element-lock'), elementId: z.string() }),
-  z.object({ type: z.literal('element-unlock'), elementId: z.string() }),
-  z.object({ type: z.literal('element-lock-heartbeat'), elementId: z.string() }),
-  z.object({ type: z.literal('viewport-update'), panX: z.number(), panY: z.number(), zoom: z.number() }),
-  z.object({ type: z.literal('follow-user'), targetUserId: z.string() }),
-  z.object({ type: z.literal('unfollow-user') }),
+  leaveRoomSchema,
+  leaveSchema,
+  pingSchema,
+  elementLockSchema,
+  elementUnlockSchema,
+  elementLockHeartbeatSchema,
+  viewportUpdateSchema,
+  followUserSchema,
+  unfollowUserSchema,
 ]);
 
 export type WsMessage = z.infer<typeof messageSchema>;
