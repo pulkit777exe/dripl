@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthShell } from '@/components/auth/AuthShell';
@@ -10,6 +10,26 @@ import { InlineError } from '@/components/ui/ErrorState';
 const fieldClassName =
   'w-full rounded-md border border-[#D4D0C9] bg-white px-3 py-2 text-[14px] text-[#1A1917] outline-none transition-all placeholder:text-[#9B9890] focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20';
 
+/** Human-readable text for the ?error= codes set by the auth callback routes. */
+function loginErrorMessage(code: string): string {
+  switch (code) {
+    case 'oauth_not_configured':
+      return 'Google sign-in is not configured on this server. Contact the administrator.';
+    case 'token_exchange_failed':
+      return 'Google sign-in failed during token exchange. Check the server logs for the specific cause.';
+    case 'auth_failed':
+      return 'Google sign-in failed while creating your session. Please try again.';
+    case 'invalid_state':
+      return 'Your sign-in session expired. Please try signing in again.';
+    case 'missing_code':
+      return 'Google did not return an authorization code. Please try signing in again.';
+    default:
+      if (code.startsWith('google_'))
+        return 'Google declined the sign-in request. Please try again.';
+      return 'Sign-in failed. Please try again.';
+  }
+}
+
 export default function LoginPage(): React.ReactNode {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,6 +37,22 @@ export default function LoginPage(): React.ReactNode {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
+  const [nextPath, setNextPath] = useState('/dashboard');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedPath = params.get('next');
+    if (requestedPath?.startsWith('/') && !requestedPath.startsWith('//')) {
+      setNextPath(requestedPath);
+    }
+    // OAuth and auth failures redirect back here with ?error=<code> but
+    // otherwise fail silently. Surface them so a failed login is diagnosable
+    // without opening devtools.
+    const errorParam = params.get('error');
+    if (errorParam) {
+      setError(loginErrorMessage(errorParam));
+    }
+  }, []);
 
   const handleSubmit = async (event?: React.FormEvent) => {
     if (event) event.preventDefault();
@@ -25,7 +61,7 @@ export default function LoginPage(): React.ReactNode {
 
     try {
       await login(email, password);
-      router.push('/dashboard');
+      router.replace(nextPath);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to login';
 
@@ -69,7 +105,7 @@ export default function LoginPage(): React.ReactNode {
       {/* Google OAuth — server-side redirect */}
       <div className="flex justify-center mb-4">
         <a
-          href="/api/auth/google"
+          href={`/api/auth/google?next=${encodeURIComponent(nextPath)}`}
           className="inline-flex items-center justify-center gap-2 rounded-md border border-[#D4D0C9] bg-white px-4 py-2 text-[14px] font-medium text-[#1A1917] transition-colors hover:bg-[#E8E5DE] w-[380px]"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -101,22 +137,42 @@ export default function LoginPage(): React.ReactNode {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
+        <label htmlFor="login-email" className="sr-only">
+          Email address
+        </label>
         <input
+          id="login-email"
+          name="email"
           type="email"
+          autoComplete="email"
           value={email}
           onChange={event => setEmail(event.target.value)}
           placeholder="Enter your email"
           className={fieldClassName}
           required
         />
+        <label htmlFor="login-password" className="sr-only">
+          Password
+        </label>
         <input
+          id="login-password"
+          name="password"
           type="password"
+          autoComplete="current-password"
           value={password}
           onChange={event => setPassword(event.target.value)}
           placeholder="Password"
           className={fieldClassName}
           required
         />
+        <div className="flex justify-end">
+          <Link
+            href="/forgot-password"
+            className="text-[12px] text-[#6B6860] underline hover:text-[#E8462A]"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <button
           type="submit"
           disabled={loading}

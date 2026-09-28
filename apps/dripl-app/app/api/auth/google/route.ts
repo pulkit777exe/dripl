@@ -1,11 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { getGoogleOAuthConfig } from './google-config';
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
-const FRONTEND_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-
-export async function GET() {
+export async function GET(request: NextRequest) {
+  let clientId: string;
+  let redirectUri: string;
+  let frontendUrl: string;
+  try {
+    ({ clientId, redirectUri, frontendUrl } = getGoogleOAuthConfig());
+  } catch {
+    // eslint-disable-next-line no-console -- server-side auth failure telemetry
+    console.error(JSON.stringify({ level: 'error', event: 'google_oauth_not_configured' }));
+    return NextResponse.redirect(new URL('/login?error=oauth_not_configured', request.url));
+  }
   const state = crypto.randomUUID();
+  const requestedNext = request.nextUrl.searchParams.get('next');
+  const nextPath =
+    requestedNext?.startsWith('/') && !requestedNext.startsWith('//')
+      ? requestedNext
+      : '/dashboard';
 
   const cookieStore = await cookies();
   cookieStore.set('oauth_state', state, {
@@ -13,13 +26,18 @@ export async function GET() {
     maxAge: 600, // 10 minutes
     path: '/',
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: frontendUrl.startsWith('https://'),
+  });
+  cookieStore.set('oauth_next', nextPath, {
+    httpOnly: true,
+    maxAge: 600,
+    path: '/',
+    sameSite: 'lax',
+    secure: frontendUrl.startsWith('https://'),
   });
 
-  const redirectUri = `${FRONTEND_URL}/api/auth/google/callback`;
-
   const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
+    client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
     scope: 'openid email profile',

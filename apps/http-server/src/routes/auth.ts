@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { randomUUID } from 'crypto';
+import { randomUUID, timingSafeEqual } from 'crypto';
 import { z } from 'zod';
 import { sendError } from '../lib/response';
 import {
@@ -11,21 +11,43 @@ import {
 } from '../middlewares/authMiddleware';
 import { OAuth2Client } from 'google-auth-library';
 import { AuthService } from '../services/authService';
-import { logger } from '../logger.js';
+import { logger } from '../logger';
 
-const wsTicketStore = new Map<string, { userId: string; expiresAt: number }>();
+export type WsTicketPrincipal =
+  | { kind: 'user'; userId: string }
+  | { kind: 'share'; fileId: string; token: string; permission: 'view' | 'edit' };
 
-setInterval(() => {
+export const wsTicketStore = new Map<string, { principal: WsTicketPrincipal; expiresAt: number }>();
+
+export function issueWsTicket(principal: WsTicketPrincipal): string {
+  const ticket = randomUUID();
+  if (wsTicketStore.size >= 10_000) {
+    const oldest = wsTicketStore.keys().next().value;
+    if (oldest) wsTicketStore.delete(oldest);
+  }
+  wsTicketStore.set(ticket, {
+    principal,
+    expiresAt: Date.now() + 30_000,
+  });
+  return ticket;
+}
+
+const wsTicketCleanup = setInterval(() => {
   const now = Date.now();
   for (const [ticket, data] of wsTicketStore.entries()) {
     if (data.expiresAt < now) wsTicketStore.delete(ticket);
   }
 }, 60_000);
+wsTicketCleanup.unref();
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID!;
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET!;
-
-const googleClient = new OAuth2Client(googleClientId, googleClientSecret);
+function getGoogleAuth(): { client: OAuth2Client; clientId: string } {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error('Google OAuth is not configured (missing GOOGLE_CLIENT_ID/SECRET)');
+  }
+  return { client: new OAuth2Client(clientId, clientSecret), clientId };
+}
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -162,9 +184,10 @@ authRouter.post('/google', async (req, res) => {
   }
 
   try {
-    const ticket = await googleClient.verifyIdToken({
+    const { client, clientId } = getGoogleAuth();
+    const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: clientId,
     });
     const payload = ticket.getPayload();
     if (!payload || !payload.email) {
@@ -324,18 +347,24 @@ authRouter.post('/ws-ticket', authMiddleware, (req: AuthenticatedRequest, res) =
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
-  const ticket = randomUUID();
-  wsTicketStore.set(ticket, { userId: req.userId, expiresAt: Date.now() + 30_000 });
+  const ticket = issueWsTicket({ kind: 'user', userId: req.userId });
   res.json({ ticket });
 });
 
-export { authRouter, wsTicketStore };
+export { authRouter };
 
 export function createInternalRouter(): Router {
   const internalRouter = Router();
 
   function requireInternalSecret(req: Request, res: Response, next: NextFunction): void {
-    if (req.headers['x-internal-secret'] !== process.env.INTERNAL_SECRET) {
+    const expectedSecret = process.env.INTERNAL_SECRET;
+    const providedSecret = req.get('x-internal-secret');
+    if (
+      !expectedSecret ||
+      !providedSecret ||
+      expectedSecret.length !== providedSecret.length ||
+      !timingSafeEqual(Buffer.from(providedSecret), Buffer.from(expectedSecret))
+    ) {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
@@ -344,7 +373,7 @@ export function createInternalRouter(): Router {
 
   internalRouter.post('/validate-ticket', requireInternalSecret, (req, res) => {
     const { ticket } = req.body;
-    if (!ticket || typeof ticket !== 'string') {
+    if (!ticket || typeof ticket !== 'string' || ticket.length > 512) {
       res.status(400).json({ error: 'Ticket is required' });
       return;
     }
@@ -355,7 +384,7 @@ export function createInternalRouter(): Router {
       return;
     }
     wsTicketStore.delete(ticket);
-    res.json({ userId: entry.userId });
+    res.json(entry.principal);
   });
 
   return internalRouter;
