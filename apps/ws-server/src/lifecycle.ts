@@ -8,7 +8,7 @@ import {
   userToRoomMap,
   wsToRoomMap,
   MAX_EMPTY_ROOM_TTL_MS,
-  saveRoomElements,
+  persistRoom,
   scheduleSave,
   parseStoredElements,
 } from './rooms';
@@ -100,14 +100,11 @@ export async function runPeriodicSave(): Promise<void> {
     if (room.users.size > 0) {
       roomLastEmptyAt.delete(roomId);
       if (!room.saving && room.dirty) {
-        room.saving = true;
-        const versionAtStart = room.mutationVersion;
         savePromises.push(
-          saveRoomElements(roomId, room.elements).then(success => {
-            if (success && room.mutationVersion === versionAtStart) room.dirty = false;
-            room.saving = false;
-            return { roomId, success };
-          })
+          persistRoom(roomId).then(outcome => ({
+            roomId,
+            success: outcome === 'saved',
+          }))
         );
       }
     } else {
@@ -118,14 +115,11 @@ export async function runPeriodicSave(): Promise<void> {
       }
       if (now - emptySince > MAX_EMPTY_ROOM_TTL_MS) {
         if (!room.saving && room.dirty) {
-          room.saving = true;
-          const versionAtStart = room.mutationVersion;
           savePromises.push(
-            saveRoomElements(roomId, room.elements).then(success => {
-              if (success && room.mutationVersion === versionAtStart) room.dirty = false;
-              room.saving = false;
-              return { roomId, success };
-            })
+            persistRoom(roomId).then(outcome => ({
+              roomId,
+              success: outcome === 'saved',
+            }))
           );
         }
         // Defer GC until any final save has completed. If the save fails or a
@@ -223,10 +217,8 @@ export async function runReconciliation(): Promise<void> {
           onlyInMem: addedInMem.length,
           onlyInDb: addedInDb.length,
         });
-        room.saving = true;
-        const success = await saveRoomElements(roomId, room.elements);
-        room.saving = false;
-        if (!success) {
+        const outcome = await persistRoom(roomId);
+        if (outcome === 'failed') {
           logger.error({ event: 'reconciliation_save_failure', roomId });
         }
       }

@@ -52,7 +52,9 @@ import {
   wsToRoomMap,
   getOrCreateRoom,
   loadRoomElements,
-  saveRoomElements,
+  persistRoom,
+  awaitSettledPersist,
+  type PersistOutcome,
 } from './rooms';
 import { checkRateLimit, setRateLimitIdentity, removeRateLimitIdentity } from './rateLimiter';
 import { subscribeToRoom, isRedisAvailable } from './redis';
@@ -524,18 +526,17 @@ wss.on('connection', async (ws, req) => {
           });
 
           if (room.users.size === 0) {
-            if (room.dirty && !room.saving) {
-              room.saving = true;
-              saveRoomElements(currentRoomId, room.elements)
-                .then(success => {
-                  if (!success) {
-                    logger.error({ event: 'leave_save_failure', roomId: currentRoomId });
-                  }
-                })
-                .finally(() => {
-                  room.saving = false;
-                });
-            }
+            // Single guarded write on the way out. persistRoom owns the
+            // dirty/saving/version guard; a 'busy' outcome means the
+            // periodic tick owns an in-flight write and will finish it.
+            // Unlike the old inline version this also clears dirty on a
+            // clean success, so the empty-room GC below does not pay for a
+            // second write of identical content.
+            void persistRoom(currentRoomId).then(outcome => {
+              if (outcome === 'failed') {
+                logger.error({ event: 'leave_save_failure', roomId: currentRoomId });
+              }
+            });
             roomLastEmptyAt.set(currentRoomId, Date.now());
           }
 
@@ -788,34 +789,33 @@ async function shutdown() {
   const savedRoomIds = new Set<string>();
   let saveFailed = false;
 
-  // Save rooms with pending debounced saves.
+  // Save rooms with pending debounced saves. awaitSettledPersist waits out
+  // an in-flight periodic write instead of double-writing alongside it,
+  // and skips already-clean rooms (stale timeouts) without a write.
+  const settleOutcome = (roomId: string, outcome: PersistOutcome): void => {
+    if (outcome !== 'saved' && outcome !== 'clean') {
+      saveFailed = true;
+      logger.error({ event: 'shutdown_save_failure', roomId });
+    }
+  };
   for (const [roomId, timeout] of saveTimeouts.entries()) {
     clearTimeout(timeout);
     const room = rooms.get(roomId);
     if (room) {
       savedRoomIds.add(roomId);
       savePromises.push(
-        saveRoomElements(roomId, room.elements).then(success => {
-          if (!success) {
-            saveFailed = true;
-            logger.error({ event: 'shutdown_save_failure', roomId });
-          }
-        })
+        awaitSettledPersist(roomId).then(outcome => settleOutcome(roomId, outcome))
       );
     }
   }
 
-  // Also save any dirty rooms not already queued, but do not overlap an
-  // in-flight periodic save that is already responsible for the same room.
+  // Also save any dirty rooms not already queued — including ones whose
+  // periodic write is still in flight (previously skipped without waiting,
+  // risking exit before the write completed).
   for (const [roomId, room] of rooms.entries()) {
-    if (!savedRoomIds.has(roomId) && room.dirty && !room.saving) {
+    if (!savedRoomIds.has(roomId) && room.dirty) {
       savePromises.push(
-        saveRoomElements(roomId, room.elements).then(success => {
-          if (!success) {
-            saveFailed = true;
-            logger.error({ event: 'shutdown_save_failure', roomId });
-          }
-        })
+        awaitSettledPersist(roomId).then(outcome => settleOutcome(roomId, outcome))
       );
     }
   }

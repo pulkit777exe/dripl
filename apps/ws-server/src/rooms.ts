@@ -334,6 +334,45 @@ async function mergeAndSaveOnConflict(
   }
 }
 
+/**
+ * Identify the database row behind a room whose record type is unknown
+ * (never loaded, or loaded when no row existed). Probes in load order —
+ * file by id first, then canvas room by slug — and returns the identity a
+ * fenced write needs, or null when no row exists. Read-only: the caller
+ * decides whether to adopt and retry.
+ */
+export async function probeRoomRecord(
+  roomId: string
+): Promise<{
+  recordType: 'file' | 'canvasRoom';
+  updatedAt: Date;
+  metadata: StoredSceneMetadata;
+} | null> {
+  const file = await db.file.findUnique({
+    where: { id: roomId },
+    select: { content: true, updatedAt: true },
+  });
+  if (file) {
+    return {
+      recordType: 'file',
+      updatedAt: file.updatedAt,
+      metadata: readStoredSceneMetadata(file.content),
+    };
+  }
+  const canvasRoom = await db.canvasRoom.findUnique({
+    where: { slug: roomId },
+    select: { content: true, updatedAt: true },
+  });
+  if (canvasRoom) {
+    return {
+      recordType: 'canvasRoom',
+      updatedAt: canvasRoom.updatedAt,
+      metadata: readStoredSceneMetadata(canvasRoom.content),
+    };
+  }
+  return null;
+}
+
 export async function saveRoomElements(
   roomId: string,
   elements: Map<string, DriplElement>
@@ -356,7 +395,31 @@ export async function saveRoomElements(
   const byteSize = Buffer.byteLength(serialized, 'utf-8');
 
   try {
-    if (recordType === 'canvasRoom') {
+    // A room with no record type never completed a load, or its row vanished
+    // mid-session. Probing first closes two unfenced-write holes at once:
+    // the file branch below would otherwise write with no updatedAt fence,
+    // and the old canvasRoom fallback wrote with no fence at all — either
+    // silently clobbers a row created concurrently (e.g. same slug
+    // re-created over HTTP while this room lived on). If a row exists,
+    // adopt its identity and continue fenced; if not, stay dirty for a
+    // later tick, exactly like a lost conflict retry. Probe-only cost, and
+    // only on this rare path — the happy path still pays a single write.
+    let effectiveRecordType = recordType;
+    if (!effectiveRecordType) {
+      const probed = await probeRoomRecord(roomId);
+      if (!probed) {
+        logger.warn({ event: 'save_room_conflict_row_gone', roomId });
+        return false;
+      }
+      if (room) {
+        room.recordType = probed.recordType;
+        room.lastPersistedUpdatedAt = probed.updatedAt;
+        room.storedMetadata = probed.metadata;
+      }
+      effectiveRecordType = probed.recordType;
+    }
+
+    if (effectiveRecordType === 'canvasRoom') {
       const updatedRows = await db.canvasRoom.updateManyAndReturn({
         where: {
           slug: roomId,
@@ -409,31 +472,17 @@ export async function saveRoomElements(
       return true;
     }
 
-    if (recordType === 'file') {
+    if (effectiveRecordType === 'file') {
       logger.warn({ event: 'save_room_conflict', roomId, recordType: 'file' });
       return mergeAndSaveOnConflict(roomId, room, 'file', startTime);
     }
 
-    const canvasRows = await db.canvasRoom.updateManyAndReturn({
-      where: { slug: roomId },
-      data: { content: serialized },
-      select: { updatedAt: true },
-    });
-    const canvasUpdate = canvasRows[0];
-    if (canvasUpdate && room) {
-      room.recordType = 'canvasRoom';
-      room.lastPersistedUpdatedAt = canvasUpdate.updatedAt;
-    }
-    logger.info({
-      event: 'save_room_success',
-      roomId,
-      durationMs: Date.now() - startTime,
-      recordType: 'canvasRoom',
-      updated: canvasRows.length,
-      elementCount,
-      byteSize,
-    });
-    return Boolean(canvasUpdate);
+    // Unreachable: unknown types probe-and-adopt (or bail) above, so the
+    // effective type is always known here. Kept as a defensive false rather
+    // than a write, so a future record type can never fall through to an
+    // unfenced whole-blob update.
+    logger.warn({ event: 'save_room_unknown_record_type', roomId });
+    return false;
   } catch (error) {
     logger.error({
       event: 'save_room_failure',
@@ -447,6 +496,64 @@ export async function saveRoomElements(
   }
 }
 
+/** Outcome of a guarded persistence attempt. */
+export type PersistOutcome = 'saved' | 'clean' | 'busy' | 'failed' | 'gone';
+
+/**
+ * The single guarded entry point for persisting a room. Owns the
+ * dirty/saving/mutationVersion dance that five call sites (debounce,
+ * periodic tick ×2, leave, shutdown, reconciliation) used to restate with
+ * drift: leave skipped the version check, shutdown bypassed dirty-clearing,
+ * reconciliation set saving with no coordination. Callers keep their own
+ * retry policy (debounce reschedules; periodic relies on the next tick;
+ * shutdown/leave fire once) but the guard → write → version-checked clear
+ * lives here exactly once.
+ */
+export async function persistRoom(roomId: string): Promise<PersistOutcome> {
+  const room = rooms.get(roomId);
+  if (!room) return 'gone';
+  if (room.saving) return 'busy';
+  if (!room.dirty) return 'clean';
+  room.saving = true;
+  const versionAtStart = room.mutationVersion;
+  try {
+    const success = await saveRoomElements(roomId, room.elements);
+    if (success && room.mutationVersion === versionAtStart) room.dirty = false;
+    return success ? 'saved' : 'failed';
+  } finally {
+    room.saving = false;
+  }
+}
+
+/**
+ * persistRoom that waits out an in-flight write first (shutdown only).
+ * Intervals are cleared before the final save pass, but an async database
+ * write started by the periodic tick can still be pending with saving=true;
+ * firing a second write alongside it was the old double-write. Polls
+ * boundedly, then runs the normal guard — so a settled-but-dirty room
+ * (mutation landed mid-write) still gets saved, and a hung database still
+ * resolves instead of stalling shutdown. Timings injectable for tests.
+ */
+export async function awaitSettledPersist(
+  roomId: string,
+  pollMs = 25,
+  timeoutMs = 5_000
+): Promise<PersistOutcome> {
+  const room = rooms.get(roomId);
+  if (!room || !room.saving) return persistRoom(roomId);
+  const startedAt = Date.now();
+  await new Promise<void>(resolve => {
+    const timer = setInterval(() => {
+      const current = rooms.get(roomId);
+      if (!current || !current.saving || Date.now() - startedAt >= timeoutMs) {
+        clearInterval(timer);
+        resolve();
+      }
+    }, pollMs);
+  });
+  return persistRoom(roomId);
+}
+
 export function scheduleSave(roomId: string): void {
   const existing = saveTimeouts.get(roomId);
   if (existing) clearTimeout(existing);
@@ -458,32 +565,29 @@ export function scheduleSave(roomId: string): void {
         saveTimeouts.delete(roomId);
         return;
       }
-      if (room.saving) {
+      const outcome = await persistRoom(roomId);
+      if (outcome === 'gone' || outcome === 'clean') {
+        saveTimeouts.delete(roomId);
+        return;
+      }
+      if (outcome === 'busy') {
         saveTimeouts.delete(roomId);
         scheduleSave(roomId);
         return;
       }
-      if (!room.dirty) {
+      if (outcome === 'saved' && !room.dirty) {
         saveTimeouts.delete(roomId);
         return;
       }
-      room.saving = true;
-      const versionAtStart = room.mutationVersion;
-      const success = await saveRoomElements(roomId, room.elements);
-      room.saving = false;
-      if (success && room.mutationVersion === versionAtStart) {
-        room.dirty = false;
-      } else if (room.dirty) {
-        // A mutation arrived while the database write was in flight. Keep the
-        // room dirty and schedule another save rather than losing that work.
-        saveTimeouts.delete(roomId);
-        scheduleSave(roomId);
-        return;
-      }
-      if (!success) {
+      // Saved-but-dirty (a mutation landed mid-write) or failed with work
+      // still pending: schedule another pass rather than losing the work.
+      // A persistently failing database re-arms every SAVE_DEBOUNCE_MS;
+      // the room stays dirty and visible in logs until it recovers.
+      if (outcome === 'failed') {
         logger.error({ event: 'save_debounced_failure', roomId });
       }
       saveTimeouts.delete(roomId);
+      scheduleSave(roomId);
     }, SAVE_DEBOUNCE_MS)
   );
 }

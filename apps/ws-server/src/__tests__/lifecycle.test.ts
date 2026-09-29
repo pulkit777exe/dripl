@@ -178,6 +178,11 @@ describe('lifecycle sweeps', () => {
       room.users.set('u1', makeUser('u1', makeWs()));
       room.elements.set('a', el('a') as never);
       room.dirty = true;
+      // Saves are fenced: a room needs its loaded identity (record type +
+      // fence timestamp) or the write probes for it. A hand-built room with
+      // neither refuses rather than writing unfenced.
+      room.recordType = 'file';
+      room.lastPersistedUpdatedAt = new Date('2026-01-01T00:00:00.000Z');
       await runPeriodicSave();
       expect(dbMock.file.updateManyAndReturn).toHaveBeenCalled();
       expect(room.dirty).toBe(false);

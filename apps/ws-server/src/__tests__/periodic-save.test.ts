@@ -23,7 +23,10 @@ const dbMock = {
       sharePermission: null,
       shareExpiresAt: null,
     })),
-    findUnique: vi.fn().mockResolvedValue(null),
+    findUnique: vi.fn().mockResolvedValue({
+      content: '[]',
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    }),
     updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     updateManyAndReturn: vi.fn().mockResolvedValue([{ updatedAt: new Date() }]),
   },

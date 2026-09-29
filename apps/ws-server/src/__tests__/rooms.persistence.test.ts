@@ -13,7 +13,13 @@ const dbMock = vi.hoisted(() => ({
 
 vi.mock('@dripl/db', () => ({ db: dbMock }));
 
-import { getOrCreateRoom, rooms, saveRoomElements } from '../rooms';
+import {
+  getOrCreateRoom,
+  rooms,
+  saveRoomElements,
+  persistRoom,
+  awaitSettledPersist,
+} from '../rooms';
 import { deleteWithTombstone } from '../tombstones';
 
 const element = {
@@ -166,5 +172,169 @@ describe('room persistence fencing', () => {
     await expect(saveRoomElements('file-merge-delete', room.elements)).resolves.toBe(true);
     expect(room.elements.has('a')).toBe(false);
     expect(dbMock.file.updateManyAndReturn.mock.calls[1]?.[0].data.content).not.toContain('"a"');
+  });
+});
+
+describe('persistRoom', () => {
+  beforeEach(() => {
+    rooms.clear();
+    vi.resetAllMocks();
+  });
+
+  const t0 = new Date('2026-01-01T00:00:00.000Z');
+  const t1 = new Date('2026-01-01T00:00:01.000Z');
+
+  function dirtyFileRoom(id: string) {
+    const room = getOrCreateRoom(id);
+    room.recordType = 'file';
+    room.lastPersistedUpdatedAt = t0;
+    room.elements.set('x', { ...element, id: 'x' });
+    room.dirty = true;
+    return room;
+  }
+
+  it('saves and clears dirty when nothing changed mid-write', async () => {
+    dbMock.file.updateManyAndReturn.mockResolvedValue([{ updatedAt: t1 }]);
+    const room = dirtyFileRoom('p-saved');
+
+    await expect(persistRoom('p-saved')).resolves.toBe('saved');
+    expect(room.dirty).toBe(false);
+    expect(room.lastPersistedUpdatedAt).toEqual(t1);
+  });
+
+  it('keeps dirty when a mutation lands mid-write', async () => {
+    dbMock.file.updateManyAndReturn.mockImplementation(async () => {
+      // A concurrent mutation bumps the version while the write is in flight.
+      const room = getOrCreateRoom('p-mid');
+      room.elements.set('y', { ...element, id: 'y' });
+      room.dirty = true;
+      room.mutationVersion += 1;
+      return [{ updatedAt: t1 }];
+    });
+    const room = dirtyFileRoom('p-mid');
+    const versionAtStart = room.mutationVersion;
+
+    await expect(persistRoom('p-mid')).resolves.toBe('saved');
+    expect(room.mutationVersion).toBeGreaterThan(versionAtStart);
+    expect(room.dirty).toBe(true);
+  });
+
+  it('returns clean without touching the database', async () => {
+    const room = getOrCreateRoom('p-clean');
+    room.recordType = 'file';
+
+    await expect(persistRoom('p-clean')).resolves.toBe('clean');
+    expect(dbMock.file.updateManyAndReturn).not.toHaveBeenCalled();
+    expect(dbMock.canvasRoom.updateManyAndReturn).not.toHaveBeenCalled();
+    expect(room.saving).toBe(false);
+  });
+
+  it('returns busy instead of overlapping an in-flight write', async () => {
+    const room = dirtyFileRoom('p-busy');
+    room.saving = true;
+
+    await expect(persistRoom('p-busy')).resolves.toBe('busy');
+    expect(dbMock.file.updateManyAndReturn).not.toHaveBeenCalled();
+    expect(room.saving).toBe(true);
+    expect(room.dirty).toBe(true);
+  });
+
+  it('returns gone for unknown rooms', async () => {
+    await expect(persistRoom('no-such-room')).resolves.toBe('gone');
+    expect(dbMock.file.updateManyAndReturn).not.toHaveBeenCalled();
+  });
+
+  it('returns failed and keeps dirty when the write loses', async () => {
+    // Fence lost and the winning row is gone too: nothing persisted.
+    dbMock.file.updateManyAndReturn.mockResolvedValue([]);
+    dbMock.file.findUnique.mockResolvedValue(null);
+    dbMock.canvasRoom.findUnique.mockResolvedValue(null);
+    const room = dirtyFileRoom('p-failed');
+
+    await expect(persistRoom('p-failed')).resolves.toBe('failed');
+    expect(room.dirty).toBe(true);
+    expect(room.saving).toBe(false);
+  });
+});
+
+describe('awaitSettledPersist', () => {
+  beforeEach(() => {
+    rooms.clear();
+    vi.resetAllMocks();
+  });
+
+  const t0 = new Date('2026-01-01T00:00:00.000Z');
+  const t1 = new Date('2026-01-01T00:00:01.000Z');
+
+  it('waits out an in-flight write, then saves', async () => {
+    dbMock.file.updateManyAndReturn.mockResolvedValue([{ updatedAt: t1 }]);
+    const room = getOrCreateRoom('w-settle');
+    room.recordType = 'file';
+    room.lastPersistedUpdatedAt = t0;
+    room.elements.set('x', { ...element, id: 'x' });
+    room.dirty = true;
+    room.saving = true; // a periodic write owns the room right now
+    setTimeout(() => {
+      room.saving = false;
+    }, 5);
+
+    await expect(awaitSettledPersist('w-settle', 2, 500)).resolves.toBe('saved');
+    expect(room.dirty).toBe(false);
+    expect(dbMock.file.updateManyAndReturn).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives up waiting after the timeout cap instead of stalling', async () => {
+    const room = getOrCreateRoom('w-stuck');
+    room.recordType = 'file';
+    room.dirty = true;
+    room.saving = true; // hung database: never clears
+
+    await expect(awaitSettledPersist('w-stuck', 2, 15)).resolves.toBe('busy');
+    expect(dbMock.file.updateManyAndReturn).not.toHaveBeenCalled();
+    expect(room.saving).toBe(true);
+  });
+});
+
+describe('unknown record type fallback', () => {
+  beforeEach(() => {
+    rooms.clear();
+    vi.resetAllMocks();
+  });
+
+  const t1 = new Date('2026-01-01T00:00:01.000Z');
+  const t2 = new Date('2026-01-01T00:00:02.000Z');
+
+  it('probes and takes the fenced path when a row appeared concurrently', async () => {
+    // No load ever completed, but a row exists now (re-created over HTTP
+    // under the same id). The old code wrote it unfenced; the probe adopts
+    // the row identity and re-enters the fenced write.
+    dbMock.file.findUnique.mockResolvedValue({ content: '[]', updatedAt: t1 });
+    dbMock.file.updateManyAndReturn.mockResolvedValue([{ updatedAt: t2 }]);
+    const room = getOrCreateRoom('file-probed');
+    expect(room.recordType).toBeUndefined();
+    room.elements.set('x', { ...element, id: 'x' });
+    room.dirty = true;
+
+    await expect(saveRoomElements('file-probed', room.elements)).resolves.toBe(true);
+    expect(room.recordType).toBe('file');
+    expect(room.lastPersistedUpdatedAt).toEqual(t2);
+    expect(dbMock.file.updateManyAndReturn).toHaveBeenCalledWith({
+      where: { id: 'file-probed', updatedAt: t1 },
+      data: { content: expect.any(String) },
+      select: { updatedAt: true },
+    });
+  });
+
+  it('stays dirty with no write when no row exists', async () => {
+    dbMock.file.findUnique.mockResolvedValue(null);
+    dbMock.canvasRoom.findUnique.mockResolvedValue(null);
+    const room = getOrCreateRoom('file-gone');
+    room.elements.set('x', { ...element, id: 'x' });
+    room.dirty = true;
+
+    await expect(saveRoomElements('file-gone', room.elements)).resolves.toBe(false);
+    expect(dbMock.file.updateManyAndReturn).not.toHaveBeenCalled();
+    expect(dbMock.canvasRoom.updateManyAndReturn).not.toHaveBeenCalled();
+    expect(room.dirty).toBe(true);
   });
 });
