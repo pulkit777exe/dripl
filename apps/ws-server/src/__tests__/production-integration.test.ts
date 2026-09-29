@@ -352,6 +352,70 @@ describe('production WebSocket process', () => {
     second.close();
   });
 
+  it('relays element-update array and single branches', async () => {
+    stubFileAccess('eu-a', ['eu-b']);
+    const first = await openClient(port, 'eu-a');
+    const second = await openClient(port, 'eu-b');
+    const firstSync = waitForMessage(first, message => message.type === 'sync_room_state');
+    const secondSync = waitForMessage(second, message => message.type === 'sync_room_state');
+    first.send(JSON.stringify({ type: 'join', roomId: 'room-eu', displayName: 'A' }));
+    second.send(JSON.stringify({ type: 'join', roomId: 'room-eu', displayName: 'B' }));
+    await firstSync;
+    await secondSync;
+
+    const batch = waitForMessage(
+      second,
+      message =>
+        message.type === 'element-update' &&
+        Array.isArray((message as { elements?: unknown }).elements)
+    );
+    first.send(
+      JSON.stringify({
+        type: 'element-update',
+        elements: [
+          {
+            id: 'eu-1',
+            type: 'rectangle',
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+            version: 1,
+            versionNonce: 1,
+          },
+        ],
+      })
+    );
+    const batchReceived = (await batch) as { elements: Array<{ id: string }> };
+    expect(batchReceived.elements.map(e => e.id)).toEqual(['eu-1']);
+
+    const single = waitForMessage(
+      second,
+      message =>
+        message.type === 'element-update' &&
+        (message as { element?: { id?: string } }).element?.id === 'eu-1'
+    );
+    first.send(
+      JSON.stringify({
+        type: 'element-update',
+        element: {
+          id: 'eu-1',
+          type: 'rectangle',
+          x: 1,
+          y: 1,
+          width: 10,
+          height: 10,
+          version: 2,
+          versionNonce: 2,
+        },
+      })
+    );
+    expect(await single).toBeDefined();
+
+    first.close();
+    second.close();
+  });
+
   it('fans out cursor moves in both spellings', async () => {
     stubFileAccess('cursor-a', ['cursor-b']);
     const first = await openClient(port, 'cursor-a');
@@ -469,5 +533,189 @@ describe('production WebSocket process', () => {
       client.on('close', (closeCode: number) => resolve(closeCode));
     });
     expect(code).toBe(4001);
+  });
+
+  it('serves a mutation burst from the join-time access decision', async () => {
+    // The per-message access check is throttled per connection (revocation is
+    // enforced by the 15s sweep instead): 5 rapid mutations must relay fully
+    // while costing ~zero steady-state database reads.
+    stubFileAccess('throttle-a', ['throttle-b']);
+    const editor = await openClient(port, 'throttle-a');
+    const editorSync = waitForMessage(editor, message => message.type === 'sync_room_state');
+    editor.send(JSON.stringify({ type: 'join', roomId: 'room-throttle', displayName: 'A' }));
+    expect((await editorSync).readOnly).toBe(false);
+
+    const viewer = await openClient(port, 'throttle-b');
+    const viewerSync = waitForMessage(viewer, message => message.type === 'sync_room_state');
+    viewer.send(JSON.stringify({ type: 'join', roomId: 'room-throttle', displayName: 'B' }));
+    await viewerSync;
+
+    dbMock.file.findFirst.mockClear();
+    const relayed: Record<string, unknown>[] = [];
+    const allRelayed = new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timed out waiting for deltas')), 5_000);
+      const onMessage = (raw: Buffer) => {
+        const message = JSON.parse(raw.toString()) as Record<string, unknown>;
+        if (message.type !== 'scene-delta') return;
+        relayed.push(message);
+        if (relayed.length === 5) {
+          clearTimeout(timer);
+          viewer.off('message', onMessage);
+          resolve();
+        }
+      };
+      viewer.on('message', onMessage);
+    });
+    for (let i = 0; i < 5; i++) {
+      editor.send(
+        JSON.stringify({
+          type: 'scene-delta',
+          added: [
+            {
+              id: `throttle-${i}`,
+              type: 'rectangle',
+              x: i * 10,
+              y: 0,
+              width: 100,
+              height: 80,
+              version: 1,
+              versionNonce: 1,
+            },
+          ],
+        })
+      );
+    }
+    await allRelayed;
+    expect(relayed).toHaveLength(5);
+    // At most one steady-state access read (a 15s sweep tick landing in the
+    // window); without the throttle this would be 5+, one per mutation.
+    expect(dbMock.file.findFirst.mock.calls.length).toBeLessThanOrEqual(1);
+
+    editor.close();
+    viewer.close();
+  });
+
+  it('holds a delete against stale edits but accepts newer ones', async () => {
+    // Tombstone convergence over the real socket: A deletes X, B's edit
+    // made against the pre-delete state must not resurrect it for a fresh
+    // joiner, while a genuinely newer edit still lands.
+    stubFileAccess('res-a', ['res-b', 'res-c', 'res-d']);
+    const shape = (version: number) => ({
+      id: 'res-x',
+      type: 'rectangle',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 80,
+      version,
+      versionNonce: version,
+    });
+
+    const first = await openClient(port, 'res-a');
+    const second = await openClient(port, 'res-b');
+    const firstSync = waitForMessage(first, message => message.type === 'sync_room_state');
+    const secondSync = waitForMessage(second, message => message.type === 'sync_room_state');
+    first.send(JSON.stringify({ type: 'join', roomId: 'room-res', displayName: 'A' }));
+    second.send(JSON.stringify({ type: 'join', roomId: 'room-res', displayName: 'B' }));
+    await firstSync;
+    await secondSync;
+
+    const addedOnSecond = waitForMessage(
+      second,
+      message => message.type === 'scene-delta' && JSON.stringify(message).includes('res-x')
+    );
+    first.send(JSON.stringify({ type: 'scene-delta', added: [shape(1)] }));
+    await addedOnSecond;
+
+    const deletedOnSecond = waitForMessage(
+      second,
+      message =>
+        message.type === 'scene-delta' &&
+        Array.isArray(message.deleted) &&
+        (message.deleted as string[]).includes('res-x')
+    );
+    first.send(JSON.stringify({ type: 'scene-delta', deleted: ['res-x'] }));
+    await deletedOnSecond;
+
+    // Stale edit against the pre-delete state: dropped, never broadcast.
+    second.send(JSON.stringify({ type: 'update_element', element: shape(1) }));
+    const third = await openClient(port, 'res-c');
+    const thirdSync = waitForMessage(third, message => message.type === 'sync_room_state');
+    third.send(JSON.stringify({ type: 'join', roomId: 'room-res', displayName: 'C' }));
+    const thirdElements = ((await thirdSync).elements ?? []) as Array<{ id: string }>;
+    expect(thirdElements.map(element => element.id)).not.toContain('res-x');
+
+    // Genuinely newer edit: accepted and relayed verbatim (same contract as
+    // the live-update test above: update_element relays as update_element).
+    const revivedOnFirst = waitForMessage(
+      first,
+      message =>
+        message.type === 'update_element' &&
+        (message.element as { id?: string } | undefined)?.id === 'res-x'
+    );
+    second.send(JSON.stringify({ type: 'update_element', element: shape(5) }));
+    await revivedOnFirst;
+
+    const fourth = await openClient(port, 'res-d');
+    const fourthSync = waitForMessage(fourth, message => message.type === 'sync_room_state');
+    fourth.send(JSON.stringify({ type: 'join', roomId: 'room-res', displayName: 'D' }));
+    const fourthElements = ((await fourthSync).elements ?? []) as Array<{
+      id: string;
+      version: number;
+    }>;
+    expect(fourthElements.find(element => element.id === 'res-x')?.version).toBe(5);
+
+    first.close();
+    second.close();
+    third.close();
+    fourth.close();
+  });
+
+  it('exposes a scene version that advances with mutations', async () => {
+    // Backend seam for a future version-heartbeat/resync protocol: the join
+    // sync carries the room's monotonic mutation counter, so a client can
+    // later tell whether the server moved on without it. Additive field —
+    // old clients ignore it, no wire behavior changes.
+    stubFileAccess('ver-a', ['ver-b', 'ver-c']);
+    const shape = {
+      id: 'ver-x',
+      type: 'rectangle',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 80,
+      version: 1,
+      versionNonce: 1,
+    };
+
+    const first = await openClient(port, 'ver-a');
+    const second = await openClient(port, 'ver-b');
+    const firstSyncP = waitForMessage(first, message => message.type === 'sync_room_state');
+    const secondSyncP = waitForMessage(second, message => message.type === 'sync_room_state');
+    first.send(JSON.stringify({ type: 'join', roomId: 'room-ver', displayName: 'A' }));
+    second.send(JSON.stringify({ type: 'join', roomId: 'room-ver', displayName: 'B' }));
+    const firstSync = await firstSyncP;
+    await secondSyncP;
+    expect(typeof firstSync.sceneVersion).toBe('number');
+
+    // A mutation is applied (second sees the delta), then a later joiner
+    // observes a strictly newer version and the mutated scene.
+    const appliedOnSecond = waitForMessage(
+      second,
+      message => message.type === 'scene-delta' && JSON.stringify(message).includes('ver-x')
+    );
+    first.send(JSON.stringify({ type: 'scene-delta', added: [shape] }));
+    await appliedOnSecond;
+
+    const third = await openClient(port, 'ver-c');
+    const thirdSyncP = waitForMessage(third, message => message.type === 'sync_room_state');
+    third.send(JSON.stringify({ type: 'join', roomId: 'room-ver', displayName: 'C' }));
+    const thirdSync = await thirdSyncP;
+    expect(thirdSync.sceneVersion as number).toBeGreaterThan(firstSync.sceneVersion as number);
+    expect(JSON.stringify(thirdSync.elements)).toContain('ver-x');
+
+    first.close();
+    second.close();
+    third.close();
   });
 });

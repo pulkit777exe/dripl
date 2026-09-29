@@ -12,6 +12,7 @@ import {
   scheduleSave,
   parseStoredElements,
 } from './rooms';
+import { sweepExpiredTombstones } from './tombstones';
 import { broadcast } from './broadcast';
 import { isRedisAvailable, unsubscribeFromRoom } from './redis';
 import { logger } from './logger';
@@ -93,6 +94,9 @@ export async function runPeriodicSave(): Promise<void> {
   const expiredRoomIds = new Set<string>();
 
   for (const [roomId, room] of activeRooms) {
+    // Delete markers expire after 24h; the 15s tick is plenty frequent
+    // enough that no dedicated interval is needed.
+    sweepExpiredTombstones(room, now);
     if (room.users.size > 0) {
       roomLastEmptyAt.delete(roomId);
       if (!room.saving && room.dirty) {
@@ -178,6 +182,11 @@ export async function runReconciliation(): Promise<void> {
   for (const [roomId, room] of rooms) {
     if (room.users.size === 0) continue;
     if (room.saving) continue;
+    // A clean room's memory matches the last successful write (dirty is only
+    // cleared when mutationVersion is unchanged after a write), so there is
+    // nothing to diverge from: skip the per-minute DB read. Only dirty rooms
+    // — writes in flight, failed, or conflicted — pay for verification.
+    if (!room.dirty) continue;
 
     try {
       let dbContent: string | null = null;

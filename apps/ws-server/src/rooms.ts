@@ -1,11 +1,13 @@
 import { DriplElementSchema, MAX_SCENE_ELEMENTS, type DriplElement } from '@dripl/common';
-import { compareFractionalIndex } from '@dripl/common/reconciliation';
+import { compareElementFreshness, compareFractionalIndex } from '@dripl/common/reconciliation';
 import type { WebSocket } from 'ws';
 import { repairBindings } from '@dripl/common/arrow-binding';
 import * as Sentry from '@sentry/node';
 import { db } from '@dripl/db';
-import type { RoomState } from './types';
+import type { RoomState, StoredSceneMetadata } from './types';
 import { logger } from './logger';
+import { getLiveTombstone } from './tombstones';
+import { broadcast } from './broadcast';
 
 export const rooms = new Map<string, RoomState>();
 export const saveTimeouts = new Map<string, NodeJS.Timeout>();
@@ -28,6 +30,7 @@ export function getOrCreateRoom(roomId: string): RoomState {
       loadedFromDb: false,
       saving: false,
       dirty: false,
+      tombstones: new Map(),
       mutationVersion: 0,
       recentMsgIds: new Set(),
       elementLocks: new Map(),
@@ -107,12 +110,6 @@ export function elementsToArray(elements: Map<string, DriplElement>): DriplEleme
   );
 }
 
-interface StoredSceneMetadata {
-  encryptedPayload?: { iv: string; data: string };
-  encryptedAt?: string | null;
-  appState?: Record<string, unknown>;
-}
-
 function readStoredSceneMetadata(raw: string | null | undefined): StoredSceneMetadata {
   if (!raw) return {};
   try {
@@ -140,6 +137,41 @@ function readStoredSceneMetadata(raw: string | null | undefined): StoredSceneMet
   }
 }
 
+/**
+ * Merge in-memory scene with freshly re-read stored scene after a fenced-
+ * write conflict (the Excalidraw-Firebase-transaction equivalent for a
+ * whole-blob Postgres row). Per id, the fresher version wins; ties keep the
+ * stored copy (same version+nonce means same edit, so either side is
+ * identical, and a stable choice avoids flip-flopping between replicas).
+ * Stored-only ids survive unless a live memory tombstone beats them — that
+ * is how a delete made here is not undone by someone else's concurrent
+ * save. Returns the merged map plus stored-only survivors the room has not
+ * seen, so the caller can adopt and relay them.
+ */
+export function mergeMemoryWithStored(
+  room: RoomState,
+  stored: DriplElement[]
+): { merged: Map<string, DriplElement>; resurrected: DriplElement[] } {
+  const merged = elementsToMap(stored);
+  const resurrected: DriplElement[] = [];
+  for (const [id, memoryEl] of room.elements) {
+    const storedEl = merged.get(id);
+    if (!storedEl || compareElementFreshness(memoryEl, storedEl) > 0) {
+      merged.set(id, memoryEl);
+    }
+  }
+  for (const [id, storedEl] of merged) {
+    if (room.elements.has(id)) continue;
+    const tombstone = getLiveTombstone(room, id);
+    if (tombstone && compareElementFreshness(storedEl, tombstone) <= 0) {
+      merged.delete(id);
+      continue;
+    }
+    resurrected.push(storedEl);
+  }
+  return { merged, resurrected };
+}
+
 export function serializeElements(
   elements: Map<string, DriplElement>,
   metadata: StoredSceneMetadata = {}
@@ -162,6 +194,7 @@ export async function loadRoomElements(roomId: string): Promise<Map<string, Drip
     if (room) {
       room.recordType = 'file';
       room.lastPersistedUpdatedAt = file.updatedAt;
+      room.storedMetadata = readStoredSceneMetadata(file.content);
     }
     return elements;
   }
@@ -176,11 +209,129 @@ export async function loadRoomElements(roomId: string): Promise<Map<string, Drip
     if (room) {
       room.recordType = 'canvasRoom';
       room.lastPersistedUpdatedAt = canvasRoom.updatedAt;
+      room.storedMetadata = readStoredSceneMetadata(canvasRoom.content);
     }
     return elements;
   }
 
   return new Map();
+}
+
+/**
+ * Conflict recovery for a fenced write that matched zero rows: someone else
+ * wrote first. Re-reads the winning row, merges (see mergeMemoryWithStored),
+ * and retries the write against the fresh fence — the Postgres equivalent
+ * of Excalidraw's Firestore read-reconcile-write transaction. On success the
+ * merged scene is adopted into memory (additions only; memory's own edits
+ * are never removed, so an in-flight mutation cannot be wiped) and relayed
+ * to connected clients so they converge. Returns false when the row is gone
+ * or the retry loses again; the room stays dirty and a later tick retries.
+ * Conflict-only cost (1 read + 1 write); the happy path is still 1 write.
+ */
+async function mergeAndSaveOnConflict(
+  roomId: string,
+  room: RoomState,
+  recordType: 'file' | 'canvasRoom',
+  startTime: number
+): Promise<boolean> {
+  let stored: { content: string; updatedAt: Date } | null;
+  try {
+    stored =
+      recordType === 'canvasRoom'
+        ? await db.canvasRoom.findUnique({
+            where: { slug: roomId },
+            select: { content: true, updatedAt: true },
+          })
+        : await db.file.findUnique({
+            where: { id: roomId },
+            select: { content: true, updatedAt: true },
+          });
+  } catch (error) {
+    logger.error({ event: 'save_room_merge_read_failed', roomId, recordType, error });
+    return false;
+  }
+  if (!stored) {
+    logger.warn({ event: 'save_room_conflict_row_gone', roomId, recordType });
+    return false;
+  }
+
+  const { merged, resurrected } = mergeMemoryWithStored(room, parseStoredElements(stored.content));
+  // Capacity is enforced on admission everywhere; the union of two capped
+  // scenes can still overflow, so shed the stalest stored-only survivors
+  // rather than persisting an over-cap scene no client could have built.
+  if (merged.size > MAX_ELEMENTS_PER_SCENE) {
+    const memoryIds = new Set(room.elements.keys());
+    const shed = resurrected
+      .filter(el => !memoryIds.has(el.id))
+      .sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
+    while (merged.size > MAX_ELEMENTS_PER_SCENE && shed.length > 0) {
+      const victim = shed.shift();
+      if (victim) merged.delete(victim.id);
+    }
+  }
+  const freshMetadata = readStoredSceneMetadata(stored.content);
+  const serialized = serializeElements(merged, freshMetadata);
+
+  try {
+    const updatedRows =
+      recordType === 'canvasRoom'
+        ? await db.canvasRoom.updateManyAndReturn({
+            where: { slug: roomId, updatedAt: stored.updatedAt },
+            data: { content: serialized },
+            select: { updatedAt: true },
+          })
+        : await db.file.updateManyAndReturn({
+            where: { id: roomId, updatedAt: stored.updatedAt },
+            data: { content: serialized },
+            select: { updatedAt: true },
+          });
+    const updated = updatedRows[0];
+    if (!updated) {
+      logger.warn({ event: 'save_room_conflict_retry', roomId, recordType });
+      return false;
+    }
+    room.lastPersistedUpdatedAt = updated.updatedAt;
+    room.storedMetadata = freshMetadata;
+    if (recordType === 'file') room.recordType = 'file';
+
+    const adopted: DriplElement[] = [];
+    for (const el of resurrected) {
+      // Re-check under the latest state: a delete may have landed while the
+      // merge was in flight, and an in-flight mutation always wins ties.
+      if (!room.elements.has(el.id) && merged.has(el.id) && !getLiveTombstone(room, el.id)) {
+        room.elements.set(el.id, el);
+        adopted.push(el);
+      }
+    }
+    if (adopted.length > 0) {
+      broadcast(room, { type: 'scene-delta', added: adopted });
+      // Adoption changes the scene every client sees, so the room version
+      // must advance like any other mutation. This also marks the room dirty,
+      // costing one redundant fenced save later — accepted to keep the single
+      // invariant "scene change ⇒ dirty + version bump" instead of a second
+      // bump-without-dirty path. Conflicts are rare; the write is idempotent.
+      markRoomDirty(roomId);
+    }
+    logger.info({
+      event: 'save_room_conflict_merged',
+      roomId,
+      durationMs: Date.now() - startTime,
+      recordType,
+      elementCount: merged.size,
+      adopted: adopted.length,
+      byteSize: Buffer.byteLength(serialized, 'utf-8'),
+    });
+    return true;
+  } catch (error) {
+    logger.error({
+      event: 'save_room_merge_write_failed',
+      roomId,
+      durationMs: Date.now() - startTime,
+      recordType,
+      err: error,
+    });
+    return false;
+  }
 }
 
 export async function saveRoomElements(
@@ -190,17 +341,14 @@ export async function saveRoomElements(
   const startTime = Date.now();
   const room = rooms.get(roomId);
   const recordType = room?.recordType;
-  let storedMetadata: StoredSceneMetadata = {};
-  try {
-    const stored =
-      recordType === 'canvasRoom'
-        ? await db.canvasRoom.findUnique({ where: { slug: roomId }, select: { content: true } })
-        : await db.file.findUnique({ where: { id: roomId }, select: { content: true } });
-    storedMetadata = readStoredSceneMetadata(stored?.content);
-  } catch (error) {
-    // Do not write with unknown metadata: doing so could erase an encrypted
-    // share envelope during a transient database/read-replica failure.
-    logger.error({ event: 'save_room_metadata_read_failed', roomId, error });
+  // Metadata (encrypted share envelope, app state) was captured at load and is
+  // preserved from memory: a debounced save must not pay a read before its
+  // write. Share revoke/rotate only touches share columns, never content, so
+  // the load-time envelope cannot go stale from sharing actions; concurrent
+  // scene writes are fenced by the optimistic updatedAt check below.
+  const storedMetadata: StoredSceneMetadata = room?.storedMetadata ?? {};
+  if (!room) {
+    logger.error({ event: 'save_room_no_state', roomId });
     return false;
   }
   const serialized = serializeElements(elements, storedMetadata);
@@ -220,7 +368,7 @@ export async function saveRoomElements(
       const updated = updatedRows[0];
       if (!updated) {
         logger.warn({ event: 'save_room_conflict', roomId, recordType: 'canvasRoom' });
-        return false;
+        return mergeAndSaveOnConflict(roomId, room, 'canvasRoom', startTime);
       }
       if (room) room.lastPersistedUpdatedAt = updated.updatedAt;
       logger.info({
@@ -263,7 +411,7 @@ export async function saveRoomElements(
 
     if (recordType === 'file') {
       logger.warn({ event: 'save_room_conflict', roomId, recordType: 'file' });
-      return false;
+      return mergeAndSaveOnConflict(roomId, room, 'file', startTime);
     }
 
     const canvasRows = await db.canvasRoom.updateManyAndReturn({

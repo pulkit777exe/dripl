@@ -6,12 +6,12 @@ import { broadcast, send } from '../broadcast';
 import { markRoomDirty, scheduleSave, MAX_ELEMENTS_PER_SCENE } from '../rooms';
 import { publishToRoom } from '../redis';
 import {
-  toDriplElement,
-  acceptAll,
+  acceptValidated,
   wouldExceedSceneCapacity,
   noteClientMsgId,
   sceneCapacityMessage,
 } from '../sceneMutation';
+import { deleteWithTombstone, isSupersededByTombstone } from '../tombstones';
 import {
   addElementSchema,
   updateElementSchema,
@@ -34,31 +34,29 @@ export const addElementHandler: Handler<typeof addElementSchema, AddElement> = {
   apply(msg, ctx) {
     if (ctx.rejectReadOnlyMutation()) return;
     const room = ctx.room;
-    const existingElement = room.elements.get(msg.element.id);
-    if (!existingElement && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
+    // msg.element already passed messageSchema (this same schema) in the
+    // dispatch prologue, so re-parsing would only burn CPU on the hot path.
+    // The cast bridges the pre-existing DriplElementSchema-output vs
+    // DriplElement drift — the same cast toDriplElement performed — and
+    // unvalidated input (Redis fan-out) never reaches this handler.
+    const element = msg.element as DriplElement;
+    const existing = room.elements.get(element.id);
+    if (!existing && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
       send(ctx.ws, {
         type: 'error',
         message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
       });
       return;
     }
-    try {
-      const element = toDriplElement(msg.element);
-      const existing = room.elements.get(element.id);
-      if (existing && !shouldAcceptElement(element, existing)) return;
-      room.elements.set(element.id, element);
-      broadcast(room, msg, ctx.userId ?? undefined);
-      markRoomDirty(ctx.roomId);
-      scheduleSave(ctx.roomId);
-      publishToRoom(ctx.roomId, msg);
-    } catch (err) {
-      ctx.logger.debug({
-        event: 'invalid_element',
-        roomId: ctx.roomId,
-        elementId: (msg.element as { id?: string })?.id,
-        error: String(err),
-      });
-    }
+    // Tombstone fence: a delete beats concurrent stale writes. Without this,
+    // an edit made against the pre-delete state resurrects the element.
+    if (isSupersededByTombstone(room, element)) return;
+    if (existing && !shouldAcceptElement(element, existing)) return;
+    room.elements.set(element.id, element);
+    broadcast(room, msg, ctx.userId ?? undefined);
+    markRoomDirty(ctx.roomId);
+    scheduleSave(ctx.roomId);
+    publishToRoom(ctx.roomId, msg);
   },
 };
 
@@ -68,30 +66,22 @@ export const updateElementHandler: Handler<typeof updateElementSchema, UpdateEle
   apply(msg, ctx) {
     if (ctx.rejectReadOnlyMutation()) return;
     const room = ctx.room;
-    try {
-      const element = toDriplElement(msg.element);
-      const existing = room.elements.get(element.id);
-      if (!existing && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
-        send(ctx.ws, {
-          type: 'error',
-          message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
-        });
-        return;
-      }
-      if (existing && !shouldAcceptElement(element, existing)) return;
-      room.elements.set(element.id, element);
-      broadcast(room, msg, ctx.userId ?? undefined);
-      markRoomDirty(ctx.roomId);
-      scheduleSave(ctx.roomId);
-      publishToRoom(ctx.roomId, msg);
-    } catch (err) {
-      ctx.logger.debug({
-        event: 'invalid_element',
-        roomId: ctx.roomId,
-        elementId: (msg.element as { id?: string })?.id,
-        error: String(err),
+    const element = msg.element as DriplElement;
+    const existing = room.elements.get(element.id);
+    if (!existing && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
+      send(ctx.ws, {
+        type: 'error',
+        message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
       });
+      return;
     }
+    if (isSupersededByTombstone(room, element)) return;
+    if (existing && !shouldAcceptElement(element, existing)) return;
+    room.elements.set(element.id, element);
+    broadcast(room, msg, ctx.userId ?? undefined);
+    markRoomDirty(ctx.roomId);
+    scheduleSave(ctx.roomId);
+    publishToRoom(ctx.roomId, msg);
   },
 };
 
@@ -101,7 +91,9 @@ export const deleteElementHandler: Handler<typeof deleteElementSchema, DeleteEle
   apply(msg, ctx) {
     if (ctx.rejectReadOnlyMutation()) return;
     const room = ctx.room;
-    const deleted = room.elements.delete(msg.elementId);
+    // Versioned delete: concurrent stale edits lose to the tombstone instead
+    // of resurrecting the element on this and every other replica.
+    const deleted = deleteWithTombstone(room, msg.elementId);
     if (!deleted) return;
     broadcast(room, msg, ctx.userId ?? undefined);
     markRoomDirty(ctx.roomId);
@@ -137,14 +129,7 @@ export const sceneUpdateHandler: Handler<typeof sceneUpdateSchema, SceneUpdate> 
     }
 
     const acceptedElements: DriplElement[] = [];
-    acceptAll(room, msg.elements, acceptedElements, (rawEl, err) => {
-      ctx.logger.debug({
-        event: 'invalid_element',
-        roomId: ctx.roomId,
-        elementId: (rawEl as { id?: string })?.id,
-        error: String(err),
-      });
-    });
+    acceptValidated(room, msg.elements as DriplElement[], acceptedElements);
 
     // `init` is an initial snapshot, not an implicit delete-all
     // instruction. A newly connected client can legitimately have an
@@ -199,30 +184,16 @@ export const sceneDeltaHandler: Handler<typeof sceneDeltaSchema, SceneDelta> = {
     }
 
     if (msg.added && Array.isArray(msg.added)) {
-      acceptAll(room, msg.added, acceptedAdded, (rawEl, err) => {
-        ctx.logger.debug({
-          event: 'invalid_element',
-          roomId: ctx.roomId,
-          elementId: (rawEl as { id?: string })?.id,
-          error: String(err),
-        });
-      });
+      acceptValidated(room, msg.added as DriplElement[], acceptedAdded);
     }
 
     if (msg.updated && Array.isArray(msg.updated)) {
-      acceptAll(room, msg.updated, acceptedUpdated, (rawEl, err) => {
-        ctx.logger.debug({
-          event: 'invalid_element',
-          roomId: ctx.roomId,
-          elementId: (rawEl as { id?: string })?.id,
-          error: String(err),
-        });
-      });
+      acceptValidated(room, msg.updated as DriplElement[], acceptedUpdated);
     }
 
     if (msg.deleted && Array.isArray(msg.deleted)) {
       for (const id of msg.deleted) {
-        if (room.elements.delete(id)) acceptedDeleted.push(id);
+        if (deleteWithTombstone(room, id)) acceptedDeleted.push(id);
       }
     }
 
@@ -259,47 +230,34 @@ export const elementUpdateHandler: Handler<typeof elementUpdateSchema, ElementUp
         return;
       }
       const accepted: DriplElement[] = [];
-      acceptAll(room, msg.elements, accepted, (rawEl, err) => {
-        ctx.logger.debug({
-          event: 'invalid_element',
-          roomId: ctx.roomId,
-          elementId: (rawEl as { id?: string })?.id,
-          error: String(err),
-        });
-      });
+      acceptValidated(room, msg.elements as DriplElement[], accepted);
       acceptedCount = accepted.length;
       if (acceptedCount > 0) filteredElementUpdate.elements = accepted;
       if (accepted.length > 0) {
         broadcast(room, { type: 'element-update', elements: accepted }, ctx.userId ?? undefined);
       }
     } else {
-      const rawElement = msg.element;
+      const rawElement = msg.element as DriplElement | undefined;
       if (!rawElement) return;
-      try {
-        const element = toDriplElement(rawElement);
-        const existing = room.elements.get(element.id);
-        if (!existing && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
-          send(ctx.ws, {
-            type: 'error',
-            message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
-          });
-          return;
-        }
-        if (existing && !shouldAcceptElement(element, existing)) {
-          return;
-        }
-        room.elements.set(element.id, element);
-        acceptedCount = 1;
-        filteredElementUpdate.element = element;
-        broadcast(room, { type: 'element-update', element }, ctx.userId ?? undefined);
-      } catch (err) {
-        ctx.logger.debug({
-          event: 'invalid_element',
-          roomId: ctx.roomId,
-          elementId: (rawElement as { id?: string })?.id,
-          error: String(err),
+      const element = rawElement;
+      const existing = room.elements.get(element.id);
+      if (!existing && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
+        send(ctx.ws, {
+          type: 'error',
+          message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
         });
+        return;
       }
+      if (isSupersededByTombstone(room, element)) {
+        return;
+      }
+      if (existing && !shouldAcceptElement(element, existing)) {
+        return;
+      }
+      room.elements.set(element.id, element);
+      acceptedCount = 1;
+      filteredElementUpdate.element = element;
+      broadcast(room, { type: 'element-update', element }, ctx.userId ?? undefined);
     }
 
     if (acceptedCount > 0) {

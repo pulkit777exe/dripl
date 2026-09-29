@@ -41,6 +41,7 @@ function makeRoom(): RoomState {
     following: new Map(),
     elementLocks: new Map(),
     recentMsgIds: new Set(),
+    tombstones: new Map(),
     loadedFromDb: true,
     saving: false,
     dirty: false,

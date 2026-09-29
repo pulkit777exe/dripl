@@ -2,6 +2,7 @@ import { DriplElementSchema, type DriplElement } from '@dripl/common';
 import { MAX_ELEMENTS_PER_SCENE, markRoomDirty, scheduleSave } from './rooms';
 import { shouldAcceptElement } from '@dripl/common/reconciliation';
 import type { RoomState } from './types';
+import { isSupersededByTombstone, deleteWithTombstone } from './tombstones';
 
 /**
  * Single home for the scene-mutation primitives. Previously `toDriplElement`,
@@ -32,6 +33,10 @@ export function acceptElement(room: RoomState, raw: unknown): DriplElement | nul
     return null;
   }
 
+  // A live tombstone is a delete with a version: stale writes lose to it
+  // (no resurrection), genuinely newer writes clear it (legitimate revive).
+  if (isSupersededByTombstone(room, element)) return null;
+
   const existing = room.elements.get(element.id);
   if (!shouldAcceptElement(element, existing)) return null;
 
@@ -57,10 +62,38 @@ export function sceneCapacityMessage(): string {
 }
 
 /**
+ * Fence→store over already-validated elements. The dispatch prologue runs the
+ * full `messageSchema` parse before any handler executes, so handler inputs
+ * are proven `DriplElement`s and re-parsing each one would double the Zod
+ * cost on the hottest path (a 1000-element delta parses 2000 times). The
+ * Redis fan-out path keeps using `acceptAll`, since cross-process payloads
+ * are a separate trust boundary that must validate independently.
+ */
+export function acceptValidated(
+  room: RoomState,
+  values: DriplElement[],
+  into: DriplElement[]
+): DriplElement[] {
+  for (const element of values) {
+    if (isSupersededByTombstone(room, element)) {
+      continue;
+    }
+    const existing = room.elements.get(element.id);
+    if (existing && !shouldAcceptElement(element, existing)) {
+      continue;
+    }
+    room.elements.set(element.id, element);
+    into.push(element);
+  }
+  return into;
+}
+
+/**
  * Parse→fence→store over an array, pushing each accepted element into
  * `into`. Callers run their own capacity check first (as before) and pass an
- * `onInvalid` hook when they log rejected payloads (the local switch paths
- * do; the Redis fan-out path does not).
+ * `onInvalid` hook when they log rejected payloads (the Redis fan-out path
+ * does not). Local socket handlers use `acceptValidated` instead: their input
+ * already passed `messageSchema`, so re-parsing would double hot-path CPU.
  */
 export function acceptAll(
   room: RoomState,
@@ -127,7 +160,9 @@ export function applyRemoteSceneMessage(room: RoomState, msg: Record<string, unk
       }
       break;
     case 'delete_element':
-      if (typeof msg.elementId === 'string' && room.elements.delete(msg.elementId)) changed = true;
+      if (typeof msg.elementId === 'string' && deleteWithTombstone(room, msg.elementId)) {
+        changed = true;
+      }
       break;
     case 'element-update': {
       if (Array.isArray(msg.elements)) acceptAllRemote(msg.elements);
@@ -153,7 +188,7 @@ export function applyRemoteSceneMessage(room: RoomState, msg: Record<string, unk
       acceptAllRemote(msg.updated);
       if (Array.isArray(msg.deleted)) {
         for (const id of msg.deleted) {
-          if (typeof id === 'string' && room.elements.delete(id)) changed = true;
+          if (typeof id === 'string' && deleteWithTombstone(room, id)) changed = true;
         }
       }
       break;

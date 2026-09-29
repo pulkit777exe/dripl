@@ -11,6 +11,7 @@ import { getOrCreateRoom, rooms } from '../rooms';
 import {
   acceptAll,
   acceptElement,
+  acceptValidated,
   noteClientMsgId,
   sceneCapacityMessage,
   toDriplElement,
@@ -45,6 +46,23 @@ describe('sceneMutation', () => {
     expect(acceptElement(room, el('a', 1))).toBeNull();
     expect(acceptElement(room, el('a', 2))?.version).toBe(2);
     expect(acceptElement(room, { nope: true })).toBeNull();
+  });
+
+  it('acceptValidated stores fence-passing elements without re-parsing', () => {
+    // Fast path for dispatch-validated input: same fence as acceptElement,
+    // no Zod cost. Invalid input can never arrive here — messageSchema is
+    // the single gate (see sceneDeltaSchema tests).
+    const room = getOrCreateRoom('v1');
+    room.elements.set('a', el('a', 2) as unknown as DriplElement);
+    const into: DriplElement[] = [];
+    acceptValidated(
+      room,
+      [el('a', 1) as unknown as DriplElement, el('b', 1) as unknown as DriplElement],
+      into
+    );
+    expect(into.map(e => e.id)).toEqual(['b']);
+    expect(room.elements.get('a')?.version).toBe(2);
+    expect(room.elements.get('b')?.version).toBe(1);
   });
 
   it('acceptAll accepts the fence-passing subset and reports invalid payloads', () => {

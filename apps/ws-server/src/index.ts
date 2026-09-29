@@ -137,6 +137,9 @@ const WS_PORT =
   Number.isInteger(configuredWsPort) && configuredWsPort >= 0 ? configuredWsPort : 3001;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;
+// Upper bound on database access checks from the per-message path. Exported
+// for tests; production keeps the 15s sweep as the revocation enforcer.
+export const ACCESS_RECHECK_THROTTLE_MS = Number(process.env.ACCESS_RECHECK_THROTTLE_MS) || 30_000;
 let shuttingDown = false;
 
 export const server = createServer(async (req, res) => {
@@ -266,6 +269,13 @@ wss.on('connection', async (ws, req) => {
   let currentRoomId: string | null = null;
   let currentUserId: string | null = null;
   let currentRoomAccess: RoomAccess = { allowed: false, canEdit: false };
+  // Timestamp of the last database access check for this connection. The
+  // per-message path below used to revalidate against the database on every
+  // mutation — an active editor emits ~20 scene-deltas/sec, each costing 1-2
+  // Prisma queries. Revocation is still enforced within 15s by the
+  // authorization sweep (which always hits the database), so the hot path
+  // only needs a throttled steady-state check.
+  let lastAccessCheckAt = 0;
 
   const rejectReadOnlyMutation = (): boolean => {
     if (currentRoomAccess.canEdit) return false;
@@ -312,7 +322,14 @@ wss.on('connection', async (ws, req) => {
   };
 
   const refreshRoomAccess = async (): Promise<boolean> => {
-    if (!(await revalidateRoomAccess())) return false;
+    // Throttled steady-state check: trust the join-time decision between
+    // revalidations. The sweep revalidates every connection every 15s with a
+    // fresh database read, so a revoked share or removed member is still
+    // cut off within that window.
+    if (Date.now() - lastAccessCheckAt >= ACCESS_RECHECK_THROTTLE_MS) {
+      if (!(await revalidateRoomAccess())) return false;
+      lastAccessCheckAt = Date.now();
+    }
     if (!currentRoomAccess.canEdit) {
       send(ws, { type: 'error', message: 'You have view-only access to this room' });
       return false;
@@ -403,6 +420,7 @@ wss.on('connection', async (ws, req) => {
             return;
           }
           currentRoomAccess = access;
+          lastAccessCheckAt = Date.now();
           const room = getOrCreateRoom(roomId);
 
           if (!room.loadedFromDb) {
@@ -458,6 +476,11 @@ wss.on('connection', async (ws, req) => {
             yourUserId: userId,
             readOnly: !currentRoomAccess.canEdit,
             timestamp: Date.now(),
+            // Monotonic per-room mutation counter. Additive: old clients
+            // ignore it. Future version-heartbeat / resync work can compare
+            // this against the last version a client acknowledged to detect
+            // a gap without a full scene transfer.
+            sceneVersion: room.mutationVersion,
           });
 
           broadcast(
@@ -576,10 +599,10 @@ wss.on('connection', async (ws, req) => {
           const room = rooms.get(currentRoomId);
           if (!room) break;
 
-          const parsed = cursorMoveHandler.schema.safeParse(message);
-          if (!parsed.success) break;
-
-          await cursorMoveHandler.apply(parsed.data, toHandlerCtx(room, currentUserId));
+          // Already validated against these same schemas by the dispatch
+          // prologue's messageSchema pass; parsing again would double the
+          // cost of the highest-frequency message on the socket.
+          await cursorMoveHandler.apply(message, toHandlerCtx(room, currentUserId));
           break;
         }
 
