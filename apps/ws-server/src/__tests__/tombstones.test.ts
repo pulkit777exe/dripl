@@ -123,6 +123,23 @@ describe('mergeMemoryWithStored', () => {
     expect(resurrected.map(e => e.id).sort()).toEqual(['b']);
   });
 
+  it('keeps the stored copy on an exact version tie (pin-and-freeze)', () => {
+    // Q3 decision: the three tie treatments (live strict, merge
+    // stored-wins-tie, adoption existence-check) are pinned, not unified.
+    // Same version AND nonce means the same edit, so either side is
+    // identical — but the choice must be stable or replicas flip-flop.
+    const room = getOrCreateRoom('m-tie');
+    const memoryEl = { ...el('a', 2, 5), x: 999 };
+    room.elements.set('a', memoryEl);
+
+    const { merged, resurrected } = mergeMemoryWithStored(room, [el('a', 2, 5)]);
+    // compareElementFreshness is 0, not > 0: stored wins the merged map.
+    expect(merged.get('a')).toMatchObject({ x: 0 });
+    // Memory already holds the id, so nothing is resurrected into it.
+    expect(resurrected).toEqual([]);
+    expect(room.elements.get('a')).toMatchObject({ x: 999 });
+  });
+
   it('drops stored elements beaten by a live tombstone', () => {
     const room = getOrCreateRoom('m2');
     room.elements.set('a', el('a', 2, 1));

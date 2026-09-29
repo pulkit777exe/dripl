@@ -1,17 +1,17 @@
 import { z } from 'zod';
 import type { DriplElement } from '@dripl/common';
-import { shouldAcceptElement } from '@dripl/common/reconciliation';
 import type { Handler } from './types';
 import { broadcast, send } from '../broadcast';
 import { markRoomDirty, scheduleSave, MAX_ELEMENTS_PER_SCENE } from '../rooms';
 import { publishToRoom } from '../redis';
 import {
+  acceptSingleValidated,
   acceptValidated,
   wouldExceedSceneCapacity,
   noteClientMsgId,
   sceneCapacityMessage,
 } from '../sceneMutation';
-import { deleteWithTombstone, isSupersededByTombstone } from '../tombstones';
+import { deleteWithTombstone } from '../tombstones';
 import {
   addElementSchema,
   updateElementSchema,
@@ -39,20 +39,15 @@ export const addElementHandler: Handler<typeof addElementSchema, AddElement> = {
     // The cast bridges the pre-existing DriplElementSchema-output vs
     // DriplElement drift — the same cast toDriplElement performed — and
     // unvalidated input (Redis fan-out) never reaches this handler.
+    // Admission order (capacity → tombstone → freshness) lives in the
+    // funnel; this handler only maps the outcome to wire effects.
     const element = msg.element as DriplElement;
-    const existing = room.elements.get(element.id);
-    if (!existing && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
-      send(ctx.ws, {
-        type: 'error',
-        message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
-      });
+    const admitted = acceptSingleValidated(room, element);
+    if (admitted === 'capacity') {
+      send(ctx.ws, { type: 'error', message: sceneCapacityMessage() });
       return;
     }
-    // Tombstone fence: a delete beats concurrent stale writes. Without this,
-    // an edit made against the pre-delete state resurrects the element.
-    if (isSupersededByTombstone(room, element)) return;
-    if (existing && !shouldAcceptElement(element, existing)) return;
-    room.elements.set(element.id, element);
+    if (admitted === 'rejected') return;
     broadcast(room, msg, ctx.userId ?? undefined);
     markRoomDirty(ctx.roomId);
     scheduleSave(ctx.roomId);
@@ -67,17 +62,12 @@ export const updateElementHandler: Handler<typeof updateElementSchema, UpdateEle
     if (ctx.rejectReadOnlyMutation()) return;
     const room = ctx.room;
     const element = msg.element as DriplElement;
-    const existing = room.elements.get(element.id);
-    if (!existing && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
-      send(ctx.ws, {
-        type: 'error',
-        message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
-      });
+    const admitted = acceptSingleValidated(room, element);
+    if (admitted === 'capacity') {
+      send(ctx.ws, { type: 'error', message: sceneCapacityMessage() });
       return;
     }
-    if (isSupersededByTombstone(room, element)) return;
-    if (existing && !shouldAcceptElement(element, existing)) return;
-    room.elements.set(element.id, element);
+    if (admitted === 'rejected') return;
     broadcast(room, msg, ctx.userId ?? undefined);
     markRoomDirty(ctx.roomId);
     scheduleSave(ctx.roomId);
@@ -239,22 +229,13 @@ export const elementUpdateHandler: Handler<typeof elementUpdateSchema, ElementUp
     } else {
       const rawElement = msg.element as DriplElement | undefined;
       if (!rawElement) return;
+      const admitted = acceptSingleValidated(room, rawElement);
+      if (admitted === 'capacity') {
+        send(ctx.ws, { type: 'error', message: sceneCapacityMessage() });
+        return;
+      }
+      if (admitted === 'rejected') return;
       const element = rawElement;
-      const existing = room.elements.get(element.id);
-      if (!existing && room.elements.size >= MAX_ELEMENTS_PER_SCENE) {
-        send(ctx.ws, {
-          type: 'error',
-          message: `Scene is at capacity (${MAX_ELEMENTS_PER_SCENE} elements max)`,
-        });
-        return;
-      }
-      if (isSupersededByTombstone(room, element)) {
-        return;
-      }
-      if (existing && !shouldAcceptElement(element, existing)) {
-        return;
-      }
-      room.elements.set(element.id, element);
       acceptedCount = 1;
       filteredElementUpdate.element = element;
       broadcast(room, { type: 'element-update', element }, ctx.userId ?? undefined);

@@ -8,9 +8,11 @@ const dbMock = vi.hoisted(() => ({
 vi.mock('@dripl/db', () => ({ db: dbMock }));
 
 import { getOrCreateRoom, rooms } from '../rooms';
+import { deleteWithTombstone } from '../tombstones';
 import {
-  acceptAll,
+  acceptAllParsed,
   acceptElement,
+  acceptSingleValidated,
   acceptValidated,
   noteClientMsgId,
   sceneCapacityMessage,
@@ -18,6 +20,7 @@ import {
   wouldExceedSceneCapacity,
 } from '../sceneMutation';
 import type { DriplElement } from '@dripl/common';
+import { MAX_SCENE_ELEMENTS } from '@dripl/common';
 
 const el = (id: string, version = 1): Record<string, unknown> => ({
   id,
@@ -65,17 +68,110 @@ describe('sceneMutation', () => {
     expect(room.elements.get('b')?.version).toBe(1);
   });
 
-  it('acceptAll accepts the fence-passing subset and reports invalid payloads', () => {
+  it('acceptAllParsed parses, fences, and tombstone-guards remote batches', () => {
+    // The Redis trust boundary: independent parse, same fence as the local
+    // funnel. A stale edit and garbage are dropped; the tombstone fence
+    // applies (this is what the deleted acceptAll never had).
     const room = getOrCreateRoom('m2');
     room.elements.set('a', el('a', 2) as unknown as DriplElement);
+    room.elements.set('t', el('t', 1) as unknown as DriplElement);
+    deleteWithTombstone(room, 't');
     const into: DriplElement[] = [];
-    const invalid: unknown[] = [];
-    acceptAll(room, [el('a', 1), el('b', 1), { nope: true }], into, raw => {
-      invalid.push(raw);
-    });
+    acceptAllParsed(room, [el('a', 1), el('b', 1), { nope: true }, el('t', 1)], into);
     expect(into.map(e => e.id)).toEqual(['b']);
-    expect(invalid).toHaveLength(1);
     expect(room.elements.get('a')?.version).toBe(2);
+    expect(room.elements.has('t')).toBe(false);
+  });
+
+  it('acceptAllParsed drops over-capacity remote batches wholesale', () => {
+    const room = getOrCreateRoom('m2cap');
+    const into: DriplElement[] = [];
+    const huge = Array.from({ length: MAX_SCENE_ELEMENTS + 1 }, (_, i) => el(`x-${i}`, 1));
+    acceptAllParsed(room, huge, into);
+    expect(into).toEqual([]);
+    expect(room.elements.size).toBe(0);
+  });
+
+  it('acceptSingleValidated funnels capacity, tombstone, and freshness in order', () => {
+    const room = getOrCreateRoom('s1');
+    room.elements.set('a', el('a', 2) as unknown as DriplElement);
+    room.elements.set('t', el('t', 1) as unknown as DriplElement);
+    deleteWithTombstone(room, 't');
+    // Fresh element, no existing: accepted.
+    expect(acceptSingleValidated(room, el('b', 1) as unknown as DriplElement)).toBe('accepted');
+    // Stale vs existing: rejected, stored copy untouched.
+    expect(acceptSingleValidated(room, el('a', 1) as unknown as DriplElement)).toBe('rejected');
+    expect(room.elements.get('a')?.version).toBe(2);
+    // Stale vs tombstone: rejected, no resurrection.
+    expect(acceptSingleValidated(room, el('t', 1) as unknown as DriplElement)).toBe('rejected');
+    expect(room.elements.has('t')).toBe(false);
+    // Genuinely newer vs tombstone: accepted, marker cleared.
+    expect(acceptSingleValidated(room, el('t', 5) as unknown as DriplElement)).toBe('accepted');
+    expect(room.elements.get('t')?.version).toBe(5);
+  });
+
+  it('acceptSingleValidated reports capacity before consulting fences', () => {
+    const room = getOrCreateRoom('s2cap');
+    for (let i = 0; i < MAX_SCENE_ELEMENTS; i++) {
+      room.elements.set(`full-${i}`, el(`full-${i}`, 1) as unknown as DriplElement);
+    }
+    expect(acceptSingleValidated(room, el('new', 1) as unknown as DriplElement)).toBe('capacity');
+    // An update to an existing id is not capacity-gated.
+    expect(acceptSingleValidated(room, el('full-0', 2) as unknown as DriplElement)).toBe(
+      'accepted'
+    );
+  });
+
+  it('local and remote funnels accept the same set in any order', () => {
+    // Gate-A-lite: order-independence plus local/remote equivalence through
+    // the funnel seam. Capacity pre-checks and clientMsgId dedup are
+    // handler-level and intentionally outside this property.
+    const batch = (nonceSalt: number): DriplElement[] =>
+      (['a', 'b', 'c', 'd'] as const).map(
+        (id, i) =>
+          ({
+            ...el(id, i % 2 === 0 ? 2 : 1),
+            versionNonce: nonceSalt + i,
+          }) as unknown as DriplElement
+      );
+    const orders: DriplElement[][] = [
+      batch(10),
+      [...batch(10)].reverse(),
+      [batch(10)[2]!, batch(10)[0]!, batch(10)[3]!, batch(10)[1]!],
+    ];
+    const snapshots: string[] = [];
+    // 'c' sits at v2 in every room so its tombstone is v3 and the batch's
+    // c@v2 is stale deterministically (a v2-vs-v2 tie would fall to the
+    // delete's random tie-break nonce and make this test flaky).
+    for (const [n, order] of orders.entries()) {
+      const room = getOrCreateRoom(`ord-${n}`);
+      room.elements.set('a', el('a', 1) as unknown as DriplElement);
+      room.elements.set('c', el('c', 2) as unknown as DriplElement);
+      deleteWithTombstone(room, 'c');
+      const into: DriplElement[] = [];
+      acceptValidated(room, order, into);
+      snapshots.push(
+        JSON.stringify(
+          [...room.elements.entries()]
+            .map(([id, e]) => [id, e.version, e.versionNonce] as const)
+            .sort((x, y) => (x[0] < y[0] ? -1 : 1))
+        )
+      );
+    }
+    expect(snapshots[1]).toBe(snapshots[0]);
+    expect(snapshots[2]).toBe(snapshots[0]);
+
+    // Same payload through the remote (parse) funnel: same survivors
+    // (a updated, b/d added, tombstoned c dropped).
+    const remote = getOrCreateRoom('ord-remote');
+    remote.elements.set('a', el('a', 1) as unknown as DriplElement);
+    remote.elements.set('c', el('c', 2) as unknown as DriplElement);
+    deleteWithTombstone(remote, 'c');
+    const remoteInto: DriplElement[] = [];
+    acceptAllParsed(remote, batch(10), remoteInto);
+    expect(remoteInto.map(e => e.id).sort()).toEqual(
+      (JSON.parse(snapshots[0] as string) as [string][]).map(row => row[0])
+    );
   });
 
   it('wouldExceedSceneCapacity counts only new ids', () => {
