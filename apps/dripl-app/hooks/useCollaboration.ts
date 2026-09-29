@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DriplElement } from '@dripl/common';
 import { useCanvasStore } from '@/lib/store';
 import { apiClient } from '@/lib/api';
+import { computeSceneDelta, filterReplayPending } from '@/lib/collab/sceneDelta';
 
 // JSON scene deltas are the wire protocol. A previous revision kept a dormant
 // Yjs adapter behind YJS_WIRE_ENABLED=false; it gated only reads while write
@@ -235,28 +236,7 @@ export function useCollaboration(
       isFirstSyncRef.current = false;
     } else {
       // Subsequent syncs: compute and send delta via JSON
-      const prev = prevElementsRef.current;
-      const prevMap = new Map(prev.map(el => [el.id, el]));
-      const nextMap = new Map(pending.map(el => [el.id, el]));
-
-      const added: DriplElement[] = [];
-      const updated: DriplElement[] = [];
-      const deleted: string[] = [];
-
-      for (const el of pending) {
-        const prevEl = prevMap.get(el.id);
-        if (!prevEl) {
-          added.push(el);
-        } else if (prevEl !== el) {
-          updated.push(el);
-        }
-      }
-
-      for (const el of prev) {
-        if (!nextMap.has(el.id)) {
-          deleted.push(el.id);
-        }
-      }
+      const { added, updated, deleted } = computeSceneDelta(prevElementsRef.current, pending);
 
       if (added.length > 0 || updated.length > 0 || deleted.length > 0) {
         send({
@@ -547,17 +527,17 @@ export function useCollaboration(
               }
               messageToSend = { ...msg, added, updated };
             } else if (msg.type === 'scene-update') {
-              const elements = msg.elements.filter(
-                element => !previousIds.has(element.id) || serverIds.has(element.id)
-              );
+              const elements = filterReplayPending(msg.elements, previousIds, serverIds);
               if (elements.length === 0) continue;
               messageToSend = { ...msg, elements };
             }
             if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(messageToSend));
           }
           if (pendingElementsRef.current) {
-            const filteredPending = pendingElementsRef.current.filter(
-              element => !previousIds.has(element.id) || serverIds.has(element.id)
+            const filteredPending = filterReplayPending(
+              pendingElementsRef.current,
+              previousIds,
+              serverIds
             );
             pendingElementsRef.current = filteredPending.length > 0 ? filteredPending : null;
             if (pendingElementsRef.current) flushElementBroadcast();
