@@ -4,6 +4,7 @@ import { MAX_FILE_CONTENT_BYTES } from '@dripl/common';
 import { RoomService, isValidRoomContent } from '../services/roomService';
 import { authMiddleware, type AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { sendError } from '../lib/response';
+import { sendServiceError } from '../lib/serviceResult';
 import { logger } from '../logger';
 
 const router: Router = Router();
@@ -62,12 +63,11 @@ router.get('/share/:token', async (req, res) => {
 
   try {
     const result = await RoomService.getShareLink(token);
-    if (result.kind === 'not_found') {
-      sendError(res, 404, 'NOT_FOUND', 'Share link not found');
-      return;
-    }
-    if (result.kind === 'expired') {
-      sendError(res, 410, 'EXPIRED', 'Share link has expired');
+    if (result.kind !== 'ok') {
+      sendServiceError(res, result, {
+        not_found: 'Share link not found',
+        expired: 'Share link has expired',
+      });
       return;
     }
 
@@ -111,13 +111,10 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 
   try {
     const result = await RoomService.createRoom({ userId, name, isPublic, content });
-    if (result.kind === 'rate_limited') {
-      sendError(
-        res,
-        429,
-        'RATE_LIMITED',
-        'Room creation limit reached. You can create up to 10 rooms per day.'
-      );
+    if (result.kind !== 'ok') {
+      sendServiceError(res, result, {
+        rate_limited: 'Room creation limit reached. You can create up to 10 rooms per day.',
+      });
       return;
     }
 
@@ -151,12 +148,11 @@ router.get('/:slug', async (req: AuthenticatedRequest, res) => {
 
   try {
     const result = await RoomService.getRoom({ userId, slug });
-    if (result.kind === 'not_found') {
-      sendError(res, 404, 'NOT_FOUND', 'Room not found');
-      return;
-    }
-    if (result.kind === 'forbidden') {
-      sendError(res, 403, 'FORBIDDEN', 'Access denied');
+    if (result.kind !== 'ok') {
+      sendServiceError(res, result, {
+        not_found: 'Room not found',
+        forbidden: 'Access denied',
+      });
       return;
     }
 
@@ -189,16 +185,12 @@ router.put('/:slug', async (req: AuthenticatedRequest, res) => {
       content,
       expectedUpdatedAt,
     });
-    if (result.kind === 'not_found') {
-      sendError(res, 404, 'NOT_FOUND', 'Room not found or you do not have permission');
-      return;
-    }
-    if (result.kind === 'forbidden') {
-      sendError(res, 403, 'FORBIDDEN', 'Only the owner can update this room');
-      return;
-    }
-    if (result.kind === 'conflict') {
-      sendError(res, 409, 'CONFLICT', 'Room changed while saving');
+    if (result.kind !== 'ok') {
+      sendServiceError(res, result, {
+        not_found: 'Room not found or you do not have permission',
+        forbidden: 'Only the owner can update this room',
+        conflict: 'Room changed while saving',
+      });
       return;
     }
 
@@ -219,8 +211,10 @@ router.delete('/:slug', async (req: AuthenticatedRequest, res) => {
 
   try {
     const result = await RoomService.deleteRoom({ userId, slug });
-    if (result.kind === 'not_found') {
-      sendError(res, 404, 'NOT_FOUND', 'Room not found or you do not have permission');
+    if (result.kind !== 'ok') {
+      sendServiceError(res, result, {
+        not_found: 'Room not found or you do not have permission',
+      });
       return;
     }
 
@@ -247,12 +241,11 @@ router.post('/:slug/members', async (req: AuthenticatedRequest, res) => {
 
   try {
     const result = await RoomService.addMember({ userId, slug, memberUserId, role });
-    if (result.kind === 'not_found') {
-      sendError(res, 404, 'NOT_FOUND', 'Room not found or you do not have permission');
-      return;
-    }
-    if (result.kind === 'conflict') {
-      sendError(res, 409, 'CONFLICT', 'User is already a member of this room');
+    if (result.kind !== 'ok') {
+      sendServiceError(res, result, {
+        not_found: 'Room not found or you do not have permission',
+        conflict: 'User is already a member of this room',
+      });
       return;
     }
 
@@ -273,12 +266,11 @@ router.delete('/:slug/members/:userId', async (req: AuthenticatedRequest, res) =
 
   try {
     const result = await RoomService.removeMember({ userId, slug, memberUserId });
-    if (result.kind === 'not_found') {
-      sendError(res, 404, 'NOT_FOUND', 'Room not found or you do not have permission');
-      return;
-    }
-    if (result.kind === 'owner_self') {
-      sendError(res, 400, 'INVALID_PAYLOAD', 'Owner cannot remove themselves from the room');
+    if (result.kind !== 'ok') {
+      sendServiceError(res, result, {
+        not_found: 'Room not found or you do not have permission',
+        owner_self: 'Owner cannot remove themselves from the room',
+      });
       return;
     }
 
@@ -310,12 +302,11 @@ router.post('/:slug/share', async (req: AuthenticatedRequest, res) => {
       permission,
       expiresInHours: expiresIn,
     });
-    if (result.kind === 'not_found') {
-      sendError(res, 404, 'NOT_FOUND', 'Room not found');
-      return;
-    }
-    if (result.kind === 'forbidden') {
-      sendError(res, 403, 'FORBIDDEN', 'Only the owner can share this room');
+    if (result.kind !== 'ok') {
+      sendServiceError(res, result, {
+        not_found: 'Room not found',
+        forbidden: 'Only the owner can share this room',
+      });
       return;
     }
 

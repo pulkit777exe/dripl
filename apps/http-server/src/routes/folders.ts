@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { sendError } from '../lib/response';
+import { sendServiceError } from '../lib/serviceResult';
 import { logger } from '../logger';
 import { FolderService } from '../services/folderService';
 
@@ -66,8 +67,10 @@ foldersRouter.post('/', async (req: AuthenticatedRequest, res) => {
       name: parsedBody.data.name,
       parentId: parsedBody.data.parentId ?? null,
     });
-    if (result.kind === 'parent_not_found') {
-      sendError(res, 404, 'NOT_FOUND', 'Parent folder not found');
+    if (result.kind !== 'ok') {
+      sendServiceError(res, result, {
+        parent_not_found: 'Parent folder not found',
+      });
       return;
     }
 
@@ -112,20 +115,13 @@ foldersRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
       name: parsedBody.data.name,
       parentId: parsedBody.data.parentId,
     });
-    if (result.kind === 'not_found') {
-      sendError(res, 404, 'NOT_FOUND', 'Folder not found');
-      return;
-    }
-    if (result.kind === 'self_parent') {
-      sendError(res, 400, 'CANNOT_RE_PARENT', 'Folder cannot be its own parent');
-      return;
-    }
-    if (result.kind === 'parent_not_found') {
-      sendError(res, 404, 'NOT_FOUND', 'Parent folder not found');
-      return;
-    }
-    if (result.kind === 'cycle') {
-      sendError(res, 400, 'CANNOT_RE_PARENT', 'Folder hierarchy cannot contain a cycle');
+    if (result.kind !== 'ok') {
+      sendServiceError(res, result, {
+        not_found: 'Folder not found',
+        self_parent: 'Folder cannot be its own parent',
+        parent_not_found: 'Parent folder not found',
+        cycle: 'Folder hierarchy cannot contain a cycle',
+      });
       return;
     }
 
@@ -154,17 +150,11 @@ foldersRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
 
   try {
     const result = await FolderService.deleteFolderCascade(req.userId, id);
-    if (result.kind === 'not_found') {
-      sendError(res, 404, 'NOT_FOUND', 'Folder not found');
-      return;
-    }
-    if (result.kind === 'too_deep') {
-      sendError(
-        res,
-        409,
-        'FOLDER_HIERARCHY_TOO_DEEP',
-        'Folder hierarchy is too deep to delete safely'
-      );
+    if (result.kind !== 'ok') {
+      sendServiceError(res, result, {
+        not_found: 'Folder not found',
+        too_deep: 'Folder hierarchy is too deep to delete safely',
+      });
       return;
     }
 
