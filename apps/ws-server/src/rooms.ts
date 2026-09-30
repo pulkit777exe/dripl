@@ -96,7 +96,7 @@ export function parseStoredElements(raw: string | null | undefined): DriplElemen
   }
 }
 
-export function elementsToMap(elements: DriplElement[]): Map<string, DriplElement> {
+function elementsToMap(elements: DriplElement[]): Map<string, DriplElement> {
   const map = new Map<string, DriplElement>();
   for (const el of elements) {
     map.set(el.id, el);
@@ -104,7 +104,7 @@ export function elementsToMap(elements: DriplElement[]): Map<string, DriplElemen
   return map;
 }
 
-export function elementsToArray(elements: Map<string, DriplElement>): DriplElement[] {
+function elementsToArray(elements: Map<string, DriplElement>): DriplElement[] {
   return Array.from(elements.values()).sort((a, b) =>
     compareFractionalIndex(a.fractionalIndex, b.fractionalIndex)
   );
@@ -172,7 +172,7 @@ export function mergeMemoryWithStored(
   return { merged, resurrected };
 }
 
-export function serializeElements(
+function serializeElements(
   elements: Map<string, DriplElement>,
   metadata: StoredSceneMetadata = {}
 ): string {
@@ -341,9 +341,7 @@ async function mergeAndSaveOnConflict(
  * fenced write needs, or null when no row exists. Read-only: the caller
  * decides whether to adopt and retry.
  */
-export async function probeRoomRecord(
-  roomId: string
-): Promise<{
+async function probeRoomRecord(roomId: string): Promise<{
   recordType: 'file' | 'canvasRoom';
   updatedAt: Date;
   metadata: StoredSceneMetadata;

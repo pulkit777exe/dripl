@@ -17,7 +17,7 @@ import type { RoomState, Tombstone } from './types';
 /** How long a delete marker suppresses stale writes (Excalidraw parity). */
 export const TOMBSTONE_TTL_MS = 24 * 60 * 60 * 1000;
 
-export function tombstoneMap(room: RoomState): Map<string, Tombstone> {
+function tombstoneMap(room: RoomState): Map<string, Tombstone> {
   return room.tombstones ?? (room.tombstones = new Map());
 }
 
