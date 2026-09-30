@@ -48,10 +48,14 @@ export const addElementHandler: Handler<typeof addElementSchema, AddElement> = {
       return;
     }
     if (admitted === 'rejected') return;
-    broadcast(room, msg, ctx.userId ?? undefined);
+    // Uniform relay: every scene mutation fans out as scene-delta, so
+    // receivers implement one merge path. An add is delta-added — exactly
+    // what the client's add_element branch did with the verbatim relay.
+    const delta = { type: 'scene-delta', added: [element] } as const;
+    broadcast(room, delta, ctx.userId ?? undefined);
     markRoomDirty(ctx.roomId);
     scheduleSave(ctx.roomId);
-    publishToRoom(ctx.roomId, msg);
+    publishToRoom(ctx.roomId, delta);
   },
 };
 
@@ -68,10 +72,12 @@ export const updateElementHandler: Handler<typeof updateElementSchema, UpdateEle
       return;
     }
     if (admitted === 'rejected') return;
-    broadcast(room, msg, ctx.userId ?? undefined);
+    // Uniform relay (see addElementHandler): an update is delta-updated.
+    const delta = { type: 'scene-delta', updated: [element] } as const;
+    broadcast(room, delta, ctx.userId ?? undefined);
     markRoomDirty(ctx.roomId);
     scheduleSave(ctx.roomId);
-    publishToRoom(ctx.roomId, msg);
+    publishToRoom(ctx.roomId, delta);
   },
 };
 
@@ -85,10 +91,12 @@ export const deleteElementHandler: Handler<typeof deleteElementSchema, DeleteEle
     // of resurrecting the element on this and every other replica.
     const deleted = deleteWithTombstone(room, msg.elementId);
     if (!deleted) return;
-    broadcast(room, msg, ctx.userId ?? undefined);
+    // Uniform relay: a delete is delta-deleted.
+    const delta = { type: 'scene-delta', deleted: [msg.elementId] } as const;
+    broadcast(room, delta, ctx.userId ?? undefined);
     markRoomDirty(ctx.roomId);
     scheduleSave(ctx.roomId);
-    publishToRoom(ctx.roomId, msg);
+    publishToRoom(ctx.roomId, delta);
   },
 };
 
@@ -128,15 +136,13 @@ export const sceneUpdateHandler: Handler<typeof sceneUpdateSchema, SceneUpdate> 
     // Destructive replacement is an explicit operation and is not
     // accepted through this transport message.
     if (acceptedElements.length > 0) {
-      const filteredUpdate = {
-        type: 'scene-update' as const,
-        subtype: msg.subtype,
-        elements: acceptedElements,
-      };
-      broadcast(room, filteredUpdate, ctx.userId ?? undefined);
+      // Uniform relay: a scene-update batch fans out as delta-added, which
+      // is exactly how receivers already merged scene-update relays.
+      const filteredDelta = { type: 'scene-delta', added: acceptedElements } as const;
+      broadcast(room, filteredDelta, ctx.userId ?? undefined);
       markRoomDirty(ctx.roomId);
       scheduleSave(ctx.roomId);
-      publishToRoom(ctx.roomId, filteredUpdate);
+      publishToRoom(ctx.roomId, filteredDelta);
     }
   },
 };
@@ -209,7 +215,9 @@ export const elementUpdateHandler: Handler<typeof elementUpdateSchema, ElementUp
     const room = ctx.room;
 
     let acceptedCount = 0;
-    const filteredElementUpdate: Record<string, unknown> = { type: 'element-update' };
+    // Uniform relay (see addElementHandler): batches and singletons fan out
+    // as delta-updated, matching what the element-update receiver branch did.
+    let filteredDelta: { type: 'scene-delta'; updated: DriplElement[] } | null = null;
 
     if (Array.isArray(msg.elements)) {
       if (wouldExceedSceneCapacity(room, msg.elements)) {
@@ -222,9 +230,9 @@ export const elementUpdateHandler: Handler<typeof elementUpdateSchema, ElementUp
       const accepted: DriplElement[] = [];
       acceptValidated(room, msg.elements as DriplElement[], accepted);
       acceptedCount = accepted.length;
-      if (acceptedCount > 0) filteredElementUpdate.elements = accepted;
       if (accepted.length > 0) {
-        broadcast(room, { type: 'element-update', elements: accepted }, ctx.userId ?? undefined);
+        filteredDelta = { type: 'scene-delta', updated: accepted };
+        broadcast(room, filteredDelta, ctx.userId ?? undefined);
       }
     } else {
       const rawElement = msg.element as DriplElement | undefined;
@@ -237,14 +245,14 @@ export const elementUpdateHandler: Handler<typeof elementUpdateSchema, ElementUp
       if (admitted === 'rejected') return;
       const element = rawElement;
       acceptedCount = 1;
-      filteredElementUpdate.element = element;
-      broadcast(room, { type: 'element-update', element }, ctx.userId ?? undefined);
+      filteredDelta = { type: 'scene-delta', updated: [element] };
+      broadcast(room, filteredDelta, ctx.userId ?? undefined);
     }
 
     if (acceptedCount > 0) {
       markRoomDirty(ctx.roomId);
       scheduleSave(ctx.roomId);
-      publishToRoom(ctx.roomId, filteredElementUpdate);
+      if (filteredDelta) publishToRoom(ctx.roomId, filteredDelta);
     }
   },
 };

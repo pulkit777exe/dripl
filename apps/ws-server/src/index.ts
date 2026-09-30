@@ -483,6 +483,13 @@ wss.on('connection', async (ws, req) => {
             // this against the last version a client acknowledged to detect
             // a gap without a full scene transfer.
             sceneVersion: room.mutationVersion,
+            // Wire protocol epoch. All scene mutations now fan out as
+            // scene-delta; receivers keep their legacy branches for
+            // mid-deploy tabs, but nothing new is emitted in the old
+            // shapes. Bumped only for wire-incompatible changes, never
+            // silently: old clients get read-only treatment or explicit
+            // rejection per the collaboration decision, not quiet drift.
+            protocolEpoch: 2,
           });
 
           broadcast(

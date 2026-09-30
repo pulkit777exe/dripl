@@ -240,6 +240,9 @@ describe('production WebSocket process', () => {
   });
 
   it('fans add, update, and delete out to room members', async () => {
+    // Relay contract: every scene mutation fans out as scene-delta,
+    // regardless of which wire type carried it in. Receivers implement one
+    // merge path (added/updated/deleted); legacy verbatim relays are gone.
     stubFileAccess('elem-a', ['elem-b']);
     const first = await openClient(port, 'elem-a');
     const second = await openClient(port, 'elem-b');
@@ -253,7 +256,10 @@ describe('production WebSocket process', () => {
     const added = waitForMessage(
       second,
       message =>
-        message.type === 'add_element' && (message.element as { id?: string })?.id === 'live-1'
+        message.type === 'scene-delta' &&
+        ((message.added as Array<{ id?: string }> | undefined) ?? []).some(
+          element => element.id === 'live-1'
+        )
     );
     first.send(
       JSON.stringify({
@@ -275,7 +281,10 @@ describe('production WebSocket process', () => {
     const updated = waitForMessage(
       second,
       message =>
-        message.type === 'update_element' && (message.element as { id?: string })?.id === 'live-1'
+        message.type === 'scene-delta' &&
+        ((message.updated as Array<{ id?: string }> | undefined) ?? []).some(
+          element => element.id === 'live-1'
+        )
     );
     first.send(
       JSON.stringify({
@@ -296,7 +305,10 @@ describe('production WebSocket process', () => {
 
     const deleted = waitForMessage(
       second,
-      message => message.type === 'delete_element' && message.elementId === 'live-1'
+      message =>
+        message.type === 'scene-delta' &&
+        Array.isArray(message.deleted) &&
+        (message.deleted as string[]).includes('live-1')
     );
     first.send(JSON.stringify({ type: 'delete_element', elementId: 'live-1' }));
     expect(await deleted).toBeDefined();
@@ -305,7 +317,7 @@ describe('production WebSocket process', () => {
     second.close();
   });
 
-  it('relays scene-update with the accepted elements', async () => {
+  it('relays scene-update as delta-added', async () => {
     stubFileAccess('scene-a', ['scene-b']);
     const first = await openClient(port, 'scene-a');
     const second = await openClient(port, 'scene-b');
@@ -316,7 +328,13 @@ describe('production WebSocket process', () => {
     await firstSync;
     await secondSync;
 
-    const relayed = waitForMessage(second, message => message.type === 'scene-update');
+    const relayed = waitForMessage(
+      second,
+      message =>
+        message.type === 'scene-delta' &&
+        Array.isArray(message.added) &&
+        (message.added as Array<{ id?: string }>).some(element => element.id === 's-1')
+    );
     first.send(
       JSON.stringify({
         type: 'scene-update',
@@ -345,14 +363,14 @@ describe('production WebSocket process', () => {
         ],
       })
     );
-    const received = (await relayed) as { elements: Array<{ id: string }> };
-    expect(received.elements.map(e => e.id).sort()).toEqual(['s-1', 's-2']);
+    const received = (await relayed) as { added: Array<{ id: string }> };
+    expect(received.added.map(e => e.id).sort()).toEqual(['s-1', 's-2']);
 
     first.close();
     second.close();
   });
 
-  it('relays element-update array and single branches', async () => {
+  it('relays element-update branches as delta-updated', async () => {
     stubFileAccess('eu-a', ['eu-b']);
     const first = await openClient(port, 'eu-a');
     const second = await openClient(port, 'eu-b');
@@ -366,8 +384,9 @@ describe('production WebSocket process', () => {
     const batch = waitForMessage(
       second,
       message =>
-        message.type === 'element-update' &&
-        Array.isArray((message as { elements?: unknown }).elements)
+        message.type === 'scene-delta' &&
+        Array.isArray(message.updated) &&
+        (message.updated as Array<{ id?: string }>).some(element => element.id === 'eu-1')
     );
     first.send(
       JSON.stringify({
@@ -386,14 +405,17 @@ describe('production WebSocket process', () => {
         ],
       })
     );
-    const batchReceived = (await batch) as { elements: Array<{ id: string }> };
-    expect(batchReceived.elements.map(e => e.id)).toEqual(['eu-1']);
+    const batchReceived = (await batch) as { updated: Array<{ id: string }> };
+    expect(batchReceived.updated.map(e => e.id)).toEqual(['eu-1']);
 
     const single = waitForMessage(
       second,
       message =>
-        message.type === 'element-update' &&
-        (message as { element?: { id?: string } }).element?.id === 'eu-1'
+        message.type === 'scene-delta' &&
+        Array.isArray(message.updated) &&
+        (message.updated as Array<{ id?: string; version?: number }>).some(
+          element => element.id === 'eu-1' && element.version === 2
+        )
     );
     first.send(
       JSON.stringify({
@@ -645,13 +667,15 @@ describe('production WebSocket process', () => {
     const thirdElements = ((await thirdSync).elements ?? []) as Array<{ id: string }>;
     expect(thirdElements.map(element => element.id)).not.toContain('res-x');
 
-    // Genuinely newer edit: accepted and relayed verbatim (same contract as
-    // the live-update test above: update_element relays as update_element).
+    // Genuinely newer edit: accepted and relayed as delta-updated (uniform
+    // relay contract), visible to the next joiner.
     const revivedOnFirst = waitForMessage(
       first,
       message =>
-        message.type === 'update_element' &&
-        (message.element as { id?: string } | undefined)?.id === 'res-x'
+        message.type === 'scene-delta' &&
+        ((message.updated as Array<{ id?: string }> | undefined) ?? []).some(
+          element => element.id === 'res-x'
+        )
     );
     second.send(JSON.stringify({ type: 'update_element', element: shape(5) }));
     await revivedOnFirst;
@@ -697,6 +721,7 @@ describe('production WebSocket process', () => {
     const firstSync = await firstSyncP;
     await secondSyncP;
     expect(typeof firstSync.sceneVersion).toBe('number');
+    expect(firstSync.protocolEpoch).toBe(2);
 
     // A mutation is applied (second sees the delta), then a later joiner
     // observes a strictly newer version and the mutated scene.
