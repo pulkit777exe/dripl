@@ -9,9 +9,17 @@ import { logger } from '../logger';
 
 const router: Router = Router();
 
-const roomContentSchema = z
+// Scene size is measured in UTF-8 bytes — the unit MAX_FILE_CONTENT_BYTES
+// names and the unit files.ts enforces. z.string().max() counts UTF-16
+// code units instead, so multibyte scenes passed here while failing there.
+// (Deliberate scope: the 413-vs-400 status difference between the two
+// paths is a separate wire decision, not fixed here.)
+export const roomContentSchema = z
   .string()
-  .max(MAX_FILE_CONTENT_BYTES)
+  .refine(
+    content => Buffer.byteLength(content, 'utf8') <= MAX_FILE_CONTENT_BYTES,
+    `Room content must not exceed ${MAX_FILE_CONTENT_BYTES} bytes`
+  )
   .refine(isValidRoomContent, 'Room content must contain a valid element scene');
 
 const createRoomSchema = z.object({
