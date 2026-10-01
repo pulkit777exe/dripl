@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken, signToken, type JwtPayload } from '@dripl/utils/auth';
+import { verifyToken, signToken, extractBearerToken, type JwtPayload } from '@dripl/utils/auth';
 import { sendError } from '../lib/response';
 import { logger } from '../logger.js';
 
@@ -11,7 +11,7 @@ export interface AuthRequest extends Request {
 
 export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction): void => {
   try {
-    const token = req.cookies?.['dripl-session'] || req.headers.authorization?.split(' ')[1];
+    const token = extractToken(req);
 
     if (!token) {
       sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
@@ -63,13 +63,7 @@ export function extractToken(req: Request): string | null {
   if (typeof cookieToken === 'string' && cookieToken.length > 0) {
     return cookieToken;
   }
-
-  const authHeader = req.headers.authorization;
-  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
-    return authHeader.slice('Bearer '.length);
-  }
-
-  return null;
+  return extractBearerToken(req.headers.authorization);
 }
 
 export type AuthenticatedRequest = AuthRequest;

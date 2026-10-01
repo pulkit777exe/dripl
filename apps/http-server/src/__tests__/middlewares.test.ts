@@ -48,6 +48,14 @@ describe('authMiddleware', () => {
     expect(res.body.userId).toBe('user-123');
   });
 
+  it('rejects an Authorization header with a non-Bearer scheme', async () => {
+    const app = createTestApp(authMiddleware);
+    // Scheme confusion: the old inline `split(' ')[1]` accepted any scheme,
+    // so "Basic <jwt>" authenticated. The unified extractor requires Bearer.
+    const res = await request(app).get('/protected').set('Authorization', `Basic ${VALID_JWT}`);
+    expect(res.status).toBe(401);
+  });
+
   it('returns 401 when no token provided', async () => {
     const app = createTestApp(authMiddleware);
     const res = await request(app).get('/protected');
