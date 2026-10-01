@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { signToken, verifyToken } from './auth';
+import { extractBearerToken, signToken, verifyToken } from './auth';
 
 describe('auth token verification', () => {
   afterEach(() => {
@@ -28,5 +28,28 @@ describe('auth token verification', () => {
     vi.stubEnv('JWT_SECRET', 'b'.repeat(32));
 
     expect(verifyToken(token)).toBeNull();
+  });
+});
+
+describe('extractBearerToken', () => {
+  it('extracts the token from a canonical Bearer header', () => {
+    expect(extractBearerToken('Bearer abc.def.ghi')).toBe('abc.def.ghi');
+  });
+
+  it('accepts the scheme in any case per RFC 7235', () => {
+    expect(extractBearerToken('bearer abc')).toBe('abc');
+    expect(extractBearerToken('BEARER abc')).toBe('abc');
+    expect(extractBearerToken('BeArEr abc')).toBe('abc');
+  });
+
+  it('tolerates multi-space separators (1*SP) and token68 padding', () => {
+    expect(extractBearerToken('Bearer  abc=')).toBe('abc=');
+  });
+
+  it('rejects non-Bearer schemes, bare tokens, and empty values', () => {
+    expect(extractBearerToken('Basic dXNlcjpwYXNz')).toBeNull();
+    expect(extractBearerToken('bare-token-without-scheme')).toBeNull();
+    expect(extractBearerToken('Bearer ')).toBeNull();
+    expect(extractBearerToken(undefined)).toBeNull();
   });
 });
