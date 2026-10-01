@@ -37,8 +37,36 @@ const updateRoomSchema = z.object({
 
 const addMemberSchema = z.object({
   userId: z.string().min(1).max(100),
-  role: z.enum(['EDITOR', 'VIEWER']).default('EDITOR'),
+  // Wire vocabulary is lowercase view/edit (product decision 2026-10-01:
+  // one casing on the wire, DB keeps its EDITOR/VIEWER enum — mapping
+  // happens here at the route boundary). Default stays the old EDITOR
+  // grant, expressed in wire terms.
+  role: z.enum(['view', 'edit']).default('edit'),
 });
+
+const ROLE_TO_DB = { view: 'VIEWER', edit: 'EDITOR' } as const;
+const ROLE_FROM_DB = { EDITOR: 'edit', VIEWER: 'view' } as const;
+
+function toWireRole(role: unknown): unknown {
+  return typeof role === 'string' && role in ROLE_FROM_DB
+    ? ROLE_FROM_DB[role as keyof typeof ROLE_FROM_DB]
+    : role;
+}
+
+function toWireMember(member: unknown): unknown {
+  if (!member || typeof member !== 'object') return member;
+  const record = member as Record<string, unknown>;
+  return 'role' in record ? { ...record, role: toWireRole(record.role) } : member;
+}
+
+// Only getRoom embeds members[].role today (listRooms/getShareLink select
+// no members); apply this to any future room response that does.
+function toWireRoom(room: unknown): unknown {
+  if (!room || typeof room !== 'object') return room;
+  const record = room as Record<string, unknown>;
+  if (!Array.isArray(record.members)) return room;
+  return { ...record, members: record.members.map(toWireMember) };
+}
 
 const shareRoomSchema = z.object({
   permission: z.enum(['view', 'edit']).default('view'),
@@ -183,7 +211,7 @@ router.get('/:slug', async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    res.json({ room: result.room });
+    res.json({ room: toWireRoom(result.room) });
   } catch (error) {
     logger.error({ event: 'fetch_room_error', error }, 'Failed to fetch room');
     sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
@@ -269,7 +297,12 @@ router.post('/:slug/members', async (req: AuthenticatedRequest, res) => {
   const { userId: memberUserId, role } = parsed.data;
 
   try {
-    const result = await RoomService.addMember({ userId, slug, memberUserId, role });
+    const result = await RoomService.addMember({
+      userId,
+      slug,
+      memberUserId,
+      role: ROLE_TO_DB[role],
+    });
     if (result.kind !== 'ok') {
       sendServiceError(res, result, {
         not_found: 'Room not found or you do not have permission',
@@ -280,7 +313,7 @@ router.post('/:slug/members', async (req: AuthenticatedRequest, res) => {
 
     res.status(201).json({
       status: 'member added',
-      member: result.member,
+      member: toWireMember(result.member),
     });
   } catch (error) {
     logger.error({ event: 'add_member_error', error }, 'Failed to add member');
