@@ -108,17 +108,17 @@ retained only for a future protocol decision.
 
 ### Server → Client
 
-| `type`            | Payload                                      | Description                                                               |
-| ----------------- | -------------------------------------------- | ------------------------------------------------------------------------- |
-| `sync_room_state` | `{ roomId, elements[], users[], cursors[] }` | Full room state on join                                                   |
-| `room-state`      | `{ roomId, elements[], users[], cursors[] }` | Legacy client-compatibility alias; current server sends `sync_room_state` |
-| `scene-update`    | `{ subtype, elements[] }`                    | Broadcasted element array                                                 |
-| `scene-delta`     | `{ added[], updated[], deleted[] }`          | Broadcasted delta                                                         |
-| `user-join`       | `{ userId, displayName, color }`             | User joined room                                                          |
-| `user-leave`      | `{ userId }`                                 | User left room                                                            |
-| `cursor_move`     | `{ userId, x, y, displayName, color }`       | Broadcasted cursor                                                        |
-| `pong`            | `{ timestamp }`                              | Keepalive response                                                        |
-| `error`           | `{ message }`                                | Server-side error                                                         |
+| `type`            | Payload                                           | Description                                                                                                       |
+| ----------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `sync_room_state` | `{ roomId, elements[], users[], cursors[], ... }` | Full room state on join; also carries additive `sceneVersion` (monotonic mutation counter) and `protocolEpoch: 2` |
+| `room-state`      | `{ roomId, elements[], users[], cursors[] }`      | Legacy client-compatibility alias; current server sends `sync_room_state`                                         |
+| `scene-update`    | `{ subtype, elements[] }`                         | Legacy shape; current server never emits it — all scene mutations relay as `scene-delta`                          |
+| `scene-delta`     | `{ added[], updated[], deleted[] }`               | The uniform scene relay (per-id semantics: add→added, update→updated, delete→deleted)                             |
+| `user-join`       | `{ userId, displayName, color }`                  | User joined room                                                                                                  |
+| `user-leave`      | `{ userId }`                                      | User left room                                                                                                    |
+| `cursor_move`     | `{ userId, x, y, displayName, color }`            | Broadcasted cursor                                                                                                |
+| `pong`            | `{ timestamp }`                                   | Keepalive response                                                                                                |
+| `error`           | `{ message }`                                     | Server-side error                                                                                                 |
 
 ---
 

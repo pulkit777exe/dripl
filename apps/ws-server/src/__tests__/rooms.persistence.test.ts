@@ -173,6 +173,40 @@ describe('room persistence fencing', () => {
     expect(room.elements.has('a')).toBe(false);
     expect(dbMock.file.updateManyAndReturn.mock.calls[1]?.[0].data.content).not.toContain('"a"');
   });
+
+  it('adopts the stored winner into memory when stored beats memory', async () => {
+    const t0 = new Date('2026-01-01T00:00:00.000Z');
+    const t1 = new Date('2026-01-01T00:00:01.000Z');
+    const t2 = new Date('2026-01-01T00:00:02.000Z');
+    const v = (id: string, version: number) => ({ ...element, id, version, versionNonce: version });
+
+    // Someone else's save won with a@v2 while memory still holds the stale
+    // a@v1: the merge persists a@v2, and memory must adopt it — otherwise
+    // the next fenced save writes the stale copy back over the winner.
+    dbMock.file.updateManyAndReturn
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ updatedAt: t2 }]);
+    dbMock.file.findUnique.mockResolvedValue({
+      content: JSON.stringify({ elements: [v('a', 2)] }),
+      updatedAt: t1,
+    });
+
+    const room = getOrCreateRoom('file-stored-wins');
+    room.recordType = 'file';
+    room.lastPersistedUpdatedAt = t0;
+    room.elements.set('a', v('a', 1) as never);
+    const versionBefore = room.mutationVersion;
+
+    await expect(saveRoomElements('file-stored-wins', room.elements)).resolves.toBe(true);
+    expect(room.elements.get('a')).toMatchObject({ version: 2 });
+    // The visible scene changed (memory's copy was replaced), so the room
+    // version advances like any other mutation.
+    expect(room.mutationVersion).toBe(versionBefore + 1);
+    // And the persisted payload really carries the winner.
+    expect(dbMock.file.updateManyAndReturn.mock.calls[1]?.[0].data.content).toContain(
+      '"version":2'
+    );
+  });
 });
 
 describe('persistRoom', () => {
@@ -323,6 +357,27 @@ describe('unknown record type fallback', () => {
       data: { content: expect.any(String) },
       select: { updatedAt: true },
     });
+  });
+
+  it('writes the probed envelope, not the pre-probe one', async () => {
+    // A row re-created over HTTP carries share/appState metadata. The probe
+    // discovers it on this path, and the fenced write must serialize with
+    // the probed envelope — not with the empty load-time envelope captured
+    // before the probe, which would clobber the row's metadata.
+    dbMock.file.findUnique.mockResolvedValue({
+      content: JSON.stringify({ elements: [], appState: { zoom: 3 } }),
+      updatedAt: t1,
+    });
+    dbMock.file.updateManyAndReturn.mockResolvedValue([{ updatedAt: t2 }]);
+    const room = getOrCreateRoom('file-probe-envelope');
+    room.elements.set('x', { ...element, id: 'x' });
+    room.dirty = true;
+
+    await expect(saveRoomElements('file-probe-envelope', room.elements)).resolves.toBe(true);
+    const written = dbMock.file.updateManyAndReturn.mock.calls[0]?.[0].data.content as string;
+    expect(written).toContain('"appState"');
+    expect(written).toContain('"zoom":3');
+    expect(room.storedMetadata).toMatchObject({ appState: { zoom: 3 } });
   });
 
   it('stays dirty with no write when no row exists', async () => {

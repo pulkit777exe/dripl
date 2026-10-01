@@ -222,9 +222,10 @@ export async function loadRoomElements(roomId: string): Promise<Map<string, Drip
  * wrote first. Re-reads the winning row, merges (see mergeMemoryWithStored),
  * and retries the write against the fresh fence — the Postgres equivalent
  * of Excalidraw's Firestore read-reconcile-write transaction. On success the
- * merged scene is adopted into memory (additions only; memory's own edits
- * are never removed, so an in-flight mutation cannot be wiped) and relayed
- * to connected clients so they converge. Returns false when the row is gone
+ * merged scene is adopted into memory (stored-only additions and ids where
+ * the stored copy beat memory; memory's own fresher edits are never removed,
+ * so an in-flight mutation cannot be wiped) and relayed to connected clients
+ * so they converge. Returns false when the row is gone
  * or the retry loses again; the room stays dirty and a later tick retries.
  * Conflict-only cost (1 read + 1 write); the happy path is still 1 write.
  */
@@ -271,6 +272,15 @@ async function mergeAndSaveOnConflict(
   }
   const freshMetadata = readStoredSceneMetadata(stored.content);
   const serialized = serializeElements(merged, freshMetadata);
+  // Ids where the re-read copy beat memory: mergeMemoryWithStored already
+  // put the winner into `merged` (persisted below), but room.elements still
+  // holds the loser. Collected before adoption so a later save cannot write
+  // the stale copy back over the winner.
+  const storedWins: DriplElement[] = [];
+  for (const [id, el] of merged) {
+    const memoryEl = room.elements.get(id);
+    if (memoryEl && memoryEl !== el) storedWins.push(el);
+  }
 
   try {
     const updatedRows =
@@ -294,17 +304,38 @@ async function mergeAndSaveOnConflict(
     room.storedMetadata = freshMetadata;
     if (recordType === 'file') room.recordType = 'file';
 
-    const adopted: DriplElement[] = [];
+    const added: DriplElement[] = [];
+    const replaced: DriplElement[] = [];
+    // Stored-wins: swap the stale memory copy for the winner just persisted.
+    // Freshness and tombstone re-checks under the latest state, because a
+    // mutation or delete may have landed while the merge was in flight —
+    // those always beat the re-read copy.
+    for (const el of storedWins) {
+      const current = room.elements.get(el.id);
+      if (
+        current &&
+        merged.has(el.id) &&
+        !getLiveTombstone(room, el.id) &&
+        compareElementFreshness(current, el) <= 0
+      ) {
+        room.elements.set(el.id, el);
+        replaced.push(el);
+      }
+    }
     for (const el of resurrected) {
       // Re-check under the latest state: a delete may have landed while the
       // merge was in flight, and an in-flight mutation always wins ties.
       if (!room.elements.has(el.id) && merged.has(el.id) && !getLiveTombstone(room, el.id)) {
         room.elements.set(el.id, el);
-        adopted.push(el);
+        added.push(el);
       }
     }
-    if (adopted.length > 0) {
-      broadcast(room, { type: 'scene-delta', added: adopted });
+    if (added.length > 0 || replaced.length > 0) {
+      broadcast(room, {
+        type: 'scene-delta',
+        ...(added.length > 0 ? { added } : {}),
+        ...(replaced.length > 0 ? { updated: replaced } : {}),
+      });
       // Adoption changes the scene every client sees, so the room version
       // must advance like any other mutation. This also marks the room dirty,
       // costing one redundant fenced save later — accepted to keep the single
@@ -318,7 +349,8 @@ async function mergeAndSaveOnConflict(
       durationMs: Date.now() - startTime,
       recordType,
       elementCount: merged.size,
-      adopted: adopted.length,
+      added: added.length,
+      updated: replaced.length,
       byteSize: Buffer.byteLength(serialized, 'utf-8'),
     });
     return true;
@@ -388,9 +420,9 @@ export async function saveRoomElements(
     logger.error({ event: 'save_room_no_state', roomId });
     return false;
   }
-  const serialized = serializeElements(elements, storedMetadata);
+  let serialized = serializeElements(elements, storedMetadata);
   const elementCount = elements.size;
-  const byteSize = Buffer.byteLength(serialized, 'utf-8');
+  let byteSize = Buffer.byteLength(serialized, 'utf-8');
 
   try {
     // A room with no record type never completed a load, or its row vanished
@@ -413,6 +445,12 @@ export async function saveRoomElements(
         room.recordType = probed.recordType;
         room.lastPersistedUpdatedAt = probed.updatedAt;
         room.storedMetadata = probed.metadata;
+        // The probe just refreshed the envelope from the row; re-serialize so
+        // the fenced write carries the probed metadata instead of the
+        // pre-probe one (usually an empty envelope), which would otherwise
+        // clobber the row's share/appState envelope we just discovered.
+        serialized = serializeElements(elements, room.storedMetadata);
+        byteSize = Buffer.byteLength(serialized, 'utf-8');
       }
       effectiveRecordType = probed.recordType;
     }
