@@ -9,6 +9,7 @@ import { filesRouter } from '../routes/files';
 import { foldersRouter } from '../routes/folders';
 import roomRoutes from '../routes/roomRoutes';
 import type { AuthRequest } from '../middlewares/authMiddleware';
+import { MAX_FILE_CONTENT_BYTES } from '@dripl/common';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
 
@@ -140,6 +141,30 @@ describe('HTTP Server Routes', () => {
     it('should return 401 without auth token', async () => {
       const res = await request(app).post('/api/rooms').send({ name: 'Test Room' });
       expect(res.status).toBe(401);
+    });
+
+    it('returns 413 PAYLOAD_TOO_LARGE for content over the byte limit', async () => {
+      const token = jwt.sign({ userId: 'user-1' }, JWT_SECRET);
+      const res = await request(app)
+        .post('/api/rooms')
+        .set('Authorization', `Bearer ${token}`)
+        // Not a valid scene either: size-before-semantics means the 413 must
+        // win over the 400 the schema would report.
+        .send({ name: 'Big Room', content: 'x'.repeat(MAX_FILE_CONTENT_BYTES + 1) });
+      expect(res.status).toBe(413);
+      expect(res.body.error).toBe('PAYLOAD_TOO_LARGE');
+    });
+  });
+
+  describe('PUT /api/rooms/:slug', () => {
+    it('returns 413 PAYLOAD_TOO_LARGE for content over the byte limit', async () => {
+      const token = jwt.sign({ userId: 'user-1' }, JWT_SECRET);
+      const res = await request(app)
+        .put('/api/rooms/test-room')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ content: 'x'.repeat(MAX_FILE_CONTENT_BYTES + 1) });
+      expect(res.status).toBe(413);
+      expect(res.body.error).toBe('PAYLOAD_TOO_LARGE');
     });
   });
 });

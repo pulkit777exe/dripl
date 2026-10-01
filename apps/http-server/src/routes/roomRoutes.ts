@@ -12,8 +12,8 @@ const router: Router = Router();
 // Scene size is measured in UTF-8 bytes — the unit MAX_FILE_CONTENT_BYTES
 // names and the unit files.ts enforces. z.string().max() counts UTF-16
 // code units instead, so multibyte scenes passed here while failing there.
-// (Deliberate scope: the 413-vs-400 status difference between the two
-// paths is a separate wire decision, not fixed here.)
+// The schema refine stays as defense in depth; the routes answer 413 via
+// rejectOversizedContent so both paths report oversize the same way.
 export const roomContentSchema = z
   .string()
   .refine(
@@ -52,6 +52,23 @@ function invalidPayload(res: Response, message: string, details: unknown): void 
     statusCode: 400,
     details,
   });
+}
+
+// Size-before-semantics, same order and status as files.ts: an oversized
+// payload is 413 PAYLOAD_TOO_LARGE, not a 400 schema violation. Runs before
+// parsing so a 2MB+ string is never walked by Zod.
+function rejectOversizedContent(res: Response, body: unknown): boolean {
+  const content = (body as { content?: unknown } | null | undefined)?.content;
+  if (typeof content !== 'string') return false;
+  const size = Buffer.byteLength(content, 'utf8');
+  if (size <= MAX_FILE_CONTENT_BYTES) return false;
+  sendError(
+    res,
+    413,
+    'PAYLOAD_TOO_LARGE',
+    `Room content too large (${size} bytes, max ${MAX_FILE_CONTENT_BYTES})`
+  );
+  return true;
 }
 
 function requireUserId(req: AuthenticatedRequest, res: Response): string | null {
@@ -108,6 +125,8 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
 router.post('/', async (req: AuthenticatedRequest, res) => {
   const userId = requireUserId(req, res);
   if (!userId) return;
+
+  if (rejectOversizedContent(res, req.body)) return;
 
   const parsed = createRoomSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -175,6 +194,8 @@ router.put('/:slug', async (req: AuthenticatedRequest, res) => {
   const userId = requireUserId(req, res);
   if (!userId) return;
   const { slug } = req.params as { slug: string };
+
+  if (rejectOversizedContent(res, req.body)) return;
 
   const parsed = updateRoomSchema.safeParse(req.body);
   if (!parsed.success) {
