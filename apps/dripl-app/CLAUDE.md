@@ -52,7 +52,6 @@ apps/dripl-app/
 │   ├── context/           # Auth context
 │   ├── error.tsx          # React Error Boundary
 │   └── layout.tsx         # Root layout
-├── actions/               # File-oriented Server Actions
 ├── components/
 │   ├── canvas/            # Toolbar, modals, panels, collaborators
 │   ├── dashboard/         # Sidebar, file cards, folders
@@ -263,12 +262,14 @@ baseline (`healing.ts`) since the server sends no per-message ACK.
 
 ---
 
-## Server Actions vs Route Handlers
+## Route Handlers
 
-| Use                         | When                                                                   |
-| --------------------------- | ---------------------------------------------------------------------- |
-| Server Actions (`actions/`) | File mutations and related file operations                             |
-| Route Handlers (`app/api/`) | Complex REST-like endpoints: share links, room creation, AI generation |
+There are no Server Actions: `actions/` was removed in 3568d4b, so every
+mutation goes through a REST route handler.
+
+| Use                         | When                                                          |
+| --------------------------- | ------------------------------------------------------------- |
+| Route Handlers (`app/api/`) | All mutations, plus share links, room creation, AI generation |
 
 ---
 

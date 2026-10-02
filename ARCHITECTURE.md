@@ -96,7 +96,6 @@ dripl/
 ├── apps/
 │   ├── dripl-app/          # Next.js 16 frontend
 │   │   ├── app/            # App Router pages & API routes
-│   │   ├── actions/        # Server Actions (auth, files, canvas)
 │   │   ├── components/     # React components
 │   │   │   └── canvas/     # Canvas UI (RoughCanvas, StaticCanvas, etc.)
 │   │   ├── hooks/          # React hooks (useCollaboration, useDrawingTools, etc.)
