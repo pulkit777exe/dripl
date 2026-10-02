@@ -194,10 +194,11 @@ export function isRoomOwnershipDisabled(): boolean {
   return process.env.WS_ROOM_OWNERSHIP === 'off';
 }
 
-/** Ownership can only be enforced when there is somewhere to hold a lease. */
-export function isRoomOwnershipEnabled(): boolean {
-  return !isRoomOwnershipDisabled() && isRedisAvailable();
-}
+// There is deliberately no `isRoomOwnershipEnabled()`. It read as a natural
+// companion to `isRoomOwnershipDisabled()` but nothing called it, and a second
+// expression of "is the lease in force" is a second thing that can disagree
+// with `acquireRoom`, which is what actually gates a join. One predicate, used
+// by the one caller that matters.
 
 export type RoomLeaseOutcome = 'owner' | 'foreign' | 'unavailable' | 'disabled';
 
