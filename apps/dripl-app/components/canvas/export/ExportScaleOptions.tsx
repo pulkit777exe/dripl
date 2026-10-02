@@ -5,7 +5,7 @@ import type { ExportFormat, ExportScale } from './exportTypes';
 
 /**
  * Scale picker: fixed 1–4x buttons, custom dimensions toggle, and the
- * selection-only toggle. Hidden for document formats (JSON/Excalidraw/PDF),
+ * selection-only toggle. Hidden for document formats (JSON/Dripl/PDF),
  * which ignore raster scale.
  */
 export function ExportScaleOptions({
@@ -35,7 +35,7 @@ export function ExportScaleOptions({
   onCustomHeight: (height: string) => void;
   onSelectionOnly: (enabled: boolean) => void;
 }) {
-  if (selectedFormat === 'json' || selectedFormat === 'excalidraw' || selectedFormat === 'pdf') {
+  if (selectedFormat === 'json' || selectedFormat === 'dripl' || selectedFormat === 'pdf') {
     return null;
   }
 

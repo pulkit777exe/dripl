@@ -86,7 +86,7 @@ describe('buildDocumentExportOptions', () => {
 describe('exportFileName', () => {
   it('builds timestamped filenames with known extensions', () => {
     expect(exportFileName('png', 123)).toBe('canvas-123.png');
-    expect(exportFileName('excalidraw', 123)).toBe('canvas-123.excalidraw');
+    expect(exportFileName('dripl', 123)).toBe('canvas-123.dripl');
     expect(exportFileName('pdf', 123)).toBe('canvas-123.pdf');
   });
 });

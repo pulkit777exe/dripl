@@ -66,7 +66,7 @@ export function buildRasterExportOptions(
 }
 
 /**
- * Document options for the png/svg/json/excalidraw download path. Custom
+ * Document options for the png/svg/json/dripl download path. Custom
  * widths reinterpret `scale` against a 1920px reference frame.
  */
 export function buildDocumentExportOptions(
@@ -88,7 +88,7 @@ const EXTENSIONS: Record<string, string> = {
   png: 'png',
   svg: 'svg',
   json: 'json',
-  excalidraw: 'excalidraw',
+  dripl: 'dripl',
   pdf: 'pdf',
 };
 

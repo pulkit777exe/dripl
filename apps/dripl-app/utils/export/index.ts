@@ -12,11 +12,11 @@ export {
 export { escapeXml, safeSvgUrl, safeSvgPaint, exportToSvg } from './vector';
 export { exportToPng, generateThumbnail } from './raster';
 export {
-  EXCALIDRAW_SCHEMA_VERSION,
-  MAX_IMPORT_ELEMENTS,
-  exportToJson,
-  exportToExcalidraw,
-  exportCanvas,
-  importFromJson,
-} from './serialization';
+  DRIPL_SCENE_TYPE,
+  DRIPL_SCENE_VERSION,
+  buildDriplSceneDocument,
+  exportToDripl,
+  type DriplSceneDocument,
+} from './native';
+export { MAX_IMPORT_ELEMENTS, exportToJson, exportCanvas, importFromJson } from './serialization';
 export { downloadBlob } from '../canvas-helpers';

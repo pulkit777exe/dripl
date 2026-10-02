@@ -2,157 +2,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { MAX_SCENE_ELEMENTS, type DriplElement } from '@dripl/common';
 import { exportToPng } from './raster';
 import { exportToSvg } from './vector';
-import {
-  finiteNumber,
-  isJsonRecord,
-  isSafeHttpUrl,
-  normalizeImportedElement,
-  remapElementReferences,
-  type JsonRecord,
-} from './normalize';
+import { exportToDripl } from './native';
+import { isJsonRecord, normalizeImportedElement, remapElementReferences } from './normalize';
 
-export const EXCALIDRAW_SCHEMA_VERSION = 2;
 export const MAX_IMPORT_ELEMENTS = MAX_SCENE_ELEMENTS;
-
-function toExcalidrawBinding(value: unknown, includeFixedPoint = false): JsonRecord | null {
-  if (!isJsonRecord(value) || typeof value.elementId !== 'string') return null;
-  const binding: JsonRecord = {
-    elementId: value.elementId,
-    focus: typeof value.focus === 'number' ? value.focus : 0,
-    gap: typeof value.gap === 'number' ? value.gap : 1,
-  };
-  if (includeFixedPoint && isJsonRecord(value.fixedPoint)) {
-    binding.fixedPoint = [finiteNumber(value.fixedPoint.x, 0), finiteNumber(value.fixedPoint.y, 0)];
-  } else if (includeFixedPoint && Array.isArray(value.fixedPoint) && value.fixedPoint.length >= 2) {
-    binding.fixedPoint = [
-      finiteNumber(value.fixedPoint[0], 0),
-      finiteNumber(value.fixedPoint[1], 0),
-    ];
-  }
-  return binding;
-}
-
-function toExcalidrawArrowhead(value: unknown): string | null {
-  if (value === 'none' || value === null || value === undefined) return null;
-  if (value === 'triangle') return 'arrow';
-  if (value === 'bar' || value === 'dot' || value === 'diamond') return value;
-  return null;
-}
-
-/**
- * Dripl-only fields with no Excalidraw equivalent. The export projects the
- * shared payload through this denylist rather than spreading the source, so the
- * omission set stays reviewable in one place.
- *
- * This is a denylist, so it fails OPEN: a newly added Dripl-only field is
- * exported into the Excalidraw document until someone lists it here. Adding an
- * element field means checking this set, not relying on it to catch the new one.
- * Converting this to an allow-list would fail closed instead; that is
- * deliberate follow-up work, not a done deal.
- */
-const DRIPL_ONLY_FIELDS: ReadonlySet<string> = new Set([
-  'fractionalIndex',
-  'groupId',
-  'containerId',
-  'rotation',
-  'flipHorizontal',
-  'flipVertical',
-  'zIndex',
-  'points',
-  'arrowHeads',
-  'arrowStyle',
-  'startBinding',
-  'endBinding',
-]);
-
-function sharedPayload(source: JsonRecord): JsonRecord {
-  const payload: JsonRecord = {};
-  for (const key in source) {
-    if (!DRIPL_ONLY_FIELDS.has(key)) payload[key] = source[key];
-  }
-  return payload;
-}
-
-function toExcalidrawElement(element: DriplElement): JsonRecord {
-  const source = element as unknown as JsonRecord;
-  const {
-    fractionalIndex,
-    groupId,
-    containerId,
-    points,
-    arrowHeads,
-    arrowStyle,
-    startBinding,
-    endBinding,
-  } = source;
-  const exported: JsonRecord = {
-    ...sharedPayload(source),
-    id: element.id,
-    type: element.type === 'embed' ? 'embeddable' : element.type,
-    index: typeof fractionalIndex === 'string' ? fractionalIndex : null,
-    groupIds: typeof groupId === 'string' && groupId ? [groupId] : [],
-    frameId: typeof containerId === 'string' && containerId ? containerId : null,
-    boundElements: Array.isArray(element.boundElements)
-      ? element.boundElements.map(bound => ({ id: bound.id, type: bound.type }))
-      : null,
-    link: typeof source.link === 'string' && isSafeHttpUrl(source.link) ? source.link : null,
-    roundness: null,
-    updated: typeof source.updated === 'number' ? source.updated : Date.now(),
-  };
-
-  if (element.type === 'line' || element.type === 'arrow') {
-    exported.points = Array.isArray(points)
-      ? points.map(point => {
-          const record = isJsonRecord(point) ? point : {};
-          return [finiteNumber(record.x, 0), finiteNumber(record.y, 0)];
-        })
-      : [];
-    exported.startBinding = toExcalidrawBinding(startBinding, arrowStyle === 'elbow');
-    exported.endBinding = toExcalidrawBinding(endBinding, arrowStyle === 'elbow');
-    const heads = isJsonRecord(arrowHeads) ? arrowHeads : {};
-    exported.startArrowhead = toExcalidrawArrowhead(heads.start);
-    exported.endArrowhead = toExcalidrawArrowhead(heads.end);
-    exported.lastCommittedPoint = null;
-    if (element.type === 'arrow') {
-      exported.elbowed = arrowStyle === 'elbow';
-      exported.fixedSegments = null;
-      exported.startIsSpecial = null;
-      exported.endIsSpecial = null;
-    }
-  }
-
-  if (element.type === 'text') {
-    exported.containerId = typeof containerId === 'string' && containerId ? containerId : null;
-    exported.originalText =
-      typeof source.originalText === 'string' ? source.originalText : element.text;
-    exported.autoResize = true;
-    exported.lineHeight = finiteNumber(source.lineHeight, 1.25);
-  }
-
-  if (element.type === 'image') {
-    // Excalidraw references binary files by their stable element/file id, not
-    // by the data URL or transport URL itself. The files map below carries
-    // embedded data URLs; remote sources remain a safe link rather than a
-    // fabricated inline file.
-    exported.fileId = element.id;
-    exported.status = 'saved';
-    exported.scale = [1, 1];
-    exported.crop = null;
-  }
-
-  if (element.type === 'embed') {
-    const embedUrl = typeof source.url === 'string' ? source.url : source.link;
-    if (typeof embedUrl === 'string' && isSafeHttpUrl(embedUrl)) {
-      exported.link = embedUrl;
-    }
-  }
-
-  if (element.type === 'frame') {
-    exported.name = typeof source.title === 'string' ? source.title : null;
-  }
-
-  return exported;
-}
 
 export function exportToJson(elements: DriplElement[]): Blob {
   return new Blob([JSON.stringify(elements, null, 2)], {
@@ -160,51 +13,8 @@ export function exportToJson(elements: DriplElement[]): Blob {
   });
 }
 
-/** Export a native, editable Excalidraw scene document. */
-export function exportToExcalidraw(
-  elements: DriplElement[],
-  appState: Record<string, unknown> = {}
-): Blob {
-  const document = {
-    type: 'excalidraw',
-    version: EXCALIDRAW_SCHEMA_VERSION,
-    source: 'dripl',
-    elements: elements.map(toExcalidrawElement),
-    appState,
-    files: Object.fromEntries(
-      elements.flatMap(element => {
-        const src =
-          element.type === 'image' && typeof (element as { src?: unknown }).src === 'string'
-            ? (element as { src: string }).src
-            : '';
-        if (!src.startsWith('data:')) return [];
-        return [
-          [
-            element.id,
-            {
-              mimeType: src.startsWith('data:image/png')
-                ? 'image/png'
-                : src.startsWith('data:image/jpeg')
-                  ? 'image/jpeg'
-                  : src.startsWith('data:image/gif')
-                    ? 'image/gif'
-                    : 'image/webp',
-              id: element.id,
-              dataURL: src,
-              created: Date.now(),
-            },
-          ],
-        ];
-      })
-    ),
-  };
-  return new Blob([JSON.stringify(document, null, 2)], {
-    type: 'application/json',
-  });
-}
-
 export function exportCanvas(
-  format: 'png' | 'svg' | 'json' | 'excalidraw',
+  format: 'png' | 'svg' | 'json' | 'dripl',
   elements: DriplElement[],
   options?: {
     scale?: number;
@@ -221,8 +31,8 @@ export function exportCanvas(
   if (format === 'svg') {
     return exportToSvg(elements, options);
   }
-  if (format === 'excalidraw') {
-    return exportToExcalidraw(elements, options?.appState);
+  if (format === 'dripl') {
+    return exportToDripl(elements, options?.appState);
   }
   return exportToJson(elements);
 }

@@ -155,7 +155,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const handleImport = async () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.excalidraw,application/json';
+    input.accept = '.dripl,application/json';
     input.onchange = async event => {
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;

@@ -3,7 +3,7 @@
 import { FileCode, FileJson, FileText, Image as ImageIcon } from 'lucide-react';
 import type { ExportFormat } from './exportTypes';
 
-/** Format grid (PNG/SVG/JSON/Excalidraw/PDF) with the active highlight. */
+/** Format grid (PNG/SVG/JSON/Dripl/PDF) with the active highlight. */
 export function ExportFormatPicker({
   selectedFormat,
   onSelect,
@@ -17,7 +17,7 @@ export function ExportFormatPicker({
         Format
       </label>
       <div className="grid grid-cols-5 gap-2">
-        {(['png', 'svg', 'json', 'excalidraw', 'pdf'] as ExportFormat[]).map(format => (
+        {(['png', 'svg', 'json', 'dripl', 'pdf'] as ExportFormat[]).map(format => (
           <button
             key={format}
             onClick={() => onSelect(format)}
@@ -29,13 +29,26 @@ export function ExportFormatPicker({
             }}
           >
             {getFormatIcon(format)}
-            <span className="uppercase">{format}</span>
+            <span className="uppercase">{FORMAT_LABELS[format]}</span>
           </button>
         ))}
       </div>
     </div>
   );
 }
+
+/**
+ * Button labels double as the file extension the user gets on download, so
+ * `.dripl` (the native, reopenable scene) stays distinguishable from `.json`
+ * (a bare element array with no app state).
+ */
+const FORMAT_LABELS: Record<ExportFormat, string> = {
+  png: 'PNG',
+  svg: 'SVG',
+  json: 'JSON',
+  dripl: 'DRIPL',
+  pdf: 'PDF',
+};
 
 function getFormatIcon(format: ExportFormat) {
   switch (format) {
@@ -44,7 +57,7 @@ function getFormatIcon(format: ExportFormat) {
     case 'svg':
       return <FileCode className="w-4 h-4" />;
     case 'json':
-    case 'excalidraw':
+    case 'dripl':
       return <FileJson className="w-4 h-4" />;
     case 'pdf':
       return <FileText className="w-4 h-4" />;

@@ -3,19 +3,21 @@
 import { useCallback } from 'react';
 import { useCanvasStore } from '@/lib/store';
 import { CanvasContentSchema, logError, type DriplElement } from '@dripl/common';
-import { downloadBlob, exportCanvas } from '@/utils/export';
+import { downloadBlob, exportCanvas, exportToDripl } from '@/utils/export';
 import { applyRestoredAppState, restoreAppState } from '@/lib/scene';
 import { buildRasterExportOptions, exportFileName } from '@/lib/export-options';
 
 /**
  * TopBar file operations — extracted from `TopBar`.
  *
- * Scene download/upload, quick PNG export, and canvas reset. File import
- * funnels through the shared restore pipeline (`restoreAppState` +
- * `applyRestoredAppState`) instead of a third copy of the apply logic, and
- * quick export reuses the modal's raster options so the canvas background
- * matches. `onActionDone` closes the menu after menu-initiated actions
- * (harmless no-op for keyboard-initiated ones). The TopBar keeps
+ * Scene download/upload, quick PNG export, and canvas reset. Scene save
+ * writes through the shared `exportToDripl` writer — the same one the export
+ * modal's Dripl format calls — so the saved and exported documents cannot
+ * drift. File import funnels through the shared restore pipeline
+ * (`restoreAppState` + `applyRestoredAppState`) instead of a third copy of the
+ * apply logic, and quick export reuses the modal's raster options so the canvas
+ * background matches. `onActionDone` closes the menu after menu-initiated
+ * actions (harmless no-op for keyboard-initiated ones). The TopBar keeps
  * share/collab/menu state and rendering.
  */
 export function useTopBarFileOps({ onActionDone }: { onActionDone: () => void }) {
@@ -47,24 +49,15 @@ export function useTopBarFileOps({ onActionDone }: { onActionDone: () => void })
 
   const handleSaveToFile = useCallback(() => {
     const elements = useCanvasStore.getState().elements;
-    const payload = {
-      version: 1,
-      type: 'dripl-scene',
-      exportedAt: Date.now(),
-      elements,
-      appState: {
-        zoom,
-        panX,
-        panY,
-        gridEnabled,
-        gridSize,
-        canvasBackground,
-        theme,
-        fileName,
-      },
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: 'application/json',
+    const blob = exportToDripl(elements, {
+      zoom,
+      panX,
+      panY,
+      gridEnabled,
+      gridSize,
+      canvasBackground,
+      theme,
+      fileName,
     });
     const safeName = (fileName || 'untitled').replace(/[^a-z0-9-_]+/gi, '-').toLowerCase();
     downloadBlob(blob, `${safeName || 'untitled'}.dripl`);
