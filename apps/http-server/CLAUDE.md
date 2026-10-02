@@ -53,6 +53,7 @@ apps/http-server/
 │   │   ├── auth.ts           # Auth routes and internal ticket validator
 │   │   ├── files.ts          # CRUD /api/files
 │   │   ├── folders.ts        # CRUD /api/folders
+│   │   ├── images.ts         # Image upload/serve; talks only to src/storage
 │   │   ├── share.ts          # POST/GET /api/share and scoped WS tickets
 │   │   └── roomRoutes.ts     # Public room capability route + protected CRUD
 │   ├── services/
@@ -62,11 +63,45 @@ apps/http-server/
 │   │   ├── roomService.ts    # Room CRUD, quota, slug retry, share links
 │   │   └── shareService.ts   # Share resolution/revocation
 │   └── lib/                  # Scene validation, encryption, response, mailer
-├── src/__tests__/            # Route, middleware, service, and opt-in DB tests
+├── src/storage/              # Image storage seam — see below
+├── src/__tests__/            # Route, middleware, service, storage, opt-in DB
 └── tests/                    # Supertest/service/share tests
 ├── tsconfig.json
 └── package.json
 ```
+
+---
+
+---
+
+## Image Storage
+
+`src/routes/images.ts` never touches storage directly. It talks to the
+`ImageStore` interface in `src/storage/imageStore.ts`, which has exactly two
+methods — `put` and `get` — and two drivers behind it:
+
+| File                      | Role                                                                                         |
+| ------------------------- | -------------------------------------------------------------------------------------------- |
+| `imageStore.ts`           | The interface, the single image-key grammar, and the typed `ImageStoreError`                 |
+| `filesystemImageStore.ts` | Local disk. The **default** — selected by the absence of `IMAGE_S3_BUCKET`                   |
+| `s3ImageStore.ts`         | S3-compatible backend; also serves R2, MinIO and B2 by changing endpoint + path style        |
+| `sigv4.ts`                | Hand-rolled SigV4 request signing, pinned to AWS's published `aws-sig-v4-test-suite` vectors |
+| `index.ts`                | Env parsing/validation and the factory that picks a driver                                   |
+
+Three rules that matter when changing this:
+
+1. **Never add a fallback.** A configured store that cannot be reached fails the
+   request (500) rather than writing to local disk. Two sources of truth would
+   be silent and undebuggable.
+2. **The key grammar is applied at every boundary** that turns a key into a
+   path or a URL segment — the route, both drivers, and the migration script.
+   One grammar, enforced four times, cannot drift into a traversal bug.
+3. **No presigned URLs, by design.** Query-string signing puts a read
+   capability into browser history, `Referer` headers and access logs.
+
+`scripts/migrate-images-to-object-store.ts` moves existing files. It is dry-run
+by default, needs `--apply`, has no `--delete` flag and contains no `rm`, and
+verifies every object by reading it back.
 
 ---
 
