@@ -26,10 +26,6 @@
       "types": "./dist/schemas.d.ts",
       "default": "./dist/schemas.js"
     },
-    "./pointer": {
-      "types": "./dist/pointer.d.ts",
-      "default": "./dist/pointer.js"
-    },
     "./arrow-binding": {
       "types": "./dist/arrow-binding.d.ts",
       "default": "./dist/arrow-binding.js"
