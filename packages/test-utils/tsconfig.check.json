@@ -4,6 +4,17 @@
   "compilerOptions": {
     "composite": false,
     "incremental": false,
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@dripl/common": ["../common/src/index.ts"],
+      "@dripl/common/constants": ["../common/src/constants.ts"],
+      "@dripl/common/types/element": ["../common/src/types/element.ts"],
+      "@dripl/common/types/user": ["../common/src/types/user.ts"],
+      "@dripl/common/schemas": ["../common/src/schemas.ts"],
+      "@dripl/common/arrow-binding": ["../common/src/arrow-binding.ts"],
+      "@dripl/common/cascade-delete": ["../common/src/cascade-delete.ts"],
+      "@dripl/common/reconciliation": ["../common/src/reconciliation.ts"]
+    },
+    "rootDir": ".."
   }
 }

@@ -45,9 +45,17 @@ function baseElement(options: ElementFactoryOptions = {}): ElementFactoryOptions
     roughness: options.roughness ?? 1,
     seed: options.seed ?? Math.random() * 1000,
     locked: options.locked ?? false,
-    zIndex: options.zIndex,
-    fractionalIndex: options.fractionalIndex,
-    boundElements: options.boundElements,
+    // Conditional spreads, not `zIndex: options.zIndex`. Under
+    // `exactOptionalPropertyTypes` an optional property means "may be absent",
+    // not "may be undefined", so assigning `number | undefined` is a type
+    // error. It also matters at runtime: an explicit `key: undefined` creates an
+    // own property, so `'zIndex' in element` and `Object.keys` would report a
+    // field the element does not actually have.
+    ...(options.zIndex !== undefined && { zIndex: options.zIndex }),
+    ...(options.fractionalIndex !== undefined && {
+      fractionalIndex: options.fractionalIndex,
+    }),
+    ...(options.boundElements !== undefined && { boundElements: options.boundElements }),
   };
 }
 
@@ -200,7 +208,8 @@ export function createFrameElement(options: FrameElementOptions = {}): DriplElem
 
 export function createTestElement(
   type: DriplElement['type'],
-  options: ElementFactoryOptions & Partial<TextElementOptions & ImageElementOptions & FrameElementOptions> = {}
+  options: ElementFactoryOptions &
+    Partial<TextElementOptions & ImageElementOptions & FrameElementOptions> = {}
 ): DriplElement {
   switch (type) {
     case 'rectangle':
@@ -210,22 +219,31 @@ export function createTestElement(
     case 'diamond':
       return createDiamondElement(options);
     case 'arrow':
-      return createArrowElement([
-        { x: 0, y: 0 },
-        { x: 100, y: 100 },
-      ], options);
+      return createArrowElement(
+        [
+          { x: 0, y: 0 },
+          { x: 100, y: 100 },
+        ],
+        options
+      );
     case 'line':
-      return createLineElement([
-        { x: 0, y: 0 },
-        { x: 100, y: 100 },
-      ], options);
+      return createLineElement(
+        [
+          { x: 0, y: 0 },
+          { x: 100, y: 100 },
+        ],
+        options
+      );
     case 'freedraw':
-      return createFreeDrawElement([
-        { x: 0, y: 0 },
-        { x: 10, y: 10 },
-        { x: 20, y: 5 },
-        { x: 30, y: 15 },
-      ], options);
+      return createFreeDrawElement(
+        [
+          { x: 0, y: 0 },
+          { x: 10, y: 10 },
+          { x: 20, y: 5 },
+          { x: 30, y: 15 },
+        ],
+        options
+      );
     case 'text':
       return createTextElement(options as TextElementOptions);
     case 'image':
