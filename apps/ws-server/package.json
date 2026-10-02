@@ -21,14 +21,14 @@
     "@upstash/redis": "^1.39.0",
     "dotenv": "^17.4.2",
     "uuid": "^14.0.2",
-    "ws": "^8.21.3",
+    "ws": "^8.22.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
-    "@types/node": "^25.9.8",
-    "@types/ws": "^8.18.1",
+    "@types/node": "^25.9.9",
+    "@types/ws": "^8.18.2",
     "dotenv-cli": "^8.0.0",
     "eslint": "^9.39.5",
     "tsx": "^4.23.15",

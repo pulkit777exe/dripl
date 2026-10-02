@@ -3,10 +3,8 @@ packages:
   - 'packages/*'
   - 'tooling/*'
 
-onlyBuiltDependencies:
-  - '@prisma/engines'
-  - core-js
-  - esbuild
-  - prisma
-  - sharp
-  - unrs-resolver
+allowBuilds:
+  '@sentry/cli': true
+  core-js: true
+  prisma: true
+  unrs-resolver: true
