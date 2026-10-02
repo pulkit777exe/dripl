@@ -103,6 +103,13 @@ export function FileBrowser({
     }
   }, [deleteAnimState]);
 
+  // Both mutation props are optional and every call site uses `?.`, so a row
+  // whose handler was not supplied would show a menu whose items are
+  // guaranteed no-ops. Gate each control on the handler that actually backs it.
+  const canRenameFile = onRenameFile !== undefined;
+  const canDeleteFile = onDeleteFile !== undefined;
+  const hasFileActions = canRenameFile || canDeleteFile;
+
   const startRename = (file: FileItem) => {
     setEditingId(file.id);
     setEditName(file.name);
@@ -250,45 +257,51 @@ export function FileBrowser({
                   })}
                 </p>
               </div>
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setOpenMenuId(openMenuId === file.id ? null : file.id);
-                  }}
-                  className="p-1.5 rounded-lg bg-[#FAFAF7]/90 hover:bg-[#FAFAF7] shadow-sm border border-[#E4E0D9]/50"
-                >
-                  <MoreHorizontal className="h-4 w-4" style={{ color: '#6B6860' }} />
-                </button>
-                {openMenuId === file.id && (
-                  <DropdownMenu className="absolute right-0 top-9 w-40 rounded-xl shadow-lg py-1.5 z-50 bg-[#FAFAF7] border border-[#E4E0D9]">
-                    <button
-                      onClick={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        startRename(file);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:opacity-80 text-[#1A1917]"
-                    >
-                      <Pencil size={14} className="text-[#6B6860]" />
-                      Rename
-                    </button>
-                    <button
-                      onClick={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleDelete(file.id);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:opacity-80"
-                      style={{ color: '#e03131' }}
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
-                  </DropdownMenu>
-                )}
-              </div>
+              {hasFileActions && (
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setOpenMenuId(openMenuId === file.id ? null : file.id);
+                    }}
+                    className="p-1.5 rounded-lg bg-[#FAFAF7]/90 hover:bg-[#FAFAF7] shadow-sm border border-[#E4E0D9]/50"
+                  >
+                    <MoreHorizontal className="h-4 w-4" style={{ color: '#6B6860' }} />
+                  </button>
+                  {openMenuId === file.id && (
+                    <DropdownMenu className="absolute right-0 top-9 w-40 rounded-xl shadow-lg py-1.5 z-50 bg-[#FAFAF7] border border-[#E4E0D9]">
+                      {canRenameFile && (
+                        <button
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            startRename(file);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:opacity-80 text-[#1A1917]"
+                        >
+                          <Pencil size={14} className="text-[#6B6860]" />
+                          Rename
+                        </button>
+                      )}
+                      {canDeleteFile && (
+                        <button
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDelete(file.id);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:opacity-80"
+                          style={{ color: '#e03131' }}
+                        >
+                          <Trash2 size={14} />
+                          Delete
+                        </button>
+                      )}
+                    </DropdownMenu>
+                  )}
+                </div>
+              )}
             </Link>
           ))}
         </div>
@@ -351,41 +364,47 @@ export function FileBrowser({
                   })}
                 </div>
                 <div className="col-span-2 flex items-center justify-end gap-1">
-                  <button
-                    onClick={e => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setOpenMenuId(openMenuId === file.id ? null : file.id);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-[#E8E5DE] rounded-lg transition-all"
-                  >
-                    <MoreHorizontal className="h-4 w-4" style={{ color: '#6B6860' }} />
-                  </button>
-                  {openMenuId === file.id && (
+                  {hasFileActions && (
+                    <button
+                      onClick={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setOpenMenuId(openMenuId === file.id ? null : file.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-[#E8E5DE] rounded-lg transition-all"
+                    >
+                      <MoreHorizontal className="h-4 w-4" style={{ color: '#6B6860' }} />
+                    </button>
+                  )}
+                  {hasFileActions && openMenuId === file.id && (
                     <DropdownMenu className="absolute right-16 top-12 w-40 rounded-xl shadow-lg py-1.5 z-50 bg-[#FAFAF7] border border-[#E4E0D9]">
-                      <button
-                        onClick={e => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          startRename(file);
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:opacity-80 text-[#1A1917]"
-                      >
-                        <Pencil size={14} className="text-[#6B6860]" />
-                        Rename
-                      </button>
-                      <button
-                        onClick={e => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleDelete(file.id);
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:opacity-80"
-                        style={{ color: '#e03131' }}
-                      >
-                        <Trash2 size={14} />
-                        Delete
-                      </button>
+                      {canRenameFile && (
+                        <button
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            startRename(file);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:opacity-80 text-[#1A1917]"
+                        >
+                          <Pencil size={14} className="text-[#6B6860]" />
+                          Rename
+                        </button>
+                      )}
+                      {canDeleteFile && (
+                        <button
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDelete(file.id);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:opacity-80"
+                          style={{ color: '#e03131' }}
+                        >
+                          <Trash2 size={14} />
+                          Delete
+                        </button>
+                      )}
                     </DropdownMenu>
                   )}
                 </div>

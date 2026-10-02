@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileBrowser } from '@/components/dashboard/FileBrowser';
 import { useAuth } from '@/app/context/AuthContext';
@@ -17,7 +17,14 @@ export default function DashboardPage(): React.ReactNode {
   const [search, setSearch] = useState('');
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [createError, setCreateError] = useState<string | null>(null);
+  // One banner for every action this page can fail at (create, delete,
+  // rename), so a rejected mutation is never silent.
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isCreatingCanvas, setIsCreatingCanvas] = useState(false);
+  // The button's `disabled` state only lands after React re-renders, so the
+  // same tick could still deliver a second click. This latch closes that
+  // window; `handleCreateFile` releases it in `finally`.
+  const createInFlightRef = useRef(false);
 
   const loadData = useCallback(async (searchValue: string, pageNum: number) => {
     setLoading(true);
@@ -61,7 +68,12 @@ export default function DashboardPage(): React.ReactNode {
   );
 
   const handleCreateFile = useCallback(async () => {
-    setCreateError(null);
+    // A second click before the first request settles would create an orphan
+    // file: both requests resolve, but only the first `router.push` navigates.
+    if (createInFlightRef.current) return;
+    createInFlightRef.current = true;
+    setIsCreatingCanvas(true);
+    setActionError(null);
     try {
       const file = await apiClient.createFile({
         name: 'Untitled canvas',
@@ -71,7 +83,10 @@ export default function DashboardPage(): React.ReactNode {
       router.push(`/file/${file.id}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create canvas';
-      setCreateError(message);
+      setActionError(message);
+    } finally {
+      createInFlightRef.current = false;
+      setIsCreatingCanvas(false);
     }
   }, [router]);
 
@@ -79,16 +94,29 @@ export default function DashboardPage(): React.ReactNode {
     router.push('/canvas');
   }, [router]);
 
+  // `FileBrowser` invokes these without awaiting, so an uncaught rejection
+  // would surface as an unhandled promise rejection with no user feedback and
+  // no list update. Each handler absorbs its own failure into `actionError`.
   const handleDeleteFile = useCallback(async (id: string) => {
-    await apiClient.deleteFile(id);
-    setFiles(prev => prev.filter(file => file.id !== id));
-    setTotal(prev => Math.max(0, prev - 1));
-    window.dispatchEvent(new CustomEvent('dripl:files-changed'));
+    setActionError(null);
+    try {
+      await apiClient.deleteFile(id);
+      setFiles(prev => prev.filter(file => file.id !== id));
+      setTotal(prev => Math.max(0, prev - 1));
+      window.dispatchEvent(new CustomEvent('dripl:files-changed'));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Failed to delete canvas');
+    }
   }, []);
 
   const handleRenameFile = useCallback(async (id: string, name: string) => {
-    await apiClient.updateFile(id, { name });
-    setFiles(prev => prev.map(file => (file.id === id ? { ...file, name } : file)));
+    setActionError(null);
+    try {
+      await apiClient.updateFile(id, { name });
+      setFiles(prev => prev.map(file => (file.id === id ? { ...file, name } : file)));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Failed to rename canvas');
+    }
   }, []);
 
   const fileItems = useMemo(
@@ -143,9 +171,9 @@ export default function DashboardPage(): React.ReactNode {
             </div>
           </div>
         </header>
-        {createError && (
+        {actionError && (
           <div className="mx-6 mt-4 rounded-md border border-[#F5C2B8] bg-[#FDF2F0] px-3 py-2 text-[13px] text-[#8B2A1A]">
-            {createError}
+            {actionError}
           </div>
         )}
         <FileBrowser
@@ -155,6 +183,7 @@ export default function DashboardPage(): React.ReactNode {
           pageSize={PAGE_SIZE}
           onPageChange={handlePageChange}
           onStartNewCanvas={handleCreateFile}
+          isCreatingCanvas={isCreatingCanvas}
           onOpenLocalCanvas={handleOpenLocalCanvas}
           onDeleteFile={handleDeleteFile}
           onRenameFile={handleRenameFile}

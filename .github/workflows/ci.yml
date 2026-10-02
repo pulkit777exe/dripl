@@ -220,7 +220,12 @@ jobs:
       - name: Install Playwright browser
         run: pnpm --filter dripl-app exec playwright install --with-deps chromium
       - name: Smoke test against the production stack
-        run: E2E_BASE_URL=http://127.0.0.1:3000 pnpm --filter dripl-app test:e2e e2e/smoke.spec.ts
+        # localhost, not 127.0.0.1: NEXT_PUBLIC_API_URL is baked into the image
+        # as http://localhost:3002/api and the http-server CORS allowlist is
+        # [FRONTEND_URL, NEXT_PUBLIC_APP_URL] = http://localhost:3000. A browser
+        # on http://127.0.0.1:3000 sends a different Origin and every API call
+        # is rejected, so the page renders but can never talk to its own API.
+        run: E2E_BASE_URL=http://localhost:3000 pnpm --filter dripl-app test:e2e e2e/smoke.spec.ts
       - name: Tear down
         if: always()
         run: docker compose down -v
