@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Search, ArrowLeft, FileText, Users, Briefcase, Lightbulb, Layout } from 'lucide-react';
 import Link from 'next/link';
 
-
 interface Template {
   id: string;
   name: string;
@@ -145,10 +144,10 @@ export default function TemplatesPage(): React.ReactNode {
         {/* Templates Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredTemplates.map(template => (
-            <Link
+            <article
               key={template.id}
-              href={`/canvas?template=${template.id}`}
-              className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden hover:border-purple-500 transition-all hover:scale-[1.02] group"
+              className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden group"
+              aria-label={`${template.name} template preview (coming soon)`}
             >
               <div className="aspect-video bg-gray-800 flex items-center justify-center">
                 <FileText className="text-gray-600" size={48} />
@@ -159,10 +158,10 @@ export default function TemplatesPage(): React.ReactNode {
                 </h3>
                 <p className="text-sm text-gray-400">{template.description}</p>
                 <span className="inline-block mt-3 text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded">
-                  {template.category}
+                  {template.category} · Coming soon
                 </span>
               </div>
-            </Link>
+            </article>
           ))}
         </div>
 

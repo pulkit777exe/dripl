@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   try {
     oauth = getGoogleOAuthConfig();
   } catch {
-    // eslint-disable-next-line no-console -- server-side auth failure telemetry
+    // eslint-disable-next-line no-console -- oauth failure diagnostics
     console.error(JSON.stringify({ level: 'error', event: 'google_oauth_not_configured' }));
     return NextResponse.redirect(new URL('/login?error=oauth_not_configured', request.url));
   }
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
       // something.
       const secretLooksRight = /^GOCSPX-/.test(oauth.clientSecret ?? '');
 
-      // eslint-disable-next-line no-console -- server-side auth failure telemetry
+      // eslint-disable-next-line no-console -- oauth failure diagnostics
       console.error(
         JSON.stringify({
           level: 'error',
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!authResponse.ok) {
-      // eslint-disable-next-line no-console -- server-side auth failure telemetry
+      // eslint-disable-next-line no-console -- oauth failure diagnostics
       console.error(
         JSON.stringify({
           level: 'error',
@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (err) {
-    // eslint-disable-next-line no-console -- server-side auth failure telemetry
+    // eslint-disable-next-line no-console -- oauth failure diagnostics
     console.error(
       JSON.stringify({
         level: 'error',

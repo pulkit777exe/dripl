@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Star, Download, Grid, List, ArrowLeft, Shapes, Heart } from 'lucide-react';
+import { Search, Download, Grid, List, ArrowLeft, Shapes, Heart } from 'lucide-react';
 import Link from 'next/link';
-
 
 interface LibraryItem {
   id: string;
@@ -60,6 +59,17 @@ export default function LibraryPage(): React.ReactNode {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(
+    () => new Set(MOCK_LIBRARY.filter(item => item.isFavorite).map(item => item.id))
+  );
+  const toggleFavorite = (id: string) => {
+    setFavoriteIds(previous => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const filteredItems = MOCK_LIBRARY.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -149,10 +159,16 @@ export default function LibraryPage(): React.ReactNode {
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-medium">{item.name}</h3>
-                    <button className="text-gray-500 hover:text-red-500">
+                    <button
+                      type="button"
+                      className="text-gray-500 hover:text-red-500"
+                      onClick={() => toggleFavorite(item.id)}
+                      aria-label={`${favoriteIds.has(item.id) ? 'Remove' : 'Add'} ${item.name} ${favoriteIds.has(item.id) ? 'from' : 'to'} favorites`}
+                      aria-pressed={favoriteIds.has(item.id)}
+                    >
                       <Heart
                         size={18}
-                        className={item.isFavorite ? 'fill-red-500 text-red-500' : ''}
+                        className={favoriteIds.has(item.id) ? 'fill-red-500 text-red-500' : ''}
                       />
                     </button>
                   </div>
@@ -162,9 +178,7 @@ export default function LibraryPage(): React.ReactNode {
                       <Download size={14} />
                       {item.downloads.toLocaleString()}
                     </span>
-                    <button className="text-sm bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded">
-                      Add
-                    </button>
+                    <span className="text-xs text-gray-500">Preview only</span>
                   </div>
                 </div>
               </div>
@@ -192,9 +206,7 @@ export default function LibraryPage(): React.ReactNode {
                   <span className="text-sm text-gray-500">
                     {item.downloads.toLocaleString()} downloads
                   </span>
-                  <button className="text-sm bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded">
-                    Add to Canvas
-                  </button>
+                  <span className="text-xs text-gray-500">Preview only</span>
                 </div>
               </div>
             ))}

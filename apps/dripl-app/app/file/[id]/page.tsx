@@ -19,6 +19,15 @@ import { HelpCircle, ShieldCheck } from 'lucide-react';
 import HelpModal from '@/components/canvas/HelpModal';
 import type { LocalCanvasState } from '@/utils/localCanvasStorage';
 
+function elementsFromFileContent(rawContent: unknown): DriplElement[] {
+  if (Array.isArray(rawContent)) return rawContent as DriplElement[];
+  if (rawContent && typeof rawContent === 'object') {
+    const content = rawContent as { elements?: unknown };
+    if (Array.isArray(content.elements)) return content.elements as DriplElement[];
+  }
+  return [];
+}
+
 const CommandPalette = dynamic(
   () => import('@/components/canvas/CommandPalette').then(m => m.CommandPalette),
   { ssr: false }
@@ -45,6 +54,8 @@ export default function FilePage(): React.ReactNode {
   const autosaveTimerRef = useRef<number | null>(null);
   const pendingSaveRef = useRef(false);
   const latestElementsRef = useRef<DriplElement[]>([]);
+  const fileUpdatedAtRef = useRef<string | null>(null);
+  const saveConflictRef = useRef(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   useEffect(() => {
@@ -55,6 +66,8 @@ export default function FilePage(): React.ReactNode {
     store.setClipboard([]);
     initialSyncDoneRef.current = false;
     lastSavedContentRef.current = null;
+    fileUpdatedAtRef.current = null;
+    saveConflictRef.current = false;
   }, [fileId]);
 
   useEffect(() => {
@@ -73,19 +86,10 @@ export default function FilePage(): React.ReactNode {
       try {
         const response = await apiClient.getFile(fileId);
         const rawContent = response.file.content;
-        let fileElements: DriplElement[] = [];
+        const fileElements = elementsFromFileContent(rawContent);
         let fileAppState: Partial<LocalCanvasState> | null = null;
-
-        if (Array.isArray(rawContent)) {
-          fileElements = rawContent as DriplElement[];
-        } else if (rawContent && typeof rawContent === 'object') {
-          const contentObj = rawContent as {
-            elements?: unknown;
-            appState?: Partial<LocalCanvasState>;
-          };
-          if (Array.isArray(contentObj.elements)) {
-            fileElements = contentObj.elements as DriplElement[];
-          }
+        if (rawContent && typeof rawContent === 'object' && !Array.isArray(rawContent)) {
+          const contentObj = rawContent as { appState?: Partial<LocalCanvasState> };
           if (contentObj.appState && typeof contentObj.appState === 'object') {
             fileAppState = contentObj.appState;
           }
@@ -97,6 +101,7 @@ export default function FilePage(): React.ReactNode {
         setInitialData(nextInitialData);
         setFileMetadata(response.file.id, response.file.name);
         lastSavedContentRef.current = JSON.stringify(fileElements);
+        fileUpdatedAtRef.current = response.file.updatedAt;
         initialSyncDoneRef.current = false;
       } catch (error) {
         if (cancelled) return;
@@ -118,7 +123,7 @@ export default function FilePage(): React.ReactNode {
   useEffect(() => {
     if (loading || loadError || !user || !initialData) return;
 
-    if (storeFileId !== fileId) return;
+    if (storeFileId !== fileId || saveConflictRef.current) return;
 
     latestElementsRef.current = elements;
 
@@ -144,34 +149,81 @@ export default function FilePage(): React.ReactNode {
 
     autosaveTimerRef.current = window.setTimeout(() => {
       void (async () => {
-        try {
-          const currentElements = latestElementsRef.current;
-          const {
-            zoom: currentZoom,
-            panX: currentPanX,
-            panY: currentPanY,
-          } = useCanvasStore.getState();
-          await apiClient.updateFile(fileId, {
-            content: {
-              elements: currentElements,
-              appState: { zoom: currentZoom, panX: currentPanX, panY: currentPanY },
-            },
+        const currentElements = latestElementsRef.current;
+        const {
+          zoom: currentZoom,
+          panX: currentPanX,
+          panY: currentPanY,
+        } = useCanvasStore.getState();
+        const content = {
+          elements: currentElements,
+          appState: { zoom: currentZoom, panX: currentPanX, panY: currentPanY },
+        };
+        const saveContent = (expectedUpdatedAt?: string) =>
+          apiClient.updateFile(fileId, {
+            content,
+            expectedUpdatedAt,
           });
 
+        const applySaved = (updatedAt: string, elementsToThumbnail: DriplElement[]) => {
+          fileUpdatedAtRef.current = updatedAt;
           // Generate and save thumbnail (non-blocking, best-effort)
-          generateThumbnail(currentElements)
+          generateThumbnail(elementsToThumbnail)
             .then(thumbnail => {
               if (thumbnail) {
-                apiClient.updateFile(fileId, { preview: thumbnail }).catch(() => {});
+                apiClient
+                  .updateFile(fileId, {
+                    preview: thumbnail,
+                    expectedUpdatedAt: fileUpdatedAtRef.current ?? undefined,
+                  })
+                  .then(result => {
+                    fileUpdatedAtRef.current = result.file.updatedAt;
+                  })
+                  .catch(() => {});
               }
             })
             .catch(() => {});
 
-          lastSavedContentRef.current = JSON.stringify(currentElements);
+          lastSavedContentRef.current = JSON.stringify(elementsToThumbnail);
           pendingSaveRef.current = false;
           setSaveError(null);
+        };
+
+        try {
+          const saved = await saveContent(fileUpdatedAtRef.current ?? undefined);
+          applySaved(saved.file.updatedAt, currentElements);
         } catch (error) {
+          const status =
+            typeof error === 'object' && error !== null
+              ? (error as { status?: unknown }).status
+              : undefined;
           const message = error instanceof Error ? error.message : 'Failed to save canvas';
+          if (status === 409 || message.toLowerCase().includes('changed while saving')) {
+            try {
+              const latest = await apiClient.getFile(fileId);
+              const latestContent = JSON.stringify(elementsFromFileContent(latest.file.content));
+              fileUpdatedAtRef.current = latest.file.updatedAt;
+              // A retry is safe only when the server's scene still matches the
+              // base we loaded. Otherwise a human must choose/rebase the two
+              // scenes; silently overwriting either side is data loss.
+              if (latestContent === lastSavedContentRef.current) {
+                const retried = await saveContent(latest.file.updatedAt);
+                applySaved(retried.file.updatedAt, currentElements);
+                return;
+              }
+              saveConflictRef.current = true;
+              pendingSaveRef.current = false;
+              setSaveError(
+                'This file changed elsewhere. Reload it before saving over the newer version.'
+              );
+            } catch {
+              pendingSaveRef.current = false;
+              setSaveError(
+                'This file changed elsewhere. Reload it before saving over the newer version.'
+              );
+            }
+            return;
+          }
           setSaveError(message);
         }
       })();
@@ -197,6 +249,7 @@ export default function FilePage(): React.ReactNode {
               elements: latestElementsRef.current,
               appState: { zoom: z, panX: px, panY: py },
             },
+            expectedUpdatedAt: fileUpdatedAtRef.current ?? undefined,
           })
           .catch(() => {});
       }
@@ -245,7 +298,16 @@ export default function FilePage(): React.ReactNode {
       <TopBar />
       {saveError && (
         <div className="absolute left-1/2 top-14 z-40 -translate-x-1/2 rounded-md border border-[#F5C2B8] bg-[#FDF2F0] px-3 py-1.5 text-[12px] text-[#8B2A1A]">
-          {saveError}
+          <span>{saveError}</span>
+          {saveError.startsWith('This file changed elsewhere') && (
+            <button
+              type="button"
+              className="ml-2 font-semibold underline"
+              onClick={() => window.location.reload()}
+            >
+              Reload
+            </button>
+          )}
         </div>
       )}
       <CanvasBootstrap mode="file" initialData={initialData} theme={effectiveTheme} />
@@ -265,14 +327,14 @@ export default function FilePage(): React.ReactNode {
         >
           <HelpCircle className="mx-2" />
         </button>
-        <button
-          type="button"
+        <span
           className="canvas-chrome-btn size-10"
           aria-label="Verification status"
           title="Verified"
+          role="status"
         >
           <ShieldCheck className="mx-2" />
-        </button>
+        </span>
       </div>
 
       <CommandPalette />

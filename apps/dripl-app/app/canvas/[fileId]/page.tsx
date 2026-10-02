@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { HelpCircle, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -19,7 +19,6 @@ const CommandPalette = dynamic(
   { ssr: false }
 );
 import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
-import { useCanvasStore } from '@/lib/store';
 
 interface CanvasFilePageProps {
   params: Promise<{
@@ -54,6 +53,7 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps): React.R
         if (err.status === 404) {
           if (!cancelled) setRoomMissing(true);
         } else {
+          // eslint-disable-next-line no-console -- room load failure telemetry
           console.error('Failed to load room', error);
           if (!cancelled) setRoomMissing(true);
         }
@@ -76,11 +76,6 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps): React.R
     window.addEventListener('dripl:open-help', handleOpenHelp as EventListener);
     return () => window.removeEventListener('dripl:open-help', handleOpenHelp as EventListener);
   }, []);
-
-  const handleLeaveSession = useCallback(() => {
-    useCanvasStore.getState().setShouldLeaveRoom(true);
-    router.push('/canvas');
-  }, [router]);
 
   if (authLoading || isLoadingRoom) {
     return (
@@ -127,7 +122,7 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps): React.R
       </CanvasErrorBoundary>
       <CanvasBootstrap mode="room" roomSlug={roomId} theme={effectiveTheme} />
 
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
+      <div className="absolute left-1/2 top-16 z-30 -translate-x-1/2 sm:top-4">
         <CanvasErrorBoundary name="CanvasToolbar">
           <CanvasToolbar />
         </CanvasErrorBoundary>
@@ -148,14 +143,14 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps): React.R
         >
           <HelpCircle className="size-5" />
         </button>
-        <button
-          type="button"
+        <span
           className="canvas-chrome-btn size-10"
           aria-label="Verification status"
           title="Verified"
+          role="status"
         >
           <ShieldCheck className="size-5" />
-        </button>
+        </span>
       </div>
 
       <CanvasErrorBoundary name="CommandPalette">

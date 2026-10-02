@@ -18,9 +18,9 @@ test.describe('App Landing', () => {
 test.describe('Signup Page', () => {
   test('loads the signup form', async ({ page }) => {
     await page.goto('/signup');
-    await expect(page.getByPlaceholder('Full name')).toBeVisible();
-    await expect(page.getByPlaceholder('Enter your email')).toBeVisible();
-    await expect(page.getByPlaceholder('Password')).toBeVisible();
+    await expect(page.getByLabel('Full name')).toBeVisible();
+    await expect(page.getByLabel('Email address')).toBeVisible();
+    await expect(page.getByLabel('Password')).toBeVisible();
     await expect(page.getByRole('button', { name: /sign up with email/i })).toBeVisible();
   });
 });
@@ -28,8 +28,8 @@ test.describe('Signup Page', () => {
 test.describe('Login Page', () => {
   test('loads the login form', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByPlaceholder('Enter your email')).toBeVisible();
-    await expect(page.getByPlaceholder('Password')).toBeVisible();
+    await expect(page.getByLabel('Email address')).toBeVisible();
+    await expect(page.getByLabel('Password')).toBeVisible();
     await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
   });
 });

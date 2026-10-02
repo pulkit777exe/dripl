@@ -52,7 +52,11 @@ export default function SignupPage(): React.ReactNode {
   };
 
   return (
-    <AuthShell title="Create your account" subtitle="Set up your workspace in under a minute." isError={!!error}>
+    <AuthShell
+      title="Create your account"
+      subtitle="Set up your workspace in under a minute."
+      isError={!!error}
+    >
       {error && (
         <InlineError
           message={typeof error === 'string' ? error : 'An error occurred'}
@@ -99,14 +103,26 @@ export default function SignupPage(): React.ReactNode {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
+        <label htmlFor="signup-name" className="sr-only">
+          Full name
+        </label>
         <input
+          id="signup-name"
+          name="name"
+          autoComplete="name"
           type="text"
           value={name}
           onChange={event => setName(event.target.value)}
           placeholder="Full name"
           className={fieldClassName}
         />
+        <label htmlFor="signup-email" className="sr-only">
+          Email address
+        </label>
         <input
+          id="signup-email"
+          name="email"
+          autoComplete="email"
           type="email"
           value={email}
           onChange={event => setEmail(event.target.value)}
@@ -114,7 +130,13 @@ export default function SignupPage(): React.ReactNode {
           className={fieldClassName}
           required
         />
+        <label htmlFor="signup-password" className="sr-only">
+          Password
+        </label>
         <input
+          id="signup-password"
+          name="password"
+          autoComplete="new-password"
           type="password"
           value={password}
           onChange={event => setPassword(event.target.value)}

@@ -424,6 +424,29 @@ html.dark {
   border-color: var(--color-toolbar-border);
   box-shadow: var(--shadow-canvas-chrome);
   backdrop-filter: blur(8px);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.canvas-toolbar-shell::-webkit-scrollbar {
+  display: none;
+}
+
+/* Keep keyboard focus visible without changing the pointer-only canvas chrome. */
+.canvas-surface:focus-visible,
+.canvas-toolbar-shell button:focus-visible,
+.canvas-chrome-group button:focus-visible,
+.canvas-chrome-btn:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+.canvas-surface:focus-visible {
+  outline-offset: -3px;
 }
 
 .canvas-chrome-group {
@@ -489,6 +512,11 @@ input[type='range'] {
   background: var(--color-panel-slider);
   outline: none;
   cursor: pointer;
+}
+
+input[type='range']:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 3px;
 }
 
 input[type='range']::-webkit-slider-thumb {
@@ -731,4 +759,30 @@ input[type='range']::-moz-range-thumb {
   .t-input { animation: none !important; transform: none !important; }
   .t-icon-swap .t-icon { transition: none !important; }
   .t-avatar { transition: none !important; transform: none !important; }
+
+  /* Canvas affordances and loading affordances should not move or pulse for
+     users who request reduced motion. Functional state changes still render
+     immediately; only decorative animation is removed. */
+  .canvas-toolbar-shell *,
+  .canvas-chrome-group *,
+  .canvas-chrome-btn,
+  .canvas-chrome-btn-primary,
+  .canvas-zoom-transition,
+  .selection-box,
+  .properties-panel,
+  .sidebar-panel,
+  .dripl-corner-handle,
+  .dripl-rotate-handle,
+  .dripl-linear-handle,
+  .dripl-linear-mid-handle,
+  .dripl-linear-insert-handle {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  .animate-in,
+  .animate-pulse,
+  .animate-spin {
+    animation: none !important;
+  }
 }

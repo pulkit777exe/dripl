@@ -29,24 +29,22 @@ const RATE_WINDOW_MS = 60 * 60 * 1_000;
 
 const SYSTEM_PROMPT = `You are an AI that generates diagram layouts for a canvas drawing application called Dripl.
 
-Return ONLY a JSON array of diagram elements. The response must be valid JSON with no markdown fences or explanation.
-Each element must use these properties:
-- id: a unique string (the server may replace it with a safe UUID)
-- type: "rectangle" | "ellipse" | "diamond" | "arrow" | "line" | "text"
-- x: finite number (absolute canvas x position)
-- y: finite number (absolute canvas y position)
-- width: finite positive number
-- height: finite positive number
-- strokeColor: hex color string
-- backgroundColor: hex color string or "transparent"
-- fillColor: hex color string or "transparent"
-- strokeWidth: finite number
-- roughness: number from 0 to 2
-- text: string label for a shape, or the text content for a text element
-- points: [{x: number, y: number}, ...] for arrows/lines, relative to x/y
-
-Do not nest coordinates in a position object. Do not return nulls, partial objects, or explanatory text.
-Create organized diagrams with 100-150px spacing. Start around x:100, y:100 and position elements left-to-right or top-to-bottom based on the flow.`;
+OUTPUT CONTRACT (must hold for every response):
+- Return ONLY a JSON array. No markdown fences, no explanation, no trailing text.
+- At most 100 elements. Prefer fewer, well-placed elements over many.
+- Each element is a flat object with EXACTLY these properties (no extras, no nesting, no nulls):
+  - id: unique string per element
+  - type: one of "rectangle" | "ellipse" | "diamond" | "arrow" | "line" | "text"
+  - x, y: finite numbers, absolute canvas position, within -100000..100000
+  - width, height: finite positive numbers, 1..50000
+  - strokeColor: hex string like "#1e1e1e"
+  - backgroundColor, fillColor: hex string or "transparent"
+  - strokeWidth: 0.5..20, roughness: 0..2
+  - text: short label (max ~80 chars); empty string when a shape has no label
+  - points: REQUIRED for "arrow"/"line" (2+ points as [{x,y}, ...] relative to x/y);
+    OMIT for all other types
+- Layout: start around x:100, y:100; 100-150px spacing; left-to-right or top-to-bottom flow.
+- Any element violating this contract is dropped by the server, so staying inside it is how your output survives.`;
 
 const GenerateRequestSchema = z.object({
   prompt: z.string().trim().min(1).max(MAX_PROMPT_LENGTH),
@@ -395,7 +393,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     const message = serializeError(error);
-    // eslint-disable-next-line no-console -- server-side AI failure telemetry
+    // eslint-disable-next-line no-console -- structured server error log
     console.error(JSON.stringify({ level: 'error', event: 'ai_generation_error', error: message }));
     const lowerMessage = message.toLowerCase();
 

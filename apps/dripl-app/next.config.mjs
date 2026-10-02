@@ -2,6 +2,10 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The Playwright base URL uses 127.0.0.1. Next 16 blocks dev-only resources
+  // (HMR, RSC payloads) for origins it does not recognize, which stops client
+  // hydration without surfacing an error in the page. Allow the loopback alias.
+  allowedDevOrigins: ['127.0.0.1'],
   images: {
     remotePatterns: [
       {

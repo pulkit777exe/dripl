@@ -1,113 +1,91 @@
-import { notFound } from 'next/navigation';
-import * as Sentry from '@sentry/nextjs';
-import { db } from '@dripl/db';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
-import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
-import { CanvasControls } from '@/components/canvas/CanvasControls';
-import { CommandPalette } from '@/components/canvas/CommandPalette';
-import { getInMemoryShare } from '@/lib/share-memory-store';
+import { apiClient } from '@/lib/api';
+import { useCanvasStore } from '@/lib/store';
 
 interface BoardPageProps {
   params: Promise<{ token: string }>;
 }
 
-export default async function BoardTokenPage({ params }: BoardPageProps): Promise<React.ReactNode> {
-  const { token } = await params;
-  const fallback = getInMemoryShare(token);
+type SharedRoom = Awaited<ReturnType<typeof apiClient.getSharedRoom>>;
 
-  let shareData: {
-    elements: unknown[];
-    permission: string;
-    roomName: string;
-  } | null = null;
-
+function parseRoomContent(content: string): unknown {
   try {
-    const shareLink = await db.shareLink.findFirst({
-      where: { token },
-      include: {
-        room: {
-          select: {
-            name: true,
-            content: true,
-          },
-        },
-      },
-    });
+    return JSON.parse(content);
+  } catch {
+    return { elements: [] };
+  }
+}
 
-    if (shareLink) {
-      if (shareLink.expiresAt && shareLink.expiresAt.getTime() < Date.now()) {
-        notFound();
-      }
+export default function SharedBoardPage({ params }: BoardPageProps) {
+  const [room, setRoom] = useState<SharedRoom | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-      let elements: unknown[] = [];
+  useEffect(() => {
+    let cancelled = false;
+    void params.then(async ({ token }) => {
       try {
-        elements = shareLink.room.content ? JSON.parse(shareLink.room.content) : [];
-      } catch (err) {
-        Sentry.captureException(err);
-         
-        console.error('Failed to parse room content JSON:', err);
-        elements = [];
+        const result = await apiClient.getSharedRoom(token);
+        if (!cancelled) {
+          const store = useCanvasStore.getState();
+          store.setElements([], { skipHistory: true });
+          store.clearSelection();
+          setRoom(result);
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setError(
+            requestError instanceof Error ? requestError.message : 'Unable to load this board.'
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [params]);
 
-      shareData = {
-        elements,
-        permission: shareLink.permission,
-        roomName: shareLink.room.name,
-      };
-    }
-  } catch (err) {
-    Sentry.captureException(err);
-     
-    console.error('Failed to load share data from database:', err);
-    // Fall back to in-memory share
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F0EDE6]" role="status">
+        Loading shared board...
+      </main>
+    );
   }
 
-  if (!shareData && !fallback) {
-    notFound();
+  if (error || !room) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F0EDE6] p-6">
+        <section className="max-w-md rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] p-6 text-center">
+          <h1 className="text-lg font-semibold text-[#1A1917]">Board unavailable</h1>
+          <p className="mt-2 text-sm text-[#6B6860]">
+            {error ?? 'This share link is invalid or expired.'}
+          </p>
+        </section>
+      </main>
+    );
   }
-
-  const permission = shareData
-    ? (shareData.permission ?? 'view')
-    : (fallback?.permission ?? 'view');
-  const readOnly = permission === 'VIEW' || permission === 'view';
-  const initialData = shareData?.elements ?? fallback?.elements ?? [];
 
   return (
-    <div className="w-screen h-dvh relative overflow-hidden bg-[#121112]">
+    <main className="relative h-screen w-screen overflow-hidden bg-[#F0EDE6]">
       <div
-        className="absolute inset-0 opacity-10 pointer-events-none"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E\")",
-        }}
-      />
-
+        className="absolute left-1/2 top-3 z-50 -translate-x-1/2 rounded-full border border-[#E4E0D9] bg-[#FAFAF7]/95 px-4 py-2 text-xs text-[#6B6860] shadow-sm"
+        role="status"
+      >
+        {room.room.name} · Read-only shared preview
+      </div>
       <CanvasBootstrap
         mode="file"
-        initialData={{
-          elements: Array.isArray(initialData) ? initialData : [],
-        }}
-        theme="dark"
-        readOnly={readOnly}
+        initialData={parseRoomContent(room.room.content)}
+        theme="light"
+        readOnly
+        replaceExisting
       />
-
-      {!readOnly && (
-        <div className="absolute top-0.5 left-1/2 -translate-x-1/2 z-20">
-          <CanvasToolbar />
-        </div>
-      )}
-
-      <div className="absolute bottom-6 left-6 z-20">
-        <CanvasControls />
-      </div>
-
-      <CommandPalette />
-
-      {readOnly && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium shadow-lg">
-          Viewing shared canvas — {shareData?.roomName || 'Shared Board'}
-        </div>
-      )}
-    </div>
+    </main>
   );
 }

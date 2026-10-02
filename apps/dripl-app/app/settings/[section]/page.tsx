@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 
-
 type SectionId = 'profile' | 'password' | 'font' | 'plan' | 'account';
 
 const SECTION_NAV: Array<{
@@ -93,9 +92,7 @@ function ProfileSettings() {
             )}
           </div>
           <div>
-            <p className="text-[15px] font-medium text-[#1A1917]">
-              {user?.name || 'No name set'}
-            </p>
+            <p className="text-[15px] font-medium text-[#1A1917]">{user?.name || 'No name set'}</p>
             <p className="text-[13px] text-[#6B6860]">{user?.email}</p>
             {user?.image && (
               <p className="text-[11px] text-[#9B9890] mt-0.5">From Google account</p>
@@ -305,9 +302,7 @@ function PlanSettings() {
           You are currently on the free plan. Upgrade to unlock team workspaces, unlimited canvases,
           and advanced collaboration controls.
         </p>
-        <button className="rounded-xl bg-[#E8462A] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#D93D22] transition-colors">
-          Upgrade to Pro
-        </button>
+        <p className="text-[12px] text-[#6B6860]">Upgrade flow is not available in this build.</p>
       </div>
     </SectionCard>
   );
@@ -379,7 +374,8 @@ export default function SettingsPage(): React.ReactNode {
     return 'profile';
   }, [params?.section]);
 
-  const activeNav = SECTION_NAV.find(item => item.id === section) ?? SECTION_NAV[0] ?? { id: 'profile', label: 'Profile', icon: User };
+  const activeNav = SECTION_NAV.find(item => item.id === section) ??
+    SECTION_NAV[0] ?? { id: 'profile', label: 'Profile', icon: User };
 
   if (loading) {
     return (

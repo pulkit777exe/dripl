@@ -1,5 +1,30 @@
 import { test, expect } from '@playwright/test';
 
+/**
+ * The suite runs against a configurable host and port (`E2E_PORT`, baseURL
+ * `http://127.0.0.1:<port>`). Cookies scoped to a hardcoded `localhost` domain
+ * are never sent to that host, so state-cookie tests silently exercised the
+ * wrong path. Derive the host from the configured base URL instead.
+ */
+function cookieDomain(): string {
+  const baseURL = test.info().project.use.baseURL as string | undefined;
+  return baseURL ? new URL(baseURL).hostname : 'localhost';
+}
+
+/**
+ * `cookies()` still reports a cookie the server just deleted, because the
+ * deletion is expressed as an already-expired cookie. Asserting absence alone
+ * would therefore fail on correct behavior; what matters is that the cookie no
+ * longer carries a usable value.
+ */
+async function expectStateCookieCleared(page: import('@playwright/test').Page): Promise<void> {
+  const cookies = await page.context().cookies();
+  const stateCookie = cookies.find(c => c.name === 'oauth_state');
+  if (!stateCookie) return;
+  expect(stateCookie.expires).toBeLessThanOrEqual(0);
+  expect(stateCookie.value).toBe('');
+}
+
 test.describe('Google OAuth Flow', () => {
   test.describe('Login Page - Google Button', () => {
     test('Google button links to local API route', async ({ page }) => {
@@ -9,7 +34,12 @@ test.describe('Google OAuth Flow', () => {
       await expect(googleButton).toBeVisible();
 
       const href = await googleButton.getAttribute('href');
-      expect(href).toBe('/api/auth/google');
+      expect(href).toBeTruthy();
+      // The link also carries a `next` destination, so assert the route and the
+      // preserved destination instead of the exact query string.
+      const url = new URL(href as string, 'http://placeholder');
+      expect(url.pathname).toBe('/api/auth/google');
+      expect(url.searchParams.get('next')).toBe('/dashboard');
     });
 
     test('Google button is an anchor tag (navigation link)', async ({ page }) => {
@@ -29,13 +59,13 @@ test.describe('Google OAuth Flow', () => {
       await expect(googleButton).toBeVisible();
 
       const href = await googleButton.getAttribute('href');
-      expect(href).toBe('/api/auth/google');
+      expect(href).toContain('/api/auth/google');
     });
   });
 
   test.describe('GET /api/auth/google', () => {
     test('redirects to Google OAuth with correct params', async ({ request }) => {
-      const response = await request.get('http://localhost:3000/api/auth/google', {
+      const response = await request.get('/api/auth/google', {
         maxRedirects: 0,
       });
 
@@ -67,16 +97,16 @@ test.describe('Google OAuth Flow', () => {
       expect(stateCookie!.path).toBe('/');
     });
 
-    test('generates unique state tokens per request', async ({ page, request }) => {
+    test('generates unique state tokens per request', async ({ request }) => {
       // Use API requests instead of full page navigations to avoid redirect chain issues
-      const response1 = await request.get('http://localhost:3000/api/auth/google', {
+      const response1 = await request.get('/api/auth/google', {
         maxRedirects: 0,
       });
       const setCookie1 = response1.headers()['set-cookie'] || '';
       const state1Match = setCookie1.match(/oauth_state=([^;]+)/);
       expect(state1Match).toBeTruthy();
 
-      const response2 = await request.get('http://localhost:3000/api/auth/google', {
+      const response2 = await request.get('/api/auth/google', {
         maxRedirects: 0,
       });
       const setCookie2 = response2.headers()['set-cookie'] || '';
@@ -89,9 +119,7 @@ test.describe('Google OAuth Flow', () => {
 
   test.describe('GET /api/auth/google/callback', () => {
     test('redirects to login on missing state', async ({ page }) => {
-      await page.goto(
-        '/api/auth/google/callback?code=test_code&state=test_state'
-      );
+      await page.goto('/api/auth/google/callback?code=test_code&state=test_state');
 
       const url = new URL(page.url());
       expect(url.pathname).toBe('/login');
@@ -103,14 +131,12 @@ test.describe('Google OAuth Flow', () => {
         {
           name: 'oauth_state',
           value: 'correct_state_value',
-          domain: 'localhost',
+          domain: cookieDomain(),
           path: '/',
         },
       ]);
 
-      await page.goto(
-        '/api/auth/google/callback?code=test_code&state=wrong_state_value'
-      );
+      await page.goto('/api/auth/google/callback?code=test_code&state=wrong_state_value');
 
       const url = new URL(page.url());
       expect(url.pathname).toBe('/login');
@@ -122,7 +148,7 @@ test.describe('Google OAuth Flow', () => {
         {
           name: 'oauth_state',
           value: 'test_state',
-          domain: 'localhost',
+          domain: cookieDomain(),
           path: '/',
         },
       ]);
@@ -139,14 +165,12 @@ test.describe('Google OAuth Flow', () => {
         {
           name: 'oauth_state',
           value: 'test_state',
-          domain: 'localhost',
+          domain: cookieDomain(),
           path: '/',
         },
       ]);
 
-      await page.goto(
-        '/api/auth/google/callback?state=test_state&error=access_denied'
-      );
+      await page.goto('/api/auth/google/callback?state=test_state&error=access_denied');
 
       const url = new URL(page.url());
       expect(url.pathname).toBe('/login');
@@ -158,18 +182,14 @@ test.describe('Google OAuth Flow', () => {
         {
           name: 'oauth_state',
           value: 'test_state',
-          domain: 'localhost',
+          domain: cookieDomain(),
           path: '/',
         },
       ]);
 
-      await page.goto(
-        '/api/auth/google/callback?code=test&state=test_state'
-      );
+      await page.goto('/api/auth/google/callback?code=test&state=test_state');
 
-      const cookies = await page.context().cookies();
-      const stateCookie = cookies.find(c => c.name === 'oauth_state');
-      expect(stateCookie).toBeFalsy();
+      await expectStateCookieCleared(page);
     });
 
     test('redirects to login on token exchange failure', async ({ page }) => {
@@ -177,14 +197,12 @@ test.describe('Google OAuth Flow', () => {
         {
           name: 'oauth_state',
           value: 'test_state',
-          domain: 'localhost',
+          domain: cookieDomain(),
           path: '/',
         },
       ]);
 
-      await page.goto(
-        '/api/auth/google/callback?code=fake_auth_code&state=test_state'
-      );
+      await page.goto('/api/auth/google/callback?code=fake_auth_code&state=test_state');
 
       const url = new URL(page.url());
       expect(url.pathname).toBe('/login');
@@ -192,31 +210,25 @@ test.describe('Google OAuth Flow', () => {
   });
 
   test.describe('Session cookie after successful auth', () => {
-    test('redirects to login with error when http-server is unreachable', async ({
-      page,
-    }) => {
+    test('redirects to login with error when http-server is unreachable', async ({ page }) => {
       await page.context().addCookies([
         {
           name: 'oauth_state',
           value: 'test_state',
-          domain: 'localhost',
+          domain: cookieDomain(),
           path: '/',
         },
       ]);
 
       // Without http-server, the token exchange may succeed but the
       // http-server call will fail, redirecting to login with error
-      await page.goto(
-        '/api/auth/google/callback?code=valid_code&state=test_state'
-      );
+      await page.goto('/api/auth/google/callback?code=valid_code&state=test_state');
 
       const url = new URL(page.url());
       expect(url.pathname).toBe('/login');
 
       // oauth_state cookie should be cleared
-      const cookies = await page.context().cookies();
-      const stateCookie = cookies.find(c => c.name === 'oauth_state');
-      expect(stateCookie).toBeFalsy();
+      await expectStateCookieCleared(page);
     });
 
     test('redirects to login with error when code is invalid', async ({ page }) => {
@@ -224,7 +236,7 @@ test.describe('Google OAuth Flow', () => {
         {
           name: 'oauth_state',
           value: 'integration_test_state',
-          domain: 'localhost',
+          domain: cookieDomain(),
           path: '/',
         },
       ]);
