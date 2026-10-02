@@ -98,6 +98,13 @@ export function FileBrowser({
         setDeleteAnimState('closed');
         setLocalDeleteId(null);
         closingRef.current = false;
+        // Release the open-latch and clear the id once the modal is fully
+        // closed. `setDeleteConfirmId` is only ever called with a file id, so
+        // the effect's `!deleteConfirmId` release branch was unreachable and
+        // the latch stayed set for the life of the page — which made Delete
+        // work exactly once per mount and silently do nothing after that.
+        prevDeleteRef.current = null;
+        setDeleteConfirmId(null);
       }, ms);
       return () => clearTimeout(timer);
     }
