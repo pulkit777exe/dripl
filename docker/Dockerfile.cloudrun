@@ -1,6 +1,6 @@
 # Dockerfile for both backend services on Google Cloud Run
-# Usage: docker build --target http-server -t dripl-http .
-#        docker build --target ws-server -t dripl-ws .
+# Usage: docker build -f docker/Dockerfile.cloudrun --target http-server -t dripl-http .
+#        docker build -f docker/Dockerfile.cloudrun --target ws-server -t dripl-ws .
 
 # Base stage with all dependencies
 FROM node:20-slim AS base
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN corepack enable pnpm
 
 # Copy workspace config
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json .npmrc ./
 
 # Copy package.json files
 COPY packages/common/package.json      ./packages/common/
@@ -23,9 +23,11 @@ COPY packages/utils/package.json       ./packages/utils/
 COPY apps/http-server/package.json     ./apps/http-server/
 COPY apps/ws-server/package.json       ./apps/ws-server/
 COPY tooling/typescript-config/package.json ./tooling/typescript-config/
+COPY tooling/eslint-config/package.json ./tooling/eslint-config/
 
 # Install dependencies
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
+ENV CI=true
 RUN pnpm install --frozen-lockfile --network-concurrency 8
 
 # Copy packages source
@@ -33,10 +35,11 @@ COPY packages/ ./packages/
 COPY tooling/  ./tooling/
 
 # Generate Prisma client
-RUN cd packages/db && npx prisma generate --schema=./prisma/schema.prisma
+RUN pnpm --filter @dripl/db exec prisma generate --schema=./prisma/schema.prisma
 
-# Build all workspace packages via Turbo (respects dependency graph + remote cache)
-RUN pnpm turbo run build --filter=!dripl-app
+# Build shared packages before either application source is copied. The
+# application-specific builder stages below compile the selected service.
+RUN pnpm turbo run build --filter='!http-server' --filter='!ws-server'
 
 # ==================== http-server ====================
 FROM base AS http-builder

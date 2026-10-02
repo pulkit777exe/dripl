@@ -168,3 +168,59 @@ jobs:
           else
             pnpm turbo run check-types
           fi
+  production-e2e:
+    name: Production stack E2E
+    runs-on: ubuntu-latest
+    # Catches the class of bug that unit tests cannot see: images that build
+    # but die on boot, and browser behavior against the production artifact
+    # (this job is what would have caught both the ERR_MODULE_NOT_FOUND
+    # outage and the image-optimizer deadlock before release).
+    needs: [build]
+    env:
+      JWT_SECRET: ci-jwt-secret-that-is-long-enough
+      INTERNAL_SECRET: ci-internal-secret-that-is-long-enough
+      # docker-compose.yml interpolates with ${VAR:?...}, so these two must
+      # EXIST at `docker compose build` time or compose exits non-zero before
+      # a single image is built. e2e/smoke.spec.ts only loads /, /signup and
+      # /login and never completes a Google OAuth handshake, so labelled
+      # non-secret placeholders are correct here — real credentials in CI would
+      # be both unnecessary and a supply-chain hazard. Distinct from the two
+      # secrets above: apps/http-server/src/env.ts rejects JWT_SECRET ===
+      # INTERNAL_SECRET, and both secrets must stay >= 32 chars in production.
+      GOOGLE_CLIENT_ID: ci-placeholder-not-a-real-oauth-client-id
+      GOOGLE_CLIENT_SECRET: ci-placeholder-not-a-real-oauth-client-secret
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Build images
+        run: docker compose build
+      - name: Boot stack and wait for health
+        run: |
+          docker compose up -d
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3002/health >/dev/null \
+              && curl -fsS http://127.0.0.1:3001/health >/dev/null \
+              && curl -fsS http://127.0.0.1:3000/login >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose ps
+          docker compose logs --tail=50
+          exit 1
+      - name: Install Playwright browser
+        run: pnpm --filter dripl-app exec playwright install --with-deps chromium
+      - name: Smoke test against the production stack
+        run: E2E_BASE_URL=http://127.0.0.1:3000 pnpm --filter dripl-app test:e2e e2e/smoke.spec.ts
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

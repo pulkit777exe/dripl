@@ -3,8 +3,11 @@ apps/*/node_modules
 packages/*/node_modules
 .next
 apps/dripl-app/.next
+.turbo
+coverage
 dist
 apps/*/dist
 packages/*/dist
 .env
+.env.*
 .git

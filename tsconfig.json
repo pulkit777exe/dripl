@@ -1,5 +1,17 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
+  // Solution-style config: an editor navigation aid for cross-workspace "go to
+  // definition", and deliberately NOT a build entry point. `tsc -b` here emits
+  // into every project's real dist/ and overwrites the esbuild bundles that
+  // apps/http-server and apps/ws-server ship, so the supported type check is
+  // `pnpm check-types` (per-project `tsc --noEmit`, 9/9), never a root `tsc -b`.
+  // Only apps/dripl-app, packages/element and packages/test-utils lack
+  // "composite": true; that is fine here because a solution-style root config
+  // sets "files": [], and TypeScript only reports TS6306 for a non-composite
+  // reference when the referencing config itself has input files. Do not "fix"
+  // this by adding composite to those three (Next.js owns dripl-app's config)
+  // or by deleting their references (that drops them from the editor project
+  // graph, which is the entire point of this file).
   "files": [],
   "references": [
     { "path": "./apps/dripl-app" },
@@ -7,7 +19,6 @@
     { "path": "./apps/ws-server" },
     { "path": "./packages/db" },
     { "path": "./packages/common" },
-    { "path": "./packages/dripl" },
     { "path": "./packages/element" },
     { "path": "./packages/math" },
     { "path": "./packages/utils" },

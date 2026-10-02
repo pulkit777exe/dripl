@@ -3,7 +3,7 @@ WORKDIR /app
 
 RUN corepack enable pnpm
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json .npmrc ./
 COPY packages/common/package.json      ./packages/common/
 COPY packages/db/package.json          ./packages/db/
 COPY packages/math/package.json        ./packages/math/
@@ -12,17 +12,27 @@ COPY packages/test-utils/package.json   ./packages/test-utils/
 COPY packages/utils/package.json       ./packages/utils/
 COPY apps/dripl-app/package.json       ./apps/dripl-app/
 COPY tooling/typescript-config/package.json ./tooling/typescript-config/
+COPY tooling/eslint-config/package.json  ./tooling/eslint-config/
 
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
+ENV CI=true
 RUN pnpm install --frozen-lockfile --network-concurrency 8 --fetch-retries 5
 
 COPY packages/ ./packages/
 COPY tooling/  ./tooling/
-RUN cd packages/db && npx prisma generate --no-engine --schema=./prisma/schema.prisma
-# Build all workspace packages via Turbo (respects dependency graph + remote cache)
-RUN pnpm turbo run build --filter=!dripl-app
+RUN pnpm --filter @dripl/db exec prisma generate --schema=./prisma/schema.prisma
 
 COPY apps/dripl-app/ ./apps/dripl-app/
+
+ARG NEXT_PUBLIC_API_URL=http://localhost:3002/api
+ARG NEXT_PUBLIC_WS_URL=ws://localhost:3001
+ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+# Build Next after copying the app source. This creates the .next output that
+# `next start` serves in the runner stage.
+RUN pnpm turbo run build --filter=dripl-app
 
 FROM node:20-alpine AS runner
 ENV NODE_ENV=production

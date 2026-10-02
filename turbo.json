@@ -82,7 +82,10 @@
         "NEXT_PUBLIC_*",
         "GEMINI_API_KEY",
         "GOOGLE_CLIENT_ID",
-        "GOOGLE_CLIENT_SECRET"
+        "GOOGLE_CLIENT_SECRET",
+        "RUN_DB_INTEGRATION",
+        "RUN_WS_INTEGRATION",
+        "RUN_WS_DB_INTEGRATION"
       ],
       "inputs": [
         "$TURBO_DEFAULT$",

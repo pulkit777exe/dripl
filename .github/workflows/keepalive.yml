@@ -11,16 +11,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping http-server
+        env:
+          SERVICE_URL: ${{ secrets.HTTP_SERVER_URL }}
         run: |
-          if [ -z "${{ secrets.HTTP_SERVER_URL }}" ]; then
+          if [ -z "$SERVICE_URL" ]; then
             echo "HTTP_SERVER_URL secret not set, skipping"
             exit 0
           fi
-          curl -sf "${{ secrets.HTTP_SERVER_URL }}/health" || echo "http-server unreachable"
+          curl -sf "$SERVICE_URL/health" || echo "http-server unreachable"
       - name: Ping ws-server
+        env:
+          SERVICE_URL: ${{ secrets.WS_SERVER_URL }}
         run: |
-          if [ -z "${{ secrets.WS_SERVER_URL }}" ]; then
+          if [ -z "$SERVICE_URL" ]; then
             echo "WS_SERVER_URL secret not set, skipping"
             exit 0
           fi
-          curl -sf "${{ secrets.WS_SERVER_URL }}/health" || echo "ws-server unreachable"
+          curl -sf "$SERVICE_URL/health" || echo "ws-server unreachable"
