@@ -57,7 +57,8 @@ import {
   type PersistOutcome,
 } from './rooms';
 import { checkRateLimit, setRateLimitIdentity, removeRateLimitIdentity } from './rateLimiter';
-import { subscribeToRoom, isRedisAvailable } from './redis';
+import { subscribeToRoom, isRedisAvailable, unsubscribeFromRoom } from './redis';
+import { acquireRoom, onRoomOwnershipLost, releaseAllRooms } from './roomOwnership';
 import { authorizeRoomAccess, authorizeShareRoomAccess, type RoomAccess } from './roomAccess';
 import { applyRemoteSceneMessage } from './sceneMutation';
 
@@ -133,6 +134,59 @@ function handleRedisMessage(roomId: string, payload: unknown): void {
       break;
   }
 }
+
+/**
+ * We were serving a room and the ownership lease is gone: it expired during a
+ * Redis partition, or a peer proved it still holds the room. Another instance
+ * is the authority for this room now, so the only safe move is to stop — not to
+ * save, not to keep editing, not to answer the next join from memory.
+ *
+ * The local `RoomState` is dropped **without persisting**. The fenced Postgres
+ * write would still reject a clobber in most cases, but "most cases" is the
+ * whole problem: a lapsed owner writing is precisely how two instances produce
+ * a scene neither of them would have produced alone. Anything not yet
+ * persisted is lost, which is bounded by the save debounce/period and is the
+ * same loss a restart already had.
+ *
+ * Clients are closed with 4010 (retryable elsewhere) rather than left on a
+ * frozen room: a socket whose messages now resolve to a room that no longer
+ * exists would look alive and silently accept nothing.
+ */
+function handleRoomOwnershipLost(roomId: string): void {
+  const room = rooms.get(roomId);
+  // Close first, then drop state: `ws.close` runs the connection's close
+  // handler asynchronously, and that handler still expects the room to exist.
+  for (const client of wss.clients) {
+    if (wsToRoomMap.get(client) === roomId) client.close(4010, 'Room moved to another instance');
+  }
+  if (!room) {
+    roomLastEmptyAt.delete(roomId);
+    return;
+  }
+  for (const user of room.users.values()) {
+    send(user.ws, {
+      type: 'error',
+      code: 'room_ownership_lost',
+      message: 'This room moved to another server. Reconnect to continue editing.',
+    });
+  }
+  room.users.clear();
+  room.cursors.clear();
+  room.elementLocks.clear();
+  room.viewports.clear();
+  room.following.clear();
+  rooms.delete(roomId);
+  roomLastEmptyAt.delete(roomId);
+  const pendingSave = saveTimeouts.get(roomId);
+  if (pendingSave) clearTimeout(pendingSave);
+  saveTimeouts.delete(roomId);
+  if (isRedisAvailable()) {
+    unsubscribeFromRoom(roomId);
+  }
+  logger.warn({ event: 'ws_room_quiesced', roomId });
+}
+
+onRoomOwnershipLost(handleRoomOwnershipLost);
 
 const configuredWsPort = Number(process.env.PORT ?? env.WS_PORT);
 const WS_PORT =
@@ -423,6 +477,28 @@ wss.on('connection', async (ws, req) => {
           }
           currentRoomAccess = access;
           lastAccessCheckAt = Date.now();
+
+          // Claim the room before it is loaded, not after. Every step below
+          // this line — reading the scene, admitting mutations, writing
+          // Postgres — mutates state that another instance could be mutating
+          // too, so ownership has to be settled first. A refusal here happens
+          // after the access check and before any RoomState exists, so a
+          // non-owner never loads a scene it must not serve.
+          //
+          // Cost: one Redis round-trip per *join*, never per mutation, and
+          // never on the single-instance path where ownership is disabled.
+          const ownership = await acquireRoom(roomId);
+          if (ownership === 'foreign') {
+            send(ws, {
+              type: 'error',
+              code: 'room_served_by_another_instance',
+              message: 'This room is currently served by another server. Please reconnect.',
+            });
+            logger.warn({ event: 'ws_room_ownership_rejected', roomId });
+            ws.close(4010, 'Room served by another instance');
+            return;
+          }
+
           const room = getOrCreateRoom(roomId);
 
           if (!room.loadedFromDb) {
@@ -846,6 +922,11 @@ async function shutdown() {
     new Promise<void>(resolve => setTimeout(resolve, 2_000)),
   ]);
   await httpClosePromise;
+  // Only after the save pass: releasing first would let a peer take the room
+  // and reload it from Postgres while this process still had unsaved edits.
+  // `process.exit` follows immediately, so this is best-effort by construction —
+  // which is fine, because lease expiry alone is sufficient for a handover.
+  await releaseAllRooms();
   await db.$disconnect();
   process.exit(saveFailed ? 1 : 0);
 }
@@ -875,6 +956,9 @@ export async function stopForTests(): Promise<void> {
   // `wsToRoomMap` is keyed by socket, so a stale entry lets the heartbeat read
   // a roomId for a socket that has already been reaped.
   wsToRoomMap.clear();
+  // Leases too: a suite that restarts the server in-process would otherwise
+  // leave a live lease (and its renewal timer) pointing at the old run.
+  await releaseAllRooms();
   await db.$disconnect();
   shuttingDown = false;
 }

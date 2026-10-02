@@ -15,6 +15,7 @@ import {
 import { sweepExpiredTombstones } from './tombstones';
 import { broadcast } from './broadcast';
 import { isRedisAvailable, unsubscribeFromRoom } from './redis';
+import { releaseRoom } from './roomOwnership';
 import { logger } from './logger';
 import type { UserConnection } from './types';
 
@@ -146,6 +147,10 @@ export async function runPeriodicSave(): Promise<void> {
     if (isRedisAvailable()) {
       unsubscribeFromRoom(roomId);
     }
+    // Hand the room back rather than letting it sit pinned to this process for
+    // the rest of the lease TTL: the room is clean and non-dirty here, so
+    // everything is persisted and a peer can safely reload it from Postgres.
+    void releaseRoom(roomId);
   }
 }
 
