@@ -1,13 +1,7 @@
-const ANALYTICS_KEY = 'dripl-analytics-enabled';
+import { logInfo } from '@dripl/common';
 
 type EventCategory =
-  | 'canvas'
-  | 'actions'
-  | 'auth'
-  | 'export'
-  | 'navigation'
-  | 'collaboration'
-  | 'ui';
+  'canvas' | 'actions' | 'auth' | 'export' | 'navigation' | 'collaboration' | 'ui';
 
 interface AnalyticsEvent {
   category: EventCategory;
@@ -54,7 +48,7 @@ export function trackEvent(
     url: typeof window !== 'undefined' ? window.location.href : undefined,
   };
 
-  console.log(
+  logInfo(
     JSON.stringify({
       type: 'analytics',
       ...event,

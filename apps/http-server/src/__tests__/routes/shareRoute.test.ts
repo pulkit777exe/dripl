@@ -24,20 +24,18 @@ vi.mock('@dripl/db', () => ({
     file: {
       findFirst: vi.fn(),
       findUnique: vi.fn(),
-      update: vi.fn(),
       updateMany: vi.fn(),
     },
   },
 }));
 
-import { db } from '@dripl/db';
+import { db, type Prisma } from '@dripl/db';
 import { shareRouter } from '../../routes/share';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
 
 const mockFindFirst = vi.mocked(db.file.findFirst);
 const mockFindUnique = vi.mocked(db.file.findUnique);
-const mockUpdate = vi.mocked(db.file.update);
 const mockUpdateMany = vi.mocked(db.file.updateMany);
 
 const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
@@ -74,14 +72,57 @@ function tokenFor(userId: string): string {
   return jwt.sign({ userId }, JWT_SECRET);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const fileMock = (overrides: Record<string, unknown>): any => ({
+// `POST /api/share` delegates to `ShareService.upsertShareToken`, so the row
+// `findFirst` is stubbed with is the `upsertShareToken` select -- six columns out
+// of a 12-column `File`. Deriving it from the select (rather than from
+// `db.file.findFirst`, whose generic erases to the full row) means changing that
+// select is a compile error here instead of a runtime `undefined`.
+type UpsertShareFileRow = Prisma.FileGetPayload<{
+  select: {
+    id: true;
+    userId: true;
+    shareToken: true;
+    sharePermission: true;
+    shareExpiresAt: true;
+    updatedAt: true;
+  };
+}>;
+
+// The ws-ticket route has its own, narrower `findUnique` select.
+type WsTicketFileRow = Prisma.FileGetPayload<{
+  select: { id: true; sharePermission: true; shareExpiresAt: true };
+}>;
+
+// Fixed so the optimistic-concurrency fence is assertable by value rather than
+// only by type. Must be a real Date: the service puts it in the `where` clause.
+const UPDATED_AT = new Date('2026-01-01T00:00:00.000Z');
+
+// Complete rows: every selected column has a default, so nothing reaches the code
+// under test as `undefined` by accident.
+const fileMock = (overrides: Partial<UpsertShareFileRow> = {}): UpsertShareFileRow => ({
   id: 'file-1',
   userId: 'user-1',
   shareToken: null,
   sharePermission: null,
+  shareExpiresAt: null,
+  updatedAt: UPDATED_AT,
   ...overrides,
 });
+
+/**
+ * `vi.mocked()` erases each Prisma method's generic to its no-select constraint,
+ * so `mockResolvedValue` still demands the full 12-column `File` row even when
+ * the code under test selected three or six. These are the single places that
+ * gap is bridged: each cast widens the selected columns back to the full row,
+ * and the selected subset is all the code under test reads.
+ */
+const givenFile = (row: UpsertShareFileRow | null): void => {
+  mockFindFirst.mockResolvedValue(row as Awaited<ReturnType<typeof db.file.findFirst>>);
+};
+
+const givenWsTicketFile = (row: WsTicketFileRow | null): void => {
+  mockFindUnique.mockResolvedValue(row as Awaited<ReturnType<typeof db.file.findUnique>>);
+};
 
 describe('POST /api/share', () => {
   beforeEach(() => {
@@ -123,7 +164,7 @@ describe('POST /api/share', () => {
   });
 
   it('returns 404 when the file does not exist', async () => {
-    mockFindFirst.mockResolvedValue(null);
+    givenFile(null);
     const app = createTestApp();
     const res = await request(app)
       .post('/api/share')
@@ -133,7 +174,7 @@ describe('POST /api/share', () => {
   });
 
   it('returns 403 when the user does not own the file', async () => {
-    mockFindFirst.mockResolvedValue(fileMock({ userId: 'someone-else' }));
+    givenFile(fileMock({ userId: 'someone-else' }));
     const app = createTestApp();
     const res = await request(app)
       .post('/api/share')
@@ -143,9 +184,7 @@ describe('POST /api/share', () => {
   });
 
   it('returns 200 with a token when the file has no share state yet', async () => {
-    mockFindFirst.mockResolvedValue(fileMock({ shareToken: null }));
-    mockUpdate.mockResolvedValue({ id: 'file-1' } as never);
-
+    givenFile(fileMock({ shareToken: null }));
     const app = createTestApp();
     const res = await request(app)
       .post('/api/share')
@@ -155,12 +194,20 @@ describe('POST /api/share', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ token: expect.any(String) });
     expect(res.body.token.length).toBeGreaterThanOrEqual(24);
+    // The rotate path is fenced on the row it read.
+    expect(mockUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'file-1',
+          userId: 'user-1',
+          updatedAt: UPDATED_AT,
+        }),
+      })
+    );
   });
 
   it('returns 200 with the existing token when the permission is unchanged', async () => {
-    mockFindFirst.mockResolvedValue(
-      fileMock({ shareToken: 'kept-token-xyz', sharePermission: 'view' })
-    );
+    givenFile(fileMock({ shareToken: 'kept-token-xyz', sharePermission: 'view' }));
 
     const app = createTestApp();
     const res = await request(app)
@@ -175,9 +222,7 @@ describe('POST /api/share', () => {
   });
 
   it('rotates the token when the permission changes', async () => {
-    mockFindFirst.mockResolvedValue(fileMock({ shareToken: 'old-view', sharePermission: 'view' }));
-    mockUpdate.mockResolvedValue({ id: 'file-1' } as never);
-
+    givenFile(fileMock({ shareToken: 'old-view', sharePermission: 'view' }));
     const app = createTestApp();
     const res = await request(app)
       .post('/api/share')
@@ -188,7 +233,11 @@ describe('POST /api/share', () => {
     expect(res.body.token).not.toBe('old-view');
     expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ id: 'file-1', userId: 'user-1' }),
+        where: expect.objectContaining({
+          id: 'file-1',
+          userId: 'user-1',
+          updatedAt: UPDATED_AT,
+        }),
         data: expect.objectContaining({ sharePermission: 'edit', shareExpiresAt: null }),
       })
     );
@@ -201,11 +250,7 @@ describe('GET /api/share/:token/ws-ticket', () => {
   });
 
   it('issues a scoped ticket without requiring a session', async () => {
-    mockFindUnique.mockResolvedValue({
-      id: 'file-1',
-      sharePermission: 'edit',
-      shareExpiresAt: null,
-    } as never);
+    givenWsTicketFile({ id: 'file-1', sharePermission: 'edit', shareExpiresAt: null });
 
     const res = await request(createPublicShareApp()).get('/api/share/share-token/ws-ticket');
 
@@ -219,15 +264,15 @@ describe('GET /api/share/:token/ws-ticket', () => {
   });
 
   it('rejects unknown and expired share tokens', async () => {
-    mockFindUnique.mockResolvedValue(null);
+    givenWsTicketFile(null);
     const missing = await request(createPublicShareApp()).get('/api/share/missing/ws-ticket');
     expect(missing.status).toBe(404);
 
-    mockFindUnique.mockResolvedValue({
+    givenWsTicketFile({
       id: 'file-1',
       sharePermission: 'view',
       shareExpiresAt: new Date(Date.now() - 1_000),
-    } as never);
+    });
     const expired = await request(createPublicShareApp()).get('/api/share/expired/ws-ticket');
     expect(expired.status).toBe(410);
   });

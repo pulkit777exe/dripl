@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
+import { logError } from '@dripl/common';
 import { getGoogleOAuthConfig } from '../google-config';
 
 const configuredHttpServerUrl = process.env.HTTP_SERVER_URL || 'http://localhost:3002';
@@ -36,8 +37,7 @@ export async function GET(request: NextRequest) {
   try {
     oauth = getGoogleOAuthConfig();
   } catch {
-    // eslint-disable-next-line no-console -- oauth failure diagnostics
-    console.error(JSON.stringify({ level: 'error', event: 'google_oauth_not_configured' }));
+    logError(JSON.stringify({ level: 'error', event: 'google_oauth_not_configured' }));
     return NextResponse.redirect(new URL('/login?error=oauth_not_configured', request.url));
   }
 
@@ -73,8 +73,7 @@ export async function GET(request: NextRequest) {
       // something.
       const secretLooksRight = /^GOCSPX-/.test(oauth.clientSecret ?? '');
 
-      // eslint-disable-next-line no-console -- oauth failure diagnostics
-      console.error(
+      logError(
         JSON.stringify({
           level: 'error',
           event: 'google_token_exchange_failed',
@@ -104,8 +103,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!authResponse.ok) {
-      // eslint-disable-next-line no-console -- oauth failure diagnostics
-      console.error(
+      logError(
         JSON.stringify({
           level: 'error',
           event: 'http_server_google_auth_failed',
@@ -137,8 +135,7 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (err) {
-    // eslint-disable-next-line no-console -- oauth failure diagnostics
-    console.error(
+    logError(
       JSON.stringify({
         level: 'error',
         event: 'google_oauth_callback_error',

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { logError } from '@dripl/common';
 
 export default function Error({
   error,
@@ -10,7 +11,7 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error('Application error:', error);
+    logError('Application error:', error);
   }, [error]);
 
   return (
@@ -20,9 +21,7 @@ export default function Error({
     >
       <div className="text-center">
         <h2 className="mb-4 text-2xl font-semibold text-[#1A1917]">Something went wrong</h2>
-        <p className="mb-6 text-[#6B6860]">
-          {error.message || 'An unexpected error occurred'}
-        </p>
+        <p className="mb-6 text-[#6B6860]">{error.message || 'An unexpected error occurred'}</p>
         <button
           onClick={() => reset()}
           className="rounded-md px-4 py-2 text-white transition-colors"

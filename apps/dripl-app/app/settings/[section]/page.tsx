@@ -14,6 +14,7 @@ import {
   Settings,
   Bell,
 } from 'lucide-react';
+import Image from 'next/image';
 import { useAuth } from '@/app/context/AuthContext';
 
 type SectionId = 'profile' | 'password' | 'font' | 'plan' | 'account';
@@ -80,9 +81,12 @@ function ProfileSettings() {
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 rounded-xl overflow-hidden bg-white border border-[#E4E0D9] flex items-center justify-center flex-shrink-0">
             {user?.image ? (
-              <img
+              <Image
                 src={user.image}
                 alt={user.name || 'Profile'}
+                width={64}
+                height={64}
+                sizes="64px"
                 className="h-full w-full object-cover"
               />
             ) : (
@@ -407,9 +411,12 @@ export default function SettingsPage(): React.ReactNode {
           <div className="flex items-center gap-4 mb-4">
             <div className="h-14 w-14 rounded-xl overflow-hidden bg-white border border-[#E4E0D9] flex items-center justify-center flex-shrink-0">
               {user?.image ? (
-                <img
+                <Image
                   src={user.image}
                   alt={user.name || 'Account'}
+                  width={56}
+                  height={56}
+                  sizes="56px"
                   className="h-full w-full object-cover"
                 />
               ) : (

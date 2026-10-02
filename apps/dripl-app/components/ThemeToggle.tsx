@@ -5,7 +5,7 @@ import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 
 export function ThemeToggle() {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -33,8 +33,12 @@ export function ThemeToggle() {
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
     >
       <div className="t-icon-swap" data-state={isDark ? 'b' : 'a'}>
-        <span className="t-icon" data-icon="a"><Sun className="h-4 w-4" /></span>
-        <span className="t-icon" data-icon="b"><Moon className="h-4 w-4" /></span>
+        <span className="t-icon" data-icon="a">
+          <Sun className="h-4 w-4" />
+        </span>
+        <span className="t-icon" data-icon="b">
+          <Moon className="h-4 w-4" />
+        </span>
       </div>
     </button>
   );

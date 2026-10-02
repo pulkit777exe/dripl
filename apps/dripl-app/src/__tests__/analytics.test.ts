@@ -30,54 +30,54 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 describe('analytics', () => {
-  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  // Analytics events go through the shared `logInfo` boundary, so the spy
+  // watches that level rather than a raw console call.
+  let infoSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     localStorageMock.clear();
     vi.clearAllMocks();
-    consoleLogSpy = vi.spyOn(console, 'log');
+    infoSpy = vi.spyOn(console, 'info');
   });
 
   describe('trackEvent', () => {
-    it('does not log when no consent stored', () => {
+    it('does not emit when no consent stored', () => {
       localStorageMock.getItem.mockReturnValue(null);
       trackEvent('canvas', 'test-action');
-      expect(consoleLogSpy).not.toHaveBeenCalled();
+      expect(infoSpy).not.toHaveBeenCalled();
     });
 
-    it('does not log when consent is false', () => {
+    it('does not emit when consent is false', () => {
       localStorageMock.getItem.mockReturnValue(JSON.stringify({ accepted: false }));
       trackEvent('canvas', 'test-action');
-      expect(consoleLogSpy).not.toHaveBeenCalled();
+      expect(infoSpy).not.toHaveBeenCalled();
     });
 
-    it('does not log when consent is corrupted', () => {
+    it('does not emit when consent is corrupted', () => {
       localStorageMock.getItem.mockReturnValue('invalid-json');
       trackEvent('canvas', 'test-action');
-      expect(consoleLogSpy).not.toHaveBeenCalled();
+      expect(infoSpy).not.toHaveBeenCalled();
     });
 
-    it('logs event when consent is true', () => {
+    it('emits the event when consent is true', () => {
       localStorageMock.getItem.mockReturnValue(
         JSON.stringify({ accepted: true, timestamp: Date.now() })
       );
       trackEvent('canvas', 'element-created', { label: 'rectangle' });
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"type":"analytics"'));
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"category":"canvas"'));
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"action":"element-created"')
-      );
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"label":"rectangle"'));
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('"type":"analytics"'));
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('"category":"canvas"'));
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('"action":"element-created"'));
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('"label":"rectangle"'));
     });
 
-    it('logs event with optional value', () => {
+    it('emits the event with an optional value', () => {
       localStorageMock.getItem.mockReturnValue(
         JSON.stringify({ accepted: true, timestamp: Date.now() })
       );
       trackEvent('export', 'export-png', { value: 2 });
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"value":2'));
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('"value":2'));
     });
   });
 
@@ -88,7 +88,7 @@ describe('analytics', () => {
       );
       trackCanvasEvent('element-created', { label: 'rectangle' });
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"category":"canvas"'));
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('"category":"canvas"'));
     });
   });
 
@@ -99,7 +99,7 @@ describe('analytics', () => {
       );
       trackAuthEvent('login-success');
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"category":"auth"'));
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('"category":"auth"'));
     });
   });
 

@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
 
 function VerifyPendingContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const email = searchParams.get('email') || '';
   const { resendVerification } = useAuth();
 

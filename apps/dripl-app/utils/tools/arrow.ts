@@ -1,4 +1,11 @@
-import type { DriplElement, Point, LinearElement, TextElement, NormalizedBinding, ArrowStyle, ArrowheadType } from '@dripl/common';
+import type {
+  DriplElement,
+  Point,
+  LinearElement,
+  TextElement,
+  NormalizedBinding,
+  ArrowStyle,
+} from '@dripl/common';
 import { v4 as uuidv4 } from 'uuid';
 import { getDefaultFontFamily } from '@/utils/fontPreferences';
 import {
@@ -27,7 +34,9 @@ export interface ArrowBindingInfo {
 
 export function createArrowElement(
   state: ArrowToolState,
-  baseProps: Omit<DriplElement, 'type' | 'x' | 'y' | 'width' | 'height' | 'points'> & { id: string },
+  baseProps: Omit<DriplElement, 'type' | 'x' | 'y' | 'width' | 'height' | 'points'> & {
+    id: string;
+  },
   bindingInfo?: ArrowBindingInfo,
   arrowStyle?: ArrowStyle
 ): { arrow: LinearElement; label?: TextElement } {
@@ -110,13 +119,10 @@ export function getArrowMidpoint(p1: Point, p2: Point): Point {
   return getMidpoint(p1, p2);
 }
 
-export function createArrowLabel(
-  arrow: LinearElement,
-  text: string = ''
-): TextElement {
+export function createArrowLabel(arrow: LinearElement, text: string = ''): TextElement {
   const points = arrow.points as Point[];
   const midPoint = getMidPoint(points);
-  
+
   return {
     id: uuidv4(),
     type: 'text',

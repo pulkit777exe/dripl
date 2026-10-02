@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { logError } from '@dripl/common';
 import { getGoogleOAuthConfig } from './google-config';
 
 export async function GET(request: NextRequest) {
@@ -9,8 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     ({ clientId, redirectUri, frontendUrl } = getGoogleOAuthConfig());
   } catch {
-    // eslint-disable-next-line no-console -- oauth failure diagnostics
-    console.error(JSON.stringify({ level: 'error', event: 'google_oauth_not_configured' }));
+    logError(JSON.stringify({ level: 'error', event: 'google_oauth_not_configured' }));
     return NextResponse.redirect(new URL('/login?error=oauth_not_configured', request.url));
   }
   const state = crypto.randomUUID();

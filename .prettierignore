@@ -2,6 +2,10 @@
 node_modules/
 .pnpm/
 
+# pnpm owns this file's formatting; reformatting it produces a ~7k line diff
+# on every install and fights the lockfile writer.
+pnpm-lock.yaml
+
 # Build outputs
 .next/
 dist/

@@ -1,4 +1,5 @@
 import rough from 'roughjs';
+import { logError } from '@dripl/common';
 import type {
   DriplElement,
   LinearElement,
@@ -183,8 +184,7 @@ export function createRoughCanvas(canvas: HTMLCanvasElement): _RoughCanvas | nul
   try {
     return rough.canvas(canvas);
   } catch (e) {
-    // eslint-disable-next-line no-console -- renderer fallback is intentionally non-fatal
-    console.error(
+    logError(
       JSON.stringify({ level: 'error', event: 'rough_canvas_init_failed', error: String(e) })
     );
     return null;

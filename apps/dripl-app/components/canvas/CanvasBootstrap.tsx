@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
-import type { DriplElement } from '@dripl/common';
+import { logError, logWarn, type DriplElement } from '@dripl/common';
 
 import RoughCanvas from '@/components/canvas/RoughCanvas';
 import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
@@ -132,8 +132,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
         if (elementsTruncated) {
           // This copy is the fallback used when IndexedDB is unavailable. Say so
           // rather than letting a partial scene look like a complete one.
-          // eslint-disable-next-line no-console -- truncated-restore telemetry
-          console.warn(
+          logWarn(
             JSON.stringify({
               level: 'warn',
               event: 'local_canvas_truncated',
@@ -216,8 +215,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
     // previous initialization-only effect allowed a stale IndexedDB scene to
     // win on the next reload, silently discarding later edits.
     const timeoutId = setTimeout(() => {
-      // eslint-disable-next-line no-console -- persistence failure telemetry
-      saveCanvasToIndexedDB(LOCAL_ROOM_ID, useCanvasStore.getState().elements).catch(console.error);
+      saveCanvasToIndexedDB(LOCAL_ROOM_ID, useCanvasStore.getState().elements).catch(logError);
     }, 500);
     return () => clearTimeout(timeoutId);
   }, [elements, isDrawing, isInitialized, mode]);

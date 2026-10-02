@@ -39,28 +39,54 @@ function toExcalidrawArrowhead(value: unknown): string | null {
   return null;
 }
 
+/**
+ * Dripl-only fields with no Excalidraw equivalent. The export projects the
+ * shared payload through this denylist rather than spreading the source, so the
+ * omission set stays reviewable in one place.
+ *
+ * This is a denylist, so it fails OPEN: a newly added Dripl-only field is
+ * exported into the Excalidraw document until someone lists it here. Adding an
+ * element field means checking this set, not relying on it to catch the new one.
+ * Converting this to an allow-list would fail closed instead; that is
+ * deliberate follow-up work, not a done deal.
+ */
+const DRIPL_ONLY_FIELDS: ReadonlySet<string> = new Set([
+  'fractionalIndex',
+  'groupId',
+  'containerId',
+  'rotation',
+  'flipHorizontal',
+  'flipVertical',
+  'zIndex',
+  'points',
+  'arrowHeads',
+  'arrowStyle',
+  'startBinding',
+  'endBinding',
+]);
+
+function sharedPayload(source: JsonRecord): JsonRecord {
+  const payload: JsonRecord = {};
+  for (const key in source) {
+    if (!DRIPL_ONLY_FIELDS.has(key)) payload[key] = source[key];
+  }
+  return payload;
+}
+
 function toExcalidrawElement(element: DriplElement): JsonRecord {
   const source = element as unknown as JsonRecord;
-  // rotation/flips/zIndex are omitted from the Excalidraw export via rest destructuring.
-  /* eslint-disable @typescript-eslint/no-unused-vars -- intentionally omitted_export_fields */
   const {
     fractionalIndex,
     groupId,
     containerId,
-    rotation,
-    flipHorizontal,
-    flipVertical,
-    zIndex,
     points,
     arrowHeads,
     arrowStyle,
     startBinding,
     endBinding,
-    ...base
   } = source;
-  /* eslint-enable @typescript-eslint/no-unused-vars */
   const exported: JsonRecord = {
-    ...base,
+    ...sharedPayload(source),
     id: element.id,
     type: element.type === 'embed' ? 'embeddable' : element.type,
     index: typeof fractionalIndex === 'string' ? fractionalIndex : null,

@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowUpRight,
   PenLine,
   MousePointerClick,
   Layout,

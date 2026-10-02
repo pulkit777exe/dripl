@@ -14,6 +14,7 @@ import {
   ChevronRight,
   AlertTriangle,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { EmptyFilesState } from '@/components/ui/EmptyState';
@@ -32,7 +33,6 @@ interface FileBrowserProps {
   page?: number;
   pageSize?: number;
   onPageChange?: (page: number) => void;
-  onCreateFile?: () => void;
   onStartNewCanvas?: () => void;
   isCreatingCanvas?: boolean;
   onOpenLocalCanvas?: () => void;
@@ -210,9 +210,20 @@ export function FileBrowser({
               href={`/file/${file.id}`}
               className="group relative rounded-lg border border-[#E4E0D9] bg-[#FAFAF7] hover:border-[#D4D0C9] hover:shadow-sm transition-all"
             >
-              <div className="aspect-square bg-[#E8E5DE]/40 flex items-center justify-center rounded-t-lg overflow-hidden">
+              <div className="relative aspect-square bg-[#E8E5DE]/40 flex items-center justify-center rounded-t-lg overflow-hidden">
                 {file.preview ? (
-                  <img src={file.preview} alt={file.name} className="w-full h-full object-cover" />
+                  <Image
+                    src={file.preview}
+                    alt={file.name}
+                    fill
+                    // The grid tiles are 1/2 to 1/6 of the viewport width
+                    // depending on the breakpoint.
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                    // Thumbnails are inline data URLs, which the image optimizer
+                    // cannot fetch; the browser decodes them directly instead.
+                    unoptimized
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <File className="h-10 w-10 text-[#D4D0C9]" />
                 )}
@@ -297,11 +308,16 @@ export function FileBrowser({
                 className="grid grid-cols-12 gap-4 px-5 py-3 items-center hover:bg-white transition-colors group"
               >
                 <div className="col-span-6 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-[#E8E5DE] flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="relative w-9 h-9 rounded-lg bg-[#E8E5DE] flex items-center justify-center overflow-hidden shrink-0">
                     {file.preview ? (
-                      <img
+                      <Image
                         src={file.preview}
                         alt={file.name}
+                        fill
+                        sizes="36px"
+                        // Thumbnails are inline data URLs, which the image
+                        // optimizer cannot fetch.
+                        unoptimized
                         className="w-full h-full object-cover"
                       />
                     ) : (

@@ -68,6 +68,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
     "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.9.1",

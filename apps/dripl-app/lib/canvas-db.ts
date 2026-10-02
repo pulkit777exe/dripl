@@ -1,5 +1,5 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import type { DriplElement } from '@dripl/common';
+import { logError, type DriplElement } from '@dripl/common';
 import { normalizeElement } from '@/utils/canvasUtils';
 
 const DB_NAME = 'dripl-canvas';
@@ -47,8 +47,7 @@ export async function saveCanvasToIndexedDB(
   // would silently return fewer elements than the user drew. Keeping the last
   // good snapshot and reporting failure is the honest outcome.
   if (elements.length > MAX_PERSISTED_ELEMENTS) {
-    // eslint-disable-next-line no-console -- oversize-scene telemetry
-    console.error(
+    logError(
       JSON.stringify({
         level: 'error',
         event: 'canvas_persist_rejected',
@@ -70,8 +69,7 @@ export async function saveCanvasToIndexedDB(
     await db.put(STORE_NAME, data);
     return true;
   } catch (error) {
-    // eslint-disable-next-line no-console -- persistence failure telemetry
-    console.error('Failed to save canvas to IndexedDB:', error);
+    logError('Failed to save canvas to IndexedDB:', error);
     return false;
   }
 }
@@ -84,8 +82,7 @@ export async function loadCanvasFromIndexedDB(roomId: string): Promise<DriplElem
       ? data.elements.slice(0, MAX_PERSISTED_ELEMENTS).map(normalizeElement)
       : [];
   } catch (error) {
-    // eslint-disable-next-line no-console -- persistence failure telemetry
-    console.error('Failed to load canvas from IndexedDB:', error);
+    logError('Failed to load canvas from IndexedDB:', error);
     return [];
   }
 }
@@ -95,8 +92,7 @@ export async function clearCanvasFromIndexedDB(roomId: string): Promise<void> {
     const db = await getDB();
     await db.delete(STORE_NAME, roomId);
   } catch (error) {
-    // eslint-disable-next-line no-console -- persistence failure telemetry
-    console.error('Failed to clear canvas from IndexedDB:', error);
+    logError('Failed to clear canvas from IndexedDB:', error);
     throw error;
   }
 }
@@ -106,8 +102,7 @@ export async function getAllCanvasRooms(): Promise<CanvasRoomData[]> {
     const db = await getDB();
     return await db.getAll(STORE_NAME);
   } catch (error) {
-    // eslint-disable-next-line no-console -- persistence failure telemetry
-    console.error('Failed to get all canvas rooms from IndexedDB:', error);
+    logError('Failed to get all canvas rooms from IndexedDB:', error);
     return [];
   }
 }

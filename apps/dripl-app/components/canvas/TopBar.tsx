@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { Menu as MenuIcon } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { logError } from '@dripl/common';
 import { useCanvasStore } from '@/lib/store';
 import { useTopBarFileOps } from '@/hooks/useTopBarFileOps';
 import { Menu } from './Menu';
@@ -72,8 +73,7 @@ export const TopBar: React.FC = () => {
       await navigator.clipboard.writeText(url);
       setShareFeedbackMessage('Link copied!');
     } catch (error) {
-      // eslint-disable-next-line no-console -- share-link failure telemetry
-      console.error('Failed to share canvas snapshot:', error);
+      logError('Failed to share canvas snapshot:', error);
       setShareErrorMessage('Failed to create share link. Please try again.');
     }
   }, [clearShareMessages]);
@@ -100,8 +100,7 @@ export const TopBar: React.FC = () => {
       setIsShareModalOpen(false);
       router.push(`/room/${payload.roomId}`);
     } catch (error) {
-      // eslint-disable-next-line no-console -- collaboration bootstrap failure telemetry
-      console.error('Failed to start collaboration:', error);
+      logError('Failed to start collaboration:', error);
       setShareErrorMessage('Failed to start collaboration. Please try again.');
     }
   }, [clearShareMessages, router]);

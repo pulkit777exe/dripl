@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { logError } from '@dripl/common';
 
 interface CanvasErrorBoundaryProps {
   name: string;
@@ -25,7 +26,7 @@ export class CanvasErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error) {
-    console.error(`[${this.props.name}] render error:`, error);
+    logError(`[${this.props.name}] render error:`, error);
   }
 
   render() {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { logError } from '@dripl/common';
 
 export default function DashboardError({
   error,
@@ -10,7 +11,7 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    logError(error);
   }, [error]);
 
   return (

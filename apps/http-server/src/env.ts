@@ -40,10 +40,10 @@ const envSchema = z
 function validateEnv() {
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
-    // eslint-disable-next-line no-console -- boot-time fatal diagnostics before logger init
+    // Console is correct here: this runs at module load, before the pino
+    // logger exists, and the process is about to exit.
     console.error('FATAL: Environment validation failed:');
     for (const issue of parsed.error.issues) {
-      // eslint-disable-next-line no-console -- boot-time fatal diagnostics before logger init
       console.error(`  - ${issue.path.join('.')}: ${issue.message}`);
     }
     process.exit(1);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { logError } from '@dripl/common';
 import { extractBearerToken, verifyToken } from '@dripl/utils/auth';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
@@ -393,8 +394,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     const message = serializeError(error);
-    // eslint-disable-next-line no-console -- structured server error log
-    console.error(JSON.stringify({ level: 'error', event: 'ai_generation_error', error: message }));
+    logError(JSON.stringify({ level: 'error', event: 'ai_generation_error', error: message }));
     const lowerMessage = message.toLowerCase();
 
     if (lowerMessage.includes('api key') || lowerMessage.includes('api_key')) {

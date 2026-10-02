@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { HelpCircle, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { logError } from '@dripl/common';
 import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
 import { CanvasControls } from '@/components/canvas/CanvasControls';
 import { useTheme } from '@/hooks/useTheme';
@@ -53,8 +54,7 @@ export default function CanvasFilePage({ params }: CanvasFilePageProps): React.R
         if (err.status === 404) {
           if (!cancelled) setRoomMissing(true);
         } else {
-          // eslint-disable-next-line no-console -- room load failure telemetry
-          console.error('Failed to load room', error);
+          logError('Failed to load room', error);
           if (!cancelled) setRoomMissing(true);
         }
       } finally {

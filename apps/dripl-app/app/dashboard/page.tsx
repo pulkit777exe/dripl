@@ -154,7 +154,6 @@ export default function DashboardPage(): React.ReactNode {
           page={page}
           pageSize={PAGE_SIZE}
           onPageChange={handlePageChange}
-          onCreateFile={handleCreateFile}
           onStartNewCanvas={handleCreateFile}
           onOpenLocalCanvas={handleOpenLocalCanvas}
           onDeleteFile={handleDeleteFile}

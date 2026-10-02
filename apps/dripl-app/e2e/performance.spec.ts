@@ -1,5 +1,13 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
+/**
+ * Benchmark reporting goes to the runner's stdout rather than the app logging
+ * boundary: this file is a CLI reporter, not application code.
+ */
+const writeStdout = (message: string): void => {
+  process.stdout.write(`${message}\n`);
+};
+
 type BrowserPerformanceSample = {
   type: string;
   name: string;
@@ -474,9 +482,8 @@ test.describe('canvas performance evidence', () => {
     for (const count of SCENE_SIZES) {
       await openSeededCanvas(page, count);
 
-      const report: Record<string, unknown> = { sceneElements: count };
-      // eslint-disable-next-line no-console -- benchmark stdout reporting
-      console.log(`scene=${count} elements (headless Chromium, dev build)`);
+      const result: Record<string, unknown> = { sceneElements: count };
+      writeStdout(`scene=${count} elements (headless Chromium, dev build)`);
 
       // The load phase is measured first and without clearing: these are the
       // very first static frames after a fresh scene, with an empty bitmap
@@ -489,14 +496,13 @@ test.describe('canvas performance evidence', () => {
         .filter(measure => measure.name === 'canvas:static:frame')
         .map(measure => measure.duration);
       const loadStats = await summarizeStaticFrames(page);
-      // eslint-disable-next-line no-console -- benchmark stdout reporting
-      console.log(
+      writeStdout(
         `  phase=load (cold, empty cache)\n${describeSnapshot(loadSnapshot)}\n` +
           `    cold static frames: n=${loadStatic.length} ` +
           `max=${(loadStatic.length ? Math.max(...loadStatic) : 0).toFixed(2)}ms\n` +
           describeStaticFrames(loadStats)
       );
-      report.load = loadSnapshot;
+      result.load = loadSnapshot;
 
       const box = await canvasBox(page);
       const centerX = box.x + box.width / 2;
@@ -516,9 +522,8 @@ test.describe('canvas performance evidence', () => {
         const ink = await layerInk(page);
         const invalidations = await readInvalidateCalls(page);
         const bitmapCache = await readBitmapCache(page);
-        report[phase] = { snapshot, cadence, frameStats, ink, invalidations, bitmapCache };
-        // eslint-disable-next-line no-console -- benchmark stdout reporting
-        console.log(
+        result[phase] = { snapshot, cadence, frameStats, ink, invalidations, bitmapCache };
+        writeStdout(
           `  phase=${phase}\n${describeSnapshot(snapshot)}\n` +
             `    frame cadence: frames=${cadence.frames} median=${cadence.medianDeltaMs}ms ` +
             `p95=${cadence.p95DeltaMs}ms max=${cadence.maxDeltaMs}ms ` +
@@ -560,7 +565,7 @@ test.describe('canvas performance evidence', () => {
           true
         );
         await testInfo.attach(`canvas-performance-${count}-${phase}.json`, {
-          body: JSON.stringify(report, null, 2),
+          body: JSON.stringify(result, null, 2),
           contentType: 'application/json',
         });
       }

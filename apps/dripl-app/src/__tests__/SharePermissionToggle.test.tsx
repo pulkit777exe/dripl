@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SharePermissionToggle } from '@/components/canvas/SharePermissionToggle';
 
@@ -60,7 +60,13 @@ describe('SharePermissionToggle', () => {
 
   it('marks the selected radio with a distinct visual style (aria-checked=true on the selected only)', () => {
     render(<SharePermissionToggle value="edit" onChange={() => {}} />);
-    expect(screen.getByRole('radio', { name: /view only/i })).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByRole('radio', { name: /can edit/i })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /view only/i })).toHaveAttribute(
+      'aria-checked',
+      'false'
+    );
+    expect(screen.getByRole('radio', { name: /can edit/i })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
   });
 });

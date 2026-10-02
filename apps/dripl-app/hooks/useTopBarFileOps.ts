@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useCanvasStore } from '@/lib/store';
-import { CanvasContentSchema, type DriplElement } from '@dripl/common';
+import { CanvasContentSchema, logError, type DriplElement } from '@dripl/common';
 import { downloadBlob, exportCanvas } from '@/utils/export';
 import { applyRestoredAppState, restoreAppState } from '@/lib/scene';
 import { buildRasterExportOptions, exportFileName } from '@/lib/export-options';
@@ -106,8 +106,7 @@ export function useTopBarFileOps({ onActionDone }: { onActionDone: () => void })
         });
         setFileMetadata(fileId, file.name.replace(/\.dripl$/i, ''));
       } catch (error) {
-        // eslint-disable-next-line no-console -- file-open failure telemetry
-        console.error('Failed to open .dripl file:', error);
+        logError('Failed to open .dripl file:', error);
         alert('Could not open this file. Please choose a valid .dripl file.');
       }
     };
@@ -134,8 +133,7 @@ export function useTopBarFileOps({ onActionDone }: { onActionDone: () => void })
       );
       downloadBlob(blob, exportFileName('png'));
     } catch (error) {
-      // eslint-disable-next-line no-console -- export failure telemetry
-      console.error('PNG export failed:', error);
+      logError('PNG export failed:', error);
       alert('Failed to export PNG image.');
     } finally {
       onActionDone();

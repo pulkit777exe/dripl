@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useShallow } from 'zustand/shallow';
+import { logError } from '@dripl/common';
 import { useCanvasStore } from '@/lib/store';
 import { exportCanvas, downloadBlob, importFromJson } from '@/utils/export';
 import { useModalAnimation } from '@/hooks/useModalAnimation';
@@ -120,8 +121,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       downloadBlob(blob, exportFileName(format));
       setExportSuccess(`${format.toUpperCase()} exported successfully`);
     } catch (err) {
-      // eslint-disable-next-line no-console -- export failure telemetry
-      console.error('Export failed:', err);
+      logError('Export failed:', err);
       setExportError('Export failed. Please try again.');
     } finally {
       setExporting(false);
@@ -145,8 +145,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       setExportSuccess('Copied to clipboard');
     } catch (err) {
-      // eslint-disable-next-line no-console -- clipboard export failure telemetry
-      console.error('Failed to copy to clipboard:', err);
+      logError('Failed to copy to clipboard:', err);
       setExportError('Failed to copy to clipboard. Try downloading instead.');
     } finally {
       setExporting(false);
@@ -169,8 +168,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         setElements(imported);
         setExportSuccess('Canvas imported successfully');
       } catch (err) {
-        // eslint-disable-next-line no-console -- import failure telemetry
-        console.error('Import failed:', err);
+        logError('Import failed:', err);
         setExportError('Failed to import canvas. Please check the file format.');
       }
     };

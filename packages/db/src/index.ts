@@ -47,7 +47,8 @@ async function createPrismaClient(): Promise<PrismaClient> {
   const pool = new PgModule.Pool(poolConfig);
 
   pool.on('error', err => {
-    // eslint-disable-next-line no-console -- pool errors fire outside any request/logger context
+    // Idle pool errors fire outside any request context, so there is no
+    // request-scoped logger to hand them to.
     console.error('[db] Pool error:', err);
   });
 

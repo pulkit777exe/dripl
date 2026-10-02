@@ -1,4 +1,4 @@
-import type { DriplElement } from '@dripl/common';
+import { logWarn, type DriplElement } from '@dripl/common';
 import { repairBindings } from '@dripl/common/arrow-binding';
 
 const STORAGE_KEY = 'dripl:local-canvas';
@@ -213,8 +213,7 @@ export const loadLocalCanvasFromStorage = (): {
     const payload = JSON.parse(structured) as LocalStoragePayload;
     if (!payload?.userPreferences || !payload?.elementStates) {
       localStorage.removeItem(STORAGE_KEY);
-      // eslint-disable-next-line no-console -- corrupt-payload clearing telemetry
-      console.warn('Invalid local canvas payload. Clearing stored canvas.');
+      logWarn('Invalid local canvas payload. Clearing stored canvas.');
       return { elements: null, appState: null };
     }
     const rawElements = payload.elementStates.elements ?? null;
@@ -238,8 +237,7 @@ export const loadLocalCanvasFromStorage = (): {
     } catch {
       return { elements: null, appState: null, storageUnavailable: true };
     }
-    // eslint-disable-next-line no-console -- corrupt-payload clearing telemetry
-    console.warn('Corrupt local canvas data found. Resetting local canvas.', error);
+    logWarn('Corrupt local canvas data found. Resetting local canvas.', error);
     return { elements: null, appState: null };
   }
 };

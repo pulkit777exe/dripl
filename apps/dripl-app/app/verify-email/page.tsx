@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const token = searchParams.get('token') || '';
   const { verifyEmail } = useAuth();
 

@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/store';
 import { isPointNearElement } from '@dripl/math/intersection';
-import type { DriplElement, LinearElement } from '@dripl/common';
+import { logError, type DriplElement, type LinearElement } from '@dripl/common';
 import { resizeSingleElement } from '@dripl/element/resizeElements';
 import { uploadImageToServer, loadImage } from '@/utils/tools/image';
 import { v4 as uuidv4 } from 'uuid';
@@ -247,8 +247,7 @@ export function useCanvasPointerEvents({
           makeId: uuidv4,
           onElement: addElement,
           onError: error => {
-            // eslint-disable-next-line no-console -- image upload failure telemetry
-            console.error('Failed to upload image:', error);
+            logError('Failed to upload image:', error);
           },
         }
       );
@@ -444,8 +443,7 @@ export function useCanvasPointerEvents({
                 maybeRevertToSelectTool('image');
               }
             } catch (error) {
-              // eslint-disable-next-line no-console -- image tool upload failure telemetry
-              console.error('Failed to upload image:', error);
+              logError('Failed to upload image:', error);
             }
           }
         };

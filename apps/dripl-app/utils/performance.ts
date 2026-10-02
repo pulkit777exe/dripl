@@ -64,20 +64,3 @@ export function useRenderTiming(componentName: string) {
     perfMeasure(`${componentName}:render`, start, end);
   };
 }
-
-export function reportPerf() {
-  if (!perfEnabled) return;
-  const entries = performance.getEntriesByType('measure');
-  const filtered = entries.filter(e => e.name.endsWith(':render'));
-  if (filtered.length === 0) return;
-
-  // eslint-disable-next-line no-console -- opt-in render timing diagnostics
-  console.groupCollapsed('[perf] render timings');
-
-  // eslint-disable-next-line no-console -- opt-in render timing diagnostics
-  filtered.forEach(e => console.log(`${e.name}: ${e.duration.toFixed(1)}ms`));
-
-  // eslint-disable-next-line no-console -- opt-in render timing diagnostics
-  console.groupEnd();
-  performance.clearMeasures();
-}
