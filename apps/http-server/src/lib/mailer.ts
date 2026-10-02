@@ -6,6 +6,14 @@ dotenv.config();
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+/**
+ * The transport is Gmail by design: nodemailer's `gmail` service fixes
+ * smtp.gmail.com:465 with `secure: true`. There is deliberately no
+ * `SMTP_HOST`/`SMTP_PORT` knob — those were declared in `render.yaml` and read
+ * by nothing, so pointing them at another provider was silently ignored and
+ * mail still went out through Gmail. Supporting arbitrary SMTP means adding a
+ * real `host`/`port`/`secure` branch here, not reintroducing ignored vars.
+ */
 function createTransporter() {
   return nodemailer.createTransport({
     service: 'gmail',
