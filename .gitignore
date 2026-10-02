@@ -62,3 +62,8 @@ bun.lock
 
 # Prisma 7 generated client (regenerate with `pnpm db:generate`)
 packages/db/src/generated/
+
+# Runtime image storage. The filesystem image driver defaults here
+# (apps/http-server/src/storage/filesystemImageStore.ts), so running the server
+# creates real image files inside the repo. These are user data, not source.
+apps/http-server/uploads/

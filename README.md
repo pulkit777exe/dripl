@@ -135,14 +135,29 @@ docker compose up --build
 
 ## Known Limitations
 
-- Room state, internal ticket state, and fallback rate-limit counters are
-  process-local, so neither server currently scales horizontally (`ADR-002` in
-  `AGENTS.md`).
 - Collaboration sync is versioned JSON deltas, not a CRDT. Yjs binary sync is
-  disabled and convergence is not guaranteed.
-- Images are stored on the local filesystem under `IMAGE_STORAGE_DIR`. There is
-  no object storage, CDN, or per-image capability revocation.
-- WebSocket messages are capped at 200 KB (`MAX_MESSAGE_BYTES`).
+  disabled and convergence is not guaranteed. Concurrent edits resolve by a
+  last-writer-wins freshness fence, so replicas can diverge until a resync.
+- **Room state now shards across instances, but the system as a whole does not
+  yet scale horizontally.** ws-server elects one authoritative writer per room
+  via a TTL'd Redis lease and refuses a join on a non-owner with close code
+  4010, so rooms partition cleanly (`ADR-002` in `AGENTS.md`; demonstrated by
+  `apps/ws-server/scripts/two-instance-proof.mjs`). http-server's internal
+  ticket state and its fallback rate-limit counters remain process-local, so
+  http-server still needs sticky routing or shared ticket state. The lease is
+  also not zero-data-loss across a crash, and a Redis outage fails open, which
+  re-opens divergence.
+- **Images support object storage, but only optionally.** A driver seam
+  (`apps/http-server/src/storage/`) selects between the local filesystem — the
+  default, so an unconfigured deployment is unchanged — and an S3-compatible
+  backend that also serves R2, MinIO and B2, enabled by `IMAGE_S3_BUCKET`.
+  There is still no CDN in front of either, and no per-image capability
+  revocation.
+- WebSocket messages are capped at 200 KB (`MAX_MESSAGE_BYTES`). This is a
+  deliberate protocol bound rather than an oversight: raising it multiplies
+  per-connection memory for in-flight messages and widens the untrusted-input
+  surface, and scenes larger than that are better served by several messages
+  than by one.
 - Deployment evidence is partial. The production Docker stack has been built, booted
   healthy, and exercised by the Playwright smoke suite. The `production-e2e` CI job
   repeats those checks on a GitHub runner and completed green on 2026-10-02
