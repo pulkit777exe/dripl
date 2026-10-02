@@ -51,7 +51,19 @@ WORKDIR /app/apps/dripl-app
 
 RUN chown -R node:node /app
 
+# The Next.js image-optimizer cache is derived data, but a cache entry whose
+# read blocks wedges its image URL forever: Next reads the entry with an
+# unbounded readFile and coalesces same-key requests behind a promise that is
+# never cleared, so there is no timeout and no self-heal. The cache lives in
+# this container's writable layer, so `docker restart` reads the same bad entry
+# again. Purging it at start -- in the image, so it also covers non-compose
+# deploys like `docker run` -- bounds the failure window to one container
+# lifetime. See scripts/purge-next-image-cache.sh.
+COPY --chown=node:node scripts/purge-next-image-cache.sh /usr/local/bin/dripl-app-entrypoint
+RUN chmod 0755 /usr/local/bin/dripl-app-entrypoint
+
 USER node
 
 EXPOSE 3000
+ENTRYPOINT ["/usr/local/bin/dripl-app-entrypoint"]
 CMD ["pnpm", "run", "start"]
