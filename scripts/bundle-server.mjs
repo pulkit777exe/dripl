@@ -16,9 +16,9 @@
  * via the plugin below, so the servers never load package `dist` output under
  * raw Node at all.
  *
- * Type safety comes from `turbo run check-types` (`tsc --noEmit`), which
- * runs separately. This script performs no type checking, like most
- * esbuild-based pipelines.
+ * Type safety comes from `turbo run check-types`, which runs
+ * `tsc --noEmit -p tsconfig.check.json` once per workspace. This script performs
+ * no type checking, like most esbuild-based pipelines.
  *
  * Usage (run from the server package dir, wired as its `build` script):
  *   node ../../scripts/bundle-server.mjs
@@ -42,8 +42,16 @@ const repoRoot = resolve(appDir, '..', '..');
  * A subpath may be a flat module (`src/logger.ts`) or a directory with its own
  * entry (`src/encryption/index.ts`, which is how `@dripl/utils/encryption` is
  * declared in that package's `exports`). Try the flat path first and fall back
- * to the directory index, so both shapes resolve — and so this stays in step
- * with `tsconfig.dev.json`, which maps the same specifiers for `pnpm dev`.
+ * to the directory index so both shapes resolve.
+ *
+ * That convention is the whole mechanism: this keys off the layout of
+ * `packages/<pkg>/src` rather than off any tsconfig `paths` entry, so it has no
+ * list to keep in step and cannot fall out of step with one. The flip side is
+ * that the bundler and `tsc` resolve `@dripl/*` completely independently and are
+ * free to disagree — nothing at runtime would notice. The thing that holds both
+ * to the same answer is
+ * packages/test-utils/src/__tests__/workspaceExportsPaths.test.ts, which reads
+ * the `exports` maps and the `paths` maps and fails when they diverge.
  */
 const workspacePlugin = {
   name: 'dripl-workspace-source',

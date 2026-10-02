@@ -1,27 +1,33 @@
+// Dev-server config for `pnpm dev`, which is
+// `tsx watch --tsconfig tsconfig.dev.json src/index.ts`.
+//
+// This used to be a second, hand-copied copy of the `@dripl/*` `paths` map that
+// now lives in tsconfig.check.json. Two copies of a 14-entry map that only has
+// to agree with each other is a drift hazard with no upside, so this file is now
+// a thin overlay: it extends tsconfig.check.json and overrides only what is
+// genuinely tsx's concern. `paths`, `rootDir` and the `noEmit` / `composite` /
+// `incremental` triple all come from there, which means `pnpm check-types` and
+// `pnpm dev` cannot resolve `@dripl/*` differently.
+//
+// `declaration` / `declarationMap` are inert under the inherited `noEmit: true`
+// — they are kept because they are the only emit options tsx-adjacent tooling
+// could read off this file, and turning them off here keeps that reading
+// truthful.
+//
+// Inheritance of `paths` is not assumed, it is verified: `tsc --showConfig -p
+// tsconfig.dev.json` prints the merged map, and `pnpm dev` boots from source on
+// a tree with no dist/ anywhere. Both were checked after this rewrite.
+//
+// A useful side effect: this file is now a valid `tsc` config. It used to
+// inherit `rootDir: "src"` from tsconfig.json while mapping `@dripl/*` outside
+// it, so `tsc --noEmit -p tsconfig.dev.json` emitted a wall of TS6059 and the
+// only reason nobody noticed is that tsx never type-checks. Re-rooted at the
+// repository root by tsconfig.check.json, the same command answers "does the dev
+// path type-check?" for real.
 {
-  "extends": "./tsconfig.json",
+  "extends": "./tsconfig.check.json",
   "compilerOptions": {
-    "composite": false,
-    "incremental": false,
-    "noEmit": true,
     "declaration": false,
-    "declarationMap": false,
-    "paths": {
-      "@/*": ["./src/*"],
-      "@dripl/common": ["../../packages/common/src/index.ts"],
-      "@dripl/common/constants": ["../../packages/common/src/constants.ts"],
-      "@dripl/common/schemas": ["../../packages/common/src/schemas.ts"],
-      "@dripl/common/arrow-binding": ["../../packages/common/src/arrow-binding.ts"],
-      "@dripl/common/cascade-delete": ["../../packages/common/src/cascade-delete.ts"],
-      "@dripl/common/reconciliation": ["../../packages/common/src/reconciliation.ts"],
-      "@dripl/common/types/element": ["../../packages/common/src/types/element.ts"],
-      "@dripl/common/types/user": ["../../packages/common/src/types/user.ts"],
-      "@dripl/db": ["../../packages/db/src/index.ts"],
-      "@dripl/utils": ["../../packages/utils/src/index.ts"],
-      "@dripl/utils/auth": ["../../packages/utils/src/auth.ts"],
-      "@dripl/utils/env": ["../../packages/utils/src/env.ts"],
-      "@dripl/utils/logger": ["../../packages/utils/src/logger.ts"],
-      "@dripl/utils/encryption": ["../../packages/utils/src/encryption/index.ts"]
-    }
+    "declarationMap": false
   }
 }
