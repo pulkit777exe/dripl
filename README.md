@@ -140,10 +140,10 @@ docker compose up --build
   no object storage, CDN, or per-image capability revocation.
 - WebSocket messages are capped at 200 KB (`MAX_MESSAGE_BYTES`).
 - Deployment evidence is partial. The production Docker stack has been built, booted
-  healthy, and exercised repeatedly by the Playwright smoke suite locally, and
-  `docs/codebase-audit.md` records those runs. The `production-e2e` CI job, which
-  repeats those checks on a GitHub runner, has never executed, and the live Render
-  deployment is not observable from this repository.
+  healthy, and exercised by the Playwright smoke suite. The `production-e2e` CI job
+  repeats those checks on a GitHub runner and completed green on 2026-10-02
+  (run 36995255425, commit `2eb0aaa`). The live Render deployment is not observable
+  from this repository.
 
 ## Documentation and License
 
