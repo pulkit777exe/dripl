@@ -109,10 +109,13 @@ export function DashboardSidebar() {
               />
             ) : (
               <Image
-                src="/maple.png"
+                src="/maple.webp"
                 alt="Workspace icon"
                 fill
                 sizes="32px"
+                // Pre-optimized local asset; avoids a /_next/image round-trip for
+                // the sidebar icon. `fill` needs no width/height here.
+                unoptimized
                 className="object-contain p-1"
               />
             )}

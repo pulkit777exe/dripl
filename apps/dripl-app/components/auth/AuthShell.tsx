@@ -42,10 +42,15 @@ export function AuthShell({
       {/* Left — Maple image fills entire panel */}
       <div className="relative hidden w-[52%] lg:block">
         <Image
-          src="/maple.png"
+          src="/maple.webp"
           alt=""
           fill
           sizes="52vw"
+          // Pre-optimized local asset served straight from /public. `priority`
+          // preloads it, and that preload must resolve with a plain static file
+          // read rather than a /_next/image optimizer round-trip, or this
+          // render-blocking request can stall the page `load` event.
+          unoptimized
           className="object-cover pointer-events-none"
           priority
         />

@@ -181,10 +181,14 @@ export default function LandingPage(): React.ReactNode {
           {/* Maple leaf background */}
           <div className="absolute inset-0">
             <Image
-              src="/maple.png"
+              src="/maple.webp"
               alt=""
               fill
               sizes="52vw"
+              // Pre-optimized local asset served straight from /public. Going
+              // through /_next/image would make a render-blocking request depend
+              // on the runtime optimizer, which has stalled intermittently.
+              unoptimized
               className="object-cover opacity-30 mix-blend-multiply pointer-events-none"
             />
           </div>
