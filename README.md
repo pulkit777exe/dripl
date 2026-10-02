@@ -1,301 +1,154 @@
 # Dripl
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org)
+[![Node](https://img.shields.io/badge/node-20-brightgreen.svg)](https://nodejs.org)
+[![pnpm](https://img.shields.io/badge/pnpm-10.33.0-orange.svg)](https://pnpm.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org)
 [![Prisma](https://img.shields.io/badge/Prisma-7-purple.svg)](https://prisma.io)
 
-Real-time collaborative whiteboard with hand-drawn rendering, live cursors, and shareable links.
+Real-time collaborative whiteboard with hand-drawn rendering, live cursors, and
+shareable links. Turborepo monorepo: a Next.js frontend plus separate Express and
+WebSocket servers over PostgreSQL 16. The evidence-weighted parity and security
+assessment is [`docs/codebase-audit.md`](docs/codebase-audit.md); it records both
+what is verified and what is not. Dripl is not an Excalidraw-compatible or
+production-ready clone.
 
-The current evidence-weighted parity/security assessment is maintained in
-[`docs/codebase-audit.md`](docs/codebase-audit.md). It distinguishes implemented,
-integrated, tested, runtime-verified, and production-ready behavior; this project
-is not yet an Excalidraw-compatible or production-ready replacement. The pinned
-Excalidraw v0.18.1 performance comparison and browser-measurement plan are in
-[`docs/excalidraw-performance-research.md`](docs/excalidraw-performance-research.md).
+## Requirements
 
----
+- Node.js 20 (`.nvmrc`; CI pins `node-version: 20`)
+- pnpm 10.33.0 (`packageManager` in the root `package.json`)
+- PostgreSQL 16 — `docker compose up -d postgres` provides one
 
 ## Quick Start
 
-### Prerequisites
-
-- Node.js 20+
-- pnpm 10+
-- PostgreSQL (for local development)
-
-### Installation
-
 ```bash
-# Install dependencies
 pnpm install
-
-# Generate Prisma client
-pnpm db:generate
-
-# Run development
+cp .env.example .env   # then set the required values below
+pnpm db:generate       # pnpm dev does this too
 pnpm dev
 ```
 
-Open `http://localhost:3000`
+`pnpm dev` runs `db:generate`, clears `apps/dripl-app/.next`, then starts all three
+services.
 
----
+## Services
 
-## Architecture
+| Workspace     | Runtime              | Development port     |
+| ------------- | -------------------- | -------------------- |
+| `dripl-app`   | Next.js 16, React 19 | `3000`               |
+| `http-server` | Express 5 (REST)     | `3002` (`HTTP_PORT`) |
+| `ws-server`   | `ws` (WebSocket)     | `3001` (`WS_PORT`)   |
 
-### Three-Server Setup
+## Configuration
 
-```
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│  dripl-app   │  │http-server  │  │ ws-server   │
-│  Next.js 16  │  │  Express 5   │  │    ws      │
-│  Port 3000   │  │  Port 3002   │  │ Port 3001   │
-└──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-       │  REST (cookie)  │                 │  WebSocket (short-lived ticket)
-       └─────────────────┼─────────────────┘
-                         ▼
-                  ┌──────────────┐
-                  │ PostgreSQL   │
-                  └──────────────┘
-```
+Copy `.env.example` to `.env`. Each server validates its environment with Zod at
+boot (`apps/http-server/src/env.ts`, `apps/ws-server/src/env.ts`) and exits on
+failure. `dripl-app` has no env schema: its handlers use `API_SERVER_URL`
+server-to-server and `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL` in the browser.
 
-### Tech Stack
+| Variable                                   | Required by                  | Notes                                                          |
+| ------------------------------------------ | ---------------------------- | -------------------------------------------------------------- |
+| `DATABASE_URL`                             | both servers                 | PostgreSQL connection string                                   |
+| `JWT_SECRET`                               | both servers                 | Minimum 32 characters when `NODE_ENV=production`               |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | `http-server`                | Google OAuth                                                   |
+| `HTTP_SERVER_URL`                          | `ws-server`                  | Internal http-server URL; never `localhost` inside a container |
+| `INTERNAL_SECRET`                          | both servers, in production  | Minimum 32 characters, and must differ from `JWT_SECRET`       |
+| `FRONTEND_URL` or `NEXT_PUBLIC_APP_URL`    | `http-server`, in production | Origin allowlist for CORS and share links                      |
 
-| Layer     | Technology                                    |
-| --------- | --------------------------------------------- |
-| Frontend  | Next.js 16, React 19, Tailwind CSS 4, Zustand |
-| Rendering | RoughJS, HTML5 Canvas, RBush (spatial index)  |
-| Backend   | Express 5, WebSocket (ws), Prisma 7           |
-| Database  | PostgreSQL                                    |
-| Testing   | Vitest + Supertest + Testing Library          |
+Optional: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_APP_URL`,
+`API_SERVER_URL`; `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` for
+distributed rate limiting and fan-out, with bounded process-local limiters when
+absent; `SMTP_USER` and `SMTP_PASS`, both required when mail is sent;
+`GEMINI_API_KEY`; `IMAGE_STORAGE_DIR` (default `./uploads/images`); `SENTRY_DSN`;
+`TRUST_PROXY`; `DEBUG_PRISMA`; `DB_ALLOW_INSECURE_TLS`; `DB_POOL_SIZE`; `LOG_LEVEL`.
+`SMTP_HOST` and `SMTP_PORT`, declared in `render.yaml`, are read by no code.
 
-### Shared Packages
+## Commands
 
-| Package             | Purpose                        |
-| ------------------- | ------------------------------ |
-| `@dripl/common`     | Shared types, Zod schemas      |
-| `@dripl/db`         | Prisma ORM client + migrations |
-| `@dripl/element`    | Element factory & rendering    |
-| `@dripl/math`       | Geometry & intersection utils  |
-| `@dripl/utils`      | Encryption, storage, throttle  |
-| `@dripl/test-utils` | Shared test factories          |
+| Command                                       | Purpose                                            |
+| --------------------------------------------- | -------------------------------------------------- |
+| `pnpm dev`                                    | Generate client, clear `.next`, start all services |
+| `pnpm build`                                  | `turbo run build` across all workspaces            |
+| `pnpm test` / `pnpm test:coverage`            | `turbo run test` across all workspaces             |
+| `pnpm lint` / `pnpm check-types`              | Lint and type-check via Turborepo                  |
+| `pnpm boundaries`                             | Enforce package boundaries                         |
+| `pnpm format`                                 | Prettier over `**/*.{ts,tsx,md}`                   |
+| `pnpm db:generate` / `db:migrate` / `db:push` | Prisma client, dev migrations, schema push         |
+| `pnpm benchmark:canvas`, `check:google-oauth` | Headless canvas benchmark; validate Google OAuth   |
 
-### Dependency Graph
-
-```
-dripl-app ──► @dripl/common, @dripl/db, @dripl/element, @dripl/math, @dripl/utils
-http-server ──► @dripl/common, @dripl/db, @dripl/utils
-ws-server   ──► @dripl/common, @dripl/db, @dripl/utils
-```
-
----
-
-## Features
-
-### Canvas Tools
-
-- **Shapes**: Rectangle, ellipse, diamond, arrow, line, text, frame, freedraw, eraser
-- **Editing**: Selection, resize, rotate, undo/redo (up to 100 snapshots, also byte-budget bounded)
-- **View**: Zoom (+/-), grid toggle, dark/light theme
-
-### Collaboration
-
-- **Real-time sync**: Multiple users can draw simultaneously
-- **Remote cursors**: See where others are pointing
-- **Presence**: Who's in the room
-- **Message subtypes**:
-  - `sync_room_state` — Authenticated initial scene and presence
-  - `scene-delta` — Coalesced JSON element additions, updates, and deletes
-  - `cursor-move` — Real-time cursor positions
-  - `user-join` / `user-leave` — Presence updates
-  - Reconnect queues are replayed only after the server acknowledges the room sync. Yjs binary traffic is currently disabled; JSON deltas are not a CRDT guarantee.
-
-### Sharing
-
-- **Public links**: Share a canvas via URL. File shares support owner-scoped view/edit capabilities; room capability pages are read-only previews.
-- **Permissions**: View/edit access
-- **Export**: PNG, SVG, PDF, JSON, and basic `.excalidraw` interchange
-
-### Keyboard Shortcuts
-
-| Key          | Action        |
-| ------------ | ------------- |
-| V            | Select        |
-| R            | Rectangle     |
-| E/O          | Ellipse       |
-| D            | Diamond       |
-| P            | Freehand draw |
-| L            | Line          |
-| A            | Arrow         |
-| T            | Text          |
-| F            | Frame         |
-| X            | Eraser        |
-| H            | Hand (pan)    |
-| 1–0          | Select tools  |
-| +/-          | Zoom          |
-| Ctrl+Z       | Undo          |
-| Ctrl+Shift+Z | Redo          |
-| Ctrl+Alt+G   | Toggle grid   |
-
----
-
-## Collaboration Flow
-
-```
-User A draws element
-        │
-        ▼
-broadcastElements(prev, next)
-        │
-        ▼
-send({ type: 'scene-delta', added: [...], updated: [...], deleted: [...] })
-        │
-        ▼
-ws-server receives → broadcasts to all clients (except sender)
-        │
-        ▼
-Client B receives → onRemoteElements() → updates canvas
-```
-
-**Key Components:**
-
-| Component           | File                                      | Purpose           |
-| ------------------- | ----------------------------------------- | ----------------- |
-| `useCollaboration`  | `hooks/useCollaboration.ts`               | WebSocket client  |
-| `index.ts`          | `ws-server/src/index.ts`                  | Message handling  |
-| `validation.ts`     | `ws-server/src/validation.ts`             | Schema validation |
-| `CollaboratorsList` | `components/canvas/CollaboratorsList.tsx` | User presence UI  |
-
----
-
-## Scripts
+Per workspace: `pnpm --filter <name> dev|build|start|test|lint|check-types`;
+`dripl-app` adds `test:e2e` (Playwright), both servers add `health` and build with
+esbuild (`scripts/bundle-server.mjs`), starting from `dist/index.js`. `pnpm test`
+needs no database; the PostgreSQL-backed suites are opt-in:
 
 ```bash
-pnpm dev          # Start all services
-pnpm build        # Build for production
-pnpm test         # Run all unit/component tests (DB integration is opt-in)
-# The default WS suite boots the real process with two clients (mocked DB);
-# only the real-PostgreSQL suites stay opt-in:
-RUN_WS_DB_INTEGRATION=true pnpm --filter ws-server test  # Requires migrated PostgreSQL
-RUN_DB_INTEGRATION=true pnpm --filter @dripl/db test   # Requires migrated PostgreSQL
-pnpm lint         # Lint code
-pnpm format       # Format with Prettier
-pnpm db:migrate   # Database migrations
+RUN_DB_INTEGRATION=true RUN_WS_DB_INTEGRATION=true \
+  pnpm --filter http-server --filter ws-server --filter @dripl/db test
 ```
 
----
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) covers the test matrix, the boot smoke
+against built servers, browser tests, and the pull request flow.
 
-## Development
+## Local Docker Stack
 
-### Running Individual Services
-
-```bash
-cd apps/dripl-app && pnpm dev     # Port 3000
-cd apps/http-server && pnpm dev   # Port 3002
-cd apps/ws-server && pnpm dev     # Port 3001
-```
-
-### Docker
+`docker-compose.yml` builds the three `docker/Dockerfile.*` images on the same ports
+as `pnpm dev`, next to a `postgres:16-alpine` service. Compose interpolates the four
+variables above with `${VAR:?}` and refuses to load without them.
 
 ```bash
-# Set the required secrets before starting
-export JWT_SECRET="a-long-random-secret-at-least-32-characters"
-export INTERNAL_SECRET="a-different-long-random-internal-secret"
-export GOOGLE_CLIENT_ID="your-oauth-client-id"
-export GOOGLE_CLIENT_SECRET="your-oauth-client-secret"
-
-# Apply migrations once the PostgreSQL service is healthy
+export JWT_SECRET=... INTERNAL_SECRET=... GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...
 docker compose up -d postgres
 pnpm --filter @dripl/db exec prisma migrate deploy
-
-# Build and start the three application services
 docker compose up --build
 ```
 
-Dockerfiles are located in `docker/` directory. The Compose stack uses the
-canonical ports `3000` (Next), `3001` (WebSocket), and `3002` (HTTP). The
-`GEMINI_API_KEY` and Upstash variables are optional for local startup but should
-be configured for the corresponding production features. The stack does not
-replace a managed secret store, TLS termination, or a multi-instance
-collaboration deployment.
+## Deployment
 
----
+| Target             | Services                                                   | Configuration                                              |
+| ------------------ | ---------------------------------------------------------- | ---------------------------------------------------------- |
+| Vercel             | `dripl-app`                                                | `apps/dripl-app/vercel.json`                               |
+| Render             | Both servers as Node web services, `PORT=10000`, `/health` | `render.yaml`                                              |
+| Google Cloud Run   | Both servers on 8080                                       | `docker/Dockerfile.cloudrun`, `scripts/deploy-cloudrun.sh` |
+| Any container host | All three                                                  | `docker/Dockerfile.*` with `docker-compose.yml`            |
 
-## Database
+## Features
 
-11 models: User, Team, TeamMember, Folder, File, SharedFile, CanvasRoom, CanvasRoomMember, ShareLink, PasswordResetToken, EmailVerificationToken.
-
----
-
-## Project Structure
-
-```
-dripl/
-├── CLAUDE.md                    # Root monorepo guide
-├── AGENTS.md                    # Agent configuration
-├── TODOS.md                     # Engineering roadmap
-├── Problems.md                  # Security audit report
-├── DESIGN.md                    # Visual design system
-├── PRODUCT.md                   # Product definition
-├── CONTRIBUTING.md              # Contributor guidelines
-├── apps/
-│   ├── dripl-app/       # Next.js frontend (Port 3000)
-│   ├── http-server/     # Express REST API (Port 3002)
-│   └── ws-server/      # WebSocket server (Port 3001)
-├── packages/
-│   ├── common/         # Shared types & schemas
-│   ├── db/             # Prisma schema & client
-│   ├── element/        # Element factory & rendering
-│   ├── math/           # Geometry utilities
-│   ├── utils/          # Shared utilities
-│   └── test-utils/     # Shared test factories
-├── tooling/
-│   ├── eslint-config/       # Shared ESLint rules
-│   └── typescript-config/   # Shared tsconfigs
-├── docker/             # Dockerfiles
-└── docker-compose.yml  # Local development
-```
-
----
+- **Canvas**: select, hand, rectangle, ellipse, diamond, arrow, line, freehand
+  draw, text, image, frame, eraser, laser pointer; multi-select, resize, group,
+  alignment; undo/redo bounded to 100 snapshots and a 10 MB budget; zoom and grid
+  toggles; light and dark themes. Shortcuts: `apps/dripl-app/lib/canvas/keybindings.ts`.
+- **Collaboration**: authenticated WebSocket rooms. The server sends a full
+  `sync_room_state` snapshot on join, carrying `protocolEpoch: 2`, then JSON
+  `scene-delta` messages for changes, plus cursor, presence, element-lock, viewport,
+  and follow messages. Reconnect queues replay only after the room sync is
+  acknowledged.
+- **Sharing**: Google OAuth, owner-scoped view/edit file capabilities, read-only
+  room capability pages, share links, teams, folders, snapshot history.
+- **Export**: PNG, SVG, PDF, JSON, and `.excalidraw`
+  (`apps/dripl-app/utils/export`). Optional Gemini-backed diagram generation via
+  `/api/ai/generate`.
 
 ## Known Limitations
 
-See `TODOS.md` for the full engineering roadmap. Key current limitations:
+- Room state, internal ticket state, and fallback rate-limit counters are
+  process-local, so neither server currently scales horizontally (`ADR-002` in
+  `AGENTS.md`).
+- Collaboration sync is versioned JSON deltas, not a CRDT. Yjs binary sync is
+  disabled and convergence is not guaranteed.
+- Images are stored on the local filesystem under `IMAGE_STORAGE_DIR`. There is
+  no object storage, CDN, or per-image capability revocation.
+- WebSocket messages are capped at 200 KB (`MAX_MESSAGE_BYTES`).
+- Deployment evidence is partial. The production Docker stack has been built, booted
+  healthy, and exercised repeatedly by the Playwright smoke suite locally, and
+  `docs/codebase-audit.md` records those runs. The `production-e2e` CI job, which
+  repeats those checks on a GitHub runner, has never executed, and the live Render
+  deployment is not observable from this repository.
 
-- **Single-process WebSocket server** — room state, short-lived HTTP tickets, and fallback rate-limit state are process-local; no horizontal scaling yet
-- **JSON collaboration is not CRDT convergence** — the active wire path uses versioned JSON deltas; Yjs binary sync remains disabled
-- **Image storage is local** — authenticated uploads use the configured filesystem directory and capability URLs; no object storage/CDN or image-capability revocation yet
-- **Public snapshots are process-local** — links expire and are bounded in one process, but are not durable across instances/restarts
-- **WebSocket payload bound** — the active shared message limit is 200 KB; this is a protocol/application bound, not the historical 10 MB claim
-- **Deployment evidence is incomplete** — Docker/CI configuration exists, but image builds, live PostgreSQL/Redis, browser QA, and production-scale tests are not verified here
+## Documentation and License
 
----
-
-## Troubleshooting
-
-### Build fails
-
-```bash
-pnpm db:generate
-rm -rf .turbo && pnpm build
-```
-
-### Dev server won't start
-
-```bash
-rm -rf .next
-pnpm dev
-```
-
-### Type errors
-
-```bash
-pnpm build    # Regenerates all packages
-```
-
----
-
-## License
-
-MIT
+[`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DESIGN.md`](./DESIGN.md),
+[`PRODUCT.md`](./PRODUCT.md), [`CLAUDE.md`](./CLAUDE.md),
+[`CHANGELOG.md`](./CHANGELOG.md),
+[`docs/collaboration-crdt-e2ee-decision.md`](docs/collaboration-crdt-e2ee-decision.md).
+MIT licensed; see [`LICENSE`](./LICENSE).
