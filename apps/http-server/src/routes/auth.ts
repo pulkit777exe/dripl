@@ -271,15 +271,29 @@ authRouter.post('/verify-email', async (req, res) => {
   }
 });
 
+/**
+ * Sibling of `forgotPasswordSchema`: both are unauthenticated, email-only, and
+ * non-enumerating, so both answer with the same `EMAIL_REQUIRED` contract. The
+ * length cap is the one thing this route adds on purpose -- a bare
+ * `z.string().email()` still accepts a regex-shaped local part of any length, and
+ * the point of validating here is that no hostile value reaches
+ * `AuthService.resendVerification` and nodemailer's address parser. 254 is the
+ * RFC 5321 maximum, so no real address is affected. The sibling schemas above
+ * do not yet carry this cap.
+ */
+const resendVerificationSchema = z.object({
+  email: z.string().email().max(254),
+});
+
 authRouter.post('/resend-verification', async (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    sendError(res, 400, 'EMAIL_REQUIRED', 'Email is required');
+  const parsed = resendVerificationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    sendError(res, 400, 'EMAIL_REQUIRED', 'Valid email is required');
     return;
   }
 
   try {
-    const result = await AuthService.resendVerification(email);
+    const result = await AuthService.resendVerification(parsed.data.email);
     if (!result) {
       sendError(res, 400, 'INVALID_PAYLOAD', 'Email is already verified');
       return;

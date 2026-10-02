@@ -158,6 +158,7 @@ export function createApp(): Application {
   app.use('/api/auth/change-password', validateCsrfToken);
   app.use('/api/auth/logout', validateCsrfToken);
   app.use('/api/auth/ws-ticket', validateCsrfToken);
+  app.use('/api/auth/resend-verification', validateCsrfToken);
 
   app.use('/api/auth/login', authRateLimitMiddleware);
   app.use('/api/auth/forgot-password', authRateLimitMiddleware);
