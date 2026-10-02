@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@dripl/common": ["../../packages/common/src/index.ts"],
+      "@dripl/common/constants": ["../../packages/common/src/constants.ts"],
+      "@dripl/common/schemas": ["../../packages/common/src/schemas.ts"],
+      "@dripl/common/arrow-binding": ["../../packages/common/src/arrow-binding.ts"],
+      "@dripl/common/cascade-delete": ["../../packages/common/src/cascade-delete.ts"],
+      "@dripl/common/reconciliation": ["../../packages/common/src/reconciliation.ts"],
+      "@dripl/common/types/element": ["../../packages/common/src/types/element.ts"],
+      "@dripl/common/types/user": ["../../packages/common/src/types/user.ts"],
+      "@dripl/db": ["../../packages/db/src/index.ts"],
+      "@dripl/utils": ["../../packages/utils/src/index.ts"],
+      "@dripl/utils/auth": ["../../packages/utils/src/auth.ts"],
+      "@dripl/utils/env": ["../../packages/utils/src/env.ts"],
+      "@dripl/utils/logger": ["../../packages/utils/src/logger.ts"],
+      "@dripl/utils/encryption": ["../../packages/utils/src/encryption/index.ts"]
+    }
+  }
+}

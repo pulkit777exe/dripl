@@ -23,7 +23,7 @@
  * Usage (run from the server package dir, wired as its `build` script):
  *   node ../../scripts/bundle-server.mjs
  */
-import { rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 
@@ -36,14 +36,29 @@ const entryPoint = resolve(appDir, 'src/index.ts');
 const outfile = resolve(appDir, 'dist/index.js');
 const repoRoot = resolve(appDir, '..', '..');
 
-/** Resolve `@dripl/<pkg>[/<subpath>]` to workspace source, not `dist`. */
+/**
+ * Resolve `@dripl/<pkg>[/<subpath>]` to workspace source, not `dist`.
+ *
+ * A subpath may be a flat module (`src/logger.ts`) or a directory with its own
+ * entry (`src/encryption/index.ts`, which is how `@dripl/utils/encryption` is
+ * declared in that package's `exports`). Try the flat path first and fall back
+ * to the directory index, so both shapes resolve — and so this stays in step
+ * with `tsconfig.dev.json`, which maps the same specifiers for `pnpm dev`.
+ */
 const workspacePlugin = {
   name: 'dripl-workspace-source',
   setup(build) {
     build.onResolve({ filter: /^@dripl\// }, args => {
       const [, pkg, ...rest] = args.path.split('/');
       const subpath = rest.length > 0 ? rest.join('/') : 'index';
-      return { path: resolve(repoRoot, 'packages', pkg, 'src', `${subpath}.ts`) };
+      const base = resolve(repoRoot, 'packages', pkg, 'src', subpath);
+      const flat = `${base}.ts`;
+      if (existsSync(flat)) return { path: flat };
+      const index = resolve(base, 'index.ts');
+      if (existsSync(index)) return { path: index };
+      // Neither shape exists. Hand the flat path to esbuild so the failure
+      // names the specifier the caller actually wrote.
+      return { path: flat };
     });
   },
 };

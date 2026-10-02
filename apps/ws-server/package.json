@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node ../../scripts/bundle-server.mjs",
     "start": "node dist/index.js",
-    "dev": "dotenv -e ../../.env -- tsx src/index.ts",
+    "dev": "node ../../scripts/ensure-prisma-client.mjs && dotenv -e ../../.env -- tsx --tsconfig tsconfig.dev.json src/index.ts",
     "lint": "eslint .",
     "test": "vitest run",
     "check-types": "tsc --noEmit",
