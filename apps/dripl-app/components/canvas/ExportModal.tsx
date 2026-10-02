@@ -165,8 +165,16 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           'Replace current canvas?\nPress Cancel to merge imported elements.'
         );
         const imported = importFromJson(raw, elements, replace ? 'replace' : 'merge');
-        setElements(imported);
-        setExportSuccess('Canvas imported successfully');
+        setElements(imported.elements);
+        // A merge keeps the user's existing canvas, so a partially-readable
+        // file is worth loading — but only if we say what went missing.
+        // Reporting a clean success while elements were discarded would tell
+        // the user their file loaded when it did not.
+        setExportSuccess(
+          imported.dropped > 0
+            ? `Canvas imported, but ${imported.dropped} element(s) in the file could not be read and were skipped.`
+            : 'Canvas imported successfully'
+        );
       } catch (err) {
         logError('Import failed:', err);
         setExportError('Failed to import canvas. Please check the file format.');

@@ -6,6 +6,8 @@ import {
   exportToDripl,
   exportToSvg,
   importFromJson,
+  parseDriplDocument,
+  MAX_IMPORT_ELEMENTS,
 } from '@/utils/export';
 
 const rectangle = (id: string) => ({
@@ -285,13 +287,13 @@ describe('scene import/export', () => {
       'merge'
     );
 
-    expect(imported).toHaveLength(3);
-    const shapeId = imported[0]?.id;
-    const labelId = imported[1]?.id;
-    const arrow = imported[2];
+    expect(imported.elements).toHaveLength(3);
+    const shapeId = imported.elements[0]?.id;
+    const labelId = imported.elements[1]?.id;
+    const arrow = imported.elements[2];
     expect(shapeId).not.toBe('shape-1');
     expect(labelId).not.toBe('label-1');
-    expect(imported[1]?.containerId).toBe(shapeId);
+    expect(imported.elements[1]?.containerId).toBe(shapeId);
     expect(arrow?.type).toBe('arrow');
     if (arrow?.type === 'arrow') {
       expect(arrow.startBinding?.elementId).toBe(shapeId);
@@ -353,5 +355,97 @@ describe('scene import/export', () => {
     expect(() =>
       importFromJson(JSON.stringify({ elements: [{ id: 'bad', type: 'unsupported' }] }), [])
     ).toThrow(/no valid elements/i);
+  });
+  describe('one reader for .dripl, so the open path and the import path agree', () => {
+    // A file with one readable element and one the schema rejects. This is
+    // the case that used to diverge: the open path refused it outright while
+    // the import path loaded the readable half and reported success.
+    const PARTIAL_FILE = JSON.stringify({
+      version: 1,
+      type: 'dripl-scene',
+      elements: [rectangle('good-1'), { id: 'bad-1', type: 'not-a-real-type' }],
+    });
+
+    it('flags a partly-readable file instead of reporting it whole', () => {
+      const document = parseDriplDocument(PARTIAL_FILE);
+      expect(document.partial).toBe(true);
+      expect(document.dropped).toBe(1);
+      expect(document.elements.map(element => element.id)).toEqual(['good-1']);
+    });
+
+    it('rejects a partly-readable file on replace, rather than half-loading it', () => {
+      // Replacing means discarding the current scene in exchange for this
+      // file. Silently producing a subset of what the user chose to load is
+      // the one outcome that must not happen.
+      expect(() => importFromJson(PARTIAL_FILE, [], 'replace')).toThrow(/not a complete/i);
+    });
+
+    it('still merges a partly-readable file, but reports what it dropped', () => {
+      // Merging keeps the user's own scene, so a partial load is useful —
+      // provided the user is told, rather than shown a clean success.
+      const result = importFromJson(PARTIAL_FILE, [], 'merge');
+      expect(result.elements).toHaveLength(1);
+      expect(result.partial).toBe(true);
+      expect(result.dropped).toBe(1);
+    });
+
+    it('does not call a file over the element cap "partial"', () => {
+      // Exceeding the documented cap is a limit, not corruption, and counting
+      // it as a drop would report damage that did not happen.
+      const oversized = JSON.stringify({
+        version: 1,
+        type: 'dripl-scene',
+        elements: Array.from({ length: MAX_IMPORT_ELEMENTS + 5 }, (_, i) =>
+          rectangle(`shape-${i}`)
+        ),
+      });
+      const document = parseDriplDocument(oversized);
+      expect(document.partial).toBe(false);
+      expect(document.dropped).toBe(5);
+    });
+
+    it('treats an under-specified arrow binding as a partial read', () => {
+      // The realistic version of this bug. `DriplElementSchema` requires
+      // `mode` on a binding, but normalisation defaults it when it is absent.
+      // Before one reader existed, that made a file written by an older or
+      // other build refuse to open while importing "successfully" — the same
+      // bytes, two verdicts.
+      const missingBindingMode = JSON.stringify([
+        rectangle('shape-1'),
+        {
+          id: 'arrow-1',
+          type: 'arrow',
+          x: 110,
+          y: 50,
+          width: 80,
+          height: 0,
+          points: [
+            { x: 0, y: 0 },
+            { x: 80, y: 0 },
+          ],
+          startBinding: { elementId: 'shape-1', fixedPoint: { x: 0, y: 0 } },
+        },
+      ]);
+
+      // Repaired, not lost: normalisation supplies the missing `mode`, so
+      // every element survives. `partial` and `dropped` are deliberately
+      // separate signals — a file can need repair while losing nothing, and a
+      // merge only has something to report to the user in the latter case.
+      const repaired = parseDriplDocument(missingBindingMode);
+      expect(repaired.partial).toBe(true);
+      expect(repaired.dropped).toBe(0);
+      expect(repaired.elements).toHaveLength(2);
+
+      // Still refused on replace: these bytes are not what Dripl writes, so
+      // opening them would hand the user a scene Dripl never authored.
+      expect(() => importFromJson(missingBindingMode, [], 'replace')).toThrow(/not a complete/i);
+      expect(importFromJson(missingBindingMode, [], 'merge').elements).toHaveLength(2);
+    });
+
+    it('refuses a file that is not a document at all', () => {
+      expect(() => parseDriplDocument(JSON.stringify({ nope: true }))).toThrow(
+        /invalid \.dripl file format/i
+      );
+    });
   });
 });

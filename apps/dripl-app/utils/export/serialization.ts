@@ -1,11 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
-import { MAX_SCENE_ELEMENTS, type DriplElement } from '@dripl/common';
+import type { DriplElement } from '@dripl/common';
 import { exportToPng } from './raster';
 import { exportToSvg } from './vector';
-import { exportToDripl } from './native';
-import { isJsonRecord, normalizeImportedElement, remapElementReferences } from './normalize';
+import { exportToDripl, parseDriplDocument, MAX_IMPORT_ELEMENTS } from './native';
+import { remapElementReferences } from './normalize';
 
-export const MAX_IMPORT_ELEMENTS = MAX_SCENE_ELEMENTS;
+// Re-exported from `./native` because the cap is a property of the document
+// format, and the parser that enforces it lives beside the writer.
+export { MAX_IMPORT_ELEMENTS };
 
 export function exportToJson(elements: DriplElement[]): Blob {
   return new Blob([JSON.stringify(elements, null, 2)], {
@@ -37,39 +39,44 @@ export function exportCanvas(
   return exportToJson(elements);
 }
 
+/** What an import produced, and what it could not. */
+export interface ImportResult {
+  /** The scene to load: the current elements merged, or the file's own. */
+  elements: DriplElement[];
+  /** Source elements that could not be used at all. */
+  dropped: number;
+  /** True when the file needed recovery to be understood. */
+  partial: boolean;
+}
+
+/**
+ * Merge an imported document into the current scene.
+ *
+ * `partial` and `dropped` are returned rather than swallowed: a caller that
+ * reports a successful import while elements were silently discarded tells
+ * the user their file loaded when it did not. The caller decides whether a
+ * partial load is acceptable — it is, when the user kept their existing scene
+ * and merged into it, and it is not, when they asked to replace it.
+ */
 export function importFromJson(
   raw: string,
   currentElements: DriplElement[],
   mode: 'merge' | 'replace' = 'merge'
-): DriplElement[] {
-  if (raw.length > 5_000_000) throw new Error('Scene file is too large');
-  const parsed = JSON.parse(raw) as unknown;
-  const sourceElements = Array.isArray(parsed)
-    ? parsed
-    : isJsonRecord(parsed) && Array.isArray(parsed.elements)
-      ? parsed.elements
-      : [];
-  const files = isJsonRecord(parsed) && isJsonRecord(parsed.files) ? parsed.files : {};
-  const seenImportIds = new Set<string>();
-  const normalized = sourceElements
-    .slice(0, MAX_IMPORT_ELEMENTS)
-    .map(element => normalizeImportedElement(element, files))
-    .filter((element): element is DriplElement => {
-      if (!element || seenImportIds.has(element.id)) return false;
-      seenImportIds.add(element.id);
-      return true;
-    });
-
-  if (normalized.length === 0) {
-    throw new Error('No valid elements found in the selected file');
-  }
+): ImportResult {
+  const document = parseDriplDocument(raw);
 
   if (mode === 'replace') {
-    return normalized;
+    if (document.partial) {
+      throw new Error(
+        `This file is not a complete Dripl scene: ${document.dropped} of its elements could not be read. ` +
+          'Import it as a merge to keep the parts that are readable.'
+      );
+    }
+    return { elements: document.elements, dropped: document.dropped, partial: false };
   }
 
   const ids = new Map<string, string>();
-  const merged = normalized.map(element => {
+  const merged = document.elements.map(element => {
     const id = uuidv4();
     ids.set(element.id, id);
     return remapElementReferences({ ...element, id, updated: Date.now() }, ids);
@@ -81,5 +88,9 @@ export function importFromJson(
   if (currentElements.length + fullyRemapped.length > MAX_IMPORT_ELEMENTS) {
     throw new Error('Merged scene would exceed the supported element limit');
   }
-  return [...currentElements, ...fullyRemapped];
+  return {
+    elements: [...currentElements, ...fullyRemapped],
+    dropped: document.dropped,
+    partial: document.partial,
+  };
 }

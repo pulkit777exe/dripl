@@ -14,9 +14,13 @@ export { exportToPng, generateThumbnail } from './raster';
 export {
   DRIPL_SCENE_TYPE,
   DRIPL_SCENE_VERSION,
+  MAX_IMPORT_ELEMENTS,
+  MAX_IMPORT_BYTES,
   buildDriplSceneDocument,
   exportToDripl,
+  parseDriplDocument,
   type DriplSceneDocument,
+  type ParsedDriplDocument,
 } from './native';
-export { MAX_IMPORT_ELEMENTS, exportToJson, exportCanvas, importFromJson } from './serialization';
+export { exportToJson, exportCanvas, importFromJson, type ImportResult } from './serialization';
 export { downloadBlob } from '../canvas-helpers';

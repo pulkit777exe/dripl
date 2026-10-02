@@ -2,8 +2,8 @@
 
 import { useCallback } from 'react';
 import { useCanvasStore } from '@/lib/store';
-import { CanvasContentSchema, logError, type DriplElement } from '@dripl/common';
-import { downloadBlob, exportCanvas, exportToDripl } from '@/utils/export';
+import { logError } from '@dripl/common';
+import { downloadBlob, exportCanvas, exportToDripl, parseDriplDocument } from '@/utils/export';
 import { applyRestoredAppState, restoreAppState } from '@/lib/scene';
 import { buildRasterExportOptions, exportFileName } from '@/lib/export-options';
 
@@ -73,23 +73,20 @@ export function useTopBarFileOps({ onActionDone }: { onActionDone: () => void })
       if (!file) return;
       try {
         const raw = await file.text();
-        const parsed = JSON.parse(raw) as unknown;
-
-        let importedElements: DriplElement[] = [];
-        let importedAppState: unknown;
-        if (Array.isArray(parsed)) {
-          importedElements = CanvasContentSchema.parse(parsed) as DriplElement[];
-        } else if (parsed && typeof parsed === 'object' && 'elements' in parsed) {
-          const scene = parsed as { elements?: unknown; appState?: unknown };
-          importedElements = CanvasContentSchema.parse(scene.elements ?? []) as DriplElement[];
-          importedAppState = scene.appState;
-        } else {
-          throw new Error('Invalid .dripl file format');
+        const document = parseDriplDocument(raw);
+        // Opening replaces the canvas wholesale, so a file we could only
+        // partly understand must not be loaded as if it were whole. The
+        // modal's merge path is the one allowed to salvage, and it reports it.
+        if (document.partial) {
+          throw new Error(
+            `${document.dropped} element(s) in this file could not be read; ` +
+              'refusing to replace the canvas with a partial scene'
+          );
         }
 
-        setElements(importedElements);
+        setElements(document.elements);
         setSelectedIds(new Set<string>());
-        applyRestoredAppState(restoreAppState(importedAppState), {
+        applyRestoredAppState(restoreAppState(document.appState), {
           setZoom,
           setPan,
           setGridEnabled,

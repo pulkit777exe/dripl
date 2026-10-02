@@ -34,7 +34,7 @@ const faqs = [
   },
   {
     q: 'How do I export my work?',
-    a: 'Export as PNG, SVG, or JSON whenever you need artifacts outside Dripl.',
+    a: 'Export as PNG, SVG, or PDF for artifacts outside Dripl, or as .dripl for a scene file you can reopen here.',
   },
 ];
 
@@ -62,7 +62,7 @@ const features = [
   },
   {
     icon: Download,
-    title: 'PNG, SVG & JSON export',
+    title: 'PNG, SVG, PDF & .dripl export',
     desc: 'Export into the format your workflow needs.',
   },
   {
