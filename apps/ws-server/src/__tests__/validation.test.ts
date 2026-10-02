@@ -9,6 +9,7 @@ import {
   cursorMoveKebabSchema,
   elementUpdateSchema,
   sceneUpdateSchema,
+  sceneDeltaSchema,
   messageSchema,
 } from '../validation';
 
@@ -359,6 +360,28 @@ describe('sceneUpdateSchema', () => {
       elements,
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe('sceneDeltaSchema (single hot-path gate)', () => {
+  it('accepts a valid delta', () => {
+    const result = sceneDeltaSchema.safeParse({
+      type: 'scene-delta',
+      added: [validRectangle],
+      deleted: ['elem-9'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a delta containing a malformed element wholesale', () => {
+    // Socket handlers apply validated elements without re-parsing (see
+    // acceptValidated), so the gate must reject — never sanitize — a bad
+    // element. A passing message is proof every element inside is valid.
+    const result = sceneDeltaSchema.safeParse({
+      type: 'scene-delta',
+      added: [validRectangle, { ...validRectangle, id: 'bad', width: -5 }],
+    });
+    expect(result.success).toBe(false);
   });
 });
 

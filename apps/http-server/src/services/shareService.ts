@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { db } from '@dripl/db';
 import { parseStoredFileContent } from '../lib/encrypt';
+import { isValidSceneContent } from '../lib/sceneValidation';
 
 export interface ResolveShareResult {
   file: {
@@ -17,9 +18,7 @@ export interface ResolveShareResult {
 export type SharePermission = 'view' | 'edit';
 
 export type UpsertShareResult =
-  | { kind: 'ok'; token: string | null }
-  | { kind: 'not_found' }
-  | { kind: 'forbidden' };
+  { kind: 'ok'; token: string | null } | { kind: 'not_found' } | { kind: 'forbidden' };
 
 const TOKEN_BYTES = 24;
 
@@ -41,16 +40,17 @@ export class ShareService {
       },
     });
 
-    if (!file) return null;
+    if (!file || !file.sharePermission) return null;
 
     const expired = Boolean(file.shareExpiresAt && file.shareExpiresAt.getTime() < Date.now());
     const parsed = parseStoredFileContent(file.content);
+    const elements = isValidSceneContent(parsed.elements) ? parsed.elements : [];
 
     return {
       file: { id: file.id, name: file.name, updatedAt: file.updatedAt },
-      permission: file.sharePermission ?? 'view',
+      permission: file.sharePermission,
       encryptedPayload: parsed.encryptedPayload,
-      elements: parsed.encryptedPayload ? null : parsed.elements,
+      elements: parsed.encryptedPayload ? null : elements,
       expired,
     };
   }
@@ -69,7 +69,14 @@ export class ShareService {
   ): Promise<UpsertShareResult> {
     const file = await db.file.findFirst({
       where: { id: fileId },
-      select: { id: true, userId: true, shareToken: true, sharePermission: true },
+      select: {
+        id: true,
+        userId: true,
+        shareToken: true,
+        sharePermission: true,
+        shareExpiresAt: true,
+        updatedAt: true,
+      },
     });
 
     if (!file) return { kind: 'not_found' };
@@ -77,25 +84,31 @@ export class ShareService {
 
     // Revoke: explicit null clears the share state.
     if (permission === null) {
-      await db.file.update({
-        where: { id: fileId },
-        data: { shareToken: null, sharePermission: null },
+      const revoked = await db.file.updateMany({
+        where: { id: fileId, userId, updatedAt: file.updatedAt },
+        data: { shareToken: null, sharePermission: null, shareExpiresAt: null },
       });
+      if (revoked.count === 0) return { kind: 'not_found' };
       return { kind: 'ok', token: null };
     }
 
     // Idempotent: if the existing token + permission already match,
     // don't rotate the token (would invalidate live shared links).
-    if (file.shareToken && file.sharePermission === permission) {
+    if (
+      file.shareToken &&
+      file.sharePermission === permission &&
+      (!file.shareExpiresAt || file.shareExpiresAt.getTime() > Date.now())
+    ) {
       return { kind: 'ok', token: file.shareToken };
     }
 
     // New or permission changed: rotate.
     const token = generateToken();
-    await db.file.update({
-      where: { id: fileId },
-      data: { shareToken: token, sharePermission: permission },
+    const updated = await db.file.updateMany({
+      where: { id: fileId, userId, updatedAt: file.updatedAt },
+      data: { shareToken: token, sharePermission: permission, shareExpiresAt: null },
     });
+    if (updated.count === 0) return { kind: 'not_found' };
     return { kind: 'ok', token };
   }
 }

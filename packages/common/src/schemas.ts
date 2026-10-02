@@ -85,6 +85,8 @@ export const BaseElementSchema = z.object({
   labelId: z.string().max(100).optional(),
   containerId: z.string().max(100).optional(),
   boundElementId: z.string().max(100).optional(),
+  /** Hyperlink attached to the element (validated as safe http(s) at the UI/export layers). */
+  link: z.string().max(2000).optional(),
   boundElements: z
     .array(
       z.object({

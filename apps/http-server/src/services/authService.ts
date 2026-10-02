@@ -9,6 +9,19 @@ const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 1000 * 60 * 15; // 15 minutes
 
 const loginAttempts = new Map<string, { attempts: number; lockedUntil: number }>();
+const MAX_LOGIN_ATTEMPT_ENTRIES = 10_000;
+
+function pruneLoginAttempts(): void {
+  const now = Date.now();
+  for (const [email, record] of loginAttempts) {
+    if (record.lockedUntil <= now && record.attempts === 0) loginAttempts.delete(email);
+  }
+  while (loginAttempts.size >= MAX_LOGIN_ATTEMPT_ENTRIES) {
+    const oldest = loginAttempts.keys().next().value;
+    if (oldest === undefined) break;
+    loginAttempts.delete(oldest);
+  }
+}
 
 export interface RegisterResult {
   type: 'email_already_registered' | 'pending_verification' | 'verification_sent' | 'registered';
@@ -37,7 +50,10 @@ export class AuthService {
       });
 
       if (existingToken && existingToken.expiresAt > new Date()) {
-        return { type: 'pending_verification', message: 'Verification email already sent. Please check your inbox.' };
+        return {
+          type: 'pending_verification',
+          message: 'Verification email already sent. Please check your inbox.',
+        };
       }
 
       await db.emailVerificationToken.deleteMany({ where: { email } });
@@ -49,7 +65,10 @@ export class AuthService {
       });
 
       await sendVerificationEmail(email, verifyToken);
-      return { type: 'verification_sent', message: 'Verification email sent. Please check your inbox.' };
+      return {
+        type: 'verification_sent',
+        message: 'Verification email sent. Please check your inbox.',
+      };
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -77,6 +96,7 @@ export class AuthService {
   }
 
   static async login(email: string, password: string): Promise<LoginResult> {
+    pruneLoginAttempts();
     const record = loginAttempts.get(email);
     if (record && record.lockedUntil > Date.now()) {
       return { type: 'account_locked' };
@@ -233,7 +253,11 @@ export class AuthService {
     });
   }
 
-  static async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
+  static async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<boolean> {
     const user = await db.user.findUnique({ where: { id: userId } });
 
     if (!user || !user.password) return false;

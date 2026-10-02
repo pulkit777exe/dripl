@@ -1,16 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  generateKey,
-  keyToBase64,
-  base64ToKey,
-  encrypt,
-  decrypt,
-} from './encryption/crypto';
-import {
-  appendKeyToUrl,
-  extractKeyFromUrl,
-  createEncryptedRoomUrl,
-} from './encryption/url';
+import { generateKey, keyToBase64, base64ToKey, encrypt, decrypt } from './encryption/crypto';
+import { appendKeyToUrl, extractKeyFromUrl, createEncryptedRoomUrl } from './encryption/url';
 
 // ===== crypto.ts =====
 
@@ -105,7 +95,13 @@ describe('encrypt / decrypt', () => {
     const key = await generateKey();
     const original = 'secret';
     const encrypted = await encrypt(original, key);
-    encrypted.data = encrypted.data.slice(0, -1) + 'X';
+    // Change a ciphertext byte, not only base64 padding bits. Some final
+    // base64 characters can decode to the same bytes while changing unused
+    // padding bits, which is not ciphertext tampering at the crypto layer.
+    const midpoint = Math.floor(encrypted.data.length / 2);
+    const replacement = encrypted.data[midpoint] === 'A' ? 'B' : 'A';
+    encrypted.data =
+      encrypted.data.slice(0, midpoint) + replacement + encrypted.data.slice(midpoint + 1);
     await expect(decrypt(encrypted, key)).rejects.toThrow();
   });
 

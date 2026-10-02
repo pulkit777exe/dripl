@@ -4,11 +4,11 @@ import cors from 'cors';
 import express, { type Application, type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import * as Sentry from '@sentry/node';
-import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
 import { validateCsrfToken, generateCsrfToken } from './middlewares/csrfMiddleware';
 import { authMiddleware } from './middlewares/authMiddleware';
 import { sendError } from './lib/response';
+import { logger } from './logger';
+import { createRateLimiter } from './lib/rateLimiter';
 import { authRouter, createInternalRouter } from './routes/auth';
 import { filesRouter } from './routes/files';
 import { foldersRouter } from './routes/folders';
@@ -23,27 +23,36 @@ if (process.env.SENTRY_DSN) {
   });
 }
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
-
-export const generalRateLimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(250, '15 m'),
+export const generalRateLimit = createRateLimiter({
+  limit: 250,
+  windowMs: 15 * 60 * 1000,
   prefix: 'dripl:http:general',
 });
 
-const authRateLimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, '15 m'),
+const authRateLimit = createRateLimiter({
+  limit: 10,
+  windowMs: 15 * 60 * 1000,
   prefix: 'dripl:http:auth',
 });
 
-export async function rateLimitMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const identifier = (req as Request & { session?: { userId?: string } }).session?.userId ?? req.ip ?? 'anonymous';
-  const { success, remaining } = await generalRateLimit.limit(identifier);
+function setRetryAfter(res: Response, resetAt: number): void {
+  res.setHeader('Retry-After', String(Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))));
+}
+
+export async function rateLimitMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  if (req.path === '/health' || req.path === '/metrics') {
+    next();
+    return;
+  }
+  const identifier =
+    (req as Request & { session?: { userId?: string } }).session?.userId ?? req.ip ?? 'anonymous';
+  const { success, remaining, resetAt } = await generalRateLimit.limit(identifier);
   if (!success) {
+    setRetryAfter(res, resetAt);
     sendError(res, 429, 'RATE_LIMITED', 'Rate limit exceeded');
     return;
   }
@@ -51,10 +60,15 @@ export async function rateLimitMiddleware(req: Request, res: Response, next: Nex
   next();
 }
 
-export async function authRateLimitMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function authRateLimitMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   const identifier = req.ip ?? 'anonymous';
-  const { success } = await authRateLimit.limit(identifier);
+  const { success, resetAt } = await authRateLimit.limit(identifier);
   if (!success) {
+    setRetryAfter(res, resetAt);
     sendError(res, 429, 'RATE_LIMITED', 'Too many attempts, please try again later.');
     return;
   }
@@ -79,17 +93,27 @@ export function createApp(): Application {
     }
   });
 
-  app.set('trust proxy', 1);
+  app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
   app.use(helmet());
   app.use(compression());
   app.use(rateLimitMiddleware);
 
-  const allowedOrigins = [
-    process.env.FRONTEND_URL,
-    process.env.NEXT_PUBLIC_APP_URL,
-  ].filter(Boolean) as string[];
+  const normalizeOrigin = (value: string | undefined): string | null => {
+    if (!value) return null;
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+      return parsed.origin;
+    } catch {
+      return null;
+    }
+  };
+  const allowedOrigins = [process.env.FRONTEND_URL, process.env.NEXT_PUBLIC_APP_URL]
+    .flatMap(value => value?.split(',') ?? [])
+    .map(normalizeOrigin)
+    .filter((value): value is string => value !== null);
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && !allowedOrigins.includes('http://localhost:3000')) {
     allowedOrigins.push('http://localhost:3000');
   }
 
@@ -105,7 +129,7 @@ export function createApp(): Application {
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
-    }),
+    })
   );
   app.use(express.json({ limit: '5mb' }));
   app.use(express.urlencoded({ extended: true, limit: '5mb' }));
@@ -133,6 +157,7 @@ export function createApp(): Application {
   app.use('/api/auth/reset-password', validateCsrfToken);
   app.use('/api/auth/change-password', validateCsrfToken);
   app.use('/api/auth/logout', validateCsrfToken);
+  app.use('/api/auth/ws-ticket', validateCsrfToken);
 
   app.use('/api/auth/login', authRateLimitMiddleware);
   app.use('/api/auth/forgot-password', authRateLimitMiddleware);
@@ -143,21 +168,20 @@ export function createApp(): Application {
   app.use('/api/share', validateCsrfToken, shareRouter);
   app.use('/api/files', validateCsrfToken, authMiddleware, filesRouter);
   app.use('/api/folders', validateCsrfToken, authMiddleware, foldersRouter);
-  app.use('/api/rooms', validateCsrfToken, authMiddleware, roomRoutes);
-  app.use('/api/images', validateCsrfToken, authMiddleware, imagesRouter);
+  // roomRoutes exposes the capability-link GET before its internal auth guard.
+  app.use('/api/rooms', validateCsrfToken, roomRoutes);
+  // Image uploads require auth at the route; downloads are capability-URL
+  // based so shared canvases can render their unguessable image assets.
+  app.use('/api/images', validateCsrfToken, imagesRouter);
 
   app.use('/internal', createInternalRouter());
 
   Sentry.setupExpressErrorHandler(app);
 
   app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'http_server_error',
-        error: error.message,
-        stack: error.stack,
-      }),
+    logger.error(
+      { event: 'http_server_error', error: error.message, stack: error.stack },
+      'Unhandled HTTP server error'
     );
     sendError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
   });

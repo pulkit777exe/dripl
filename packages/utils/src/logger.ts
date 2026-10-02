@@ -1,6 +1,15 @@
 import pino from 'pino';
 
-export function createLogger(service: string) {
+export interface StructuredLogger {
+  trace(...args: unknown[]): void;
+  debug(...args: unknown[]): void;
+  info(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+  error(...args: unknown[]): void;
+  fatal(...args: unknown[]): void;
+}
+
+export function createLogger(service: string): StructuredLogger {
   const opts: pino.LoggerOptions = {
     level: process.env.LOG_LEVEL ?? 'info',
     base: {
@@ -18,5 +27,5 @@ export function createLogger(service: string) {
     opts.transport = { target: 'pino-pretty', options: { colorize: true } };
   }
 
-  return pino(opts);
+  return pino(opts) as StructuredLogger;
 }

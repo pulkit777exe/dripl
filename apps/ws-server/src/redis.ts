@@ -1,9 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import { Redis } from '@upstash/redis';
-import { logger } from './logger.js';
+import { logger } from './logger';
 
 let redis: Redis | null = null;
 
-const INSTANCE_ID = Math.random().toString(36).slice(2, 10);
+const INSTANCE_ID = randomUUID();
 const roomHandlers = new Map<string, (message: unknown) => void>();
 let initialized = false;
 
@@ -42,6 +43,7 @@ function initSubscription(): void {
     });
     logger.info({ event: 'redis_pattern_subscribed', pattern: 'dripl:room:*' });
   } catch (err) {
+    initialized = false;
     logger.error({
       event: 'redis_subscribe_failed',
       error: err instanceof Error ? err.message : String(err),

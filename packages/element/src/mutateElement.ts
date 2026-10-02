@@ -49,13 +49,18 @@ export interface ElementUpdate {
 function valuesEqual(a: unknown, b: unknown, key: string): boolean {
   if (a === b) return true;
 
-  // For specific object keys, do shallow comparison
+  // For point arrays, compare the public `{ x, y }` fields. The previous
+  // implementation indexed each point as if it were a tuple (`[x, y]`),
+  // which made every point-to-point comparison compare `undefined` to
+  // `undefined` and incorrectly treated changed paths as no-ops.
   if (key === 'points' && Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) {
-      const aPoint = a[i] as [number, number];
-      const bPoint = b[i] as [number, number];
-      if (aPoint[0] !== bPoint[0] || aPoint[1] !== bPoint[1]) return false;
+      const aPoint = a[i] as { x?: unknown; y?: unknown } | undefined;
+      const bPoint = b[i] as { x?: unknown; y?: unknown } | undefined;
+      if (!aPoint || !bPoint || aPoint.x !== bPoint.x || aPoint.y !== bPoint.y) {
+        return false;
+      }
     }
     return true;
   }
@@ -98,13 +103,6 @@ export function mutateElement<T extends DriplElement>(element: T, updates: Eleme
     return element;
   }
 
-  // Determine if geometry changed (requires cache invalidation)
-  const geometryChanged =
-    typeof updates.width !== 'undefined' ||
-    typeof updates.height !== 'undefined' ||
-    typeof updates.points !== 'undefined' ||
-    typeof updates.src !== 'undefined';
-
   // Create updated element with bumped version
   const updated = {
     ...element,
@@ -114,16 +112,13 @@ export function mutateElement<T extends DriplElement>(element: T, updates: Eleme
     updated: Date.now(),
   } as T;
 
-  // Invalidate caches if geometry changed
-  if (geometryChanged) {
-    invalidateElementCache(element.id);
-    clearShapeFromCache(element);
-  } else {
-    // For non-geometry changes, still invalidate element canvas cache
-    // (e.g., opacity, strokeColor affect rendering)
-    invalidateElementCache(element.id);
-    clearShapeFromCache(element);
-  }
+  // Both caches hold rendered output keyed on element identity, so they must be
+  // dropped for any change that affects rendering: geometry (bounds, which the
+  // spatial index is keyed on) as well as appearance such as opacity or stroke
+  // color. This used to branch on a `geometryChanged` check whose two arms ran
+  // identical statements, so the branch and its computation were both dead.
+  invalidateElementCache(element.id);
+  clearShapeFromCache(element);
 
   return updated;
 }

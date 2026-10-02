@@ -45,6 +45,8 @@ export interface ElementBase {
   points?: Point[];
   labelId?: string;
   containerId?: string;
+  /** Hyperlink attached to the element. */
+  link?: string;
   text?: string;
   src?: string;
   arrowHeads?: { start?: ArrowheadType; end?: ArrowheadType };

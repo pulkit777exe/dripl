@@ -14,7 +14,9 @@ const isProd = process.env.NODE_ENV === 'production';
 const envSchema = z
   .object({
     DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-    JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
+    JWT_SECRET: z
+      .string()
+      .min(isProd ? 32 : 1, 'JWT_SECRET must be at least 32 characters in production'),
     HTTP_PORT: z.string().optional().default('3002'),
     UPSTASH_REDIS_REST_URL: z.string().optional(),
     UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
@@ -22,7 +24,7 @@ const envSchema = z
     GOOGLE_CLIENT_SECRET: z.string().min(1, 'GOOGLE_CLIENT_SECRET is required'),
     // Production-only
     INTERNAL_SECRET: isProd
-      ? z.string().min(1, 'INTERNAL_SECRET is required in production')
+      ? z.string().min(32, 'INTERNAL_SECRET must be at least 32 characters in production')
       : z.string().optional(),
     FRONTEND_URL: z.string().optional(),
     NEXT_PUBLIC_APP_URL: z.string().optional(),
@@ -38,10 +40,10 @@ const envSchema = z
 function validateEnv() {
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
-    // eslint-disable-next-line no-console -- Runs before logger is initialized
+    // eslint-disable-next-line no-console -- boot-time fatal diagnostics before logger init
     console.error('FATAL: Environment validation failed:');
     for (const issue of parsed.error.issues) {
-      // eslint-disable-next-line no-console -- Runs before logger is initialized
+      // eslint-disable-next-line no-console -- boot-time fatal diagnostics before logger init
       console.error(`  - ${issue.path.join('.')}: ${issue.message}`);
     }
     process.exit(1);

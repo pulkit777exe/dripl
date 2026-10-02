@@ -40,11 +40,25 @@ async function initRedis() {
 // Try to init Redis at module load (non-blocking)
 initRedis();
 
+const MAX_LOCAL_BUCKETS = 10_000;
+
+function pruneBuckets(now: number): void {
+  for (const [identity, bucket] of buckets) {
+    if (now - bucket.lastRefill >= RATE_LIMIT_WINDOW_MS) buckets.delete(identity);
+  }
+  while (buckets.size >= MAX_LOCAL_BUCKETS) {
+    const oldest = buckets.keys().next().value;
+    if (!oldest) break;
+    buckets.delete(oldest);
+  }
+}
+
 function checkInMemoryRateLimit(identity: string): boolean {
   const now = Date.now();
   const bucket = buckets.get(identity);
 
   if (!bucket || now - bucket.lastRefill >= RATE_LIMIT_WINDOW_MS) {
+    pruneBuckets(now);
     buckets.set(identity, { tokens: RATE_LIMIT_MAX_MESSAGES - 1, lastRefill: now });
     return true;
   }
@@ -60,9 +74,9 @@ export function setRateLimitIdentity(ws: WebSocket, userId: string): void {
 }
 
 export function removeRateLimitIdentity(ws: WebSocket): void {
-  const identity = wsToUserMap.get(ws);
+  // Keep the bucket until its short window expires. Deleting it as soon as one
+  // of several tabs disconnects would let that tab reset the user's limit.
   wsToUserMap.delete(ws);
-  if (identity) buckets.delete(identity);
 }
 
 export async function checkRateLimit(ws: WebSocket): Promise<boolean> {

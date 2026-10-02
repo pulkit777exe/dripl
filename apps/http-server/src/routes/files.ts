@@ -1,37 +1,42 @@
-import { randomBytes, createHash } from 'crypto';
+import { createHash } from 'crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { sendError } from '../lib/response';
+import { sendServiceError } from '../lib/serviceResult';
 import { FileService } from '../services/fileService';
 import { MAX_FILE_CONTENT_BYTES } from '@dripl/common';
-import { logger } from '../logger.js';
+import { logger } from '../logger';
 
 const listFilesQuerySchema = z.object({
-  search: z.string().trim().min(1).optional(),
-  folderId: z.string().trim().min(1).optional(),
+  search: z.string().trim().min(1).max(200).optional(),
+  folderId: z.string().trim().min(1).max(100).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
-  cursor: z.string().optional(),
+  cursor: z.string().max(200).optional(),
 });
 
 const createFileSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
-  folderId: z.string().trim().min(1).nullable().optional(),
+  folderId: z.string().trim().min(1).max(100).nullable().optional(),
   content: z.unknown().optional(),
-  preview: z.string().nullable().optional(),
+  preview: z.string().max(2_000_000).nullable().optional(),
 });
 
 const patchFileSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   content: z.unknown().optional(),
-  preview: z.string().nullable().optional(),
-  folderId: z.string().trim().min(1).nullable().optional(),
+  preview: z.string().max(2_000_000).nullable().optional(),
+  folderId: z.string().trim().min(1).max(100).nullable().optional(),
+  expectedUpdatedAt: z.coerce.date().optional(),
 });
 
 const createShareSchema = z.object({
   permission: z.enum(['view', 'edit']).default('view'),
-  expiresAt: z.coerce.date().optional(),
+  expiresAt: z.coerce
+    .date()
+    .refine(value => value.getTime() > Date.now(), 'Expiry must be in the future')
+    .optional(),
   expiresInHours: z
     .number()
     .int()
@@ -41,23 +46,13 @@ const createShareSchema = z.object({
 });
 
 const listSharedFilesQuerySchema = z.object({
-  search: z.string().trim().min(1).optional(),
+  search: z.string().trim().min(1).max(200).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
-  cursor: z.string().optional(),
+  cursor: z.string().max(200).optional(),
 });
 
 const filesRouter: Router = Router();
-
-export function nanoidLike(size = 21): string {
-  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz-';
-  const bytes = randomBytes(size);
-  let token = '';
-  for (let i = 0; i < size; i += 1) {
-    token += alphabet[bytes[i]! & 63]!;
-  }
-  return token;
-}
 
 filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
@@ -84,6 +79,7 @@ filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
       search,
       folderId,
       limit,
+      page,
       cursor,
     });
 
@@ -141,6 +137,7 @@ filesRouter.get('/shared', async (req: AuthenticatedRequest, res) => {
       userId: req.userId,
       search,
       limit,
+      page,
       cursor,
     });
 
@@ -198,10 +195,19 @@ filesRouter.post('/', async (req: AuthenticatedRequest, res) => {
       preview: payload.preview,
     });
 
-    if (result && 'error' in result) {
-      const errorMsg = result.error as string;
-      const isLimit = errorMsg.includes('limit');
-      sendError(res, isLimit ? 403 : 404, isLimit ? 'FORBIDDEN' : 'NOT_FOUND', errorMsg);
+    if (result && 'kind' in result) {
+      // The quota message embeds the live limit from the service result —
+      // the only kind carrying a payload. Other entries are ignored for
+      // non-quota kinds (the map must still list every kind: exhaustiveness).
+      const quotaMessage =
+        result.kind === 'quota_exceeded'
+          ? `Free plan limit reached (${result.limit} canvases). Delete one or upgrade to Premium.`
+          : 'Quota exceeded';
+      sendServiceError(res, result, {
+        quota_exceeded: quotaMessage,
+        folder_not_found: 'Folder not found',
+        invalid_scene: 'Invalid scene content',
+      });
       return;
     }
 
@@ -285,6 +291,7 @@ filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
       content: payload.content,
       preview: payload.preview,
       folderId: payload.folderId,
+      expectedUpdatedAt: payload.expectedUpdatedAt,
     });
 
     if (!result) {
@@ -292,8 +299,12 @@ filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    if ('error' in result) {
-      sendError(res, 404, 'NOT_FOUND', result.error ?? 'File not found');
+    if ('kind' in result) {
+      sendServiceError(res, result, {
+        folder_not_found: 'Folder not found',
+        invalid_scene: 'Invalid scene content',
+        conflict: 'File changed while saving',
+      });
       return;
     }
 
@@ -365,6 +376,13 @@ filesRouter.post('/:id/share', async (req: AuthenticatedRequest, res) => {
 
     if (!result) {
       sendError(res, 404, 'NOT_FOUND', 'File not found');
+      return;
+    }
+    if ('kind' in result) {
+      sendServiceError(res, result, {
+        invalid_scene: 'Invalid scene content',
+        conflict: 'Share changed while creating; retry',
+      });
       return;
     }
 

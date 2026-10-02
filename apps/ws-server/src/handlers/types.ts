@@ -2,6 +2,8 @@ import type { WebSocket } from 'ws';
 import type { z } from 'zod';
 import type { RoomState, UserConnection } from '../types';
 
+export type { RoomState, UserConnection };
+
 export type HandlerLogger = {
   debug: (entry: Record<string, unknown>) => void;
   warn: (entry: Record<string, unknown>) => void;

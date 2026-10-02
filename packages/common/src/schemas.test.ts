@@ -25,7 +25,18 @@ describe('PointSchema', () => {
 
 describe('ElementTypeSchema', () => {
   it('validates all element types', () => {
-    const types = ['rectangle', 'ellipse', 'path', 'text', 'image', 'line', 'arrow', 'diamond', 'freedraw', 'frame'];
+    const types = [
+      'rectangle',
+      'ellipse',
+      'path',
+      'text',
+      'image',
+      'line',
+      'arrow',
+      'diamond',
+      'freedraw',
+      'frame',
+    ];
     for (const type of types) {
       expect(ElementTypeSchema.safeParse(type).success).toBe(true);
     }
@@ -65,16 +76,26 @@ describe('BaseElementSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects non-UUID id', () => {
-    const result = BaseElementSchema.safeParse({
-      id: 'not-a-uuid',
+  it('accepts bounded legacy IDs while rejecting oversized IDs', () => {
+    const legacy = BaseElementSchema.safeParse({
+      id: 'legacy-element-1',
       type: 'rectangle',
       x: 0,
       y: 0,
       width: 100,
       height: 100,
     });
-    expect(result.success).toBe(false);
+    expect(legacy.success).toBe(true);
+
+    const oversized = BaseElementSchema.safeParse({
+      id: 'x'.repeat(101),
+      type: 'rectangle',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    });
+    expect(oversized.success).toBe(false);
   });
 
   it('validates element with boundElements', () => {
@@ -200,6 +221,19 @@ describe('DriplElementSchema', () => {
       src: 'https://example.com/image.png',
     });
     expect(result.success).toBe(true);
+  });
+
+  it('rejects unsafe image sources', () => {
+    const result = DriplElementSchema.safeParse({
+      id: UUID,
+      type: 'image',
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 150,
+      src: 'javascript:alert(1)',
+    });
+    expect(result.success).toBe(false);
   });
 
   it('validates frame elements', () => {

@@ -60,7 +60,7 @@ describe('authMiddleware', () => {
     const app = createTestApp(authMiddleware);
     const res = await request(app).get('/protected');
     expect(res.status).toBe(401);
-    expect(res.body.error).toBe('Authentication required');
+    expect(res.body.error).toBe('UNAUTHORIZED');
   });
 
   it('returns 401 when token is invalid', async () => {
@@ -70,7 +70,7 @@ describe('authMiddleware', () => {
     const app = createTestApp(authMiddleware);
     const res = await request(app).get('/protected').set('Cookie', ['dripl-session=invalid-token']);
     expect(res.status).toBe(401);
-    expect(res.body.error).toBe('Invalid or expired token');
+    expect(res.body.error).toBe('UNAUTHORIZED');
   });
 
   it('returns 401 when token is expired', async () => {
@@ -106,7 +106,8 @@ describe('csrfMiddleware', () => {
         expect.any(String),
         expect.objectContaining({
           httpOnly: false,
-          sameSite: 'strict',
+          sameSite: 'lax',
+          secure: false,
           path: '/',
         })
       );
@@ -148,14 +149,14 @@ describe('csrfMiddleware', () => {
       const app = createCsrfApp();
       const res = await request(app).post('/mutation').set('x-csrf-token', 'some-token');
       expect(res.status).toBe(403);
-      expect(res.body.error).toBe('CSRF token missing');
+      expect(res.body.error).toBe('CSRF_TOKEN_MISSING');
     });
 
     it('rejects POST without CSRF header', async () => {
       const app = createCsrfApp();
       const res = await request(app).post('/mutation').set('Cookie', ['csrf-token=some-token']);
       expect(res.status).toBe(403);
-      expect(res.body.error).toBe('CSRF token missing');
+      expect(res.body.error).toBe('CSRF_TOKEN_MISSING');
     });
 
     it('rejects POST with mismatched CSRF tokens', async () => {
@@ -165,7 +166,7 @@ describe('csrfMiddleware', () => {
         .set('Cookie', ['csrf-token=cookie-value'])
         .set('x-csrf-token', 'header-value');
       expect(res.status).toBe(403);
-      expect(res.body.error).toBe('CSRF token invalid');
+      expect(res.body.error).toBe('CSRF_TOKEN_INVALID');
     });
 
     it('accepts POST with matching CSRF tokens', async () => {

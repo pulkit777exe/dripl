@@ -47,8 +47,7 @@ export function shouldTestInside(element: DriplElement): boolean {
     return false;
   }
 
-  const hasBackground =
-    element.backgroundColor && !isTransparent(element.backgroundColor);
+  const hasBackground = element.backgroundColor && !isTransparent(element.backgroundColor);
   const hasBoundText = element.boundElements?.some(b => b.type === 'text') ?? false;
   const isText = element.type === 'text';
   const isImage = element.type === 'image';
@@ -91,7 +90,23 @@ export function elementLocalPointToWorld(el: DriplElement, pt: Point): Point {
   return rotatePoint(world, cx, cy, angle);
 }
 
-export const getElementBounds = (element: DriplElement): Bounds => {
+interface BoundsCacheEntry {
+  bounds: Bounds;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  angle: number;
+  strokeWidth: number;
+  version: number | undefined;
+  points: readonly Point[] | undefined;
+}
+
+// Element updates create new objects and point arrays; the signature check
+// keeps the cache correct for legacy elements that do not carry a version.
+const boundsCache = new WeakMap<DriplElement, BoundsCacheEntry>();
+
+function computeElementBounds(element: DriplElement): Bounds {
   const padding = (element.strokeWidth || 0) / 2;
 
   if (element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line') {
@@ -137,7 +152,39 @@ export const getElementBounds = (element: DriplElement): Bounds => {
     width: b.width + padding * 2,
     height: b.height + padding * 2,
   };
-};
+}
+
+export function getElementBounds(element: DriplElement): Bounds {
+  const points = 'points' in element ? element.points : undefined;
+  const cached = boundsCache.get(element);
+  if (
+    cached &&
+    cached.x === element.x &&
+    cached.y === element.y &&
+    cached.width === element.width &&
+    cached.height === element.height &&
+    cached.angle === (element.angle || 0) &&
+    cached.strokeWidth === (element.strokeWidth || 0) &&
+    cached.version === element.version &&
+    cached.points === points
+  ) {
+    return cached.bounds;
+  }
+
+  const bounds = computeElementBounds(element);
+  boundsCache.set(element, {
+    bounds,
+    x: element.x,
+    y: element.y,
+    width: element.width,
+    height: element.height,
+    angle: element.angle || 0,
+    strokeWidth: element.strokeWidth || 0,
+    version: element.version,
+    points,
+  });
+  return bounds;
+}
 
 export const isPointInElement = (point: Point, element: DriplElement): boolean => {
   const bounds = getElementBounds(element);
@@ -388,7 +435,12 @@ export function isPointOnElementOutline(
   // Counter-rotate the test point to work in element-local coordinates
   const local = angle ? inverseRotatePoint(point, cx, cy, angle) : point;
 
-  if (element.type === 'rectangle' || element.type === 'text' || element.type === 'image' || element.type === 'frame') {
+  if (
+    element.type === 'rectangle' ||
+    element.type === 'text' ||
+    element.type === 'image' ||
+    element.type === 'frame'
+  ) {
     // Test distance to each of the 4 sides
     const x1 = element.x;
     const y1 = element.y;

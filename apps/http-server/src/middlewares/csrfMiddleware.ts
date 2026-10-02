@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { type Request, type Response } from 'express';
+import { type NextFunction, type Request, type Response } from 'express';
 import { sendError } from '../lib/response';
 
 const CSRF_TOKEN_BYTES = 32;
@@ -7,17 +7,24 @@ const CSRF_HEADER = 'x-csrf-token';
 
 export function generateCsrfToken(res: Response): string {
   const token = crypto.randomBytes(CSRF_TOKEN_BYTES).toString('hex');
+  const configuredFrontend = process.env.FRONTEND_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? '';
+  const isLocalFrontend = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i.test(
+    configuredFrontend
+  );
+  const secure =
+    configuredFrontend.startsWith('https://') ||
+    (process.env.NODE_ENV === 'production' && !isLocalFrontend);
   res.cookie('csrf-token', token, {
     httpOnly: false,
-    secure: true,
-    sameSite: 'none',
+    secure,
+    sameSite: secure ? 'none' : 'lax',
     path: '/',
     maxAge: 24 * 60 * 60 * 1000,
   });
   return token;
 }
 
-export function validateCsrfToken(req: Request, res: Response, next: Function): void {
+export function validateCsrfToken(req: Request, res: Response, next: NextFunction): void {
   const isSafeMethod = req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS';
 
   if (isSafeMethod) {

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, signToken, extractBearerToken, type JwtPayload } from '@dripl/utils/auth';
 import { sendError } from '../lib/response';
-import { logger } from '../logger.js';
+import { logger } from '../logger';
 
 const SESSION_COOKIE = 'dripl-session';
 
@@ -39,11 +39,21 @@ export function signSessionToken(userId: string): string {
   return signToken(userId);
 }
 
+function sessionCookieSecurity(): { secure: boolean; sameSite: 'lax' | 'none' } {
+  const configuredFrontend = process.env.FRONTEND_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? '';
+  const isLocalFrontend = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i.test(
+    configuredFrontend
+  );
+  const secure =
+    configuredFrontend.startsWith('https://') ||
+    (process.env.NODE_ENV === 'production' && !isLocalFrontend);
+  return { secure, sameSite: secure ? 'none' : 'lax' };
+}
+
 export function setSessionCookie(res: Response, token: string): void {
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    ...sessionCookieSecurity(),
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
@@ -52,8 +62,7 @@ export function setSessionCookie(res: Response, token: string): void {
 export function clearSessionCookie(res: Response): void {
   res.clearCookie(SESSION_COOKIE, {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    ...sessionCookieSecurity(),
     path: '/',
   });
 }

@@ -1,28 +1,27 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
-import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
+import { db } from '@dripl/db';
+import { issueWsTicket, type WsTicketPrincipal } from './auth';
 import { ShareService, type SharePermission } from '../services/shareService';
+import { authMiddleware } from '../middlewares/authMiddleware';
 import { sendError } from '../lib/response';
-import { logger } from '../logger.js';
+import { sendServiceError } from '../lib/serviceResult';
+import { createRateLimiter } from '../lib/rateLimiter';
+import { logger } from '../logger';
 
 const shareRouter: Router = Router();
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
-
-const shareRateLimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(30, '15 m'),
+const shareRateLimit = createRateLimiter({
+  limit: 30,
+  windowMs: 15 * 60 * 1000,
   prefix: 'dripl:http:share',
 });
 
 async function shareLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
   const identifier = req.ip ?? 'anonymous';
-  const { success } = await shareRateLimit.limit(identifier);
+  const { success, resetAt } = await shareRateLimit.limit(identifier);
   if (!success) {
+    res.setHeader('Retry-After', String(Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))));
     sendError(res, 429, 'RATE_LIMITED', 'Too many requests, please try again later.');
     return;
   }
@@ -34,7 +33,7 @@ const createShareBodySchema = z.object({
   permission: z.enum(['view', 'edit']),
 });
 
-shareRouter.post('/', shareLimiter, async (req, res) => {
+shareRouter.post('/', authMiddleware, shareLimiter, async (req, res) => {
   const userId = (req as { userId?: string }).userId;
   if (!userId) {
     sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
@@ -54,12 +53,11 @@ shareRouter.post('/', shareLimiter, async (req, res) => {
       parsed.data.permission as SharePermission
     );
 
-    if (result.kind === 'not_found') {
-      sendError(res, 404, 'NOT_FOUND', 'File not found');
-      return;
-    }
-    if (result.kind === 'forbidden') {
-      sendError(res, 403, 'FORBIDDEN', 'You do not have permission to share this file');
+    if (result.kind !== 'ok') {
+      sendServiceError(res, result, {
+        not_found: 'File not found',
+        forbidden: 'You do not have permission to share this file',
+      });
       return;
     }
 
@@ -70,7 +68,39 @@ shareRouter.post('/', shareLimiter, async (req, res) => {
   }
 });
 
+shareRouter.get('/:token/ws-ticket', shareLimiter, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
+  if (!token) {
+    sendError(res, 400, 'INVALID_PAYLOAD', 'Share token is required');
+    return;
+  }
+
+  const file = await db.file.findUnique({
+    where: { shareToken: token },
+    select: { id: true, sharePermission: true, shareExpiresAt: true },
+  });
+  if (!file || !file.sharePermission) {
+    sendError(res, 404, 'NOT_FOUND', 'Share link not found');
+    return;
+  }
+  if (file.shareExpiresAt && file.shareExpiresAt.getTime() < Date.now()) {
+    sendError(res, 410, 'EXPIRED', 'Share link has expired');
+    return;
+  }
+
+  const permission: SharePermission = file.sharePermission === 'edit' ? 'edit' : 'view';
+  const principal: WsTicketPrincipal = {
+    kind: 'share',
+    fileId: file.id,
+    token,
+    permission,
+  };
+  res.json({ ticket: issueWsTicket(principal), fileId: file.id, permission });
+});
+
 shareRouter.get('/:token', shareLimiter, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
   if (!token) {
     sendError(res, 400, 'INVALID_PAYLOAD', 'Share token is required');

@@ -1,7 +1,5 @@
-import { createLogger } from '@dripl/utils/logger';
-import { env } from './env.js';
-
-const logger = createLogger('http-server');
+import { env } from './env';
+import { logger } from './logger';
 
 import { initializeDb } from '@dripl/db';
 import { createApp } from './app';

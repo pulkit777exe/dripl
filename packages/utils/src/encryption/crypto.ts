@@ -1,6 +1,6 @@
 /**
- * End-to-end encryption using Web Crypto API
- * Uses AES-GCM 256-bit encryption
+ * AES-GCM encryption utility using Web Crypto.
+ * It does not by itself provide end-to-end encryption; key ownership and transport determine that.
  */
 
 const ALGORITHM = 'AES-GCM';
@@ -13,8 +13,8 @@ export interface EncryptedPayload {
 }
 
 /**
- * Generate a new AES-GCM 256-bit encryption key
- * This key should be stored in URL fragment, never sent to server
+ * Generate a new AES-GCM 256-bit key.
+ * Callers must decide where the key is stored and transported.
  */
 export async function generateKey(): Promise<CryptoKey> {
   return crypto.subtle.generateKey(

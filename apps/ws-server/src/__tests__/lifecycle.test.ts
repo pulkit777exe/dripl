@@ -222,12 +222,14 @@ describe('lifecycle sweeps', () => {
   });
 
   describe('runReconciliation', () => {
-    it('saves when memory and storage diverge', async () => {
+    it('saves when a dirty room diverges from storage', async () => {
       const room = getOrCreateRoom('diverged') as RoomState;
       room.users.set('u1', makeUser('u1', makeWs()));
       room.recordType = 'file';
       room.elements.set('mem-only', el('mem-only') as never);
-      room.dirty = false;
+      // Reconciliation only verifies dirty rooms (failed/conflicted writes);
+      // clean rooms match their last successful write by construction.
+      room.dirty = true;
       dbMock.file.findUnique.mockResolvedValue({
         content: JSON.stringify({ elements: [] }),
       });
@@ -245,6 +247,17 @@ describe('lifecycle sweeps', () => {
       });
       await runReconciliation();
       expect(dbMock.file.updateManyAndReturn).not.toHaveBeenCalled();
+    });
+
+    it('skips clean rooms without touching the database', async () => {
+      const room = getOrCreateRoom('clean-room') as RoomState;
+      room.users.set('u1', makeUser('u1', makeWs()));
+      room.recordType = 'file';
+      room.elements.set('a', el('a') as never);
+      room.dirty = false;
+      await runReconciliation();
+      expect(dbMock.file.findUnique).not.toHaveBeenCalled();
+      expect(dbMock.canvasRoom.findUnique).not.toHaveBeenCalled();
     });
 
     it('skips rooms nobody is watching', async () => {
