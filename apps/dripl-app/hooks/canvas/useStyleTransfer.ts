@@ -9,7 +9,7 @@ import {
 } from '@/lib/canvas/style-transfer';
 
 /**
- * Style clipboard (copy/paste styles) — Excalidraw parity (Ctrl+Shift+C/V).
+ * Style clipboard (copy/paste styles) — Ctrl+Shift+C / Ctrl+Shift+V.
  *
  * Copy snapshots the primary selected element's style into the current
  * tool defaults (so new shapes inherit it) and keeps it for paste.

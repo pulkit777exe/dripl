@@ -36,7 +36,7 @@ function isTransparent(color?: string): boolean {
  * Determines whether clicking *inside* the element's fill area counts as a hit.
  * Returns false for shapes that should only be hittable on their stroke/outline.
  *
- * Mirrors Excalidraw's shouldTestInside logic:
+ * Fill-area hit-testing rules:
  * - Arrow: never (stroke only)
  * - Line/Freedraw: only if closed loop AND has non-transparent fill
  * - Rectangle/Diamond/Ellipse/Frame: only if has non-transparent bg or bound text

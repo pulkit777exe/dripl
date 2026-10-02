@@ -13,7 +13,7 @@
 
 - **Authentication** — session-based login/signup, Google OAuth
 - **Dashboard** — file/folder management, recent canvases
-- **Canvas** — the full Excalidraw-like editor with real-time collaboration
+- **Canvas** — the full hand-drawn canvas editor with real-time collaboration
 - **Server Actions/BFF routes** — file mutations, auth/API adapters, and integration endpoints
 
 Runs on **port 3000** in development.

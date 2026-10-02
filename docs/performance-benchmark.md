@@ -185,7 +185,7 @@ drawn, and successive frames converge until nothing is deferred.
 
 Remaining: a ~14 ms worst frame is still uncomfortable against a 16.7 ms budget
 on a slower machine. Generation is inherent to first paint of newly exposed
-elements, and Excalidraw carries the same cost.
+elements and does not go away with scene size.
 
 ### The bound was re-checked at 50,000 elements, not just 10,000
 
@@ -243,11 +243,8 @@ at ~300 px/frame, which glides roughly 6,000 px over about two seconds. At zoom
 the canvas goes blank. The same loop was the source of the `applyMomentum`
 attributions earlier in this file (135 ms, 112 ms, 91 ms).
 
-Excalidraw v0.18.1 has no such path: `handleWheel` translates the canvas by the
-delta and returns
-([`App.tsx:10992-10995`](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/components/App.tsx#L10992-L10995)).
-Dripl now matches that, and shift+wheel reads `deltaY || deltaX` as upstream does
-at `App.tsx:10987`.
+Wheel and trackpad now pan directly by the delta, and shift+wheel reads
+`deltaY || deltaX`.
 
 After the fix, at 10,000 elements:
 
@@ -284,18 +281,16 @@ Two things this settles:
   supported.
 - **The expensive frames allocate.** Frames that allocate hundreds of bitmaps
   are the expensive ones, while the interactive layer stays at a 0.00 ms median
-  regardless of scene size. This is the O(visible) cost upstream shares, and
-  amortizing it remains open.
+  regardless of scene size. This is the O(visible) cost, and amortizing it
+  remains open.
 
 ### Change implemented: element canvas size cap
 
-Researching the pinned Excalidraw source turned up a genuine robustness gap
-rather than a performance one. Excalidraw caps every element's offscreen canvas
-at `AREA_LIMIT = 16777216` and `WIDTH_HEIGHT_LIMIT = 32767`, reducing the
-resolution instead of refusing to cache
-(`renderer/renderElement.ts:160-199`, commit `a2ec2889babf7d2295469c6d90ebe77fae57df84`).
-Dripl had no cap at all, so a 40,000 x 40,000 element would request a ~1.6
-billion pixel surface.
+A missing cap turned out to be a genuine robustness gap rather than a
+performance one. Every element's offscreen canvas is now capped at
+`AREA_LIMIT = 16777216` and `WIDTH_HEIGHT_LIMIT = 32767`, reducing the resolution
+instead of refusing to cache. Dripl had no cap at all, so a 40,000 x 40,000
+element would request a ~1.6 billion pixel surface.
 
 `computeElementCanvasSize` in `packages/element/src/staticScene.ts` now applies
 the same two limits, and the cache entry records the resolution actually used so

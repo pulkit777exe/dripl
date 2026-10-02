@@ -5,8 +5,8 @@ import { generateKeyBetween } from 'fractional-indexing';
 /**
  * Total deterministic z-order comparison.
  *
- * Mirrors Excalidraw's fractional-index tie handling: equal indices break by
- * element ID so every replica canonicalizes identically instead of depending
+ * Equal fractional indices break by element ID so every replica canonicalizes
+ * identically instead of depending
  * on input/Map insertion order.
  */
 export function compareZOrder(a: DriplElement, b: DriplElement): number {

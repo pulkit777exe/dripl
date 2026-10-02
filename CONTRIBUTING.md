@@ -255,8 +255,7 @@ through the local path.
 > to vary by 2.5× run to run.
 
 Results, environment, and their limits are recorded in
-[`docs/performance-benchmark.md`](docs/performance-benchmark.md). The pinned
-comparison is in [`docs/excalidraw-performance-research.md`](docs/excalidraw-performance-research.md).
+[`docs/performance-benchmark.md`](docs/performance-benchmark.md).
 
 ### Writing Tests
 

@@ -43,7 +43,7 @@ interface DualCanvasProps {
 }
 
 /**
- * DualCanvas — stacked canvas architecture matching Excalidraw's pattern.
+ * DualCanvas — a static layer under an interactive layer.
  *
  * StaticCanvas (z-1, pointer-events: none):
  *   Renders committed scene elements. Only re-renders when elements,

@@ -1,7 +1,7 @@
 # Solutions Index
 
 > **Archived solution index.** The linked documents preserve the structure and
-> rationale of earlier remediation work. Their status/count/parity claims are
+> rationale of earlier remediation work. Their status/count claims are
 > historical; use [`docs/codebase-audit.md`](../codebase-audit.md) for the
 > current source-evidence assessment.
 
@@ -61,10 +61,10 @@
 
 ---
 
-## Excalidraw Parity Status (Historical)
+## Capability Status (Historical)
 
-The old “7 of 13 matches” score is not a current parity claim. The current
-matrix and explicit gaps are in [`docs/codebase-audit.md`](../codebase-audit.md).
-In particular, the Yjs binary wire is disabled, the worker path is only
-partially integrated, and filesystem image storage is not object-storage
-parity.
+The old “7 of 13 matches” score is not a current capability claim and no longer
+has a stated comparison target. The current matrix and explicit gaps are in
+[`docs/codebase-audit.md`](../codebase-audit.md). In particular, the Yjs binary
+wire is disabled, the worker path is only partially integrated, and filesystem
+image storage has no object storage or CDN.

@@ -24,7 +24,7 @@ const rect = (id: string, extra: Partial<DriplElement> = {}): DriplElement =>
     ...extra,
   }) as DriplElement;
 
-describe('deterministic z-order (Excalidraw ID tie-break parity)', () => {
+describe('deterministic z-order (equal-index tie-break)', () => {
   it('breaks equal fractional indices by element ID', () => {
     const b = rect('b', { fractionalIndex: 'a0' });
     const a = rect('a', { fractionalIndex: 'a0' });

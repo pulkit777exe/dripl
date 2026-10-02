@@ -8,7 +8,7 @@ import type { TombstoneFilter } from '@/lib/collab/tombstones';
 /**
  * Scene — single home for frontend scene restore + remote reconciliation.
  *
- * Mirrors the Excalidraw split (`data/restore.ts` + `data/reconcile.ts`):
+ * Two entry points, one pipeline:
  * every entry path (localStorage, IndexedDB, file import, collab sync)
  * funnels through the same normalize → index → sort pipeline, and every
  * remote merge funnels through the same version/nonce fence.
@@ -102,7 +102,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /**
  * Validate unknown persisted UI state into an allowlisted partial.
- * Mirrors Excalidraw's `restoreAppState`: unknown keys are dropped, invalid
+ * Unknown keys are dropped, invalid
  * values fall back to defaults (by omission — the store keeps its own).
  */
 export function restoreAppState(raw: unknown): RestoredAppState {
@@ -229,7 +229,7 @@ export interface ReconcileOutput {
 /**
  * Merge remote add/update/delete batches into local state.
  *
- * Rules (Excalidraw parity):
+ * Rules:
  * - elements locked by an active local gesture (or the in-progress draft)
  *   are never replaced by remote records;
  * - records for tombstoned (deleted) ids are ignored — deletes win;

@@ -26,8 +26,8 @@ export function compareElementFreshness(
   const incomingVersion = incoming.version ?? 0;
   const existingVersion = existing.version ?? 0;
   if (incomingVersion !== existingVersion) return incomingVersion - existingVersion;
-  // Excalidraw v0.18.1 resolves equal versions in favor of the lower
-  // versionNonce. Keep the same deterministic tie-break in the live JSON path.
+  // Equal versions resolve in favor of the lower versionNonce. The tie-break
+  // must stay deterministic: every replica has to reach the same answer.
   return (existing.versionNonce ?? 0) - (incoming.versionNonce ?? 0);
 }
 

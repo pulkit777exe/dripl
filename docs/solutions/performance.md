@@ -160,12 +160,11 @@ uses `sync_room_state` for the authoritative join snapshot; later edits use
 `scene-delta`. No periodic full client recovery snapshot is established by this
 note or by the current source.
 
-### Excalidraw Comparison
+### Scope note
 
-Excalidraw's hosted collaboration uses encrypted client reconciliation and
-version/nonce ordering; it is not a blanket “Yjs CRDT” guarantee. Dripl's active
-path uses JSON deltas plus version/nonce reconciliation, which is not CRDT
-convergence. The dormant Yjs adapter must not be described as active traffic.
+Dripl's active path uses JSON deltas plus version/nonce reconciliation, which is
+not CRDT convergence. The dormant Yjs adapter must not be described as active
+traffic.
 
 ---
 
@@ -264,9 +263,10 @@ The array copy remains necessary for the immutable state model, and some
 mutation paths still rebuild the map. No “5,000× faster” claim is supported by
 this note.
 
-### Excalidraw Comparison
+### Trade-off
 
-Excalidraw stores elements in a `Map<string, ExcalidrawElement>` as its primary data structure, with a separate `elementsMap` for ordering. The array is derived from the Map when needed for rendering. Dripl keeps both representations (array for ordering + Map for lookups), which doubles memory but avoids recomputing the array on every render.
+Dripl keeps both representations (array for ordering + Map for lookups), which
+doubles memory but avoids recomputing the array on every render.
 
 ---
 
@@ -332,14 +332,11 @@ undo: () =>
 The history slices still retain snapshots; removing the derived view does not
 prove a specific memory or latency improvement.
 
-### Excalidraw Comparison
+### Scope note
 
-The stable Excalidraw app uses a command-oriented history model, but the pinned
-v0.18.1 evidence does **not** establish that this history is a Yjs/CRDT
-operation log, nor does it justify a blanket O(1)-memory claim. Dripl retains
-full scene snapshots with an explicit history budget. Treat any history
-migration as a separate design and benchmark task rather than assuming CRDT
-semantics.
+Dripl retains full scene snapshots with an explicit history budget. Treat any
+history migration as a separate design and benchmark task rather than assuming
+CRDT semantics.
 
 ---
 
@@ -396,9 +393,10 @@ Each is wrapped in `<Suspense>` at its render site (code not shown — follows s
 The components are loaded on demand in the current source, but bundle-size and
 user-perceived latency claims require a production build/browser measurement.
 
-### Excalidraw Comparison
+### Loading policy
 
-Excalidraw uses dynamic `import()` for its library panel and export dialog. The core editor components are eagerly loaded because they're always visible. Dripl's approach is equivalent — only conditionally-rendered UI gets lazy treatment.
+Only conditionally-rendered UI gets lazy treatment. Core editor components are
+eagerly loaded because they are always visible.
 
 ---
 
@@ -495,9 +493,10 @@ res.json({
 The cursor implementation is a real code path, but constant-time claims require
 `EXPLAIN`/production-like measurements.
 
-### Excalidraw Comparison
+### Pagination policy
 
-Excalidraw doesn't have a file management dashboard — it stores files locally and in cloud storage. For list views, the standard approach in Excalidraw-adjacent tools (like tldraw) is infinite scroll with cursor pagination, identical to this implementation.
+For list views, the standard approach is infinite scroll with cursor pagination,
+identical to this implementation.
 
 ---
 
@@ -605,13 +604,10 @@ model EmailVerificationToken {
 Indexes can improve selected query plans, but they add write/storage costs and
 must be validated with database-specific plans and representative data.
 
-### Excalidraw Comparison
+### Scope note
 
-The bare Excalidraw editor is not itself a server-backed database product; the
-hosted app's collaboration surface adds encrypted persistence and service-side
-relay/storage. Do not reduce the comparison to “Excalidraw has no server
-state.” Dripl's persistent PostgreSQL design is a product choice and its query
-plans still require measurement.
+Dripl's persistent PostgreSQL design is a product choice and its query plans still
+require measurement.
 
 ---
 

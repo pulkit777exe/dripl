@@ -4,7 +4,7 @@ import { getDistanceToBounds } from '@dripl/math/intersection';
 
 /**
  * Find the nearest bindable element to a point.
- * Prefers smaller shapes on overlap (matching Excalidraw's collision.ts:361-367).
+ * Prefers smaller shapes on overlap.
  */
 export function findBindableElementAtPoint(
   point: Point,
@@ -53,7 +53,9 @@ export function bindArrowToElement(
   const target = elements.find(e => e.id === targetId);
   if (!target) return elements.map(e => (e.id === arrow.id ? updatedArrow : e));
 
-  const existingBounds = (target as DriplElement & { boundElements?: Array<{ id: string; type: string }> }).boundElements;
+  const existingBounds = (
+    target as DriplElement & { boundElements?: Array<{ id: string; type: string }> }
+  ).boundElements;
   const alreadyBound = existingBounds?.some(b => b.id === arrow.id);
   const newBounds = alreadyBound
     ? existingBounds
@@ -96,7 +98,9 @@ export function unbindArrowFromElement(
   const target = elements.find(e => e.id === binding.elementId);
   if (!target) return elements.map(e => (e.id === arrow.id ? updatedArrow : e));
 
-  const existingBounds = (target as DriplElement & { boundElements?: Array<{ id: string; type: string }> }).boundElements;
+  const existingBounds = (
+    target as DriplElement & { boundElements?: Array<{ id: string; type: string }> }
+  ).boundElements;
   const updatedTarget = {
     ...target,
     boundElements: existingBounds?.filter(b => b.id !== arrow.id) ?? [],
@@ -111,7 +115,7 @@ export function unbindArrowFromElement(
 
 /**
  * Unbind all arrows that reference deleted elements.
- * Arrows survive with null bindings (matching Excalidraw's fixBindingsAfterDeletion).
+ * Arrows survive with null bindings.
  */
 export function unbindAffectedByDeletion(
   deletedIds: string[],

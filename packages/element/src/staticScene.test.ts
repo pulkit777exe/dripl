@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { computeElementCanvasSize } from './staticScene';
 
-// Mirrors ELEMENT_CANVAS_AREA_LIMIT / ELEMENT_CANVAS_AXIS_LIMIT, and matches
-// Excalidraw's `cappedElementCanvasSize` (renderer/renderElement.ts:160-199 at
-// v0.18.1, commit a2ec2889babf7d2295469c6d90ebe77fae57df84).
+// Mirrors ELEMENT_CANVAS_AREA_LIMIT / ELEMENT_CANVAS_AXIS_LIMIT. Keep these
+// in sync with the constants they shadow.
 const AREA_LIMIT = 16_777_216;
 const AXIS_LIMIT = 32_767;
 const PADDING = 10;

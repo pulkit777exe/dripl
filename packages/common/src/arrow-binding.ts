@@ -4,7 +4,7 @@ const BINDABLE_TYPES = new Set(['rectangle', 'ellipse', 'diamond', 'image', 'fra
 
 /**
  * Whether an element can be bound to by an arrow.
- * Matches Excalidraw's isBindableElement from typeChecks.ts.
+ * The bindable set is BINDABLE_TYPES below; keep the two in sync.
  */
 export function isBindableElement(el: DriplElement): boolean {
   return BINDABLE_TYPES.has(el.type);
@@ -35,7 +35,9 @@ export function repairBindings(elements: DriplElement[]): DriplElement[] {
     }
 
     // Repair boundElements
-    const elWithBounds = updated as DriplElement & { boundElements?: Array<{ id: string; type: string }> };
+    const elWithBounds = updated as DriplElement & {
+      boundElements?: Array<{ id: string; type: string }>;
+    };
     if (elWithBounds.boundElements) {
       const bounds = elWithBounds.boundElements;
       const deduped = bounds.filter(

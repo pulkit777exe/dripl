@@ -53,8 +53,8 @@ behavior was exercised.
 | 54 — sorted fractional insert    | **PARTIAL**          | `addElement` uses `sortedInsert`; `addElements` still performs a full sort in `canvasSlice.ts:116-146`.                                                                                                                                                      |
 | Phase 5 — Yjs CRDT               | **DISABLED ON WIRE** | A Yjs adapter and tests remain, but both client and server set `YJS_WIRE_ENABLED = false`; active collaboration is JSON version/nonce deltas, not Yjs CRDT sync.                                                                                             |
 
-The current parity/security assessment, including blocked runtime evidence, is
-in [`docs/codebase-audit.md`](docs/codebase-audit.md).
+The current security and maturity assessment, including blocked runtime evidence,
+is in [`docs/codebase-audit.md`](docs/codebase-audit.md).
 
 ## Tier 1: Critical (P0) — Security, Data Loss, Core Functionality
 
@@ -730,24 +730,27 @@ a record of the removed package's cleanup, not a current architecture issue.
 
 ---
 
-## Excalidraw Parity Checklist
+## Capability Checklist
 
-| Feature                   | Excalidraw | Dripl                                                                                  | Status                                                         |
-| ------------------------- | ---------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| CRDT-based sync (Yjs)     | ✅         | ❌ JSON versioned deltas; Yjs wire disabled                                            | Gap — no CRDT convergence claim                                |
-| OffscreenCanvas rendering | ✅         | ⚠️ Element canvas cache exists                                                         | Partial                                                        |
-| WeakMap for shape cache   | ✅         | ✅ Version-checked cache                                                               | Match                                                          |
-| Command-based history     | ✅         | ⚠️ Snapshots (pruned redundant deriveHistory)                                          | Partial — Item 12                                              |
-| Fractional z-ordering     | ✅         | ✅ fractional-indexing library, reordering generates keys                              | Match — Item 23                                                |
-| Web Workers for hit test  | ✅         | ⚠️ Worker builds/indexes spatial data, but active UI hit testing uses a local RBush    | Partial — Item 13                                              |
-| Binary WS protocol        | ✅         | ❌ JSON                                                                                | Future consideration                                           |
-| Spatial index for culling | ✅         | ✅ RBush spatial index                                                                 | Match — Item 10                                                |
-| Differential element sync | ✅         | ✅ scene-delta with added/updated/deleted                                              | Match — Item 7                                                 |
-| Image blob storage        | ✅         | ✅ Authenticated filesystem uploads + capability URLs                                  | Partial — no object storage/CDN or image-capability revocation |
-| Lazy-loaded components    | ✅         | ✅ React.lazy + Suspense                                                               | Match — Item 14                                                |
-| Cursor-based pagination   | ✅         | ✅ Cursor + composite index                                                            | Match — Item 16                                                |
-| Production Docker         | ✅         | ✅ Multi-stage, health checks, NODE_ENV                                                | Configured; image build/runtime unverified                     |
-| Granular package exports  | ✅         | ⚠️ Several packages use subpaths; common/db/utils/test-utils still expose root barrels | Partial — Items 18/48                                          |
+Status of each capability in Dripl's own tree. This is a self-assessment, not a
+comparison against another product.
+
+| Feature                   | Dripl                                                                                  | Status                                                         |
+| ------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| CRDT-based sync (Yjs)     | ❌ JSON versioned deltas; Yjs wire disabled                                            | Gap — no CRDT convergence claim                                |
+| OffscreenCanvas rendering | ⚠️ Element canvas cache exists                                                         | Partial                                                        |
+| WeakMap for shape cache   | ✅ Version-checked cache                                                               | Match                                                          |
+| Command-based history     | ⚠️ Snapshots (pruned redundant deriveHistory)                                          | Partial — Item 12                                              |
+| Fractional z-ordering     | ✅ fractional-indexing library, reordering generates keys                              | Match — Item 23                                                |
+| Web Workers for hit test  | ⚠️ Worker builds/indexes spatial data, but active UI hit testing uses a local RBush    | Partial — Item 13                                              |
+| Binary WS protocol        | ❌ JSON                                                                                | Future consideration                                           |
+| Spatial index for culling | ✅ RBush spatial index                                                                 | Match — Item 10                                                |
+| Differential element sync | ✅ scene-delta with added/updated/deleted                                              | Match — Item 7                                                 |
+| Image blob storage        | ✅ Authenticated filesystem uploads + capability URLs                                  | Partial — no object storage/CDN or image-capability revocation |
+| Lazy-loaded components    | ✅ React.lazy + Suspense                                                               | Match — Item 14                                                |
+| Cursor-based pagination   | ✅ Cursor + composite index                                                            | Match — Item 16                                                |
+| Production Docker         | ✅ Multi-stage, health checks, NODE_ENV                                                | Configured; image build/runtime unverified                     |
+| Granular package exports  | ⚠️ Several packages use subpaths; common/db/utils/test-utils still expose root barrels | Partial — Items 18/48                                          |
 
 ---
 

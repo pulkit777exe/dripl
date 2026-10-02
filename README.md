@@ -9,10 +9,11 @@
 
 Real-time collaborative whiteboard with hand-drawn rendering, live cursors, and
 shareable links. Turborepo monorepo: a Next.js frontend plus separate Express and
-WebSocket servers over PostgreSQL 16. The evidence-weighted parity and security
-assessment is [`docs/codebase-audit.md`](docs/codebase-audit.md); it records both
-what is verified and what is not. Dripl is not an Excalidraw-compatible or
-production-ready clone.
+WebSocket servers over PostgreSQL 16. The evidence-weighted security and
+maturity assessment is [`docs/codebase-audit.md`](docs/codebase-audit.md); it
+records both what is verified and what is not. Dripl is an early-beta product,
+not a production-ready service, and its collaboration sync is versioned JSON
+deltas rather than a CRDT.
 
 ## Requirements
 
@@ -125,8 +126,11 @@ docker compose up --build
   acknowledged.
 - **Sharing**: Google OAuth, owner-scoped view/edit file capabilities, read-only
   room capability pages, share links, teams, folders, snapshot history.
-- **Export**: PNG, SVG, PDF, JSON, and `.excalidraw`
-  (`apps/dripl-app/utils/export`). Optional Gemini-backed diagram generation via
+- **Export**: PNG, SVG, PDF, JSON, and `.dripl`
+  (`apps/dripl-app/utils/export`). `.dripl` is Dripl's own scene document and is
+  the same format the file open/save path uses, so a canvas round-trips through
+  export and import without depending on another tool's schema. Optional
+  Gemini-backed diagram generation via
   `/api/ai/generate`.
 
 ## Known Limitations

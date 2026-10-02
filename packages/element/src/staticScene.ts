@@ -108,9 +108,7 @@ interface CacheEntry {
    * changes. The previous approach walked every cached element on every
    * mutation to find those owners, which made each drag frame O(scene size).
    * Recording the versions instead makes invalidation O(1) and lets the owner
-   * notice on its own next draw. Excalidraw does the same thing by storing
-   * `boundTextElementVersion` on its cached element
-   * (`renderer/renderElement.ts:553`).
+   * notice on its own next draw.
    */
   dependencyVersions: ReadonlyMap<string, number> | null;
 }
@@ -124,8 +122,7 @@ const elementCanvasCache = new WeakMap<DriplElement, CacheEntry>();
  * scene can ask for hundreds of megabytes: a 100x70 element with padding is
  * about 43 KB, which is ~430 MB for 10,000 elements. Local persistence accepts
  * up to 50,000 elements, so unbounded growth here would reach multiple gigabytes
- * and take the tab down. Excalidraw has the same unbounded `WeakMap` and only
- * clears it on unmount (`App.tsx:2536`); bounding it is a deliberate divergence.
+ * and take the tab down. Bounding the cache is deliberate.
  *
  * Eviction is by insertion order and only drops the bitmap, so a later frame
  * regenerates it. That is a deliberate trade: a working set larger than the
@@ -239,12 +236,10 @@ function dependenciesUnchanged(
 // element of 40,000 x 40,000 world pixels asks for a ~1.6 billion pixel
 // surface, which is a multi-gigabyte allocation that fails or renders blank.
 //
-// Excalidraw applies the same two limits, and by the same method: reduce the
-// resolution (scale) rather than refuse to cache the element. See
-// `cappedElementCanvasSize` in `renderer/renderElement.ts` at v0.18.1
-// (commit a2ec2889babf7d2295469c6d90ebe77fae57df84), lines 160-199, where
-// AREA_LIMIT is documented as approximately the Safari mobile canvas area
-// limit and WIDTH_HEIGHT_LIMIT as the Safari per-axis limit from MDN.
+// Both caps are applied by reducing the resolution (scale) rather than
+// refusing to cache the element at all. The values are the browser's own
+// ceilings: AREA_LIMIT is approximately Safari's mobile canvas area limit,
+// and the axis limit is the Safari per-axis canvas limit documented on MDN.
 const ELEMENT_CANVAS_AREA_LIMIT = 16_777_216;
 const ELEMENT_CANVAS_AXIS_LIMIT = 32_767;
 
@@ -505,9 +500,8 @@ export function renderStaticScene(
  * shape's bound text) are *not* visited here. That used to mean walking every
  * cached element on every mutation, which is O(scene) per drag frame, and
  * `mutateElement` calls this on every update. Those owners now record the
- * versions they depend on and rebuild themselves on their next draw, which is
- * how Excalidraw handles it via `boundTextElementVersion`
- * (`renderer/renderElement.ts:553`). This function is therefore O(1).
+ * versions they depend on and rebuild themselves on their next draw. This
+ * function is therefore O(1).
  */
 export function invalidateElementCache(elementId: string): void {
   invalidateCallCount += 1;

@@ -6,7 +6,7 @@ This is the **root-level guide** for the Dripl monorepo. Read this first before 
 
 ## What Is Dripl?
 
-Dripl is a real-time collaborative canvas application (think Excalidraw/Figma). It consists of three deployable apps and six shared library packages, plus two tooling packages, all managed in a Turborepo monorepo.
+Dripl is a real-time collaborative canvas application: an infinite hand-drawn whiteboard with live cursors and shareable links. It consists of three deployable apps and six shared library packages, plus two tooling packages, all managed in a Turborepo monorepo.
 
 ---
 

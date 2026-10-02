@@ -54,12 +54,10 @@ dev-docs
 .env*.local
 docs/
 !docs/
-!docs/excalidraw-feature-baseline.md
 !docs/codebase-audit.md
 !docs/collaboration-crdt-e2ee-decision.md
 !docs/database-migration-notes.md
 !docs/performance-benchmark.md
-!docs/excalidraw-performance-research.md
 bun.lock
 
 # Prisma 7 generated client (regenerate with `pnpm db:generate`)

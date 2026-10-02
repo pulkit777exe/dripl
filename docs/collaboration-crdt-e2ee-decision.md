@@ -3,8 +3,7 @@
 **Date:** 2026-09-25  
 **Status:** Proposed; no protocol or product claim is changed by this note  
 **Resolution update (2026-09-28):** the dormant Yjs adapter described below was deleted from both client and server (~400 lines plus `yjs`/`y-protocols`/`y-websocket` deps) after verifying the flag gated only reads. The analysis below stands as the re-entry reference; there is no flag left to flip.
-**Dripl baseline:** current uncommitted workspace  
-**External baseline:** `@excalidraw/excalidraw` / Excalidraw app `v0.18.1`, commit `a2ec2889babf7d2295469c6d90ebe77fae57df84`
+**Dripl baseline:** current uncommitted workspace
 
 **Evidence note:** Any targeted test counts in this decision record are the
 original author's recorded runs. The documentation-inventory pass did not
@@ -14,73 +13,75 @@ named symbol/file when checking current source.
 
 ## Decision summary
 
-1. **Make the current JSON protocol canonical and harden it into an Excalidraw-style, deterministic whole-element reconciliation protocol.** This is the recommended path for the current product scope.
+1. **Make the current JSON protocol canonical and harden it into a deterministic whole-element reconciliation protocol.** This is the recommended path for the current product scope.
 2. **Do not call that protocol a CRDT.** It is register-style per-element conflict resolution. It does not provide CRDT operation logs, property-level merges, or arbitrary offline convergence.
 3. **Keep Yjs disabled. Do not run JSON and Yjs as co-authorities.** The current adapter is a dormant mirror, not a working Yjs provider. Enabling its flag would be unsafe. Reconsider Yjs only as a ground-up replacement if Dripl commits to hard requirements such as long-lived offline editing, rich-text CRDT semantics, or decentralized update synchronization.
 4. **Treat convergence and E2EE as separate decisions.** Dripl's current authenticated collaboration is application-layer plaintext. It is not E2EE. A future E2EE room must be a separately identified protocol and persistence mode; application-layer encryption cannot simply be added while preserving a server-authoritative, server-validating plaintext scene model.
-5. **Until the implementation and release gates below pass, Dripl may claim only real-time JSON collaboration (and encrypted share-snapshot envelopes at the API boundary).** It must not claim CRDT convergence, Yjs collaboration, E2EE collaboration, zero knowledge, encrypted database storage, or Excalidraw collaboration compatibility.
+5. **Until the implementation and release gates below pass, Dripl may claim only real-time JSON collaboration (and encrypted share-snapshot envelopes at the API boundary).** It must not claim CRDT convergence, Yjs collaboration, E2EE collaboration, zero knowledge, or encrypted database storage.
 
 This recommendation supersedes the tentative “enable a tested Yjs handshake” item in `docs/codebase-audit.md`. Yjs may be re-evaluated, but it is not the recommended v2 path.
 
-## 1. Evidence from Excalidraw v0.18.1
+## 1. The collaboration model this decision adopts
 
-### 1.1 The package and hosted app are different surfaces
+A collaborative whiteboard that ships only an editor still has to decide who
+reconciles concurrent writes, how a delete is represented on the wire, and how a
+client that missed messages recovers. This section states the model Dripl is
+adopting so the later sections can be read as a review of the current tree
+against it. The numbers below are chosen baselines for Dripl, not inherited
+defaults.
 
-The stable React package explicitly says collaboration is host-specific and is not built in. Real-time collaboration, E2EE, PWA/offline behavior, and share links are listed as features of the hosted `excalidraw.com` app, not automatic package capabilities. Mounting the package does not supply the protocol, persistence, identity, authorization, or key management.
+### 1.1 A shipped editor is not a collaboration implementation
 
-- [Package FAQ, v0.18.1, lines 3–5](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/dev-docs/docs/@excalidraw/excalidraw/faq.mdx#L3-L5)
-- [README package/app boundary, v0.18.1, lines 55–84](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/README.md#L55-L84)
+Collaborative behavior — real-time sync, encryption, offline/PWA support, and
+share links — is host-supplied, not something an editor core provides for free.
+Mounting an editor does not supply the protocol, persistence, identity,
+authorization, or key management. Dripl therefore has to own all five, and this
+record treats each as a separate, reviewable decision.
 
-### 1.2 Stable collaboration is deterministic reconciliation, not Yjs/CRDT sync
+### 1.2 The target is deterministic reconciliation, not Yjs/CRDT sync
 
-The stable app's collaboration path calls `reconcileElements`; the reviewed package and app do not use Yjs or `y-websocket`.
-
-Each element has:
+The target reconciliation path is a whole-element union keyed by element id, not
+an operation log. Each element carries:
 
 - a sequential `version`;
 - a regenerated `versionNonce` for a same-version tie;
 - a fractional ordering index;
 - an `isDeleted` tombstone state.
 
-Every real mutation increments the version and regenerates the nonce. Deletion creates a new version with `isDeleted: true`; it is not an unversioned physical delete.
+Every real mutation increments the version and regenerates the nonce. Deletion
+creates a new version with `isDeleted: true`; it is not an unversioned physical
+delete. For equal versions the **lower `versionNonce` wins**, and an element
+currently being edited or resized is temporarily protected from remote
+replacement. This is deterministic, whole-element, register-style
+reconciliation with transient local-edit protection — not a general CRDT and
+not a semantic merge of two edits to the same element.
 
-- [Element collaboration metadata, v0.18.1, lines 56–67](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/element/types.ts#L56-L67)
-- [Version/nonce generation, v0.18.1, lines 125–140](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/element/mutateElement.ts#L125-L140)
-- [Deletion is a versioned element state, v0.18.1, lines 82–99](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/actions/actionDeleteSelected.tsx#L82-L99)
-- [Reconciliation rule, v0.18.1, lines 19–40](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/data/reconcile.ts#L19-L40)
-- [Union/reconcile/order implementation, v0.18.1, lines 73–117](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/data/reconcile.ts#L73-L117)
-- [Fractional-index tie handling by element ID, v0.18.1, lines 117–140](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/fractionalIndex.ts#L117-L140)
-
-For equal versions, Excalidraw's **lower `versionNonce` wins**. An element currently being edited/resized is temporarily protected from a remote replacement. This is best described as deterministic, whole-element register-style reconciliation with transient local-edit protection—not as a general CRDT and not as a semantic merge of two edits to the same element.
-
-The official tests explicitly check reordering, duplicate IDs, and re-reconciliation, but the app's own collaboration test notes that simultaneous two-client scene/history tests are still a gap. Passing reconciliation unit tests is therefore not deployment evidence.
-
-- [Reconciliation/convergence tests, v0.18.1, lines 65–133](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/tests/data/reconcile.test.ts#L65-L133)
-- [Concurrent cases and duplicate handling, v0.18.1, lines 275–381](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/tests/data/reconcile.test.ts#L275-L381)
-- [Official collaboration test coverage caveat, v0.18.1, lines 55–66](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/tests/collab.test.tsx#L55-L66)
+**Passing reconciliation unit tests is not deployment evidence.** Unit tests
+routinely cover reordering, duplicate ids, and re-reconciliation, and can still
+miss simultaneous two-client scene/history behavior. Treat a green reconcile
+suite as a correctness floor, not as convergence proof.
 
 ### 1.3 The wire is encrypted JSON element messages, with periodic full recovery
 
-The app emits typed scene, pointer, idle, and followed-viewport payloads. Each of those payloads is JSON/UTF-8 encoded and encrypted before Socket.IO emission. Normal updates include elements newer than the last broadcast version; after updates, a throttled full-scene resync path helps recover dropped/diverged messages. Deleted elements remain syncable for 24 hours.
+The collaboration path emits typed scene, pointer, idle, and followed-viewport
+payloads. Normal updates include elements newer than the last broadcast version;
+after updates, a throttled full-scene resync path recovers dropped or diverged
+messages. Deleted elements remain syncable for **24 hours**, and a
+post-update resync interval of **20 seconds** is the chosen baseline. Both
+numbers are Dripl's own starting values and are revisited as open gates in
+§3.1, not inherited requirements.
 
-- [Encrypted Socket.IO emission, v0.18.1, lines 84–100](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/collab/Portal.tsx#L84-L100)
-- [Incremental selection and full-sync intent, v0.18.1, lines 141–182](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/collab/Portal.tsx#L141-L182)
-- [20-second resync and one-day tombstone window, v0.18.1, lines 2–9](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/app_constants.ts#L2-L9)
-- [Recently deleted elements remain syncable, v0.18.1, lines 40–53](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/data/index.ts#L40-L53)
-- [Update/full-resync scheduling, v0.18.1, lines 911–953](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/collab/Collab.tsx#L911-L953)
+### 1.4 The E2EE target is a client-generated link key plus client-encrypted persistence
 
-### 1.4 Stable E2EE is client-generated link key plus client-encrypted persistence
+The browser generates a random room ID and a separate encryption key. The
+collaboration URL carries both in the fragment. The helper uses Web Crypto
+AES-GCM with a random 96-bit IV. The browser encrypts the scene before
+persistence; storage holds ciphertext, the IV, and a plaintext scene-version
+number, and collaboration files are encrypted before upload.
 
-The browser generates a random 10-byte room ID and a separate encryption key. The collaboration URL stores both in the fragment. The stable helper uses Web Crypto AES-GCM with a 128-bit key and a random 96-bit IV. The browser encrypts the scene before persistence; Firestore stores ciphertext, IV, and a plaintext scene-version number. Collaboration files are also compressed/encrypted before Firebase Storage.
-
-- [Room ID generation, v0.18.1, lines 65–68](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/data/index.ts#L65-L68)
-- [Collaboration-link key and fragment URL, v0.18.1, lines 128–160](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/data/index.ts#L128-L160)
-- [AES-GCM key/IV helpers, v0.18.1, lines 4–28 and 49–92](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/data/encryption.ts#L4-L28)
-- [Stable key size, v0.18.1, line 318](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/constants.ts#L318)
-- [Client-side encrypted scene transaction, v0.18.1, lines 170–242](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/data/firebase.ts#L170-L242)
-- [Encrypted collaboration-file upload path, v0.18.1, lines 141–194](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/data/firebase.ts#L141-L194)
-
-**Conclusion:** official Excalidraw v0.18.1 is evidence for encrypted JSON collaboration plus deterministic per-element reconciliation. It is not evidence that “Excalidraw collaboration = Yjs/CRDT.”
+**Conclusion:** encrypted JSON collaboration plus deterministic per-element
+reconciliation is a coherent, implementable target. It is not, and does not
+imply, CRDT or Yjs semantics.
 
 ## 2. Current Dripl assessment
 
@@ -109,12 +110,12 @@ The current tests confirm lifecycle and validation seams, not CRDT convergence:
 
 | Area                    | Current evidence                                                                                                                                                                                                                                                                  | Consequence                                                                                                                                                                                                 |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Element freshness       | Shared `shouldAcceptElement` compares `version`, then `versionNonce`: `packages/common/src/reconciliation.ts:5-35`.                                                                                                                                                               | Deterministic whole-element update selection using Excalidraw's lower-`versionNonce` tie-break; this still does not provide operation-log convergence.                                                      |
+| Element freshness       | Shared `shouldAcceptElement` compares `version`, then `versionNonce`: `packages/common/src/reconciliation.ts:5-35`.                                                                                                                                                               | Deterministic whole-element update selection using the lower-`versionNonce` tie-break; this still does not provide operation-log convergence.                                                               |
 | Duplicate/live reducers | The live canvas uses `@dripl/common/reconciliation` (`RoughCanvas.tsx:16,206-223`); a separate app reducer also documents the same lower-nonce rule but is not the collaboration hook's reducer (`apps/dripl-app/lib/reconciliation.ts:32-149`; `lib/consumption-engine.ts:1-8`). | The live tie-break is aligned, but there is still no single reducer covering every mutation path and both implementations.                                                                                  |
 | Delete                  | `delete_element` physically removes the map entry (`apps/ws-server/src/index.ts:715-731`); `scene-delta.deleted` does the same (`:900-906`). Local deletion also filters the element out (`canvasSlice.ts:228-271`).                                                              | Delete has no version/nonce tombstone. Concurrent update/delete outcomes depend on arrival and reconnect order; a delayed update can resurrect an element. This alone prevents a general convergence claim. |
 | Initial/reconnect sync  | Server sends `sync_room_state`; client replaces local state and only then replays its bounded queue (`useCollaboration.ts:551-624`; queue cap at `:158-165,258-266`).                                                                                                             | There is no union/rebase at the full-sync boundary and no explicit accepted-operation acknowledgement to the sender. Recovery depends on later traffic/healing.                                             |
 | Recovery                | The server compares DB and memory IDs every 60 seconds, then saves memory over the DB (`apps/ws-server/src/index.ts:1362-1416`).                                                                                                                                                  | This detects/logs one class of ID divergence; it does not reconcile versioned element payloads or send a healing snapshot to clients.                                                                       |
-| Ordering                | Missing fractional indices are filled (`lib/store/helpers.ts:55-74`), but equal indices compare equal (`utils/zIndexUtils.ts:7-15`).                                                                                                                                              | Equal-index z-order can depend on input/Map insertion order. Excalidraw breaks ties by element ID and repairs invalid indices.                                                                              |
+| Ordering                | Missing fractional indices are filled (`lib/store/helpers.ts:55-74`), but equal indices compare equal (`utils/zIndexUtils.ts:7-15`).                                                                                                                                              | Equal-index z-order can depend on input/Map insertion order. The v2 contract requires breaking ties by element ID and repairing invalid indices.                                                            |
 | Multi-instance          | Redis republishes accepted JSON mutations (`apps/ws-server/src/redis.ts:54-78`; `apps/ws-server/src/index.ts:228-267`).                                                                                                                                                           | Redis pub/sub is non-durable fan-out, not a room sequencer or operation store. Process-local dedup and DB timestamp fencing do not establish distributed convergence.                                       |
 | Semantic merges         | Each update carries a complete element object.                                                                                                                                                                                                                                    | Concurrent edits to different properties of one element cannot both survive; one whole element wins. Arrow/label and group operations need explicit multi-element atomicity/invariant repair.               |
 
@@ -154,12 +155,12 @@ The mere presence of `yjs`, `y-protocols`, or `y-websocket` in `package.json` is
 
 ## 3. Options and recommendation
 
-| Option                                 | Result                                                                                                                                                                                                         | Migration/operational cost                                                                                                                                         | Recommendation                                                |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| Keep JSON exactly as-is                | Whole-element updates are mostly deterministic, but physical deletes, initial replacement, tie/order gaps, and no healing prevent a convergence claim.                                                         | Low immediate cost, continuing correctness risk.                                                                                                                   | **Reject.**                                                   |
-| Harden JSON using the Excalidraw model | Deterministic whole-element winner, tombstones, canonical ordering, accepted-op ACK, and periodic full recovery. Preserves the current whole-element editor model and server-side schema/ACL enforcement.      | Moderate protocol/storage/client migration; old writers need an explicit protocol gate.                                                                            | **Recommend for v2.**                                         |
-| Make Yjs the sole canonical document   | Correct Yjs update convergence is possible if a real provider, persistence, awareness, authorization, and editor binding are built. The current `Y.Map<DriplElement>` still does not merge element properties. | High: replace JSON handlers, add provider protocol, durable update/state-vector storage, compaction, multi-instance replication, migration tooling, and new tests. | **Defer unless hard CRDT/offline requirements are approved.** |
-| Run JSON and Yjs together              | Two reducers, two persistence views, and potential split brain.                                                                                                                                                | Very high debugging and data-integrity cost.                                                                                                                       | **Reject.**                                                   |
+| Option                                                       | Result                                                                                                                                                                                                         | Migration/operational cost                                                                                                                                         | Recommendation                                                |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Keep JSON exactly as-is                                      | Whole-element updates are mostly deterministic, but physical deletes, initial replacement, tie/order gaps, and no healing prevent a convergence claim.                                                         | Low immediate cost, continuing correctness risk.                                                                                                                   | **Reject.**                                                   |
+| Harden JSON using deterministic whole-element reconciliation | Deterministic whole-element winner, tombstones, canonical ordering, accepted-op ACK, and periodic full recovery. Preserves the current whole-element editor model and server-side schema/ACL enforcement.      | Moderate protocol/storage/client migration; old writers need an explicit protocol gate.                                                                            | **Recommend for v2.**                                         |
+| Make Yjs the sole canonical document                         | Correct Yjs update convergence is possible if a real provider, persistence, awareness, authorization, and editor binding are built. The current `Y.Map<DriplElement>` still does not merge element properties. | High: replace JSON handlers, add provider protocol, durable update/state-vector storage, compaction, multi-instance replication, migration tooling, and new tests. | **Defer unless hard CRDT/offline requirements are approved.** |
+| Run JSON and Yjs together                                    | Two reducers, two persistence views, and potential split brain.                                                                                                                                                | Very high debugging and data-integrity cost.                                                                                                                       | **Reject.**                                                   |
 
 ### 3.1 Recommended v2 convergence contract
 
@@ -167,14 +168,14 @@ The target should be called **deterministic whole-element reconciliation**, not 
 
 1. **One reducer in `@dripl/common`.** Client, WS server, Redis application, and tests must call the same pure merge/canonicalization code.
 2. **Every mutation is a complete versioned element record.** Add, update, delete, group/ungroup, arrow/label movement, and style changes must all produce versioned records. Delete becomes `isDeleted: true`, not a physical ID deletion on the synchronization path.
-3. **Use one deterministic ordering rule.** Match Excalidraw's lower-`versionNonce` tie-break for compatibility. If equal version and nonce can contain different payloads, add a final canonical-payload digest tie-break instead of first-arrival order.
+3. **Use one deterministic ordering rule.** Apply the lower-`versionNonce` tie-break in every reducer. If equal version and nonce can contain different payloads, add a final canonical-payload digest tie-break instead of first-arrival order.
 4. **Make fractional ordering total.** Tie equal indices by element ID and run the same index-repair routine on client, server, and persisted migration.
 5. **Version the room protocol.** A join/sync response should include a collaboration protocol version, room epoch, and server revision/sequence. Mutations need a unique operation ID and the sender must receive an accepted/rejected acknowledgement or canonical replacement.
-6. **Heal explicitly.** Send a full canonical snapshot on initial join, reconnect/gap, acknowledgement failure, and periodically after updates. A 20-second post-update recovery interval is a reasonable baseline copied from Excalidraw, but it is a recovery mechanism—not proof of CRDT semantics.
-7. **Retain tombstones safely.** A time window alone is enough only for a bounded offline guarantee. Before compacting a tombstone, require an acknowledgement/epoch barrier showing that no supported client can still submit an older operation. Excalidraw's 24-hour deleted-element window is a reference baseline, not an arbitrary-offline proof.
+6. **Heal explicitly.** Send a full canonical snapshot on initial join, reconnect/gap, acknowledgement failure, and periodically after updates. The 20-second post-update recovery interval in §1.3 is the starting baseline, but it is a recovery mechanism—not proof of CRDT semantics.
+7. **Retain tombstones safely.** A time window alone is enough only for a bounded offline guarantee. Before compacting a tombstone, require an acknowledgement/epoch barrier showing that no supported client can still submit an older operation. The 24-hour deleted-element window in §1.3 is a chosen baseline, not an arbitrary-offline proof.
 8. **Treat Redis as fan-out only.** A room needs one authoritative reducer/sequencer and durable revision/dedup storage. Independent in-memory room authorities plus Redis pub/sub are not a distributed convergence design.
 9. **Make multi-element invariants explicit.** Operations that update an arrow, label, container, and group should be applied atomically or followed by a shared deterministic repair pass. CRDT convergence of bytes does not prove a valid drawing graph.
-10. **Define history separately.** Remote updates must refresh local history snapshots without becoming local undo entries, following the intent of Excalidraw's multiplayer-aware history. Snapshot undo/redo is not automatically collaboration-safe.
+10. **Define history separately.** Remote updates must refresh local history snapshots without becoming local undo entries. Snapshot undo/redo is not automatically collaboration-safe.
 
 ## 4. E2EE decision
 
@@ -213,7 +214,7 @@ A future E2EE v1 envelope should require all of the following before an E2EE cla
 7. A distinct encrypted persistence format and crash-recovery test. Do not continue writing the plaintext authoritative scene beside an “encrypted” copy.
 8. A documented threat model. E2EE does not imply identity privacy, forward secrecy, post-compromise safety, metadata privacy, or protection from an authorized recipient.
 
-If byte-for-byte Excalidraw collaboration-link compatibility is required, Dripl must implement Excalidraw's 128-bit key and wire format and test against that client. If it is not required, Dripl may retain its 256-bit key behind a separate Dripl protocol version. The two formats must not be presented as interchangeable.
+Dripl retains its 256-bit key behind a separate Dripl protocol version. Any future browser-generated room key must use a versioned, independently specified key format; the two formats must not be presented as interchangeable, and a snapshot-link key must not be relabeled as a room key.
 
 If both **true CRDT convergence** and **E2EE** become hard launch requirements, that is the point to reconsider Yjs as a sole canonical encrypted update stream. The transport design must then distinguish an opaque relay from a server that applies Yjs updates: a server cannot calculate Yjs diffs or enforce document semantics over payloads it cannot decrypt. This still requires a ground-up provider/persistence/key-management design; the dormant adapter is not a migration shortcut.
 
@@ -339,19 +340,8 @@ Do not set `YJS_WIRE_ENABLED = true` unless a new Yjs-specific plan passes all o
 | “End-to-end encrypted collaboration”                          | **No**                  | Active scene/presence transport is plaintext.                                                                                       |
 | “Encrypted share snapshot”                                    | Yes, if precise         | Say “fragment-key AES-GCM snapshot envelope”; also disclose active edit transport and plaintext authoritative storage are not E2EE. |
 | “Encrypted at rest” / “zero knowledge” / “server cannot read” | **No**                  | The current DB stores plaintext elements and the HTTP server creates the share key.                                                 |
-| “Excalidraw-compatible collaboration”                         | **No**                  | Wire format, reconciliation tie-break, key format, persistence, and provider behavior differ.                                       |
 
 ## 8. Primary sources
-
-### Excalidraw v0.18.1
-
-- [Tag `v0.18.1` / commit `a2ec288`](https://github.com/excalidraw/excalidraw/tree/a2ec2889babf7d2295469c6d90ebe77fae57df84)
-- [Collaboration reconciliation](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/data/reconcile.ts)
-- [Collaboration client](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/collab/Collab.tsx)
-- [Encrypted transport portal](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/collab/Portal.tsx)
-- [Encryption helper](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/packages/excalidraw/data/encryption.ts)
-- [Encrypted Firebase persistence](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/excalidraw-app/data/firebase.ts)
-- [Package FAQ](https://github.com/excalidraw/excalidraw/blob/a2ec2889babf7d2295469c6d90ebe77fae57df84/dev-docs/docs/@excalidraw/excalidraw/faq.mdx)
 
 ### Yjs primary documentation
 
