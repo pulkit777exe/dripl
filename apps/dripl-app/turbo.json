@@ -16,7 +16,13 @@
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "test": {
-      "env": ["NEXT_PUBLIC_*", "GEMINI_API_KEY"],
+      // No `env` key here on purpose. Turbo REPLACES an inherited task `env`
+      // array rather than merging it, so naming only NEXT_PUBLIC_* and
+      // GEMINI_API_KEY silently dropped DATABASE_URL and RUN_DB_INTEGRATION
+      // from every test process in this package. The DB-backed suites then
+      // skipped themselves with no failure and no log, which reads exactly
+      // like a passing run. Inheriting the root list keeps one source of
+      // truth for what tests can see.
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/.env",
