@@ -7,5 +7,10 @@
     "rootDir": "src",
     "types": ["node"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  // Tests are type-checked by `tsconfig.check.json` and run by vitest; they
+  // are not part of the published artifact. Without this, `integration.test.js`
+  // and `migration.test.js` were being emitted into `dist/`, which every other
+  // package in the workspace already prevents.
+  "exclude": ["**/*.test.ts"]
 }

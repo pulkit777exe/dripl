@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import js from '@eslint/js';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 /**
@@ -35,12 +36,30 @@ const loggingBoundary = {
   rules: { 'no-console': 'off' },
 };
 
+/**
+ * Globals available to every linted file.
+ *
+ * These are SPREAD, not toggled. `{ node: true, browser: true }` is eslintrc
+ * syntax: in flat config it declares two globals literally named "node" and
+ * "browser" and expands nothing. The result was a config in which `process`,
+ * `Buffer`, `window` and `self` were all undefined, so any `.js`/`.mjs` file
+ * linted through the ROOT config failed `no-undef` — `commitlint.config.js`
+ * on `module`, the service worker `apps/dripl-app/public/sw.js` on `self`.
+ * The per-workspace configs masked it because `eslint-config-next` brings its
+ * own expanded globals, so the same file passed or failed depending on which
+ * directory ESLint ran from.
+ *
+ * `globals.node` already supplies the CommonJS names (`module`, `require`,
+ * `exports`, `__dirname`, `__filename`), so no separate CommonJS block is
+ * needed; declaring them again would only create a second thing to forget.
+ */
 const nodeBrowserGlobals = {
+  files: ['**/*.js', '**/*.mjs', '**/*.cjs', '**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'],
   languageOptions: {
     globals: {
-      browser: true,
-      es2022: true,
-      node: true,
+      ...globals.es2022,
+      ...globals.browser,
+      ...globals.node,
     },
   },
 };
