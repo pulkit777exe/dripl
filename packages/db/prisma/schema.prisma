@@ -165,6 +165,25 @@ model ShareLink {
   @@index([expiresAt])
 }
 
+/// A public share snapshot of a canvas scene.
+///
+/// `data` holds the serialized, already-validated element array. The
+/// `CanvasSnapshot_data_bytes` CHECK constraint in
+/// `20261002133016_add_canvas_snapshot` caps it at the same 2 MiB the write
+/// path enforces; the two must move together.
+model CanvasSnapshot {
+  id        String   @id
+  canvasId  String?
+  data      String   @default("[]")
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  // Listing filters by canvas and orders newest-first.
+  @@index([canvasId, createdAt])
+  // Expiry sweep and the live-snapshot capacity count.
+  @@index([expiresAt])
+}
+
 model PasswordResetToken {
   id        String   @id @default(cuid())
   token     String   @unique
