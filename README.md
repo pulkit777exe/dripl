@@ -65,6 +65,43 @@ absent; `SMTP_USER` and `SMTP_PASS`, both required when mail is sent;
 `TRUST_PROXY`; `DEBUG_PRISMA`; `DB_ALLOW_INSECURE_TLS`; `DB_POOL_SIZE`; `LOG_LEVEL`.
 `SMTP_HOST` and `SMTP_PORT`, declared in `render.yaml`, are read by no code.
 
+### Image storage
+
+Images live on the local filesystem under `IMAGE_STORAGE_DIR` unless
+`IMAGE_S3_BUCKET` is set, which selects an S3-compatible bucket instead. That
+single variable is the whole switch; nothing else is required and an existing
+deployment changes behaviour only by setting it.
+
+| Variable                     | Required by    | Notes                                                     |
+| ---------------------------- | -------------- | --------------------------------------------------------- |
+| `IMAGE_STORAGE_DIR`          | default driver | Local directory; created on first write, not at boot      |
+| `IMAGE_S3_BUCKET`            | S3 driver      | Set to switch drivers. Bucket name, not a URL             |
+| `IMAGE_S3_REGION`            | S3 driver      | Default `us-east-1`; also sets the AWS endpoint host      |
+| `IMAGE_S3_ENDPOINT`          | S3 driver      | Bare origin. Required for R2, MinIO and B2                |
+| `IMAGE_S3_PATH_STYLE`        | S3 driver      | Default `true`. Set `false` for virtual-hosted addressing |
+| `IMAGE_S3_ACCESS_KEY_ID`     | S3 driver      | Required with `IMAGE_S3_BUCKET`                           |
+| `IMAGE_S3_SECRET_ACCESS_KEY` | S3 driver      | Required with `IMAGE_S3_BUCKET`                           |
+| `IMAGE_S3_SESSION_TOKEN`     | S3 driver      | Only for temporary credentials                            |
+| `IMAGE_S3_TIMEOUT_MS`        | S3 driver      | Per-request bound; default `15000`                        |
+
+Any S3-compatible endpoint works — AWS S3, Cloudflare R2, MinIO, Backblaze B2 —
+with no provider-specific code. Requests are plain S3 REST signed with SigV4
+(`apps/http-server/src/storage/sigv4.ts`, tested against AWS's published
+`aws-sig-v4-test-suite`). No credential ever appears in a URL: the access key id
+appears only in the `Authorization` header and the secret key nowhere at all, so
+there are no presigned URLs.
+
+An unreachable bucket **fails the request** (500) and is logged as
+`image_store_failure`. It never falls back to local disk, because two sources of
+truth would make a stored image and a served image disagree in a way nothing
+would report. Misconfiguration is caught per request rather than at boot, so a
+bad bucket variable cannot take `GET /health` or any other route down.
+
+Existing local files migrate with
+`scripts/migrate-images-to-object-store.ts --apply`, which copies only, verifies
+each object by reading it back, skips keys already present, and refuses to run
+without a destination bucket. It never deletes a source file.
+
 ## Commands
 
 | Command                                       | Purpose                                            |
@@ -135,9 +172,23 @@ docker compose up --build
 
 ## Known Limitations
 
-- Collaboration sync is versioned JSON deltas, not a CRDT. Yjs binary sync is
-  disabled and convergence is not guaranteed. Concurrent edits resolve by a
-  last-writer-wins freshness fence, so replicas can diverge until a resync.
+- Collaboration sync is versioned JSON deltas with per-element last-writer-wins,
+  not a CRDT. What is now _proven_ rather than assumed: the merge is a strict
+  total order on `(version, versionNonce)` — property-tested as antisymmetric,
+  irreflexive and transitive — and a property-based convergence test feeds the
+  same update sets to replicas in **every** ordering, checking they reach
+  byte-identical state across 4,000 generated scenarios and 438,538 orderings,
+  including same-element conflicts and edits to related elements. The exact
+  condition under which that fails: one element id receiving two _different_
+  payloads under one identical `(version, versionNonce)` pair, where the tie is
+  broken by arrival order. The one user-reachable route to that — the `.dripl`
+  import path minting a constant tie-break — is fixed; the residual is a ~2^-31
+  random collision on the live mutation path.
+- **Convergence is not preservation.** Two people editing the same element
+  concurrently lose one of the edits, silently. Related elements are reconciled
+  independently, so a bound-text edit can leave a label attached to a shape
+  whose text has moved on. Making that safe is a rewrite of the sync layer, not
+  a bug fix.
 - **Room state now shards across instances, but the system as a whole does not
   yet scale horizontally.** ws-server elects one authoritative writer per room
   via a TTL'd Redis lease and refuses a join on a non-owner with close code
