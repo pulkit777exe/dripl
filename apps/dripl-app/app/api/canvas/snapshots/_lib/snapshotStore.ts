@@ -28,14 +28,30 @@ import { initializeDb } from '@dripl/db';
 export const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
 
 /**
- * Live-snapshot ceiling for the whole table, counted over `expiresAt > now` —
- * global, not per-user and not per-canvas. Ownership on the write path stops
- * one user from spending another's budget *for a named canvas*; it cannot stop
- * anonymous shares (`canvasId = null`) from consuming the same 500 rows.
- * Scoping the budget would need an owner column on `CanvasSnapshot`, which is
- * a schema change out of scope here.
+ * Live-snapshot ceilings, counted over `expiresAt > now`.
+ *
+ * These are deliberately TWO budgets rather than one global 500. `canvasId` is
+ * already nullable and already separates an owned version-history row from an
+ * anonymous share, so partitioning needs no new column and no migration — the
+ * discriminator the rows already carry is the one worth budgeting on.
+ *
+ * With a single shared ceiling, an anonymous flood is a denial of service on
+ * everyone: `POST` allows 30 writes/minute/IP with no credential, so one host
+ * fills 500 rows in about 17 minutes and every owner's version history starts
+ * returning 503 until the hour-long TTL drains. Splitting the budget means that
+ * flood can exhaust only anonymous sharing, and one owner spamming their own
+ * canvas can exhaust only their own history.
+ *
+ * What this does NOT fix: anonymous shares have no owner to partition by, so
+ * `MAX_ANONYMOUS_SNAPSHOTS` is still a single global pool and an attacker who
+ * keeps it full keeps share links failing for everyone. Closing that needs
+ * either an authenticated write path or a limit keyed on something harder to
+ * forge than an IP address; per-IP is the only lever available to an anonymous
+ * caller. The point of the split is that the failure is contained rather than
+ * total.
  */
-export const MAX_SNAPSHOTS = 500;
+export const MAX_OWNED_SNAPSHOTS_PER_CANVAS = 100;
+export const MAX_ANONYMOUS_SNAPSHOTS = 500;
 export const SNAPSHOT_TTL_MS = 60 * 60 * 1000;
 
 /** Longest an owning canvas/file slug may be, on both the write and list path. */
@@ -112,11 +128,9 @@ export function resetSnapshotSweepState(): void {
  *    `canvasId = null`, which is what keeps them out of every owner's
  *    version list in `listSnapshotSummaries`.
  *
- * The capacity ceiling below counts *live rows across the whole table*, so it
- * is global rather than per-user or per-canvas. An anonymous share can
- * therefore consume capacity that an owner's own snapshots need. Making the
- * budget per-owner needs a column this change does not add; see the note on
- * `MAX_SNAPSHOTS`.
+ * The capacity check is partitioned by ownership — see the note on
+ * `MAX_ANONYMOUS_SNAPSHOTS` — so an owned row is counted against its own
+ * canvas's history and an anonymous row against the shared anonymous pool.
  */
 export async function createSnapshot(input: {
   data: string;
@@ -126,10 +140,20 @@ export async function createSnapshot(input: {
   const now = new Date();
   await sweepExpired(now);
 
-  const live = await client.canvasSnapshot.count({
-    where: { expiresAt: { gt: now } },
-  });
-  if (live >= MAX_SNAPSHOTS) return { status: 'capacity' };
+  // Partitioned so one caller cannot spend another's budget. An owned row is
+  // counted against its own canvas; an anonymous row against the shared
+  // anonymous pool. See the note on MAX_ANONYMOUS_SNAPSHOTS.
+  if (input.canvasId !== undefined) {
+    const owned = await client.canvasSnapshot.count({
+      where: { canvasId: input.canvasId, expiresAt: { gt: now } },
+    });
+    if (owned >= MAX_OWNED_SNAPSHOTS_PER_CANVAS) return { status: 'capacity' };
+  } else {
+    const anonymous = await client.canvasSnapshot.count({
+      where: { canvasId: null, expiresAt: { gt: now } },
+    });
+    if (anonymous >= MAX_ANONYMOUS_SNAPSHOTS) return { status: 'capacity' };
+  }
 
   const id = randomUUID();
   await client.canvasSnapshot.create({

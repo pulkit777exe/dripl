@@ -317,6 +317,25 @@ describeDb('canvas snapshot routes against PostgreSQL', () => {
     expect(await response.json()).toEqual({ error: 'Authentication required.' });
   });
 
+  it('partitions the capacity budget in real SQL, not just in the fake', async () => {
+    // The JS fake in canvasSnapshots.test.ts filters `canvasId` in application
+    // code. Prisma expresses `{ canvasId: null }` as `IS NULL` and a string as
+    // equality, so the partition has to hold against the real predicate — a
+    // fake can branch where SQL cannot.
+    const { canvasId } = await scope();
+    const scene = JSON.stringify([element]);
+
+    expect((await store.createSnapshot({ data: scene, canvasId })).status).toBe('created');
+    for (let i = 0; i < store.MAX_ANONYMOUS_SNAPSHOTS; i += 1) {
+      await store.createSnapshot({ data: scene });
+    }
+
+    // The anonymous pool is now full...
+    expect((await store.createSnapshot({ data: scene })).status).toBe('capacity');
+    // ...but this canvas still has its own budget, untouched by the flood.
+    expect((await store.createSnapshot({ data: scene, canvasId })).status).toBe('created');
+  });
+
   it('bounds the stored scene at the size the write path enforces', async () => {
     const { canvasId, ip } = await scope();
     const created = await routes.collection.POST(post(JSON.stringify([element]), canvasId, ip));

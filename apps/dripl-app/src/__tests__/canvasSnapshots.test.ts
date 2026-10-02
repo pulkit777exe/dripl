@@ -4,7 +4,8 @@ import { signToken } from '@dripl/utils/auth';
 import { GET as GET_BY_ID } from '../../app/api/canvas/snapshots/[id]/route';
 import {
   MAX_SNAPSHOT_BYTES,
-  MAX_SNAPSHOTS,
+  MAX_ANONYMOUS_SNAPSHOTS,
+  MAX_OWNED_SNAPSHOTS_PER_CANVAS,
   SNAPSHOT_TTL_MS,
   resetSnapshotSweepState,
 } from '../../app/api/canvas/snapshots/_lib/snapshotStore';
@@ -119,9 +120,21 @@ const harness = vi.hoisted(() => {
           })
           .map(row => ({ ...row }));
       },
-      count: async ({ where }: { where: { expiresAt?: { gt?: Date } } }) => {
+      count: async ({
+        where,
+      }: {
+        // `canvasId` is how the capacity budget is partitioned: a string counts
+        // one canvas's history, and `null` counts the anonymous pool. A fake
+        // that ignored it would make every partition test pass for the wrong
+        // reason.
+        where: { expiresAt?: { gt?: Date }; canvasId?: string | null };
+      }) => {
         if (state.failure) throw state.failure;
-        return [...rows.values()].filter(row => isLive(row, where.expiresAt?.gt)).length;
+        return [...rows.values()].filter(row => {
+          if (!isLive(row, where.expiresAt?.gt)) return false;
+          if (where.canvasId === undefined) return true;
+          return (row.canvasId ?? null) === where.canvasId;
+        }).length;
       },
       deleteMany: async ({ where }: { where: { expiresAt?: { lte?: Date } } }) => {
         if (state.failure) throw state.failure;
@@ -438,10 +451,54 @@ describe('canvas snapshot durability', () => {
     }
   });
 
-  it('caps live snapshots at the ceiling, then accepts writes again once they expire', async () => {
-    // Start from a known-live set of exactly MAX_SNAPSHOTS rows.
+  it('does not let a filled anonymous pool block an owner from taking a snapshot', async () => {
+    // The regression this partition prevents: with one shared ceiling, filling
+    // the anonymous pool returned 503 to everyone, including owners whose own
+    // version history had nothing to do with the flood.
     const seeded: StoredSnapshot[] = [];
-    for (let i = 0; i < MAX_SNAPSHOTS; i++) {
+    for (let i = 0; i < MAX_ANONYMOUS_SNAPSHOTS; i++) {
+      const row: StoredSnapshot = {
+        id: `4444${String(i).padStart(4, '0')}`,
+        canvasId: null,
+        data: '[]',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + SNAPSHOT_TTL_MS),
+      };
+      database.set(row.id, row);
+      seeded.push(row);
+    }
+
+    // The anonymous pool is full, so an anonymous share is refused...
+    const anonymous = await postScene(JSON.stringify([element]));
+    expect(anonymous.status).toBe(503);
+
+    // ...while an owner on a different canvas is unaffected.
+    const owned = await postScene(JSON.stringify([element]), 'canvas-unaffected');
+    expect(owned.status).toBe(200);
+  });
+
+  it('does not let one owner filling their own history block another owner', async () => {
+    const seeded: StoredSnapshot[] = [];
+    for (let i = 0; i < MAX_OWNED_SNAPSHOTS_PER_CANVAS; i++) {
+      const row: StoredSnapshot = {
+        id: `5555${String(i).padStart(4, '0')}`,
+        canvasId: 'canvas-noisy',
+        data: '[]',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + SNAPSHOT_TTL_MS),
+      };
+      database.set(row.id, row);
+      seeded.push(row);
+    }
+
+    expect((await postScene(JSON.stringify([element]), 'canvas-noisy')).status).toBe(503);
+    expect((await postScene(JSON.stringify([element]), 'canvas-quiet')).status).toBe(200);
+  });
+
+  it('caps live snapshots at the ceiling, then accepts writes again once they expire', async () => {
+    // Start from a known-live set filling this canvas's own history budget.
+    const seeded: StoredSnapshot[] = [];
+    for (let i = 0; i < MAX_OWNED_SNAPSHOTS_PER_CANVAS; i++) {
       const row: StoredSnapshot = {
         id: `3333${String(i).padStart(4, '0')}`,
         canvasId: 'canvas-capacity',
