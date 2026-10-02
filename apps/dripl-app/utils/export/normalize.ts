@@ -64,6 +64,41 @@ function normalizeBinding(value: unknown): JsonRecord | undefined {
   };
 }
 
+/**
+ * A deterministic, content-derived tie-break in the `versionNonce` range.
+ *
+ * FNV-1a over a canonical projection of the element. This is not a security
+ * hash and does not need to be: the property being restored is only that two
+ * *different* payloads for one element id do not share a freshness key, and a
+ * 31-bit collision is the same order of risk the live mutation path already
+ * accepts. The projection deliberately excludes `version`, `versionNonce` and
+ * `updatedAt` — hashing those would be circular, and `updatedAt` differs per
+ * import for identical content, which would make re-importing a file look like
+ * a new edit.
+ *
+ * Key order is fixed because the caller builds the element from an object
+ * literal and then assigns a known set of optional fields, so `JSON.stringify`
+ * over the result is canonical for this path.
+ */
+function contentNonce(element: JsonRecord): number {
+  const content: JsonRecord = {};
+  for (const [key, value] of Object.entries(element)) {
+    // `version` and `versionNonce` would be circular, and `updatedAt` differs
+    // per import for identical content, which would make re-importing a file
+    // look like a new edit.
+    if (key === 'version' || key === 'versionNonce' || key === 'updatedAt') continue;
+    content[key] = value;
+  }
+  const material = JSON.stringify(content);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < material.length; index += 1) {
+    hash ^= material.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  // Stay inside the non-negative int32 range the schema and comparator expect.
+  return hash % 2_147_483_647;
+}
+
 export function normalizeImportedElement(value: unknown, files: JsonRecord): DriplElement | null {
   if (!isJsonRecord(value)) return null;
   const rawType = typeof value.type === 'string' ? value.type : 'rectangle';
@@ -125,10 +160,6 @@ export function normalizeImportedElement(value: unknown, files: JsonRecord): Dri
     locked: value.locked === true,
     isDeleted: value.isDeleted === true,
     version: Number.isInteger(value.version) && (value.version as number) >= 0 ? value.version : 1,
-    versionNonce:
-      Number.isInteger(value.versionNonce) && (value.versionNonce as number) >= 0
-        ? value.versionNonce
-        : 0,
     updatedAt: Date.now(),
   };
 
@@ -147,6 +178,24 @@ export function normalizeImportedElement(value: unknown, files: JsonRecord): Dri
     if (boundElements.length > 0) normalized.boundElements = boundElements;
   }
   if (typeof value.seed === 'number') normalized.seed = value.seed;
+
+  // `versionNonce` is the tie-break *within* one version, so it must differ
+  // whenever the payload differs. A file that omits it used to be given a
+  // constant 0, which meant two divergent copies of the same canvas — two
+  // people editing, exporting, and re-importing — produced elements tied at
+  // the same (version, nonce) with different content. That tie is resolved by
+  // arrival order, so the replicas did not converge: the merge keeps whichever
+  // payload arrived first. `reconciliation.ts` documents the exact condition,
+  // and this was the one place it was reachable by a user rather than by a
+  // 2^-31 random collision.
+  //
+  // A file that DOES carry a nonce keeps it: that value came from the producer
+  // that minted the version, and inventing a different one would break
+  // ordering against the live scene. Only the absent case is filled in.
+  normalized.versionNonce =
+    Number.isInteger(value.versionNonce) && (value.versionNonce as number) >= 0
+      ? (value.versionNonce as number)
+      : contentNonce(normalized);
 
   if (type === 'line' || type === 'arrow' || type === 'freedraw' || type === 'path') {
     if (!points) return null;
