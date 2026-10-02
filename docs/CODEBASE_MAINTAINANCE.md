@@ -1,5 +1,10 @@
 # Codebase Maintenance Checklist
 
+> **Historical/aspirational checklist.** Checked boxes and numeric targets
+> below are planning artifacts, not proof that scans, tests, deployments, or
+> operational reviews ran. Use [`docs/codebase-audit.md`](codebase-audit.md)
+> and current CI/test files for evidence.
+
 ## CI/CD Improvements
 
 ### Pipeline Optimization

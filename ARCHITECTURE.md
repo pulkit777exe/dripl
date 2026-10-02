@@ -405,8 +405,11 @@ Chosen over JWT-at-upgrade because:
    - `packages/element/src/staticScene.ts` is 918 lines
    - the canvas store is split under `apps/dripl-app/lib/store/`
    - `@dripl/dripl` does not exist
-   - `ws-server/src/index.ts` is a roughly 1,600-line coordinator, not the
-     historical 668/737-line monolith description
+   - `ws-server/src/index.ts` is an 895-line composition root (re-verified
+     2026-10-02, replacing the ~1,600 figure recorded in this block on
+     2026-09-27), not the historical 668/737-line monolith description. It
+     delegates per-message cases to `apps/ws-server/src/handlers/`, but
+     registration, join/leave, and scene sync remain inline.
 
 ### Resolved Issues (Fixed)
 
@@ -426,23 +429,23 @@ Chosen over JWT-at-upgrade because:
 
 ## 11. How to Verify This Document
 
-| Claim                              | Verification                                                                                                      |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Next.js ^16.3.6                    | `apps/dripl-app/package.json`                                                                                     |
-| React ^19.3.0                      | `apps/dripl-app/package.json`                                                                                     |
-| Express ^5.2.1                     | `apps/http-server/package.json`                                                                                   |
-| Prisma ^7.10.0                     | `packages/db/package.json`                                                                                        |
-| WS auth is ticket-based            | `apps/ws-server/src/auth.ts` lines 16-44                                                                          |
-| CSRF on logout                     | `apps/http-server/src/app.ts` line: `app.use('/api/auth/logout', validateCsrfToken)`                              |
-| Sentry configuration               | `apps/dripl-app/sentry.client.config.ts` plus optional server initialization in `app.ts`/`ws-server/src/index.ts` |
-| OffscreenCanvas in element cache   | `packages/element/src/staticScene.ts:320-323` (`typeof OffscreenCanvas !== 'undefined'`)                          |
-| Redis pub/sub implemented          | `apps/ws-server/src/redis.ts` (current ~83 lines)                                                                 |
-| Pino logger                        | `packages/utils/src/logger.ts` (22 lines)                                                                         |
-| RoughCanvas is 923 lines           | `wc -l apps/dripl-app/components/canvas/RoughCanvas.tsx` (verified 2026-09-27)                                    |
-| staticScene.ts is 918 lines        | `wc -l packages/element/src/staticScene.ts` (verified 2026-09-27)                                                 |
-| ws-server index.ts is ~1,600 lines | `wc -l apps/ws-server/src/index.ts` (verified 2026-09-27)                                                         |
-| No @dripl/dripl package            | `ls packages/` → common, db, element, math, test-utils, utils                                                     |
-| Keepalive cron exists              | `.github/workflows/keepalive.yml` — `*/10 * * * *` schedule                                                       |
+| Claim                            | Verification                                                                                                      |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Next.js ^16.3.6                  | `apps/dripl-app/package.json`                                                                                     |
+| React ^19.3.0                    | `apps/dripl-app/package.json`                                                                                     |
+| Express ^5.2.1                   | `apps/http-server/package.json`                                                                                   |
+| Prisma ^7.10.0                   | `packages/db/package.json`                                                                                        |
+| WS auth is ticket-based          | `apps/ws-server/src/auth.ts` lines 16-44                                                                          |
+| CSRF on logout                   | `apps/http-server/src/app.ts` line: `app.use('/api/auth/logout', validateCsrfToken)`                              |
+| Sentry configuration             | `apps/dripl-app/sentry.client.config.ts` plus optional server initialization in `app.ts`/`ws-server/src/index.ts` |
+| OffscreenCanvas in element cache | `packages/element/src/staticScene.ts:320-323` (`typeof OffscreenCanvas !== 'undefined'`)                          |
+| Redis pub/sub implemented        | `apps/ws-server/src/redis.ts` (current ~83 lines)                                                                 |
+| Pino logger                      | `packages/utils/src/logger.ts` (22 lines)                                                                         |
+| RoughCanvas is 923 lines         | `wc -l apps/dripl-app/components/canvas/RoughCanvas.tsx` (verified 2026-09-27)                                    |
+| staticScene.ts is 918 lines      | `wc -l packages/element/src/staticScene.ts` (verified 2026-09-27)                                                 |
+| ws-server index.ts is 895 lines  | `wc -l apps/ws-server/src/index.ts` (verified 2026-10-02; supersedes the ~1,600 figure recorded here 2026-09-27)  |
+| No @dripl/dripl package          | `ls packages/` → common, db, element, math, test-utils, utils                                                     |
+| Keepalive cron exists            | `.github/workflows/keepalive.yml` — `*/10 * * * *` schedule                                                       |
 
 ---
 

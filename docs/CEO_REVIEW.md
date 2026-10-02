@@ -1,5 +1,10 @@
 # CEO Review — Dripl Application
 
+> **Archived review (2026-04-13).** This is historical decision context, not
+> a current product/security assessment. Package counts, line counts, 10 MB
+> limits, metrics status, and “no critical issues” statements below are stale;
+> use [`docs/codebase-audit.md`](codebase-audit.md) for current evidence.
+
 **Date**: 2026-04-13  
 **Mode**: HOLD SCOPE  
 **Reviewer**: Kilo (CEO Plan Review Mode)
@@ -18,7 +23,7 @@
 **Architecture**:
 
 - 3 apps: dripl-app (Next.js), http-server (Express), ws-server (WebSocket)
-- 7 packages: common, db, dripl, element, math, test-utils, utils
+- Historical package snapshot: common, db, dripl, element, math, test-utils, utils. The current workspace has six shared packages and no `dripl` package.
 - Ports: 3000, 3001, 3002
 
 ---
@@ -44,10 +49,10 @@
 
 ### Issues Found
 
-| #   | Issue                                       | Recommendation                    | Priority |
-| --- | ------------------------------------------- | --------------------------------- | -------- |
+| #   | Issue                                                | Recommendation                | Priority |
+| --- | ---------------------------------------------------- | ----------------------------- | -------- |
 | 1A  | Separate canvas stores - app Zustand + package store | B - Document package boundary | Low      |
-| 1B  | Single WS instance, no horizontal scaling   | A - Document limitation           | Low      |
+| 1B  | Single WS instance, no horizontal scaling            | A - Document limitation       | Low      |
 
 ---
 
@@ -68,18 +73,18 @@
 
 ## Section 3: Security & Threat Model
 
-| Feature                      | Status               |
-| ---------------------------- | -------------------- |
-| JWT Secret Validation        | ✅ Throws if missing |
-| CSRF Protection              | ✅ Token endpoints   |
-| Security Headers (CSP, HSTS) | ✅ Via Helmet        |
-| Per-user Rate Limiting       | ✅ userId key        |
-| WebSocket Message Limits     | ✅ 10MB max          |
+| Feature                      | Status                                                 |
+| ---------------------------- | ------------------------------------------------------ |
+| JWT Secret Validation        | ✅ Throws if missing                                   |
+| CSRF Protection              | ✅ Token endpoints                                     |
+| Security Headers (CSP, HSTS) | ✅ Via Helmet                                          |
+| Per-user Rate Limiting       | ✅ userId key                                          |
+| WebSocket Message Limits     | Historical 10 MB claim; current shared limit is 200 KB |
 
 ### Issues Found
 
-| #   | Issue                                               | Recommendation                 | Priority |
-| --- | --------------------------------------------------- | ------------------------------ | -------- |
+| #   | Issue                                                             | Recommendation                        | Priority |
+| --- | ----------------------------------------------------------------- | ------------------------------------- | -------- |
 | 3A  | Ownership checks already present in file, folder, and room routes | Keep checks in sync for new endpoints | N/A      |
 
 ---
@@ -96,19 +101,19 @@
 
 ## Section 5: Code Quality Review
 
-| Area             | Status                           |
-| ---------------- | -------------------------------- |
-| Module structure | ✅ Clean separation              |
-| DRY              | ⚠️ History logic duplicated      |
-| Error handling   | ⚠️ Inconsistent logging          |
-| Complexity       | ⚠️ RoughCanvas.tsx is 2091 lines |
+| Area             | Status                                                         |
+| ---------------- | -------------------------------------------------------------- |
+| Module structure | ✅ Clean separation                                            |
+| DRY              | ⚠️ History logic duplicated                                    |
+| Error handling   | ⚠️ Inconsistent logging                                        |
+| Complexity       | Historical 2,091-line count; current file is about 1,080 lines |
 
 ### Issues Found
 
-| #   | Issue                        | Recommendation             | Priority |
-| --- | ---------------------------- | -------------------------- | -------- |
-| 5A  | RoughCanvas.tsx (2091 lines) | B - Extract sub-components | Medium   |
-| 5B  | History logic in 2 places    | B - Remove duplicate       | Low      |
+| #   | Issue                                    | Recommendation             | Priority |
+| --- | ---------------------------------------- | -------------------------- | -------- |
+| 5A  | Historical RoughCanvas.tsx (2,091 lines) | B - Extract sub-components | Medium   |
+| 5B  | History logic in 2 places                | B - Remove duplicate       | Low      |
 
 ---
 
@@ -116,24 +121,24 @@
 
 ### Current Coverage
 
-| Package     | Status             |
-| ----------- | ------------------ |
-| common      | ✅ Some            |
-| db          | ✅ Some            |
-| dripl       | ✅ Some            |
-| element     | ✅ Some            |
-| math        | ✅ Some            |
-| test-utils  | ✅ Some            |
-| utils       | ✅ Some            |
-| dripl-app   | ✅ Some            |
-| http-server | ✅ Some            |
-| ws-server   | ✅ Some            |
+| Package     | Status  |
+| ----------- | ------- |
+| common      | ✅ Some |
+| db          | ✅ Some |
+| dripl       | ✅ Some |
+| element     | ✅ Some |
+| math        | ✅ Some |
+| test-utils  | ✅ Some |
+| utils       | ✅ Some |
+| dripl-app   | ✅ Some |
+| http-server | ✅ Some |
+| ws-server   | ✅ Some |
 
 ### Issues Found
 
-| #   | Issue                          | Recommendation         | Priority |
-| --- | ------------------------------ | ---------------------- | -------- |
-| 6A  | Coverage report is stale; element/math suites exist | C - Re-run coverage before reprioritizing | P2 |
+| #   | Issue                                               | Recommendation                            | Priority |
+| --- | --------------------------------------------------- | ----------------------------------------- | -------- |
+| 6A  | Coverage report is stale; element/math suites exist | C - Re-run coverage before reprioritizing | P2       |
 
 ---
 
@@ -150,12 +155,12 @@
 
 ## Section 8: Observability & Debuggability
 
-| Feature            | Status                    |
-| ------------------ | ------------------------- |
-| Health endpoints   | ✅ `/health` all services |
-| Structured logging | ⚠️ Partial                |
-| Metrics            | ❌ None                   |
-| Tracing            | ❌ None                   |
+| Feature            | Status                                                       |
+| ------------------ | ------------------------------------------------------------ |
+| Health endpoints   | ✅ `/health` all services                                    |
+| Structured logging | ⚠️ Partial                                                   |
+| Metrics            | Historical: none; current tree has JSON `/metrics` endpoints |
+| Tracing            | ❌ None                                                      |
 
 ---
 
@@ -176,8 +181,8 @@
 
 1. 100 console statements (no centralized logging)
 2. Separate canvas stores across app and package layers
-3. Coverage report is stale; element/math suites exist
-4. No metrics/observability
+3. Historical technical debt list; current coverage and metrics are broader
+4. Historical “no metrics” claim; basic JSON metrics endpoints now exist
 
 ### Reversibility Rating: 4/5
 
@@ -203,11 +208,11 @@
 
 ## TODOS.md Updates
 
-| #   | TODO                                  | Effort | Priority |
-| --- | ------------------------------------- | ------ | -------- |
-| 1   | Logging standardization (JSON format) | S      | P2       |
-| 2   | Ownership checks already present      | S      | P3       |
-| 3   | Expand edge-case coverage for element/math | M | P2 |
+| #   | TODO                                       | Effort | Priority |
+| --- | ------------------------------------------ | ------ | -------- |
+| 1   | Logging standardization (JSON format)      | S      | P2       |
+| 2   | Ownership checks already present           | S      | P3       |
+| 3   | Expand edge-case coverage for element/math | M      | P2       |
 
 ---
 
@@ -241,11 +246,11 @@
 
 ## Recommendations Summary
 
-| Decision | Issue           | Selected Option            |
-| -------- | --------------- | -------------------------- |
+| Decision | Issue                  | Selected Option               |
+| -------- | ---------------------- | ----------------------------- |
 | 1A       | Separate canvas stores | B - Document package boundary |
-| 2A       | Logging         | B - Standardize JSON       |
-| 3A       | Authorization   | N/A - already enforced     |
-| 5A       | Large file      | B - Extract components     |
-| 5B       | DRY violation   | B - Remove duplicate       |
-| 6A       | Coverage refresh | C - Re-run coverage        |
+| 2A       | Logging                | B - Standardize JSON          |
+| 3A       | Authorization          | N/A - already enforced        |
+| 5A       | Large file             | B - Extract components        |
+| 5B       | DRY violation          | B - Remove duplicate          |
+| 6A       | Coverage refresh       | C - Re-run coverage           |

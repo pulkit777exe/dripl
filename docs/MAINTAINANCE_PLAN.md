@@ -1,5 +1,11 @@
 # Codebase Maintenance Plan
 
+> **Aspirational historical plan.** The targets, tool suggestions, and
+> completion-style metrics below are not a current audit or evidence of work
+> performed. Use [`docs/codebase-audit.md`](codebase-audit.md) and the current
+> CI/test files for present status; no scheduled maintenance run is claimed by
+> this document.
+
 ## Overview
 
 This document outlines the comprehensive maintenance strategy for preserving code quality across CI/CD, testing, security, performance, and type safety domains.

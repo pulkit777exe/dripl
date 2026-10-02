@@ -1,6 +1,9 @@
 # Developer Experience Solutions
 
-> Six targeted improvements to the Dripl codebase addressing test reliability, type safety, observability, performance, and documentation.
+> **Historical DX/remediation record.** Counts and “passing” claims below were
+> recorded at the time of the original change. The current tree has both newer
+> tests and remaining evidence gaps; use [`docs/codebase-audit.md`](../codebase-audit.md)
+> rather than treating this file as a current test report.
 
 ---
 
@@ -14,7 +17,9 @@ Twelve WebSocket server integration tests in `apps/ws-server/src/__tests__/integ
 
 Three compounding issues in the test mock server:
 
-1. **Missing `room-state` message** — The real ws-server sends both `sync_room_state` and `room-state` on join. The mock server only sent `sync_room_state`, so tests waiting for two messages got stuck.
+Historical root cause: the older test mock expected both `sync_room_state` and
+legacy `room-state`. The current server sends `sync_room_state`; the client
+retains compatibility handling for the legacy name.
 
 2. **Listener leaks in `waitForMessage`/`waitForMessages`** — The helper functions attached `message` listeners but didn't always clean them up. If a timeout fired, the handler stayed registered. Subsequent tests received stale messages from earlier listeners, causing assertion failures on wrong message types.
 
@@ -24,17 +29,21 @@ Three compounding issues in the test mock server:
 
 Three changes to `integration.test.ts`:
 
-1. **Mock server now matches real server behavior** — The join handler sends both `sync_room_state` and `room-state` messages (lines 114-156 in the test file), matching the real server at `apps/ws-server/src/index.ts:187-205`.
+1. **Historical mock alignment:** the old join mock was updated for the
+   then-current two-message behavior. The current server’s canonical join
+   response is `sync_room_state`; do not use the old line references as a
+   protocol contract.
 
 2. **Added `drainMessages` helper** — A new utility (lines 323-340) that silently consumes N messages with a short timeout. Tests call `await drainMessages(ws1, 1)` after joins to consume the `user-join` broadcast before asserting on the next meaningful message.
 
 3. **Improved `waitForMessage`/`waitForMessages` cleanup** — Both functions now always call `ws.removeListener('message', handler)` in both the success and timeout paths, preventing listener accumulation across tests.
 
-### Impact
+### Historical impact
 
-- **12/12 integration tests passing** — full coverage of auth, join, leave, element CRUD, scene updates, cursor movement, ping/pong, and connection close flows
-- **Tests are deterministic** — no more flaky timeouts from leaked listeners
-- **Test pattern is documented** — the `drainMessages` + `waitForMessage` pattern serves as a template for future integration tests
+- The original note recorded 12/12 integration tests passing. The current tree
+  has a default protocol-model suite plus an opt-in `RUN_WS_INTEGRATION=true`
+  two-client process test; that process test mocks ticket validation and
+  persistence seams. This document does not claim a fresh runtime pass.
 
 ---
 
@@ -59,7 +68,10 @@ The checks were likely disabled early in development to avoid fixing errors whil
 
 ### Solution
 
-**Step 1: Enabled four checks** in `tooling/typescript-config/tsconfig.json` (lines 28-34):
+**Step 1 (historical):** Four checks were enabled in the shared TypeScript
+configuration; the current config also has `noUncheckedIndexedAccess` and
+`exactOptionalPropertyTypes`. The original “six checks/four enabled” wording
+should not be read as a complete inventory of today's compiler options.
 
 ```json
 "noImplicitReturns": true,
@@ -122,9 +134,10 @@ coverage: {
 
 ### Impact
 
-- **Coverage visibility** — `pnpm test:coverage` now produces text summaries and lcov reports
-- **CI integration ready** — lcov output can be consumed by Codecov, Coveralls, or GitHub Actions coverage annotations
-- **Gap identification** — developers can see exactly which modules lack test coverage
+- Coverage configuration exists in the frontend and WS packages; coverage output
+  still does not establish browser, production, or full-route coverage.
+- A root `test:coverage` script exists, but this note does not claim a current
+  coverage run or threshold.
 
 ---
 
@@ -162,10 +175,10 @@ res.set('ETag', etag);
 
 ### Impact
 
-- **Reduced bandwidth** — unchanged responses return 304 with no body (~0 bytes vs full JSON payload)
-- **Browser caching** — clients can conditional-GET with `If-None-Match` header
-- **Database load reduction** — 304 responses short-circuit before DB queries on subsequent requests with matching ETags
-- **Private caching** — `Cache-Control: private` prevents shared caches (CDNs) from caching user-specific data
+- **Reduced response bandwidth** — a matching ETag returns 304 without a body.
+- **Important limitation:** the ETag is computed after `FileService.listFiles`
+  queries the database, so this implementation does not short-circuit the DB
+  query itself.
 
 ---
 
@@ -213,10 +226,9 @@ app.get('/metrics', (_req, res) => {
 
 ### Impact
 
-- **Real-time health checks** — `curl localhost:3001/metrics` shows rooms, connections, users, memory
-- **Alerting ready** — metrics can be scraped by Prometheus, Datadog, or any monitoring system
-- **Debugging aid** — memory usage tracking helps identify leaks; connection counts help diagnose scaling issues
-- **Zero dependencies** — uses only Node.js built-in `process.memoryUsage()` and `process.uptime()`
+- JSON metrics endpoints expose basic process/room/connection counters.
+- They are not a Prometheus exposition format and do not by themselves make an
+  alerting pipeline; deployment and scrape configuration remain unverified.
 
 ---
 
@@ -238,28 +250,25 @@ Documentation was written incrementally as the project evolved. Files weren't up
 
 ### Solution
 
-**TODOS.md** — Complete rewrite with 36 prioritized items organized into four tiers:
-- Tier 1 (P0): Critical security and data loss issues
-- Tier 2 (P1): Performance and scalability
-- Tier 3 (P2): Code quality and architecture
-- Tier 4 (P3): Polish, DX, and production readiness
-
-Each item includes: description, rationale, file location, effort estimate, dependencies, and status.
+Historical documentation changes were made, but the current repository still
+contains archived guides and historical status tables. Treat this section as a
+record of that earlier effort, not proof that every document is current.
 
 **AGENTS.md** — Created from scratch with:
+
 - Issue tracker configuration (GitHub Issues, triage labels, workflow)
 - Domain terminology glossary (Canvas, Element, Room, Scene, etc.)
 - Key architectural decisions (ADR-001 through ADR-006)
 - File map for quick navigation
 - Agent workflow checklist
 
-**CLAUDE.md files** — Fixed inaccuracies across all four:
-- Root: corrected package manager (pnpm, not bun), added `test:coverage` script
-- `ws-server/CLAUDE.md`: corrected directory structure (noted monolith reality vs documented modular structure), added metrics endpoint docs
-- `http-server/CLAUDE.md`: added metrics endpoint, corrected middleware stack order
-- `dripl-app/CLAUDE.md`: no changes needed (was accurate)
+**CLAUDE.md files (historical):** the original overhaul corrected several
+inaccuracies, but current app guides still contain archived line counts,
+package-layout references, and auth/protocol details. Use the current root
+`CLAUDE.md` and `AGENTS.md` plus the source manifests instead.
 
 **CONTRIBUTING.md** — Expanded with:
+
 - Prerequisites section (Node 20+, pnpm 10+, PostgreSQL)
 - Step-by-step setup instructions (clone, env, db migrate, dev)
 - Coding standards (TypeScript strict, ESM, no barrel files, Prettier, Conventional Commits)
@@ -268,22 +277,26 @@ Each item includes: description, rationale, file location, effort estimate, depe
 
 ### Impact
 
-- **Faster onboarding** — new contributors can go from clone to running in 4 steps
-- **Accurate context for AI agents** — `AGENTS.md` provides the domain language and decision history that LLMs need
-- **Reduced confusion** — corrected docs prevent developers from looking for files that don't exist
-- **Prioritized roadmap** — `TODOS.md` now serves as a single source of truth for what to work on next
+- **Historical onboarding impact:** the earlier note described faster onboarding
+  and clearer agent context. The current repository still has archived guides,
+  so these benefits are not a current completeness claim.
+- `AGENTS.md` and the root `CLAUDE.md` provide terminology and source-layout
+  guidance, while `docs/codebase-audit.md` is the current evidence/status
+  reference.
+- `TODOS.md` is historical planning context, not a single current source of
+  truth.
 
 ---
 
 ## Summary
 
-| Solution | Problem | Key Metric |
-|----------|---------|------------|
-| Integration test fixes | 12 failing tests | 12 → 0 failures |
-| TypeScript strict checks | 4 disabled checks | 20+ violations fixed |
-| Code coverage | No coverage visibility | v8 + lcov in 2 apps |
-| HTTP caching | No caching headers | ETag + 304 on file listing |
-| Metrics endpoints | No production visibility | `/metrics` on both servers |
-| Documentation overhaul | Outdated/missing docs | 6 files rewritten/created |
+| Solution                 | Historical problem       | Current interpretation                                           |
+| ------------------------ | ------------------------ | ---------------------------------------------------------------- |
+| Integration test fixes   | 12 failing tests         | Historical count; current process test is opt-in and seam-mocked |
+| TypeScript strict checks | Disabled checks          | Shared config now enables several strict options                 |
+| Code coverage            | No coverage visibility   | Coverage config exists; no fresh run claimed here                |
+| HTTP caching             | No caching headers       | ETag/304 exists; DB query still occurs first                     |
+| Metrics endpoints        | No production visibility | JSON metrics exist; monitoring integration is unverified         |
+| Documentation overhaul   | Outdated docs            | Historical effort; current reconciliation is still needed        |
 
-All six improvements are tracked in `TODOS.md` as completed items (#28, #29, #30, #33, #34).
+These are historical DX entries, not current release evidence.

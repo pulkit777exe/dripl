@@ -1,5 +1,10 @@
 # Package Management
 
+> The examples below describe the current workspace conventions. Check the
+> relevant `package.json` and the lockfile for exact versions; `latest` ranges
+> are intentionally not used for new packages. The current workspace has six
+> shared library packages, and barrel cleanup is still partial.
+
 ## Creating a New Package
 
 ### 1. Create Directory
@@ -32,9 +37,9 @@ mkdir packages/my-new-package
   "devDependencies": {
     "@dripl/eslint-config": "workspace:*",
     "@dripl/typescript-config": "workspace:*",
-    "eslint": "latest",
-    "typescript": "latest",
-    "vitest": "latest"
+    "eslint": "^9.39.5",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }
 ```

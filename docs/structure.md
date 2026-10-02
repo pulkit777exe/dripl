@@ -28,15 +28,18 @@ Deployable applications - the endpoints of the package graph.
 
 Shared library code consumed by apps or other packages.
 
-| Package | Description                      |
-| ------- | -------------------------------- |
-| common  | Shared types, schemas, utilities |
-| db      | Database (Prisma) client         |
-| dripl   | Core canvas library              |
-| element | Canvas elements                  |
-| math    | Math utilities                   |
-| test-utils | Shared test factories         |
-| utils   | Utility functions                |
+| Package    | Description                      |
+| ---------- | -------------------------------- |
+| common     | Shared types, schemas, utilities |
+| db         | Database (Prisma) client         |
+| element    | Canvas elements                  |
+| math       | Math utilities                   |
+| test-utils | Shared test factories            |
+| utils      | Utility functions                |
+
+There are six shared library packages in the current workspace. The historical
+`@dripl/dripl` package has been removed; do not add it to new documentation or
+imports without an explicit architecture decision.
 
 ### `tooling/`
 

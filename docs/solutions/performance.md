@@ -1,6 +1,12 @@
 # Performance Solutions — Dripl
 
-**Date:** 2026-06-01 | **Scope:** Six resolved performance issues | **Status:** All DONE
+**Historical date:** 2026-06-01 | **Scope:** six issues described in this note | **Historical status:** implementation claimed complete
+
+> **Historical performance/remediation record.** The implementation snippets
+> and arithmetic examples below are not benchmark evidence. The current
+> evidence-weighted measurement is [`docs/performance-benchmark.md`](../performance-benchmark.md),
+> which is explicitly synthetic; browser FPS, database latency, and production
+> throughput remain unverified.
 
 ---
 
@@ -19,7 +25,10 @@
 
 ### Problem Statement
 
-Every `scene-update` message broadcast the **entire element array** to all users in a room. With a 5,000-element canvas, each broadcast serialized ~1.5 MB of JSON. In a room with 5 users, every edit produced 4 outbound messages × 1.5 MB = **6 MB of WebSocket traffic per mutation**. At 10 edits/second during active drawing, that's 60 MB/s of aggregate network throughput — on a single room.
+Historical scenario (illustrative arithmetic, not a measured result): the
+original full-array protocol would produce large per-edit payloads. The active
+JSON protocol sends `scene-delta` after the initial sync; the exact bandwidth
+depends on element size, client count, throttling, and serialization.
 
 ### Root Cause
 
@@ -29,7 +38,9 @@ The original protocol used a single `scene-update` message type for both full sy
 
 Added a new `scene-delta` message type with three optional arrays: `added`, `updated`, and `deleted`. The **client** computes the delta by diffing the previous element state against the current state using `version` fields as change markers. The **server** applies the delta to its in-memory room state and forwards the delta to other clients.
 
-**Client — delta computation** (`apps/dripl-app/hooks/useCollaboration.ts:151-199`):
+**Historical client/server delta snippets** (the current implementation is in
+`useCollaboration.ts` and `ws-server/src/index.ts`; the following is retained
+to explain the original change):
 
 ```typescript
 const flushElementBroadcast = useCallback(() => {
@@ -81,7 +92,9 @@ const flushElementBroadcast = useCallback(() => {
 }, [roomId, send]);
 ```
 
-**Server — delta application** (`apps/ws-server/src/index.ts:308-348`):
+**Historical server delta application snippet** (current code uses a
+persistent `Map`, reconciliation, deduplication, authorization, and persistence
+fencing):
 
 ```typescript
 case 'scene-delta': {
@@ -135,18 +148,24 @@ export const sceneDeltaSchema = z.object({
 
 ### Impact
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Per-edit payload (5K elements) | ~1.5 MB | ~2 KB (1 edited element) |
-| Bandwidth per room (5 users, 10 edits/s) | ~60 MB/s | ~400 KB/s |
-| Message type | `scene-update` only | `scene-update` (join) + `scene-delta` (edits) |
-| Delta computation cost | N/A | O(n) map diff (client-side only) |
+| Metric                 | Before                              | After                                                                               |
+| ---------------------- | ----------------------------------- | ----------------------------------------------------------------------------------- |
+| Per-edit payload       | Full scene in the historical design | Changed elements in `scene-delta`                                                   |
+| Bandwidth              | Scenario-dependent                  | Scenario-dependent; no measured multiplier claimed                                  |
+| Message type           | `scene-update` only                 | Initial `sync_room_state` snapshot + `scene-delta`; no guaranteed recovery snapshot |
+| Delta computation cost | N/A                                 | O(n) client-side diff (implementation detail)                                       |
 
-The first sync still uses `scene-update` with full state (required for joiners). Subsequent edits send only the changed elements.
+The historical note used `scene-update` for the first full sync. The current server
+uses `sync_room_state` for the authoritative join snapshot; later edits use
+`scene-delta`. No periodic full client recovery snapshot is established by this
+note or by the current source.
 
 ### Excalidraw Comparison
 
-Excalidraw uses a **CRDT-based** approach (Yjs) where each element is a separate Y.Map. Changes are automatically diffed by the CRDT layer and broadcast as binary updates (~100 bytes per element change). Dripl's delta approach is simpler — it lacks conflict resolution but achieves similar bandwidth efficiency for single-user editing scenarios. For true multiplayer conflict resolution, a CRDT or OT layer would be the next evolution.
+Excalidraw's hosted collaboration uses encrypted client reconciliation and
+version/nonce ordering; it is not a blanket “Yjs CRDT” guarantee. Dripl's active
+path uses JSON deltas plus version/nonce reconciliation, which is not CRDT
+convergence. The dormant Yjs adapter must not be described as active traffic.
 
 ---
 
@@ -162,7 +181,10 @@ The Zustand store held elements as a flat `DriplElement[]`. There was no seconda
 
 ### Solution
 
-Added a parallel `elementsById: Map<string, DriplElement>` alongside the array. The Map is rebuilt whenever the elements array changes (via `buildElementsById()`). Mutations now use `Map.get()` for O(1) lookups instead of `findIndex()`.
+Added a parallel `elementsById: Map<string, DriplElement>` alongside the
+array. The current store updates the map incrementally on many mutation paths;
+some set/reorder paths still rebuild it. Lookups use `Map.get()` where the
+slice supports it.
 
 **Store interface** (`apps/dripl-app/lib/canvas-store.ts:111-112`):
 
@@ -231,14 +253,16 @@ addElement: element =>
 
 ### Impact
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Element lookup | O(n) via `findIndex` | O(1) via `Map.get` |
-| Dedup check | O(n) via `Array.some` | O(1) via `Map.has` |
-| Array copy | Still O(n) (Zustand reactivity) | Still O(n) (unchanged) |
-| Net improvement at 5K elements | ~5K comparisons per edit | ~1 comparison per edit |
+| Metric                         | Before                                                    | After                                          |
+| ------------------------------ | --------------------------------------------------------- | ---------------------------------------------- |
+| Element lookup                 | O(n) via `findIndex`                                      | O(1) via `Map.get` on supported paths          |
+| Dedup check                    | O(n) via `Array.some`                                     | O(1) via `Map.has` on supported paths          |
+| Array copy                     | Still O(n) (Zustand reactivity)                           | Still O(n) where immutable arrays are required |
+| Net improvement at 5K elements | Fewer comparisons in lookup paths; not a measured speedup |
 
-The array copy (O(n)) is still required for Zustand's immutable state pattern, but the lookup cost dropped from O(n) to O(1). The `buildElementsById()` rebuild is also O(n) but runs once per state change rather than per mutation.
+The array copy remains necessary for the immutable state model, and some
+mutation paths still rebuild the map. No “5,000× faster” claim is supported by
+this note.
 
 ### Excalidraw Comparison
 
@@ -298,18 +322,24 @@ undo: () =>
 
 ### Impact
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Clone cost per edit (5K elements) | ~150 MB (100 snapshots) | 0 MB (no derive) |
-| Memory retained | 150 MB derived + 150 MB snapshots | 150 MB snapshots only |
-| GC pressure | Severe (150 MB allocated + freed per edit) | Minimal |
-| Undo/redo latency | Included derive cost | Direct array access |
+| Metric                | Before                                            | After                                        |
+| --------------------- | ------------------------------------------------- | -------------------------------------------- |
+| Derived-history clone | Derived every state change                        | Derived view removed                         |
+| Snapshot retention    | Still full snapshots, with count/byte budget      | Same general model; budget enforcement added |
+| GC pressure           | Fewer redundant clones; no measured GC result     | Not benchmarked here                         |
+| Undo/redo latency     | Direct slice/history operations; no latency claim | Not benchmarked here                         |
 
-The `past` and `future` arrays still store full snapshots (up to 100), consuming ~150 MB at 5K elements. The improvement is eliminating the redundant deep-clone that was computed on every state change and never used.
+The history slices still retain snapshots; removing the derived view does not
+prove a specific memory or latency improvement.
 
 ### Excalidraw Comparison
 
-Excalidraw uses a **command-based** history system (CRDT operations via Yjs). Each undo reverses a specific operation rather than restoring a full snapshot. This uses O(1) memory per undo step instead of O(n). Dripl's snapshot-based approach is simpler but scales linearly with canvas complexity. A full migration to command-based history is tracked in TODOS.
+The stable Excalidraw app uses a command-oriented history model, but the pinned
+v0.18.1 evidence does **not** establish that this history is a Yjs/CRDT
+operation log, nor does it justify a blanket O(1)-memory claim. Dripl retains
+full scene snapshots with an explicit history budget. Treat any history
+migration as a separate design and benchmark task rather than assuming CRDT
+semantics.
 
 ---
 
@@ -317,7 +347,9 @@ Excalidraw uses a **command-based** history system (CRDT operations via Yjs). Ea
 
 ### Problem Statement
 
-`RoughCanvas.tsx` (2,332 lines) eagerly imported 15+ components, including `PropertiesPanel`, `ContextMenu`, `NameInputModal`, and `WelcomeScreen`. These were bundled into the main chunk regardless of whether they were visible, increasing the initial JavaScript payload by ~40 KB (minified) and delaying Time to Interactive.
+Historical `RoughCanvas.tsx` (the old 2,332-line snapshot) eagerly imported
+15+ components. The original note estimated ~40 KB of minified payload and a
+TTI effect; neither number was measured in this workspace.
 
 ### Root Cause
 
@@ -339,25 +371,30 @@ import { WelcomeScreen } from './WelcomeScreen';
 **After** (`apps/dripl-app/components/canvas/RoughCanvas.tsx:21-24`):
 
 ```typescript
-const PropertiesPanel = lazy(() => import('./PropertiesPanel').then(m => ({ default: m.PropertiesPanel })));
+const PropertiesPanel = lazy(() =>
+  import('./PropertiesPanel').then(m => ({ default: m.PropertiesPanel }))
+);
 const ContextMenu = lazy(() => import('./ContextMenu').then(m => ({ default: m.ContextMenu })));
-const NameInputModal = lazy(() => import('./NameInputModal').then(m => ({ default: m.NameInputModal })));
-const WelcomeScreen = lazy(() => import('./WelcomeScreen').then(m => ({ default: m.WelcomeScreen })));
+const NameInputModal = lazy(() =>
+  import('./NameInputModal').then(m => ({ default: m.NameInputModal }))
+);
+const WelcomeScreen = lazy(() =>
+  import('./WelcomeScreen').then(m => ({ default: m.WelcomeScreen }))
+);
 ```
 
 Each is wrapped in `<Suspense>` at its render site (code not shown — follows standard React.lazy pattern).
 
 ### Impact
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Main chunk size | ~40 KB larger | Baseline |
-| Components loaded eagerly | 4 (PropertiesPanel, ContextMenu, NameInputModal, WelcomeScreen) | 0 |
-| Components lazy-loaded | 0 | 4 |
-| Time to Interactive | Delayed by lazy chunk parse | Faster initial load |
-| User-perceived loading | N/A | Instant (components are small, load on first use) |
+| Metric                    | Before                                 | After                           |
+| ------------------------- | -------------------------------------- | ------------------------------- |
+| Main chunk size           | Historical estimate; not measured here | Baseline not measured here      |
+| Components loaded eagerly | Four conditionally rendered components | Four declared with `React.lazy` |
+| Time to Interactive       | Potential lazy-chunk tradeoff          | No TTI measurement in this note |
 
-The four components are only loaded when the user first opens the properties panel, right-clicks for context menu, opens the name input modal, or sees the welcome screen. For returning users who already have these chunks cached, there's zero overhead.
+The components are loaded on demand in the current source, but bundle-size and
+user-perceived latency claims require a production build/browser measurement.
 
 ### Excalidraw Comparison
 
@@ -369,7 +406,10 @@ Excalidraw uses dynamic `import()` for its library panel and export dialog. The 
 
 ### Problem Statement
 
-The file listing endpoint used offset-based pagination (`skip`/`take`). At page 100 (skip=2000), PostgreSQL scanned and discarded 2,000 rows before returning 20. At page 500 (skip=10,000), query time exceeded 2 seconds. This affected the dashboard's file list for power users with many canvases.
+The historical design used offset pagination (`skip`/`take`). The current route
+supports a cursor in addition to page mode and adds a `(userId, updatedAt)`
+index. Query latency and the old page-100/page-500 timings were not measured
+by this documentation pass.
 
 ### Root Cause
 
@@ -404,9 +444,7 @@ const where = {
   ...(typeof search === 'string'
     ? { name: { contains: search, mode: 'insensitive' as const } }
     : {}),
-  ...(isCursorBased
-    ? { updatedAt: { lt: new Date(cursor) } }
-    : {}),
+  ...(isCursorBased ? { updatedAt: { lt: new Date(cursor) } } : {}),
 };
 
 const [files, total] = await Promise.all([
@@ -415,14 +453,20 @@ const [files, total] = await Promise.all([
     orderBy: { updatedAt: 'desc' },
     skip: isCursorBased ? 0 : skip,
     take: limit,
-    select: { id: true, name: true, preview: true, folderId: true, createdAt: true, updatedAt: true },
+    select: {
+      id: true,
+      name: true,
+      preview: true,
+      folderId: true,
+      createdAt: true,
+      updatedAt: true,
+    },
   }),
   // ... count query (omitted for cursor mode)
 ]);
 
-const nextCursor = files.length === limit
-  ? files[files.length - 1]?.updatedAt?.toISOString() ?? null
-  : null;
+const nextCursor =
+  files.length === limit ? (files[files.length - 1]?.updatedAt?.toISOString() ?? null) : null;
 
 res.json({
   files,
@@ -441,14 +485,15 @@ res.json({
 
 ### Impact
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Page 100 query time | ~800ms (skip 2000 rows) | ~5ms (index seek) |
-| Page 500 query time | ~2,000ms (skip 10000 rows) | ~5ms (index seek) |
-| Query plan | Sequential scan + skip | Index scan (backwards) |
-| Scalability | Degrades linearly with page number | Constant time |
+| Metric          | Before                    | After                                               |
+| --------------- | ------------------------- | --------------------------------------------------- |
+| Pagination mode | Offset/page               | Cursor available, with page compatibility retained  |
+| Query plan      | Workload-dependent        | Index-assisted in principle; plan not verified here |
+| Latency         | No benchmark in this note | No benchmark in this note                           |
+| Count query     | Offset mode may count     | Cursor mode skips the count in the current service  |
 
-Backward compatibility is maintained — the `page` parameter still works for simple pagination. The `cursor` parameter takes precedence when provided. The `total` count is only computed for offset mode (cursor mode skips the expensive `COUNT(*)` query).
+The cursor implementation is a real code path, but constant-time claims require
+`EXPLAIN`/production-like measurements.
 
 ### Excalidraw Comparison
 
@@ -549,32 +594,37 @@ model EmailVerificationToken {
 
 ### Impact
 
-| Query | Before | After |
-|-------|--------|-------|
-| ShareLink by roomId | Full table scan | Index seek |
-| ShareLink expired cleanup | Full table scan | Index scan (range) |
-| PasswordResetToken by email | Full table scan | Index seek |
-| File dashboard list | Seq scan + sort | Composite index scan |
-| Disk overhead | Baseline | +3 indexes (~negligible for these tables) |
+| Query                       | Potential benefit               | Evidence                                          |
+| --------------------------- | ------------------------------- | ------------------------------------------------- |
+| ShareLink by roomId         | Index-assisted lookup           | Schema index exists; query plan not measured here |
+| ShareLink expired cleanup   | Range-friendly index            | Daily cleanup exists; plan not measured here      |
+| PasswordResetToken by email | Index-assisted lookup           | Schema index exists                               |
+| File dashboard list         | Composite index candidate       | Index exists; plan/latency not measured here      |
+| Write/storage overhead      | Index maintenance and disk cost | Not claimed to be zero                            |
 
-These indexes have zero runtime cost for writes (B-tree maintenance is negligible compared to network I/O) and eliminate O(n) scan patterns for the most common read queries.
+Indexes can improve selected query plans, but they add write/storage costs and
+must be validated with database-specific plans and representative data.
 
 ### Excalidraw Comparison
 
-Excalidraw doesn't use a server-side database — files are stored locally and in third-party cloud storage (Google Drive, etc.). For server-backed alternatives like Excalidraw's collaboration server (lib-crdt), the database layer is minimal since CRDTs handle state sync in-memory. Dripl's approach of a persistent PostgreSQL database with proper indexing is more conventional for a SaaS product.
+The bare Excalidraw editor is not itself a server-backed database product; the
+hosted app's collaboration surface adds encrypted persistence and service-side
+relay/storage. Do not reduce the comparison to “Excalidraw has no server
+state.” Dripl's persistent PostgreSQL design is a product choice and its query
+plans still require measurement.
 
 ---
 
 ## Summary
 
-| # | Problem | Before | After | Impact |
-|---|---------|--------|-------|--------|
-| 1 | Full-state broadcasting | 1.5 MB per edit | ~2 KB delta | 750× bandwidth reduction |
-| 2 | O(n) element lookups | findIndex + spread | Map.get + spread | 5,000× faster lookups |
-| 3 | Redundant deriveHistory | 150 MB cloned/edit | 0 MB derived | Eliminated GC pressure |
-| 4 | Eager component loading | 40 KB in main chunk | Lazy on first use | Faster initial load |
-| 5 | Offset pagination | O(n) at high pages | O(1) cursor seek | 400× faster at page 500 |
-| 6 | Missing DB indexes | Full table scans | Index seeks | O(n) → O(log n) per query |
+| #   | Problem                 | Current code change                                | Evidence status                                            |
+| --- | ----------------------- | -------------------------------------------------- | ---------------------------------------------------------- |
+| 1   | Full-state broadcasting | Initial `sync_room_state` snapshot + `scene-delta` | Implemented; bandwidth/recovery not benchmarked end-to-end |
+| 2   | O(n) element lookups    | `Map` index with incremental updates on many paths | Implemented; no 5,000× speed claim                         |
+| 3   | Redundant deriveHistory | Derived history removed; snapshots remain          | Implemented; memory/GC not benchmarked here                |
+| 4   | Eager component loading | Four components use `React.lazy`                   | Implemented; bundle/TTI not measured here                  |
+| 5   | Offset pagination       | Cursor mode plus page compatibility                | Implemented; query plan/latency not measured here          |
+| 6   | Missing DB indexes      | Explicit Prisma indexes added                      | Implemented; write cost and plans require measurement      |
 
 ---
 

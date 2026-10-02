@@ -1,5 +1,9 @@
 # Dependency Management
 
+> This is a workflow guide, not a generated dependency inventory. Use the
+> workspace manifests and `pnpm-lock.yaml` as the source of truth for versions
+> and scripts; do not copy `latest` ranges into new packages.
+
 ## Overview
 
 This project uses pnpm workspaces with Turborepo. Dependencies are managed at the package level, not the root.
@@ -19,12 +23,11 @@ pnpm add lodash -w  # Only for repo-level tools
 
 ## Root Dependencies
 
-Only these belong in the root `package.json`:
-
-- `turbo` - Build system
-- `prisma` - Database tooling
-- `prettier` - Formatting
-- `tsx` - TypeScript executor
+Root-level `devDependencies` are reserved for repo-wide tooling and scripts;
+the exact list is maintained in the root `package.json`. Typical examples are
+`turbo`, `prisma`, `prettier`, `tsx`, ESLint, TypeScript, and the workspace
+test/type-check tools. Do not add app- or package-specific libraries at the
+root.
 
 ## Internal Dependencies
 
@@ -43,7 +46,7 @@ Dependencies needed only for building should be in `devDependencies`:
 ```json
 "devDependencies": {
   "@dripl/typescript-config": "workspace:*",
-  "typescript": "latest"
+  "typescript": "^5.9.3"
 }
 ```
 

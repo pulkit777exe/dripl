@@ -1,7 +1,11 @@
 # Security Solutions — Dripl
 
-> Remediation details for critical security and reliability issues found during audit.
-> Date: 2026-04-28 | Status: All 7 issues RESOLVED
+> **Historical remediation record (2026-04-28).** The seven entries below
+> document earlier fixes. The current source has additional hardening and
+> different limits (notably a 200 KB WS message bound). Use
+> [`Problems.md`](../../Problems.md) and [`docs/codebase-audit.md`](../codebase-audit.md)
+> for current status; this file is not a production security sign-off.
+> Date: 2026-04-28 | Historical status: seven listed remediations recorded as resolved
 
 ---
 
@@ -68,9 +72,9 @@ start();
 
 ### Impact
 
-- **Eliminated** startup race condition — 100% of requests reach a fully-initialized server.
-- **Fail-fast** behavior on DB failure — container orchestrators (Docker, k8s) detect the non-zero exit and restart.
-- **Zero** `PrismaClient not initialized` errors in production.
+- **Startup ordering** is fixed: the server awaits database initialization before listening.
+- **Fail-fast** behavior on DB failure remains the intended runtime behavior; no live failure/restart test is claimed here.
+- This entry does not establish zero production errors or a complete deployment guarantee.
 
 ---
 
@@ -128,10 +132,10 @@ setInterval(async () => {
 
 ### Impact
 
-- **Eliminated** overlapping writes — each room has at most one in-flight save at any time.
-- **Parallel saves** across rooms via `Promise.allSettled` — faster persistence for multi-room scenarios.
-- **Error isolation** — a failed save for one room doesn't block saves for others.
-- **No data loss** — the `saving` flag prevents skipped saves; the next tick catches up.
+- **Overlapping debounced writes** are guarded by the current `saving`/mutation-generation logic.
+- **Parallel periodic saves** use `Promise.allSettled` for active rooms.
+- **Persistence fencing** can reject stale database writes; integration behavior is not claimed as live-verified here.
+- A failed save is logged and retried on a later schedule; “no data loss” would be too strong without a database-backed failure test.
 
 ---
 
@@ -163,14 +167,17 @@ app.use('/api/auth/forgot-password', validateCsrfToken);
 app.use('/api/auth/register', validateCsrfToken);
 app.use('/api/auth/reset-password', validateCsrfToken);
 app.use('/api/auth/change-password', validateCsrfToken);
-app.use('/api/auth/logout', validateCsrfToken);       // ← added
+app.use('/api/auth/logout', validateCsrfToken); // ← added
 ```
 
 ### Impact
 
 - **CSRF protection** on logout — cross-origin form submissions are rejected.
-- **Consistency** — all state-mutating auth endpoints now enforce CSRF validation.
-- **No breaking changes** — the client already fetches and sends CSRF tokens for other auth actions.
+- **Consistency** — the explicitly mounted auth mutation paths (including logout)
+  enforce CSRF validation. This is not a claim that every auth route, such as
+  Google-token exchange or verification handlers, uses the same middleware.
+- **Client compatibility** is path-specific; integration evidence should be
+  checked for each auth flow.
 
 ---
 
@@ -262,17 +269,23 @@ const pool = new Pool(poolConfig); // max defaults to 10
 Added a configurable `DB_POOL_SIZE` environment variable with a default of 20. The pool config now explicitly sets `max`.
 
 ```typescript
-// AFTER — packages/db/src/index.ts:23-33
+// Current packages/db/src/index.ts
 const poolConfig = {
   host: url.hostname,
   port: parseInt(url.port) || 5432,
   user: url.username,
   password: url.password,
   database: url.pathname.replace('/', ''),
-  ssl: shouldDisableSsl ? false : { rejectUnauthorized: false },
+  // TLS verification stays enabled by default; insecure remote TLS is an
+  // explicit development-only opt-in.
+  ssl: shouldDisableSsl
+    ? false
+    : allowInsecureRemoteTls
+      ? { rejectUnauthorized: false }
+      : undefined,
   connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 30000,
-  max: parseInt(process.env.DB_POOL_SIZE || '20'), // configurable, default 20
+  max: Math.max(1, parseInt(process.env.DB_POOL_SIZE || '20', 10) || 20),
 };
 
 const pool = new Pool(poolConfig);
@@ -280,16 +293,20 @@ const pool = new Pool(poolConfig);
 
 ### Impact
 
-- **Doubled** default connection capacity (10 → 20).
-- **Tunable** via `DB_POOL_SIZE` env var — can be increased for high-traffic deployments.
-- **Reduced** connection exhaustion errors under concurrent load.
-- **Idle timeout** ensures connections are released when not in use.
+- The configured default is now 20, with a bounded `DB_POOL_SIZE` override.
+- TLS verification is not disabled by default for remote databases; the
+  development-only escape hatch is explicit.
+- No database load or connection-exhaustion benchmark is claimed by this
+  historical note.
 
 ---
 
 ## 6. AI response validation
 
-### Problem Statement
+> The snippets below are historical. The current route adds authenticated
+> identity enforcement, origin/body/response bounds, normalized points/colors,
+> retry classification, and cancellation; no real Gemini request is claimed in
+> this note.
 
 The `/api/ai/generate` endpoint received JSON from Google Gemini and cast it directly with `any` types. No schema validation was performed — arbitrary data from the AI could flow into the API response, causing type errors, crashes, or injection of unexpected fields.
 
@@ -308,7 +325,7 @@ Additionally, element IDs from the AI were not guaranteed to be valid UUIDs, and
 
 ### Solution
 
-Added three layers of protection in `apps/dripl-app/app/api/ai/generate/route.ts`:
+Added four layers of protection in `apps/dripl-app/app/api/ai/generate/route.ts`:
 
 **1. UUID generation for untrusted IDs** (line 174-176):
 
@@ -410,14 +427,17 @@ config({ path: resolve(process.cwd(), '../../.env.local'), override: true });
 
 ## Summary
 
-| # | Issue | Severity | Risk Reduction |
-|---|---|---|---|
-| 1 | http-server DB init race | HIGH | Eliminated startup crashes from uninitialized DB |
-| 2 | ws-server overlapping saves | HIGH | Prevented data corruption from concurrent writes |
-| 3 | CSRF on logout | HIGH | Blocked cross-site session termination attacks |
-| 4 | Missing Zod validation | MEDIUM | Type-safe inputs, rejected malformed payloads |
-| 5 | Pool connection limit | MEDIUM | Doubled capacity, configurable under load |
-| 6 | AI response validation | HIGH | Blocked injection of unvalidated external data |
-| 7 | Duplicate .env files | CONFIG | Single source of truth, reduced credential exposure |
+| #   | Issue                       | Severity | Risk Reduction                                      |
+| --- | --------------------------- | -------- | --------------------------------------------------- |
+| 1   | http-server DB init race    | HIGH     | Eliminated startup crashes from uninitialized DB    |
+| 2   | ws-server overlapping saves | HIGH     | Prevented data corruption from concurrent writes    |
+| 3   | CSRF on logout              | HIGH     | Blocked cross-site session termination attacks      |
+| 4   | Missing Zod validation      | MEDIUM   | Type-safe inputs, rejected malformed payloads       |
+| 5   | Pool connection limit       | MEDIUM   | Doubled capacity, configurable under load           |
+| 6   | AI response validation      | HIGH     | Blocked injection of unvalidated external data      |
+| 7   | Duplicate .env files        | CONFIG   | Single source of truth, reduced credential exposure |
 
-**All 7 issues resolved.** Total risk reduction: eliminated 3 HIGH-severity race/injection conditions, added defense-in-depth validation on 4 attack surfaces.
+**Historical scope:** the seven listed remediations were recorded as resolved
+in this April solution note. Current code has additional controls and the
+remaining integration/runtime caveats in `docs/codebase-audit.md`; this summary
+is not a fresh security sign-off.

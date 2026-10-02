@@ -1,6 +1,10 @@
 # Architecture Solutions
 
-> Documented problems, root causes, and fixes applied to the Dripl codebase.
+> **Historical architecture/remediation record.** Several sections describe
+> packages, versions, and line counts that no longer exist. Current source
+> manifests and [`docs/codebase-audit.md`](../codebase-audit.md) are the source
+> of truth; retain these entries for decision history, not as a current
+> architecture description.
 
 ---
 
@@ -8,7 +12,12 @@
 
 ### Problem Statement
 
-The WebSocket collaboration server (`apps/ws-server/src/index.ts`) was a single 737-line file containing all application logic: HTTP server setup, JWT authentication, room state management, message dispatch, broadcasting, rate limiting, heartbeat, database persistence, and graceful shutdown. This monolith made the codebase difficult to navigate, test in isolation, and extend with new features.
+The original WebSocket collaboration server was a single 737-line file.
+The current tree has extracted auth, broadcast, room, rate-limit, type, and
+handler modules, but `index.ts` is still a large composition root (895 lines
+in the current workspace, measured with `wc -l apps/ws-server/src/index.ts`).
+The decomposition reduces concentration of pure helpers; it does not make the
+coordinator a small module.
 
 ### Root Cause
 
@@ -18,16 +27,19 @@ No architectural boundaries were drawn during initial development. The WebSocket
 
 Split the monolith into five focused modules with clear responsibilities:
 
-| Module | Lines | Responsibility |
-|--------|-------|----------------|
-| `types.ts` | 30 | Shared interfaces: `UserConnection`, `Cursor`, `RoomState`, `RateLimitInfo` |
-| `auth.ts` | 29 | JWT token extraction from URL and verification via `jsonwebtoken` |
-| `broadcast.ts` | 39 | `send()`, `broadcast()`, `roomUsersPayload()`, `roomCursorsPayload()` |
-| `rooms.ts` | 159 | Room CRUD, element serialization, DB load/save, debounced persistence |
-| `rateLimiter.ts` | 31 | Token-bucket rate limiting with periodic cleanup |
-| `index.ts` | 567 | Composition root: HTTP server, WS setup, message dispatch, heartbeat, shutdown |
+| Module           | Current role                                                            |
+| ---------------- | ----------------------------------------------------------------------- |
+| `types.ts`       | Shared interfaces and room/connection state types                       |
+| `auth.ts`        | Ticket extraction and HTTP-server validation                            |
+| `broadcast.ts`   | `send()`, `broadcast()`, presence/cursor payloads                       |
+| `rooms.ts`       | Room state, stored-scene parsing, persistence, debounced saves          |
+| `rateLimiter.ts` | Upstash-backed or bounded local message limiting                        |
+| `handlers/`      | Extracted message-handler seam (currently cursor handling)              |
+| `index.ts`       | Large composition root: HTTP/WS setup, dispatch, persistence, lifecycle |
 
-The composition root (`index.ts`) imports from all modules and wires them together. A `userRoomMap` (`Map<WebSocket, string>`) was added for O(1) userId-to-roomId lookups during heartbeat cleanup, replacing the previous O(n) scan of all rooms.
+The current composition root imports these modules but still owns substantial
+protocol orchestration. Reverse indexes exist, but the old line-count targets
+in this historical table are not current acceptance criteria.
 
 ### File Map
 
@@ -36,7 +48,7 @@ The composition root (`index.ts`) imports from all modules and wires them togeth
 - **Created:** `apps/ws-server/src/broadcast.ts`
 - **Created:** `apps/ws-server/src/rooms.ts`
 - **Created:** `apps/ws-server/src/rateLimiter.ts`
-- **Modified:** `apps/ws-server/src/index.ts` (refactored from 737 to ~567 lines)
+- **Modified:** `apps/ws-server/src/index.ts` (historical decomposition; current coordinator is 895 lines)
 
 ---
 
@@ -52,14 +64,20 @@ The Dockerfiles were written during early development and never updated for prod
 
 ### Solution
 
-Applied multi-stage builds across all three Dockerfiles:
+Applied multi-stage builds across the three application Dockerfiles. The
+current files build after copying app source and use production start commands;
+image builds and runtime behavior were not re-executed by this documentation
+inventory.
 
 1. **`deps` stage:** Installs dependencies with frozen lockfile, builds internal packages
-2. **`runner` stage:** Copies only built artifacts, sets `NODE_ENV=production`, runs `pnpm run start`
+2. **`runner` stage:** Copies built artifacts, sets `NODE_ENV=production`, and runs the app's compiled start command (`pnpm run start` for the frontend; `node dist/index.js` for the two backend images).
 
 Key changes in each Dockerfile:
+
 - Added `corepack enable pnpm` for deterministic pnpm versions
-- Changed `CMD pnpm run dev` to `CMD ["pnpm", "run", "start"]`
+- Changed the historical dev-server command to a production start command
+  (`pnpm run start` for the frontend and `node dist/index.js` for the two
+  backend images)
 - Set `ENV NODE_ENV=production` in runner stage
 - Fixed `packages/runtime` references to `packages/test-utils`
 - Added `USER node` for non-root execution
@@ -85,16 +103,23 @@ Health checks were omitted for simplicity during initial compose setup. Docker C
 
 ### Solution
 
-Added health checks to all four services and switched to `service_healthy` dependency conditions:
+Historical remediation: the original compose change described a Redis service
+and health checks for all four services. The current `docker-compose.yml` has
+PostgreSQL plus the three application services, uses health checks for those
+services, and treats Upstash Redis as optional external configuration. The
+table below preserves the earlier design, not a current Redis-container claim.
 
-| Service | Health Check | Interval | Start Period |
-|---------|-------------|----------|--------------|
-| postgres | `pg_isready -U dripl` | 5s | — |
-| redis | `redis-cli ping` | 5s | — |
-| http-server | `wget -qO- http://localhost:3002/health` | 10s | 15s |
-| ws-server | `wget -qO- http://localhost:3001/health` | 10s | 15s |
+| Service                               | Historical health check                   | Interval | Start Period |
+| ------------------------------------- | ----------------------------------------- | -------- | ------------ |
+| postgres                              | `pg_isready -U dripl`                     | 5s       | —            |
+| redis (not a current compose service) | `redis-cli ping`                          | 5s       | —            |
+| http-server                           | `node fetch http://localhost:3002/health` | 10s      | 20s          |
+| ws-server                             | `node fetch http://localhost:3001/health` | 10s      | 20s          |
 
-Application services use `depends_on` with `condition: service_healthy`, ensuring PostgreSQL and Redis are fully initialized before connection attempts. The `start_period` on application health checks gives them time to boot before health probes begin.
+The current compose file uses `depends_on: condition: service_healthy` for
+PostgreSQL and the HTTP/WS dependency chain. The `start_period` gives the
+application services time to boot before probes begin; no image build or live
+container startup was run by this inventory.
 
 ### File Map
 
@@ -114,67 +139,28 @@ Each package and app managed its own TypeScript version independently. There was
 
 ### Solution
 
-Unified TypeScript to `^5.9.3` across all apps and packages. Aligned related tooling versions:
+The current package manifests align TypeScript to `^5.9.3` across the
+workspace. The surrounding versions in the original note (for example
+Prisma `^7.2.0`, Vitest `^4.0.14`, and Zod `^4.3.6`) are historical; current
+manifests use newer ranges. Do not use the old version list as a lockfile
+substitute.
 
-- **TypeScript:** `^5.9.3` everywhere (root, apps, packages)
-- **Prisma:** `^7.2.0` (aligned across `@dripl/db` consumers)
-- **Vitest:** `^4.0.14` (aligned across test configurations)
-- **Zod:** `^4.3.6` (aligned across runtime consumers)
+### File Map (historical)
 
-This ensures all packages compile with the same type checker and share compatible type definitions.
-
-### File Map
-
-- **Modified:** `package.json` (root)
-- **Modified:** `apps/dripl-app/package.json`
-- **Apps/http-server/package.json`
-- **Modified:** `apps/ws-server/package.json`
-- **Modified:** `packages/common/package.json`
-- **Modified:** `packages/db/package.json`
-- **Modified:** `packages/math/package.json`
-- **Modified:** `packages/element/package.json`
-- **Modified:** `packages/dripl/package.json`
-- **Modified:** `packages/utils/package.json`
+The original change touched manifests that no longer all exist. Current
+package manifests under `apps/*/package.json` and `packages/*/package.json`
+are authoritative; there is no `packages/dripl/package.json`.
 
 ---
 
 ## 5. Runtime Dependencies in devDependencies
 
-### Problem Statement
+### Historical status
 
-`@dripl/common` and `@dripl/math` were listed in `@dripl/dripl`'s `devDependencies`, but they are imported and used at runtime in the published package. When consumers installed `@dripl/dripl`, these packages were not installed, causing `MODULE_NOT_FOUND` errors at runtime.
-
-### Root Cause
-
-The packages were initially only used during development and testing. When runtime imports were added (e.g., element types from `@dripl/common`, geometry calculations from `@dripl/math`), the `devDependencies` classification was never updated. The distinction between dev and runtime dependencies was not enforced by linting or CI checks.
-
-### Solution
-
-Moved `@dripl/common` and `@dripl/math` from `devDependencies` to `dependencies` in `packages/dripl/package.json`. This ensures they are installed when consumers depend on `@dripl/dripl`.
-
-Before:
-```json
-{
-  "devDependencies": {
-    "@dripl/common": "workspace:*",
-    "@dripl/math": "workspace:*"
-  }
-}
-```
-
-After:
-```json
-{
-  "dependencies": {
-    "@dripl/common": "workspace:*",
-    "@dripl/math": "workspace:*"
-  }
-}
-```
-
-### File Map
-
-- **Modified:** `packages/dripl/package.json`
+This entire section is superseded: `@dripl/dripl` was removed and the current
+workspace has six shared library packages. The old `devDependencies` versus
+`dependencies` example is retained only to explain the former package-layout
+decision.
 
 ---
 
@@ -192,7 +178,8 @@ No dependency management tool was configured. The team relied on manual `pnpm up
 
 Added Renovate bot configuration (`renovate.json`) with:
 
-- **Auto-merge:** Minor and patch updates are auto-merged after CI passes
+- **Auto-merge:** minor/patch updates are configured for automerge; actual merge
+  still depends on branch protection and required CI status checks
 - **Grouped rules:** Related packages are updated together in single PRs:
   - `prisma` — all `@prisma/*` and `prisma` packages (manual review)
   - `typescript` — `typescript` and `ts-*` packages (manual review)
@@ -202,7 +189,9 @@ Added Renovate bot configuration (`renovate.json`) with:
   - `nextjs` — `next` (manual review)
 - **Base config:** Extends `config:recommended` for sensible defaults
 
-Major version updates (e.g., React 19, Next.js 15) require manual review. Security patches are still auto-merged regardless of semver range.
+Major updates are not automatically merged by these rules; the original
+“security patches always auto-merge” wording is not a current policy claim.
+Review Renovate’s resolved config and CI status on each update.
 
 ### File Map
 
@@ -210,7 +199,7 @@ Major version updates (e.g., React 19, Next.js 15) require manual review. Securi
 
 ---
 
-## 9. Fractional Indexing for Conflict-Free Z-Ordering
+## 9. Fractional Indexing for Z-Ordering (Not CRDT Convergence)
 
 ### Problem Statement
 
@@ -225,7 +214,7 @@ The initial canvas implementation used a simple array for element storage. Z-ord
 Integrated the `fractional-indexing` library to generate lexicographically-sortable string keys for element ordering:
 
 1. **Type system:** Added `fractionalIndex?: string` to `ElementBase` in `@dripl/common` and `BaseElementSchema` in `@dripl/common/schemas.ts`
-2. **Canvas store:** 
+2. **Canvas store:**
    - Added `sortByFractionalIndex()` helper that sorts elements lexicographically by their fractional index
    - Added `ensureFractionalIndexes()` for backward-compatible migration of existing elements
    - All element insertion (`commitDraft`, `addElement`, `addElements`) generates a fractional index via `generateKeyBetween(lastIndex, null)`
@@ -245,10 +234,10 @@ Integrated the `fractional-indexing` library to generate lexicographically-sorta
 
 ### Impact
 
-- **Excalidraw parity:** Fractional z-ordering now matches Excalidraw's approach
-- **Collaboration safety:** Two users reordering simultaneously produce deterministic, mergeable results via lexicographic key comparison
-- **No re-indexing:** Inserting between any two elements never requires updating other elements' indexes
-- **17 tests** covering sorting, reordering, key generation, and edge cases
+- **Ordering implementation:** fractional indexes provide sortable insert keys; this is not evidence of CRDT convergence.
+- **Collaboration safety:** version/nonce reconciliation and ordering keys are present, but concurrent multi-user convergence remains unverified.
+- **No re-indexing for insertion:** inserting between existing keys does not require renumbering the whole scene.
+- The current tree contains fractional-index tests; the historical “17 tests” count is not a current test-run claim.
 
 ### Files Modified
 

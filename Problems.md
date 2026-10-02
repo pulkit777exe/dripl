@@ -1,6 +1,48 @@
 # Dripl — Security & Engineering Posture Report
 
+> **Status note (2026-09-25):** This document preserves the earlier audit trail. Several statuses below predate the current uncommitted hardening work; use [`docs/codebase-audit.md`](docs/codebase-audit.md) for the current evidence-weighted assessment and explicit blockers.
+
 **Date:** 2026-04-27 | **Updated:** 2026-04-28 | **Mode:** Full Audit | **Confidence gate:** 8/10 (daily)
+
+## Current-tree reconciliation (2026-09-25)
+
+The finding narratives below are retained as the original audit trail. This
+overlay is the status to use for the current workspace; it is based on source
+and test-file inspection. Separate disposable-PostgreSQL and opt-in runtime
+results are recorded in [`docs/codebase-audit.md`](docs/codebase-audit.md).
+
+| Finding(s) | Current status                                          | Evidence / remaining caveat                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1–3        | **Resolved**                                            | The room module uses `randomBytes` for slugs/tokens; the public room capability route is mounted before `authMiddleware` (`apps/http-server/src/routes/roomRoutes.ts`). Note `controllers/roomController.ts` no longer exists — the logic lives in `apps/http-server/src/services/roomService.ts` + `routes/roomRoutes.ts`.                                                                                     |
+| 4          | **Resolved for arbitrary joins**                        | WS connections now require a one-time ticket and reject missing/invalid tickets (`ws-server/src/index.ts:361-399`); public file-share tickets are separately authorized by file/token/permission (`roomAccess.ts:16-34`). This is capability access, not unrestricted anonymous room access.                                                                                                                    |
+| 5          | **Resolved**                                            | The AI route derives the rate-limit identity from a verified session/Bearer token and ignores body `userId` claims (`app/api/ai/generate/route.ts:229-236, 790-826`).                                                                                                                                                                                                                                           |
+| 6          | **Historical/obsolete**                                 | The old 1 MB-vs-10 MB mismatch no longer describes the tree. Both `ws` and application checks use `MAX_MESSAGE_BYTES = 200_000` (`packages/common/src/constants.ts:37-40`, `ws-server/src/index.ts:341-343`, `validation.ts:253-262`).                                                                                                                                                                          |
+| 7          | **Resolved for the covered auth routes**                | Login, registration, and password/verification flows have a dedicated 10-request/15-minute limiter in addition to the global limiter (`http-server/src/app.ts:26-36, 156-160`); not every auth handler shares the same middleware.                                                                                                                                                                              |
+| 8          | **Resolved**                                            | WS upgrade origins are normalized and compared exactly; missing or disallowed origins are rejected (`ws-server/src/index.ts:317-356`).                                                                                                                                                                                                                                                                          |
+| 9          | **Obsolete cleanup item**                               | The auth middleware’s `generateToken` export is now only an alias in `authMiddleware.ts`; `signSessionToken` is the used session-signing path (`routes/auth.ts:140,202`). The separate `ShareService` token generator is for share capabilities, not JWT sessions. This is no longer a duplicate active signing flow.                                                                                           |
+| 10         | **Resolved**                                            | Root `package.json` has no `postinstall: approve-builds --all`; `pnpm-workspace.yaml:6-10` uses an explicit `allowBuilds` allowlist (`@sentry/cli`, `core-js`, `prisma`, `unrs-resolver`).                                                                                                                                                                                                                      |
+| 11         | **Resolved**                                            | `getRoom` returns 404 for a missing room and no longer creates one (`apps/http-server/src/services/roomService.ts:134-157`).                                                                                                                                                                                                                                                                                    |
+| 12         | **Historical description; architecture caveat remains** | The old 668/737-line description and “none of these files exist” claim are obsolete. The current `apps/ws-server/src/index.ts` is an 895-line coordinator (measured with `wc -l`), while auth/broadcast/rooms/rate-limit/handler modules exist; the coordinator risk is still valid.                                                                                                                            |
+| 13         | **Resolved/obsolete**                                   | Current join, leave, and cursor paths emit one event payload per action; the former snake/kebab double-broadcast is not present in the reviewed handlers.                                                                                                                                                                                                                                                       |
+| 14         | **Resolved**                                            | `FileRoute.ts`, `TeamRoute.ts`, and `UserRoute.ts` are absent, and there is no `controllers/` directory at all under `apps/http-server/src/` (only `lib/`, `middlewares/`, `routes/`, `services/`, `__tests__/`). The previously reported unreferenced `controllers/teamController.ts` stub is gone; there is no dead team controller to mistake for a mounted team API.                                        |
+| 15         | **Resolved**                                            | Room content is schema/size checked and updates use owner plus optimistic timestamp checks (`apps/http-server/src/services/roomService.ts:160-198`).                                                                                                                                                                                                                                                            |
+| 16         | **Obsolete for the reported WS limiter**                | The WS limiter no longer has a periodic cleanup interval; it uses bounded lazy pruning (`rateLimiter.ts:43-53, 85-100`). The HTTP ShareLink cleanup interval is cleared on shutdown; the separate HTTP WS-ticket timer is `unref()`ed but is not explicitly cleared, which is a minor lifecycle caveat.                                                                                                         |
+| 17         | **Resolved**                                            | The AI route has no `any` type annotations and normalizes/parses bounded model output through `DriplElementSchema`.                                                                                                                                                                                                                                                                                             |
+| 18         | **Resolved**                                            | CI defines a PostgreSQL service and runs migrations (`.github/workflows/ci.yml:102-115` for the service container, `:128-131` for the migration step) and enables the opt-in integration flags. Local DB-backed execution remains opt-in.                                                                                                                                                                       |
+| 19         | **Resolved for backend Vercel configs**                 | No `apps/http-server/vercel.json` or `apps/ws-server/vercel.json` exists; the remaining frontend `apps/dripl-app/vercel.json` is expected for the Next app.                                                                                                                                                                                                                                                     |
+| 20         | **Resolved**                                            | Only the ignored root `.env` exists in this workspace; per-app `.env` files are absent and the ignore rules cover them.                                                                                                                                                                                                                                                                                         |
+| 21         | **Partially resolved**                                  | `toDriplElement` uses the shared bounded schema (`ws-server/src/index.ts:66-71`), but `ws-server/src/validation.ts` still maintains a separate local element schema. The shared element schema bounds numeric/style lengths but does not apply the dedicated cursor-color regex; schema duplication and validation-contract drift remain maintenance/security caveats, not the old unbounded-injection finding. |
+| 22         | **Resolved**                                            | File routes and `FileService` validate scene structure/size and return conflicts for stale saves (`files.ts:241-313`, `fileService.ts:255-327`).                                                                                                                                                                                                                                                                |
+| 23         | **Resolved for room `ShareLink` records**               | The HTTP server has a daily expired-link cleanup interval (`http-server/src/index.ts:24-40`) and clears it during shutdown. File-share tokens are nulled/revoked by `FileService`; their expiry is checked on access.                                                                                                                                                                                           |
+
+Additional current caveat: validation coverage is not uniform across every
+auth handler. `auth.ts` still uses manual checks for profile, password-reset,
+Google-token, and resend-verification inputs; do not generalize the room/file
+Zod fixes into a claim that every HTTP body is schema-validated.
+
+The current evidence-weighted assessment and blockers are maintained in
+[`docs/codebase-audit.md`](docs/codebase-audit.md). The totals and prose in the
+historical sections below must not be read as a fresh current status.
 
 ---
 
@@ -8,7 +50,7 @@
 
 ```
 Browser (dripl-app / Next.js 16)
-    │  REST (cookie JWT)         WebSocket (JWT in query string)
+    │  REST (cookie JWT)         WebSocket (short-lived ticket)
     ▼                            ▼
 http-server (Express 5)       ws-server (ws lib)
     │                            │
@@ -18,13 +60,17 @@ http-server (Express 5)       ws-server (ws lib)
 ```
 
 Three trust boundaries:
+
 1. **Browser → http-server** — cookie-scoped JWT, Helmet headers, global rate limit
-2. **Browser → ws-server** — JWT in `?token=` query param, app-level rate limit
+2. **Browser → ws-server** — short-lived ticket in the connection URL, validated by http-server
 3. **http-server / ws-server → DB** — Prisma, same `DATABASE_URL`
 
 ---
 
-## Attack Surface Map
+## Attack Surface Map (Historical Snapshot)
+
+The counts below describe the April report and are not a current endpoint
+inventory; use the source/routes and current audit for that.
 
 ```
 CODE SURFACE
@@ -42,12 +88,18 @@ INFRASTRUCTURE
 
 ---
 
-## SECURITY FINDINGS
+## Historical security findings (not current)
 
-### Finding 1 — Cryptographically Weak Room Share Token
+> The individual narratives below preserve the April finding wording and
+> remediation suggestions. For the current status, use the reconciliation
+> table above; several old exploit descriptions refer to code that no longer
+> exists.
+
+### Historical Finding 1 — Cryptographically Weak Room Share Token
+
 **Severity:** ~~HIGH~~ RESOLVED | **Confidence:** 10/10 | **VERIFIED**
 **Status:** Already fixed in current codebase
-**File:** `apps/http-server/src/controllers/roomController.ts:375`
+**File:** `apps/http-server/src/services/roomService.ts:294` (the cited `controllers/roomController.ts` no longer exists)
 
 ```typescript
 const token = crypto.randomBytes(24).toString('base64url');
@@ -55,11 +107,12 @@ const token = crypto.randomBytes(24).toString('base64url');
 
 Already uses CSPRNG (`crypto.randomBytes`). No changes needed.
 
-`Math.random()` is not a CSPRNG. The token is also structurally predictable: it embeds the room slug and a millisecond timestamp, narrowing the search space further. An attacker who knows the room slug and approximate creation time needs to brute-force only ~13 base-36 chars from a weak RNG — orders of magnitude less than a proper UUID.
-
-**Exploit:** Attacker creates a room (gets slug), notes wall-clock time, enumerates likely `Math.random()` outputs (V8's PRNG is well-studied), sends crafted share-link GET requests.
+Historical claim (not current): the original token embedded predictable
+material and could be brute-forced. The current token is a 24-byte CSPRNG
+value, so that exploit description no longer applies.
 
 **Fix:**
+
 ```typescript
 import { randomBytes } from 'crypto';
 const token = randomBytes(24).toString('base64url'); // 192 bits, CSPRNG
@@ -67,10 +120,11 @@ const token = randomBytes(24).toString('base64url'); // 192 bits, CSPRNG
 
 ---
 
-### Finding 2 — Room Slug Generated with `Math.random()`
+### Historical Finding 2 — Room Slug Generated with `Math.random()`
+
 **Severity:** ~~MEDIUM~~ RESOLVED | **Confidence:** 9/10 | **VERIFIED**
 **Status:** Already fixed in current codebase
-**File:** `apps/http-server/src/controllers/roomController.ts:7-10`
+**File:** `apps/http-server/src/services/roomService.ts:8-11` (the cited `controllers/roomController.ts` no longer exists)
 
 ```typescript
 function generateSlug(): string {
@@ -78,14 +132,17 @@ function generateSlug(): string {
 }
 ```
 
-Already uses CSPRNG. No changes needed.
+Historical claim: the original slug generator used `Math.random()`. The
+current generator uses `crypto.randomBytes`; the old brute-force rationale is
+retained only as audit context.
 
 ---
 
-### Finding 3 — Public Room Share Route Behind `authMiddleware`
+### Historical Finding 3 — Public Room Share Route Behind `authMiddleware`
+
 **Severity:** ~~HIGH~~ RESOLVED | **Confidence:** 10/10 | **VERIFIED**
 **Status:** Already fixed in current codebase
-**File:** `apps/http-server/src/routes/roomRoutes.ts:7-11`
+**File:** `apps/http-server/src/routes/roomRoutes.ts:7-12`
 
 ```typescript
 router.get('/share/:token', RoomController.getShareLink); // BEFORE authMiddleware
@@ -97,31 +154,40 @@ Share route is mounted BEFORE authMiddleware. No changes needed.
 
 ---
 
-### Finding 4 — WebSocket Server Allows Fully Anonymous Room Joins
-**Severity:** ~~HIGH~~ PARTIAL | **Confidence:** 10/10 | **VERIFIED**
-**Status:** Partially fixed - auth check rejects, but fallback code still exists
-**File:** `apps/http-server/src/routes/roomRoutes.ts`
+### Historical Finding 4 — WebSocket Server Allowed Fully Anonymous Room Joins
 
-The connection handler at ws-server/src/index.ts:299-304 now rejects unauthenticated connections:
+**Severity:** ~~HIGH~~ RESOLVED (historical finding) | **Confidence:** 10/10 | **VERIFIED**
+**Status:** Resolved for unrestricted joins; capability-scoped public shares remain supported.
+**File:** `apps/ws-server/src/index.ts`
+
+The connection handler at `ws-server/src/index.ts:384-399` now rejects a
+missing or invalid ticket before room access:
 
 ```typescript
-if (!authUserId) {
+const ticketPrincipal = await validateTicket(ticket);
+if (!ticketPrincipal) {
   ws.close(4001, 'Authentication required');
   return;
 }
 ```
 
-However, the `anon_${uuidv4()}` fallback still exists at line 371 (never reached due to auth check).
+Historical pre-hardening note (not current behavior): the report observed an
+`anon_${uuidv4()}` fallback in an earlier revision. The current connection path
+closes missing or invalid tickets before room access.
 
-**Recommendation:** Remove the unused `anon_${uuidv4()}` fallback for cleaner code.
+**Current action:** No anonymous fallback remains in the reviewed tree; public
+share access is represented by scoped file-share tickets.
 
-If JWT verification fails (expired, tampered, missing), the server silently falls back to `anon_<uuid>` and **still admits the connection** to the room. Any unauthenticated user can join any room.
+Historical exploit description (not reproducible in the current tree): an
+invalid JWT previously fell through to an `anon_<uuid>` identity. The current
+server validates a short-lived ticket through http-server and closes the socket
+when validation fails.
 
-**Exploit:** `ws://ws-server:3001/?token=invalid` → connection accepted → user joins room, receives full canvas state, can send scene updates.
+**Fix (current ticket check):**
 
-**Fix:**
 ```typescript
-if (!authUserId) {
+const ticketPrincipal = await validateTicket(ticket);
+if (!ticketPrincipal) {
   ws.close(4001, 'Authentication required');
   return;
 }
@@ -129,46 +195,46 @@ if (!authUserId) {
 
 ---
 
-### Finding 5 — AI Rate Limit Bypassed via Client-Supplied `userId`
-**Severity:** ~~HIGH~~ PARTIAL | **Confidence:** 10/10 | **VERIFIED**
-**Status:** Partially fixed - removed IP fallback, still uses client-supplied userId
-**File:** `apps/dripl-app/app/api/ai/generate/route.ts:82-86`
+### Historical Finding 5 — AI Rate Limit Bypassed via Client-Supplied `userId`
 
-IP fallback has been removed. Now uses client-supplied userId directly:
+**Severity:** ~~HIGH~~ RESOLVED | **Confidence:** 10/10 | **VERIFIED**
+**Status:** Resolved in the current tree; the original body-supplied identity
+path is historical.
+**File:** `apps/dripl-app/app/api/ai/generate/route.ts:215-236,799-826`
 
-```typescript
-const userId = body.userId && body.userId !== 'anonymous' ? body.userId : 'unknown';
-```
-
-**Issue:** Client can still bypass by supplying any userId string.
-
-**Recommendation:** Add server-side authentication to validate userId from session cookie.
+Historical implementation note: the original route accepted a body `userId`.
+The current route verifies the `dripl-session` cookie or Bearer token and keys
+rate limiting to the verified user ID; body identity is not used.
 
 ---
 
-### Finding 6 — `maxPayload` vs. Application-Level Size Check Mismatch
-**Severity: LOW | Confidence: 10/10 | VERIFIED**
-**File:** `apps/ws-server/src/index.ts:86,296–304`
+### Historical Finding 6 — `maxPayload` vs. Application-Level Size Check Mismatch
 
-```typescript
-const wss = new WebSocketServer({ server, maxPayload: 1024 * 1024 }); // 1 MB
-// ...
-const MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 MB — never reached
-```
+**Severity: LOW | Confidence: 10/10 | HISTORICAL/RECONCILED**
+**File:** `packages/common/src/constants.ts`, `apps/ws-server/src/index.ts`, `apps/ws-server/src/validation.ts`
 
-The `ws` library rejects messages >1 MB at the protocol layer before the `message` event fires. The 10 MB application check is dead code. Documentation and CLAUDE.md claim "10MB max" which is wrong.
+Historical finding: an earlier revision used a 1 MB `maxPayload` and a
+separate 10 MB application constant. The current tree uses the shared
+`MAX_MESSAGE_BYTES` value (200,000 bytes) for both checks, so this specific
+mismatch is obsolete.
 
-**Fix:** Either raise `maxPayload` to `10 * 1024 * 1024` to match intent, or remove the app-level check and document the true 1 MB limit.
+The current limit is 200 KB, not 10 MB. Keep the shared constant and its
+protocol/application checks aligned if this area changes.
 
 ---
 
-### Finding 7 — Auth Endpoint Lacks Dedicated Brute-Force Protection
-**Severity: MEDIUM | Confidence: 9/10 | VERIFIED**
-**File:** `apps/http-server/src/index.ts:27–33`
+### Historical Finding 7 — Auth Endpoint Lacks Dedicated Brute-Force Protection
 
-Global rate limit: **250 requests / 15 minutes per IP**. No stricter limit on `/api/auth/login` or `/api/auth/forgot-password`. An attacker can attempt ~250 password guesses per 15-minute window before being throttled — against a shared limit that counts ALL requests, meaning the effective limit on login alone is higher.
+**Severity: MEDIUM | Confidence: 9/10 | HISTORICAL/RESOLVED**
+**File:** `apps/http-server/src/app.ts:32-36,156-160`
+
+Historical finding: the original server had only the 250-request global
+limiter. The current app also applies a dedicated 10-request/15-minute limiter
+to the covered auth endpoints (`app.ts:32-36, 156-160`); this is not a claim
+that every auth handler has identical middleware.
 
 **Fix:** Add a tighter limiter specifically on auth routes:
+
 ```typescript
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 app.use('/api/auth/login', authLimiter);
@@ -177,13 +243,17 @@ app.use('/api/auth/forgot-password', authLimiter);
 
 ---
 
-### Finding 8 — WebSocket CORS: No Origin Validation on Upgrade
-**Severity: MEDIUM | Confidence: 9/10 | VERIFIED**
-**File:** `apps/ws-server/src/index.ts:284`
+### Historical Finding 8 — WebSocket CORS: No Origin Validation on Upgrade
 
-The `ws` server performs no `Origin` header check on the HTTP upgrade request. Any website can establish a WebSocket connection to the server, bypassing same-origin protections. Credentials (JWT) are still required, but this widens the attack surface.
+**Severity: MEDIUM | Confidence: 9/10 | HISTORICAL/RESOLVED**
+**File:** `apps/ws-server/src/index.ts:317-356`
+
+Historical finding: the original upgrade path did not validate `Origin`.
+The current `WebSocketServer` normalizes allowed origins and rejects missing or
+non-exact origins before accepting a connection (`ws-server/src/index.ts:317-356`).
 
 **Fix:**
+
 ```typescript
 const wss = new WebSocketServer({
   server,
@@ -198,37 +268,47 @@ const wss = new WebSocketServer({
 
 ---
 
-### Finding 9 — Duplicate `signSessionToken` / `generateToken` Functions
-**Severity:** ~~LOW~~ RESOLVED | **Confidence:** 10/10 | **VERIFIED**
-**Status:** Misreport - both functions ARE used
+### Historical Finding 9 — Duplicate `signSessionToken` / `generateToken` Functions
 
-Both functions are actually used in different places:
-- `generateToken` is used in userController.ts for registration/login
-- `signSessionToken` is used in auth routes for session cookies
+**Severity:** ~~LOW~~ OBSOLETE CLEANUP | **Confidence:** 10/10 | **VERIFIED**
+**Status:** Obsolete cleanup item; no active duplicate signing path
 
-They serve slightly different purposes. The report incorrectly claimed "generateToken is never called".
+Historical note: the original report described two active signing paths and
+referenced a now-removed user controller. In the current tree,
+`signSessionToken` is used by auth routes and `generateToken` remains an
+unused compatibility alias in `authMiddleware.ts`. This is cleanup debt, not
+an active duplicate-token vulnerability.
 
-**Conclusion:** This is not a bug - both functions are intentionally used.
+**Conclusion:** The historical duplicate-signing finding does not describe the
+current tree; only the unused alias remains to clean up.
 
 ---
 
-### Finding 10 — `pnpm postinstall` Auto-Approves All Build Scripts
-**Severity: MEDIUM | Confidence: 9/10 | VERIFIED**
-**File:** `package.json:6`
+### Historical Finding 10 — `pnpm postinstall` Auto-Approves All Build Scripts
+
+**Severity: MEDIUM | Confidence: 9/10 | HISTORICAL/RESOLVED**
+**File:** `package.json` (no current `postinstall` entry)
+
+Historical code shown in the original report:
 
 ```json
 "postinstall": "pnpm approve-builds --all"
 ```
 
-This silently approves `preinstall`/`postinstall` scripts from **every dependency** on every install. A malicious or compromised transitive dependency's install script runs without any review. This defeats pnpm's build-script security model entirely.
+The current root `package.json` has no such script. `pnpm-workspace.yaml:6-10`
+uses an explicit `allowBuilds` allowlist instead (`@sentry/cli`, `core-js`,
+`prisma`, `unrs-resolver`).
 
-**Fix:** Remove `--all`. Enumerate only the known-safe build-script packages in `pnpm-workspace.yaml` `onlyBuiltDependencies` (you already have `@prisma/engines`, `esbuild`, `sharp`, etc. — that list is the correct approach).
+**Fix:** Remove `--all`. Enumerate only the known-safe build-script packages in `pnpm-workspace.yaml` `allowBuilds` (you already have `@sentry/cli`, `core-js`, `prisma`, `unrs-resolver` — that list is the correct approach).
 
 ---
 
-### Finding 11 — `getRoom` Auto-Creates Rooms on GET
-**Severity: MEDIUM | Confidence: 9/10 | VERIFIED**
-**File:** `apps/http-server/src/controllers/roomController.ts:144–176`
+### Historical Finding 11 — `getRoom` Auto-Creates Rooms on GET
+
+**Severity: MEDIUM | Confidence: 9/10 | HISTORICAL/RESOLVED**
+**File:** `apps/http-server/src/services/roomService.ts:134-157` (the cited `controllers/roomController.ts` no longer exists)
+
+Historical code shown in the original report:
 
 ```typescript
 if (!room) {
@@ -236,43 +316,53 @@ if (!room) {
 }
 ```
 
-A GET request to `/api/rooms/<any-slug>` by any authenticated user **silently creates a room with that user as owner** if the slug doesn't exist. This turns a read operation into a write. Combined with the 10-rooms-per-day limit, an attacker could exhaust another user's room quota... wait, no — they'd be the owner of the new room. But the real problem is that enumeration + GET is non-idempotent and unexpected.
-
-**Fix:** Return 404 if the room does not exist. Let the client call `POST /api/rooms` to create one explicitly.
-
----
-
-## CODE QUALITY FINDINGS
-
-### Finding 12 — ws-server Is a 668-Line God File
-**Severity: ARCH | File:** `apps/ws-server/src/index.ts`
-
-All of these concerns live in one file: HTTP server creation, JWT auth, room state management, message dispatch, broadcast helpers, rate limiting, heartbeat, periodic DB saves, graceful shutdown. The CLAUDE.md documents separate `rooms.ts`, `handlers.ts`, `broadcast.ts`, `rateLimiter.ts`, `auth.ts` — **none of these files exist**. The docs are wrong and the code is unmaintainable.
-
-**Fix:** Refactor into the modules the CLAUDE.md already describes. Each module should export a pure function or class. Wire them in `index.ts` (target: <100 lines).
+The current `getRoom` returns 404 when the slug is absent and does not create a
+room. Room creation is explicit through `POST /api/rooms`.
 
 ---
 
-### Finding 13 — Double-Broadcast on Every Event
-**Severity: PERF | File:** `apps/ws-server/src/index.ts:408–416, 435–436, 553–554`
+## Historical code-quality findings (not current)
 
-Every user-join, user-leave, and cursor-move event is broadcast **twice** to every room member — once with snake_case type (`user_join`) and once with kebab-case (`user-join`). This doubles WS traffic for every event. If there are N users in a room, each event sends 2×(N-1) messages instead of N-1.
+### Historical Finding 12 — ws-server Is a 668-Line God File
 
-**Fix:** Pick one naming convention (kebab is used in `AGENTS.md` protocol docs). Remove the duplicate broadcast. Update the client to match.
+**Severity: ARCH | Current description is historical | File:** `apps/ws-server/src/index.ts`
 
----
-
-### Finding 14 — Orphaned Route Files Never Mounted
-**Severity: DEAD CODE | Files:** `apps/http-server/src/routes/FileRoute.ts`, `TeamRoute.ts`, `UserRoute.ts`
-
-Three route files exist in `src/routes/` but are never imported in `src/index.ts`. These are unreachable dead code that inflate the codebase and confuse readers.
-
-**Fix:** Delete them or mount them intentionally.
+Historical finding: the original report described a 668-line monolith and said
+none of the documented modules existed. The current tree has `auth.ts`,
+`broadcast.ts`, `rooms.ts`, `rateLimiter.ts`, `types.ts`, and a `handlers/`
+directory, but `index.ts` remains a large (895-line) coordinator. The
+architectural risk is still valid; the old file inventory and line count are
+obsolete.
 
 ---
 
-### Finding 15 — `updateRoom` Accepts Unvalidated Canvas Content
-**Severity: MEDIUM | File:** `apps/http-server/src/controllers/roomController.ts:201,221`
+### Historical Finding 13 — Double-Broadcast on Every Event
+
+**Severity: PERF | Historical/obsolete | File:** `apps/ws-server/src/index.ts`
+
+Historical finding: the original implementation emitted both snake_case and
+kebab-case variants for presence/cursor events. The current reviewed paths
+broadcast one payload per event; the old duplicate-broadcast claim is not
+present.
+
+---
+
+### Historical Finding 14 — Orphaned Route Files Never Mounted
+
+**Severity: DEAD CODE | Historical/resolved for the named files**
+
+The named `FileRoute.ts`, `TeamRoute.ts`, and `UserRoute.ts` files are absent
+from the current tree, as is the `controllers/teamController.ts` stub — the
+whole `controllers/` directory is gone. There is no remaining dead-code
+cleanup item here.
+
+---
+
+### Historical Finding 15 — `updateRoom` Accepts Unvalidated Canvas Content
+
+**Severity: MEDIUM | Historical/resolved | File:** `apps/http-server/src/services/roomService.ts` (the cited `controllers/roomController.ts` no longer exists)
+
+Historical code shown in the original report:
 
 ```typescript
 const { name, isPublic, content } = req.body;
@@ -280,198 +370,191 @@ const { name, isPublic, content } = req.body;
 ...(content !== undefined && { content }),
 ```
 
-`content` (canvas elements JSON) goes directly to `prisma.canvasRoom.update` with no Zod schema validation. Any authenticated room owner can store arbitrary JSON in the `content` field — unbounded in size, schema, or structure. The `files.ts` endpoint correctly validates content; `roomController.ts` does not.
-
-**Fix:** Add a Zod schema for `updateRoom` body, validate `content` shape.
-
----
-
-### Finding 16 — `rateLimitCleanup` Interval Not Cleared on Shutdown
-**Severity: LOW | File:** `apps/ws-server/src/index.ts:601–608, 638–660`
-
-```typescript
-const rateLimitCleanup = setInterval(..., 60_000);
-// shutdown():
-clearInterval(heartbeat);
-clearInterval(periodicSave);
-// rateLimitCleanup is never cleared
-```
-
-On `SIGTERM`, the process exits anyway, so this is harmless in practice. But it's inconsistent and will cause issues if shutdown is ever made non-fatal (e.g., in test environments with long-running processes).
+The current handler parses `content` with `roomContentSchema`, validates every
+stored element, checks ownership, and uses an optimistic timestamp fence.
 
 ---
 
-### Finding 17 — AI Route Uses `any` Types Pervasively
-**Severity: CODE QUALITY | File:** `apps/dripl-app/app/api/ai/generate/route.ts:123,165,188`
+### Historical Finding 16 — `rateLimitCleanup` Interval Not Cleared on Shutdown
 
-```typescript
-} catch (err: any) {          // line 123
-const processedElements = elements.map((el: any, ...) => ...  // line 165
-} catch (error: any) {        // line 188
-```
+**Severity: LOW | Historical/obsolete | File:** `apps/ws-server/src/rateLimiter.ts`
 
-TypeScript's type safety is bypassed. The AI response is processed with no structural validation — arbitrary data from Gemini flows through `any` directly to the API response.
+Historical code shown in the original report used a periodic cleanup interval.
+The current WS limiter has no such interval: it prunes expired/old identities
+lazily and bounds the in-memory map. The HTTP ShareLink cleanup interval is
+cleared during shutdown. The separate HTTP WS-ticket cleanup timer is
+`unref()`ed, but the current source does not explicitly clear that timer; treat
+that as a minor lifecycle caveat rather than the old WS-limiter finding.
 
-**Fix:** Use a Zod schema to parse the AI-returned element array before processing. Replace `any` with `unknown` + type narrowing.
+---
+
+### Historical Finding 17 — AI Route Uses `any` Types Pervasively
+
+**Severity: CODE QUALITY | Historical/resolved | File:** `apps/dripl-app/app/api/ai/generate/route.ts`
+
+Historical finding: the original route used `any`-typed model elements and
+directly returned normalized data. The current route uses `unknown`, bounds,
+normalization, and `DriplElementSchema.safeParse`; model output is not passed
+through unchecked `any` data.
 
 ---
 
 ## INFRASTRUCTURE FINDINGS
 
-### Finding 18 — CI Test Job Has No PostgreSQL Service Container
-**Severity: HIGH | File:** `.github/workflows/ci.yml:97–99`
+### Historical Finding 18 — CI Test Job Has No PostgreSQL Service Container
 
-```yaml
-env:
-  DATABASE_URL: postgresql://test:test@localhost:5432/test
-```
+**Severity: HIGH | Historical/resolved | File:** `.github/workflows/ci.yml`
 
-No `services: postgres:` block in the test job. The `DATABASE_URL` points to a Postgres instance that doesn't exist in CI. Tests pass only because they mock or avoid DB calls — confirming that the test suite has **no real integration coverage**.
-
-**Fix:**
-```yaml
-services:
-  postgres:
-    image: postgres:16
-    env:
-      POSTGRES_USER: test
-      POSTGRES_PASSWORD: test
-      POSTGRES_DB: test
-    options: >-
-      --health-cmd pg_isready
-      --health-interval 10s
-      --health-timeout 5s
-      --health-retries 5
-```
+Historical finding: the original CI test job supplied a PostgreSQL URL without
+starting a database. The current workflow defines a `postgres:16` service,
+waits for health, runs Prisma migrations, and enables the opt-in integration
+flags. This does not by itself prove that every route is exercised against a
+live database.
 
 ---
 
-### Finding 19 — `vercel.json` in ws-server and http-server
-**Severity: ARCH | Files:** `apps/ws-server/vercel.json`, `apps/http-server/vercel.json`
+### Historical Finding 19 — `vercel.json` in ws-server and http-server
 
-Both backend apps have Vercel config files. Vercel's serverless functions do not support persistent WebSocket connections or long-lived Node.js HTTP servers. Deploying `ws-server` to Vercel will silently fail or produce broken collaboration.
+**Severity: ARCH | Historical/resolved for the named files | Files:** `apps/ws-server/vercel.json`, `apps/http-server/vercel.json`
 
-**Fix:** These services require a persistent runtime (Fly.io, Railway, EC2, a container platform). Remove or replace `vercel.json` with platform-appropriate deployment config.
+Historical finding: the original report found backend Vercel configs that would
+not provide persistent WebSocket/HTTP runtimes. Those backend config files are
+absent now; the remaining `apps/dripl-app/vercel.json` is a frontend config,
+not a claim that ws-server is serverless-compatible.
 
 ---
 
-### Finding 20 — Multiple Duplicate `.env` Files
-**Severity: CONFIG | Files:** root `.env`, `apps/dripl-app/.env`, `apps/http-server/.env`, `apps/ws-server/.env`
+### Historical Finding 20 — Multiple Duplicate `.env` Files
 
-Four `.env` files exist. Apps load the root `.env` via `dotenv` path resolution, but per-app `.env` files may override or conflict silently. A developer editing the wrong file will see no effect.
+**Severity: CONFIG | Historical/resolved | Files:** root `.env`, app-level `.env` paths
 
-**Fix:** Standardise on the root `.env` only. Remove per-app `.env` files. Document the single-source-of-truth pattern in `CLAUDE.md` (done) and enforce it with a CI lint check.
+Historical finding: four app/root env files were previously present. The
+current workspace has only the ignored root `.env`; app-level duplicates are
+absent and ignore rules cover those paths. The root `.env` remains a local
+secret and must never be committed.
 
 ---
 
 ## ADDITIONAL SECURITY FINDINGS
 
-### Finding 21 — WebSocket Data Injection via Missing Schema Validation
-**Severity: HIGH | Confidence: 10/10 | VERIFIED**
-**File:** `apps/ws-server/src/index.ts:24–37`
+### Historical Finding 21 — WebSocket Data Injection via Missing Schema Validation
 
-The `toDriplElement` validation function in the WebSocket server only checks for the existence of 6 fields. It does not validate their bounds (e.g., allowing `NaN` or `Infinity`, which crashes standard renderers) and **does not strip unknown properties**. An attacker can stuff massive strings (e.g., up to the 10MB payload limit) into an arbitrary key, and the server will accept it and store it in the database.
+**Severity: HIGH | Confidence: 10/10 | HISTORICAL/PARTIALLY RESOLVED**
+**File:** `apps/ws-server/src/index.ts`, `apps/ws-server/src/validation.ts`
 
-**Fix:** Use `zod` to define a strict schema for `DriplElement` and use `.parse()` to strip unrecognized keys and validate numeric bounds.
-
----
-
-### Finding 22 — `updateFile` Accepts Unvalidated Payload
-**Severity: HIGH | Confidence: 10/10 | VERIFIED**
-**File:** `apps/http-server/src/controllers/fileController.ts:110–129`
-
-The `/api/files/:id` PUT endpoint does zero validation on the `req.body`. An attacker can send malformed JSON objects for `name` or `content` which will directly hit Prisma and the database, potentially causing application crashes or persistent data corruption for the canvas files.
-
-**Fix:** Add `zod` schema validation for the request body.
+Historical finding: the original `toDriplElement` path only checked a small
+field set. The current `toDriplElement` uses the shared bounded
+`DriplElementSchema`, and the WS server also caps scenes and message bytes.
+However, `validation.ts` still has a separate local element schema, so
+contract duplication remains a maintenance caveat.
 
 ---
 
-### Finding 23 — Expired Share Links Are Never Cleaned Up
-**Severity: LOW | Confidence: 10/10 | VERIFIED**
-**File:** `apps/http-server/src/controllers/roomController.ts:431-434`
+### Historical Finding 22 — `updateFile` Accepts Unvalidated Payload
 
-While `getShareLink` rightfully rejects links where `expiresAt < new Date()`, there is no cron job or mechanism to physically delete these expired records from the database. Over time, the `ShareLink` table will grow unbounded with dead tokens.
+**Severity: HIGH | Confidence: 10/10 | HISTORICAL/RESOLVED**
+**File:** `apps/http-server/src/routes/files.ts`, `apps/http-server/src/services/fileService.ts`
 
-**Fix:** Create a daily cleanup task or rely on a Redis TTL if tokens were moved to an ephemeral store.
+Historical finding: the original file controller accepted an unchecked body.
+The current PATCH route parses a Zod schema, size-checks content, validates the
+scene, and `FileService.updateFile` returns a conflict instead of overwriting
+an unvalidated/stale scene.
 
 ---
 
-## TESTING GAPS
+### Historical Finding 23 — Expired Share Links Are Never Cleaned Up
 
-| Area | Current Coverage | Gap |
-|---|---|---|
-| `http-server` routes | 401 on protected routes only | No DB-backed tests (successful login, file CRUD, room CRUD) |
-| Auth flows | Input validation only | No bcrypt, JWT sign/verify, Google OAuth, password reset flow |
-| WebSocket protocol | `validation.ts` unit tests | No connection lifecycle, join/leave, scene-update, rate-limit tests |
-| `dripl-app` API routes | `ai-generate.test.ts` (mock) | No canvas rooms, share, snapshot routes |
-| Frontend components | `ColorSwatch`, `SectionLabel`, `CookieConsent` | Critical paths: canvas render, collaboration, undo/redo |
+**Severity: LOW | Confidence: 10/10 | HISTORICAL/RESOLVED for ShareLink rows**
+**File:** `apps/http-server/src/index.ts`, `apps/http-server/src/services/fileService.ts`
 
-**Root cause:** CI test job has no DB service (Finding 18), so real integration tests can't run in CI, creating a gravitational pull toward shallow unit tests.
+Historical finding: room share records previously had no physical cleanup.
+The current HTTP server deletes expired `ShareLink` rows on a daily interval
+and rejects expired links on access. File-share tokens have separate nullable
+share state and are checked/revoked through `FileService`; they are not the
+same table or lifecycle.
+
+---
+
+## TESTING GAPS (Historical Snapshot)
+
+The original table below predates the added route/service, collaboration,
+snapshot, image, and persistence-fencing tests. Current test-file inventory is
+listed in `docs/codebase-audit.md`; live database, Redis, browser, and
+production deployment execution remain unverified in this documentation pass.
+
+| Area                   | Historical coverage          | Current caveat                                                                                                |
+| ---------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `http-server` routes   | 401 on protected routes only | Route/service tests now exist, including capability routes and owner scoping; live DB execution is opt-in.    |
+| Auth flows             | Input validation only        | Auth-service and middleware tests exist; live Google/email delivery is not exercised here.                    |
+| WebSocket protocol     | `validation.ts` unit tests   | Protocol/access/reconciliation/persistence tests exist; the process test mocks ticket/DB seams and is opt-in. |
+| `dripl-app` API routes | `ai-generate.test.ts` (mock) | AI, snapshot, share, and route tests exist; no real Gemini or browser run is claimed.                         |
+| Frontend components    | A few component tests        | Store, collaboration, render-loop, export, and canvas tests exist; no browser QA.                             |
+
+The old root-cause statement that CI had no database service is obsolete;
+CI now defines a PostgreSQL service and migration step.
 
 ---
 
 ## STRIDE THREAT MODEL (Summary)
 
-| Component | Top Threat | Mitigated? |
-|---|---|---|
-| `ws-server` | Spoofing: anon join | ✅ Yes (auth check blocks) |
-| `ws-server` | Tampering: unvalidated elements | ✅ Yes (Zod schema) |
-| `http-server` | Brute force on login | ✅ Yes (authLimiter) |
-| `http-server` | Privilege escalation via IDOR | ✅ userId filter in Prisma queries |
-| `http-server` | Share link forgery | ✅ Yes (CSPRNG tokens) |
-| `dripl-app/AI` | Cost amplification | ⚠️ Partial (client-supplied userId) |
-| CI/CD | Supply chain | ✅ Yes (no --all) |
+| Component      | Top Threat                      | Mitigated?                                                                      |
+| -------------- | ------------------------------- | ------------------------------------------------------------------------------- |
+| `ws-server`    | Spoofing: arbitrary anon join   | ✅ Yes (ticket validation + room/file authorization)                            |
+| `ws-server`    | Tampering: unvalidated elements | ✅ Yes (shared bounded schema; local duplicate remains)                         |
+| `http-server`  | Brute force on login            | ✅ Yes (dedicated auth limiter)                                                 |
+| `http-server`  | Privilege escalation via IDOR   | ✅ owner/team/member/share scoping in current services; retain regression tests |
+| `http-server`  | Share link forgery              | ✅ Yes (CSPRNG tokens)                                                          |
+| `dripl-app/AI` | Cost amplification              | ✅ Verified session identity + bounded rate limiting                            |
+| CI/CD          | Supply chain                    | ✅ Explicit build allowlist; no `postinstall --all`                             |
 
 ---
 
-## REMEDIATION ROADMAP (Top 5)
+## REMEDIATION ROADMAP (Historical Top 5)
 
-| # | Finding | Effort | Priority | Status |
-|---|---|---|---|---|
-| 1 | **Anonymous WS joins** (Finding 4) | 30 min | P0 | ✅ RESOLVED |
-| 2 | **Public share route behind auth** (Finding 3) | 1 hr | P0 | ✅ RESOLVED |
-| 3 | **Weak share token CSPRNG** (Finding 1) | 30 min | P1 | ✅ RESOLVED |
-| 4 | **AI rate limit bypass** (Finding 5) | 2 hr | P1 | ⚠️ PARTIAL |
-| 5 | **CI missing Postgres service** (Finding 18) | 1 hr | P1 | ✅ RESOLVED |
+| #   | Finding                                        | Effort | Priority | Historical status           |
+| --- | ---------------------------------------------- | ------ | -------- | --------------------------- |
+| 1   | **Anonymous WS joins** (Finding 4)             | 30 min | P0       | ✅ RESOLVED                 |
+| 2   | **Public share route behind auth** (Finding 3) | 1 hr   | P0       | ✅ RESOLVED                 |
+| 3   | **Weak share token CSPRNG** (Finding 1)        | 30 min | P1       | ✅ RESOLVED                 |
+| 4   | **AI rate limit bypass** (Finding 5)           | 2 hr   | P1       | ✅ RESOLVED in current tree |
+| 5   | **CI missing Postgres service** (Finding 18)   | 1 hr   | P1       | ✅ RESOLVED                 |
 
-**Note:** Finding 5 is partially mitigated. For full protection, add server-side session validation.
-
-Remaining Open Issues:
-- Finding 12: ws-server god file (future refactor)
-- Finding 4: Remove unused anon fallback (cleanup)
-- Finding 5: Add server-side auth for AI route (enhancement)
+The remaining architecture/evidence work is not an open anonymous-join or AI
+identity hole: the current caveats are the large WS coordinator, process-local
+state/tickets, schema duplication, and the lack of live deployment/browser
+verification. See `docs/codebase-audit.md`.
 
 ---
 
 ## FINDINGS TABLE
 
-| # | Severity | Status | Category | Title | File |
-|---|---|---|---|---|---|
-| 1 | ~~HIGH~~ | ✅ RESOLVED | Auth/Crypto | Weak share token (Math.random) | roomController.ts:375 |
-| 2 | ~~MEDIUM~~ | ✅ RESOLVED | Crypto | Room slug from Math.random | roomController.ts:7 |
-| 3 | ~~HIGH~~ | ✅ RESOLVED | Auth/Access | Public share route behind authMiddleware | roomRoutes.ts:7 |
-| 4 | ~~HIGH~~ | ⚠️ PARTIAL | Auth/Access | WS server allows anonymous joins | ws-server/index.ts:299 |
-| 5 | ~~HIGH~~ | ⚠️ PARTIAL | LLM Security | AI rate limit bypassed via body.userId | ai/generate/route.ts:84 |
-| 6 | LOW | ✅ Fixed | Config | maxPayload 1MB vs 10MB check mismatch | ws-server/index.ts:86 |
-| 7 | MEDIUM | ✅ Fixed | Auth | No brute-force limit on login | http-server/index.ts:27 |
-| 8 | MEDIUM | ✅ Fixed | Infra | No CORS Origin check on WS upgrade | ws-server/index.ts:284 |
-| 9 | ~~LOW~~ | ❌ MISREPORT | Dead Code | Duplicate signSessionToken/generateToken | authMiddleware.ts:39 |
-| 10 | MEDIUM | ✅ Fixed | Supply Chain | postinstall --all auto-approves scripts | package.json:6 |
-| 11 | MEDIUM | ✅ Fixed | Logic | getRoom auto-creates on GET | roomController.ts:144 |
-| 12 | ARCH | ❌ OPEN | Architecture | ws-server is 668-line god file | ws-server/index.ts |
-| 13 | PERF | ✅ Fixed | Efficiency | Double-broadcast every WS event | ws-server/index.ts:408 |
-| 14 | DEAD | ✅ Fixed | Dead Code | Orphaned FileRoute/TeamRoute/UserRoute | routes/ |
-| 15 | MEDIUM | ✅ Fixed | Validation | updateRoom accepts unvalidated content | roomController.ts:221 |
-| 16 | LOW | ✅ Fixed | Resource | rateLimitCleanup not cleared on shutdown | ws-server/index.ts:608 |
-| 17 | CODE | ✅ Fixed | Type Safety | AI route uses any types throughout | ai/generate/route.ts |
-| 18 | HIGH | ✅ Fixed | CI/CD | CI test job has no Postgres service | ci.yml:97 |
-| 19 | ARCH | ✅ Fixed | Infra | vercel.json on non-serverless apps | ws-server/, http-server/ |
-| 20 | CONFIG | ⚠️ GITIGNORED | Ops | Multiple conflicting .env files | repo root + apps/ |
-| 21 | HIGH | ✅ Fixed | Validation | WS data injection via missing schema | ws-server/index.ts:24 |
-| 22 | HIGH | ✅ Fixed | Validation | updateFile accepts unvalidated payload | fileController.ts:110 |
-| 23 | LOW | ✅ Fixed | Resource | Expired share links never cleaned up | http-server/index.ts |
+| #   | Severity   | Current status                  | Category     | Current interpretation                                                                                                                        |
+| --- | ---------- | ------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | ~~HIGH~~   | ✅ RESOLVED                     | Auth/Crypto  | Share tokens use `randomBytes`; the old `Math.random` claim is historical.                                                                    |
+| 2   | ~~MEDIUM~~ | ✅ RESOLVED                     | Crypto       | Room slugs use `randomBytes`; the old claim is historical.                                                                                    |
+| 3   | ~~HIGH~~   | ✅ RESOLVED                     | Auth/Access  | Capability route is mounted before auth middleware.                                                                                           |
+| 4   | ~~HIGH~~   | ✅ RESOLVED                     | Auth/Access  | Ticket validation + file/room authorization replace the old anon path.                                                                        |
+| 5   | ~~HIGH~~   | ✅ RESOLVED                     | LLM Security | Verified session identity replaces body `userId`; local/distributed limits remain.                                                            |
+| 6   | LOW        | ✅ RECONCILED                   | Config       | Old 1 MB/10 MB mismatch is obsolete; current shared cap is 200 KB.                                                                            |
+| 7   | MEDIUM     | ✅ RESOLVED for covered routes  | Auth         | Dedicated auth limiter exists for login/registration and selected verification/password flows; validation/middleware coverage is not uniform. |
+| 8   | MEDIUM     | ✅ RESOLVED                     | Infra        | Exact WS origin validation exists.                                                                                                            |
+| 9   | ~~LOW~~    | ⚠️ CLEANUP                      | Dead Code    | `generateToken` is an unused alias; no active duplicate signing path.                                                                         |
+| 10  | MEDIUM     | ✅ RESOLVED                     | Supply Chain | No `postinstall --all`; explicit build allowlist.                                                                                             |
+| 11  | MEDIUM     | ✅ RESOLVED                     | Logic        | GET no longer creates rooms.                                                                                                                  |
+| 12  | ARCH       | ⚠️ OPEN/REVISED                 | Architecture | Old line count/module claim is obsolete; coordinator remains large.                                                                           |
+| 13  | PERF       | ✅ RESOLVED                     | Efficiency   | Current reviewed event paths do not double-broadcast.                                                                                         |
+| 14  | DEAD       | ✅ RESOLVED                     | Dead Code    | Named orphan route files are absent; the `teamController.ts` stub and the whole `controllers/` directory are gone.                            |
+| 15  | MEDIUM     | ✅ RESOLVED                     | Validation   | Room content is bounded/schema checked with owner conflict fencing.                                                                           |
+| 16  | LOW        | ✅ RECONCILED for the old claim | Resource     | No WS cleanup interval remains; fallback maps are bounded/lazy-pruned. The separate HTTP ticket timer is unref'd, not explicitly cleared.     |
+| 17  | CODE       | ✅ RESOLVED                     | Type Safety  | AI route uses `unknown` and schema normalization.                                                                                             |
+| 18  | HIGH       | ✅ RESOLVED                     | CI/CD        | CI has Postgres service, migration step, and opt-in integration flags.                                                                        |
+| 19  | ARCH       | ✅ RESOLVED                     | Infra        | Backend Vercel configs are absent; frontend Vercel config remains.                                                                            |
+| 20  | CONFIG     | ✅ RESOLVED                     | Ops          | Only ignored root `.env` is present; app duplicates are absent.                                                                               |
+| 21  | HIGH       | ⚠️ PARTIAL                      | Validation   | Shared bounded schema is used, but local WS schema duplication remains.                                                                       |
+| 22  | HIGH       | ✅ RESOLVED                     | Validation   | File writes validate scenes and handle stale saves.                                                                                           |
+| 23  | LOW        | ✅ RESOLVED                     | Resource     | Expired ShareLink cleanup runs daily; file shares have separate lifecycle.                                                                    |
 
-**Totals: ~~6 HIGH~~ 3 HIGH · 5 MEDIUM · 3 LOW · 7 ARCH/QUALITY/CONFIG (19/23 FIXED, 1 MISREPORT, 3 PARTIAL)**
+**The old 19/23 total is not a current total; use the reconciliation table above.**
 
 ---
 
@@ -485,16 +568,18 @@ Remaining Open Issues:
 
 This report was **critically reviewed** and corrected:
 
-| Finding | Original Claim | Correction |
-|---------|---------------|------------|
-| 1 | Uses Math.random() | Already uses CSPRNG ✅ |
-| 2 | Uses Math.random() | Already uses CSPRNG ✅ |
-| 3 | Route behind auth | Mounted before middleware ✅ |
-| 4 | Fallback allows anon | Auth check rejects ✅ (fallback code exists but unreachable) |
-| 5 | Uses IP fallback | IP removed ✅ (still client-supplied userId) |
-| 9 | "generateToken never called" | IS called in userController.ts ❌ MISREPORT |
-| 19 | vercel.json exists | Deleted ✅ |
-| 22 | No validation | Zod schema exists ✅ |
-| 23 | No cleanup | Daily cleanup added ✅ |
+| Finding | Original Claim               | Correction                                                                         |
+| ------- | ---------------------------- | ---------------------------------------------------------------------------------- |
+| 1       | Uses Math.random()           | Already uses CSPRNG ✅                                                             |
+| 2       | Uses Math.random()           | Already uses CSPRNG ✅                                                             |
+| 3       | Route behind auth            | Mounted before middleware ✅                                                       |
+| 4       | Fallback allows anon         | Historical: current code rejects missing/invalid tickets; no arbitrary anon join   |
+| 5       | Uses IP/body identity        | Historical: current AI rate-limit identity comes from verified session/Bearer auth |
+| 9       | "generateToken never called" | Historical: `signSessionToken` is active; `generateToken` is now an unused alias   |
+| 19      | vercel.json exists           | Deleted ✅                                                                         |
+| 22      | No validation                | Zod schema exists ✅                                                               |
+| 23      | No cleanup                   | Daily cleanup added ✅                                                             |
 
-**Summary:** 19/23 fixes verified, 1 MISREPORT fixed, 3 partially mitigated.
+**Summary (historical):** 19/23 fixes were recorded in the April report. The
+current status is the reconciliation table at the top of this file; it is not
+reproduced by this historical total.

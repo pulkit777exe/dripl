@@ -1,5 +1,10 @@
 # Engineering Review — Dripl Application
 
+> **Archived review (2026-04-13).** This document records an earlier point in
+> time. References to `lib/canvas-store.ts`, `packages/dripl`, old line counts,
+> and the absence of metrics/tests are not current source-of-truth claims. Use
+> [`docs/codebase-audit.md`](codebase-audit.md) and the current `CLAUDE.md`.
+
 **Date**: 2026-04-13  
 **Mode**: BIG CHANGE (Full Review)  
 **Reviewer**: Kilo (Eng Plan Review Mode)
@@ -104,7 +109,7 @@ console.error('Failed to save canvas to IndexedDB:', error);
 
 ---
 
-### 2B: Large Component File (RoughCanvas.tsx - 2091 lines)
+### 2B: Large Component File (historical RoughCanvas.tsx - 2,091 lines)
 
 **Issue**: Main canvas component is 2091 lines, difficult to maintain.
 
@@ -128,13 +133,13 @@ console.error('Failed to save canvas to IndexedDB:', error);
 
 **Issue**: History logic exists in multiple layers:
 
-| Location                                 | Lines | Role |
-| ---------------------------------------- | ----- | ---- |
-| `apps/dripl-app/lib/canvas-store.ts`     | 777   | Canonical app canvas history |
-| `apps/dripl-app/hooks/useHistory.ts`     | ~50   | Local hook wrapper |
-| `apps/dripl-app/utils/canvasHistory.ts`  | ~60   | Local history helper |
-| `packages/dripl/src/store/index.ts`      | ~400  | Library store history |
-| `packages/dripl/src/utils/history.ts`    | ~70   | Library history helper |
+| Location                                | Lines | Role                         |
+| --------------------------------------- | ----- | ---------------------------- |
+| `apps/dripl-app/lib/canvas-store.ts`    | 777   | Canonical app canvas history |
+| `apps/dripl-app/hooks/useHistory.ts`    | ~50   | Local hook wrapper           |
+| `apps/dripl-app/utils/canvasHistory.ts` | ~60   | Local history helper         |
+| `packages/dripl/src/store/index.ts`     | ~400  | Library store history        |
+| `packages/dripl/src/utils/history.ts`   | ~70   | Library history helper       |
 
 **Recommended**: Keep the app and package layers separate unless `@dripl/dripl` becomes the canonical runtime state library for the app.
 
@@ -256,27 +261,27 @@ model File {
 
 ## Recommendations Summary
 
-| Section | Issue                      | Selected | Rationale                            |
-| ------- | -------------------------- | -------- | ------------------------------------ |
-| 1A      | Ownership checks present   | N/A      | Already enforced on reviewed routes  |
-| 1B      | WS single instance         | A        | Fine for MVP, document limitation    |
-| 1C      | Runtime package removed     | N/A      | Historical note                      |
-| 2A      | Inconsistent logging       | B        | Standardize JSON - quick win         |
-| 2B      | Large RoughCanvas          | B        | Extract by feature - maintainable    |
-| 2C      | DRY history                | B        | Remove duplicate - simplify          |
-| 3A      | element coverage           | B        | Rendering tests exist, expand if needed |
-| 3B      | math edge cases            | A        | Low effort, catches bugs             |
-| 3C      | common invalid input       | A        | Schema validation critical           |
-| 4A-4C   | Performance                | OK       | No issues found                      |
+| Section | Issue                    | Selected | Rationale                               |
+| ------- | ------------------------ | -------- | --------------------------------------- |
+| 1A      | Ownership checks present | N/A      | Already enforced on reviewed routes     |
+| 1B      | WS single instance       | A        | Fine for MVP, document limitation       |
+| 1C      | Runtime package removed  | N/A      | Historical note                         |
+| 2A      | Inconsistent logging     | B        | Standardize JSON - quick win            |
+| 2B      | Large RoughCanvas        | B        | Extract by feature - maintainable       |
+| 2C      | DRY history              | B        | Remove duplicate - simplify             |
+| 3A      | element coverage         | B        | Rendering tests exist, expand if needed |
+| 3B      | math edge cases          | A        | Low effort, catches bugs                |
+| 3C      | common invalid input     | A        | Schema validation critical              |
+| 4A-4C   | Performance              | OK       | No issues found                         |
 
 ---
 
 ## Action Items
 
-| Priority | Item                                      | Owner | Effort |
-| -------- | ----------------------------------------- | ----- | ------ |
-| P2       | Standardize JSON logging format           | Dev   | S      |
-| P2       | Add math edge case tests                  | Dev   | S      |
-| P2       | Add schema rejection tests                | Dev   | S      |
-| P3       | Document canvas store boundaries          | Dev   | S      |
-| P3       | Refresh coverage report                   | Dev   | S      |
+| Priority | Item                             | Owner | Effort |
+| -------- | -------------------------------- | ----- | ------ |
+| P2       | Standardize JSON logging format  | Dev   | S      |
+| P2       | Add math edge case tests         | Dev   | S      |
+| P2       | Add schema rejection tests       | Dev   | S      |
+| P3       | Document canvas store boundaries | Dev   | S      |
+| P3       | Refresh coverage report          | Dev   | S      |

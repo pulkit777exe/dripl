@@ -278,7 +278,7 @@ Turbo remote caching is configured via `TURBO_TOKEN` + `TURBO_TEAM` env vars in 
 
 For the current evidence-weighted assessment, see [`docs/codebase-audit.md`](docs/codebase-audit.md); `TODOS.md` and `Problems.md` retain historical planning context. Current caveats and stale-claim reconciliation include:
 
-- **ws-server is a large coordinator** — `apps/ws-server/src/index.ts` is currently about 1,500 lines; auth, broadcast, rooms, rate limiting, and handlers are extracted, but the composition root still coordinates most protocol concerns.
+- **ws-server is a large coordinator** — `apps/ws-server/src/index.ts` is currently 895 lines (`wc -l`, verified 2026-10-02; an earlier note here said ~1,500); auth, broadcast, rooms, rate limiting, and handlers are extracted, but the composition root still coordinates most protocol concerns.
 - **Redis fan-out is optional, not shared state** — Upstash pub/sub can forward mutations, but room state, WS tickets, and fallback limiter state remain process-local; multi-instance behavior is unverified.
 - **Barrel cleanup is partial** — `common`, `db`, `utils`, and `test-utils` still expose root `index.ts`; the workspace currently has six shared library packages, not seven.
 - **Schema duplication remains** — the WS server uses the shared element schema at the element boundary but keeps a local schema in `validation.ts`.

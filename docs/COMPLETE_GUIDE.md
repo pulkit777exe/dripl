@@ -1,6 +1,13 @@
 # Dripl Documentation — Complete System Guide
 
+> **Archived documentation snapshot (2026-04-15).** Despite the historical
+> “complete/10/10” label below, this guide contains removed packages, old auth
+> and WebSocket descriptions, stale line counts, and obsolete performance and
+> deployment claims. Use [`docs/codebase-audit.md`](codebase-audit.md),
+> [`README.md`](../README.md), and the current `CLAUDE.md` for active guidance.
+
 ## 📋 Table of Contents
+
 1. [Overview](#overview)
 2. [Architecture](#architecture)
 3. [System Diagram](#system-diagram)
@@ -23,7 +30,7 @@
 Dripl is a full-stack canvas collaboration platform built with modern web technologies. This documentation provides comprehensive guidance for developers, maintainers, and stakeholders.
 
 **Last Updated**: 2026-04-15  
-**Documentation Level**: Complete (10/10)
+**Documentation Level**: Historical self-assessment (10/10)
 
 ---
 
@@ -49,16 +56,17 @@ Dripl is a full-stack canvas collaboration platform built with modern web techno
 ### Component Architecture
 
 **Applications** (3):
+
 - `dripl-app`: Next.js 16 web application (Port 3000)
 - `http-server`: Express 5 API server (Port 3002)
 - `ws-server`: WebSocket server for real-time collaboration (Port 3001)
 
-**Shared Packages** (9):
+**Historical Shared Packages** (9; current workspace has six libraries plus tooling):
+
 - `@dripl/common`: Shared types, schemas, utilities
 - `@dripl/db`: Database layer (Prisma client)
-- `@dripl/dripl`: Core canvas business logic
 - `@dripl/element`: Canvas element definitions
-- `@dripl/eslint-config`: ESLint configuration
+- Current workspace has no `@dripl/dripl` package.
 - `@dripl/math`: Mathematical utilities
 - `@dripl/test-utils`: Test factories and mocks
 - `@dripl/utils`: General utility functions
@@ -94,25 +102,24 @@ Client A → Action → dripl-app → ws-server → Broadcast → Client B
 
 ### Applications Directory (`apps/`)
 
-| Package | Framework | Purpose | Port |
-|---------|-----------|---------|------|
-| `dripl-app` | Next.js 16 | Main web interface | 3000 |
-| `http-server` | Express 5 | REST API server | 3002 |
-| `ws-server` | Native Node.js | WebSocket server | 3001 |
+| Package       | Framework      | Purpose            | Port |
+| ------------- | -------------- | ------------------ | ---- |
+| `dripl-app`   | Next.js 16     | Main web interface | 3000 |
+| `http-server` | Express 5      | REST API server    | 3002 |
+| `ws-server`   | Native Node.js | WebSocket server   | 3001 |
 
 ### Packages Directory (`packages/`)
 
-| Package | Type | Responsibility |
-|---------|------|----------------|
-| `common` | Shared | Base types, schemas, constants |
-| `db` | Data | Prisma models, database queries |
-| `dripl` | Core | Canvas operations, business logic |
-| `element` | UI Elements | Element definitions, validation |
-| `math` | Utilities | Math operations, geometry |
-| `test-utils` | Testing | Shared test factories and mocks |
-| `utils` | Helpers | General utilities, formatters |
-| `eslint-config` | Tooling | ESLint rules, configurations |
-| `typescript-config` | Tooling | TypeScript settings, paths |
+| Package             | Type        | Responsibility                  |
+| ------------------- | ----------- | ------------------------------- |
+| `common`            | Shared      | Base types, schemas, constants  |
+| `db`                | Data        | Prisma models, database queries |
+| `element`           | UI Elements | Element definitions, validation |
+| `math`              | Utilities   | Math operations, geometry       |
+| `test-utils`        | Testing     | Shared test factories and mocks |
+| `utils`             | Helpers     | General utilities, formatters   |
+| `eslint-config`     | Tooling     | ESLint rules, configurations    |
+| `typescript-config` | Tooling     | TypeScript settings, paths      |
 
 ### Tooling Directory (`tooling/`)
 
@@ -138,15 +145,15 @@ pnpm dev
 
 ### Development Commands
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start all services in development mode |
-| `pnpm build` | Build all packages for production |
-| `pnpm lint` | Run ESLint on all packages |
-| `pnpm check-types` | TypeScript type checking |
-| `pnpm test` | Run all tests |
-| `pnpm db:migrate` | Run Prisma migrations |
-| `pnpm db:push` | Push schema to database |
+| Command            | Description                            |
+| ------------------ | -------------------------------------- |
+| `pnpm dev`         | Start all services in development mode |
+| `pnpm build`       | Build all packages for production      |
+| `pnpm lint`        | Run ESLint on all packages             |
+| `pnpm check-types` | TypeScript type checking               |
+| `pnpm test`        | Run all tests                          |
+| `pnpm db:migrate`  | Run Prisma migrations                  |
+| `pnpm db:push`     | Push schema to database                |
 
 ### Hot Reload
 
@@ -167,7 +174,7 @@ turbo run build
 
 # Individual package builds
 cd apps/dripl-app && pnpm build
-cd packages/dripl && pnpm build
+cd packages/element && pnpm build
 ```
 
 ### Testing
@@ -177,7 +184,7 @@ cd packages/dripl && pnpm build
 turbo run test
 
 # Individual test packages
-cd packages/dripl && pnpm test
+cd packages/element && pnpm test
 cd apps/dripl-app && pnpm test
 ```
 
@@ -188,7 +195,7 @@ cd apps/dripl-app && pnpm test
 turbo run check-types
 
 # Individual check
-cd packages/dripl && tsc --noEmit
+cd packages/element && tsc --noEmit
 ```
 
 ### Linting
@@ -228,18 +235,18 @@ npm run format
 
 ### Testing Standards
 
-| Package | Test Framework | Coverage |
-|---------|---------------|----------|
-| common | Vitest | Some |
-| db | Vitest | Some |
-| dripl | Vitest | Some |
-| element | Vitest | Some |
-| math | Vitest | Some |
-| test-utils | Vitest | Some |
-| utils | Vitest | Some |
-| dripl-app | Vitest, Testing Library | Some |
-| http-server | Vitest | Some |
-| ws-server | Vitest | Some |
+| Package     | Test Framework          | Coverage |
+| ----------- | ----------------------- | -------- |
+| common      | Vitest                  | Some     |
+| db          | Vitest                  | Some     |
+| dripl       | Vitest                  | Some     |
+| element     | Vitest                  | Some     |
+| math        | Vitest                  | Some     |
+| test-utils  | Vitest                  | Some     |
+| utils       | Vitest                  | Some     |
+| dripl-app   | Vitest, Testing Library | Some     |
+| http-server | Vitest                  | Some     |
+| ws-server   | Vitest                  | Some     |
 
 ### Test Recommendations
 
@@ -254,11 +261,11 @@ npm run format
 
 ### Security Features
 
-✅ **JWT Secret Validation**: Throws error if missing  
-✅ **CSRF Protection**: Token-based authentication  
-✅ **Security Headers**: CSP, HSTS via Helmet  
-✅ **Rate Limiting**: Per-user rate limiting  
-✅ **WebSocket Limits**: 10MB message maximum  
+✅ **JWT Secret Validation**: Throws error if missing
+✅ **CSRF Protection**: Token-based authentication
+✅ **Security Headers**: CSP, HSTS via Helmet
+✅ **Rate Limiting**: Per-user rate limiting
+✅ **WebSocket Limits**: current shared cap is 200 KB (the historical 10 MB claim is obsolete)
 ✅ **Element Validation**: Bounds checking on all inputs
 
 ### Authentication Flow
@@ -269,9 +276,9 @@ Login → JWT Issuance → Cookie Storage → API Authorization → WebSocket Au
 
 ### Security Issues Found
 
-| # | Issue | Priority |
-|---|-------|----------|
-| 3A | Ownership checks already present on file, folder, and room routes | N/A |
+| #   | Issue                                                             | Priority |
+| --- | ----------------------------------------------------------------- | -------- |
+| 3A  | Ownership checks already present on file, folder, and room routes | N/A      |
 
 **Recommendation**: Keep the existing ownership checks in sync as new routes are added.
 
@@ -282,17 +289,18 @@ Login → JWT Issuance → Cookie Storage → API Authorization → WebSocket Au
 ### Current State
 
 **Issues Found**:
+
 - 100 console statements across codebase
 - Mixed logging format (mostly JSON in server code, plain strings still present in app/utilities)
 - No centralized logging strategy
 
 ### Logging Standards
 
-| Service | Current Format | Recommended |
-|---------|---------------|-------------|
-| ws-server | JSON structured | JSON with levels |
-| http-server | Mostly JSON structured | Structured JSON with levels |
-| dripl-app | Mixed | Structured JSON where practical |
+| Service     | Current Format         | Recommended                     |
+| ----------- | ---------------------- | ------------------------------- |
+| ws-server   | JSON structured        | JSON with levels                |
+| http-server | Mostly JSON structured | Structured JSON with levels     |
+| dripl-app   | Mixed                  | Structured JSON where practical |
 
 ### Error Handling
 
@@ -313,13 +321,13 @@ Login → JWT Issuance → Cookie Storage → API Authorization → WebSocket Au
 
 ### Current Performance
 
-| Aspect | Status | Notes |
-|--------|--------|-------|
-| Database Indexes | ✅ Auto | Prisma handles |
-| Query Optimization | ✅ N+1 handled | Prisma batching |
-| HTTP Caching | ⚠️ None | Add Redis/Memory cache |
-| WebSocket State | ⚠️ In-memory | Consider Redis for scaling |
-| Asset Delivery | ✅ Optimized | Static files served |
+| Aspect             | Status         | Notes                      |
+| ------------------ | -------------- | -------------------------- |
+| Database Indexes   | ✅ Auto        | Prisma handles             |
+| Query Optimization | ✅ N+1 handled | Prisma batching            |
+| HTTP Caching       | ⚠️ None        | Add Redis/Memory cache     |
+| WebSocket State    | ⚠️ In-memory   | Consider Redis for scaling |
+| Asset Delivery     | ✅ Optimized   | Static files served        |
 
 ### Performance Bottlenecks
 
@@ -355,11 +363,11 @@ WS:         Some
 
 ### Testing Priorities
 
-| Priority | Package | Reason |
-|----------|---------|--------|
-| P1 | element, math | Core business logic, edge-case coverage can still expand |
-| P2 | test-utils, utils | State management helpers and mocks |
-| P3 | common, db | Shared infrastructure |
+| Priority | Package           | Reason                                                   |
+| -------- | ----------------- | -------------------------------------------------------- |
+| P1       | element, math     | Core business logic, edge-case coverage can still expand |
+| P2       | test-utils, utils | State management helpers and mocks                       |
+| P3       | common, db        | Shared infrastructure                                    |
 
 ### Test Recommendations
 
@@ -391,6 +399,7 @@ GitHub → GitHub Actions → Build → Docker → Deploy
 ### Health Endpoints
 
 All services expose `/health` endpoints for monitoring:
+
 - `http://localhost:3000/health`
 - `http://localhost:3001/health`
 - `http://localhost:3002/health`
@@ -401,19 +410,19 @@ All services expose `/health` endpoints for monitoring:
 
 ### Critical Issues (Fixed)
 
-| # | Issue | Status |
-|---|-------|--------|
-| 1 | Separate Canvas Store Boundaries | ✅ Fixed |
-| 2 | WS type mismatch | ✅ Fixed |
-| 3-14 | Various issues | ✅ Fixed |
+| #    | Issue                            | Status   |
+| ---- | -------------------------------- | -------- |
+| 1    | Separate Canvas Store Boundaries | ✅ Fixed |
+| 2    | WS type mismatch                 | ✅ Fixed |
+| 3-14 | Various issues                   | ✅ Fixed |
 
 ### Current Technical Debt
 
-| # | Issue | Priority | Effort |
-|---|-------|----------|--------|
-| 1 | Logging standardization (JSON) | P2 | S |
-| 2 | Authorization on file routes | P1 | M |
-| 3 | Test coverage for element/math | P2 | M |
+| #   | Issue                          | Priority | Effort |
+| --- | ------------------------------ | -------- | ------ |
+| 1   | Logging standardization (JSON) | P2       | S      |
+| 2   | Authorization on file routes   | P1       | M      |
+| 3   | Test coverage for element/math | P2       | M      |
 
 ### Reversibility Rating: 4/5
 
@@ -446,18 +455,18 @@ All services expose `/health` endpoints for monitoring:
 
 ## 📊 Documentation Metrics
 
-| Metric | Score | Status |
-|--------|-------|--------|
-| Architecture Coverage | 10/10 | ✅ Complete |
-| API Documentation | 10/10 | ✅ Complete |
-| Code Examples | 9/10 | ✅ Good |
-| Setup Instructions | 10/10 | ✅ Complete |
-| Troubleshooting | 9/10 | ✅ Good |
-| Security Guide | 10/10 | ✅ Complete |
-| Performance Guide | 8/10 | ✅ Good |
-| Testing Guide | 7/10 | ⚠️ Partial |
-| Deployment Guide | 10/10 | ✅ Complete |
-| **Overall Score** | **9.3/10** | **Excellent** |
+| Metric                | Score      | Status        |
+| --------------------- | ---------- | ------------- |
+| Architecture Coverage | 10/10      | ✅ Complete   |
+| API Documentation     | 10/10      | ✅ Complete   |
+| Code Examples         | 9/10       | ✅ Good       |
+| Setup Instructions    | 10/10      | ✅ Complete   |
+| Troubleshooting       | 9/10       | ✅ Good       |
+| Security Guide        | 10/10      | ✅ Complete   |
+| Performance Guide     | 8/10       | ✅ Good       |
+| Testing Guide         | 7/10       | ⚠️ Partial    |
+| Deployment Guide      | 10/10      | ✅ Complete   |
+| **Overall Score**     | **9.3/10** | **Excellent** |
 
 ---
 
@@ -491,10 +500,10 @@ All services expose `/health` endpoints for monitoring:
 
 ## 📝 Changelog
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0.0 | 2026-04-15 | Complete documentation overhaul |
-| 0.9.0 | 2026-04-10 | Initial documentation |
+| Version | Date       | Changes                         |
+| ------- | ---------- | ------------------------------- |
+| 1.0.0   | 2026-04-15 | Complete documentation overhaul |
+| 0.9.0   | 2026-04-10 | Initial documentation           |
 
 ---
 
@@ -508,6 +517,6 @@ All services expose `/health` endpoints for monitoring:
 
 ---
 
-**Documentation Status**: ✅ **COMPLETE** (10/10)
+**Documentation Status**: **HISTORICAL SNAPSHOT** (not a current completeness score)
 **Next Review**: 2026-07-15  
 **Maintainer**: Kilo (CEO Plan Review Mode)
