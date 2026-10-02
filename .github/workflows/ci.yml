@@ -50,7 +50,18 @@ jobs:
         # (Full boot smoke lives in CONTRIBUTING.md and needs postgres.)
         run: |
           pnpm turbo run build --filter=ws-server --filter=http-server
-          if grep -Eo "from['\"]\.[^'\"]*['\"]" apps/ws-server/dist/index.js apps/http-server/dist/index.js | head -5; then
+          # Two traps this guard has to avoid, both of which made it useless:
+          #  1. Do NOT pipe grep into head/tee. A pipeline's exit status is the
+          #     last command's, and head exits 0 whether or not grep matched,
+          #     so the guard failed every run regardless of the bundles.
+          #  2. The specifier is preceded by a SPACE ("from \"./x\""), so a
+          #     pattern like from['\"]\. can never match real output. Match the
+          #     whitespace explicitly.
+          # Covers the shapes a bundling regression actually takes: static
+          # import/export from, dynamic import(), and CommonJS require().
+          pattern="(from[[:space:]]+|import[[:space:]]*\(|require[[:space:]]*\()['\"]\."
+          if matches=$(grep -Eo "$pattern" apps/ws-server/dist/index.js apps/http-server/dist/index.js); then
+            echo "$matches" | sort -u | head -20 >&2
             echo "bundled dist contains relative imports" >&2
             exit 1
           fi
