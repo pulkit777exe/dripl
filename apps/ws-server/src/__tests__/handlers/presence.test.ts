@@ -66,7 +66,11 @@ describe('viewportUpdateHandler', () => {
     vi.clearAllMocks();
   });
 
-  it('stores the viewport and notifies followers only', () => {
+  // `Handler.apply` is `void | Promise<void>` because the dispatcher awaits
+  // every handler, so an un-awaited call in a test is a genuinely floating
+  // promise. These handlers are synchronous today; awaiting keeps these tests
+  // honest if that changes.
+  it('stores the viewport and notifies followers only', async () => {
     const ctx = makeCtx();
     const followerWs = { readyState: 1 } as unknown as WebSocket;
     const bystanderWs = { readyState: 1 } as unknown as WebSocket;
@@ -74,7 +78,10 @@ describe('viewportUpdateHandler', () => {
     ctx.room.users.set('bystander', { ...makeUser(), userId: 'bystander', ws: bystanderWs });
     ctx.room.following.set('follower', 'user-1');
 
-    viewportUpdateHandler.apply({ type: 'viewport-update', panX: 10, panY: 20, zoom: 2 }, ctx);
+    await viewportUpdateHandler.apply(
+      { type: 'viewport-update', panX: 10, panY: 20, zoom: 2 },
+      ctx
+    );
 
     expect(ctx.room.viewports.get('user-1')).toEqual({ panX: 10, panY: 20, zoom: 2 });
     expect(mockedSend).toHaveBeenCalledTimes(1);
@@ -91,10 +98,10 @@ describe('followUserHandler', () => {
     vi.clearAllMocks();
   });
 
-  it('records the follow and pushes the leader viewport', () => {
+  it('records the follow and pushes the leader viewport', async () => {
     const ctx = makeCtx();
     ctx.room.viewports.set('leader', { panX: 1, panY: 2, zoom: 3 });
-    followUserHandler.apply({ type: 'follow-user', targetUserId: 'leader' }, ctx);
+    await followUserHandler.apply({ type: 'follow-user', targetUserId: 'leader' }, ctx);
     expect(ctx.room.following.get('user-1')).toBe('leader');
     expect(mockedSend).toHaveBeenCalledWith(
       ctx.ws,
@@ -102,19 +109,19 @@ describe('followUserHandler', () => {
     );
   });
 
-  it('records the follow silently when the leader has no viewport', () => {
+  it('records the follow silently when the leader has no viewport', async () => {
     const ctx = makeCtx();
-    followUserHandler.apply({ type: 'follow-user', targetUserId: 'ghost' }, ctx);
+    await followUserHandler.apply({ type: 'follow-user', targetUserId: 'ghost' }, ctx);
     expect(ctx.room.following.get('user-1')).toBe('ghost');
     expect(mockedSend).not.toHaveBeenCalled();
   });
 });
 
 describe('unfollowUserHandler', () => {
-  it('removes the follow', () => {
+  it('removes the follow', async () => {
     const ctx = makeCtx();
     ctx.room.following.set('user-1', 'leader');
-    unfollowUserHandler.apply({ type: 'unfollow-user' }, ctx);
+    await unfollowUserHandler.apply({ type: 'unfollow-user' }, ctx);
     expect(ctx.room.following.has('user-1')).toBe(false);
   });
 });

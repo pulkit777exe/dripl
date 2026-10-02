@@ -202,7 +202,23 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
         if (!cancelled) setIsInitialized(true);
       }
     };
-    bootstrap();
+    bootstrap().catch((err: unknown) => {
+      // Every read on this path is fallible — a private-mode IndexedDB, a
+      // corrupt shared-file payload, a revoked storage grant — and an
+      // unhandled rejection here left the user staring at "Loading canvas..."
+      // for the rest of the session with nothing in the log. Report it through
+      // the repo's logging boundary and still leave the spinner: an empty
+      // canvas the user can see and fix beats an infinite one.
+      logError(
+        JSON.stringify({
+          level: 'error',
+          event: 'canvas_bootstrap_failed',
+          mode,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      );
+      if (!cancelled) setIsInitialized(true);
+    });
     return () => {
       cancelled = true;
     };

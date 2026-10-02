@@ -1,0 +1,24 @@
+{
+  // Lint-only project for packages/element. See tooling/eslint-config/index.js
+  // for why these files exist and why `@dripl/*` is mapped to source here.
+  // `exclude` REPLACES the build config's list rather than adding to it, so this
+  // is what un-covers `src/*.test.ts`: the build config must exclude them or
+  // `tsc -b` would compile the tests straight into `dist`.
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "paths": {
+      "@dripl/common": ["../common/src/index.ts"],
+      "@dripl/math/geometry": ["../math/src/geometry.ts"],
+      "@dripl/math/intersection": ["../math/src/intersection.ts"],
+      "@dripl/test-utils": ["../test-utils/src/index.ts"]
+    }
+  }
+}

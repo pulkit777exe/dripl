@@ -1,0 +1,20 @@
+{
+  // Lint-only project for packages/db. See tooling/eslint-config/index.js for
+  // why these files exist. `@dripl/db` depends on no workspace package, so it
+  // needs no `paths`. `*.ts` in `include` covers the root-level
+  // `prisma.config.ts` and `vitest.config.ts`, which the build tsconfig does
+  // not include but `eslint .` does lint. `src/generated` stays out of
+  // `include`; it is pulled back in transitively through `src/index.ts`, which
+  // is what makes the Prisma types real.
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*.ts", "*.ts"],
+  "exclude": ["node_modules", "dist", "src/generated"],
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  }
+}

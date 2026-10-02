@@ -1,0 +1,18 @@
+{
+  // Lint-only project for packages/common. See tooling/eslint-config/index.js
+  // for why these files exist. `@dripl/common` depends on no workspace package,
+  // so it needs no `paths`. `exclude` REPLACES the build config's list rather
+  // than adding to it, so this is what un-covers `src/*.test.ts`: the build
+  // config must exclude them or `tsc -b` would compile the tests into `dist`.
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  }
+}

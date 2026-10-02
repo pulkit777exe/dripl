@@ -9,7 +9,7 @@
     "dev": "node ../../scripts/ensure-prisma-client.mjs && dotenv -e ../../.env -- tsx watch --tsconfig tsconfig.dev.json src/index.ts",
     "lint": "eslint .",
     "test": "vitest run",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsc --noEmit -p tsconfig.check.json",
     "health": "curl -f http://localhost:${HTTP_PORT:-3002}/health || exit 1"
   },
   "dependencies": {

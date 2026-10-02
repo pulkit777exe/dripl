@@ -1,0 +1,24 @@
+{
+  // Lint-only project for apps/http-server. See tooling/eslint-config/index.js
+  // for why these files exist and why `@dripl/*` is mapped to source here.
+  // `*.ts` in `include` is the root-level `vitest.config.ts`, which the build
+  // tsconfig does not cover but `eslint .` does lint.
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*.ts", "*.ts"],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "paths": {
+      "@dripl/common": ["../../packages/common/src/index.ts"],
+      "@dripl/db": ["../../packages/db/src/index.ts"],
+      "@dripl/utils": ["../../packages/utils/src/index.ts"],
+      "@dripl/utils/auth": ["../../packages/utils/src/auth.ts"],
+      "@dripl/utils/logger": ["../../packages/utils/src/logger.ts"]
+    }
+  }
+}

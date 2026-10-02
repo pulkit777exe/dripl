@@ -390,7 +390,13 @@ export function useCollaboration(
       });
     }, 5000);
 
-    connect();
+    // `connect` is fire-and-forget by construction — the browser `online`
+    // event below reconnects the same way. It cannot reject: the one `await`
+    // (the ticket fetch) is inside the try/catch that sets the "Failed to
+    // authenticate" message, and everything after it is synchronous. `disposed`
+    // is what stops a late resolution installing a socket for a room this
+    // effect has already left.
+    void connect();
 
     // Reconnect immediately when browser comes back online
     const handleOnline = () => {
@@ -402,7 +408,8 @@ export function useCollaboration(
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
-      connect();
+      // Same fire-and-forget contract as the initial connect above.
+      void connect();
     };
     window.addEventListener('online', handleOnline);
 

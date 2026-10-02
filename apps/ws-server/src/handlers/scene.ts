@@ -55,7 +55,11 @@ export const addElementHandler: Handler<typeof addElementSchema, AddElement> = {
     broadcast(room, delta, ctx.userId ?? undefined);
     markRoomDirty(ctx.roomId);
     scheduleSave(ctx.roomId);
-    publishToRoom(ctx.roomId, delta);
+    // Deliberately not awaited: local peers already have the delta, and the
+    // dispatcher awaits this handler, so awaiting would serialise the room's
+    // whole message budget behind one Redis REST round-trip per mutation.
+    // `publishToRoom` cannot reject — it logs and resolves.
+    void publishToRoom(ctx.roomId, delta);
   },
 };
 
@@ -77,7 +81,8 @@ export const updateElementHandler: Handler<typeof updateElementSchema, UpdateEle
     broadcast(room, delta, ctx.userId ?? undefined);
     markRoomDirty(ctx.roomId);
     scheduleSave(ctx.roomId);
-    publishToRoom(ctx.roomId, delta);
+    // Fire-and-forget cross-instance fan-out; see addElementHandler.
+    void publishToRoom(ctx.roomId, delta);
   },
 };
 
@@ -96,7 +101,8 @@ export const deleteElementHandler: Handler<typeof deleteElementSchema, DeleteEle
     broadcast(room, delta, ctx.userId ?? undefined);
     markRoomDirty(ctx.roomId);
     scheduleSave(ctx.roomId);
-    publishToRoom(ctx.roomId, delta);
+    // Fire-and-forget cross-instance fan-out; see addElementHandler.
+    void publishToRoom(ctx.roomId, delta);
   },
 };
 
@@ -142,7 +148,8 @@ export const sceneUpdateHandler: Handler<typeof sceneUpdateSchema, SceneUpdate> 
       broadcast(room, filteredDelta, ctx.userId ?? undefined);
       markRoomDirty(ctx.roomId);
       scheduleSave(ctx.roomId);
-      publishToRoom(ctx.roomId, filteredDelta);
+      // Fire-and-forget cross-instance fan-out; see addElementHandler.
+      void publishToRoom(ctx.roomId, filteredDelta);
     }
   },
 };
@@ -202,7 +209,8 @@ export const sceneDeltaHandler: Handler<typeof sceneDeltaSchema, SceneDelta> = {
       broadcast(room, filteredDelta, ctx.userId ?? undefined);
       markRoomDirty(ctx.roomId);
       scheduleSave(ctx.roomId);
-      publishToRoom(ctx.roomId, filteredDelta);
+      // Fire-and-forget cross-instance fan-out; see addElementHandler.
+      void publishToRoom(ctx.roomId, filteredDelta);
     }
   },
 };
@@ -252,7 +260,10 @@ export const elementUpdateHandler: Handler<typeof elementUpdateSchema, ElementUp
     if (acceptedCount > 0) {
       markRoomDirty(ctx.roomId);
       scheduleSave(ctx.roomId);
-      if (filteredDelta) publishToRoom(ctx.roomId, filteredDelta);
+      if (filteredDelta) {
+        // Fire-and-forget cross-instance fan-out; see addElementHandler.
+        void publishToRoom(ctx.roomId, filteredDelta);
+      }
     }
   },
 };

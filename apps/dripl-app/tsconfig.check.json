@@ -1,0 +1,52 @@
+// Type-check-only config for `pnpm check-types`. See
+// apps/ws-server/tsconfig.check.json for why this shape exists.
+//
+// This app needs it for the same reason the two servers do, and
+// `transpilePackages` in next.config.mjs does NOT save it. `transpilePackages`
+// is a bundler instruction: it tells Next's SWC pipeline to transpile those
+// workspace packages from source instead of treating them as pre-built
+// node_modules. `tsc` never reads next.config.mjs, so the type check still
+// resolves `@dripl/*` through each package's `exports` map, whose `types`
+// condition points at dist/*.d.ts — absent on a fresh checkout.
+//
+// `paths` REPLACES the inherited map rather than merging with it (verified with
+// tsc --showConfig), so `@/*` has to be restated even though tsconfig.json
+// already declares it.
+//
+// `exclude` is inherited on purpose. This tsconfig excludes node_modules, and
+// blanking it to `[]` (the way packages/*/tsconfig.check.json does) would strip
+// TypeScript's default `node_modules` exclusion from the `**/*.ts` include
+// glob. `incremental: false` also keeps this check from writing a
+// tsconfig.tsbuildinfo that `next build` would then read back as its own.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./*"],
+      "@dripl/common": ["../../packages/common/src/index.ts"],
+      "@dripl/common/constants": ["../../packages/common/src/constants.ts"],
+      "@dripl/common/schemas": ["../../packages/common/src/schemas.ts"],
+      "@dripl/common/arrow-binding": ["../../packages/common/src/arrow-binding.ts"],
+      "@dripl/common/cascade-delete": ["../../packages/common/src/cascade-delete.ts"],
+      "@dripl/common/reconciliation": ["../../packages/common/src/reconciliation.ts"],
+      "@dripl/common/types/element": ["../../packages/common/src/types/element.ts"],
+      "@dripl/common/types/user": ["../../packages/common/src/types/user.ts"],
+      "@dripl/db": ["../../packages/db/src/index.ts"],
+      "@dripl/element/staticScene": ["../../packages/element/src/staticScene.ts"],
+      "@dripl/element/resizeElements": ["../../packages/element/src/resizeElements.ts"],
+      "@dripl/element/shape-cache": ["../../packages/element/src/shape-cache.ts"],
+      "@dripl/element/mutateElement": ["../../packages/element/src/mutateElement.ts"],
+      "@dripl/element/image-cache": ["../../packages/element/src/image-cache.ts"],
+      "@dripl/math/geometry": ["../../packages/math/src/geometry.ts"],
+      "@dripl/math/intersection": ["../../packages/math/src/intersection.ts"],
+      "@dripl/utils": ["../../packages/utils/src/index.ts"],
+      "@dripl/utils/auth": ["../../packages/utils/src/auth.ts"],
+      "@dripl/utils/env": ["../../packages/utils/src/env.ts"],
+      "@dripl/utils/logger": ["../../packages/utils/src/logger.ts"],
+      "@dripl/utils/encryption": ["../../packages/utils/src/encryption/index.ts"]
+    }
+  }
+}

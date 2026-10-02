@@ -65,11 +65,14 @@ describe('cursorMoveHandler', () => {
     vi.clearAllMocks();
   });
 
-  it('uses snake_case payload (cursor_move)', () => {
+  it('uses snake_case payload (cursor_move)', async () => {
     const ctx = makeCtx();
     const msg = { type: 'cursor_move' as const, x: 10, y: 20, userName: 'Alice' };
 
-    cursorMoveHandler.apply(msg, ctx);
+    // `Handler.apply` is `void | Promise<void>` because the dispatcher awaits
+    // every handler; these tests must await it too, or a rejecting handler
+    // fails the run as an unhandled rejection instead of as a test failure.
+    await cursorMoveHandler.apply(msg, ctx);
 
     expect(ctx.room.cursors.get('user-1')).toEqual({ x: 10, y: 20 });
     expect(mockedBroadcast).toHaveBeenCalledTimes(1);
@@ -87,11 +90,11 @@ describe('cursorMoveHandler', () => {
     expect(broadcastArgs[2]).toBe('user-1');
   });
 
-  it('uses kebab-case payload (cursor-move)', () => {
+  it('uses kebab-case payload (cursor-move)', async () => {
     const ctx = makeCtx();
     const msg = { type: 'cursor-move' as const, x: 30, y: 40, displayName: 'Bob' };
 
-    cursorMoveHandler.apply(msg, ctx);
+    await cursorMoveHandler.apply(msg, ctx);
 
     expect(ctx.room.cursors.get('user-1')).toEqual({ x: 30, y: 40 });
     expect(mockedBroadcast).toHaveBeenCalledTimes(1);
@@ -103,11 +106,11 @@ describe('cursorMoveHandler', () => {
     });
   });
 
-  it('falls back to user displayName and color when message omits them', () => {
+  it('falls back to user displayName and color when message omits them', async () => {
     const ctx = makeCtx();
     const msg = { type: 'cursor_move' as const, x: 0, y: 0 };
 
-    cursorMoveHandler.apply(msg, ctx);
+    await cursorMoveHandler.apply(msg, ctx);
 
     expect(mockedBroadcast.mock.calls[0]![1]).toMatchObject({
       displayName: 'Alice',

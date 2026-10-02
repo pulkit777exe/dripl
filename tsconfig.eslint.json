@@ -1,0 +1,26 @@
+{
+  // Lint-only project for the repository ROOT. It exists for exactly one file:
+  // `scripts/benchmarks/canvas-performance.ts`, which no workspace tsconfig
+  // covers but lint-staged will hand to the root `eslint.config.mjs` if it is
+  // ever staged. Extends the shared base rather than the root solution-style
+  // `tsconfig.json`, which has `files: []` and exists only as an editor aid.
+  // See tooling/eslint-config/index.js for the rest of the story.
+  "extends": "@dripl/typescript-config/tsconfig.json",
+  "include": ["scripts/**/*.ts"],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "types": ["node"],
+    "paths": {
+      "@dripl/common": ["packages/common/src/index.ts"],
+      "@dripl/common/reconciliation": ["packages/common/src/reconciliation.ts"],
+      "@dripl/element/mutateElement": ["packages/element/src/mutateElement.ts"],
+      "@dripl/math/intersection": ["packages/math/src/intersection.ts"]
+    }
+  }
+}

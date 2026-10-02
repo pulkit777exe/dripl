@@ -65,30 +65,34 @@ function makeCtx(overrides: Partial<HandlerCtx> = {}): HandlerCtx {
   };
 }
 
+// `Handler.apply` is declared `void | Promise<void>` because the dispatcher
+// awaits every handler, so calling one without awaiting is a genuinely
+// floating promise. These three handlers are synchronous today; awaiting is
+// what keeps these tests honest if that ever changes.
 describe('elementLockHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('sets the lock and broadcasts it', () => {
+  it('sets the lock and broadcasts it', async () => {
     const ctx = makeCtx();
-    elementLockHandler.apply({ type: 'element-lock', elementId: 'el-1' }, ctx);
+    await elementLockHandler.apply({ type: 'element-lock', elementId: 'el-1' }, ctx);
     expect(ctx.room.elementLocks.get('el-1')).toMatchObject({ userId: 'user-1' });
     expect(mockedBroadcast).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses a lock held by another user', () => {
+  it('refuses a lock held by another user', async () => {
     const ctx = makeCtx();
     ctx.room.elementLocks.set('el-1', { userId: 'user-2', lastHeartbeat: Date.now() });
-    elementLockHandler.apply({ type: 'element-lock', elementId: 'el-1' }, ctx);
+    await elementLockHandler.apply({ type: 'element-lock', elementId: 'el-1' }, ctx);
     expect(ctx.room.elementLocks.get('el-1')?.userId).toBe('user-2');
     expect(mockedBroadcast).not.toHaveBeenCalled();
     expect(mockedSend).toHaveBeenCalledTimes(1);
   });
 
-  it('defers to read-only access', () => {
+  it('defers to read-only access', async () => {
     const ctx = makeCtx({ rejectReadOnlyMutation: () => true });
-    elementLockHandler.apply({ type: 'element-lock', elementId: 'el-1' }, ctx);
+    await elementLockHandler.apply({ type: 'element-lock', elementId: 'el-1' }, ctx);
     expect(ctx.room.elementLocks.has('el-1')).toBe(false);
     expect(mockedBroadcast).not.toHaveBeenCalled();
   });
@@ -99,30 +103,36 @@ describe('elementUnlockHandler', () => {
     vi.clearAllMocks();
   });
 
-  it('releases an own lock and broadcasts', () => {
+  it('releases an own lock and broadcasts', async () => {
     const ctx = makeCtx();
     ctx.room.elementLocks.set('el-1', { userId: 'user-1', lastHeartbeat: Date.now() });
-    elementUnlockHandler.apply({ type: 'element-unlock', elementId: 'el-1' }, ctx);
+    await elementUnlockHandler.apply({ type: 'element-unlock', elementId: 'el-1' }, ctx);
     expect(ctx.room.elementLocks.has('el-1')).toBe(false);
     expect(mockedBroadcast).toHaveBeenCalledTimes(1);
   });
 
-  it('ignores locks owned by others', () => {
+  it('ignores locks owned by others', async () => {
     const ctx = makeCtx();
     ctx.room.elementLocks.set('el-1', { userId: 'user-2', lastHeartbeat: Date.now() });
-    elementUnlockHandler.apply({ type: 'element-unlock', elementId: 'el-1' }, ctx);
+    await elementUnlockHandler.apply({ type: 'element-unlock', elementId: 'el-1' }, ctx);
     expect(ctx.room.elementLocks.has('el-1')).toBe(true);
     expect(mockedBroadcast).not.toHaveBeenCalled();
   });
 });
 
 describe('elementLockHeartbeatHandler', () => {
-  it('refreshes the heartbeat of an own lock only', () => {
+  it('refreshes the heartbeat of an own lock only', async () => {
     const ctx = makeCtx();
     ctx.room.elementLocks.set('el-1', { userId: 'user-1', lastHeartbeat: 1 });
     ctx.room.elementLocks.set('el-2', { userId: 'user-2', lastHeartbeat: 1 });
-    elementLockHeartbeatHandler.apply({ type: 'element-lock-heartbeat', elementId: 'el-1' }, ctx);
-    elementLockHeartbeatHandler.apply({ type: 'element-lock-heartbeat', elementId: 'el-2' }, ctx);
+    await elementLockHeartbeatHandler.apply(
+      { type: 'element-lock-heartbeat', elementId: 'el-1' },
+      ctx
+    );
+    await elementLockHeartbeatHandler.apply(
+      { type: 'element-lock-heartbeat', elementId: 'el-2' },
+      ctx
+    );
     expect(ctx.room.elementLocks.get('el-1')?.lastHeartbeat).toBeGreaterThan(1);
     expect(ctx.room.elementLocks.get('el-2')?.lastHeartbeat).toBe(1);
   });

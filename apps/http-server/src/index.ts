@@ -53,4 +53,15 @@ async function start() {
   process.on('SIGTERM', shutdown);
 }
 
-start();
+// `start()` handles the one expected failure (no database) by logging and
+// exiting. Anything else it throws — `createApp`, `app.listen`, the Prisma
+// import inside the cleanup interval's first tick — used to become a bare
+// unhandled rejection: the process died with nothing in the log, so a bad boot
+// was indistinguishable from a crash loop. Record it and exit non-zero.
+void start().catch((err: unknown) => {
+  logger.error({
+    event: 'http_server_start_failed',
+    error: err instanceof Error ? err.message : String(err),
+  });
+  process.exit(1);
+});

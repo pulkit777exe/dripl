@@ -887,9 +887,18 @@ process.on('SIGTERM', () => {
 });
 
 if (process.env.NODE_ENV !== 'test' || process.env.RUN_WS_INTEGRATION === 'true') {
-  start().then(() => {
-    server.listen(WS_PORT, () => {
-      logger.info({ event: 'websocket_server_started', port: WS_PORT });
+  // `start()` swallows its one expected failure (no database) by exiting, but a
+  // throw from `server.listen` below would surface as a bare unhandled
+  // rejection with nothing in the log. Route both to the logger and fail the
+  // boot explicitly rather than leaving a process that serves nothing.
+  start()
+    .then(() => {
+      server.listen(WS_PORT, () => {
+        logger.info({ event: 'websocket_server_started', port: WS_PORT });
+      });
+    })
+    .catch((err: unknown) => {
+      logger.error({ event: 'websocket_server_start_failed', err });
+      process.exit(1);
     });
-  });
 }

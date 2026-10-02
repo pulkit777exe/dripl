@@ -32,7 +32,10 @@ function VerifyEmailContent() {
       }
     };
 
-    verify();
+    // Deliberately not returned or awaited: the effect cannot wait, and
+    // `verify` already turns every failure into `status: 'error'` inside its
+    // own try/catch, so there is no rejection left for the caller to lose.
+    void verify();
   }, [token, verifyEmail]);
 
   return (

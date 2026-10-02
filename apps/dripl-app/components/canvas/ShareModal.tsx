@@ -48,7 +48,11 @@ export function ShareModal({
 
   const handleShare = async () => {
     await share.generate(permission);
-    onShareCanvas?.();
+    // `onShareCanvas` is typed `void | Promise<void>`, so the optional call is
+    // a promise union even when the prop is a plain callback. `handleShare` is
+    // already async, so awaiting is free and keeps the tap's rejection inside
+    // the promise the click handler owns.
+    await onShareCanvas?.();
   };
 
   const handleCollaborate = async () => {

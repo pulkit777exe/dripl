@@ -60,10 +60,25 @@ export function unsubscribeFromRoom(roomId: string): void {
   roomHandlers.delete(roomId);
 }
 
+/**
+ * Best-effort cross-instance fan-out for one room. The scene broadcast path
+ * calls this without awaiting it, so the contract that makes that safe is
+ * stated here rather than assumed at six call sites: **this never rejects.**
+ * The client lookup moved inside the `try` for exactly that reason — `new
+ * Redis(...)` throws synchronously on a malformed `UPSTASH_REDIS_REST_URL`, and
+ * in an `async` function a synchronous throw becomes a rejection. That one
+ * unlogged rejection was enough to take the whole ws-server process down
+ * (Node aborts on unhandled rejections) the first time a client with a bad
+ * Redis URL published a scene delta.
+ *
+ * Every failure is logged as `redis_publish_failed`. Losing it is not silent:
+ * a peer instance stays stale until its next save, and the log line is the
+ * signal.
+ */
 export async function publishToRoom(roomId: string, payload: object): Promise<void> {
-  const client = getRedis();
-  if (!client) return;
   try {
+    const client = getRedis();
+    if (!client) return;
     await client.publish(`dripl:room:${roomId}`, {
       ...payload,
       instanceId: INSTANCE_ID,

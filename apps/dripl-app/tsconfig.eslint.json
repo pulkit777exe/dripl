@@ -1,0 +1,40 @@
+{
+  // Lint-only project for apps/dripl-app. Referenced by `parserOptions.project`
+  // in @dripl/eslint-config and by nothing else, so `tsc -b` cannot pick it up
+  // and cannot clobber anything in `.next` or `dist`.
+  //
+  // It widens `include` past the build config only in one respect: the build
+  // config already covers `**/*.ts(x)` including tests and `e2e/`, which is
+  // exactly the set `eslint .` lints. `noEmit` plus the composite/incremental
+  // overrides keep this file side-effect free. The `@dripl/*` paths pin
+  // workspace packages to SOURCE, so type-aware linting sees real types
+  // without requiring every package's `dist/*.d.ts` to have been built first.
+  "extends": "./tsconfig.json",
+  "include": ["**/*.ts", "**/*.tsx", "next-env.d.ts", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", "dist", ".next", "out", "build"],
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "paths": {
+      "@/*": ["./*"],
+      "@dripl/common": ["../../packages/common/src/index.ts"],
+      "@dripl/common/arrow-binding": ["../../packages/common/src/arrow-binding.ts"],
+      "@dripl/common/cascade-delete": ["../../packages/common/src/cascade-delete.ts"],
+      "@dripl/common/reconciliation": ["../../packages/common/src/reconciliation.ts"],
+      "@dripl/db": ["../../packages/db/src/index.ts"],
+      "@dripl/element/image-cache": ["../../packages/element/src/image-cache.ts"],
+      "@dripl/element/mutateElement": ["../../packages/element/src/mutateElement.ts"],
+      "@dripl/element/resizeElements": ["../../packages/element/src/resizeElements.ts"],
+      "@dripl/element/shape-cache": ["../../packages/element/src/shape-cache.ts"],
+      "@dripl/element/staticScene": ["../../packages/element/src/staticScene.ts"],
+      "@dripl/math/geometry": ["../../packages/math/src/geometry.ts"],
+      "@dripl/math/intersection": ["../../packages/math/src/intersection.ts"],
+      "@dripl/utils": ["../../packages/utils/src/index.ts"],
+      "@dripl/utils/auth": ["../../packages/utils/src/auth.ts"]
+    }
+  }
+}

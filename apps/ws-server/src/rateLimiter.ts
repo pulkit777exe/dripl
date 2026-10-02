@@ -37,8 +37,11 @@ async function initRedis() {
   }
 }
 
-// Try to init Redis at module load (non-blocking)
-initRedis();
+// Try to init Redis at module load (non-blocking). The entire body of
+// `initRedis` is inside its own try/catch and only ever sets the two module
+// flags, so it cannot reject — nothing here can produce an unhandled
+// rejection, and the module must stay usable before any handler runs.
+void initRedis();
 
 const MAX_LOCAL_BUCKETS = 10_000;
 

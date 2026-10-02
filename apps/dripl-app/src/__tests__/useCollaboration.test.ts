@@ -104,14 +104,22 @@ describe('useCollaboration transport lifecycle', () => {
     act(() => first.receive(syncMessage()));
 
     act(() => result.current.broadcastElements([element(1)]));
-    act(() => vi.advanceTimersByTime(50));
+    // `vi.advanceTimersByTime` returns the `vi` object, so `() => vi.…` made
+    // this `act` call resolve to React's promise-returning overload and left
+    // the returned promise unawaited. A block body returns nothing, which is
+    // the overload these synchronous timer advances always meant.
+    act(() => {
+      vi.advanceTimersByTime(50);
+    });
     // Same version re-broadcast is a no-op: the version-aware delta skips it
     // instead of over-sending a reference-different twin.
     expect(first.sent.map(item => JSON.parse(item).type)).toEqual(['join']);
 
     // A genuine version bump still sends while online.
     act(() => result.current.broadcastElements([element(2)]));
-    act(() => vi.advanceTimersByTime(50));
+    act(() => {
+      vi.advanceTimersByTime(50);
+    });
     expect(first.sent.map(item => JSON.parse(item).type)).toEqual(['join', 'scene-delta']);
 
     act(() => first.close());
@@ -122,7 +130,9 @@ describe('useCollaboration transport lifecycle', () => {
     });
     expect(first.sent).toHaveLength(sentBeforeDisconnect);
 
-    act(() => vi.advanceTimersByTime(1_000));
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
@@ -150,7 +160,9 @@ describe('useCollaboration transport lifecycle', () => {
 
     act(() => result.current.broadcastElements([element(2)]));
     act(() => first.close());
-    act(() => vi.advanceTimersByTime(1_000));
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
@@ -173,11 +185,15 @@ describe('useCollaboration transport lifecycle', () => {
     act(() => socket.open());
 
     act(() => result.current.broadcastElements([element(1)]));
-    act(() => vi.advanceTimersByTime(50));
+    act(() => {
+      vi.advanceTimersByTime(50);
+    });
     expect(socket.sent.map(item => JSON.parse(item).type)).toEqual(['join']);
 
     act(() => socket.receive(syncMessage()));
-    act(() => vi.advanceTimersByTime(50));
+    act(() => {
+      vi.advanceTimersByTime(50);
+    });
     expect(socket.sent.map(item => JSON.parse(item).type)).toEqual(['join']);
     unmount();
   });
