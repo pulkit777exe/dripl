@@ -7,13 +7,29 @@ export interface SceneDelta {
 }
 
 /**
+ * Two element records carry the same applied mutation when both version and
+ * versionNonce match. Version is bumped with a fresh nonce on every mutation
+ * (see @dripl/element mutateElement), so equality means no newer edit.
+ */
+export function isSameVersion(a: DriplElement, b: DriplElement): boolean {
+  return (
+    typeof a.version === 'number' &&
+    typeof b.version === 'number' &&
+    typeof a.versionNonce === 'number' &&
+    typeof b.versionNonce === 'number' &&
+    a.version === b.version &&
+    a.versionNonce === b.versionNonce
+  );
+}
+
+/**
  * Diff a previous scene against the pending scene into a wire delta.
  *
  * Identity rule: an element whose reference is unchanged is treated as
- * unchanged. The store replaces element objects on mutation, so reference
- * inequality is the change signal. An element replaced with identical
- * content under a new reference is sent as an update — a harmless over-send
- * the server's version fence resolves.
+ * unchanged. An element replaced under a new reference but carrying the same
+ * version/versionNonce is also unchanged — this skips harmless re-renders
+ * (e.g. transient render state replaced without a mutation) while the
+ * server's version fence remains authoritative for real conflicts.
  */
 export function computeSceneDelta(prev: DriplElement[], pending: DriplElement[]): SceneDelta {
   const prevMap = new Map(prev.map(el => [el.id, el]));
@@ -26,7 +42,7 @@ export function computeSceneDelta(prev: DriplElement[], pending: DriplElement[])
     const prevEl = prevMap.get(el.id);
     if (!prevEl) {
       added.push(el);
-    } else if (prevEl !== el) {
+    } else if (prevEl !== el && !isSameVersion(prevEl, el)) {
       updated.push(el);
     }
   }

@@ -1,15 +1,30 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ShareModal } from '@/components/canvas/ShareModal';
+import { apiClient } from '@/lib/api';
 
 function makeFileId() {
   return 'file-1';
 }
 
+function mockShareResponse(url = 'https://dripl.test/share/tok-abc#key=server-key') {
+  return vi.spyOn(apiClient, 'shareFile').mockResolvedValue({
+    token: 'tok-abc',
+    permission: 'view',
+    expiresAt: null,
+    shareUrl: url,
+  });
+}
+
 describe('ShareModal', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('renders the heading and the permission chooser when open', () => {
@@ -36,7 +51,6 @@ describe('ShareModal', () => {
         onCollaborate={vi.fn()}
       />
     );
-    // No URL input is shown before generation.
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
@@ -52,22 +66,15 @@ describe('ShareModal', () => {
       />
     );
 
-    // Default is view.
     expect(screen.getByRole('radio', { name: /view only/i })).toBeChecked();
-
-    // Switch to edit.
     await user.click(screen.getByRole('radio', { name: /can edit/i }));
     expect(screen.getByRole('radio', { name: /can edit/i })).toBeChecked();
     expect(screen.getByRole('radio', { name: /view only/i })).not.toBeChecked();
   });
 
-  it('reports the file id on the share action when the user clicks Share', async () => {
+  it('reports the file id and default permission to the owner-scoped share API', async () => {
     const user = userEvent.setup();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ token: 'tok-abc' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    const shareFile = mockShareResponse();
 
     render(
       <ShareModal
@@ -80,25 +87,12 @@ describe('ShareModal', () => {
     );
 
     await user.click(screen.getByRole('button', { name: /^share$/i }));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/share',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ fileId: 'file-1', permission: 'view' }),
-        })
-      );
-    });
+    await waitFor(() => expect(shareFile).toHaveBeenCalledWith('file-1', { permission: 'view' }));
   });
 
   it('sends the new permission when the user changes it before sharing', async () => {
     const user = userEvent.setup();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ token: 'tok-abc' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    const shareFile = mockShareResponse('https://dripl.test/share/tok-edit#key=server-key');
 
     render(
       <ShareModal
@@ -112,26 +106,12 @@ describe('ShareModal', () => {
 
     await user.click(screen.getByRole('radio', { name: /can edit/i }));
     await user.click(screen.getByRole('button', { name: /^share$/i }));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/share',
-        expect.objectContaining({
-          body: JSON.stringify({ fileId: 'file-1', permission: 'edit' }),
-        })
-      );
-    });
+    await waitFor(() => expect(shareFile).toHaveBeenCalledWith('file-1', { permission: 'edit' }));
   });
 
-  it('shows the shareable URL after a successful generation', async () => {
+  it('shows the durable URL returned by the share service', async () => {
     const user = userEvent.setup();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ token: 'tok-abc' }),
-      })
-    );
+    mockShareResponse();
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
 
@@ -146,11 +126,9 @@ describe('ShareModal', () => {
     );
 
     await user.click(screen.getByRole('button', { name: /^share$/i }));
-
     await waitFor(() => {
-      const input = screen.getByRole('textbox') as HTMLInputElement;
-      // URL shape (per the hook contract): origin + /share/<fileId> + ?p=<v|e>&t=<token>
-      expect(input.value).toMatch(/\/share\/file-1\?p=v&t=tok-abc$/);
+      const input = screen.getByRole('textbox', { name: /shareable link/i }) as HTMLInputElement;
+      expect(input.value).toBe('https://dripl.test/share/tok-abc#key=server-key');
     });
   });
 });

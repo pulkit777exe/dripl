@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002/api';
 
 export interface AuthUser {
   id: string;
@@ -113,7 +113,7 @@ class ApiClient {
     return payload.token;
   }
 
-  private async getCsrfToken(forceRefresh = false): Promise<string> {
+  async getCsrfToken(forceRefresh = false): Promise<string> {
     if (forceRefresh) {
       this.csrfToken = null;
     }
@@ -134,14 +134,20 @@ class ApiClient {
   private getSessionToken(): string | null {
     if (typeof document === 'undefined') return null;
     const match = document.cookie.match(/(?:^|;\s*)dripl-session=([^;]*)/);
-    return match?.[1] ? decodeURIComponent(match[1]) : null;
+    if (!match?.[1]) return null;
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return null;
+    }
   }
 
   private setSessionCookie(token: string): void {
     if (typeof document === 'undefined') return;
     // Set non-httpOnly cookie on current domain so client can read it
     // and send as Authorization header for cross-origin requests
-    document.cookie = `dripl-session=${encodeURIComponent(token)}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax; Secure`;
+    const secure = window.location.protocol === 'https:';
+    document.cookie = `dripl-session=${encodeURIComponent(token)}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secure ? '; Secure' : ''}`;
   }
 
   private async sendRequest(
@@ -192,7 +198,9 @@ class ApiClient {
     const response = await this.sendRequest(path, init);
 
     if (!response.ok) {
-      throw new Error(await parseError(response));
+      const error = new Error(await parseError(response)) as Error & { status?: number };
+      error.status = response.status;
+      throw error;
     }
 
     if (response.status === 204) {
@@ -322,6 +330,24 @@ class ApiClient {
     return this.request(`/files/shared${query ? `?${query}` : ''}`);
   }
 
+  async getWsTicket(signal?: AbortSignal): Promise<string> {
+    const response = await this.request<{ ticket?: string }>('/auth/ws-ticket', {
+      method: 'POST',
+      signal,
+    });
+    if (!response.ticket) throw new Error('Authentication ticket was not returned');
+    return response.ticket;
+  }
+
+  async getShareWsTicket(token: string, signal?: AbortSignal): Promise<string> {
+    const response = await this.request<{ ticket?: string }>(
+      `/share/${encodeURIComponent(token)}/ws-ticket`,
+      { method: 'GET', signal }
+    );
+    if (!response.ticket) throw new Error('Share collaboration ticket was not returned');
+    return response.ticket;
+  }
+
   async createFile(payload?: {
     name?: string;
     folderId?: string | null;
@@ -345,6 +371,7 @@ class ApiClient {
       folderId?: string | null;
       content?: unknown;
       preview?: string | null;
+      expectedUpdatedAt?: string;
     }
   ): Promise<{ file: FileSummary }> {
     return this.request(`/files/${fileId}`, {
@@ -414,18 +441,65 @@ class ApiClient {
     });
   }
 
-  async createCanvasRoom(payload?: { name?: string; isPublic?: boolean }): Promise<{
+  async listCanvasRooms(): Promise<{
+    rooms: Array<{
+      id: string;
+      slug: string;
+      name: string;
+      isPublic: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+  }> {
+    return this.request('/rooms');
+  }
+
+  async createCanvasRoom(payload?: {
+    name?: string;
+    isPublic?: boolean;
+    content?: string;
+  }): Promise<{
+    room: { id: string; slug: string; name: string; isPublic: boolean; content: string };
+    /** @deprecated Use room.slug; retained for older callers. */
     roomId: string;
   }> {
-    const response = await this.request<{ room: { slug: string } }>('/rooms', {
+    const response = await this.request<{
+      room: { id: string; slug: string; name: string; isPublic: boolean; content: string };
+    }>('/rooms', {
       method: 'POST',
       body: JSON.stringify(payload ?? {}),
     });
-    return { roomId: response.room.slug };
+    return { ...response, roomId: response.room.slug };
   }
 
-  async getCanvasRoom(roomId: string): Promise<{ room: { slug: string } }> {
+  async getCanvasRoom(roomId: string): Promise<{
+    room: { id: string; slug: string; name: string; isPublic: boolean; content: string };
+  }> {
     return this.request(`/rooms/${roomId}`);
+  }
+
+  async updateCanvasRoom(
+    roomId: string,
+    payload: { name?: string; isPublic?: boolean; content?: string; expectedUpdatedAt?: string }
+  ): Promise<{
+    room: { id: string; slug: string; name: string; isPublic: boolean; content: string };
+  }> {
+    return this.request(`/rooms/${roomId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteCanvasRoom(roomId: string): Promise<void> {
+    await this.request(`/rooms/${roomId}`, { method: 'DELETE' });
+  }
+
+  async getSharedRoom(token: string): Promise<{
+    room: { id: string; slug: string; name: string; content: string; isPublic: boolean };
+    permission: 'VIEW' | 'EDIT';
+    expiresAt: string;
+  }> {
+    return this.request(`/rooms/share/${encodeURIComponent(token)}`);
   }
 }
 

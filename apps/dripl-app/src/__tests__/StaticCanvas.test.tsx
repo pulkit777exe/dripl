@@ -42,16 +42,61 @@ describe('StaticCanvas RAF loop', () => {
     vi.clearAllMocks();
   });
 
+  it('keeps the static layer out of the accessibility tree', () => {
+    render(<StaticCanvas elements={[createElement('el-1')]} viewport={viewport()} theme="light" />);
+
+    const canvas = document.querySelector('canvas');
+    expect(canvas).toHaveAttribute('aria-hidden', 'true');
+    expect(canvas).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('passes the full scene separately from spatial-index candidates', () => {
+    const first = createElement('el-1');
+    const second = createElement('el-2');
+    render(
+      <StaticCanvas
+        elements={[first, second]}
+        visibleElements={[second]}
+        viewport={viewport()}
+        theme="light"
+      />
+    );
+
+    vi.advanceTimersToNextFrame();
+    const lastCall = (renderStaticScene as ReturnType<typeof vi.fn>).mock.lastCall;
+    expect(lastCall?.[1]).toHaveLength(2);
+    expect(lastCall?.[3]).toMatchObject({
+      elements: [first, second],
+      visibleElements: [second],
+    });
+  });
+
+  it('schedules a redraw when an asynchronous image finishes loading', () => {
+    const image: DriplElement = {
+      id: 'image-1',
+      type: 'image',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      src: 'https://example.test/image.png',
+      version: 1,
+    };
+
+    render(<StaticCanvas elements={[image]} viewport={viewport()} theme="light" />);
+    vi.advanceTimersToNextFrame();
+    const firstCall = (renderStaticScene as ReturnType<typeof vi.fn>).mock.lastCall;
+    firstCall?.[3]?.onAssetLoad?.();
+    vi.advanceTimersToNextFrame();
+
+    expect(renderStaticScene).toHaveBeenCalledTimes(2);
+  });
+
   it('re-renders when elements change via continuous RAF loop', () => {
     const initialElements = [createElement('el-1')];
 
     const { rerender } = render(
-      <StaticCanvas
-        elements={initialElements}
-        selectedIds={new Set()}
-        viewport={viewport()}
-        theme="light"
-      />
+      <StaticCanvas elements={initialElements} viewport={viewport()} theme="light" />
     );
 
     // Frame 1: initial render — isDirty = true → renderStaticScene called
@@ -64,14 +109,7 @@ describe('StaticCanvas RAF loop', () => {
 
     // Simulate adding a new element (like commitDraft does)
     const updatedElements = [...initialElements, createElement('el-2')];
-    rerender(
-      <StaticCanvas
-        elements={updatedElements}
-        selectedIds={new Set()}
-        viewport={viewport()}
-        theme="light"
-      />
-    );
+    rerender(<StaticCanvas elements={updatedElements} viewport={viewport()} theme="light" />);
 
     // Frame 3: elements changed → isDirty = true → renderStaticScene called
     vi.advanceTimersToNextFrame();

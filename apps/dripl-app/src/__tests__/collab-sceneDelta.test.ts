@@ -38,11 +38,18 @@ describe('computeSceneDelta', () => {
     expect(delta).toEqual({ added: [], updated: [], deleted: [] });
   });
 
-  it('sends content-identical replacements as updates (over-send, server resolves)', () => {
+  it('skips content-identical replacements with the same version (no over-send)', () => {
     const a = el('a');
     const twin = { ...a };
     const delta = computeSceneDelta([a], [twin]);
-    expect(delta.updated).toEqual([twin]);
+    expect(delta.updated).toEqual([]);
+  });
+
+  it('still sends replacements carrying a newer version', () => {
+    const a = el('a', { version: 1, versionNonce: 5 });
+    const newer = { ...a, version: 2, versionNonce: 9 };
+    const delta = computeSceneDelta([a], [newer]);
+    expect(delta.updated).toEqual([newer]);
   });
 });
 

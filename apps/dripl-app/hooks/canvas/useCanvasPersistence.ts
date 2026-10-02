@@ -8,13 +8,19 @@ interface UseCanvasPersistenceProps {
   roomSlug: string | null;
   theme: 'light' | 'dark';
   isDrawingRef: React.RefObject<boolean>;
+  readOnly?: boolean;
 }
 
-export function useCanvasPersistence({ roomSlug, theme, isDrawingRef }: UseCanvasPersistenceProps) {
+export function useCanvasPersistence({
+  roomSlug,
+  theme,
+  isDrawingRef,
+  readOnly = false,
+}: UseCanvasPersistenceProps) {
   const flushToStorageRef = useRef<(() => void) | null>(null);
 
   flushToStorageRef.current = () => {
-    if (roomSlug !== null) return;
+    if (roomSlug !== null || readOnly) return;
     const state = useCanvasStore.getState();
     const appState: LocalCanvasState = {
       theme,
@@ -27,6 +33,7 @@ export function useCanvasPersistence({ roomSlug, theme, isDrawingRef }: UseCanva
       currentRoughness: state.currentRoughness,
       currentStrokeStyle: state.currentStrokeStyle,
       currentFillStyle: state.currentFillStyle,
+      canvasBackground: state.canvasBackground,
       activeTool: state.activeTool,
     };
     saveLocalCanvasToStorage(state.elements, appState, state.selectedIds);
@@ -34,46 +41,47 @@ export function useCanvasPersistence({ roomSlug, theme, isDrawingRef }: UseCanva
 
   // Activity-gated debounce: only serialize when the user is idle.
   useEffect(() => {
-    if (roomSlug !== null) return;
+    if (roomSlug !== null || readOnly) return;
     const IDLE_DELAY = 2500;
     const RETRY_DELAY = 2000;
     let timeoutId: ReturnType<typeof setTimeout>;
 
     const schedule = () => {
-      timeoutId = setTimeout(() => {
-        if (isDrawingRef.current) {
-          schedule();
-        } else {
-          flushToStorageRef.current?.();
-        }
-      }, isDrawingRef.current ? RETRY_DELAY : IDLE_DELAY);
+      timeoutId = setTimeout(
+        () => {
+          if (isDrawingRef.current) {
+            schedule();
+          } else {
+            flushToStorageRef.current?.();
+          }
+        },
+        isDrawingRef.current ? RETRY_DELAY : IDLE_DELAY
+      );
     };
 
     schedule();
 
     // Re-save on every element change (debounced via the idle delay)
-    const unsubscribe = useCanvasStore.subscribe(
-      (state, prevState) => {
-        if (state.elements !== prevState.elements && !isDrawingRef.current) {
-          clearTimeout(timeoutId);
-          schedule();
-        }
+    const unsubscribe = useCanvasStore.subscribe((state, prevState) => {
+      if (state.elements !== prevState.elements && !isDrawingRef.current) {
+        clearTimeout(timeoutId);
+        schedule();
       }
-    );
+    });
 
     return () => {
       clearTimeout(timeoutId);
       unsubscribe();
     };
-  }, [roomSlug, theme, isDrawingRef]);
+  }, [roomSlug, theme, isDrawingRef, readOnly]);
 
   // Flush immediately on tab close / navigation.
   useEffect(() => {
-    if (roomSlug !== null) return;
+    if (roomSlug !== null || readOnly) return;
     const handleBeforeUnload = () => flushToStorageRef.current?.();
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [roomSlug]);
+  }, [roomSlug, readOnly]);
 }

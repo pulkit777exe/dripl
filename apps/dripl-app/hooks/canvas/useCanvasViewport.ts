@@ -2,8 +2,8 @@
 
 import { useCallback } from 'react';
 import { getElementBounds } from '@dripl/math/intersection';
-import type { DriplElement } from '@dripl/common';
 import { useCanvasStore } from '@/lib/store';
+import { DEFAULT_ZOOM_SETTINGS } from '@/utils/zoomUtils';
 
 export function useCanvasViewport(containerRef: React.RefObject<HTMLDivElement | null>) {
   const setZoom = useCanvasStore(state => state.setZoom);
@@ -32,8 +32,11 @@ export function useCanvasViewport(containerRef: React.RefObject<HTMLDivElement |
     const viewportWidth = containerRef.current.clientWidth - padding * 2;
     const viewportHeight = containerRef.current.clientHeight - padding * 2;
     const nextZoom = Math.max(
-      0.1,
-      Math.min(20, Math.min(viewportWidth / contentWidth, viewportHeight / contentHeight))
+      DEFAULT_ZOOM_SETTINGS.minZoom,
+      Math.min(
+        DEFAULT_ZOOM_SETTINGS.maxZoom,
+        Math.min(viewportWidth / contentWidth, viewportHeight / contentHeight)
+      )
     );
     const nextPanX = containerRef.current.clientWidth / 2 - (minX + contentWidth / 2) * nextZoom;
     const nextPanY = containerRef.current.clientHeight / 2 - (minY + contentHeight / 2) * nextZoom;
@@ -69,11 +72,15 @@ export function useCanvasViewport(containerRef: React.RefObject<HTMLDivElement |
       const viewportWidth = containerRef.current.clientWidth - padding * 2;
       const viewportHeight = containerRef.current.clientHeight - padding * 2;
       const nextZoom = Math.max(
-        0.1,
-        Math.min(20, Math.min(viewportWidth / contentWidth, viewportHeight / contentHeight))
+        DEFAULT_ZOOM_SETTINGS.minZoom,
+        Math.min(
+          DEFAULT_ZOOM_SETTINGS.maxZoom,
+          Math.min(viewportWidth / contentWidth, viewportHeight / contentHeight)
+        )
       );
       const nextPanX = containerRef.current.clientWidth / 2 - (minX + contentWidth / 2) * nextZoom;
-      const nextPanY = containerRef.current.clientHeight / 2 - (minY + contentHeight / 2) * nextZoom;
+      const nextPanY =
+        containerRef.current.clientHeight / 2 - (minY + contentHeight / 2) * nextZoom;
 
       setZoom(nextZoom);
       setPan(nextPanX, nextPanY);

@@ -3,8 +3,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DriplElement } from '@dripl/common';
 import { useCanvasStore } from '@/lib/store';
-import { apiClient } from '@/lib/api';
-import { computeSceneDelta, filterReplayPending } from '@/lib/collab/sceneDelta';
+import { computeSceneDelta } from '@/lib/collab/sceneDelta';
+import { enqueueOfflineMessage, OFFLINE_QUEUE_MAX } from '@/lib/collab/offlineQueue';
+import { routeCollabMessage } from '@/lib/collab/messageRouter';
+import {
+  handleSocketClose,
+  handleSocketOpen,
+  type SocketLifecycleContext,
+} from '@/lib/collab/socket-lifecycle';
+import type {
+  ClientMessage,
+  CollabUser,
+  ServerMessage,
+  UseCollaborationOptions,
+  UseCollaborationReturn,
+} from '@/lib/collab/protocol';
+import { getWsTicket, safeColor } from '@/lib/collab/connection';
 
 // JSON scene deltas are the wire protocol. A previous revision kept a dormant
 // Yjs adapter behind YJS_WIRE_ENABLED=false; it gated only reads while write
@@ -12,138 +26,16 @@ import { computeSceneDelta, filterReplayPending } from '@/lib/collab/sceneDelta'
 // rather than left to rot. Reintroducing Yjs is a protocol project, not a
 // flag flip — see docs/collaboration-crdt-e2ee-decision.md.
 
-export interface CollabUser {
-  userId: string;
-  displayName: string;
-  color: string;
-  x: number;
-  y: number;
-  updatedAt: number;
-}
-
-interface UseCollaborationOptions {
-  onRemoteElements?: (added: DriplElement[], updated: DriplElement[], deleted: string[]) => void;
-  onFullSync?: (elements: DriplElement[]) => void;
-  displayName?: string | null;
-  /** Public file-share token; it is exchanged for a short-lived WS ticket. */
-  shareToken?: string | null;
-}
-
-type ServerMessage =
-  | {
-      type: 'room-state' | 'sync_room_state';
-      elements: DriplElement[];
-      users: { userId: string; userName?: string; displayName?: string; color: string }[];
-      cursors?: Array<{
-        userId: string;
-        x: number;
-        y: number;
-        userName?: string;
-        displayName?: string;
-        color: string;
-      }>;
-      yourUserId?: string;
-      readOnly?: boolean;
-    }
-  | {
-      type: 'scene-update';
-      subtype: 'init' | 'update';
-      elements: DriplElement[];
-    }
-  | {
-      type: 'scene-delta';
-      added?: DriplElement[];
-      updated?: DriplElement[];
-      deleted?: string[];
-    }
-  | { type: 'add_element'; element: DriplElement }
-  | { type: 'update_element'; element: DriplElement }
-  | { type: 'delete_element'; elementId: string }
-  | {
-      type: 'cursor-move' | 'cursor_move';
-      userId: string;
-      x: number;
-      y: number;
-      userName?: string;
-      displayName?: string;
-      color: string;
-    }
-  | {
-      type: 'user_join' | 'user-join';
-      userId: string;
-      userName?: string;
-      displayName?: string;
-      color: string;
-    }
-  | { type: 'user_leave' | 'user-leave'; userId: string }
-  | { type: 'element-lock'; elementId: string; userId: string }
-  | { type: 'element-unlock'; elementId: string; userId: string }
-  | { type: 'viewport-update'; userId: string; panX: number; panY: number; zoom: number }
-  | { type: 'pong' }
-  | { type: 'error'; message: string };
-
-type ClientMessage =
-  | {
-      type: 'join';
-      roomId: string;
-      userId: string;
-      displayName: string;
-      color: string;
-    }
-  | { type: 'leave' }
-  | {
-      type: 'scene-update';
-      subtype: 'init' | 'update';
-      elements: DriplElement[];
-      clientMsgId?: string;
-    }
-  | {
-      type: 'scene-delta';
-      added?: DriplElement[];
-      updated?: DriplElement[];
-      deleted?: string[];
-      clientMsgId?: string;
-    }
-  | {
-      type: 'cursor-move';
-      x: number;
-      y: number;
-      userName: string;
-      displayName: string;
-      color: string;
-    }
-  | { type: 'element-lock'; elementId: string }
-  | { type: 'element-unlock'; elementId: string }
-  | { type: 'viewport-update'; panX: number; panY: number; zoom: number }
-  | { type: 'follow-user'; targetUserId: string }
-  | { type: 'unfollow-user' }
-  | { type: 'ping' };
-
-export interface UseCollaborationReturn {
-  isConnected: boolean;
-  connectionMessage: string;
-  collaborators: CollabUser[];
-  broadcastElements: (nextElements: DriplElement[]) => void;
-  broadcastCursor: (x: number, y: number) => void;
-  lockElement: (_elementId: string) => void;
-  unlockElement: (_elementId: string) => void;
-  followUser: (_targetUserId: string) => void;
-  unfollowUser: () => void;
-  broadcastViewport: (_panX: number, _panY: number, _zoom: number) => void;
-  disconnect: () => void;
-}
+// Wire-protocol types live in lib/collab/protocol.ts. `CollabUser` and the
+// option/return interfaces are re-exported here so existing import sites
+// (`@/hooks/useCollaboration`) keep working.
+export type {
+  CollabUser,
+  UseCollaborationOptions,
+  UseCollaborationReturn,
+} from '@/lib/collab/protocol';
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001';
-
-function safeColor(value: string | null | undefined, fallback: string): string {
-  return value && /^#[0-9a-f]{3,8}$/i.test(value) ? value : fallback;
-}
-
-async function getWsTicket(shareToken?: string | null, signal?: AbortSignal): Promise<string> {
-  return shareToken
-    ? apiClient.getShareWsTicket(shareToken, signal)
-    : apiClient.getWsTicket(signal);
-}
 
 export function useCollaboration(
   roomId: string | null,
@@ -160,17 +52,22 @@ export function useCollaboration(
   const reconnectAttemptRef = useRef(0);
   const lastCursorSentAtRef = useRef(0);
 
-  // Offline queue for messages sent while disconnected
+  // Offline queue for messages sent while disconnected (bounded; see lib/collab/offlineQueue)
   const offlineQueueRef = useRef<Array<{ msg: ClientMessage; timestamp: number }>>([]);
-  const OFFLINE_QUEUE_MAX = 100;
 
   // Follow mode
   const followedUserIdRef = useRef<string | null>(null);
   const viewportBroadcastThrottleRef = useRef(0);
 
-  const [isConnected, setIsConnected] = useState(false);
   const [connectionMessage, setConnectionMessage] = useState('Reconnecting...');
-  const [collaboratorsMap, setCollaboratorsMap] = useState<Map<string, CollabUser>>(new Map());
+
+  // Single source of truth: connection and presence live in the Zustand store
+  // (collabSlice). A previous revision mirrored them in local useState
+  // (isConnected, collaboratorsMap), which meant two sources for the same UI
+  // and double renders on every cursor move. Derive read-only views here.
+  const isConnected = useCanvasStore(state => state.isConnected);
+  const remoteUsers = useCanvasStore(state => state.remoteUsers);
+  const remoteCursors = useCanvasStore(state => state.remoteCursors);
 
   const fallbackUserIdRef = useRef(crypto.randomUUID());
   const userId = useCanvasStore(state => state.userId) ?? fallbackUserIdRef.current;
@@ -181,6 +78,7 @@ export function useCollaboration(
   const addRemoteUser = useCanvasStore(state => state.addRemoteUser);
   const removeRemoteUser = useCanvasStore(state => state.removeRemoteUser);
   const updateRemoteCursor = useCanvasStore(state => state.updateRemoteCursor);
+  const clearRemoteCursors = useCanvasStore(state => state.clearRemoteCursors);
   const clearElementLocks = useCanvasStore(state => state.clearElementLocks);
   const setElementLock = useCanvasStore(state => state.setElementLock);
   const releaseElementLock = useCanvasStore(state => state.releaseElementLock);
@@ -205,11 +103,7 @@ export function useCollaboration(
   const send = useCallback((message: ClientMessage) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) {
       if (message.type === 'scene-update' || message.type === 'scene-delta') {
-        const queue = offlineQueueRef.current;
-        if (queue.length >= OFFLINE_QUEUE_MAX) {
-          queue.shift();
-        }
-        queue.push({ msg: message, timestamp: Date.now() });
+        enqueueOfflineMessage(offlineQueueRef.current, message, OFFLINE_QUEUE_MAX);
       }
       return;
     }
@@ -305,6 +199,13 @@ export function useCollaboration(
     [send]
   );
 
+  const heartbeatLockElement = useCallback(
+    (elementId: string) => {
+      send({ type: 'element-lock-heartbeat', elementId });
+    },
+    [send]
+  );
+
   const followUser = useCallback(
     (targetUserId: string) => {
       followedUserIdRef.current = targetUserId;
@@ -354,12 +255,11 @@ export function useCollaboration(
         window.clearInterval(heartbeatTimerRef.current);
         heartbeatTimerRef.current = null;
       }
-      setIsConnected(false);
-      setConnectionMessage('Disconnected');
       setIsStoreConnected(false);
+      setConnectionMessage('Disconnected');
       useCanvasStore.getState().setReadOnly(false);
       setRemoteUsers(new Map());
-      setCollaboratorsMap(new Map());
+      clearRemoteCursors();
       clearElementLocks();
       return;
     }
@@ -398,33 +298,37 @@ export function useCollaboration(
       }
       wsRef.current = ws;
 
-      ws.onopen = () => {
-        if (disposed || wsRef.current !== ws) {
-          ws.close();
-          return;
-        }
-        reconnectAttemptRef.current = 0;
-        setIsConnected(true);
-        setConnectionMessage('Connected');
-        setIsStoreConnected(true);
-        send({
-          type: 'join',
-          roomId,
-          userId: activeUserIdRef.current,
-          displayName: displayNameRef.current,
-          color: colorRef.current,
-        });
+      const socketCtx = (): SocketLifecycleContext => ({
+        roomId,
+        wsRef,
+        reconnectAttemptRef,
+        reconnectTimerRef,
+        heartbeatTimerRef,
+        shouldReconnectRef,
+        isFirstSyncRef,
+        pendingElementsRef,
+        prevElementsRef,
+        offlineQueueRef,
+        activeUserIdRef,
+        displayNameRef,
+        colorRef,
+        setConnectionMessage,
+        setIsStoreConnected,
+        setRemoteUsers,
+        clearRemoteCursors,
+        clearElementLocks,
+        send,
+        flushElementBroadcast,
+        isCurrentSocket: candidate => !disposed && wsRef.current === candidate,
+        scheduleReconnect: delayMs => {
+          reconnectTimerRef.current = window.setTimeout(connect, delayMs);
+        },
+      });
 
-        // Scene messages are replayed only after the server has acknowledged
-        // the join with `sync_room_state`. Sending them immediately after the
-        // join frame races the server's async authorization/load handler and
-        // can silently drop offline edits.
-        if (heartbeatTimerRef.current) {
-          window.clearInterval(heartbeatTimerRef.current);
-        }
-        heartbeatTimerRef.current = window.setInterval(() => {
-          send({ type: 'ping' });
-        }, 15_000);
+      ws.onopen = () => {
+        // Join, backoff reset, and heartbeat live in
+        // lib/collab/socket-lifecycle so they are unit-testable.
+        handleSocketOpen(ws, socketCtx());
       };
 
       ws.onmessage = (event: MessageEvent) => {
@@ -444,249 +348,33 @@ export function useCollaboration(
         }
         if (!message) return;
 
-        if (message.type === 'sync_room_state' || message.type === 'room-state') {
-          const previousLocalElements = prevElementsRef.current;
-          const synchronizedUserId =
-            typeof message.yourUserId === 'string' && message.yourUserId.length > 0
-              ? message.yourUserId
-              : activeUserIdRef.current;
-          activeUserIdRef.current = synchronizedUserId;
-          setUserId(synchronizedUserId);
-          onFullSyncRef.current?.(message.elements);
-          prevElementsRef.current = message.elements;
-          isFirstSyncRef.current = false;
-          setIsStoreConnected(true);
-          if (typeof message.readOnly === 'boolean') {
-            useCanvasStore.getState().setReadOnly(message.readOnly);
-          }
-
-          const initialUsers = message.users.filter(user => user.userId !== synchronizedUserId);
-          setRemoteUsers(
-            new Map(
-              initialUsers.map(user => [
-                user.userId,
-                {
-                  userId: user.userId,
-                  userName: user.displayName ?? user.userName ?? 'Guest',
-                  color: user.color,
-                },
-              ])
-            )
-          );
-          setCollaboratorsMap(
-            new Map(
-              initialUsers.map(user => [
-                user.userId,
-                {
-                  userId: user.userId,
-                  displayName: user.displayName ?? user.userName ?? 'Guest',
-                  color: user.color,
-                  x: 0,
-                  y: 0,
-                  updatedAt: Date.now(),
-                },
-              ])
-            )
-          );
-          for (const cursor of message.cursors ?? []) {
-            if (cursor.userId === synchronizedUserId) continue;
-            updateRemoteCursor(cursor.userId, {
-              x: cursor.x,
-              y: cursor.y,
-              userName: cursor.displayName ?? cursor.userName ?? 'Guest',
-              color: cursor.color,
-            });
-          }
-
-          // The server has now completed join authorization and loaded the
-          // room. Replay queued scene messages in order, then send the latest
-          // coalesced snapshot if one is waiting. If an element that existed
-          // in our last local snapshot is absent from the authoritative sync,
-          // treat queued updates to that ID as stale rather than resurrecting
-          // a server-side deletion. This is a conservative reconnect guard;
-          // the server still needs durable tombstones for a complete CRDT-
-          // style convergence guarantee.
-          const serverIds = new Set(message.elements.map(element => element.id));
-          const previousIds = new Set(previousLocalElements.map(element => element.id));
-          const queuedMessages = offlineQueueRef.current.splice(0);
-          for (const { msg } of queuedMessages) {
-            let messageToSend = msg;
-            if (msg.type === 'scene-delta') {
-              const added = msg.added?.filter(element => !previousIds.has(element.id));
-              const updated = msg.updated?.filter(
-                element => !previousIds.has(element.id) || serverIds.has(element.id)
-              );
-              if (
-                msg.added &&
-                !added?.length &&
-                msg.updated &&
-                !updated?.length &&
-                !msg.deleted?.length
-              ) {
-                continue;
-              }
-              messageToSend = { ...msg, added, updated };
-            } else if (msg.type === 'scene-update') {
-              const elements = filterReplayPending(msg.elements, previousIds, serverIds);
-              if (elements.length === 0) continue;
-              messageToSend = { ...msg, elements };
-            }
-            if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(messageToSend));
-          }
-          if (pendingElementsRef.current) {
-            const filteredPending = filterReplayPending(
-              pendingElementsRef.current,
-              previousIds,
-              serverIds
-            );
-            pendingElementsRef.current = filteredPending.length > 0 ? filteredPending : null;
-            if (pendingElementsRef.current) flushElementBroadcast();
-          }
-          return;
-        }
-
-        if (message.type === 'scene-update') {
-          if (message.subtype === 'init') {
-            // Legacy init packets are treated as a merge, matching the active
-            // server's versioned reconciliation semantics. The authoritative
-            // replacement path is sync_room_state above; treating init as a
-            // blind local replacement can make the client and server diverge
-            // when a stale packet omits newer elements.
-            onRemoteElementsRef.current?.(message.elements, [], []);
-            prevElementsRef.current = useCanvasStore.getState().elements;
-          } else {
-            // Legacy `update` packets may contain only the accepted subset.
-            // Treat them as a delta and keep the full local baseline used to
-            // compute the next outgoing delta.
-            onRemoteElementsRef.current?.(message.elements, [], []);
-            prevElementsRef.current = useCanvasStore.getState().elements;
-          }
-          return;
-        }
-
-        if (message.type === 'scene-delta') {
-          const added = message.added || [];
-          const updated = message.updated || [];
-          const deleted = message.deleted || [];
-          if (added.length > 0 || updated.length > 0 || deleted.length > 0) {
-            onRemoteElementsRef.current?.(added, updated, deleted);
-            prevElementsRef.current = useCanvasStore.getState().elements;
-          }
-          return;
-        }
-
-        if (message.type === 'cursor_move' || message.type === 'cursor-move') {
-          if (message.userId === activeUserIdRef.current) return;
-          const displayName = message.displayName ?? message.userName ?? 'Guest';
-          updateRemoteCursor(message.userId, {
-            x: message.x,
-            y: message.y,
-            userName: displayName,
-            color: message.color,
-          });
-          setCollaboratorsMap(prev => {
-            const next = new Map(prev);
-            next.set(message.userId, {
-              userId: message.userId,
-              displayName,
-              color: message.color,
-              x: message.x,
-              y: message.y,
-              updatedAt: Date.now(),
-            });
-            return next;
-          });
-          return;
-        }
-
-        if (message.type === 'user_join' || message.type === 'user-join') {
-          if (message.userId === activeUserIdRef.current) return;
-          const displayName = message.displayName ?? message.userName ?? 'Guest';
-          addRemoteUser({
-            userId: message.userId,
-            userName: displayName,
-            color: message.color,
-          });
-          setCollaboratorsMap(prev => {
-            const next = new Map(prev);
-            next.set(message.userId, {
-              userId: message.userId,
-              displayName,
-              color: message.color,
-              x: 0,
-              y: 0,
-              updatedAt: Date.now(),
-            });
-            return next;
-          });
-          return;
-        }
-
-        if (message.type === 'user_leave' || message.type === 'user-leave') {
-          removeRemoteUser(message.userId);
-          setCollaboratorsMap(prev => {
-            const next = new Map(prev);
-            next.delete(message.userId);
-            return next;
-          });
-        }
-
-        if (message.type === 'element-lock') {
-          setElementLock(message.elementId, message.userId);
-          return;
-        }
-
-        if (message.type === 'element-unlock') {
-          releaseElementLock(message.elementId);
-          return;
-        }
-
-        if (message.type === 'viewport-update') {
-          // Apply viewport from followed user
-          if (followedUserIdRef.current === message.userId) {
-            const store = useCanvasStore.getState();
-            store.setPan(message.panX, message.panY);
-            store.setZoom(message.zoom);
-          }
-          return;
-        }
+        // Scene/presence dispatch lives in lib/collab/messageRouter so the
+        // hook stays a transport lifecycle owner.
+        routeCollabMessage(message, {
+          activeUserIdRef,
+          prevElementsRef,
+          isFirstSyncRef,
+          offlineQueueRef,
+          pendingElementsRef,
+          followedUserIdRef,
+          onRemoteElementsRef,
+          onFullSyncRef,
+          setUserId,
+          setIsStoreConnected,
+          setRemoteUsers,
+          updateRemoteCursor,
+          addRemoteUser,
+          removeRemoteUser,
+          setElementLock,
+          releaseElementLock,
+          flushElementBroadcast,
+          sendText: text => ws.send(text),
+          isSocketOpen: () => ws.readyState === WebSocket.OPEN,
+        });
       };
 
       ws.onclose = event => {
-        if (wsRef.current !== ws) return;
-        if (event.code === 4003) {
-          shouldReconnectRef.current = false;
-          offlineQueueRef.current = [];
-          pendingElementsRef.current = null;
-          setConnectionMessage('Access denied');
-          setIsStoreConnected(false);
-          if (heartbeatTimerRef.current) {
-            window.clearInterval(heartbeatTimerRef.current);
-            heartbeatTimerRef.current = null;
-          }
-          return;
-        }
-        setIsConnected(false);
-        setIsStoreConnected(false);
-        setRemoteUsers(new Map());
-        setCollaboratorsMap(new Map());
-        clearElementLocks();
-
-        if (heartbeatTimerRef.current) {
-          window.clearInterval(heartbeatTimerRef.current);
-          heartbeatTimerRef.current = null;
-        }
-
-        if (!shouldReconnectRef.current) return;
-        if (reconnectAttemptRef.current >= 5) {
-          setConnectionMessage('Connection lost — refresh to retry');
-          return;
-        }
-        setConnectionMessage('Reconnecting...');
-        const base = Math.min(30_000, 1000 * 2 ** reconnectAttemptRef.current);
-        const delay = base * (0.5 + Math.random() * 0.5);
-        reconnectAttemptRef.current += 1;
-        reconnectTimerRef.current = window.setTimeout(connect, delay);
+        handleSocketClose(ws, event.code, socketCtx());
       };
     };
 
@@ -695,12 +383,9 @@ export function useCollaboration(
       const now = Date.now();
       state.remoteCursors.forEach((cursor, uid) => {
         if (now - cursor.updatedAt > 5000) {
+          // The collaborators view derives from remoteCursors, so dropping
+          // the cursor here is sufficient — no second map to prune.
           state.removeRemoteCursor(uid);
-          setCollaboratorsMap(prev => {
-            const next = new Map(prev);
-            next.delete(uid);
-            return next;
-          });
         }
       });
     }, 5000);
@@ -743,12 +428,13 @@ export function useCollaboration(
       setIsStoreConnected(false);
       setConnectionMessage('Disconnected');
       setRemoteUsers(new Map());
-      setCollaboratorsMap(new Map());
+      clearRemoteCursors();
     };
   }, [
     WS_URL,
     addRemoteUser,
     clearElementLocks,
+    clearRemoteCursors,
     flushElementBroadcast,
     removeRemoteUser,
     roomId,
@@ -760,7 +446,23 @@ export function useCollaboration(
     updateRemoteCursor,
   ]);
 
-  const collaborators = useMemo(() => Array.from(collaboratorsMap.values()), [collaboratorsMap]);
+  // Derived read-only view over the store's remoteUsers + remoteCursors.
+  // Users without a cursor yet (just joined) render at 0,0.
+  const collaborators: CollabUser[] = useMemo(
+    () =>
+      Array.from(remoteUsers.values()).map(user => {
+        const cursor = remoteCursors.get(user.userId);
+        return {
+          userId: user.userId,
+          displayName: user.userName,
+          color: user.color,
+          x: cursor?.x ?? 0,
+          y: cursor?.y ?? 0,
+          updatedAt: cursor?.updatedAt ?? 0,
+        };
+      }),
+    [remoteUsers, remoteCursors]
+  );
 
   const disconnect = useCallback(() => {
     shouldReconnectRef.current = false;
@@ -777,8 +479,8 @@ export function useCollaboration(
     setIsStoreConnected(false);
     setConnectionMessage('Disconnected');
     setRemoteUsers(new Map());
-    setCollaboratorsMap(new Map());
-  }, []);
+    clearRemoteCursors();
+  }, [clearRemoteCursors, send, setIsStoreConnected, setRemoteUsers]);
 
   return {
     isConnected,
@@ -788,6 +490,7 @@ export function useCollaboration(
     broadcastCursor,
     lockElement,
     unlockElement,
+    heartbeatLockElement,
     followUser,
     unfollowUser,
     broadcastViewport,

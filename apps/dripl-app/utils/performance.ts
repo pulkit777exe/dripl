@@ -32,7 +32,11 @@ export function throttle<TArgs extends unknown[], TReturn>(
   };
 }
 
-const perfEnabled = typeof window !== 'undefined' && 'performance' in window;
+// Keep user timing instrumentation opt-in outside development. The canvas
+// render path can run on every pointer frame; accumulating measures in a
+// production build adds work without a consumer.
+const perfEnabled =
+  typeof window !== 'undefined' && 'performance' in window && process.env.NODE_ENV !== 'production';
 
 export function perfMark(name: string) {
   if (perfEnabled) performance.mark(name);
@@ -42,6 +46,8 @@ export function perfMeasure(name: string, startMark: string, endMark: string) {
   if (!perfEnabled) return 0;
   try {
     const entry = performance.measure(name, startMark, endMark);
+    performance.clearMarks(startMark);
+    performance.clearMarks(endMark);
     return entry.duration;
   } catch {
     return 0;
@@ -64,11 +70,14 @@ export function reportPerf() {
   const entries = performance.getEntriesByType('measure');
   const filtered = entries.filter(e => e.name.endsWith(':render'));
   if (filtered.length === 0) return;
-   
+
+  // eslint-disable-next-line no-console -- opt-in render timing diagnostics
   console.groupCollapsed('[perf] render timings');
-   
+
+  // eslint-disable-next-line no-console -- opt-in render timing diagnostics
   filtered.forEach(e => console.log(`${e.name}: ${e.duration.toFixed(1)}ms`));
-   
+
+  // eslint-disable-next-line no-console -- opt-in render timing diagnostics
   console.groupEnd();
   performance.clearMeasures();
 }

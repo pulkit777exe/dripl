@@ -1,7 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { signToken } from '@dripl/utils/auth';
 
 const mockGenerateContent = vi.fn();
+const mockLimit = vi.fn();
+const mockLimiterOptions: unknown[] = [];
+
 vi.mock('@google/generative-ai', () => ({
   GoogleGenerativeAI: class {
     getGenerativeModel() {
@@ -15,13 +19,21 @@ vi.mock('@upstash/ratelimit', () => ({
     static slidingWindow() {
       return {};
     }
-    limit = vi.fn().mockResolvedValue({ success: true, reset: Date.now() + 60000 });
+
+    constructor(options: unknown) {
+      mockLimiterOptions.push(options);
+    }
+
+    limit = mockLimit;
   },
 }));
 vi.mock('@upstash/redis', () => ({ Redis: class {} }));
 
+const TEST_JWT_SECRET = 'test-jwt-secret-for-ai-rate-limit-tests';
 vi.stubEnv('GEMINI_API_KEY', 'test-api-key');
+vi.stubEnv('JWT_SECRET', TEST_JWT_SECRET);
 vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
+vi.stubEnv('FRONTEND_URL', 'http://localhost:3000');
 
 function successAI() {
   mockGenerateContent.mockResolvedValue({
@@ -29,114 +41,146 @@ function successAI() {
   });
 }
 
-function makeRequest(prompt = 'test', opts?: { cookie?: string; ip?: string }) {
+function makeRequest(
+  prompt = 'test',
+  opts?: { token?: string; userId?: string; ip?: string; authorization?: string }
+) {
   const headers: Record<string, string> = { origin: 'http://localhost:3000' };
-  if (opts?.cookie) headers['cookie'] = `dripl-session=${opts.cookie}`;
+  const token = opts?.token ?? signToken('user-a');
+  if (token) headers.cookie = `dripl-session=${token}`;
+  if (opts?.authorization) headers.authorization = opts.authorization;
   if (opts?.ip) headers['x-forwarded-for'] = opts.ip;
   return new NextRequest('http://localhost:3000/api/ai/generate', {
     method: 'POST',
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, ...(opts?.userId ? { userId: opts.userId } : {}) }),
     headers,
   });
 }
 
-describe('AI rate-limit session-based userId enforcement', () => {
-  let routeModule: { POST: (request: NextRequest) => Promise<Response> };
+describe('AI rate limiting and identity enforcement', () => {
+  let routeModule: {
+    POST: (request: NextRequest) => Promise<Response>;
+    clearAiRateLimitState: () => void;
+  };
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockLimiterOptions.length = 0;
+    mockLimit.mockResolvedValue({ success: true, reset: Date.now() + 60_000 });
+    vi.stubEnv('UPSTASH_REDIS_REST_URL', '');
+    vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', '');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
     vi.resetModules();
     routeModule = await import('@/app/api/ai/generate/route');
+    routeModule.clearAiRateLimitState();
     successAI();
   });
 
-  it('uses dripl-session cookie as the rate-limit key', async () => {
-    const session = 'user-abc-123';
-    for (let i = 0; i < 10; i++) {
-      await routeModule.POST(makeRequest('test', { cookie: session }));
-    }
-    const res = await routeModule.POST(makeRequest('test', { cookie: session }));
-    expect(res.status).toBe(429);
-    const body = await res.json();
-    expect(body.code).toBe('RATE_LIMIT');
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+    vi.stubEnv('GEMINI_API_KEY', 'test-api-key');
+    vi.stubEnv('JWT_SECRET', TEST_JWT_SECRET);
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
+    vi.stubEnv('FRONTEND_URL', 'http://localhost:3000');
   });
 
-  it('different session cookies have independent rate limits', async () => {
-    const sessionA = 'session-A';
-    const sessionB = 'session-B';
-
+  it('uses the verified JWT user as the local rate-limit key', async () => {
+    const token = signToken('user-a');
     for (let i = 0; i < 10; i++) {
-      await routeModule.POST(makeRequest('test', { cookie: sessionA }));
+      const response = await routeModule.POST(makeRequest('test', { token }));
+      expect(response.status).toBe(200);
     }
 
-    const resB = await routeModule.POST(makeRequest('test', { cookie: sessionB }));
-    expect(resB.status).toBe(200);
+    const response = await routeModule.POST(makeRequest('test', { token }));
+    expect(response.status).toBe(429);
+    expect((await response.json()).code).toBe('RATE_LIMIT');
   });
 
-  it('client-supplied userId in body does not affect rate-limit key', async () => {
-    const session = 'real-session';
-    const hackerSession = 'hacker-session';
-    // Exhaust rate limit for real session
+  it('does not let a client-supplied userId rotate the rate-limit bucket', async () => {
+    const token = signToken('real-user');
     for (let i = 0; i < 10; i++) {
-      await routeModule.POST(makeRequest('test', { cookie: session }));
+      await routeModule.POST(makeRequest('test', { token }));
     }
-    // Request with real cookie but forged userId in body should still be rate-limited
-    const headers: Record<string, string> = {
-      origin: 'http://localhost:3000',
-      cookie: `dripl-session=${session}`,
-    };
-    const forgedRequest = new NextRequest('http://localhost:3000/api/ai/generate', {
-      method: 'POST',
-      body: JSON.stringify({ prompt: 'test', userId: hackerSession }),
-      headers,
-    });
-    const res = await routeModule.POST(forgedRequest);
-    expect(res.status).toBe(429);
-    // Verify hacker session is NOT rate-limited (proves cookie was used, not body userId)
-    const resHacker = await routeModule.POST(makeRequest('test', { cookie: hackerSession }));
-    expect(resHacker.status).toBe(200);
+
+    const response = await routeModule.POST(
+      makeRequest('test', { token, userId: 'attacker-user' })
+    );
+    expect(response.status).toBe(429);
+    expect(mockGenerateContent).toHaveBeenCalledTimes(10);
   });
 
-  it('anonymous users fall back to IP-based rate limiting', async () => {
-    const ip = '192.168.1.100';
+  it('gives different signed users independent buckets', async () => {
+    const tokenA = signToken('user-a');
+    const tokenB = signToken('user-b');
     for (let i = 0; i < 10; i++) {
-      await routeModule.POST(makeRequest('test', { ip }));
+      await routeModule.POST(makeRequest('test', { token: tokenA }));
     }
-    const res = await routeModule.POST(makeRequest('test', { ip }));
-    expect(res.status).toBe(429);
-    const body = await res.json();
-    expect(body.code).toBe('RATE_LIMIT');
+
+    const response = await routeModule.POST(makeRequest('test', { token: tokenB }));
+    expect(response.status).toBe(200);
   });
 
-  it('anonymous users with different IPs have independent rate limits', async () => {
-    const ip1 = '10.0.0.1';
-    const ip2 = '10.0.0.2';
+  it('rejects missing and invalid sessions instead of falling back to an IP bucket', async () => {
+    const missing = await routeModule.POST(makeRequest('test', { token: '' }));
+    const invalid = await routeModule.POST(makeRequest('test', { token: 'not-a-jwt' }));
+    const spoofedIp = await routeModule.POST(
+      makeRequest('test', { token: '', ip: '203.0.113.10' })
+    );
 
-    for (let i = 0; i < 10; i++) {
-      await routeModule.POST(makeRequest('test', { ip: ip1 }));
-    }
-
-    const res = await routeModule.POST(makeRequest('test', { ip: ip2 }));
-    expect(res.status).toBe(200);
+    expect(missing.status).toBe(401);
+    expect(invalid.status).toBe(401);
+    expect(spoofedIp.status).toBe(401);
+    expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
-  it('anonymous user without x-forwarded-for gets "unknown" key', async () => {
-    for (let i = 0; i < 10; i++) {
-      await routeModule.POST(makeRequest('test'));
-    }
-    const res = await routeModule.POST(makeRequest('test'));
-    expect(res.status).toBe(429);
+  it('accepts a valid bearer token when a cookie is not available', async () => {
+    const token = signToken('bearer-user');
+    const response = await routeModule.POST(
+      makeRequest('test', { token: '', authorization: `Bearer ${token}` })
+    );
+
+    expect(response.status).toBe(200);
   });
 
-  it('session cookie takes precedence over x-forwarded-for', async () => {
-    const session = 'priority-session';
-    const ip = '172.16.0.1';
-
+  it('expires local buckets and cleans their state without a long-lived timer', async () => {
+    const token = signToken('expiring-user');
     for (let i = 0; i < 10; i++) {
-      await routeModule.POST(makeRequest('test', { cookie: session, ip }));
+      await routeModule.POST(makeRequest('test', { token }));
     }
+    expect((await routeModule.POST(makeRequest('test', { token }))).status).toBe(429);
 
-    const resNoCookie = await routeModule.POST(makeRequest('test', { ip }));
-    expect(resNoCookie.status).toBe(200);
+    vi.advanceTimersByTime(60 * 60 * 1_000 + 1);
+    expect((await routeModule.POST(makeRequest('test', { token }))).status).toBe(200);
+
+    routeModule.clearAiRateLimitState();
+    expect((await routeModule.POST(makeRequest('test', { token }))).status).toBe(200);
+  });
+
+  it('uses the verified user ID, not the raw JWT, as the distributed limiter identifier', async () => {
+    vi.stubEnv('UPSTASH_REDIS_REST_URL', 'https://redis.example.test');
+    vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', 'redis-token');
+    routeModule.clearAiRateLimitState();
+    mockLimit.mockResolvedValue({ success: false, reset: Date.now() + 60_000 });
+
+    const token = signToken('distributed-user');
+    const response = await routeModule.POST(makeRequest('test', { token, userId: 'forged-user' }));
+
+    expect(response.status).toBe(429);
+    expect(mockLimit).toHaveBeenCalledWith('user:distributed-user');
+    expect(mockLimit).not.toHaveBeenCalledWith(expect.stringContaining(token));
+  });
+
+  it('fails closed when the configured distributed limiter is unavailable', async () => {
+    vi.stubEnv('UPSTASH_REDIS_REST_URL', 'https://redis.example.test');
+    vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', 'redis-token');
+    routeModule.clearAiRateLimitState();
+    mockLimit.mockRejectedValue(new Error('redis unavailable'));
+
+    const response = await routeModule.POST(makeRequest('test'));
+    expect(response.status).toBe(503);
+    expect((await response.json()).code).toBe('RATE_LIMIT_UNAVAILABLE');
+    expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 });

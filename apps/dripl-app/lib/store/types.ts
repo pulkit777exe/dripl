@@ -1,14 +1,9 @@
 import type { DriplElement, ArrowStyle } from '@dripl/common';
 import type { RemoteUser, RemoteCursor, Theme, ActiveTool, DrawingLifecycle } from './helpers';
+import type { ElementStyleSnapshot } from '@/lib/canvas/style-transfer';
 
 export type FillStyle =
-  | 'hachure'
-  | 'solid'
-  | 'zigzag'
-  | 'cross-hatch'
-  | 'dots'
-  | 'dashed'
-  | 'zigzag-line';
+  'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'zigzag-line';
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted';
 
 export interface HistoryState {
@@ -27,6 +22,8 @@ export interface CanvasSlice {
   panY: number;
   gridEnabled: boolean;
   gridSize: number;
+  /** Scene background override; null follows the theme default. */
+  canvasBackground: string | null;
   marqueeSelectionMode: 'intersecting' | 'contained';
   currentStrokeColor: string;
   currentBackgroundColor: string;
@@ -42,6 +39,9 @@ export interface CanvasSlice {
   shouldCacheIgnoreZoom: boolean;
   pendingEmbed: { url: string; title?: string } | null;
   spatialVersion: number;
+  /** IDs changed by the most recent transient batch, if the version matches. */
+  spatialChangedIds: string[];
+  spatialChangedIdsVersion: number;
 
   // Drawing state (moved from RoughCanvas local state)
   isDrawing: boolean;
@@ -58,11 +58,18 @@ export interface CanvasSlice {
   addElements: (elements: DriplElement[]) => void;
   updateElement: (id: string, updates: Partial<DriplElement>) => void;
   updateElementTransient: (id: string, updates: Partial<DriplElement>) => void;
+  updateElementsTransient: (updates: ReadonlyMap<string, Partial<DriplElement>>) => void;
   deleteElements: (ids: string[]) => void;
+  /** Bulk move with one history entry; locked elements and bindings follow the drag rules. */
+  translateElements: (ids: string[], dx: number, dy: number) => void;
+  /** Bulk style apply (paste styles) with one history entry; locked elements keep their style. */
+  applyStyleToElements: (ids: string[], style: ElementStyleSnapshot) => void;
   bringForward: (ids: string[]) => void;
   sendBackward: (ids: string[]) => void;
   bringToFront: (ids: string[]) => void;
   sendToBack: (ids: string[]) => void;
+  alignElements: (mode: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void;
+  distributeElements: (axis: 'horizontal' | 'vertical') => void;
   groupElements: (ids: string[]) => void;
   ungroupElements: (ids: string[]) => void;
   setSelectedIds: (ids: Set<string>) => void;
@@ -90,6 +97,7 @@ export interface CanvasSlice {
   clearPendingEmbed: () => void;
   setGridEnabled: (enabled: boolean) => void;
   setGridSize: (size: number) => void;
+  setCanvasBackground: (background: string | null) => void;
   setMarqueeSelectionMode: (mode: 'intersecting' | 'contained') => void;
   setClipboard: (elements: DriplElement[]) => void;
   clearClipboard: () => void;
@@ -150,6 +158,7 @@ export interface CollabSlice {
   removeRemoteUser: (userId: string) => void;
   updateRemoteCursor: (userId: string, cursor: Omit<RemoteCursor, 'updatedAt'>) => void;
   removeRemoteCursor: (userId: string) => void;
+  clearRemoteCursors: () => void;
   setElementLock: (elementId: string, userId: string) => void;
   releaseElementLock: (elementId: string) => void;
   clearElementLocks: () => void;
@@ -168,13 +177,7 @@ export interface UiSlice {
   isPanning: boolean;
   isResizing: boolean;
   isRotating: boolean;
-  textInput: {
-    x: number;
-    y: number;
-    id: string;
-    existingElementId?: string;
-    value: string;
-  } | null;
+  textInput: CanvasTextInput | null;
 
   setTheme: (theme: Theme) => void;
   setFileMetadata: (fileId: string | null, fileName: string) => void;
@@ -187,15 +190,15 @@ export interface UiSlice {
   setIsPanning: (isPanning: boolean) => void;
   setIsResizing: (isResizing: boolean) => void;
   setIsRotating: (isRotating: boolean) => void;
-  setTextInput: (
-    textInput: {
-      x: number;
-      y: number;
-      id: string;
-      existingElementId?: string;
-      value: string;
-    } | null
-  ) => void;
+  setTextInput: (textInput: CanvasTextInput | null) => void;
+}
+
+export interface CanvasTextInput {
+  x: number;
+  y: number;
+  id: string;
+  existingElementId?: string;
+  value: string;
 }
 
 export type CanvasStoreState = CanvasSlice & HistorySlice & CollabSlice & UiSlice;

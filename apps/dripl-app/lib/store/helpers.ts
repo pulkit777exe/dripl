@@ -1,6 +1,6 @@
 import type { DriplElement } from '@dripl/common';
 import { generateKeyBetween } from 'fractional-indexing';
-import { sortElementsByZIndex } from '@/utils/zIndexUtils';
+import { compareZOrder, sortElementsByZIndex } from '@/utils/zIndexUtils';
 
 export const MAX_HISTORY = 100;
 export const MAX_HISTORY_BYTES = 10 * 1024 * 1024; // 10 MB budget for undo history
@@ -105,13 +105,11 @@ export function buildElementsById(elements: readonly DriplElement[]): Map<string
 }
 
 export function sortedInsert(elements: DriplElement[], newElement: DriplElement): DriplElement[] {
-  const newIndex = newElement.fractionalIndex ?? '';
   let lo = 0;
   let hi = elements.length;
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
-    const midIndex = elements[mid]?.fractionalIndex ?? '';
-    if (midIndex < newIndex) {
+    if (compareZOrder(elements[mid]!, newElement) < 0) {
       lo = mid + 1;
     } else {
       hi = mid;

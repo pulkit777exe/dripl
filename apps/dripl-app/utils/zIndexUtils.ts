@@ -3,10 +3,56 @@ import { compareFractionalIndex } from '@dripl/common/reconciliation';
 import { generateKeyBetween } from 'fractional-indexing';
 
 /**
- * Sort elements by fractional index (ascending = back-to-front)
+ * Total deterministic z-order comparison.
+ *
+ * Mirrors Excalidraw's fractional-index tie handling: equal indices break by
+ * element ID so every replica canonicalizes identically instead of depending
+ * on input/Map insertion order.
+ */
+export function compareZOrder(a: DriplElement, b: DriplElement): number {
+  const order = compareFractionalIndex(a.fractionalIndex, b.fractionalIndex);
+  if (order !== 0) return order;
+  if (a.id === b.id) return 0;
+  return a.id < b.id ? -1 : 1;
+}
+
+/**
+ * Sort elements by fractional index (ascending = back-to-front).
+ * Equal indices fall back to element ID for a deterministic total order.
  */
 export function sortElementsByZIndex(elements: DriplElement[]): DriplElement[] {
-  return [...elements].sort((a, b) => compareFractionalIndex(a.fractionalIndex, b.fractionalIndex));
+  return [...elements].sort(compareZOrder);
+}
+
+/**
+ * Repair missing or duplicate fractional indices deterministically.
+ *
+ * Sorts by the total z-order first, then assigns fresh keys (appended after
+ * the last unique key) to any element without an index or sharing one.
+ * The returned array is sorted and has unique indices.
+ */
+export function repairFractionalIndexes(elements: DriplElement[]): DriplElement[] {
+  const sorted = sortElementsByZIndex(elements);
+  const seen = new Set<string>();
+  let lastKey: string | null = null;
+  // Seed lastKey with the greatest existing index so generated keys sort last.
+  for (const el of sorted) {
+    if (el.fractionalIndex != null && !seen.has(el.fractionalIndex)) {
+      seen.add(el.fractionalIndex);
+      if (lastKey === null || el.fractionalIndex > lastKey) lastKey = el.fractionalIndex;
+    }
+  }
+  const repairedSeen = new Set<string>();
+  return sorted.map(el => {
+    if (el.fractionalIndex != null && !repairedSeen.has(el.fractionalIndex)) {
+      repairedSeen.add(el.fractionalIndex);
+      return el;
+    }
+    const newKey = generateKeyBetween(lastKey, null);
+    lastKey = newKey;
+    repairedSeen.add(newKey);
+    return { ...el, fractionalIndex: newKey };
+  });
 }
 
 /**

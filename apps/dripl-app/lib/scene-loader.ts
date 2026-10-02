@@ -1,7 +1,7 @@
 import type { DriplElement } from '@dripl/common';
 import { loadLocalCanvasFromStorage, type LocalCanvasState } from '@/utils/localCanvasStorage';
 import { loadCanvasFromIndexedDB } from '@/lib/canvas-db';
-import { normalizeElement } from '@/utils/canvasUtils';
+import { restoreElements } from '@/lib/scene';
 
 export type SceneSource = 'local' | 'room' | 'file';
 
@@ -37,7 +37,7 @@ export async function loadInitialScene(options: LoadSceneOptions): Promise<Loade
     case 'local': {
       const { elements, appState } = loadLocalCanvasFromStorage();
 
-      const normalizedElements = ((elements as DriplElement[]) || []).map(normalizeElement);
+      const normalizedElements = restoreElements((elements as DriplElement[]) || []);
 
       return {
         source: 'local',
@@ -50,7 +50,7 @@ export async function loadInitialScene(options: LoadSceneOptions): Promise<Loade
     case 'room': {
       const elements = await loadCanvasFromIndexedDB(options.roomId);
 
-      const normalizedElements = elements.map(normalizeElement);
+      const normalizedElements = restoreElements(elements);
 
       if (!normalizedElements.length) {
         return null;
@@ -91,7 +91,7 @@ export async function loadInitialScene(options: LoadSceneOptions): Promise<Loade
         }
       }
 
-      const normalizedElements = elements.map(normalizeElement);
+      const normalizedElements = restoreElements(elements);
 
       return {
         source: 'file',

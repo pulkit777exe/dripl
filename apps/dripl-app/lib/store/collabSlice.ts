@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import type { CanvasStoreState, CollabSlice } from './types';
 
-export const createCollabSlice: StateCreator<CanvasStoreState, [], [], CollabSlice> = (set) => ({
+export const createCollabSlice: StateCreator<CanvasStoreState, [], [], CollabSlice> = set => ({
   roomId: null,
   roomSlug: null,
   isConnected: false,
@@ -46,6 +46,7 @@ export const createCollabSlice: StateCreator<CanvasStoreState, [], [], CollabSli
       remoteCursors.delete(userId);
       return { remoteCursors };
     }),
+  clearRemoteCursors: () => set({ remoteCursors: new Map() }),
 
   setElementLock: (elementId, userId) =>
     set(state => {

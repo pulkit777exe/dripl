@@ -2,33 +2,31 @@
 
 import { useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { DriplElement, LinearElement, Point, NormalizedBinding, ArrowStyle } from '@dripl/common';
+import type { DriplElement, Point, ArrowStyle } from '@dripl/common';
 import { useCanvasStore } from '@/lib/store';
-import { getDistanceToBounds } from '@dripl/math/intersection';
-import { createRectangleElement, type RectangleToolState } from '@/utils/tools/rectangle';
-import { createEllipseElement, type EllipseToolState } from '@/utils/tools/ellipse';
-import { createDiamondElement, type DiamondToolState } from '@/utils/tools/diamond';
-import { createArrowElement, type ArrowToolState, type ArrowBindingInfo } from '@/utils/tools/arrow';
-import { createLineElement, type LineToolState } from '@/utils/tools/line';
-import { createFreedrawElement, type FreedrawToolState } from '@/utils/tools/freedraw';
-import { createFrameElement, type FrameToolState } from '@/utils/tools/frame';
-import { createEmbedElement, type WebEmbedToolState } from '@/utils/tools/webEmbed';
-import { calculateArrowBinding } from '@/utils/arrow-routing';
-import { bindArrowToElement } from '@/utils/arrow-binding';
+import { createRectangleElement } from '@/utils/tools/rectangle';
+import { createEllipseElement } from '@/utils/tools/ellipse';
+import { createDiamondElement } from '@/utils/tools/diamond';
+import { createArrowElement } from '@/utils/tools/arrow';
+import { createLineElement } from '@/utils/tools/line';
+import { createFreedrawElement } from '@/utils/tools/freedraw';
+import { createFrameElement } from '@/utils/tools/frame';
+import { createEmbedElement } from '@/utils/tools/webEmbed';
+import {
+  advanceToolState,
+  bindCommittedArrow,
+  createToolState,
+  detectArrowBindings,
+  isTinyPreview,
+  smoothFinishedPoints,
+  type ActiveToolState,
+  type ToolStartOptions,
+  type ToolTypeName,
+  type ToolUpdateOptions,
+} from '@/lib/draw/tool-state';
 
-export type ToolType =
-  | 'select'
-  | 'rectangle'
-  | 'ellipse'
-  | 'diamond'
-  | 'arrow'
-  | 'line'
-  | 'freedraw'
-  | 'text'
-  | 'image'
-  | 'frame'
-  | 'embed'
-  | 'eraser';
+/** Tool names accepted by startDrawing; pointer events imports this type. */
+export type ToolType = ToolTypeName;
 
 interface BaseToolProps {
   strokeColor: string;
@@ -41,135 +39,19 @@ interface BaseToolProps {
   arrowStyle?: ArrowStyle;
 }
 
-type ActiveToolState =
-  | { type: 'rectangle'; state: RectangleToolState; id: string; seed: number }
-  | { type: 'ellipse'; state: EllipseToolState; id: string; seed: number }
-  | { type: 'diamond'; state: DiamondToolState; id: string; seed: number }
-  | { type: 'arrow'; state: ArrowToolState; id: string; seed: number }
-  | { type: 'line'; state: LineToolState; id: string; seed: number }
-  | { type: 'freedraw'; state: FreedrawToolState; id: string; seed: number }
-  | { type: 'frame'; state: FrameToolState; id: string; seed: number }
-  | { type: 'embed'; state: WebEmbedToolState; id: string; seed: number; url: string; title?: string };
-
-interface StartOptions {
-  shiftKey: boolean;
-  altKey?: boolean;
-}
-
-interface UpdateOptions {
-  shiftKey: boolean;
-  altKey?: boolean;
-  pressure?: number;
-}
-
 export interface UseDrawingToolsReturn {
   startDrawing: (
     point: Point,
     tool: ToolType,
-    options: StartOptions,
+    options: ToolStartOptions,
     baseProps: BaseToolProps,
     elements?: DriplElement[]
   ) => void;
-  updateDrawing: (point: Point, options: UpdateOptions, elements?: DriplElement[]) => void;
+  updateDrawing: (point: Point, options: ToolUpdateOptions, elements?: DriplElement[]) => void;
   finishDrawing: () => DriplElement | null;
   cancelDrawing: () => void;
   bindModeRef: React.MutableRefObject<'orbit' | 'inside'>;
   isDrawing: boolean;
-}
-
-function getDistance(a: Point, b: Point): number {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return Math.sqrt(dx * dx + dy * dy);
-}
-
-function snapAngle(start: Point, end: Point, stepDegrees = 15): Point {
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const distance = Math.sqrt(dx * dx + dy * dy);
-  if (distance === 0) return end;
-  const step = (stepDegrees * Math.PI) / 180;
-  const snappedAngle = Math.round(Math.atan2(dy, dx) / step) * step;
-  return {
-    x: start.x + Math.cos(snappedAngle) * distance,
-    y: start.y + Math.sin(snappedAngle) * distance,
-  };
-}
-
-function perpendicularDistance(point: Point, start: Point, end: Point): number {
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  if (dx === 0 && dy === 0) {
-    return getDistance(point, start);
-  }
-  const numerator = Math.abs(dy * point.x - dx * point.y + end.x * start.y - end.y * start.x);
-  const denominator = Math.sqrt(dx * dx + dy * dy);
-  return numerator / denominator;
-}
-
-function simplifyRdp(points: Point[], epsilon: number): Point[] {
-  if (points.length <= 2) return points;
-
-  const first = points[0];
-  const last = points[points.length - 1];
-  if (!first || !last) return points;
-
-  let maxDistance = -1;
-  let maxIndex = 0;
-
-  for (let i = 1; i < points.length - 1; i += 1) {
-    const point = points[i];
-    if (!point) continue;
-    const distance = perpendicularDistance(point, first, last);
-    if (distance > maxDistance) {
-      maxDistance = distance;
-      maxIndex = i;
-    }
-  }
-
-  if (maxDistance <= epsilon) {
-    return [first, last];
-  }
-
-  const left = simplifyRdp(points.slice(0, maxIndex + 1), epsilon);
-  const right = simplifyRdp(points.slice(maxIndex), epsilon);
-  return [...left.slice(0, -1), ...right];
-}
-
-const BINDING_SNAP_THRESHOLD = 20;
-
-function findNearestShape(
-  point: Point,
-  elements: DriplElement[],
-  excludeId: string,
-  bindMode: 'orbit' | 'inside' = 'orbit'
-): { element: DriplElement; binding: NormalizedBinding } | null {
-  let bestMatch: { element: DriplElement; binding: NormalizedBinding } | null = null;
-  let bestDistance = BINDING_SNAP_THRESHOLD;
-
-  for (const el of elements) {
-    if (el.id === excludeId) continue;
-    if (el.type === 'arrow' || el.type === 'line' || el.type === 'freedraw') continue;
-
-    const binding = calculateArrowBinding(point, el);
-    if (!binding) continue;
-
-    const dist = getDistanceToBounds(point, el);
-
-    if (dist < bestDistance) {
-      bestDistance = dist;
-      bestMatch = {
-        element: el,
-        binding: {
-          elementId: el.id,
-          fixedPoint: { x: binding.focus, y: 0.5 },
-          mode: bindMode,
-        },
-      };
-    }
-  }
-
-  return bestMatch;
 }
 
 export function useDrawingTools(): UseDrawingToolsReturn {
@@ -240,106 +122,15 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     (
       point: Point,
       tool: ToolType,
-      options: StartOptions,
+      options: ToolStartOptions,
       baseProps: BaseToolProps,
       _elements?: DriplElement[]
     ) => {
       const id = uuidv4();
       const seed = Math.floor(Math.random() * 1_000_000);
-      let toolState: ActiveToolState | null = null;
-
-      switch (tool) {
-        case 'rectangle':
-          toolState = {
-            type: 'rectangle',
-            id,
-            seed,
-            state: {
-              startPoint: point,
-              currentPoint: point,
-              shiftKey: options.shiftKey,
-              altKey: options.altKey,
-            },
-          };
-          break;
-        case 'ellipse':
-          toolState = {
-            type: 'ellipse',
-            id,
-            seed,
-            state: {
-              startPoint: point,
-              currentPoint: point,
-              shiftKey: options.shiftKey,
-              altKey: options.altKey,
-            },
-          };
-          break;
-        case 'diamond':
-          toolState = {
-            type: 'diamond',
-            id,
-            seed,
-            state: { startPoint: point, currentPoint: point, shiftKey: options.shiftKey },
-          };
-          break;
-        case 'arrow':
-          bindModeRef.current = options.altKey ? 'inside' : 'orbit';
-          toolState = {
-            type: 'arrow',
-            id,
-            seed,
-            state: {
-              points: [point, point],
-              isComplete: false,
-              isDragging: true,
-              currentPoint: point,
-            },
-          };
-          break;
-        case 'line':
-          toolState = {
-            type: 'line',
-            id,
-            seed,
-            state: {
-              points: [point, point],
-              isComplete: false,
-              shiftKey: options.shiftKey,
-              isDragging: true,
-              currentPoint: point,
-            },
-          };
-          break;
-        case 'freedraw':
-          toolState = {
-            type: 'freedraw',
-            id,
-            seed,
-            state: { points: [point], pressureValues: [0.5], isComplete: false },
-          };
-          break;
-        case 'frame':
-          toolState = {
-            type: 'frame',
-            id,
-            seed,
-            state: { startPoint: point, currentPoint: point, shiftKey: options.shiftKey },
-          };
-          break;
-        case 'embed':
-          toolState = {
-            type: 'embed',
-            id,
-            seed,
-            state: { startPoint: point, currentPoint: point, shiftKey: options.shiftKey },
-            url: '',
-            title: undefined,
-          };
-          break;
-        default:
-          return;
-      }
+      const { toolState, bindMode } = createToolState(tool, point, options, id, seed);
+      if (!toolState) return;
+      if (bindMode) bindModeRef.current = bindMode;
 
       activeRef.current = { toolState, baseProps };
       const initial = buildElement(toolState, baseProps);
@@ -351,71 +142,15 @@ export function useDrawingTools(): UseDrawingToolsReturn {
   );
 
   const updateDrawing = useCallback(
-    (point: Point, options: UpdateOptions, elements?: DriplElement[]) => {
+    (point: Point, options: ToolUpdateOptions, elements?: DriplElement[]) => {
       const { toolState, baseProps } = activeRef.current;
       if (!toolState || !baseProps) return;
 
-      switch (toolState.type) {
-        case 'rectangle':
-          toolState.state = {
-            ...toolState.state,
-            currentPoint: point,
-            shiftKey: options.shiftKey,
-            altKey: options.altKey,
-          };
-          break;
-        case 'ellipse':
-          toolState.state = {
-            ...toolState.state,
-            currentPoint: point,
-            shiftKey: options.shiftKey,
-            altKey: options.altKey,
-          };
-          break;
-        case 'diamond':
-          toolState.state = { ...toolState.state, currentPoint: point, shiftKey: options.shiftKey };
-          break;
-        case 'frame':
-          toolState.state = { ...toolState.state, currentPoint: point, shiftKey: options.shiftKey };
-          break;
-        case 'embed':
-          toolState.state = { ...toolState.state, currentPoint: point, shiftKey: options.shiftKey };
-          break;
-        case 'arrow': {
-          const start = toolState.state.points[0] ?? point;
-          const end = options.shiftKey ? snapAngle(start, point, 15) : point;
-          toolState.state = {
-            ...toolState.state,
-            points: [start, end],
-            currentPoint: end,
-          };
-          break;
-        }
-        case 'line': {
-          const start = toolState.state.points[0] ?? point;
-          const end = options.shiftKey ? snapAngle(start, point, 15) : point;
-          toolState.state = {
-            ...toolState.state,
-            points: [start, end],
-            currentPoint: end,
-            shiftKey: options.shiftKey,
-          };
-          break;
-        }
-        case 'freedraw': {
-          const pressure = options.pressure ?? 0.5;
-          toolState.state = {
-            ...toolState.state,
-            pressure,
-            pressureValues: [...(toolState.state.pressureValues ?? []), pressure],
-            points: [...toolState.state.points, point],
-          };
-          break;
-        }
-      }
+      const next = advanceToolState(toolState, point, options);
+      activeRef.current = { toolState: next, baseProps };
 
-      syncDraftToStore(toolState, baseProps);
-      if (toolState.type === 'arrow' && elements) {
+      syncDraftToStore(next, baseProps);
+      if (next.type === 'arrow' && elements) {
         // Placeholder for future arrow binding support without affecting behavior.
         void elements;
       }
@@ -434,7 +169,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     if (toolState.type === 'freedraw') {
       toolState.state = {
         ...toolState.state,
-        points: simplifyRdp(toolState.state.points, 0.8),
+        points: smoothFinishedPoints(toolState.state.points),
       };
     }
 
@@ -444,52 +179,19 @@ export function useDrawingTools(): UseDrawingToolsReturn {
       return null;
     }
 
-    const isTinyShape =
-      (preview.type === 'rectangle' ||
-        preview.type === 'ellipse' ||
-        preview.type === 'diamond' ||
-        preview.type === 'frame') &&
-      (Math.abs(preview.width) < 5 || Math.abs(preview.height) < 5);
-
-    const isTinyLinear =
-      (preview.type === 'line' || preview.type === 'arrow') &&
-      'points' in preview &&
-      Array.isArray(preview.points) &&
-      preview.points.length >= 2 &&
-      getDistance(preview.points[0] as Point, preview.points[1] as Point) < 5;
-
-    if (isTinyShape || isTinyLinear) {
+    if (isTinyPreview(preview)) {
       setDraftElement(null);
       return null;
     }
 
     // Detect bindings for arrows
-    let startMatch: { element: DriplElement; binding: NormalizedBinding } | null = null;
-    let endMatch: { element: DriplElement; binding: NormalizedBinding } | null = null;
-
-    if (preview.type === 'arrow' && 'points' in preview) {
-      const elements = useCanvasStore.getState().elements;
-      const points = preview.points as Point[];
-      const arrowId = preview.id;
-
-      if (points.length >= 2) {
-        const firstPoint = points[0]!;
-        const lastPoint = points[points.length - 1]!;
-        const startPoint = { x: preview.x + firstPoint.x, y: preview.y + firstPoint.y };
-        const endPoint = { x: preview.x + lastPoint.x, y: preview.y + lastPoint.y };
-
-        startMatch = findNearestShape(startPoint, elements, arrowId, bindModeRef.current);
-        endMatch = findNearestShape(endPoint, elements, arrowId, bindModeRef.current);
-
-        if (startMatch || endMatch) {
-          preview = {
-            ...preview,
-            startBinding: startMatch?.binding,
-            endBinding: endMatch?.binding,
-          };
-        }
-      }
-    }
+    const detected = detectArrowBindings(
+      preview,
+      useCanvasStore.getState().elements,
+      bindModeRef.current
+    );
+    preview = detected.preview;
+    const { startMatch, endMatch } = detected;
 
     updateDraftElement(preview);
     const committed = commitDraft();
@@ -497,28 +199,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     // Update the target shapes' boundElements (reverse index) so arrows follow shapes when dragged
     if (committed && (startMatch || endMatch)) {
       const state = useCanvasStore.getState();
-      let elements = state.elements;
-      if (startMatch) {
-        elements = bindArrowToElement(
-          committed as LinearElement,
-          startMatch.element.id,
-          'start',
-          startMatch.binding.fixedPoint,
-          startMatch.binding.mode,
-          elements,
-        );
-      }
-      if (endMatch) {
-        elements = bindArrowToElement(
-          committed as LinearElement,
-          endMatch.element.id,
-          'end',
-          endMatch.binding.fixedPoint,
-          endMatch.binding.mode,
-          elements,
-        );
-      }
-      state.setElements(elements);
+      state.setElements(bindCommittedArrow(committed, startMatch, endMatch, state.elements));
     }
 
     return committed;

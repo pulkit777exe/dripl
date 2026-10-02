@@ -10,7 +10,7 @@ import {
   MAX_HISTORY,
 } from './helpers';
 
-export const createHistorySlice: StateCreator<CanvasStoreState, [], [], HistorySlice> = (set) => ({
+export const createHistorySlice: StateCreator<CanvasStoreState, [], [], HistorySlice> = set => ({
   past: [],
   future: [],
 
@@ -32,6 +32,7 @@ export const createHistorySlice: StateCreator<CanvasStoreState, [], [], HistoryS
       return {
         elements,
         elementsById: buildElementsById(elements),
+        spatialVersion: state.spatialVersion + 1,
         past: historyPayload.past,
         future: historyPayload.future,
       };
@@ -55,6 +56,7 @@ export const createHistorySlice: StateCreator<CanvasStoreState, [], [], HistoryS
       return {
         elements,
         elementsById: buildElementsById(elements),
+        spatialVersion: state.spatialVersion + 1,
         past: historyPayload.past,
         future: historyPayload.future,
       };
