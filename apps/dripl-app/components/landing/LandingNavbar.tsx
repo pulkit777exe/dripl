@@ -21,6 +21,15 @@ export function LandingNavbar() {
   }, []);
 
   useEffect(() => {
+    if (!mobileOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [mobileOpen]);
+
+  useEffect(() => {
     if (mobileOpen) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -50,7 +59,7 @@ export function LandingNavbar() {
 
         {/* Desktop nav */}
         <div className="hidden items-center gap-8 md:flex">
-          {navLinks.map((link) => (
+          {navLinks.map(link => (
             <a
               key={link.href}
               href={link.href}
@@ -79,9 +88,11 @@ export function LandingNavbar() {
 
         {/* Mobile hamburger */}
         <button
-          onClick={() => setMobileOpen((o) => !o)}
+          onClick={() => setMobileOpen(o => !o)}
           className="flex h-9 w-9 items-center justify-center rounded-md text-[#6B6860] transition-colors hover:bg-[#E8E5DE] hover:text-[#1A1917] md:hidden"
           aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-menu"
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -89,13 +100,16 @@ export function LandingNavbar() {
 
       {/* Mobile slide-down panel */}
       <div
+        id="mobile-menu"
+        aria-hidden={!mobileOpen}
+        inert={!mobileOpen}
         className={`overflow-hidden transition-[max-height,opacity] duration-250 ease-in-out md:hidden ${
           mobileOpen ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
         <div className="border-t border-[#E4E0D9] bg-[#FAFAF7] px-6 py-4">
           <div className="flex flex-col gap-1">
-            {navLinks.map((link) => (
+            {navLinks.map(link => (
               <a
                 key={link.href}
                 href={link.href}

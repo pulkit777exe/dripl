@@ -2,35 +2,50 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  Download,
-  X,
-  Image as ImageIcon,
-  FileCode,
-  FileJson,
-  FileText,
-  Clipboard,
-  Square,
-  Loader2,
-} from 'lucide-react';
+import { X } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/lib/store';
 import { exportCanvas, downloadBlob, importFromJson } from '@/utils/export';
-import { InlineError } from '@/components/ui/ErrorState';
+import { useModalAnimation } from '@/hooks/useModalAnimation';
+import {
+  buildDocumentExportOptions,
+  buildRasterExportOptions,
+  exportFileName,
+  parseExportDimensions,
+  resolveExportScope,
+} from '@/lib/export-options';
+import { ExportActionList } from './export/ExportActionList';
+import { ExportFormatPicker } from './export/ExportFormatPicker';
+import { ExportScaleOptions } from './export/ExportScaleOptions';
+import { ExportStatus } from './export/ExportStatus';
+import type { ExportFormat, ExportScale } from './export/exportTypes';
 
 interface ExportModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type ExportFormat = 'png' | 'svg' | 'json' | 'pdf';
-type ExportScale = 1 | 2 | 3 | 4;
-
 export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const elements = useCanvasStore(useShallow(state => state.elements));
+  const editorState = useCanvasStore(
+    useShallow(state => ({
+      zoom: state.zoom,
+      panX: state.panX,
+      panY: state.panY,
+      currentStrokeColor: state.currentStrokeColor,
+      currentBackgroundColor: state.currentBackgroundColor,
+      currentStrokeWidth: state.currentStrokeWidth,
+      currentRoughness: state.currentRoughness,
+      currentStrokeStyle: state.currentStrokeStyle,
+      currentFillStyle: state.currentFillStyle,
+      activeTool: state.activeTool,
+    }))
+  );
   const setElements = useCanvasStore(state => state.setElements);
   const selectedIds = useCanvasStore(state => state.selectedIds);
+  const canvasBackground = useCanvasStore(state => state.canvasBackground);
+  const exportBackground = canvasBackground ?? '#ffffff';
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState<string | null>(null);
@@ -41,39 +56,8 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const [useCustomSize, setUseCustomSize] = useState(false);
   const [exportSelectionOnly, setExportSelectionOnly] = useState(false);
 
-  const [mounted, setMounted] = useState(false);
-  const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
-  const prevOpen = useRef(false);
+  const { isVisible, modalState } = useModalAnimation(isOpen);
   const successRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isOpen && !prevOpen.current) {
-      prevOpen.current = true;
-      setAnimState('opening');
-    } else if (!isOpen && prevOpen.current) {
-      prevOpen.current = false;
-      setAnimState('closing');
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (animState === 'opening') {
-      const raf = requestAnimationFrame(() => setAnimState('open'));
-      return () => cancelAnimationFrame(raf);
-    }
-    if (animState === 'closing') {
-      const ms =
-        parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
-        ) || 150;
-      const timer = setTimeout(() => setAnimState('closed'), ms);
-      return () => clearTimeout(timer);
-    }
-  }, [animState]);
 
   useEffect(() => {
     if (!exportSuccess || !successRef.current) return;
@@ -85,30 +69,16 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     }
   }, [exportSuccess]);
 
-  if (!mounted || animState === 'closed') return null;
+  if (!isVisible) return null;
 
-  const modalState = animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : '';
-
-  const calculateDimensions = () => {
-    if (!useCustomSize || !customWidth || !customHeight) {
-      return { width: undefined, height: undefined };
-    }
-    return {
-      width: parseInt(customWidth, 10),
-      height: parseInt(customHeight, 10),
-    };
-  };
+  const dims = parseExportDimensions(useCustomSize, customWidth, customHeight);
 
   const handleExport = async (format: ExportFormat) => {
     setExporting(true);
     setExportError(null);
     setExportSuccess(null);
     try {
-      const dims = calculateDimensions();
-      const exportElements =
-        exportSelectionOnly && selectedIds.size > 0
-          ? elements.filter(el => selectedIds.has(el.id))
-          : elements;
+      const exportElements = resolveExportScope(elements, selectedIds, exportSelectionOnly);
 
       if (exportElements.length === 0) {
         setExportError('No elements to export');
@@ -117,7 +87,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
 
       if (format === 'pdf') {
         const pngBlob = await Promise.resolve(
-          exportCanvas('png', exportElements, { scale: 2, background: '#ffffff', padding: 16 })
+          exportCanvas('png', exportElements, buildRasterExportOptions(dims, exportBackground))
         );
         const url = URL.createObjectURL(pngBlob);
         const img = new window.Image();
@@ -139,24 +109,18 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           reader.readAsDataURL(pngBlob);
         });
         pdf.addImage(base64, 'PNG', 0, 0, img.width, img.height);
-        pdf.save(`canvas-${Date.now()}.pdf`);
+        pdf.save(exportFileName('pdf'));
         URL.revokeObjectURL(url);
         setExportSuccess('PDF exported successfully');
         return;
       }
 
-      const options = {
-        scale: dims.width ? dims.width / 1920 : scale,
-        background: '#ffffff',
-        padding: 16,
-        ...(dims.width && dims.height
-          ? { customWidth: dims.width, customHeight: dims.height }
-          : {}),
-      };
+      const options = buildDocumentExportOptions(scale, dims, editorState, exportBackground);
       const blob = await Promise.resolve(exportCanvas(format, exportElements, options));
-      downloadBlob(blob, `canvas-${Date.now()}.${format}`);
+      downloadBlob(blob, exportFileName(format));
       setExportSuccess(`${format.toUpperCase()} exported successfully`);
     } catch (err) {
+      // eslint-disable-next-line no-console -- export failure telemetry
       console.error('Export failed:', err);
       setExportError('Export failed. Please try again.');
     } finally {
@@ -165,10 +129,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   };
 
   const handleCopyToClipboard = async () => {
-    const exportElements =
-      exportSelectionOnly && selectedIds.size > 0
-        ? elements.filter(el => selectedIds.has(el.id))
-        : elements;
+    const exportElements = resolveExportScope(elements, selectedIds, exportSelectionOnly);
 
     if (exportElements.length === 0) {
       setExportError('No elements to copy');
@@ -179,11 +140,12 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     setExportError(null);
     try {
       const blob = await Promise.resolve(
-        exportCanvas('png', exportElements, { scale: 2, background: '#ffffff', padding: 16 })
+        exportCanvas('png', exportElements, buildRasterExportOptions(dims, exportBackground))
       );
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       setExportSuccess('Copied to clipboard');
     } catch (err) {
+      // eslint-disable-next-line no-console -- clipboard export failure telemetry
       console.error('Failed to copy to clipboard:', err);
       setExportError('Failed to copy to clipboard. Try downloading instead.');
     } finally {
@@ -194,7 +156,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const handleImport = async () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'application/json';
+    input.accept = '.excalidraw,application/json';
     input.onchange = async event => {
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
@@ -207,27 +169,13 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         setElements(imported);
         setExportSuccess('Canvas imported successfully');
       } catch (err) {
+        // eslint-disable-next-line no-console -- import failure telemetry
         console.error('Import failed:', err);
         setExportError('Failed to import canvas. Please check the file format.');
       }
     };
     input.click();
   };
-
-  const getFormatIcon = (format: ExportFormat) => {
-    switch (format) {
-      case 'png':
-        return <ImageIcon className="w-4 h-4" />;
-      case 'svg':
-        return <FileCode className="w-4 h-4" />;
-      case 'json':
-        return <FileJson className="w-4 h-4" />;
-      case 'pdf':
-        return <FileText className="w-4 h-4" />;
-    }
-  };
-
-  const inputClass = 'flex-1 px-3 py-1.5 rounded-md text-[13px] outline-none';
 
   const modal = (
     <div
@@ -265,280 +213,41 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         </div>
 
         <div className="p-5 space-y-4">
-          {/* Format Selection */}
-          <div>
-            <label className="text-[12px] font-medium mb-2 block" style={{ color: '#6B6860' }}>
-              Format
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {(['png', 'svg', 'json', 'pdf'] as ExportFormat[]).map(format => (
-                <button
-                  key={format}
-                  onClick={() => setSelectedFormat(format)}
-                  className="flex items-center justify-center gap-1.5 py-2 rounded-md text-[12px] font-medium transition-colors"
-                  style={{
-                    border: selectedFormat === format ? '1px solid #E8462A' : '1px solid #D4D0C9',
-                    backgroundColor: selectedFormat === format ? '#FAE8E5' : '#FAFAF7',
-                    color: selectedFormat === format ? '#E8462A' : '#6B6860',
-                  }}
-                >
-                  {getFormatIcon(format)}
-                  <span className="uppercase">{format}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          <ExportFormatPicker selectedFormat={selectedFormat} onSelect={setSelectedFormat} />
 
-          {/* Scale */}
-          {selectedFormat !== 'json' && selectedFormat !== 'pdf' && (
-            <div>
-              <label className="text-[12px] font-medium mb-2 block" style={{ color: '#6B6860' }}>
-                Scale
-              </label>
-              <div className="space-y-2">
-                <div className="flex gap-1.5">
-                  {([1, 2, 3, 4] as ExportScale[]).map(s => (
-                    <button
-                      key={s}
-                      onClick={() => {
-                        setScale(s);
-                        setUseCustomSize(false);
-                      }}
-                      className="flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors"
-                      style={{
-                        border:
-                          scale === s && !useCustomSize ? '1px solid #E8462A' : '1px solid #D4D0C9',
-                        backgroundColor: scale === s && !useCustomSize ? '#FAE8E5' : '#FAFAF7',
-                        color: scale === s && !useCustomSize ? '#E8462A' : '#6B6860',
-                      }}
-                    >
-                      {s}x
-                    </button>
-                  ))}
-                </div>
-                <label
-                  className="flex items-center gap-2 text-[12px] cursor-pointer"
-                  style={{ color: '#6B6860' }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={useCustomSize}
-                    onChange={e => setUseCustomSize(e.target.checked)}
-                    className="rounded w-3.5 h-3.5"
-                    style={{ accentColor: '#E8462A' }}
-                  />
-                  Custom dimensions
-                </label>
-                {useCustomSize && (
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="number"
-                      placeholder="Width"
-                      value={customWidth}
-                      onChange={e => setCustomWidth(e.target.value)}
-                      className={inputClass}
-                      min={100}
-                      max={10000}
-                    />
-                    <span style={{ color: '#6B6860' }}>×</span>
-                    <input
-                      type="number"
-                      placeholder="Height"
-                      value={customHeight}
-                      onChange={e => setCustomHeight(e.target.value)}
-                      className={inputClass}
-                      min={100}
-                      max={10000}
-                    />
-                    <span className="text-[11px]" style={{ color: '#6B6860' }}>
-                      px
-                    </span>
-                  </div>
-                )}
-                {selectedIds.size > 0 && (
-                  <label
-                    className="flex items-center gap-2 text-[12px] cursor-pointer"
-                    style={{ color: '#6B6860' }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={exportSelectionOnly}
-                      onChange={e => setExportSelectionOnly(e.target.checked)}
-                      className="rounded w-3.5 h-3.5"
-                      style={{ accentColor: '#E8462A' }}
-                    />
-                    <Square size={12} />
-                    Export selected only ({selectedIds.size})
-                  </label>
-                )}
-              </div>
-            </div>
-          )}
+          <ExportScaleOptions
+            selectedFormat={selectedFormat}
+            scale={scale}
+            useCustomSize={useCustomSize}
+            customWidth={customWidth}
+            customHeight={customHeight}
+            selectedCount={selectedIds.size}
+            exportSelectionOnly={exportSelectionOnly}
+            onScale={setScale}
+            onCustomSize={setUseCustomSize}
+            onCustomWidth={setCustomWidth}
+            onCustomHeight={setCustomHeight}
+            onSelectionOnly={setExportSelectionOnly}
+          />
 
-          {/* Export Buttons */}
-          <div className="space-y-1.5 pt-1">
-            <button
-              onClick={() => handleExport('json')}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors"
-              style={{ border: '1px solid #E4E0D9', backgroundColor: '#FAFAF7' }}
-            >
-              <FileJson className="w-4 h-4" style={{ color: '#E8462A' }} />
-              <div className="text-left">
-                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>
-                  Export as JSON
-                </div>
-                <div className="text-[11px]" style={{ color: '#6B6860' }}>
-                  Save all elements as JSON data
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => handleExport('png')}
-              disabled={exporting}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ border: '1px solid #E4E0D9', backgroundColor: '#FAFAF7' }}
-            >
-              <ImageIcon className="w-4 h-4" style={{ color: '#E8462A' }} />
-              <div className="text-left">
-                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>
-                  {exporting ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Exporting...
-                    </span>
-                  ) : (
-                    'Export as PNG'
-                  )}
-                </div>
-                <div className="text-[11px]" style={{ color: '#6B6860' }}>
-                  {useCustomSize
-                    ? `${customWidth || '?'} × ${customHeight || '?'} px`
-                    : `${scale}x scale`}
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => handleExport('svg')}
-              disabled={exporting}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ border: '1px solid #E4E0D9', backgroundColor: '#FAFAF7' }}
-            >
-              <FileCode className="w-4 h-4" style={{ color: '#E8462A' }} />
-              <div className="text-left">
-                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>
-                  {exporting ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Exporting...
-                    </span>
-                  ) : (
-                    'Export as SVG'
-                  )}
-                </div>
-                <div className="text-[11px]" style={{ color: '#6B6860' }}>
-                  Vector graphics (scalable)
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => handleExport('pdf')}
-              disabled={exporting}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ border: '1px solid #E4E0D9', backgroundColor: '#FAFAF7' }}
-            >
-              <FileText className="w-4 h-4" style={{ color: '#E8462A' }} />
-              <div className="text-left">
-                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>
-                  {exporting ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Exporting...
-                    </span>
-                  ) : (
-                    'Export as PDF'
-                  )}
-                </div>
-                <div className="text-[11px]" style={{ color: '#6B6860' }}>
-                  Document format
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={handleCopyToClipboard}
-              disabled={exporting}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ border: '1px solid #E4E0D9', backgroundColor: '#FAFAF7' }}
-            >
-              <Clipboard className="w-4 h-4" style={{ color: '#E8462A' }} />
-              <div className="text-left">
-                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>
-                  {exporting ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Copying...
-                    </span>
-                  ) : (
-                    'Copy to Clipboard'
-                  )}
-                </div>
-                <div className="text-[11px]" style={{ color: '#6B6860' }}>
-                  Copy as PNG image
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={handleImport}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors"
-              style={{ border: '1px solid #E4E0D9', backgroundColor: '#FAFAF7' }}
-            >
-              <Download className="w-4 h-4" style={{ color: '#E8462A' }} />
-              <div className="text-left">
-                <div className="text-[13px] font-medium" style={{ color: '#1A1917' }}>
-                  Import JSON
-                </div>
-                <div className="text-[11px]" style={{ color: '#6B6860' }}>
-                  Merge or replace from exported JSON
-                </div>
-              </div>
-            </button>
-          </div>
+          <ExportActionList
+            exporting={exporting}
+            useCustomSize={useCustomSize}
+            customWidth={customWidth}
+            customHeight={customHeight}
+            scale={scale}
+            onExport={handleExport}
+            onCopy={handleCopyToClipboard}
+            onImport={handleImport}
+          />
         </div>
 
-        {exportError && (
-          <div className="px-5 pb-5">
-            <InlineError message={exportError} onRetry={() => setExportError(null)} />
-          </div>
-        )}
-
-        {exportSuccess && (
-          <div className="px-5 pb-5">
-            <div
-              className="flex items-center gap-2 px-3 py-2 rounded-md"
-              style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}
-            >
-              <span className="t-success-check" data-state="in" aria-hidden="true" ref={successRef}>
-                <svg viewBox="0 0 48 48" fill="none" width="20" height="20">
-                  <circle cx="24" cy="24" r="22" stroke="#22c55e" strokeWidth="4" />
-                  <path
-                    d="M16 24l6 6 10-10"
-                    stroke="#22c55e"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-              <span className="text-[13px] font-medium" style={{ color: '#16A34A' }}>
-                {exportSuccess}
-              </span>
-            </div>
-          </div>
-        )}
+        <ExportStatus
+          exportError={exportError}
+          exportSuccess={exportSuccess}
+          successRef={successRef}
+          onDismissError={() => setExportError(null)}
+        />
       </div>
     </div>
   );

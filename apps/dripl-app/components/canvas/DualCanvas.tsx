@@ -11,6 +11,8 @@ import type { CollaboratorCursor } from '@/renderer/interactiveScene';
 interface DualCanvasProps {
   containerRef: React.RefObject<HTMLDivElement>;
   elements: DriplElement[];
+  /** Viewport candidates from the spatial index for the static layer. */
+  visibleElements?: readonly DriplElement[];
   selectedIds: Set<string>;
   /** The in-progress draft element. NOT part of elements[]. */
   draftElement: DriplElement | null;
@@ -37,6 +39,7 @@ interface DualCanvasProps {
   hoveredBindingId?: string | null;
   startPointBindingId?: string | null;
   shouldCacheIgnoreZoom?: boolean;
+  preservePointerSamples?: boolean;
 }
 
 /**
@@ -56,6 +59,7 @@ interface DualCanvasProps {
 const DualCanvas: React.FC<DualCanvasProps> = ({
   containerRef,
   elements,
+  visibleElements,
   selectedIds,
   draftElement,
   eraserPath,
@@ -77,6 +81,7 @@ const DualCanvas: React.FC<DualCanvasProps> = ({
   hoveredBindingId,
   startPointBindingId,
   shouldCacheIgnoreZoom = false,
+  preservePointerSamples = false,
 }) => {
   return (
     <div
@@ -91,7 +96,7 @@ const DualCanvas: React.FC<DualCanvasProps> = ({
         <StaticCanvas
           containerRef={containerRef}
           elements={elements}
-          selectedIds={selectedIds}
+          visibleElements={visibleElements}
           viewport={viewport}
           gridEnabled={gridEnabled}
           gridSize={gridSize}
@@ -123,6 +128,7 @@ const DualCanvas: React.FC<DualCanvasProps> = ({
           localUserId={localUserId}
           hoveredBindingId={hoveredBindingId}
           startPointBindingId={startPointBindingId}
+          preservePointerSamples={preservePointerSamples}
         />
       </CanvasErrorBoundary>
     </div>
@@ -138,6 +144,7 @@ const DualCanvas: React.FC<DualCanvasProps> = ({
 const areEqual = (prev: DualCanvasProps, next: DualCanvasProps): boolean => {
   return (
     prev.elements === next.elements &&
+    prev.visibleElements === next.visibleElements &&
     prev.selectedIds === next.selectedIds &&
     prev.draftElement === next.draftElement &&
     prev.eraserPath === next.eraserPath &&
@@ -158,7 +165,8 @@ const areEqual = (prev: DualCanvasProps, next: DualCanvasProps): boolean => {
     prev.localUserId === next.localUserId &&
     prev.hoveredBindingId === next.hoveredBindingId &&
     prev.startPointBindingId === next.startPointBindingId &&
-    prev.shouldCacheIgnoreZoom === next.shouldCacheIgnoreZoom
+    prev.shouldCacheIgnoreZoom === next.shouldCacheIgnoreZoom &&
+    prev.preservePointerSamples === next.preservePointerSamples
   );
 };
 

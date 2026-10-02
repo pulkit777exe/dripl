@@ -2,24 +2,27 @@
 
 import dynamic from 'next/dynamic';
 import { useCanvasStore } from '@/lib/store';
-import {
-  Download,
-  Copy,
-  Trash2,
-  ChevronDown,
-  ChevronUp,
-  ChevronsDown,
-  ChevronsUp,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignVerticalJustifyCenter,
-} from 'lucide-react';
 import { useState } from 'react';
-import type { DriplElement, ArrowStyle, ArrowheadType, LinearElement } from '@dripl/common';
+import type { DriplElement } from '@dripl/common';
+import { ArrangeSection } from './properties/ArrangeSection';
+import { BackgroundSection, StrokeSection } from './properties/ColorSections';
+import { FontFamilySection, FontSizeSection } from './properties/TypographySection';
+import {
+  EdgesSection,
+  SloppinessSection,
+  StrokeStyleSection,
+  StrokeWidthSection,
+} from './properties/StrokeSections';
+import { ArrowTypeSection, ArrowheadsSection } from './properties/ArrowSections';
+import {
+  ActionsSection,
+  AlignSection,
+  GlobalExportSection,
+  LayersSection,
+  OpacitySection,
+} from './properties/EffectSections';
 
 const ExportModal = dynamic(() => import('./ExportModal').then(m => m.ExportModal), { ssr: false });
-import { FONT_PREFERENCES, getDefaultFontFamily } from '@/utils/fontPreferences';
 
 interface ElementPropertiesProps {
   selectedElement: DriplElement | null;
@@ -27,26 +30,6 @@ interface ElementPropertiesProps {
   onDeleteElement?: () => void;
   onDuplicateElement?: () => void;
 }
-
-const STROKE_COLORS = [
-  { value: '#1e1e1e', label: 'Black' },
-  { value: '#e03131', label: 'Red' },
-  { value: '#2f9e44', label: 'Green' },
-  { value: '#1971c2', label: 'Blue' },
-  { value: '#f08c00', label: 'Orange' },
-  { value: '#6965db', label: 'Purple' },
-  { value: '#c2255c', label: 'Pink' },
-  { value: '#ffffff', label: 'White' },
-];
-
-const BACKGROUND_COLORS = [
-  { value: 'transparent', label: 'None' },
-  { value: '#ffc9c9', label: 'Light Red' },
-  { value: '#b2f2bb', label: 'Light Green' },
-  { value: '#a5d8ff', label: 'Light Blue' },
-  { value: '#ffec99', label: 'Light Yellow' },
-  { value: '#e0dcff', label: 'Light Purple' },
-];
 
 const SHAPE_PROPERTIES: Record<string, string[]> = {
   rectangle: [
@@ -103,94 +86,6 @@ const SHAPE_PROPERTIES: Record<string, string[]> = {
   embed: ['strokeColor', 'opacity', 'layers', 'actions'],
 };
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <label
-      className="text-[11px] font-semibold uppercase tracking-wider select-none"
-      style={{ color: 'var(--color-panel-label)' }}
-    >
-      {children}
-    </label>
-  );
-}
-
-interface RowBtnProps {
-  active: boolean;
-  onClick: () => void;
-  title?: string;
-  children: React.ReactNode;
-}
-
-function RowBtn({ active, onClick, title, children }: RowBtnProps) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className="flex-1 h-7 rounded flex items-center justify-center transition-all duration-120"
-      style={
-        active
-          ? {
-              backgroundColor: 'var(--color-panel-btn-active)',
-              color: 'var(--color-panel-btn-active-text, #fff)',
-              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.15)',
-            }
-          : {
-              backgroundColor: 'var(--color-panel-btn-bg)',
-              color: 'var(--color-panel-text)',
-            }
-      }
-      onMouseEnter={e => {
-        if (!active)
-          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-            'var(--color-panel-btn-hover)';
-      }}
-      onMouseLeave={e => {
-        if (!active)
-          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-            'var(--color-panel-btn-bg)';
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ActionBtn({
-  onClick,
-  title,
-  danger,
-  children,
-}: {
-  onClick?: () => void;
-  title?: string;
-  danger?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className="flex-1 h-7 rounded flex items-center justify-center transition-all duration-120"
-      style={{
-        backgroundColor: 'var(--color-panel-btn-bg)',
-        color: 'var(--color-panel-text)',
-      }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLButtonElement).style.backgroundColor = danger
-          ? 'rgba(224,49,49,0.15)'
-          : 'var(--color-panel-btn-hover)';
-        if (danger) (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-destructive)';
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--color-panel-btn-bg)';
-        (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-panel-text)';
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
 export function PropertiesPanel({
   selectedElement,
   onUpdateElement,
@@ -199,24 +94,7 @@ export function PropertiesPanel({
 }: Partial<ElementPropertiesProps> = {}) {
   const [showExportModal, setShowExportModal] = useState(false);
 
-  const currentStrokeColor = useCanvasStore(s => s.currentStrokeColor);
-  const currentBackgroundColor = useCanvasStore(s => s.currentBackgroundColor);
-  const currentStrokeWidth = useCanvasStore(s => s.currentStrokeWidth);
-  const currentRoughness = useCanvasStore(s => s.currentRoughness);
-  const currentStrokeStyle = useCanvasStore(s => s.currentStrokeStyle);
-  const currentArrowStyle = useCanvasStore(s => s.currentArrowStyle);
-
-  const setCurrentStrokeColor = useCanvasStore(s => s.setCurrentStrokeColor);
-  const setCurrentBackgroundColor = useCanvasStore(s => s.setCurrentBackgroundColor);
-  const setCurrentStrokeWidth = useCanvasStore(s => s.setCurrentStrokeWidth);
-  const setCurrentRoughness = useCanvasStore(s => s.setCurrentRoughness);
-  const setCurrentStrokeStyle = useCanvasStore(s => s.setCurrentStrokeStyle);
-  const setCurrentArrowStyle = useCanvasStore(s => s.setCurrentArrowStyle);
-
-  const bringForward = useCanvasStore(s => s.bringForward);
-  const sendBackward = useCanvasStore(s => s.sendBackward);
-  const bringToFront = useCanvasStore(s => s.bringToFront);
-  const sendToBack = useCanvasStore(s => s.sendToBack);
+  const selectedIds = useCanvasStore(s => s.selectedIds);
 
   const updateProp = (property: string, value: unknown) => {
     if (!selectedElement || !onUpdateElement) return;
@@ -225,13 +103,6 @@ export function PropertiesPanel({
 
   const visibleProps = selectedElement ? (SHAPE_PROPERTIES[selectedElement.type] ?? []) : [];
   const showProp = (p: string) => !selectedElement || visibleProps.includes(p);
-
-  const strokeColor = selectedElement?.strokeColor ?? currentStrokeColor;
-  const backgroundColor = selectedElement?.backgroundColor ?? currentBackgroundColor;
-  const strokeWidth = selectedElement?.strokeWidth ?? currentStrokeWidth;
-  const roughness = selectedElement?.roughness ?? currentRoughness;
-  const strokeStyle = selectedElement?.strokeStyle ?? currentStrokeStyle;
-  const opacity = selectedElement?.opacity ?? 1;
 
   const panelClass = 't-panel-slide';
 
@@ -247,37 +118,11 @@ export function PropertiesPanel({
           border: '1px solid var(--color-panel-border)',
         }}
       >
+        {selectedIds.size > 1 && <ArrangeSection />}
+
         {/* ── Stroke colour ─────────────────────────────────────────────── */}
         {showProp('strokeColor') && (
-          <div className="space-y-1.5">
-            <SectionLabel>Stroke</SectionLabel>
-            <div className="flex flex-wrap gap-1.5">
-              {STROKE_COLORS.map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() =>
-                    selectedElement
-                      ? updateProp('strokeColor', value)
-                      : setCurrentStrokeColor(value)
-                  }
-                  title={label}
-                  aria-label={label}
-                  className="w-5 h-5 rounded transition-all duration-120"
-                  style={{
-                    backgroundColor: value,
-                    border:
-                      strokeColor === value
-                        ? '2px solid var(--color-panel-text)'
-                        : value === '#ffffff'
-                          ? '1.5px solid var(--color-panel-border)'
-                          : '2px solid transparent',
-                    transform: strokeColor === value ? 'scale(1.18)' : 'scale(1)',
-                    boxShadow: strokeColor === value ? '0 0 0 1px var(--color-panel-bg)' : 'none',
-                  }}
-                />
-              ))}
-            </div>
-          </div>
+          <StrokeSection selectedElement={selectedElement} updateProp={updateProp} />
         )}
 
         {/* Section divider */}
@@ -287,38 +132,7 @@ export function PropertiesPanel({
 
         {/* ── Background colour ─────────────────────────────────────────── */}
         {showProp('background') && (
-          <div className="space-y-1.5">
-            <SectionLabel>Background</SectionLabel>
-            <div className="flex flex-wrap gap-1.5">
-              {BACKGROUND_COLORS.map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() =>
-                    selectedElement
-                      ? updateProp('backgroundColor', value)
-                      : setCurrentBackgroundColor(value)
-                  }
-                  title={label}
-                  aria-label={label}
-                  className={`w-5 h-5 rounded transition-all duration-120${
-                    value === 'transparent'
-                      ? " bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22%3E%3Crect width=%224%22 height=%224%22 fill=%22%23ddd%22/%3E%3Crect x=%224%22 y=%224%22 width=%224%22 height=%224%22 fill=%22%23ddd%22/%3E%3C/svg%3E')]"
-                      : ''
-                  }`}
-                  style={{
-                    backgroundColor: value === 'transparent' ? undefined : value,
-                    border:
-                      backgroundColor === value
-                        ? '2px solid var(--color-panel-text)'
-                        : '2px solid transparent',
-                    transform: backgroundColor === value ? 'scale(1.18)' : 'scale(1)',
-                    boxShadow:
-                      backgroundColor === value ? '0 0 0 1px var(--color-panel-bg)' : 'none',
-                  }}
-                />
-              ))}
-            </div>
-          </div>
+          <BackgroundSection selectedElement={selectedElement} updateProp={updateProp} />
         )}
 
         {/* Divider when both stroke and bg are visible */}
@@ -330,24 +144,7 @@ export function PropertiesPanel({
         {showProp('fontSize') && (
           <>
             <div className="h-px my-2" style={{ backgroundColor: 'var(--color-panel-divider)' }} />
-            <div className="space-y-1.5">
-              <SectionLabel>Font size</SectionLabel>
-              <div className="flex gap-1">
-                {[12, 16, 20, 24, 32, 48].map(size => (
-                  <button
-                    key={size}
-                    onClick={() => updateProp('fontSize', size)}
-                    className={`flex-1 py-1.5 rounded-md text-[11px] font-medium transition-all duration-150 ${
-                      selectedElement?.fontSize === size
-                        ? 'bg-[#E8462A] text-white shadow-sm'
-                        : 'bg-[#D4D0C9] text-[#5A5750] hover:bg-[#C8C4BC]'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <FontSizeSection selectedElement={selectedElement} updateProp={updateProp} />
           </>
         )}
 
@@ -355,365 +152,64 @@ export function PropertiesPanel({
         {showProp('fontFamily') && (
           <>
             <div className="h-px my-2" style={{ backgroundColor: 'var(--color-panel-divider)' }} />
-            <div className="space-y-1.5">
-              <SectionLabel>Font</SectionLabel>
-              <div className="flex gap-1 flex-wrap">
-                {Object.entries(FONT_PREFERENCES).map(([key, value]) => (
-                  <button
-                    key={key}
-                    onClick={() => updateProp('fontFamily', value)}
-                    className={`px-2.5 py-1.5 rounded-md text-[10px] font-medium transition-all duration-150 ${
-                      selectedElement?.fontFamily === value
-                        ? 'bg-[#E8462A] text-white shadow-sm'
-                        : 'bg-[#D4D0C9] text-[#5A5750] hover:bg-[#C8C4BC]'
-                    }`}
-                    style={{ fontFamily: value }}
-                  >
-                    {key}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <FontFamilySection selectedElement={selectedElement} updateProp={updateProp} />
           </>
         )}
 
         {/* ── Stroke width ──────────────────────────────────────────────── */}
         {showProp('strokeWidth') && (
-          <div className="space-y-1.5">
-            <SectionLabel>Stroke width</SectionLabel>
-            <div className="flex gap-1">
-              {[1, 2, 4].map(w => (
-                <RowBtn
-                  key={w}
-                  active={strokeWidth === w}
-                  onClick={() =>
-                    selectedElement ? updateProp('strokeWidth', w) : setCurrentStrokeWidth(w)
-                  }
-                  title={`Width ${w}`}
-                >
-                  <div
-                    className="rounded-full"
-                    style={{
-                      width: w * 5 + 4,
-                      height: w + 1,
-                      backgroundColor: 'currentColor',
-                    }}
-                  />
-                </RowBtn>
-              ))}
-            </div>
-          </div>
+          <StrokeWidthSection selectedElement={selectedElement} updateProp={updateProp} />
         )}
 
         {/* ── Stroke style ──────────────────────────────────────────────── */}
         {showProp('strokeStyle') && (
-          <div className="space-y-1.5">
-            <SectionLabel>Stroke style</SectionLabel>
-            <div className="flex gap-1">
-              {(['solid', 'dashed', 'dotted'] as const).map(s => (
-                <RowBtn
-                  key={s}
-                  active={strokeStyle === s}
-                  onClick={() =>
-                    selectedElement ? updateProp('strokeStyle', s) : setCurrentStrokeStyle(s)
-                  }
-                  title={s}
-                >
-                  <div
-                    className="w-5 border-t-2"
-                    style={{
-                      borderStyle: s,
-                      borderColor: 'currentColor',
-                    }}
-                  />
-                </RowBtn>
-              ))}
-            </div>
-          </div>
+          <StrokeStyleSection selectedElement={selectedElement} updateProp={updateProp} />
         )}
 
         {/* ── Sloppiness ────────────────────────────────────────────────── */}
         {showProp('sloppiness') && (
-          <div className="space-y-1.5">
-            <SectionLabel>Sloppiness</SectionLabel>
-            <div className="flex gap-1">
-              {[0, 1, 2].map(level => (
-                <RowBtn
-                  key={level}
-                  active={roughness === level}
-                  onClick={() =>
-                    selectedElement ? updateProp('roughness', level) : setCurrentRoughness(level)
-                  }
-                  title={['Architect', 'Artist', 'Cartoonist'][level]}
-                >
-                  <svg
-                    width="16"
-                    height="14"
-                    viewBox="0 0 24 18"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  >
-                    {level === 0 && <path d="M4 9h16" />}
-                    {level === 1 && <path d="M4 9c3-2 5 2 8 0s5-2 8 0" />}
-                    {level === 2 && <path d="M4 9c1-3 2 3 4 0s2 3 4 0 2 3 4 0 2 3 4 0" />}
-                  </svg>
-                </RowBtn>
-              ))}
-            </div>
-          </div>
+          <SloppinessSection selectedElement={selectedElement} updateProp={updateProp} />
         )}
 
         {/* ── Edges ─────────────────────────────────────────────────────── */}
         {showProp('edges') && (
-          <div className="space-y-1.5">
-            <SectionLabel>Edges</SectionLabel>
-            <div className="flex gap-1">
-              {(['sharp', 'round'] as const).map(edge => (
-                <RowBtn
-                  key={edge}
-                  active={(selectedElement as Record<string, unknown>)?.edges === edge}
-                  onClick={() => updateProp('edges', edge)}
-                  title={edge}
-                >
-                  <div
-                    className={`w-4 h-4 border-2 ${edge === 'round' ? 'rounded' : ''}`}
-                    style={{ borderColor: 'currentColor' }}
-                  />
-                </RowBtn>
-              ))}
-            </div>
-          </div>
+          <EdgesSection selectedElement={selectedElement} updateProp={updateProp} />
         )}
 
         {/* ── Arrow type ────────────────────────────────────────────────── */}
         {showProp('arrowType') && (
-          <div className="space-y-1.5">
-            <SectionLabel>Arrow type</SectionLabel>
-            <div className="flex gap-1">
-              {(['straight', 'curved', 'elbow'] as const).map(type => (
-                <RowBtn
-                  key={type}
-                  active={
-                    (selectedElement && 'arrowStyle' in selectedElement
-                      ? (selectedElement as LinearElement).arrowStyle
-                      : currentArrowStyle) === type
-                  }
-                  onClick={() =>
-                    selectedElement ? updateProp('arrowStyle', type) : setCurrentArrowStyle(type)
-                  }
-                  title={type}
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    {type === 'straight' && <path d="M5 12h14M15 6l6 6-6 6" />}
-                    {type === 'curved' && <path d="M5 19c4-8 11-12 14-7M15 6l6 6-6 6" />}
-                    {type === 'elbow' && <path d="M5 19v-7h14M15 6l6 6-6 6" />}
-                  </svg>
-                </RowBtn>
-              ))}
-            </div>
-          </div>
+          <ArrowTypeSection selectedElement={selectedElement} updateProp={updateProp} />
         )}
 
         {/* ── Arrowheads ────────────────────────────────────────────────── */}
         {showProp('arrowheads') && (
-          <div className="space-y-1.5">
-            <SectionLabel>Start arrowhead</SectionLabel>
-            <div className="flex gap-1">
-              {(['none', 'triangle', 'dot', 'bar', 'diamond'] as const).map(type => (
-                <RowBtn
-                  key={`start-${type}`}
-                  active={
-                    (selectedElement && 'arrowHeads' in selectedElement
-                      ? (selectedElement as LinearElement).arrowHeads?.start
-                      : undefined) === type
-                  }
-                  onClick={() => {
-                    const currentArrowHeads =
-                      selectedElement && 'arrowHeads' in selectedElement
-                        ? ((selectedElement as LinearElement).arrowHeads ?? {})
-                        : {};
-                    updateProp('arrowHeads', {
-                      ...currentArrowHeads,
-                      start: type,
-                    });
-                  }}
-                  title={type}
-                >
-                  <span className="text-xs">
-                    {type === 'none' && '✕'}
-                    {type === 'triangle' && '◀'}
-                    {type === 'dot' && '●'}
-                    {type === 'bar' && '|'}
-                    {type === 'diamond' && '◆'}
-                  </span>
-                </RowBtn>
-              ))}
-            </div>
-            <SectionLabel>End arrowhead</SectionLabel>
-            <div className="flex gap-1">
-              {(['none', 'triangle', 'dot', 'bar', 'diamond'] as const).map(type => (
-                <RowBtn
-                  key={`end-${type}`}
-                  active={
-                    (selectedElement && 'arrowHeads' in selectedElement
-                      ? ((selectedElement as LinearElement).arrowHeads?.end ?? 'triangle')
-                      : 'triangle') === type
-                  }
-                  onClick={() => {
-                    const currentArrowHeads =
-                      selectedElement && 'arrowHeads' in selectedElement
-                        ? ((selectedElement as LinearElement).arrowHeads ?? {})
-                        : {};
-                    updateProp('arrowHeads', {
-                      ...currentArrowHeads,
-                      end: type,
-                    });
-                  }}
-                  title={type}
-                >
-                  <span className="text-xs">
-                    {type === 'none' && '✕'}
-                    {type === 'triangle' && '▶'}
-                    {type === 'dot' && '●'}
-                    {type === 'bar' && '|'}
-                    {type === 'diamond' && '◆'}
-                  </span>
-                </RowBtn>
-              ))}
-            </div>
-          </div>
+          <ArrowheadsSection selectedElement={selectedElement} updateProp={updateProp} />
         )}
 
         {/* ── Opacity ───────────────────────────────────────────────────── */}
         {showProp('opacity') && (
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center">
-              <SectionLabel>Opacity</SectionLabel>
-              <span className="text-xs tabular-nums" style={{ color: 'var(--color-panel-label)' }}>
-                {Math.round(opacity * 100)}
-              </span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={Math.round(opacity * 100)}
-              onChange={e =>
-                selectedElement ? updateProp('opacity', Number(e.target.value) / 100) : undefined
-              }
-              className="w-full"
-            />
-          </div>
+          <OpacitySection selectedElement={selectedElement} updateProp={updateProp} />
         )}
 
         {/* ── Layers ────────────────────────────────────────────────────── */}
         {showProp('layers') && (
-          <div className="space-y-1.5">
-            <SectionLabel>Layers</SectionLabel>
-            <div className="flex gap-1">
-              <ActionBtn
-                onClick={() => selectedElement && sendToBack([selectedElement.id])}
-                title="Send to back"
-              >
-                <ChevronsDown size={13} />
-              </ActionBtn>
-              <ActionBtn
-                onClick={() => selectedElement && sendBackward([selectedElement.id])}
-                title="Send backward"
-              >
-                <ChevronDown size={13} />
-              </ActionBtn>
-              <ActionBtn
-                onClick={() => selectedElement && bringForward([selectedElement.id])}
-                title="Bring forward"
-              >
-                <ChevronUp size={13} />
-              </ActionBtn>
-              <ActionBtn
-                onClick={() => selectedElement && bringToFront([selectedElement.id])}
-                title="Bring to front"
-              >
-                <ChevronsUp size={13} />
-              </ActionBtn>
-            </div>
-          </div>
+          <LayersSection selectedElement={selectedElement} updateProp={updateProp} />
         )}
 
         {/* ── Align ─────────────────────────────────────────────────────── */}
-        {showProp('align') && (
-          <div className="space-y-1.5">
-            <SectionLabel>Align</SectionLabel>
-            <div className="flex gap-1 flex-wrap">
-              <ActionBtn title="Align left">
-                <AlignLeft size={13} />
-              </ActionBtn>
-              <ActionBtn title="Align center">
-                <AlignCenter size={13} />
-              </ActionBtn>
-              <ActionBtn title="Align right">
-                <AlignRight size={13} />
-              </ActionBtn>
-              <ActionBtn title="Align middle">
-                <AlignVerticalJustifyCenter size={13} />
-              </ActionBtn>
-            </div>
-          </div>
-        )}
+        {showProp('align') && selectedIds.size > 1 && <AlignSection />}
 
         {/* ── Actions ───────────────────────────────────────────────────── */}
         {showProp('actions') && (
-          <div className="space-y-1.5">
-            <div className="h-px" style={{ backgroundColor: 'var(--color-panel-divider)' }} />
-            <div className="flex gap-1">
-              <ActionBtn onClick={onDuplicateElement} title="Duplicate">
-                <Copy size={13} />
-              </ActionBtn>
-              <ActionBtn onClick={onDeleteElement} title="Delete" danger>
-                <Trash2 size={13} />
-              </ActionBtn>
-              <ActionBtn onClick={() => setShowExportModal(true)} title="Export">
-                <Download size={13} />
-              </ActionBtn>
-            </div>
-          </div>
+          <ActionsSection
+            onDuplicate={onDuplicateElement}
+            onDelete={onDeleteElement}
+            onExport={() => setShowExportModal(true)}
+          />
         )}
 
         {/* ── Global export (no selection) ──────────────────────────────── */}
-        {!selectedElement && (
-          <div className="pt-2" style={{ borderTop: '1px solid var(--color-panel-divider)' }}>
-            <button
-              onClick={() => setShowExportModal(true)}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs transition-all duration-120"
-              style={{
-                backgroundColor: 'var(--color-panel-btn-bg)',
-                color: 'var(--color-panel-label)',
-                border: '1px solid var(--color-panel-border)',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  'var(--color-panel-btn-hover)';
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  'var(--color-panel-btn-bg)';
-              }}
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export
-            </button>
-          </div>
-        )}
+        {!selectedElement && <GlobalExportSection onExport={() => setShowExportModal(true)} />}
       </div>
 
       <ExportModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} />

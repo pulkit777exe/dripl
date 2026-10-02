@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
-import Link from 'next/link';
 import { PenLine } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
@@ -15,7 +14,14 @@ type AuthShellProps = {
   onErrorShake?: () => void;
 };
 
-export function AuthShell({ title, subtitle, children, footer, isError, onErrorShake }: AuthShellProps) {
+export function AuthShell({
+  title,
+  subtitle,
+  children,
+  footer,
+  isError,
+  onErrorShake,
+}: AuthShellProps) {
   const inputRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,7 +38,7 @@ export function AuthShell({ title, subtitle, children, footer, isError, onErrorS
   }, [isError]);
 
   return (
-    <div className="flex min-h-dvh w-full overflow-hidden">
+    <div className="flex min-h-dvh w-full overflow-x-hidden overflow-y-auto">
       {/* Left — Maple image fills entire panel */}
       <div className="relative hidden w-[52%] lg:block">
         <Image
@@ -46,7 +52,7 @@ export function AuthShell({ title, subtitle, children, footer, isError, onErrorS
       </div>
 
       {/* Right — Form panel */}
-      <div className="flex w-full flex-col items-center justify-center bg-[#F5F3EE] px-6 py-10 sm:px-12 lg:w-[48%]">
+      <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-[#F5F3EE] px-6 py-10 sm:px-12 lg:w-[48%]">
         <div className="w-full max-w-95">
           {/* Logo */}
           <div className="mb-8 flex items-center gap-2">

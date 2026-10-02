@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { Frame, Globe, Zap, Sparkles, ChevronDown, Wand2, Library } from 'lucide-react';
 import { useCanvasStore } from '@/lib/store';
@@ -36,15 +37,26 @@ function ToolIcon({
   return <Icon size={size} className={className} />;
 }
 
-export function ExtraToolsDropdown() {
+export function ExtraToolsDropdown({ readOnly = false }: { readOnly?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
   const [showEmbedModal, setShowEmbedModal] = useState(false);
   const [closing, setClosing] = useState(false);
   const prevOpen = useRef(isOpen);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const setActiveTool = useCanvasStore(state => state.setActiveTool);
   const activeTool = useCanvasStore(state => state.activeTool);
+
+  useEffect(() => {
+    if (!readOnly) return;
+    setIsOpen(false);
+    setShowAIModal(false);
+    setShowEmbedModal(false);
+  }, [readOnly]);
 
   useEffect(() => {
     if (!isOpen && prevOpen.current) {
@@ -68,7 +80,12 @@ export function ExtraToolsDropdown() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target) &&
+        !menuRef.current?.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
@@ -77,6 +94,71 @@ export function ExtraToolsDropdown() {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const updatePosition = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = Math.min(288, Math.max(220, window.innerWidth - 16));
+      setMenuPosition({
+        top: Math.min(window.innerHeight - 16, rect.bottom + 8),
+        right: Math.max(8, Math.min(window.innerWidth - width - 8, window.innerWidth - rect.right)),
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const menu = menuRef.current;
+    const getItems = () =>
+      Array.from(
+        menu?.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]:not([disabled])') ?? []
+      );
+
+    // Move focus into the menu when it is opened from the keyboard. The menu
+    // remains a small, predictable roving-focus surface rather than leaving
+    // focus on the trigger behind the popover.
+    getItems()[0]?.focus();
+
+    const handleMenuKeyDown = (event: KeyboardEvent) => {
+      const items = getItems();
+      if (items.length === 0) return;
+      const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setIsOpen(false);
+        triggerRef.current?.focus();
+        return;
+      }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const direction = event.key === 'ArrowDown' ? 1 : -1;
+        const nextIndex =
+          currentIndex < 0 ? 0 : (currentIndex + direction + items.length) % items.length;
+        items[nextIndex]?.focus();
+        return;
+      }
+      if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault();
+        items[event.key === 'Home' ? 0 : items.length - 1]?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleMenuKeyDown);
+    return () => document.removeEventListener('keydown', handleMenuKeyDown);
   }, [isOpen]);
 
   const extendedTools: ExtraTool[] = [
@@ -157,8 +239,12 @@ export function ExtraToolsDropdown() {
     <>
       <div className="relative" ref={dropdownRef}>
         <button
+          ref={triggerRef}
+          id="canvas-extra-tools-trigger"
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="relative p-2 rounded-md transition-colors"
+          disabled={readOnly}
+          className="relative shrink-0 p-1.5 sm:p-2 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           style={
             isButtonActive
               ? {
@@ -169,7 +255,9 @@ export function ExtraToolsDropdown() {
           }
           aria-label="Frame and library tools"
           aria-expanded={isOpen}
+          aria-controls={menuId}
           aria-haspopup="true"
+          aria-pressed={isButtonActive}
           title="Frame / Library"
         >
           {renderActiveIcon()}
@@ -179,103 +267,121 @@ export function ExtraToolsDropdown() {
           />
         </button>
 
-        {(isOpen || closing) && (
-          <div
-            className={`t-dropdown absolute top-full right-0 mt-2 w-72 rounded-xl border shadow-2xl z-60 py-1.5 ${isOpen ? 'is-open' : closing ? 'is-closing' : ''}`}
-            data-origin="top-right"
-            style={{
-              backgroundColor: 'var(--color-panel-bg)',
-              borderColor: 'var(--color-panel-border)',
-            }}
-          >
+        {typeof document !== 'undefined' &&
+          (isOpen || closing) &&
+          createPortal(
             <div
-              className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
-              style={{ color: 'var(--color-panel-label)' }}
+              ref={menuRef}
+              id={menuId}
+              className={`t-dropdown fixed w-[min(18rem,calc(100vw-2rem))] rounded-xl border shadow-2xl z-[1000] py-1.5 ${isOpen ? 'is-open' : closing ? 'is-closing' : ''}`}
+              data-origin="top-right"
+              role="menu"
+              aria-label="More drawing tools"
+              style={{
+                top: menuPosition.top,
+                right: menuPosition.right,
+                backgroundColor: 'var(--color-panel-bg)',
+                borderColor: 'var(--color-panel-border)',
+              }}
             >
-              Extended Tools
-            </div>
+              <div
+                className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+                style={{ color: 'var(--color-panel-label)' }}
+              >
+                Extended Tools
+              </div>
 
-            {extendedTools.map(tool => {
-              return (
-                <button
-                  key={tool.id}
-                  onClick={tool.perform}
-                  className="w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:opacity-80"
-                  style={{ color: 'var(--color-panel-text)', backgroundColor: 'transparent' }}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <ToolIcon icon={tool.icon} size={16} className="text-[#6B6860]" />
-                    <span>{tool.label}</span>
-                  </div>
-                  {tool.shortcut && (
-                    <span
-                      className="text-[11px] font-mono px-1.5 py-0.5 rounded"
-                      style={{
-                        backgroundColor: 'var(--color-panel-btn-bg)',
-                        color: 'var(--color-panel-label)',
-                      }}
-                    >
-                      {tool.shortcut}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+              {extendedTools.map(tool => {
+                return (
+                  <button
+                    type="button"
+                    key={tool.id}
+                    onClick={tool.perform}
+                    role="menuitem"
+                    tabIndex={-1}
+                    className="w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:opacity-80"
+                    style={{ color: 'var(--color-panel-text)', backgroundColor: 'transparent' }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <ToolIcon icon={tool.icon} size={16} className="text-[#6B6860]" />
+                      <span>{tool.label}</span>
+                    </div>
+                    {tool.shortcut && (
+                      <span
+                        className="text-[11px] font-mono px-1.5 py-0.5 rounded"
+                        style={{
+                          backgroundColor: 'var(--color-panel-btn-bg)',
+                          color: 'var(--color-panel-label)',
+                        }}
+                      >
+                        {tool.shortcut}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
 
-            <div
-              className="my-1.5 h-px"
-              style={{ backgroundColor: 'var(--color-panel-divider)' }}
-            />
+              <div
+                className="my-1.5 h-px"
+                style={{ backgroundColor: 'var(--color-panel-divider)' }}
+              />
 
-            <div
-              className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase flex items-center gap-1.5"
-              style={{ color: 'var(--color-panel-label)' }}
-            >
-              <Sparkles size={12} style={{ color: '#E8462A' }} />
-              Generate
-            </div>
+              <div
+                className="px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase flex items-center gap-1.5"
+                style={{ color: 'var(--color-panel-label)' }}
+              >
+                <Sparkles size={12} style={{ color: '#E8462A' }} />
+                Generate
+              </div>
 
-            {generateTools.map(tool => {
-              const isDisabled = Boolean(tool.disabled);
+              {generateTools.map(tool => {
+                const isDisabled = Boolean(tool.disabled);
 
-              return (
-                <button
-                  key={tool.id}
-                  onClick={isDisabled ? undefined : tool.perform}
-                  disabled={isDisabled}
-                  title={isDisabled ? 'Coming Soon' : tool.label}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
-                    isDisabled ? 'opacity-55 cursor-not-allowed bg-transparent' : 'hover:opacity-80'
-                  }`}
-                  style={{
-                    color: isDisabled ? 'var(--color-panel-label)' : 'var(--color-panel-text)',
-                  }}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <ToolIcon
-                      icon={tool.icon}
-                      size={16}
-                      className={isDisabled ? 'text-[#6B6860]' : 'text-[#E8462A]'}
-                    />
-                    <span>{tool.label}</span>
-                  </div>
-                  {tool.helperLabel && (
-                    <span
-                      className="text-[10px] px-1.5 py-0.5 rounded border"
-                      style={{
-                        backgroundColor: 'var(--color-panel-btn-bg)',
-                        borderColor: 'var(--color-panel-border)',
-                        color: 'var(--color-panel-label)',
-                      }}
-                    >
-                      {tool.helperLabel}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
+                return (
+                  <button
+                    type="button"
+                    key={tool.id}
+                    onClick={isDisabled ? undefined : tool.perform}
+                    disabled={isDisabled}
+                    role="menuitem"
+                    tabIndex={-1}
+                    aria-disabled={isDisabled}
+                    title={isDisabled ? 'Coming Soon' : tool.label}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                      isDisabled
+                        ? 'opacity-55 cursor-not-allowed bg-transparent'
+                        : 'hover:opacity-80'
+                    }`}
+                    style={{
+                      color: isDisabled ? 'var(--color-panel-label)' : 'var(--color-panel-text)',
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <ToolIcon
+                        icon={tool.icon}
+                        size={16}
+                        className={isDisabled ? 'text-[#6B6860]' : 'text-[#E8462A]'}
+                      />
+                      <span>{tool.label}</span>
+                    </div>
+                    {tool.helperLabel && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded border"
+                        style={{
+                          backgroundColor: 'var(--color-panel-btn-bg)',
+                          borderColor: 'var(--color-panel-border)',
+                          color: 'var(--color-panel-label)',
+                        }}
+                      >
+                        {tool.helperLabel}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>,
+            document.body
+          )}
       </div>
 
       <AIGenerateModal isOpen={showAIModal} onClose={() => setShowAIModal(false)} />

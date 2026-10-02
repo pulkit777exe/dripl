@@ -6,15 +6,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Bookmark,
   FolderOpen,
-  PenLine,
-  Trash2,
   CreditCard,
   Bell,
   LogOut,
   Plus,
   ChevronsUpDown,
   Wallet,
-  Settings,
   User2,
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
@@ -24,8 +21,6 @@ import { apiClient } from '@/lib/api';
 const navItems = [
   { label: 'All Files', icon: Bookmark, href: '/dashboard', count: 0 },
   { label: 'Collections', icon: FolderOpen, href: '/dashboard/folders', count: 0 },
-  { label: 'Canvas', icon: PenLine, href: '/dashboard/canvas' },
-  { label: 'Trash', icon: Trash2, href: '/dashboard/trash' },
 ];
 
 export function DashboardSidebar() {
@@ -53,7 +48,7 @@ export function DashboardSidebar() {
     if (!closing) return;
     const ms =
       parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--dropdown-close-dur'),
+        getComputedStyle(document.documentElement).getPropertyValue('--dropdown-close-dur')
       ) || 150;
     const timer = setTimeout(() => setClosing(false), ms);
     return () => clearTimeout(timer);

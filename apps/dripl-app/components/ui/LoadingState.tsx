@@ -8,6 +8,7 @@ export function Skeleton({ className, ...props }: SkeletonProps) {
   return (
     <div
       className={cn('animate-pulse rounded-md bg-[#E8E5DE]', className)}
+      aria-hidden="true"
       {...props}
     />
   );
@@ -20,8 +21,13 @@ interface LoadingStateProps {
 
 export function LoadingState({ message = 'Loading...', className }: LoadingStateProps) {
   return (
-    <div className={cn('flex flex-col items-center justify-center py-20', className)}>
-      <div className="w-8 h-8 mb-4 relative">
+    <div
+      className={cn('flex flex-col items-center justify-center py-20', className)}
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <div className="w-8 h-8 mb-4 relative" aria-hidden="true">
         <div className="absolute inset-0 border-2 border-[#E8462A]/20 rounded-full" />
         <div className="absolute inset-0 border-2 border-[#E8462A] rounded-full border-t-transparent animate-spin" />
       </div>
@@ -46,7 +52,10 @@ export function PageSkeleton() {
         <div className="flex-1 p-6">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {[...Array(12)].map((_, i) => (
-              <div key={i} className="rounded-lg border border-[#E4E0D9] bg-[#FAFAF7] overflow-hidden">
+              <div
+                key={i}
+                className="rounded-lg border border-[#E4E0D9] bg-[#FAFAF7] overflow-hidden"
+              >
                 <Skeleton className="aspect-square w-full" />
                 <div className="p-3 space-y-2">
                   <Skeleton className="h-4 w-3/4" />

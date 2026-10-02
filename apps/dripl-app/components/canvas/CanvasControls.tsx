@@ -1,7 +1,7 @@
 'use client';
 
 import { useCanvasStore } from '@/lib/store';
-import { Minus, Plus, Undo2, Redo2 } from 'lucide-react';
+import { Minus, Plus, Undo2, Redo2, MousePointer2 } from 'lucide-react';
 
 export function CanvasControls() {
   const zoom = useCanvasStore(state => state.zoom);
@@ -10,29 +10,62 @@ export function CanvasControls() {
   const redo = useCanvasStore(state => state.redo);
   const canUndo = useCanvasStore(state => state.past.length > 0);
   const canRedo = useCanvasStore(state => state.future.length > 0);
+  const readOnly = useCanvasStore(state => state.readOnly);
+  const marqueeSelectionMode = useCanvasStore(state => state.marqueeSelectionMode);
+  const setMarqueeSelectionMode = useCanvasStore(state => state.setMarqueeSelectionMode);
 
   const handleZoomIn = () => setZoom(Math.min(zoom * 1.1, 20));
   const handleZoomOut = () => setZoom(Math.max(zoom / 1.1, 0.1));
 
   return (
-    <div className="flex items-center gap-2 z-100">
+    <div
+      className="flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 z-100"
+      role="group"
+      aria-label="Canvas controls"
+    >
       <div className="canvas-chrome-group flex items-center overflow-hidden">
         <button
+          type="button"
+          onClick={() =>
+            setMarqueeSelectionMode(
+              marqueeSelectionMode === 'intersecting' ? 'contained' : 'intersecting'
+            )
+          }
+          className="p-2.5 hover:bg-tool-hover-bg transition-colors text-tool-inactive-text hover:text-tool-hover-text"
+          title={`Marquee selection: ${marqueeSelectionMode}`}
+          aria-label={`Marquee selection: ${marqueeSelectionMode}`}
+          aria-pressed={marqueeSelectionMode === 'contained'}
+        >
+          <MousePointer2 className="size-5" />
+        </button>
+      </div>
+
+      <div className="canvas-chrome-group flex items-center overflow-hidden">
+        <button
+          type="button"
           onClick={handleZoomOut}
           className="p-2.5 hover:bg-tool-hover-bg transition-colors text-tool-inactive-text hover:text-tool-hover-text"
           title="Zoom Out (-)"
           aria-label="Zoom out"
+          aria-keyshortcuts="-"
         >
           <Minus className="size-5" />
         </button>
-        <span className="px-3 text-sm tabular-nums min-w-14 text-center text-[#1A1917]">
+        <span
+          className="px-3 text-sm tabular-nums min-w-14 text-center"
+          style={{ color: 'var(--color-foreground)' }}
+          aria-live="polite"
+          aria-label="Zoom level"
+        >
           {Math.round(zoom * 100)}%
         </span>
         <button
+          type="button"
           onClick={handleZoomIn}
           className="p-2.5 hover:bg-tool-hover-bg transition-colors text-tool-inactive-text hover:text-tool-hover-text"
           title="Zoom In (+)"
           aria-label="Zoom in"
+          aria-keyshortcuts="+"
         >
           <Plus className="size-5" />
         </button>
@@ -40,21 +73,25 @@ export function CanvasControls() {
 
       <div className="canvas-chrome-group flex items-center overflow-hidden">
         <button
+          type="button"
           onClick={undo}
-          disabled={!canUndo}
+          disabled={readOnly || !canUndo}
           className="p-2.5 hover:bg-tool-hover-bg transition-colors disabled:opacity-50 text-tool-inactive-text hover:text-tool-hover-text"
           title="Undo (Ctrl+Z)"
           aria-label="Undo"
+          aria-keyshortcuts="Control+Z Meta+Z"
         >
           <Undo2 className="size-5" />
         </button>
         <div className="w-px h-5 bg-toolbar-divider" />
         <button
+          type="button"
           onClick={redo}
-          disabled={!canRedo}
+          disabled={readOnly || !canRedo}
           className="p-2.5 hover:bg-tool-hover-bg transition-colors disabled:opacity-50 text-tool-inactive-text hover:text-tool-hover-text"
           title="Redo (Ctrl+Shift+Z)"
           aria-label="Redo"
+          aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z"
         >
           <Redo2 className="size-5" />
         </button>

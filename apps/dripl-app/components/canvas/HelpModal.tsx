@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useModalAnimation } from '@/hooks/useModalAnimation';
+import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { HelpCircle, X, BookOpen, ExternalLink, Github, Youtube, Keyboard } from 'lucide-react';
 
@@ -16,9 +17,17 @@ interface ShortcutItemProps {
 
 function ShortcutItem({ toolName, shortcut }: ShortcutItemProps) {
   return (
-    <div className="flex justify-between items-center py-1.5" style={{ borderBottom: '1px solid #E4E0D9' }}>
-      <div className="text-[13px] flex-1" style={{ color: '#6B6860' }}>{toolName}</div>
-      <div className="text-[11px] font-mono px-2 py-0.5 rounded min-w-12 text-center" style={{ backgroundColor: '#EAE6DE', color: '#6B6860', border: '1px solid #E4E0D9' }}>
+    <div
+      className="flex justify-between items-center py-1.5"
+      style={{ borderBottom: '1px solid #E4E0D9' }}
+    >
+      <div className="text-[13px] flex-1" style={{ color: '#6B6860' }}>
+        {toolName}
+      </div>
+      <div
+        className="text-[11px] font-mono px-2 py-0.5 rounded min-w-12 text-center"
+        style={{ backgroundColor: '#EAE6DE', color: '#6B6860', border: '1px solid #E4E0D9' }}
+      >
         {shortcut}
       </div>
     </div>
@@ -26,13 +35,16 @@ function ShortcutItem({ toolName, shortcut }: ShortcutItemProps) {
 }
 
 interface HeaderButtonProps {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
 }
 
 function HeaderButton({ icon, label }: HeaderButtonProps) {
   return (
-    <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] transition-colors" style={{ backgroundColor: '#FAFAF7', color: '#6B6860', border: '1px solid #E4E0D9' }}>
+    <button
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] transition-colors"
+      style={{ backgroundColor: '#FAFAF7', color: '#6B6860', border: '1px solid #E4E0D9' }}
+    >
       {icon}
       {label}
     </button>
@@ -40,41 +52,9 @@ function HeaderButton({ icon, label }: HeaderButtonProps) {
 }
 
 export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
-  const [mounted, setMounted] = useState(false);
-  const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
-  const prevOpen = useRef(false);
+  const { modalState, isVisible } = useModalAnimation(isOpen);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isOpen && !prevOpen.current) {
-      prevOpen.current = true;
-      setAnimState('opening');
-    } else if (!isOpen && prevOpen.current) {
-      prevOpen.current = false;
-      setAnimState('closing');
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (animState === 'opening') {
-      const raf = requestAnimationFrame(() => setAnimState('open'));
-      return () => cancelAnimationFrame(raf);
-    }
-    if (animState === 'closing') {
-      const ms = parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
-      ) || 150;
-      const timer = setTimeout(() => setAnimState('closed'), ms);
-      return () => clearTimeout(timer);
-    }
-  }, [animState]);
-
-  if (!mounted || animState === 'closed') return null;
-
-  const modalState = animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : '';
+  if (!isVisible) return null;
 
   const modal = (
     <div
@@ -87,8 +67,14 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
         style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center px-5 py-3.5" style={{ borderBottom: '1px solid #E4E0D9' }}>
-          <h2 className="text-[15px] font-semibold flex items-center gap-2" style={{ color: '#1A1917' }}>
+        <div
+          className="flex justify-between items-center px-5 py-3.5"
+          style={{ borderBottom: '1px solid #E4E0D9' }}
+        >
+          <h2
+            className="text-[15px] font-semibold flex items-center gap-2"
+            style={{ color: '#1A1917' }}
+          >
             <HelpCircle size={18} style={{ color: '#E8462A' }} />
             Help
           </h2>
@@ -101,7 +87,10 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
           </button>
         </div>
 
-        <div className="px-5 py-3 flex gap-2 flex-wrap" style={{ borderBottom: '1px solid #E4E0D9' }}>
+        <div
+          className="px-5 py-3 flex gap-2 flex-wrap"
+          style={{ borderBottom: '1px solid #E4E0D9' }}
+        >
           <HeaderButton icon={<BookOpen size={14} />} label="Documentation" />
           <HeaderButton icon={<ExternalLink size={14} />} label="Blog" />
           <HeaderButton icon={<Github size={14} />} label="GitHub" />
@@ -109,14 +98,20 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
-          <h3 className="text-[14px] font-semibold mb-3 flex items-center gap-2" style={{ color: '#1A1917' }}>
+          <h3
+            className="text-[14px] font-semibold mb-3 flex items-center gap-2"
+            style={{ color: '#1A1917' }}
+          >
             <Keyboard size={16} style={{ color: '#6B6860' }} />
             Keyboard shortcuts
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-0 text-sm">
             <div>
-              <h4 className="text-[11px] font-semibold uppercase tracking-wider mb-2 mt-3" style={{ color: '#6B6860' }}>
+              <h4
+                className="text-[11px] font-semibold uppercase tracking-wider mb-2 mt-3"
+                style={{ color: '#6B6860' }}
+              >
                 Tools
               </h4>
               <ShortcutItem toolName="Hand (panning tool)" shortcut="H" />
@@ -134,7 +129,10 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
             </div>
 
             <div>
-              <h4 className="text-[11px] font-semibold uppercase tracking-wider mb-2 mt-3" style={{ color: '#6B6860' }}>
+              <h4
+                className="text-[11px] font-semibold uppercase tracking-wider mb-2 mt-3"
+                style={{ color: '#6B6860' }}
+              >
                 Editor
               </h4>
               <ShortcutItem toolName="Move canvas" shortcut="Space + Drag" />
@@ -142,13 +140,18 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
               <ShortcutItem toolName="Cut" shortcut="Ctrl+X" />
               <ShortcutItem toolName="Copy" shortcut="Ctrl+C" />
               <ShortcutItem toolName="Paste" shortcut="Ctrl+V" />
+              <ShortcutItem toolName="Copy style" shortcut="Ctrl+Shift+C" />
+              <ShortcutItem toolName="Paste style" shortcut="Ctrl+Shift+V" />
+              <ShortcutItem toolName="Nudge selection" shortcut="Arrow keys" />
+              <ShortcutItem toolName="Nudge selection ×10" shortcut="Shift+Arrows" />
               <ShortcutItem toolName="Select all" shortcut="Ctrl+A" />
               <ShortcutItem toolName="Undo" shortcut="Ctrl+Z" />
               <ShortcutItem toolName="Redo" shortcut="Ctrl+Shift+Z" />
               <ShortcutItem toolName="Zoom in" shortcut="Ctrl + +" />
               <ShortcutItem toolName="Zoom out" shortcut="Ctrl + -" />
               <ShortcutItem toolName="Reset zoom" shortcut="Ctrl+0" />
-              <ShortcutItem toolName="Toggle grid" shortcut="Ctrl+G" />
+              <ShortcutItem toolName="Fit to screen" shortcut="Ctrl+Shift+F" />
+              <ShortcutItem toolName="Toggle grid" shortcut="Ctrl+Alt+G" />
             </div>
           </div>
         </div>

@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Link2, Users, Check, Copy } from 'lucide-react';
 import { useShareLink, type SharePermission } from '@/hooks/useShareLink';
+import { useModalAnimation } from '@/hooks/useModalAnimation';
 import { SharePermissionToggle } from './SharePermissionToggle';
 
 interface Collaborator {
@@ -43,41 +44,7 @@ export function ShareModal({
   const [permission, setPermission] = useState<SharePermission>('view');
   const share = useShareLink(fileId);
 
-  const [mounted, setMounted] = useState(false);
-  const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
-  const prevOpen = useRef(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isOpen && !prevOpen.current) {
-      prevOpen.current = true;
-      setAnimState('opening');
-    } else if (!isOpen && prevOpen.current) {
-      prevOpen.current = false;
-      setAnimState('closing');
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (animState === 'opening') {
-      const raf = requestAnimationFrame(() => setAnimState('open'));
-      return () => cancelAnimationFrame(raf);
-    }
-    if (animState === 'closing') {
-      const ms = parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
-      ) || 150;
-      const timer = setTimeout(() => setAnimState('closed'), ms);
-      return () => clearTimeout(timer);
-    }
-  }, [animState]);
-
-  if (!mounted || animState === 'closed') return null;
-
-  const modalState = animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : '';
+  const { isVisible, modalState } = useModalAnimation(isOpen);
 
   const handleShare = async () => {
     await share.generate(permission);
@@ -97,11 +64,9 @@ export function ShareModal({
   };
 
   const isBusy = share.isLoading;
-  const shareButtonLabel = isBusy
-    ? 'Creating link…'
-    : share.url
-    ? 'Regenerate link'
-    : 'Share';
+  const shareButtonLabel = isBusy ? 'Creating link…' : share.url ? 'Regenerate link' : 'Share';
+
+  if (!isVisible) return null;
 
   const modal = (
     <div
@@ -154,11 +119,7 @@ export function ShareModal({
           </p>
 
           {!isCollaborating && (
-            <SharePermissionToggle
-              value={permission}
-              onChange={setPermission}
-              disabled={isBusy}
-            />
+            <SharePermissionToggle value={permission} onChange={setPermission} disabled={isBusy} />
           )}
 
           {share.url && (
@@ -212,18 +173,18 @@ export function ShareModal({
                 className="flex-1 flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
                 style={{ backgroundColor: '#E8462A', color: '#ffffff' }}
               >
-                {isBusy ? (
-                  <Check size={16} className="animate-pulse" />
-                ) : (
-                  <Link2 size={16} />
-                )}
+                {isBusy ? <Check size={16} className="animate-pulse" /> : <Link2 size={16} />}
                 {shareButtonLabel}
               </button>
               <button
                 onClick={handleCollaborate}
                 disabled={isBusy}
                 className="flex-1 flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
-                style={{ border: '1px solid #D4D0C9', backgroundColor: '#FAFAF7', color: '#1A1917' }}
+                style={{
+                  border: '1px solid #D4D0C9',
+                  backgroundColor: '#FAFAF7',
+                  color: '#1A1917',
+                }}
               >
                 <Users size={16} />
                 Collaborate
@@ -234,7 +195,9 @@ export function ShareModal({
           {isCollaborating && collaborators.length > 0 && (
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium" style={{ color: '#6B6860' }}>
-                {collaborators.length === 1 ? '1 collaborator' : `${collaborators.length} collaborators`}
+                {collaborators.length === 1
+                  ? '1 collaborator'
+                  : `${collaborators.length} collaborators`}
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {collaborators.map(collab => (

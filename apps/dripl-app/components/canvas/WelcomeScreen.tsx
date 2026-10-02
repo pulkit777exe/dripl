@@ -42,13 +42,14 @@ const tools: {
 const tips = [
   'Hold Space to temporarily switch to pan mode',
   'Use Shift to constrain shapes to squares/circles',
-  'Ctrl+G to toggle grid snapping',
+  'Ctrl+Alt+G to toggle grid snapping',
   'Ctrl+D to duplicate selected elements',
   'Ctrl+Z to undo, Ctrl+Shift+Z to redo',
 ];
 
 export function WelcomeScreen({ onClose }: WelcomeScreenProps) {
   const hasElements = useCanvasStore(state => state.elements.length > 0);
+  const activeTool = useCanvasStore(state => state.activeTool);
   const setActiveTool = useCanvasStore(state => state.setActiveTool);
 
   if (hasElements) return null;
@@ -56,7 +57,9 @@ export function WelcomeScreen({ onClose }: WelcomeScreenProps) {
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
       <div
-        className="rounded-2xl shadow-2xl p-6 max-w-lg pointer-events-auto animate-in fade-in zoom-in-95 duration-300"
+        className="w-[calc(100vw-2rem)] max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl shadow-2xl p-6 pointer-events-auto animate-in fade-in zoom-in-95 duration-300"
+        role="region"
+        aria-labelledby="dripl-welcome-title"
         style={{
           backgroundColor: 'var(--color-panel-bg)',
           border: '1px solid var(--color-panel-border)',
@@ -72,6 +75,7 @@ export function WelcomeScreen({ onClose }: WelcomeScreenProps) {
             </div>
             <div>
               <h2
+                id="dripl-welcome-title"
                 className="text-[17px] font-semibold"
                 style={{ color: 'var(--color-panel-text)' }}
               >
@@ -83,7 +87,9 @@ export function WelcomeScreen({ onClose }: WelcomeScreenProps) {
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close welcome screen"
             className="p-2 rounded-md transition-colors hover:bg-[#E8E5DE]"
             style={{ color: 'var(--color-panel-label)' }}
           >
@@ -91,17 +97,27 @@ export function WelcomeScreen({ onClose }: WelcomeScreenProps) {
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 mb-5">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-5">
           {tools.map(tool => {
             const Icon = tool.icon;
+            const isActive = activeTool === tool.tool;
             return (
               <button
+                type="button"
                 key={tool.label}
-                onClick={() => setActiveTool(tool.tool)}
+                onClick={() => {
+                  setActiveTool(tool.tool);
+                  onClose();
+                }}
+                aria-label={`${tool.label} tool, shortcut ${tool.shortcut}`}
+                aria-pressed={isActive}
                 className="flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all group"
                 style={{
-                  borderColor: 'var(--color-panel-border)',
-                  backgroundColor: 'var(--color-panel-btn-bg)',
+                  borderColor: isActive ? 'var(--color-primary)' : 'var(--color-panel-border)',
+                  backgroundColor: isActive
+                    ? 'var(--color-tool-active-bg)'
+                    : 'var(--color-panel-btn-bg)',
+                  boxShadow: isActive ? '0 0 0 2px var(--color-tool-active-shadow)' : 'none',
                 }}
               >
                 <div
@@ -149,21 +165,12 @@ export function WelcomeScreen({ onClose }: WelcomeScreenProps) {
 
         <div className="mt-5 text-center">
           <button
+            type="button"
             onClick={onClose}
             className="text-[12px] transition-colors hover:opacity-80"
             style={{ color: 'var(--color-panel-label)' }}
           >
-            Press{' '}
-            <kbd
-              className="px-1.5 py-0.5 rounded text-[11px] font-mono"
-              style={{
-                backgroundColor: 'var(--color-panel-bg)',
-                border: '1px solid var(--color-panel-border)',
-              }}
-            >
-              Esc
-            </kbd>{' '}
-            to dismiss
+            Start drawing
           </button>
         </div>
       </div>

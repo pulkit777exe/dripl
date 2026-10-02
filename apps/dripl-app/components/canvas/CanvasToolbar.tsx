@@ -74,12 +74,25 @@ export function CanvasToolbar() {
   const toolLocked = useCanvasStore(state => state.toolLocked);
   const setActiveTool = useCanvasStore(state => state.setActiveTool);
   const setToolLocked = useCanvasStore(state => state.setToolLocked);
+  const readOnly = useCanvasStore(state => state.readOnly);
+
+  const activeToolLabel = tools.find(tool => tool.id === activeTool)?.label ?? activeTool;
 
   return (
-    <div className="canvas-toolbar-shell px-2 py-1.5 rounded-xl border flex items-center gap-0.5 z-50 pointer-events-auto">
+    <div
+      className="canvas-toolbar-shell flex max-w-[calc(100vw-1rem)] items-center gap-0.5 overflow-x-auto px-1.5 py-1.5 sm:px-2 rounded-xl border z-50 pointer-events-auto"
+      role="toolbar"
+      aria-label="Drawing tools"
+      aria-orientation="horizontal"
+    >
+      <span className="sr-only" aria-live="polite">
+        {activeToolLabel} tool active
+      </span>
+
       {/* Lock button */}
       <button
-        className="p-2 rounded-md transition-all duration-150"
+        type="button"
+        className="shrink-0 p-1.5 sm:p-2 rounded-md transition-all duration-150"
         style={
           toolLocked
             ? {
@@ -91,6 +104,7 @@ export function CanvasToolbar() {
             : { color: 'var(--color-tool-inactive-text)' }
         }
         onClick={() => setToolLocked(!toolLocked)}
+        disabled={readOnly}
         aria-label={toolLocked ? 'Unlock current tool' : 'Lock current tool'}
         aria-pressed={toolLocked}
       >
@@ -105,7 +119,12 @@ export function CanvasToolbar() {
       </button>
 
       {/* Separator */}
-      <div className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--color-toolbar-divider)' }} />
+      <div
+        className="w-px h-5 mx-1 shrink-0"
+        style={{ backgroundColor: 'var(--color-toolbar-divider)' }}
+        role="separator"
+        aria-orientation="vertical"
+      />
 
       {/* Tool buttons */}
       {tools.map(tool => {
@@ -114,14 +133,15 @@ export function CanvasToolbar() {
 
         return (
           <button
+            type="button"
             key={tool.id}
             id={`tool-btn-${tool.id}`}
             onPointerDown={event => {
               event.preventDefault();
-              setActiveTool(tool.id as ActiveTool);
             }}
             onClick={() => setActiveTool(tool.id as ActiveTool)}
-            className="relative p-2 rounded-md transition-all duration-150"
+            disabled={readOnly && tool.id !== 'hand' && tool.id !== 'select'}
+            className="relative shrink-0 p-1.5 sm:p-2 rounded-md transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50"
             style={
               isActive
                 ? {
@@ -147,6 +167,7 @@ export function CanvasToolbar() {
             }}
             title={`${tool.label} [${tool.shortcuts.join(' / ')}]`}
             aria-label={`${tool.label} tool`}
+            aria-keyshortcuts={tool.shortcuts.join(' ')}
             aria-pressed={isActive}
           >
             {Icon && <Icon size={18} />}
@@ -166,7 +187,7 @@ export function CanvasToolbar() {
         );
       })}
 
-      <ExtraToolsDropdown />
+      <ExtraToolsDropdown readOnly={readOnly} />
     </div>
   );
 }

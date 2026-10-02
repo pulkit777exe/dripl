@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DriplElement } from '@dripl/common';
-import { Copy, Trash2, Layers, RotateCcw, ClipboardPaste } from 'lucide-react';
+import { Copy, Trash2, Layers, RotateCcw, ClipboardPaste, Pipette, Paintbrush } from 'lucide-react';
 
 interface ContextMenuProps {
   x: number;
@@ -15,6 +15,8 @@ interface ContextMenuProps {
   onSendToBack: () => void;
   onCopy?: () => void;
   onPaste?: () => void;
+  onCopyStyle?: () => void;
+  onPasteStyle?: () => void;
 }
 
 export function ContextMenu({
@@ -28,6 +30,8 @@ export function ContextMenu({
   onSendToBack,
   onCopy,
   onPaste,
+  onCopyStyle,
+  onPasteStyle,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [show, setShow] = useState(false);
@@ -40,9 +44,10 @@ export function ContextMenu({
 
   const handleClose = useCallback(() => {
     setClosing(true);
-    const ms = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue('--dropdown-close-dur')
-    ) || 150;
+    const ms =
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--dropdown-close-dur')
+      ) || 150;
     setTimeout(() => {
       setClosing(false);
       onClose();
@@ -111,6 +116,32 @@ export function ContextMenu({
         >
           <ClipboardPaste className="w-4 h-4" />
           Paste
+        </button>
+      )}
+      {onCopyStyle && (
+        <button
+          className="w-full px-4 py-2 text-left hover:bg-[#FAE8E5] flex items-center gap-2 text-[#1A1917]"
+          onClick={() => {
+            onCopyStyle();
+            handleClose();
+          }}
+          role="menuitem"
+        >
+          <Pipette className="w-4 h-4" />
+          Copy style
+        </button>
+      )}
+      {onPasteStyle && (
+        <button
+          className="w-full px-4 py-2 text-left hover:bg-[#FAE8E5] flex items-center gap-2 text-[#1A1917]"
+          onClick={() => {
+            onPasteStyle();
+            handleClose();
+          }}
+          role="menuitem"
+        >
+          <Paintbrush className="w-4 h-4" />
+          Paste style
         </button>
       )}
       <button

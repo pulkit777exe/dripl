@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Globe, X, ExternalLink } from 'lucide-react';
+import { useModalAnimation } from '@/hooks/useModalAnimation';
 
 interface EmbedUrlModalProps {
   isOpen: boolean;
@@ -11,46 +12,17 @@ interface EmbedUrlModalProps {
 }
 
 export function EmbedUrlModal({ isOpen, onClose, onSubmit }: EmbedUrlModalProps) {
-  const [mounted, setMounted] = useState(false);
-  const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
+  const { animState, modalState, isVisible } = useModalAnimation(isOpen);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
 
+  // Reset the form once the close animation completes.
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isOpen && !mounted) {
-      setMounted(true);
-    }
-  }, [isOpen, mounted]);
-
-  useEffect(() => {
-    if (isOpen) {
-      setAnimState('opening');
-    } else if (animState === 'open') {
-      setAnimState('closing');
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (animState === 'opening') {
-      const raf = requestAnimationFrame(() => setAnimState('open'));
-      return () => cancelAnimationFrame(raf);
-    }
-    if (animState === 'closing') {
-      const ms = parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')
-      ) || 150;
-      const timer = setTimeout(() => {
-        setAnimState('closed');
-        setUrl('');
-        setTitle('');
-        setError('');
-      }, ms);
-      return () => clearTimeout(timer);
+    if (animState === 'closed') {
+      setUrl('');
+      setTitle('');
+      setError('');
     }
   }, [animState]);
 
@@ -70,9 +42,7 @@ export function EmbedUrlModal({ isOpen, onClose, onSubmit }: EmbedUrlModalProps)
     }
   };
 
-  if (!mounted || animState === 'closed') return null;
-
-  const modalState = animState === 'open' ? 'is-open' : animState === 'closing' ? 'is-closing' : '';
+  if (!isVisible) return null;
 
   const modal = (
     <div
@@ -87,7 +57,10 @@ export function EmbedUrlModal({ isOpen, onClose, onSubmit }: EmbedUrlModalProps)
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#E8462A' }}>
+            <div
+              className="h-8 w-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: '#E8462A' }}
+            >
               <Globe className="h-4 w-4" style={{ color: '#FAFAF7' }} />
             </div>
             <h3 className="text-[15px] font-semibold" style={{ color: '#1A1917' }}>
@@ -109,7 +82,10 @@ export function EmbedUrlModal({ isOpen, onClose, onSubmit }: EmbedUrlModalProps)
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1" style={{ color: '#6B6860' }}>
+            <label
+              className="text-[11px] font-semibold uppercase tracking-wider block mb-1"
+              style={{ color: '#6B6860' }}
+            >
               URL
             </label>
             <input
@@ -124,17 +100,22 @@ export function EmbedUrlModal({ isOpen, onClose, onSubmit }: EmbedUrlModalProps)
               style={{
                 backgroundColor: '#FAFAF7',
                 border: `1px solid ${error ? '#E8462A' : '#E4E0D9'}`,
-                color: '#1A1917'
+                color: '#1A1917',
               }}
               autoFocus
             />
             {error && (
-              <p className="text-[11px] mt-1" style={{ color: '#E8462A' }}>{error}</p>
+              <p className="text-[11px] mt-1" style={{ color: '#E8462A' }}>
+                {error}
+              </p>
             )}
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1" style={{ color: '#6B6860' }}>
+            <label
+              className="text-[11px] font-semibold uppercase tracking-wider block mb-1"
+              style={{ color: '#6B6860' }}
+            >
               Title (optional)
             </label>
             <input

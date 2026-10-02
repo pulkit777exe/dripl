@@ -14,12 +14,15 @@ import {
   Sun,
   Moon,
   Monitor,
+  RotateCcw,
   Github,
   Twitter,
-  MessageCircle,
   UserPlus,
-  ExternalLink,
 } from 'lucide-react';
+import { useCanvasStore } from '@/lib/store';
+
+const BACKGROUND_PRESETS = ['#FFFFFF', '#F0EDE6', '#1C1A17'];
+const THEME_DEFAULT_BACKGROUNDS = { dark: '#1C1A17', light: '#F0EDE6' } as const;
 
 interface MenuProps {
   isOpen: boolean;
@@ -35,9 +38,6 @@ interface MenuProps {
   activeLanguage?: string;
   onLanguageChange?: (languageCode: string) => void;
 }
-
-const CANVAS_BACKGROUNDS_LIGHT = ['#ffffff', '#f5f5f5', '#fffbe6', '#e6f0ff', '#f0ffe6'];
-const CANVAS_BACKGROUNDS_DARK = ['#1e1e1e', '#232329', '#2a2a3a', '#1a2535', '#1a2e1a'];
 
 type MenuItem =
   | {
@@ -70,9 +70,13 @@ export function Menu({
   activeLanguage = 'en',
   onLanguageChange,
 }: MenuProps) {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
   const mounted = useIsMounted();
+  const canvasBackground = useCanvasStore(s => s.canvasBackground);
+  const setCanvasBackground = useCanvasStore(s => s.setCanvasBackground);
+  const themeDefaultBackground =
+    theme === 'dark' ? THEME_DEFAULT_BACKGROUNDS.dark : THEME_DEFAULT_BACKGROUNDS.light;
   const [closing, setClosing] = useState(false);
   const prevOpen = useRef(isOpen);
 
@@ -90,7 +94,7 @@ export function Menu({
     if (!closing) return;
     const ms =
       parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--dropdown-close-dur'),
+        getComputedStyle(document.documentElement).getPropertyValue('--dropdown-close-dur')
       ) || 150;
     const timer = setTimeout(() => setClosing(false), ms);
     return () => clearTimeout(timer);
@@ -150,15 +154,11 @@ export function Menu({
   ];
 
   const externalLinks = [
-    { icon: ExternalLink, label: 'Dripl+', href: '#' },
     { icon: Github, label: 'GitHub', href: 'https://github.com' },
     { icon: Twitter, label: 'Follow us', href: 'https://twitter.com' },
-    { icon: MessageCircle, label: 'Discord chat', href: '#' },
     { icon: UserPlus, label: 'Sign up', href: '/signup' },
   ];
 
-  const isDark = mounted && resolvedTheme === 'dark';
-  const bgSwatches = isDark ? CANVAS_BACKGROUNDS_DARK : CANVAS_BACKGROUNDS_LIGHT;
   const languageOptions = [
     { code: 'en', label: 'English' },
     { code: 'es', label: 'Spanish' },
@@ -305,6 +305,57 @@ export function Menu({
         </div>
       </div>
 
+      <div className="px-4 py-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm" style={{ color: 'var(--color-foreground)' }}>
+            Background
+          </span>
+          <div className="flex items-center gap-1.5">
+            {BACKGROUND_PRESETS.map(preset => {
+              const isSelected =
+                canvasBackground !== null &&
+                canvasBackground.toLowerCase() === preset.toLowerCase();
+              return (
+                <button
+                  key={preset}
+                  onClick={() => setCanvasBackground(preset)}
+                  className="w-6 h-6 rounded-full border transition-all duration-150"
+                  style={{
+                    backgroundColor: preset,
+                    borderColor: 'var(--color-panel-border)',
+                    outline: isSelected ? '2px solid var(--color-primary)' : 'none',
+                    outlineOffset: 1,
+                  }}
+                  title={preset}
+                  aria-label={`Canvas background ${preset}`}
+                  aria-pressed={isSelected}
+                />
+              );
+            })}
+            <input
+              type="color"
+              value={canvasBackground ?? themeDefaultBackground}
+              onChange={event => setCanvasBackground(event.target.value)}
+              className="w-6 h-6 rounded-full cursor-pointer bg-transparent p-0 border"
+              style={{ borderColor: 'var(--color-panel-border)' }}
+              title="Custom canvas background"
+              aria-label="Custom canvas background"
+            />
+            {canvasBackground !== null && (
+              <button
+                onClick={() => setCanvasBackground(null)}
+                className="p-1 rounded-md transition-all duration-150"
+                style={{ color: 'var(--color-muted-foreground)' }}
+                title="Reset to theme default"
+                aria-label="Reset canvas background to theme default"
+              >
+                <RotateCcw size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="px-4 py-1.5">
         <div className="flex items-center justify-between">
           <span className="text-sm" style={{ color: 'var(--color-foreground)' }}>
@@ -316,7 +367,6 @@ export function Menu({
               backgroundColor: 'var(--color-panel-btn-bg)',
               border: '1px solid var(--color-panel-border)',
               color: 'var(--color-foreground)',
-              outline: 'none',
             }}
             value={activeLanguage}
             onChange={event => onLanguageChange?.(event.target.value)}
@@ -327,26 +377,6 @@ export function Menu({
               </option>
             ))}
           </select>
-        </div>
-      </div>
-
-      <div className="px-4 py-2">
-        <span className="text-xs block mb-2" style={{ color: 'var(--color-panel-label)' }}>
-          Canvas background
-        </span>
-        <div className="flex gap-1.5">
-          {bgSwatches.map(color => (
-            <button
-              key={color}
-              className="w-6 h-6 rounded-md border-2 transition-all duration-150 hover:scale-110"
-              style={{
-                backgroundColor: color,
-                borderColor: 'var(--color-panel-border)',
-              }}
-              title={color}
-              aria-label={`Canvas background ${color}`}
-            />
-          ))}
         </div>
       </div>
     </div>

@@ -1,7 +1,10 @@
 'use client';
 
 import type { DriplElement } from '@dripl/common';
-import { RotateCw, ArrowUpDown, ArrowLeftRight } from 'lucide-react';
+import { RotateCw, ArrowUpDown, ArrowLeftRight, Link2, ExternalLink, X } from 'lucide-react';
+import { useState } from 'react';
+import { isSafeHttpUrl } from '@/utils/export';
+import { normalizeLinkInput } from '@/lib/canvas/link';
 
 interface TransformationPanelProps {
   selectedElement: DriplElement | null;
@@ -16,7 +19,14 @@ export function TransformationPanel({
   onDeleteElement,
   onDuplicateElement,
 }: TransformationPanelProps) {
+  // Link draft (keyed by element id so switching selection discards it).
+  // Declared before the early return to keep hook order stable.
+  const [linkDraft, setLinkDraft] = useState<{ id: string; value: string } | null>(null);
+
   if (!selectedElement) return null;
+
+  // Link draft commits on blur/Enter so typing doesn't spam history.
+  const committedLink = selectedElement.link ?? '';
 
   const updateProperty = <K extends keyof DriplElement>(key: K, value: DriplElement[K]) => {
     onUpdateElement({
@@ -50,6 +60,17 @@ export function TransformationPanel({
 
   const handleDuplicate = () => {
     onDuplicateElement(selectedElement);
+  };
+
+  const linkValue =
+    linkDraft && linkDraft.id === selectedElement.id ? linkDraft.value : committedLink;
+  const linkIsSafe = linkValue === '' || isSafeHttpUrl(linkValue);
+
+  const commitLink = (raw: string) => {
+    const normalized = normalizeLinkInput(raw, committedLink);
+    setLinkDraft(null);
+    if (!normalized.changed) return;
+    updateProperty('link', normalized.value);
   };
 
   return (
@@ -164,6 +185,58 @@ export function TransformationPanel({
               <ArrowUpDown className="w-4 h-4" />
             </button>
           </div>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs text-[#6B6860]">Link</label>
+          <div className="flex items-center gap-1">
+            <Link2 className="w-4 h-4 shrink-0 text-[#6B6860]" />
+            <input
+              type="url"
+              value={linkValue}
+              placeholder="https://…"
+              onChange={e => setLinkDraft({ id: selectedElement.id, value: e.target.value })}
+              onBlur={e => commitLink(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') commitLink((e.target as HTMLInputElement).value);
+              }}
+              className="flex-1 min-w-0 text-xs p-1 border rounded bg-background"
+            />
+            {committedLink !== '' && (
+              <>
+                <button
+                  onClick={() => {
+                    // Prefer the committed link, but fall back to a safe
+                    // draft (blur commits first, so this covers the race).
+                    const candidate = linkIsSafe && linkValue !== '' ? linkValue : committedLink;
+                    if (isSafeHttpUrl(candidate)) {
+                      window.open(candidate, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  className="p-1 border rounded hover:bg-accent transition-colors disabled:opacity-40"
+                  title={linkIsSafe ? 'Open link' : 'Only http(s) links can be opened'}
+                  disabled={!linkIsSafe}
+                  aria-label="Open link"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setLinkDraft(null);
+                    updateProperty('link', undefined);
+                  }}
+                  className="p-1 border rounded hover:bg-accent transition-colors"
+                  title="Remove link"
+                  aria-label="Remove link"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </div>
+          {linkValue !== '' && !linkIsSafe && (
+            <p className="text-[11px] text-[#C0392B]">Only http(s) links are kept on export.</p>
+          )}
         </div>
 
         <div className="space-y-1 pt-2 border-t">

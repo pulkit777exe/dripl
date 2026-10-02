@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { DriplElement, Point } from '@dripl/common';
 import type { Viewport } from '@/utils/canvas-coordinates';
 import { renderInteractiveScene, type CollaboratorCursor } from '@/renderer/interactiveScene';
+import { useCanvasRenderLoop } from '@/hooks/canvas/useCanvasRenderLoop';
+import { usePointerMoveQueue } from '@/hooks/canvas/usePointerMoveQueue';
 
 interface InteractiveCanvasProps {
   containerRef: React.RefObject<HTMLDivElement>;
@@ -30,6 +32,8 @@ interface InteractiveCanvasProps {
   localUserId?: string | null;
   hoveredBindingId?: string | null;
   startPointBindingId?: string | null;
+  /** Preserve intermediate samples for freehand/eraser gestures. */
+  preservePointerSamples?: boolean;
 }
 
 const areEqual = (prev: InteractiveCanvasProps, next: InteractiveCanvasProps): boolean => {
@@ -55,7 +59,11 @@ const areEqual = (prev: InteractiveCanvasProps, next: InteractiveCanvasProps): b
     prev.lockOwners !== next.lockOwners ||
     prev.localUserId !== next.localUserId ||
     prev.hoveredBindingId !== next.hoveredBindingId ||
-    prev.startPointBindingId !== next.startPointBindingId
+    prev.startPointBindingId !== next.startPointBindingId ||
+    prev.onPointerDown !== next.onPointerDown ||
+    prev.onPointerMove !== next.onPointerMove ||
+    prev.onPointerUp !== next.onPointerUp ||
+    prev.preservePointerSamples !== next.preservePointerSamples
   );
 };
 
@@ -76,10 +84,9 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   localUserId = null,
   hoveredBindingId,
   startPointBindingId,
+  preservePointerSamples = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number | null>(null);
-  const isDirtyRef = useRef(true);
   const dprRef = useRef(1);
   const sizeRef = useRef({ width: 0, height: 0 });
   const propsRef = useRef({
@@ -97,6 +104,39 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     startPointBindingId,
   });
 
+  const renderFrame = useCallback(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+
+    const props = propsRef.current;
+    renderInteractiveScene({
+      ctx,
+      viewport: {
+        ...props.viewport,
+        width: sizeRef.current.width,
+        height: sizeRef.current.height,
+      },
+      canvasWidth: sizeRef.current.width,
+      canvasHeight: sizeRef.current.height,
+      elements: props.elements,
+      draftElement: props.draftElement,
+      eraserPath: props.eraserPath,
+      selectedIds: props.selectedIds,
+      marqueeSelection: props.marqueeSelection,
+      collaborators: props.collaborators,
+      lockOwners: props.lockOwners,
+      localUserId: props.localUserId,
+      gridEnabled: false,
+      theme: props.theme,
+      renderCommittedElements: false,
+      dpr: dprRef.current,
+      hoveredBindingId: props.hoveredBindingId,
+      startPointBindingId: props.startPointBindingId,
+    });
+  }, []);
+  const markDirty = useCanvasRenderLoop(renderFrame, 'canvas:interactive');
+
   useEffect(() => {
     propsRef.current = {
       elements,
@@ -112,7 +152,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       hoveredBindingId,
       startPointBindingId,
     };
-    isDirtyRef.current = true;
+    markDirty();
   }, [
     elements,
     selectedIds,
@@ -126,6 +166,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     localUserId,
     hoveredBindingId,
     startPointBindingId,
+    markDirty,
   ]);
 
   useEffect(() => {
@@ -144,62 +185,65 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       canvas.style.height = `${height}px`;
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
-      isDirtyRef.current = true;
+      markDirty();
     };
 
     resize();
     window.addEventListener('resize', resize);
-    const observer = new ResizeObserver(resize);
-    observer.observe(container);
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(resize);
+      observer.observe(container);
+    }
 
     return () => {
       window.removeEventListener('resize', resize);
-      observer.disconnect();
+      observer?.disconnect();
     };
-  }, [containerRef]);
+  }, [containerRef, markDirty]);
 
-  useEffect(() => {
-    const loop = () => {
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext('2d');
-      if (canvas && ctx && isDirtyRef.current) {
-        isDirtyRef.current = false;
-        const props = propsRef.current;
-        renderInteractiveScene({
-          ctx,
-          viewport: {
-            ...props.viewport,
-            width: sizeRef.current.width,
-            height: sizeRef.current.height,
-          },
-          canvasWidth: sizeRef.current.width,
-          canvasHeight: sizeRef.current.height,
-          elements: props.elements,
-          draftElement: props.draftElement,
-          eraserPath: props.eraserPath,
-          selectedIds: props.selectedIds,
-          marqueeSelection: props.marqueeSelection,
-          collaborators: props.collaborators,
-          lockOwners: props.lockOwners,
-          localUserId: props.localUserId,
-          gridEnabled: false,
-          theme: props.theme,
-          renderCommittedElements: false,
-          dpr: dprRef.current,
-          hoveredBindingId: props.hoveredBindingId,
-          startPointBindingId: props.startPointBindingId,
-        });
-      }
-      rafRef.current = requestAnimationFrame(loop);
-    };
+  const { flushPointerMove, handlePointerMove } = usePointerMoveQueue(
+    onPointerMove,
+    preservePointerSamples
+  );
 
-    rafRef.current = requestAnimationFrame(loop);
-    return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      // Keep keyboard navigation attached to the editor when a pointer starts
+      // on either canvas layer. Pointer capture below still lets the gesture
+      // continue outside the visible canvas bounds.
+      event.currentTarget.focus();
+      flushPointerMove();
+      onPointerDown?.(event);
+    },
+    [flushPointerMove, onPointerDown]
+  );
+
+  const handlePointerUp = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      // Apply the final coalesced move before finalizing a drag/drawing so the
+      // committed element includes the release position.
+      flushPointerMove();
+      onPointerUp?.(event);
+    },
+    [flushPointerMove, onPointerUp]
+  );
+
+  const handlePointerLeave = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      // Pointer capture is the normal path. Only use leave as a cleanup
+      // fallback for browsers that do not implement it; otherwise leaving the
+      // canvas would prematurely finish a drag or freehand stroke.
+      if (
+        typeof event.currentTarget.hasPointerCapture === 'function' &&
+        event.currentTarget.hasPointerCapture(event.pointerId)
+      ) {
+        return;
       }
-    };
-  }, []);
+      handlePointerUp(event);
+    },
+    [handlePointerUp]
+  );
 
   const style = useMemo<React.CSSProperties>(
     () => ({
@@ -214,14 +258,18 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0"
+      className="canvas-surface absolute inset-0"
       style={style}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-      onPointerLeave={onPointerUp}
-    />
+      tabIndex={0}
+      aria-label="Drawing canvas"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
+    >
+      Drawing canvas
+    </canvas>
   );
 };
 
