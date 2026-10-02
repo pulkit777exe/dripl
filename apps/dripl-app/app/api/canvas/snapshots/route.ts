@@ -10,13 +10,39 @@ import {
   listSnapshotSummaries,
 } from './_lib/snapshotStore';
 import { allowSnapshotRequest } from './_lib/snapshotRateLimit';
+import { resolveOwnedCanvasId } from './_lib/snapshotAccess';
+import { denySnapshotAccess, getSnapshotCaller, snapshotAccessCheckFailed } from './_lib/session';
+
+/**
+ * Resolve a caller-supplied slug to a canvas they own, or the denial to send
+ * instead. Both refusals are one answer by construction: `resolveOwnedCanvasId`
+ * filters on `{ id, userId }` in the query, so a canvas that does not exist and
+ * a canvas owned by somebody else return the same `null` and take the same
+ * branch here.
+ */
+async function authorizeCanvas(
+  canvasId: string,
+  userId: string,
+  event: string
+): Promise<{ owned: true; canvasId: string } | { owned: false; response: NextResponse }> {
+  try {
+    const ownedId = await resolveOwnedCanvasId(canvasId, userId);
+    if (ownedId === null) {
+      return { owned: false, response: denySnapshotAccess(canvasId, userId, event) };
+    }
+    return { owned: true, canvasId: ownedId };
+  } catch {
+    return { owned: false, response: snapshotAccessCheckFailed(event, userId) };
+  }
+}
 
 export async function GET(request: NextRequest) {
-  // Version-history listing. canvasId is REQUIRED: snapshots carry no
-  // ownership, so an unfiltered list would enumerate every canvas's
-  // snapshot ids. Metadata only — scene bytes stay behind the per-id GET.
-  // Mirrors the [id] route (no origin gate; read-only and no-store) rather
-  // than POST.
+  // Version-history listing, and the only route here that enumerates. canvasId
+  // is REQUIRED, and owning it is required too: a list is a directory of ids,
+  // not a share, so handing it out on a guessed slug would turn every share
+  // link's canvas into an enumeration oracle. Metadata only — scene bytes stay
+  // behind the per-id GET. Mirrors the [id] route (no origin gate; read-only
+  // and no-store) rather than POST.
   const canvasId = request.nextUrl.searchParams.get('canvasId');
   if (!canvasId || canvasId.length > MAX_CANVAS_ID_LENGTH) {
     return NextResponse.json({ error: 'canvasId query parameter is required.' }, { status: 400 });
@@ -25,8 +51,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Too many snapshot requests' }, { status: 429 });
   }
 
+  // Identity before existence. `getSnapshotCaller` never touches storage, so
+  // the 401 for a caller with no credential is byte- and timing-identical for a
+  // real canvas and a made-up one.
+  const caller = getSnapshotCaller(request);
+  if (!caller.authorized) return caller.response;
+
+  const access = await authorizeCanvas(canvasId, caller.userId, 'snapshot_list_denied');
+  if (!access.owned) return access.response;
+
   try {
-    const snapshots = await listSnapshotSummaries(canvasId);
+    const snapshots = await listSnapshotSummaries(access.canvasId);
     return NextResponse.json({ snapshots }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
     // A storage failure must not masquerade as "this canvas has no versions",
@@ -65,6 +100,30 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json({ error: 'Invalid snapshot payload.' }, { status: 400 });
     }
+
+    // Scoping a snapshot to a canvas is the version-history feature, and it
+    // writes into that canvas's owner-visible state: it consumes their live
+    // capacity and shows up in their version list. So a supplied `canvasId`
+    // must be resolved to a canvas this caller owns before anything is
+    // written. Authorisation sits here — after the cheap origin, rate-limit and
+    // size gates, before the scene is parsed and before `createSnapshot` —
+    // because `canvasId` only exists inside the body. A caller who fails this
+    // gate gets the same 401/403 for a real canvas and a made-up one, because
+    // the lookup filters on `{ id, userId }` and returns `null` for both.
+    //
+    // An absent `canvasId` stays anonymous on purpose (see the comment above
+    // `createSnapshot` for why), so this block is the only credential
+    // requirement on the write path.
+    let scopedCanvasId: string | undefined;
+    if (typeof body.canvasId === 'string') {
+      const caller = getSnapshotCaller(request);
+      if (!caller.authorized) return caller.response;
+
+      const access = await authorizeCanvas(body.canvasId, caller.userId, 'snapshot_create_denied');
+      if (!access.owned) return access.response;
+      scopedCanvasId = access.canvasId;
+    }
+
     let decoded: unknown;
     try {
       decoded = JSON.parse(body.data);
@@ -86,7 +145,11 @@ export async function POST(request: NextRequest) {
 
     const result = await createSnapshot({
       data: serialized,
-      ...(typeof body.canvasId === 'string' ? { canvasId: body.canvasId } : {}),
+      // The id is the one `File.id` the ownership lookup returned, not the
+      // string the client sent: by this point the two are equal, and passing
+      // the resolved value keeps the stored binding to a real record even if
+      // the input were ever normalised upstream.
+      ...(scopedCanvasId !== undefined ? { canvasId: scopedCanvasId } : {}),
     });
     if (result.status === 'capacity') {
       return NextResponse.json(

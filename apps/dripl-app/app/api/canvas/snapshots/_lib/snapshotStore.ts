@@ -26,6 +26,15 @@ import { initializeDb } from '@dripl/db';
 /** Serialized-scene ceiling. Mirrored by the `CanvasSnapshot_data_bytes` CHECK
  * constraint in `20261002133016_add_canvas_snapshot`; raise both together. */
 export const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Live-snapshot ceiling for the whole table, counted over `expiresAt > now` —
+ * global, not per-user and not per-canvas. Ownership on the write path stops
+ * one user from spending another's budget *for a named canvas*; it cannot stop
+ * anonymous shares (`canvasId = null`) from consuming the same 500 rows.
+ * Scoping the budget would need an owner column on `CanvasSnapshot`, which is
+ * a schema change out of scope here.
+ */
 export const MAX_SNAPSHOTS = 500;
 export const SNAPSHOT_TTL_MS = 60 * 60 * 1000;
 
@@ -88,6 +97,26 @@ export function resetSnapshotSweepState(): void {
 /**
  * Store a validated scene and return its share id, or report that the live
  * capacity ceiling has been reached.
+ *
+ * `canvasId` is optional, and both values mean something different:
+ *
+ *  - **Present** — the caller has already been shown to own the `File` this id
+ *    names (`resolveOwnedCanvasId`), so the row is that canvas's version
+ *    history. The route is what enforces this; this function is not a
+ *    second policy and must not be reachable with an unverified id.
+ *  - **Absent** — an anonymous share snapshot. This is the product: the
+ *    recipient opens `/canvas?snapshot=<id>` with no credential at all, so
+ *    requiring one on every write would delete the share-link feature
+ *    (`TopBar.handleShareCanvas` posts `{ data }` and nothing else, and
+ *    `/canvas` is reachable logged out). Such rows are stored with
+ *    `canvasId = null`, which is what keeps them out of every owner's
+ *    version list in `listSnapshotSummaries`.
+ *
+ * The capacity ceiling below counts *live rows across the whole table*, so it
+ * is global rather than per-user or per-canvas. An anonymous share can
+ * therefore consume capacity that an owner's own snapshots need. Making the
+ * budget per-owner needs a column this change does not add; see the note on
+ * `MAX_SNAPSHOTS`.
  */
 export async function createSnapshot(input: {
   data: string;
@@ -131,8 +160,12 @@ export async function readSnapshotData(id: string): Promise<string | null> {
 
 /**
  * Version-history metadata for one canvas, newest first. Scene bytes stay
- * behind `readSnapshotData`; snapshots carry no ownership, so this route
- * requires an explicit canvas and never lists across canvases.
+ * behind `readSnapshotData`.
+ *
+ * `canvasId` here must be a `File.id` the caller has already been shown to own
+ * (`resolveOwnedCanvasId`); this function does no authorisation, because the
+ * route's own gate is what keeps it a version list rather than a directory.
+ * It never lists across canvases regardless.
  */
 export async function listSnapshotSummaries(canvasId: string): Promise<SnapshotSummary[]> {
   const client = await initializeDb();

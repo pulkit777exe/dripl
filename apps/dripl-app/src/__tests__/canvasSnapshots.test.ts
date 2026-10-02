@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { signToken } from '@dripl/utils/auth';
 import { GET as GET_BY_ID } from '../../app/api/canvas/snapshots/[id]/route';
 import {
   MAX_SNAPSHOT_BYTES,
@@ -36,11 +37,47 @@ const harness = vi.hoisted(() => {
   }
 
   const rows = new Map<string, Row>();
-  const state = { failure: null as Error | null, sweeps: 0 };
+  const state = {
+    /** Fails the snapshot store. */
+    failure: null as Error | null,
+    /** Fails everything, including the `File` lookup that precedes a read. */
+    totalFailure: null as Error | null,
+    sweeps: 0,
+  };
 
   /** `gt` is the only comparison the store generates. */
   const isLive = (row: Row, filter: Date | undefined): boolean =>
     filter === undefined || row.expiresAt.getTime() > filter.getTime();
+
+  const userId = 'contract-test-user';
+
+  /**
+   * The ownership stand-in for a contract test.
+   *
+   * Every caller in *this* file is the owner of every canvas it names. That is
+   * the premise these tests were written under before ownership existed at all,
+   * and preserving it keeps each assertion about one thing — validation,
+   * durability, capacity, rate limiting — instead of two.
+   *
+   * It is deliberately not a vacuous stub: the query still runs and still
+   * returns a row, so a route that skipped the lookup, or looked up the wrong
+   * thing, still fails here. The negative cases (a stranger's canvas, a canvas
+   * that does not exist, an unauthenticated caller) are the subject of
+   * `canvasSnapshots.authz.test.ts`.
+   */
+  const file = {
+    findFirst: async ({
+      where,
+    }: {
+      where: { id: string; userId?: string };
+    }): Promise<{ id: string } | null> => {
+      // Only a *total* outage reaches the ownership gate; a snapshot-store
+      // outage must leave the gate working so the read path can fail on its own.
+      if (state.totalFailure) throw state.totalFailure;
+      if (where.userId !== undefined && where.userId !== userId) return null;
+      return { id: where.id };
+    },
+  };
 
   const client = {
     canvasSnapshot: {
@@ -102,17 +139,35 @@ const harness = vi.hoisted(() => {
     },
   };
 
-  return { rows, state, client };
+  return { rows, state, client, file, userId };
 });
 
 vi.mock('@dripl/db', () => ({
-  initializeDb: async () => harness.client,
+  initializeDb: async () => ({ ...harness.client, file: harness.file }),
   db: harness.client,
 }));
 
 const { GET, POST } = await import('../../app/api/canvas/snapshots/route');
 
 const { rows: database, state: storage, client: fakeClient } = harness;
+
+/**
+ * The route contract here is written for an owner. `canvasSnapshots.authz.test.ts`
+ * covers the refusals and the indistinguishability; this file stays about the
+ * happy path, the payload gates, durability and capacity, so every request is
+ * sent as the owner of whatever canvas it names.
+ *
+ * The secret is stubbed *before* the token is signed, because `signToken` and
+ * the route both read `JWT_SECRET` at call time.
+ */
+vi.stubEnv('JWT_SECRET', 'test-jwt-secret-for-snapshot-contract-tests');
+
+const OWNER_ID = harness.userId;
+const OWNER_TOKEN = signToken(OWNER_ID);
+
+function authHeaders(headers: Record<string, string> = {}): Record<string, string> {
+  return { cookie: `dripl-session=${OWNER_TOKEN}`, ...headers };
+}
 
 const element = {
   id: 'snapshot-element',
@@ -126,10 +181,14 @@ const element = {
 /** The old process-local store, gone. Asserted rather than assumed. */
 const legacyGlobal = '__driplCanvasSnapshots';
 
-function post(body: unknown, headers: HeadersInit = {}) {
+function post(body: unknown, headers: Record<string, string> = {}) {
   return new NextRequest('http://localhost:3000/api/canvas/snapshots', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', origin: 'http://localhost:3000', ...headers },
+    headers: authHeaders({
+      'content-type': 'application/json',
+      origin: 'http://localhost:3000',
+      ...headers,
+    }),
     body: JSON.stringify(body),
   });
 }
@@ -149,7 +208,7 @@ function list(canvasId?: string) {
     canvasId === undefined
       ? 'http://localhost:3000/api/canvas/snapshots'
       : `http://localhost:3000/api/canvas/snapshots?canvasId=${canvasId}`;
-  return GET(new NextRequest(url));
+  return GET(new NextRequest(url, { headers: authHeaders() }));
 }
 
 async function create(data: string, canvasId?: string): Promise<string> {
@@ -214,7 +273,10 @@ describe('canvas snapshot capability route', () => {
     });
     const chunkedRequest = new NextRequest('http://localhost:3000/api/canvas/snapshots', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+      headers: authHeaders({
+        'content-type': 'application/json',
+        origin: 'http://localhost:3000',
+      }),
       body,
     } as ConstructorParameters<typeof NextRequest>[1]);
 
@@ -225,11 +287,14 @@ describe('canvas snapshot capability route', () => {
     const response = await POST(
       new NextRequest('http://localhost:3000/api/canvas/snapshots', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        // Authenticated on purpose: the origin gate must run first, so a
+        // session that would otherwise be accepted proves the ordering.
+        headers: authHeaders({ 'content-type': 'application/json' }),
         body: JSON.stringify({ data: JSON.stringify([element]) }),
       })
     );
     expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: 'Forbidden origin' });
   });
 
   it('rejects declared payloads over the size limit before reading', async () => {
@@ -247,6 +312,8 @@ describe('canvas snapshot durability', () => {
   beforeEach(() => {
     clearSnapshotRateLimitState();
     resetSnapshotSweepState();
+    storage.failure = null;
+    storage.totalFailure = null;
   });
 
   it('round-trips a scene through the database with no process memory involved', async () => {
@@ -344,6 +411,30 @@ describe('canvas snapshot durability', () => {
       expect(await created.json()).toEqual({ error: 'Unable to create snapshot.' });
     } finally {
       storage.failure = null;
+    }
+  });
+
+  it('reports an outage in the ownership lookup as a 500, not as a refusal', async () => {
+    // The snapshot store is healthy here, so this isolates the gate: the
+    // `File` read that decides ownership is unreachable. Answering 403 would
+    // tell the owner of a real canvas that it is not theirs.
+    storage.totalFailure = new Error('connection terminated unexpectedly');
+    try {
+      const listed = await list('canvas-outage');
+      expect(listed.status).toBe(500);
+      expect(await listed.json()).toEqual({ error: 'Unable to verify snapshot access.' });
+
+      const created = await postScene(JSON.stringify([element]), 'canvas-outage');
+      expect(created.status).toBe(500);
+      expect(await created.json()).toEqual({ error: 'Unable to verify snapshot access.' });
+
+      // Route 3 never consults `File`, so an outage there cannot break a share
+      // link — which is the property that keeps the share feature independent
+      // of this one.
+      const anonymous = await postScene(JSON.stringify([element]));
+      expect(anonymous.status).toBe(200);
+    } finally {
+      storage.totalFailure = null;
     }
   });
 
@@ -454,6 +545,19 @@ describe('canvas snapshot listing', () => {
     expect(((await response.json()) as { snapshots: unknown[] }).snapshots).toEqual([]);
   });
 
+  it('rejects a list or a write with no session, without consulting storage', async () => {
+    // An anonymous share is anonymous by design; naming a canvas is not.
+    const anonymous = new NextRequest('http://localhost:3000/api/canvas/snapshots', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+      body: JSON.stringify({ data: JSON.stringify([element]), canvasId: 'canvas-anonymous' }),
+    });
+    expect((await POST(anonymous)).status).toBe(401);
+
+    const listUrl = 'http://localhost:3000/api/canvas/snapshots?canvasId=canvas-anonymous';
+    expect((await GET(new NextRequest(listUrl))).status).toBe(401);
+  });
+
   it('rejects invalid canvasId values on write', async () => {
     expect((await postScene(JSON.stringify([element]), 'x'.repeat(201))).status).toBe(400);
     expect((await postScene(JSON.stringify([element]), '')).status).toBe(400);
@@ -499,6 +603,9 @@ describe('canvas snapshot rate limiting', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    // `unstubAllEnvs` also drops the signing secret stubbed at module scope, so
+    // it is restored for the next test in this file.
+    vi.stubEnv('JWT_SECRET', 'test-jwt-secret-for-snapshot-contract-tests');
     clearSnapshotRateLimitState();
   });
 
@@ -535,6 +642,8 @@ describe('canvas snapshot rate limiting', () => {
   });
 
   it('rates-limits the listing route too', async () => {
+    // As the owner, so this stays a test about the limiter rather than about
+    // access control.
     for (let i = 0; i < 30; i++) {
       expect((await list('canvas-rate-limited')).status).toBe(200);
     }

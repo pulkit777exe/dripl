@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { signToken } from '@dripl/utils/auth';
 import { db, initializeDb } from '@dripl/db';
 import * as store from '../../app/api/canvas/snapshots/_lib/snapshotStore';
 import {
@@ -50,13 +51,49 @@ const element = {
 /** Every snapshot this file creates, so the sweep tests start from a known set. */
 const canvasIds: string[] = [];
 
-function post(data: string, canvasId: string | undefined, ip: string) {
+/**
+ * Session signing for the authenticated routes.
+ *
+ * `POST` with a `canvasId` and the listing route both require a caller who owns
+ * the canvas, so these are signed with a real `JWT_SECRET` — exactly the secret
+ * `verifyToken` will read inside the route, which is the part a hand-written
+ * fake token would get wrong.
+ */
+const JWT_SECRET = 'test-jwt-secret-for-snapshot-db-tests';
+vi.stubEnv('JWT_SECRET', JWT_SECRET);
+
+function tokenFor(userId: string): string {
+  return signToken(userId);
+}
+
+/** The `User.id` that owns the `File` rows this file seeds. */
+const OWNER_ID = 'db-test-owner';
+/** A second real user, so "not the owner" is a genuine non-owner and not a typo. */
+const OTHER_USER_ID = 'db-test-other-user';
+
+/**
+ * Every `User` and `File` row this file creates, for cleanup.
+ *
+ * The `User` rows are not ceremony: `File.userId` carries a real foreign key to
+ * `User.id` (`File_userId_fkey`), so ownership can only be exercised against
+ * rows that exist. That FK is also the reason a `File` with a null `userId`
+ * belongs to nobody and can never satisfy the ownership filter.
+ */
+const userIds = [OWNER_ID, OTHER_USER_ID];
+const fileIds: string[] = [];
+
+/**
+ * `userId` defaults to the owner, so a test that is not about access control
+ * does not have to think about it.
+ */
+function post(data: string, canvasId: string | undefined, ip: string, userId: string = OWNER_ID) {
   return new NextRequest('http://localhost:3000/api/canvas/snapshots', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       origin: 'http://localhost:3000',
       'x-forwarded-for': ip,
+      cookie: `dripl-session=${tokenFor(userId)}`,
     },
     body: JSON.stringify({ data, ...(canvasId === undefined ? {} : { canvasId }) }),
   });
@@ -71,7 +108,7 @@ function read(id: string) {
 function list(canvasId: string, ip: string) {
   return routes.collection.GET(
     new NextRequest(`http://localhost:3000/api/canvas/snapshots?canvasId=${canvasId}`, {
-      headers: { 'x-forwarded-for': ip },
+      headers: { 'x-forwarded-for': ip, cookie: `dripl-session=${tokenFor(OWNER_ID)}` },
     })
   );
 }
@@ -92,6 +129,15 @@ describeDb('canvas snapshot routes against PostgreSQL', () => {
     vi.stubEnv('UPSTASH_REDIS_REST_URL', '');
     vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', '');
     await initializeDb();
+    // Ownership is a `File.userId` → `User.id` comparison, and the FK is real, so
+    // the users have to exist before any `File` can be owned by one.
+    for (const id of userIds) {
+      await db.user.upsert({
+        where: { id },
+        update: {},
+        create: { id, email: `${id}@dripl.test`, name: id },
+      });
+    }
     routes = {
       collection: await import('../../app/api/canvas/snapshots/route'),
       byId: await import('../../app/api/canvas/snapshots/[id]/route'),
@@ -103,6 +149,11 @@ describeDb('canvas snapshot routes against PostgreSQL', () => {
     await db.canvasSnapshot.deleteMany({
       where: { canvasId: { in: canvasIds } },
     });
+    // The `File` rows exist only so the routes can resolve ownership; a real
+    // deployment creates them through `POST /api/files`, which these tests
+    // deliberately bypass to keep the assertion on the snapshot path.
+    await db.file.deleteMany({ where: { id: { in: fileIds } } });
+    await db.user.deleteMany({ where: { id: { in: userIds } } });
     await db.$disconnect();
     vi.unstubAllEnvs();
   });
@@ -115,15 +166,26 @@ describeDb('canvas snapshot routes against PostgreSQL', () => {
     routes.rateLimit.clearSnapshotRateLimitState();
   });
 
-  /** A fresh canvasId plus a fresh IP, so no test inherits another's bucket. */
-  function scope(): { canvasId: string; ip: string } {
-    const canvasId = `db-canvas-${randomUUID()}`;
-    canvasIds.push(canvasId);
-    return { canvasId, ip: `10.0.0.${(canvasIds.length % 250) + 1}` };
+  /**
+   * A fresh canvasId plus a fresh IP, so no test inherits another's bucket.
+   *
+   * The canvasId is a real `File` row, because the route resolves the id the
+   * client sends against `File` filtered by owner: an id with no `File` behind
+   * it is now correctly a refusal, which would make every test here fail for a
+   * reason that has nothing to do with PostgreSQL.
+   */
+  async function scope(userId: string = OWNER_ID): Promise<{ canvasId: string; ip: string }> {
+    const file = await db.file.create({
+      data: { id: `db-canvas-${randomUUID()}`, name: 'scoped canvas', userId },
+      select: { id: true },
+    });
+    canvasIds.push(file.id);
+    fileIds.push(file.id);
+    return { canvasId: file.id, ip: `10.0.0.${(canvasIds.length % 250) + 1}` };
   }
 
   it('persists a posted snapshot as a row and reads it back through the route', async () => {
-    const { canvasId, ip } = scope();
+    const { canvasId, ip } = await scope();
     const created = await routes.collection.POST(post(JSON.stringify([element]), canvasId, ip));
     expect(created.status).toBe(200);
     const { id } = (await created.json()) as { id: string };
@@ -149,7 +211,7 @@ describeDb('canvas snapshot routes against PostgreSQL', () => {
   });
 
   it('rejects an expired snapshot and only reclaims the row on a later write', async () => {
-    const { canvasId, ip } = scope();
+    const { canvasId, ip } = await scope();
     const created = await routes.collection.POST(post(JSON.stringify([element]), canvasId, ip));
     const { id } = (await created.json()) as { id: string };
 
@@ -179,8 +241,8 @@ describeDb('canvas snapshot routes against PostgreSQL', () => {
   });
 
   it('lists one canvas newest-first and never another canvas snapshots', async () => {
-    const { canvasId, ip } = scope();
-    const other = scope();
+    const { canvasId, ip } = await scope();
+    const other = await scope();
     const scene = JSON.stringify([element]);
 
     const first = (await (await routes.collection.POST(post(scene, canvasId, ip))).json()) as {
@@ -208,8 +270,55 @@ describeDb('canvas snapshot routes against PostgreSQL', () => {
     expect(foreign.snapshots.map(snapshot => snapshot.id)).not.toContain(first.id);
   });
 
+  it('refuses a canvas owned by another user, indistinguishably from one that does not exist', async () => {
+    // Against real SQL rather than a stand-in, because the property under test
+    // *is* the query: `WHERE id = $1 AND user_id = $2` returns the same empty
+    // result for a stranger's canvas and for a made-up one. A fake that
+    // branched in JavaScript could pass while the real predicate leaked.
+    const { ip } = await scope();
+    const othersCanvas = await scope(OTHER_USER_ID);
+    // The other user writes their own version history first, so there is
+    // something real for `OWNER_ID` to be refused.
+    const created = await routes.collection.POST(
+      post(JSON.stringify([element]), othersCanvas.canvasId, ip, OTHER_USER_ID)
+    );
+    expect(created.status).toBe(200);
+    const { id } = (await created.json()) as { id: string };
+
+    // Every request below is `OWNER_ID`, which does not own `othersCanvas`.
+    const foreignList = await list(othersCanvas.canvasId, ip);
+    const foreignPost = await routes.collection.POST(
+      post(JSON.stringify([element]), othersCanvas.canvasId, ip)
+    );
+    const missingList = await list(randomUUID(), ip);
+
+    expect(foreignList.status).toBe(403);
+    expect(foreignPost.status).toBe(403);
+    // Byte-identical, so neither the status nor the body distinguishes "not
+    // yours" from "no such canvas" on either route.
+    expect(await missingList.text()).toBe(await foreignList.clone().text());
+    expect(await foreignPost.text()).toBe(await foreignList.clone().text());
+
+    // Nothing was written under a canvas the caller does not own, and the
+    // owner still has exactly the one row they created.
+    expect(await db.canvasSnapshot.count({ where: { canvasId: othersCanvas.canvasId } })).toBe(1);
+    // The share link is unaffected: the id is still fetchable by anyone.
+    expect((await read(id)).status).toBe(200);
+  });
+
+  it('refuses an unauthenticated list before the database is consulted', async () => {
+    const { canvasId, ip } = await scope();
+    const response = await routes.collection.GET(
+      new NextRequest(`http://localhost:3000/api/canvas/snapshots?canvasId=${canvasId}`, {
+        headers: { 'x-forwarded-for': ip },
+      })
+    );
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'Authentication required.' });
+  });
+
   it('bounds the stored scene at the size the write path enforces', async () => {
-    const { canvasId, ip } = scope();
+    const { canvasId, ip } = await scope();
     const created = await routes.collection.POST(post(JSON.stringify([element]), canvasId, ip));
     const { id } = (await created.json()) as { id: string };
 
