@@ -42,7 +42,29 @@
       "description": "Compile deployable artifacts",
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
-      "outputLogs": "new-only"
+      "outputLogs": "new-only",
+      "passThroughEnv": [
+        "API_SERVER_URL",
+        "DATABASE_URL",
+        "DATABASE_URL_POOLED",
+        "DB_ALLOW_INSECURE_TLS",
+        "DEBUG_PRISMA",
+        "FRONTEND_URL",
+        "GEMINI_API_KEY",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "HTTP_PORT",
+        "HTTP_SERVER_URL",
+        "IMAGE_STORAGE_DIR",
+        "INTERNAL_SECRET",
+        "JWT_SECRET",
+        "SMTP_PASS",
+        "SMTP_USER",
+        "TRUST_PROXY",
+        "UPSTASH_REDIS_REST_TOKEN",
+        "UPSTASH_REDIS_REST_URL",
+        "WS_PORT"
+      ]
     },
     "lint": {
       "description": "Run static analysis in parallel with dependency-aware hashing",
