@@ -12,7 +12,8 @@ if (env.SENTRY_DSN) {
   });
 }
 
-import { createServer } from 'http';
+import { createServer } from 'node:http';
+import type { IncomingMessage } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { DriplElement } from '@dripl/common';
 import { pickUserColor, MAX_MESSAGE_BYTES } from '@dripl/common';
@@ -199,7 +200,19 @@ export const ACCESS_RECHECK_THROTTLE_MS = Number(process.env.ACCESS_RECHECK_THRO
 let shuttingDown = false;
 
 export const server = createServer(async (req, res) => {
-  if (req.url === '/health') {
+  // Liveness, deliberately distinct from the readiness probe below. It answers
+  // exactly one question — is this event loop still turning — and performs no
+  // I/O, so it cannot fail for a reason that restarting the process would fix.
+  // `/health` is the opposite: it is a *readiness* probe, because it requires
+  // Postgres and answers 503 when the database is unreachable. Pointing a
+  // process supervisor's restart policy at `/health` conflates the two, and for
+  // this server the difference is data loss rather than latency: every room is
+  // authoritative in memory (ADR-002), so a restart triggered by a transient
+  // Postgres blip discards unsaved edits and drops every connected client.
+  if (req.url === '/live') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', uptime: process.uptime(), ts: Date.now() }));
+  } else if (req.url === '/health') {
     try {
       await db.$queryRaw`SELECT 1`;
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -234,6 +247,19 @@ export const server = createServer(async (req, res) => {
     res.writeHead(404);
     res.end();
   }
+});
+
+// `http.Server` is an EventEmitter too, and `listen` reports a bind failure
+// (`EADDRINUSE`, `EACCES`) by emitting `'error'`. Unhandled, that is a fatal
+// uncaught exception — the correct outcome, but reported as a bare Node stack
+// dump with no service name and no `event`, so a port clash on deploy is
+// indistinguishable from a crash loop. Listening for it and exiting explicitly
+// keeps the crash behaviour identical (exit code 1) and makes the reason
+// greppable. This is also the only error on this process that is *allowed* to
+// be fatal: nothing about it is survivable.
+server.on('error', err => {
+  logger.error({ event: 'ws_http_server_error', err });
+  process.exit(1);
 });
 
 function normalizeOrigin(value: string | undefined): string | null {
@@ -274,7 +300,61 @@ export const wss = new WebSocketServer({
   },
 });
 
-wss.on('connection', async (ws, req) => {
+// `EventEmitter` throws on an `'error'` event that has no listener, and `ws`
+// emits `'error'` on a socket for ordinary transport-level failures — most
+// importantly `receiverOnError` / `senderOnError`, which fire for a frame the
+// client sent that the receiver could not parse (an invalid-UTF8 text frame,
+// a malformed compressed frame) and for a failed outbound deflate. With no
+// listener that is not a per-connection failure, it is an uncaught exception:
+// one packet from one client killed the process and discarded every in-memory
+// `RoomState` in it. Verified against ws@8.22.0 with the options above — a
+// single masked text frame of `[0xff,0xfe,0xfd]` prints
+// "Emitted 'error' event on WebSocket instance" and exits the process before
+// any ticket is ever validated.
+//
+// So: log the transport error, let `ws` run its own close handshake (it already
+// does, immediately after emitting), and never let it reach the process-level
+// throw. `warn`, not `error`, and no Sentry — these are operational events
+// caused by a peer, not faults in this process.
+//
+// The server-level listener is precautionary: ws@8.22.0 does not currently
+// emit `'error'` on `WebSocketServer` at all, but the event is part of its
+// declared surface and an unhandled one would be fatal here too.
+wss.on('error', err => {
+  logger.error({ event: 'ws_server_error', err });
+});
+
+wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+  ws.on('error', err => {
+    logger.warn({
+      event: 'ws_socket_error',
+      code: (err as { code?: unknown }).code,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+  // `ws` is an EventEmitter and does not await listeners, so an `async` one
+  // that rejects becomes an unhandled rejection — which Node turns into the
+  // same fatal uncaught exception as above (an emitter only routes a rejected
+  // listener to `'error'` when it was constructed with
+  // `{ captureRejections: true }`, and `ws` does not). Registering a
+  // synchronous listener and floating the work keeps that failure mode inside
+  // `handleConnection`, which owns its own catch.
+  void handleConnection(ws, req);
+});
+
+async function handleConnection(ws: WebSocket, req: IncomingMessage): Promise<void> {
+  try {
+    await onConnection(ws, req);
+  } catch (err) {
+    logger.error({ event: 'ws_connection_setup_failed', err });
+    Sentry.captureException(err);
+    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      ws.close(1011, 'Connection setup failed');
+    }
+  }
+}
+
+async function onConnection(ws: WebSocket, req: IncomingMessage): Promise<void> {
   if (shuttingDown) {
     ws.close(1012, 'Server restarting');
     return;
@@ -822,11 +902,23 @@ wss.on('connection', async (ws, req) => {
       }
     }
   });
-});
+}
 
+// Every sweep is `unref()`ed, so none of them is a reason for the process to
+// stay alive on its own. That is safe in production because a *listening*
+// `http.Server` is a ref'd handle: once `listen()` below succeeds, the process
+// lives for exactly as long as it is serving, and these timers simply ride
+// along. It matters on the import path — this module is the composition root,
+// and the `NODE_ENV === 'test'` guard at the bottom skips `listen()` but not
+// these. Before, importing `index.ts` without calling `stopForTests()` left
+// four ref'd timers behind and the process never exited; the five integration
+// suites that `await import('../index')` depended entirely on their `afterAll`
+// to clear them. `unref()` is what makes "import the server" a side-effect-free
+// operation rather than one that silently changes the event loop's lifetime.
 const heartbeat = setInterval(() => {
   runHeartbeatTick(wss.clients);
 }, HEARTBEAT_INTERVAL_MS);
+heartbeat.unref();
 
 const AUTHORIZATION_SWEEP_INTERVAL_MS = 15_000;
 const authorizationSweep = setInterval(() => {
@@ -837,18 +929,21 @@ authorizationSweep.unref();
 const periodicSave = setInterval(() => {
   void runPeriodicSave();
 }, PERIODIC_SAVE_INTERVAL_MS);
+periodicSave.unref();
 
 const LOCK_SWEEP_INTERVAL_MS = 5_000;
 
 const lockSweep = setInterval(() => {
   runLockSweep();
 }, LOCK_SWEEP_INTERVAL_MS);
+lockSweep.unref();
 
 const RECONCILIATION_INTERVAL_MS = 60_000;
 
 const reconciliation = setInterval(() => {
   void runReconciliation();
 }, RECONCILIATION_INTERVAL_MS);
+reconciliation.unref();
 
 async function shutdown() {
   if (shuttingDown) return;

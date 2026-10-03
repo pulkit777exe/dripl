@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { type NextFunction, type Request, type Response } from 'express';
 import { sendError } from '../lib/response';
 

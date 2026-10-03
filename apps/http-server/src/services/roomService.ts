@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { db as prisma } from '@dripl/db';
 import { isValidSceneContent } from '../lib/sceneValidation';
 

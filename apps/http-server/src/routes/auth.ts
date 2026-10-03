@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { randomUUID, timingSafeEqual } from 'crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { sendError } from '../lib/response';
 import {

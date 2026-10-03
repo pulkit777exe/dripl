@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import { db } from '@dripl/db';
 import { parseStoredFileContent } from '../lib/encrypt';
 import { isValidSceneContent } from '../lib/sceneValidation';

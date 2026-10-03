@@ -27,6 +27,24 @@ function initSubscription(): void {
 
   try {
     const sub = client.psubscribe('dripl:room:*');
+    // `Subscriber` extends `EventTarget`, not Node's `EventEmitter`, and its
+    // `dispatchToListeners` is `this.listeners.get(type)` followed by a loop —
+    // an `'error'` dispatch with no registered listener is a silent no-op
+    // rather than a throw. The failures that matter arrive asynchronously, from
+    // `command.exec(...).catch(...)` inside `subscribeToPattern`, long after
+    // the `try` below has returned, so the surrounding catch never sees them.
+    // The observable effect was that an unreachable or rejected Upstash
+    // subscription stopped cross-instance fan-out with no log line at all, and
+    // `initialized` (set above) kept it from ever being retried. Listen so the
+    // failure is at least visible; whether to re-subscribe is a separate
+    // question, because a parse failure does not kill the stream and a retry
+    // would open a second subscription for the same pattern.
+    sub.on('error', error => {
+      logger.error({
+        event: 'redis_subscription_error',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
     sub.on('pmessage', (data: { pattern: string; channel: string; message: unknown }) => {
       try {
         const roomId = String(data.channel).replace('dripl:room:', '');

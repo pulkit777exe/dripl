@@ -1,5 +1,5 @@
 import { Router, type Response } from 'express';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { authMiddleware, type AuthRequest } from '../middlewares/authMiddleware';
 import { sendError } from '../lib/response';
 import { logger } from '../logger';

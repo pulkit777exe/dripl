@@ -251,8 +251,35 @@ Loaded from the **root** `.env` via `dotenv -e ../../.env`.
 
 ## Health & Metrics
 
-- `GET /health` — database-backed health response with uptime/memory
-- `GET /metrics` — JSON counters for active rooms, connections, users, and memory
+| Method | Path       | Purpose                                                                            |
+| ------ | ---------- | ---------------------------------------------------------------------------------- |
+| `GET`  | `/live`    | **Liveness.** Process-up only, no I/O. Never 5xx for a reason a restart would fix. |
+| `GET`  | `/health`  | **Readiness.** `SELECT 1` against Postgres; 503 when unreachable                   |
+| `GET`  | `/metrics` | Active rooms, connections, users, memory                                           |
+
+Point a supervisor's _restart_ policy at `/live` and a load balancer's at
+`/health`. They are not interchangeable: `render.yaml` restarts an instance that
+fails `/health` for 60 seconds, and on this server a restart discards the
+authoritative in-memory `RoomState` for every live room (ADR-002) and drops
+every connected client — so a 60-second Postgres blip becomes data loss rather
+than degraded service.
+
+## Process-level error handling
+
+- Every `ws` socket gets an `'error'` listener at connect time. `WebSocket` is an
+  `EventEmitter` and `emit('error')` with no listener **throws**, so a single
+  unparseable frame from one client (e.g. a text frame that is not valid UTF-8,
+  which `receiverOnError` reports) would otherwise end the process.
+- The `connection` listener is registered synchronously and floats an async
+  `handleConnection`, which owns its own `catch`. `ws` is not constructed with
+  `{ captureRejections: true }`, so an `async` listener that rejected would
+  become an unhandled rejection — the same fatal outcome.
+- `http.Server`'s `'error'` is handled explicitly: a bind failure logs
+  `ws_http_server_error` and exits 1, which is the only error on this process
+  that is meant to be fatal.
+- All five sweeps (`heartbeat`, `authorizationSweep`, `periodicSave`,
+  `lockSweep`, `reconciliation`) are `unref()`ed. The listening socket keeps the
+  process alive; the timers must not be the reason it does.
 
 ---
 

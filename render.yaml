@@ -32,7 +32,13 @@ services:
         sync: false
       - key: SMTP_PASS
         sync: false
-    healthCheckPath: /health
+    # Liveness, not readiness, on purpose. Render restarts an instance that
+    # fails consecutive checks for 60s, and `/health` here answers 503 when
+    # Postgres is unreachable — so pointing the restart policy at it turns a
+    # database blip into a process restart. `/live` performs no I/O and so
+    # cannot fail for a reason a restart would fix. `/health` is unchanged and
+    # remains the readiness signal for an operator or a load balancer.
+    healthCheckPath: /live
     autoDeploy: true
 
   - type: web
@@ -60,5 +66,7 @@ services:
         sync: false
       - key: UPSTASH_REDIS_REST_TOKEN
         sync: false
-    healthCheckPath: /health
+    # See the http-server service above. This one matters more: a restart here
+    # discards the authoritative in-memory RoomState for every live room.
+    healthCheckPath: /live
     autoDeploy: true

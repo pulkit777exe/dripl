@@ -174,9 +174,32 @@ pnpm test     # Vitest test suite
 
 ### Health
 
-| Method | Path      | Description                                      |
-| ------ | --------- | ------------------------------------------------ |
-| `GET`  | `/health` | Database-backed health, uptime, and memory check |
+| Method | Path      | Purpose                                                          |
+| ------ | --------- | ---------------------------------------------------------------- |
+| `GET`  | `/live`   | **Liveness.** Process-up only, no I/O, exempt from rate limiting |
+| `GET`  | `/health` | **Readiness.** `SELECT 1` against Postgres; 503 when unreachable |
+
+`/live` exists so that a supervisor's restart policy does not fire on a
+database blip. `render.yaml` restarts an instance that fails `/health` for 60
+seconds, which would take the whole API down with Postgres. Keep the two
+separate: `/health` is what a load balancer or an operator should read.
+
+### Terminal error handler
+
+One handler, in `createApp()`, answers every error that reaches it. It first
+classifies the error as _operational_ (a client caused it) or _programmer_
+(the server is at fault) and logs accordingly:
+
+- **Operational** → `warn` with `event: http_client_error`. Recognised by
+  explicit marker, not by "has a 4xx status": a `body-parser` `type`
+  (`entity.parse.failed`, `entity.too.large`, `parameters.too.many`, …) or this
+  file's own CORS origin rejection. A route/service/Prisma exception that
+  happens to carry `status: 403` is still a bug and must stay on the error path.
+- **Programmer** → `error` with `event: http_server_error` and a stack.
+
+The HTTP response is deliberately identical in both cases (`500
+INTERNAL_ERROR`): `appComposition.test.ts` pins that contract and this module
+does not renegotiate it.
 
 ---
 

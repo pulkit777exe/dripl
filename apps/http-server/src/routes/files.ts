@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware';

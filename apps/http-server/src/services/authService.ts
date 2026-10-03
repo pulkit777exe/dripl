@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { db } from '@dripl/db';
 import { sendResetPasswordEmail, sendVerificationEmail } from '../lib/mailer';
 

@@ -5,7 +5,7 @@ export function sendError(
   res: Response,
   statusCode: number,
   error: string,
-  message: string,
+  message: string
 ): Response {
   return res.status(statusCode).json({ error, message, statusCode } satisfies ApiError);
 }
