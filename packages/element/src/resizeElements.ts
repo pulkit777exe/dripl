@@ -204,7 +204,8 @@ const wrapText = (text: string, fontString: string, maxWidth: number): string =>
 const measureText = (
   text: string,
   fontString: string,
-  lineHeight: number
+  lineHeight: number,
+  fontSize: number
 ): { width: number; height: number } => {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -223,7 +224,13 @@ const measureText = (
 
   return {
     width: maxWidth,
-    height: lines.length * lineHeight,
+    // `lineHeight` is the element's unitless multiplier (1.2 in the factory,
+    // 1.4 from the overlays), not a pixel value, so the pixel line pitch is
+    // `fontSize * lineHeight` — the same product `measureFontSizeFromWidth`
+    // returns for one line. Multiplying by the bare multiplier made a 4-line
+    // 20px box report 4.8px instead of 96px, and the caller assigns this
+    // straight to `element.height`, collapsing the box around its own text.
+    height: lines.length * fontSize * lineHeight,
   };
 };
 
@@ -237,7 +244,8 @@ export const resizeSingleTextElement = (
 ): Partial<DriplElement> => {
   if (element.type !== 'text') return {};
 
-  const fontString = `${element.fontSize || 16}px ${element.fontFamily || 'Arial'}`;
+  const fontSize = element.fontSize || 16;
+  const fontString = `${fontSize}px ${element.fontFamily || 'Arial'}`;
   const lineHeight = (element.lineHeight as number) || 1.2;
 
   // Corner/top/bottom handles: scale font size proportionally, keep aspect ratio
@@ -258,7 +266,7 @@ export const resizeSingleTextElement = (
     const newWidth = Math.max(minWidth, nextWidth);
     const sourceText = (element as TextElement).originalText || element.text || '';
     const text = wrapText(sourceText, fontString, Math.abs(newWidth));
-    const metrics = measureText(text, fontString, lineHeight);
+    const metrics = measureText(text, fontString, lineHeight, fontSize);
     // Do NOT return x/y — let the pointer handler's origin computation take effect
     return {
       width: Math.abs(newWidth),

@@ -189,13 +189,21 @@ function collectDependencyIds(element: DriplElement): string[] {
   const ids: string[] = [];
   // Typed defensively: these fields are optional and the element union widens
   // them, so a runtime check is the honest filter.
-  if (typeof element.labelId === 'string' && element.labelId) ids.push(element.labelId);
-  if (typeof element.boundElementId === 'string' && element.boundElementId) {
-    ids.push(element.boundElementId);
-  }
+  const add = (value: unknown): void => {
+    if (typeof value !== 'string' || !value) return;
+    // Ids are de-duplicated because `dependenciesUnchanged` compares the size of
+    // the recorded *Map* against this list's length. A repeated id collapses in
+    // the Map but not here, so a single duplicate — which an imported `.dripl`
+    // file can carry in `boundElements`, since that path copies the array
+    // verbatim — made the two disagree permanently and forced the owner's bitmap
+    // to be regenerated on every frame.
+    if (!ids.includes(value)) ids.push(value);
+  };
+  add(element.labelId);
+  add(element.boundElementId);
   if (element.boundElements) {
     for (const bound of element.boundElements) {
-      if (bound && typeof bound.id === 'string' && bound.id) ids.push(bound.id);
+      if (bound) add(bound.id);
     }
   }
   return ids;
@@ -330,6 +338,13 @@ export function hasCachedBitmapForTest(element: DriplElement): boolean {
  * the `width`/`height` the byte accounting reads.
  */
 export function seedCacheEntryForTest(element: DriplElement, width = 120, height = 90): void {
+  // Re-seeding an element replaces its entry, so the byte total has to subtract
+  // the one being replaced exactly as `getOrCreateElementCanvas` does. Adding
+  // unconditionally let a double-seeded element report twice its real cost,
+  // which would make the ceiling tests above it measure the wrong thing.
+  const replaced = elementCanvasCache.get(element);
+  if (replaced) cachedBitmapBytes -= bitmapBytes(replaced.canvas);
+  if (cachedBitmapBytes < 0) cachedBitmapBytes = 0;
   elementCanvasCache.set(element, {
     canvas: { width, height } as unknown as CacheEntry['canvas'],
     version: element.version ?? 0,

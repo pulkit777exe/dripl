@@ -74,7 +74,15 @@ class ImageCacheImpl {
       };
 
       const timeout = setTimeout(() => {
+        clearTimeout(timeout);
         cached.error = true;
+        // The timeout is a terminal outcome, exactly like `onerror`, so it has
+        // to be cached. Dropping it here left `get()` returning undefined
+        // forever, and the render path — which only re-requests when it has no
+        // cached entry — then started a fresh `Image` and a fresh timer on
+        // every frame for a source that was never going to decode.
+        this.cache.set(src, cached);
+        this.updateAccessOrder(src);
         resolve(cached);
       }, this.preloadTimeout);
 
