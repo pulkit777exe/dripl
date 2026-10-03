@@ -7,8 +7,46 @@ import { URL } from 'url';
 
 let prismaInstance: PrismaClient | null = null;
 
-async function createPrismaClient(): Promise<PrismaClient> {
-  const dbUrl = process.env.DATABASE_URL || '';
+/**
+ * The slice of `process.env` that decides how the pool connects.
+ *
+ * Passed in rather than read from the environment so every branch below is
+ * reachable from a test. Previously all of this was inline in
+ * `createPrismaClient`, where it was evaluated exactly once at module load —
+ * which is why the package reported 0/28 branches covered while containing the
+ * logic that decides whether TLS verification is on.
+ */
+export interface DbEnvironment {
+  DATABASE_URL: string | undefined;
+  NODE_ENV: string | undefined;
+  DB_ALLOW_INSECURE_TLS: string | undefined;
+  DB_POOL_SIZE: string | undefined;
+}
+
+/** What `pg.Pool` is constructed with. */
+export interface PoolConfig {
+  connectionString: string;
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+  ssl: false | { rejectUnauthorized: false } | undefined;
+  connectionTimeoutMillis: number;
+  idleTimeoutMillis: number;
+  max: number;
+}
+
+/**
+ * Derive the pool configuration from the environment. Pure: no I/O, no globals.
+ *
+ * The security-relevant part is `ssl`. Certificate verification is on unless
+ * one of two explicit, development-only escapes applies, and **neither can fire
+ * when `NODE_ENV === 'production'`** — that is the invariant worth a test, and
+ * it was previously unreachable from one.
+ */
+export function buildPoolConfig(env: DbEnvironment): PoolConfig {
+  const dbUrl = env.DATABASE_URL ?? '';
 
   if (!dbUrl) {
     throw new Error(
@@ -17,12 +55,12 @@ async function createPrismaClient(): Promise<PrismaClient> {
   }
 
   const isLocalhost = dbUrl.includes('localhost');
-  const shouldDisableSsl = isLocalhost && process.env.NODE_ENV !== 'production';
+  const shouldDisableSsl = isLocalhost && env.NODE_ENV !== 'production';
   const allowInsecureRemoteTls =
-    process.env.NODE_ENV !== 'production' && process.env.DB_ALLOW_INSECURE_TLS === 'true';
+    env.NODE_ENV !== 'production' && env.DB_ALLOW_INSECURE_TLS === 'true';
 
   const url = new URL(dbUrl);
-  const poolConfig = {
+  return {
     // Preserve query parameters such as sslmode from managed PostgreSQL URLs;
     // reconstructing only host/user/password silently downgraded TLS.
     connectionString: dbUrl,
@@ -41,8 +79,17 @@ async function createPrismaClient(): Promise<PrismaClient> {
         : undefined,
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 30000,
-    max: Math.max(1, parseInt(process.env.DB_POOL_SIZE || '20', 10) || 20),
+    max: Math.max(1, parseInt(env.DB_POOL_SIZE || '20', 10) || 20),
   };
+}
+
+async function createPrismaClient(): Promise<PrismaClient> {
+  const poolConfig = buildPoolConfig({
+    DATABASE_URL: process.env.DATABASE_URL,
+    NODE_ENV: process.env.NODE_ENV,
+    DB_ALLOW_INSECURE_TLS: process.env.DB_ALLOW_INSECURE_TLS,
+    DB_POOL_SIZE: process.env.DB_POOL_SIZE,
+  });
 
   const pool = new PgModule.Pool(poolConfig);
 
