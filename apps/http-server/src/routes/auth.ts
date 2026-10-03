@@ -50,14 +50,29 @@ function getGoogleAuth(): { client: OAuth2Client; clientId: string } {
   return { client: new OAuth2Client(clientId, clientSecret), clientId };
 }
 
+/**
+ * An email address, bounded.
+ *
+ * 254 is the RFC 5321 maximum, so no real address is affected. The cap is not
+ * decoration: a bare `z.string().email()` accepts a regex-shaped local part of
+ * any length, and on the routes below that unbounded value reaches a database
+ * query and, for the ones that send mail, nodemailer's address parser.
+ *
+ * Defined once rather than per-schema. It previously existed only on
+ * `resendVerificationSchema`, while its documented siblings `forgotPassword`,
+ * `register` and `login` accepted any length — an inconsistency the code
+ * itself flagged and this closes.
+ */
+const emailSchema = z.string().email().max(254);
+
 const registerSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
   password: z.string().min(8).max(128),
   name: z.string().trim().min(1).max(100).optional(),
 });
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
   password: z.string().min(1),
 });
 
@@ -259,7 +274,7 @@ authRouter.post('/google', async (req, res) => {
 });
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
 });
 
 authRouter.post('/forgot-password', async (req, res) => {
@@ -325,11 +340,11 @@ authRouter.post('/verify-email', async (req, res) => {
  * `z.string().email()` still accepts a regex-shaped local part of any length, and
  * the point of validating here is that no hostile value reaches
  * `AuthService.resendVerification` and nodemailer's address parser. 254 is the
- * RFC 5321 maximum, so no real address is affected. The sibling schemas above
- * do not yet carry this cap.
+ * RFC 5321 maximum, so no real address is affected. Shares `emailSchema` with
+ * every other route that accepts an address.
  */
 const resendVerificationSchema = z.object({
-  email: z.string().email().max(254),
+  email: emailSchema,
 });
 
 authRouter.post('/resend-verification', async (req, res) => {

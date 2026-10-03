@@ -879,6 +879,54 @@ describe('POST /api/auth/forgot-password', () => {
     });
   });
 
+  /**
+   * RFC 5321 caps an address at 254 characters. `z.string().email()` alone does
+   * not: it accepts a regex-shaped local part of any length, so a well-formed
+   * but enormous address used to reach a database query and, on the two routes
+   * that send mail, nodemailer's address parser.
+   *
+   * This address is deliberately *valid* to `.email()` and rejected only by the
+   * length cap — which is the whole point, since a malformed string would be
+   * refused by the format check and prove nothing about the cap.
+   */
+  const OVERLENGTH_EMAIL = `${'a'.repeat(250)}@example.com`;
+
+  // The expected error code is per-route and that difference is intentional:
+  // `register` and `login` answer INVALID_PAYLOAD, the deliberately vague code,
+  // while the two non-enumerating mail routes answer the specific
+  // EMAIL_REQUIRED. Asserting one code for all four would have papered over it.
+  it.each([
+    [
+      'register',
+      '/api/auth/register',
+      { password: 'correct-horse-battery', name: 'Owner' },
+      'INVALID_PAYLOAD',
+    ],
+    ['login', '/api/auth/login', { password: 'whatever' }, 'INVALID_PAYLOAD'],
+    ['forgot-password', '/api/auth/forgot-password', {}, 'EMAIL_REQUIRED'],
+    ['resend-verification', '/api/auth/resend-verification', {}, 'EMAIL_REQUIRED'],
+  ])('refuses an over-length address on %s', async (_name, path, extra, code) => {
+    const response = await post(app, path, 'anonymous', { email: OVERLENGTH_EMAIL, ...extra });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe(code);
+  });
+
+  it('accepts an address at exactly the 254-character limit', async () => {
+    // The cap must not be off by one in the strict direction: 254 is the RFC
+    // maximum, so a longest-possible real address has to keep working.
+    const local = 'a'.repeat(254 - '@example.com'.length);
+    const atLimit = `${local}@example.com`;
+    expect(atLimit).toHaveLength(254);
+
+    const response = await post(app, '/api/auth/forgot-password', 'anonymous', {
+      email: atLimit,
+    });
+
+    // Not 400 EMAIL_REQUIRED: the address passed validation.
+    expect(response.status).not.toBe(400);
+  });
+
   it('answers 500 when the service throws', async () => {
     const findUnique = vi.spyOn(db.user, 'findUnique').mockRejectedValueOnce(new Error('db down'));
 
