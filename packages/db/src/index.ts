@@ -5,8 +5,6 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import * as PgModule from 'pg';
 import { URL } from 'url';
 
-let prismaInstance: PrismaClient | null = null;
-
 /**
  * The slice of `process.env` that decides how the pool connects.
  *
@@ -106,25 +104,55 @@ async function createPrismaClient(): Promise<PrismaClient> {
   });
 }
 
+/**
+ * The live client, held on `globalThis` rather than in module scope.
+ *
+ * A module-level `let` is per **module instance**, and a bundler is free to
+ * produce more than one instance of a module in a single process. Next 16 with
+ * Turbopack does exactly that for this package: a production `next build` emits
+ * three server chunks that each contain their own copy of this module —
+ * `serverExternalPackages: ['@dripl/db']` is set in `next.config.mjs` and the
+ * package is bundled anyway. `app/instrumentation.ts` calls `initializeDb()`,
+ * which initialised one copy, while `lib/server/session.ts` closed over another
+ * whose instance stayed `null` — so its Proxy threw and every authenticated
+ * Server Component route answered 500 in a real production build while passing
+ * every test, because the duplication only exists after bundling.
+ *
+ * `globalThis` is shared by every copy in the process, so whichever one
+ * initialises first is the one all of them see. This is the same reason Prisma's
+ * own Next.js guidance puts the client on `globalThis`: it also stops dev
+ * hot-reload from leaking a connection pool per recompile.
+ */
+const globalForDb = globalThis as unknown as {
+  __driplPrismaClient?: PrismaClient | null;
+};
+
+function currentClient(): PrismaClient | null {
+  return globalForDb.__driplPrismaClient ?? null;
+}
+
 export const db: PrismaClient = new Proxy({} as PrismaClient, {
   get(_target, prop) {
     if (prop === 'then') {
       return undefined;
     }
-    if (!prismaInstance) {
+    const instance = currentClient();
+    if (!instance) {
       throw new Error(
         'PrismaClient not initialized. This may be due to accessing db before dotenv is loaded or a connection issue. Make sure to load environment variables before using db operations.'
       );
     }
-    return (prismaInstance as unknown as Record<string | symbol, unknown>)[prop];
+    return (instance as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
 
 export async function initializeDb(): Promise<PrismaClient> {
-  if (!prismaInstance) {
-    prismaInstance = await createPrismaClient();
+  // Checked on the global, and re-checked after the await: two copies racing to
+  // initialize would otherwise each build a pool and leak one.
+  if (!currentClient()) {
+    globalForDb.__driplPrismaClient = await createPrismaClient();
   }
-  return prismaInstance;
+  return currentClient() as PrismaClient;
 }
 
 /*
