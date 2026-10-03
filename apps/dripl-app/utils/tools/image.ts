@@ -72,7 +72,23 @@ export async function loadImage(
       });
     };
 
-    img.onerror = reject;
+    // Handing `reject` straight to an event handler is a trap: the rejection
+    // reason becomes whatever the DOM event happens to carry, so callers get
+    // something that is not an `Error`. In a browser that is an opaque `Event`
+    // with no `message`; under jsdom it is `undefined`. Either way
+    // `catch (e) { e.message }` yields nothing — and the log line the caller
+    // writes names the wrong step, because by this point the upload has already
+    // succeeded and it is the decode that failed.
+    const describeSource = (): string => {
+      const raw =
+        typeof file === 'string'
+          ? file
+          : `File(${file.name || 'unnamed'}, ${file.type || 'unknown type'})`;
+      // A File source is read as a data URL, so never echo an unbounded one.
+      return raw.length > 120 ? `${raw.slice(0, 117)}...` : raw;
+    };
+
+    img.onerror = () => reject(new Error(`Failed to decode image: ${describeSource()}`));
 
     if (typeof file === 'string') {
       img.src = file;
@@ -81,7 +97,7 @@ export async function loadImage(
       reader.onload = e => {
         img.src = e.target?.result as string;
       };
-      reader.onerror = reject;
+      reader.onerror = () => reject(new Error(`Failed to read image: ${describeSource()}`));
       reader.readAsDataURL(file);
     }
   });

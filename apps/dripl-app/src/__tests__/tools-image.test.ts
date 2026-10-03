@@ -237,31 +237,39 @@ describe('loadImage: File sources', () => {
   });
 
   /**
-   * A broken image URL rejects with NO reason.
+   * A broken image URL rejects with a real `Error` carrying a usable message.
    *
-   * `img.onerror = reject` hands the browser's event straight to the promise's
-   * reject, which the promise ignores, so the rejection value is `undefined`.
-   * Both callers log the caught value ("Failed to upload image: <here>"), so a
-   * broken URL produces a log line ending in `undefined` and nothing else.
-   * Reported rather than fixed: giving it a reason means inventing an Error,
-   * which is a behaviour change nobody asked for.
+   * `img.onerror = reject` used to hand the DOM event straight to the promise's
+   * reject, so the rejection reason was whatever the event happened to be: an
+   * opaque `Event` with no `message` in a browser, `undefined` under jsdom.
+   * Both callers log the caught value, so the line read
+   * "Failed to upload image: undefined" — and it named the wrong step, because
+   * by this point the upload has already succeeded and the decode is what
+   * failed. A log line that misattributes the failure is worse than no log line.
+   *
+   * These doubles now pass an `Event`, as a browser does. That is what makes
+   * the assertions below non-vacuous: with the argument omitted, a stub that
+   * supplies its own `undefined` will happily satisfy a
+   * `rejects.toBeUndefined()` assertion while production behaves differently.
    */
-  it('rejects with no reason when the image fails to load', async () => {
+  it('rejects with a descriptive Error when the image fails to load', async () => {
     class FailingImage {
       onload: (() => void) | null = null;
-      onerror: (() => void) | null = null;
+      onerror: ((event: unknown) => void) | null = null;
       set src(_value: string) {
-        queueMicrotask(() => this.onerror?.());
+        queueMicrotask(() => this.onerror?.(new Event('error')));
       }
     }
     vi.stubGlobal('Image', FailingImage);
-    await expect(loadImage('https://cdn/broken.png')).rejects.toBeUndefined();
+    await expect(loadImage('https://cdn/broken.png')).rejects.toThrow(
+      'Failed to decode image: https://cdn/broken.png'
+    );
   });
 
-  it('rejects with no reason when reading the File fails, never hanging', async () => {
+  it('rejects with a descriptive Error when reading the File fails, never hanging', async () => {
     class UnusedImage {
       onload: (() => void) | null = null;
-      onerror: (() => void) | null = null;
+      onerror: ((event: unknown) => void) | null = null;
       set src(_value: string) {
         queueMicrotask(() => this.onload?.());
       }
@@ -269,14 +277,17 @@ describe('loadImage: File sources', () => {
     vi.stubGlobal('Image', UnusedImage);
     class FailingReader {
       onload: unknown = null;
-      onerror: unknown = null;
+      onerror: ((event: unknown) => void) | null = null;
       readAsDataURL() {
-        queueMicrotask(() => (this.onerror as (() => void) | null)?.());
+        queueMicrotask(() => this.onerror?.(new Event('error')));
       }
     }
     vi.stubGlobal('FileReader', FailingReader);
-    // `reader.onerror = reject` has the same reason-less rejection as the image
-    // path; what matters here is that the promise settles instead of hanging.
-    await expect(loadImage(new File(['x'], 'a.png'))).rejects.toBeUndefined();
+    // The reader failure is a distinct step from the decode failure and gets its
+    // own message. What matters here is that the promise settles carrying a real
+    // Error, rather than hanging or rejecting with `undefined`.
+    await expect(loadImage(new File(['x'], 'a.png'))).rejects.toThrow(
+      /^Failed to read image: File\(a\.png, /
+    );
   });
 });

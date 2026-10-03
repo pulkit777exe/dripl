@@ -247,7 +247,12 @@ export function useCanvasPointerEvents({
           makeId: uuidv4,
           onElement: addElement,
           onError: error => {
-            logError('Failed to upload image:', error);
+            // The `try` spans both the upload and the decode, so this prefix has
+            // to cover both. It used to say "Failed to upload image", which is
+            // wrong for the common case: a decode failure happens *after* a
+            // successful upload, and the line then read "Failed to upload image:
+            // Failed to decode image: ...".
+            logError('Failed to add image to canvas:', error);
           },
         }
       );
