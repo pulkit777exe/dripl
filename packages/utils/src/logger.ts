@@ -18,6 +18,13 @@ export function createLogger(service: string): StructuredLogger {
     },
     serializers: {
       err: pino.stdSerializers.err,
+      // `error` is registered as well as `err` because `Error` has no own
+      // enumerable properties, so pino stringifies a raw one to `{}`. Every
+      // `logger.error({ event, error }, msg)` in this repo therefore logged
+      // the event and nothing else — no message, no stack — for 40 call sites
+      // across both servers. Registering the key here fixes all of them at
+      // once, and any future one, rather than renaming a field 40 times.
+      error: pino.stdSerializers.err,
       req: pino.stdSerializers.req,
       res: pino.stdSerializers.res,
     },
