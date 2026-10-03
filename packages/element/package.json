@@ -30,6 +30,7 @@
     "build": "tsc -b --force",
     "lint": "eslint .",
     "test": "vitest run",
+    "bench:render": "tsx bench/render-path.bench.ts",
     "check-types": "tsc --noEmit -p tsconfig.check.json"
   },
   "dependencies": {

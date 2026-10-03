@@ -4,8 +4,13 @@
   // `exclude` REPLACES the build config's list rather than adding to it, so this
   // is what un-covers `src/*.test.ts`: the build config must exclude them or
   // `tsc -b` would compile the tests straight into `dist`.
+  // `include` also covers `bench/`, the render-path benchmark harness. It is
+  // outside the build config's `src` on purpose: the harness must never be
+  // compiled into `dist/`, but `eslint .` still has to type-check it, because
+  // the shared config enables a type-aware rule (`no-floating-promises`) over
+  // every `.ts` file and a file with no project is a hard error, not a warning.
   "extends": "./tsconfig.json",
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "bench/**/*.ts"],
   "exclude": ["node_modules", "dist"],
   "compilerOptions": {
     "noEmit": true,
