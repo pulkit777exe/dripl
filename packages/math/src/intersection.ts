@@ -4,6 +4,7 @@ import {
   getBounds,
   boundsIntersect,
   distanceToSegment,
+  segmentsIntersect,
   segmentIntersectsPolygon,
   pointInPolygon,
   distance,
@@ -17,6 +18,13 @@ export { rotatePoint } from './geometry';
  * Points within this distance are considered the same point.
  */
 const LINE_CONFIRM_THRESHOLD = 10;
+
+/**
+ * Extra pixels beyond half the stroke width that still count as "on" a path
+ * element. Shared by `isPointInElement` and `isPointOnElementOutline` so the
+ * tolerance and the bounds pre-filter cannot drift apart.
+ */
+const PATH_HIT_SLACK = 2;
 
 /**
  * Checks if a background color is considered transparent (i.e., not a visible fill).
@@ -188,11 +196,18 @@ export function getElementBounds(element: DriplElement): Bounds {
 
 export const isPointInElement = (point: Point, element: DriplElement): boolean => {
   const bounds = getElementBounds(element);
+  // Path elements are tested against the centreline with a tolerance of
+  // strokeWidth/2 + 2, which is wider than the stroke padding baked into
+  // getElementBounds. Reject on the bounds box inflated by that slack, so the
+  // declared tolerance is actually reachable instead of being clipped away by
+  // this cheap pre-filter. Shape elements need no slack: their tests are exact.
+  const isPath = element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line';
+  const slack = isPath ? PATH_HIT_SLACK : 0;
   if (
-    point.x < bounds.x ||
-    point.x > bounds.x + bounds.width ||
-    point.y < bounds.y ||
-    point.y > bounds.y + bounds.height
+    point.x < bounds.x - slack ||
+    point.x > bounds.x + bounds.width + slack ||
+    point.y < bounds.y - slack ||
+    point.y > bounds.y + bounds.height + slack
   ) {
     return false;
   }
@@ -254,7 +269,7 @@ export const isPointInElement = (point: Point, element: DriplElement): boolean =
   if (element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line') {
     const pts = (element as FreeDrawElement | LinearElement).points || [];
     const worldPts = pts.map(p => elementLocalPointToWorld(element, p));
-    const tolerance = (element.strokeWidth || 0) / 2 + 2;
+    const tolerance = (element.strokeWidth || 0) / 2 + PATH_HIT_SLACK;
 
     if (worldPts.length === 1) {
       const only = worldPts[0]!;
@@ -358,6 +373,9 @@ export const elementIntersectsSegment = (
         start: worldPts[i]!,
         end: worldPts[i + 1]!,
       };
+      // A proper crossing has distance 0 but every endpoint-to-segment
+      // distance is positive, so the crossing has to be tested first.
+      if (segmentsIntersect(segment, pathSeg)) return true;
       const d1 = distanceToSegment(segment.start, pathSeg);
       const d2 = distanceToSegment(segment.end, pathSeg);
       const d3 = distanceToSegment(pathSeg.start, segment);

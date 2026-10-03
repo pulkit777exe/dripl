@@ -75,17 +75,46 @@ export function distanceToSegment(point: Point, segment: LineSegment): number {
 }
 
 /**
- * Check if two line segments intersect
+ * Check if two line segments intersect.
+ *
+ * Segments are treated as closed sets, so touching at a shared endpoint counts
+ * as an intersection, and collinear overlap counts too. The previous strict
+ * `ccw(a) !== ccw(b)` form got both of those wrong and did so
+ * inconsistently: two segments meeting perpendicular at (5,0) reported
+ * `true` while two collinear segments meeting at the same (5,0) reported
+ * `false`.
  */
 export function segmentsIntersect(seg1: LineSegment, seg2: LineSegment): boolean {
   const { start: p1, end: p2 } = seg1;
   const { start: p3, end: p4 } = seg2;
 
-  const ccw = (a: Point, b: Point, c: Point) => {
-    return (c.y - a.y) * (b.x - a.x) > (b.y - a.y) * (c.x - a.x);
+  // Sign of the cross product (p1 -> p2) x (p1 -> p3): 1 left, -1 right, 0 collinear.
+  const orient = (a: Point, b: Point, c: Point): -1 | 0 | 1 => {
+    const v = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    return v > 0 ? 1 : v < 0 ? -1 : 0;
   };
 
-  return ccw(p1, p3, p4) !== ccw(p2, p3, p4) && ccw(p1, p2, p3) !== ccw(p1, p2, p4);
+  const liesWithin = (a: Point, b: Point, p: Point): boolean =>
+    p.x >= Math.min(a.x, b.x) &&
+    p.x <= Math.max(a.x, b.x) &&
+    p.y >= Math.min(a.y, b.y) &&
+    p.y <= Math.max(a.y, b.y);
+
+  const d1 = orient(p3, p4, p1);
+  const d2 = orient(p3, p4, p2);
+  const d3 = orient(p1, p2, p3);
+  const d4 = orient(p1, p2, p4);
+
+  const straddles = (s1: -1 | 0 | 1, s2: -1 | 0 | 1): boolean => s1 * s2 < 0;
+  if (straddles(d1, d2) && straddles(d3, d4)) return true;
+
+  // Collinear overlap and shared endpoints: one endpoint sits on the other segment.
+  if (d1 === 0 && liesWithin(p3, p4, p1)) return true;
+  if (d2 === 0 && liesWithin(p3, p4, p2)) return true;
+  if (d3 === 0 && liesWithin(p1, p2, p3)) return true;
+  if (d4 === 0 && liesWithin(p1, p2, p4)) return true;
+
+  return false;
 }
 
 /**
@@ -129,10 +158,33 @@ export function boundsIntersect(bounds1: Bounds, bounds2: Bounds): boolean {
 }
 
 /**
- * Point in polygon test using ray casting algorithm
+ * Point in polygon test using ray casting algorithm.
+ *
+ * Points lying exactly on the boundary count as inside. The crossing-number
+ * sweep alone cannot deliver that: it is direction-dependent, so for an
+ * axis-aligned square it reported the left and top edges as inside and the
+ * right and bottom edges as outside. `isPointInElement` pre-filters with a
+ * closed (`<=`) box test and then delegates the shape test here, so a
+ * diamond's top, right and bottom vertices were not hit-testable while its
+ * left vertex was.
  */
 export function pointInPolygon(point: Point, polygon: Point[]): boolean {
   if (polygon.length < 3) return false;
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[j]!;
+    const b = polygon[i]!;
+    const cross = (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x);
+    if (
+      cross === 0 &&
+      point.x >= Math.min(a.x, b.x) &&
+      point.x <= Math.max(a.x, b.x) &&
+      point.y >= Math.min(a.y, b.y) &&
+      point.y <= Math.max(a.y, b.y)
+    ) {
+      return true;
+    }
+  }
 
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
