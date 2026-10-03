@@ -33,10 +33,13 @@ export const logWarn = (...args: LogArgs): void => {
 /**
  * Product signals and notable lifecycle events.
  *
- * Flagged, not fixed: the analytics sink in `apps/dripl-app/utils/analytics.ts`
- * routes through here and only reaches the browser console, so tracked events
- * are not a production data path today. Closing that gap means giving
- * `trackEvent` a real transport; it is out of scope for this change.
+ * Note for anyone reaching for this to ship analytics: the Next.js production
+ * build strips `info` (`removeConsole`, `exclude: ['error','warn']`), so
+ * `logInfo` is **not** a data path in a production browser bundle. The analytics
+ * module (`apps/dripl-app/utils/analytics.ts`) still calls it so local debugging
+ * shows events, but delivery goes over HTTP to `NEXT_PUBLIC_ANALYTICS_ENDPOINT`
+ * via `sendBeacon`. With that variable unset, events are logged and nothing
+ * leaves the browser.
  */
 export const logInfo = (...args: LogArgs): void => {
   console.info(...args);
