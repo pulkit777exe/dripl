@@ -33,6 +33,10 @@ RUN pnpm install --frozen-lockfile --network-concurrency 8
 # Copy packages source
 COPY packages/ ./packages/
 COPY tooling/  ./tooling/
+# Both apps build through scripts/bundle-server.mjs, which their build scripts
+# reach at ../../scripts/, so this copy is a build prerequisite. Without it the
+# builder stages below fail with ERR_MODULE_NOT_FOUND.
+COPY scripts/  ./scripts/
 
 # Generate Prisma client
 RUN pnpm --filter @dripl/db exec prisma generate --schema=./prisma/schema.prisma
@@ -45,23 +49,39 @@ RUN pnpm turbo run build --filter='!http-server' --filter='!ws-server'
 FROM base AS http-builder
 COPY apps/http-server/ ./apps/http-server/
 RUN pnpm turbo run build --filter=http-server
+# Production-only install tree: the bundle inlines all workspace source, so the
+# runner needs just the app plus prod third-party deps (no devDeps, no workspace
+# source, no pnpm needed at runtime). The runner below copies this tree, not the
+# development node_modules from `base`, which would ship typescript, vitest,
+# eslint, prisma and prisma studio into the deployed image.
+RUN pnpm --filter http-server --prod deploy --legacy /prod/http-server
+# Drop build/dev-time weight that ships inside @prisma/client's dependency
+# closure but is never imported at runtime (proven: none of these appear in
+# dist/index.js externals): the TS compiler, Prisma CLI + studio, effect,
+# pglite, and engine binaries (migrate/generate run in the deps stage above).
+RUN rm -rf /prod/http-server/node_modules/.pnpm/typescript@* \
+  /prod/http-server/node_modules/.pnpm/prisma@7* \
+  /prod/http-server/node_modules/.pnpm/@prisma+studio-core@* \
+  /prod/http-server/node_modules/.pnpm/effect@* \
+  /prod/http-server/node_modules/.pnpm/@electric-sql+pglite@* \
+  /prod/http-server/node_modules/.pnpm/@prisma+engines@* \
+  /prod/http-server/node_modules/typescript \
+  /prod/http-server/node_modules/prisma
 
 FROM node:20-slim AS http-server
+ENV NODE_ENV=production
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-RUN corepack enable pnpm
 
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/packages ./packages
-COPY --from=base /app/package.json ./package.json
-COPY --from=base /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=http-builder /app/apps/http-server/dist ./apps/http-server/dist
-COPY --from=http-builder /app/apps/http-server/package.json ./apps/http-server/
+COPY --from=http-builder /prod/http-server ./apps/http-server
 
 WORKDIR /app/apps/http-server
 
-ENV NODE_ENV=production
+RUN chown -R node:node /app
+
+USER node
+
 ENV PORT=8080
 
 EXPOSE 8080
@@ -72,23 +92,31 @@ CMD ["node", "dist/index.js"]
 FROM base AS ws-builder
 COPY apps/ws-server/ ./apps/ws-server/
 RUN pnpm turbo run build --filter=ws-server
+# See the http-builder stage above: prod-only tree, and the same prune list.
+RUN pnpm --filter ws-server --prod deploy --legacy /prod/ws-server
+RUN rm -rf /prod/ws-server/node_modules/.pnpm/typescript@* \
+  /prod/ws-server/node_modules/.pnpm/prisma@7* \
+  /prod/ws-server/node_modules/.pnpm/@prisma+studio-core@* \
+  /prod/ws-server/node_modules/.pnpm/effect@* \
+  /prod/ws-server/node_modules/.pnpm/@electric-sql+pglite@* \
+  /prod/ws-server/node_modules/.pnpm/@prisma+engines@* \
+  /prod/ws-server/node_modules/typescript \
+  /prod/ws-server/node_modules/prisma
 
 FROM node:20-slim AS ws-server
+ENV NODE_ENV=production
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-RUN corepack enable pnpm
 
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/packages ./packages
-COPY --from=base /app/package.json ./package.json
-COPY --from=base /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=ws-builder /app/apps/ws-server/dist ./apps/ws-server/dist
-COPY --from=ws-builder /app/apps/ws-server/package.json ./apps/ws-server/
+COPY --from=ws-builder /prod/ws-server ./apps/ws-server
 
 WORKDIR /app/apps/ws-server
 
-ENV NODE_ENV=production
+RUN chown -R node:node /app
+
+USER node
+
 ENV WS_PORT=8080
 
 EXPOSE 8080
