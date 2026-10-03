@@ -63,7 +63,7 @@ const JWT_SECRET = 'test-jwt-secret-for-snapshot-db-tests';
 vi.stubEnv('JWT_SECRET', JWT_SECRET);
 
 function tokenFor(userId: string): string {
-  return signToken(userId);
+  return signToken(userId, 0);
 }
 
 /** The `User.id` that owns the `File` rows this file seeds. */

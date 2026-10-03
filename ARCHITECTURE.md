@@ -382,8 +382,9 @@ Plus `helpers.ts` (~180 lines), `types.ts` (~203 lines), and `index.ts` (~20 lin
 
 Chosen over JWT-at-upgrade because:
 
-- http-server owns session state; the WS connection uses a ticket, although the
-  current WS env schema still validates `JWT_SECRET` for compatibility
+- http-server owns session state; the WS connection uses a single-use ticket,
+  and ws-server holds no signing key at all (`JWT_SECRET` is not in its env
+  schema)
 - One-time tickets prevent replay attacks
 - Internal HTTP call allows http-server to control ticket lifecycle
 

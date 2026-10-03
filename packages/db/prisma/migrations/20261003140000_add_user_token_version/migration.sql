@@ -1,0 +1,18 @@
+-- AlterTable
+-- Session-token generation counter. Every token minted by `signToken` carries
+-- the account's current value as its `ver` claim, and `verifyToken` refuses a
+-- token whose value is not the stored one, so incrementing this column revokes
+-- every token ever issued to the account in a single write.
+--
+-- Written as a plain ADD COLUMN with a constant DEFAULT rather than the
+-- add-then-backfill-then-set-NOT-NULL dance: PostgreSQL 11+ stores a constant
+-- default in the relation's metadata, so this is a catalog-only change that
+-- neither rewrites the heap nor takes an ACCESS EXCLUSIVE lock longer than the
+-- commit. That is what keeps it safe to run against a populated table on boot
+-- while requests are in flight.
+--
+-- Existing rows land on 0, which is the same value `signToken` stamped into
+-- every token issued before this migration existed. Those tokens are therefore
+-- accepted until the account's first revocation event and rejected after it,
+-- with no mass logout on deploy.
+ALTER TABLE "User" ADD COLUMN     "tokenVersion" INTEGER NOT NULL DEFAULT 0;

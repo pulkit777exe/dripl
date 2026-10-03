@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
-import { db } from '@dripl/db';
+import { db, revokeIssuedTokens } from '@dripl/db';
 import { sendResetPasswordEmail, sendVerificationEmail } from '../lib/mailer';
 
 const VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
@@ -31,6 +31,13 @@ export interface RegisterResult {
 export interface LoginResult {
   type: 'not_found' | 'needs_verification' | 'invalid_password' | 'account_locked' | 'success';
   user?: { id: string; email: string; name: string | null; image: string | null };
+  /**
+   * The account's current token generation, and so the `ver` claim the session
+   * token minted for this login must carry. Deliberately a sibling of `user`
+   * rather than a field on it: `user` is serialized straight into the login
+   * response, and a session's revocation counter is not part of a profile.
+   */
+  sessionTokenVersion?: number;
 }
 
 export class AuthService {
@@ -132,9 +139,20 @@ export class AuthService {
     return {
       type: 'success',
       user: { id: user.id, email: user.email, name: user.name, image: user.image },
+      // Read from the row `login` already fetched, so signing the session token
+      // costs no extra query and cannot race ahead of the stored value.
+      sessionTokenVersion: user.tokenVersion,
     };
   }
 
+  /**
+   * Sign in with Google, or create the account on first sight.
+   *
+   * Returns the same `{ id, ..., tokenVersion }` shape as `login` for the same
+   * reason: the route has to stamp the session token with the account's current
+   * generation, and reading it here keeps that read adjacent to the row that
+   * decided the account's identity.
+   */
   static async googleAuth(email: string, name: string | null, image: string | null) {
     let user = await db.user.findUnique({ where: { email } });
 
@@ -160,7 +178,13 @@ export class AuthService {
       }
     }
 
-    return { id: user.id, email: user.email, name: user.name, image: user.image };
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      image: user.image,
+      tokenVersion: user.tokenVersion,
+    };
   }
 
   static async getUser(userId: string) {
@@ -191,12 +215,36 @@ export class AuthService {
       return false;
     }
 
+    const account = await db.user.findUnique({
+      where: { email: resetEntry.email },
+      select: { id: true },
+    });
+
+    // A live reset token for an address with no account. Answering `false` (a
+    // 400) rather than letting the write below fail is the same refusal an
+    // unknown or expired token gets, so the endpoint still cannot be used to
+    // learn which addresses have accounts.
+    if (!account) {
+      return false;
+    }
+
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
+    // The password change and the revocation are ONE `UPDATE`, not two statements
+    // in a transaction.
+    //
+    // A reset is the path a user takes when they think somebody else has the
+    // account, so leaving the tokens minted under the old password alive would
+    // defeat the one action most likely to be taken in response to a compromise.
+    // Folding `{ increment: 1 }` into the same statement that rewrites the hash
+    // means there is no window at all in which the new password is stored and the
+    // old sessions still authenticate -- which a separate write would leave open,
+    // and which a `$transaction` array cannot close either, because
+    // `revokeIssuedTokens` is a plain promise rather than a Prisma one.
     await db.$transaction([
       db.user.update({
-        where: { email: resetEntry.email },
-        data: { password: hashedPassword },
+        where: { id: account.id },
+        data: { password: hashedPassword, tokenVersion: { increment: 1 } },
       }),
       db.passwordResetToken.delete({ where: { id: resetEntry.id } }),
     ]);
@@ -253,6 +301,19 @@ export class AuthService {
     });
   }
 
+  /**
+   * Change a password, and revoke every session token issued under the old one.
+   *
+   * Both halves in one transaction, so there is no instant at which the new
+   * password is stored and a token minted against the old one still
+   * authenticates. A user changing their password is usually doing it *because*
+   * they do not trust the current session set -- on a shared machine, after a
+   * suspected capture -- and that is exactly the set this kills.
+   *
+   * Which means the caller's own session dies with it: the client is holding one
+   * of the tokens being revoked and has to sign in again. See `revokeAllTokens`
+   * for why logout and this share one mechanism rather than two.
+   */
   static async changePassword(
     userId: string,
     currentPassword: string,
@@ -266,11 +327,37 @@ export class AuthService {
     if (!isValid) return false;
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
+    // One statement, for the reason `resetPassword` gives in full: no window in
+    // which the new password is stored and the old sessions still authenticate.
     await db.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, tokenVersion: { increment: 1 } },
     });
 
     return true;
+  }
+
+  /**
+   * Revoke every session token an account holds, in one write.
+   *
+   * Named for the effect rather than for the mechanism so that a caller picks it
+   * knowing what it costs: this is sign-out-everywhere. A second device, a shared
+   * machine, and a token captured from a network log all stop working together,
+   * because there is no way to revoke one session without revoking the account's
+   * generation -- and pretending otherwise would mean a deny list, a row per
+   * token, and an expiry sweep to keep it honest.
+   *
+   * Logout and the two password-changing paths all funnel through here so that
+   * "what invalidates a token" has one answer in the codebase.
+   *
+   * @returns the new generation, or `null` when there was nothing to revoke.
+   */
+  static async revokeAllTokens(userId: string): Promise<number | null> {
+    const existing = await db.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!existing) return null;
+    return revokeIssuedTokens(userId);
   }
 }

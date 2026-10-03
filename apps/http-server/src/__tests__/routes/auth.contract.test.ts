@@ -10,8 +10,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@dripl/db', async () => {
-  const { fakeDb } = await import('../test-utils/fakePrisma');
-  return { db: fakeDb().db, initializeDb: vi.fn(async () => {}) };
+  const { fakeDbModule } = await import('../test-utils/fakeDbModule');
+  return fakeDbModule();
 });
 
 vi.mock('../../lib/mailer', () => ({
@@ -19,11 +19,15 @@ vi.mock('../../lib/mailer', () => ({
   sendResetPasswordEmail: vi.fn(async () => {}),
 }));
 
+import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { signToken } from '@dripl/utils/auth';
 import { db } from '@dripl/db';
 import { authRouter, wsTicketStore } from '../../routes/auth';
 import {
+  bearer,
   buildApp,
+  CSRF_TOKEN,
   get,
   malformedCredentials,
   OWNER_ID,
@@ -33,7 +37,16 @@ import {
 } from '../test-utils/authenticatedRequest';
 import { fakeDb, resetFakeDb } from '../test-utils/fakePrisma';
 
-const app = buildApp([{ path: '/api/auth', router: authRouter }]);
+/**
+ * `auth: false` because that is how `app.ts` mounts it: `/api/auth` gets CSRF but
+ * no global `authMiddleware`, because login and register have no session to
+ * present. The routes that do need one carry their own, and `logout` identifies
+ * the caller itself. Mounting it behind the global guard made this fixture
+ * stricter than the server — and after revocation was added, strictly unusable:
+ * every case here would have been answering 401 from the fixture's own guard
+ * rather than reaching the route under test.
+ */
+const app = buildApp([{ path: '/api/auth', router: authRouter, auth: false }]);
 const unguardedApp = buildApp([{ path: '/api/auth', router: authRouter }], {
   csrf: false,
   auth: false,
@@ -65,6 +78,10 @@ function seedUser(overrides: Record<string, unknown> = {}): void {
     image: null,
     emailVerified: true,
     password: PASSWORD_HASH,
+    // The generation `bearer()` stamps into its token. Absent from the fixture
+    // it would read as NULL against a NOT NULL column, and the middleware would
+    // refuse every authenticated request in this file.
+    tokenVersion: 0,
     ...overrides,
   });
 }
@@ -292,6 +309,9 @@ describe('POST /api/auth/login', () => {
     expect(jwt.verify(token, SECRET, { algorithms: ['HS256'] })).toMatchObject({
       userId: OWNER_ID,
     });
+    // Stamped with the account's current generation, so a token minted during an
+    // earlier login does not come back already revoked.
+    expect(fakeDb().tokenVersionOf(OWNER_ID)).toBe(0);
   });
 
   it('answers 400 INVALID_PAYLOAD for a malformed body', async () => {
@@ -318,7 +338,25 @@ describe('POST /api/auth/login', () => {
   });
 });
 
+/**
+ * Logout, and what it now revokes.
+ *
+ * Before this change `POST /logout` cleared a cookie and nothing else, so a token
+ * captured from a network log, a shared machine or a devtools history entry stayed
+ * usable for the remaining 6 days and 23 hours of its 7-day life -- and clearing
+ * the cookie stopped nothing, because the token was also returned in the response
+ * body and `extractToken` accepts `Authorization: Bearer`.
+ *
+ * These cases are the end-to-end proof: a real signed token, a real generation in
+ * the fake `User` table, a real HTTP round trip through the production guard
+ * chain, and the generation read back off the row afterwards.
+ */
 describe('POST /api/auth/logout', () => {
+  beforeEach(() => {
+    resetFakeDb();
+    seedUser();
+  });
+
   it('clears the session cookie', async () => {
     const response = await post(app, '/api/auth/logout', OWNER_ID);
 
@@ -330,6 +368,118 @@ describe('POST /api/auth/logout', () => {
     expect(cookie).toBeDefined();
     // An expired Max-Age is how Express signals "delete this cookie".
     expect(cookie).toMatch(/dripl-session=;/);
+  });
+
+  it('revokes the token that was presented, so it no longer authenticates', async () => {
+    const before = await get(app, '/api/auth/me', OWNER_ID);
+    expect(before.status).toBe(200);
+    expect(fakeDb().tokenVersionOf(OWNER_ID)).toBe(0);
+
+    const logout = await post(app, '/api/auth/logout', OWNER_ID);
+    expect(logout.status).toBe(200);
+    expect(fakeDb().tokenVersionOf(OWNER_ID)).toBe(1);
+
+    // The same credential, replayed against a route that requires it.
+    const after = await get(app, '/api/auth/me', OWNER_ID);
+    expect(after.status).toBe(401);
+    expect(after.body.error).toBe('UNAUTHORIZED');
+  });
+
+  /**
+   * The product decision, stated as a test: logout is sign-out-everywhere.
+   *
+   * Both devices present tokens minted at generation 0. One logs out; the other's
+   * token dies with it. This is the accepted cost -- a shared account signs
+   * everybody out, and a user who logs out on their phone signs in again on their
+   * laptop -- and it is the price of not leaving a captured token good for a week
+   * after the user explicitly asked to be logged out.
+   */
+  it('invalidates a token from another device, since revocation is per account', async () => {
+    const phone = bearer(OWNER_ID);
+    const laptop = bearer(OWNER_ID);
+    expect(phone).toBe(laptop); // Same generation, so identical credentials.
+
+    expect((await get(app, '/api/auth/me', OWNER_ID)).status).toBe(200);
+
+    const logout = await request(app)
+      .post('/api/auth/logout')
+      .set('Authorization', `Bearer ${phone}`)
+      .set('Cookie', [`csrf-token=${CSRF_TOKEN}`])
+      .set('x-csrf-token', CSRF_TOKEN);
+    expect(logout.status).toBe(200);
+
+    // The laptop's credential, which was never sent to logout.
+    const stillHeld = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${laptop}`)
+      .set('Cookie', [`csrf-token=${CSRF_TOKEN}`]);
+    expect(stillHeld.status).toBe(401);
+  });
+
+  it('lets the user sign in again and mint a token that works', async () => {
+    await post(app, '/api/auth/logout', OWNER_ID);
+    expect((await get(app, '/api/auth/me', OWNER_ID)).status).toBe(401);
+
+    const login = await post(app, '/api/auth/login', 'anonymous', {
+      email: 'owner@example.com',
+      password: PASSWORD,
+    });
+    expect(login.status).toBe(200);
+
+    // The new token carries the *new* generation, not the one that was revoked.
+    const minted = login.body.sessionToken as string;
+    const claims = jwt.verify(minted, SECRET, { algorithms: ['HS256'] }) as {
+      userId: string;
+      ver?: number;
+    };
+    expect(claims.userId).toBe(OWNER_ID);
+    expect(claims.ver).toBe(fakeDb().tokenVersionOf(OWNER_ID));
+    expect(claims.ver).toBe(1);
+
+    const after = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${minted}`)
+      .set('Cookie', [`csrf-token=${CSRF_TOKEN}`]);
+    expect(after.status).toBe(200);
+    expect(after.body.user.id).toBe(OWNER_ID);
+  });
+
+  /**
+   * A token that is already revoked, a forged one, or none at all. All three must
+   * still clear the cookie and answer 200 -- logout grants nothing, so refusing it
+   * would be the one outcome that leaves a stale credential in place.
+   */
+  for (const [label, credentials] of [
+    ['no credential at all', {}],
+    ['a forged token', { header: 'Bearer a.b.c' }],
+    ['a token whose account does not exist', { header: `Bearer ${signToken('user-ghost', 0)}` }],
+  ] as const) {
+    it(`still clears the cookie and answers 200 with ${label}`, async () => {
+      const response = await raw('post', app, '/api/auth/logout', credentials);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ ok: true });
+      const cookie = (response.headers['set-cookie'] as unknown as string[]).find(entry =>
+        entry.startsWith('dripl-session=')
+      );
+      expect(cookie).toMatch(/dripl-session=;/);
+      // Nothing was revoked, because there was nothing to name an account by.
+      expect(fakeDb().tokenVersionOf(OWNER_ID)).toBe(0);
+    });
+  }
+
+  it('answers 200 without revoking anything when the write fails', async () => {
+    // The cookie is cleared first, so the user's intent is satisfied whatever the
+    // storage does. The failure is logged rather than surfaced, because a logout
+    // that answers 500 would leave the browser holding a cookie it believes is
+    // still good.
+    const update = vi.spyOn(db.user, 'update').mockRejectedValueOnce(new Error('db down'));
+
+    const response = await post(app, '/api/auth/logout', OWNER_ID);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ ok: true });
+    update.mockRestore();
   });
 });
 
@@ -351,8 +501,39 @@ describe('GET /api/auth/me', () => {
     });
   });
 
-  it('answers 404 when the token subject no longer exists', async () => {
+  /**
+   * Was a 404; now a 401, and the difference is the fix rather than a regression.
+   *
+   * `authMiddleware` refuses a token whose subject has no stored generation, so
+   * the route's own "no such user" branch is now unreachable through the guard --
+   * which is the intended outcome. Before this change a signed token for a deleted
+   * account authenticated for its remaining lifetime, and `POST /api/auth/ws-ticket`
+   * would mint a live collaboration ticket for a subject nothing could resolve.
+   *
+   * The route keeps its 404 branch (a session removed mid-request is still
+   * possible), so it is exercised directly below rather than through the guard.
+   */
+  it('answers 401 when the token subject no longer exists', async () => {
     const response = await get(app, '/api/auth/me', 'user-deleted');
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      error: 'UNAUTHORIZED',
+      message: 'Invalid or expired token',
+      statusCode: 401,
+    });
+  });
+
+  it('still answers 404 from the route when the account vanishes mid-request', async () => {
+    // The branch is still reachable, just not through the middleware: the account
+    // can be deleted between verification and the profile read. Driven with a stub
+    // so the case is not silently lost along with the guard's earlier 404.
+    const findUnique = vi
+      .spyOn(db.user, 'findUnique')
+      .mockResolvedValueOnce({ tokenVersion: 0 } as never)
+      .mockResolvedValueOnce(null);
+
+    const response = await get(app, '/api/auth/me', OWNER_ID);
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({
@@ -360,6 +541,7 @@ describe('GET /api/auth/me', () => {
       message: 'User not found',
       statusCode: 404,
     });
+    findUnique.mockRestore();
   });
 
   for (const credentials of malformedCredentials()) {
@@ -379,7 +561,13 @@ describe('GET /api/auth/me', () => {
   });
 
   it('answers 500 when the service throws', async () => {
-    const findUnique = vi.spyOn(db.user, 'findUnique').mockRejectedValueOnce(new Error('db down'));
+    // Fails only the *profile* read, not the revocation check the middleware
+    // makes first: `mockRejectedValueOnce` on the model would be consumed by the
+    // middleware and turn this into a 401, which would test the wrong failure.
+    const findUnique = vi
+      .spyOn(db.user, 'findUnique')
+      .mockResolvedValueOnce({ tokenVersion: 0 } as never)
+      .mockRejectedValueOnce(new Error('db down'));
 
     const response = await get(app, '/api/auth/me', OWNER_ID);
 
@@ -518,6 +706,7 @@ describe('POST /api/auth/change-password', () => {
       email: 'victim@example.com',
       emailVerified: true,
       password: 'irrelevant',
+      tokenVersion: 0,
     });
     const update = vi.spyOn(db.user, 'update');
 
@@ -532,11 +721,18 @@ describe('POST /api/auth/change-password', () => {
         .rows('user')
         .find(user => user.id === 'user-victim')?.password
     ).toBe('irrelevant');
+    // Nor is it a way to revoke *their* sessions.
+    expect(fakeDb().tokenVersionOf('user-victim')).toBe(0);
     update.mockRestore();
   });
 
   it('answers 500 when the service throws', async () => {
-    const findUnique = vi.spyOn(db.user, 'findUnique').mockRejectedValueOnce(new Error('db down'));
+    // The revocation check reads `User` first, so a single `mockRejectedValueOnce`
+    // would be consumed there and answered 401 instead of exercising this branch.
+    const findUnique = vi
+      .spyOn(db.user, 'findUnique')
+      .mockResolvedValueOnce({ tokenVersion: 0 } as never)
+      .mockRejectedValueOnce(new Error('db down'));
 
     const response = await post(app, '/api/auth/change-password', OWNER_ID, {
       currentPassword: PASSWORD,
@@ -547,11 +743,84 @@ describe('POST /api/auth/change-password', () => {
     expect(response.body.message).toBe('Failed to change password');
     findUnique.mockRestore();
   });
+
+  /**
+   * The reason `changePassword` moves the generation.
+   *
+   * A user changing their password is usually doing it *because* they do not
+   * trust the current session set -- a shared machine, a suspected capture, a
+   * stale laptop. Before this change the password hash was rewritten and every
+   * token issued under the old one kept working for up to 7 more days, so the one
+   * action most likely to be taken in response to a compromise was the one action
+   * that did not evict the attacker.
+   */
+  it('revokes every token issued under the old password', async () => {
+    expect(fakeDb().tokenVersionOf(OWNER_ID)).toBe(0);
+
+    const response = await post(app, '/api/auth/change-password', OWNER_ID, {
+      currentPassword: PASSWORD,
+      newPassword: 'a-new-password',
+    });
+
+    expect(response.status).toBe(200);
+    expect(fakeDb().tokenVersionOf(OWNER_ID)).toBe(1);
+    // Including the caller's own: the client is holding one of the revoked tokens
+    // and has to sign in again with the new password.
+    expect((await get(app, '/api/auth/me', OWNER_ID)).status).toBe(401);
+  });
+
+  it('revokes a token captured before the change, on a different device', async () => {
+    const captured = bearer(OWNER_ID);
+
+    await post(app, '/api/auth/change-password', OWNER_ID, {
+      currentPassword: PASSWORD,
+      newPassword: 'a-new-password',
+    });
+
+    const replay = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${captured}`)
+      .set('Cookie', [`csrf-token=${CSRF_TOKEN}`]);
+    expect(replay.status).toBe(401);
+  });
+
+  it('does not revoke when the current password is wrong', async () => {
+    await post(app, '/api/auth/change-password', OWNER_ID, {
+      currentPassword: 'wrong-horse',
+      newPassword: 'a-new-password',
+    });
+
+    // A failed attempt must not be a way to log the owner out.
+    expect(fakeDb().tokenVersionOf(OWNER_ID)).toBe(0);
+    expect((await get(app, '/api/auth/me', OWNER_ID)).status).toBe(200);
+  });
+
+  it('signs in again with the new password and gets a working token', async () => {
+    await post(app, '/api/auth/change-password', OWNER_ID, {
+      currentPassword: PASSWORD,
+      newPassword: 'a-brand-new-password',
+    });
+
+    const login = await post(app, '/api/auth/login', 'anonymous', {
+      email: 'owner@example.com',
+      password: 'a-brand-new-password',
+    });
+
+    expect(login.status).toBe(200);
+    const minted = login.body.sessionToken as string;
+    const after = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${minted}`)
+      .set('Cookie', [`csrf-token=${CSRF_TOKEN}`]);
+    expect(after.status).toBe(200);
+    expect(after.body.user.id).toBe(OWNER_ID);
+  });
 });
 
 describe('POST /api/auth/ws-ticket', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedUser();
     wsTicketStore.clear();
   });
 
@@ -685,6 +954,55 @@ describe('POST /api/auth/reset-password', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ ok: true });
     expect(fakeDb().rows('passwordResetToken')).toHaveLength(0);
+  });
+
+  /**
+   * A reset is what a user does when they believe somebody else has the account,
+   * so it has to revoke as well as re-hash. Not doing so meant the response to a
+   * compromise left the compromise's session intact.
+   */
+  it('revokes every session token issued under the old password', async () => {
+    const captured = bearer(OWNER_ID);
+    fakeDb().seed('passwordResetToken', {
+      id: 'reset-1',
+      token: 'live',
+      email: 'owner@example.com',
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    const response = await post(app, '/api/auth/reset-password', 'anonymous', {
+      token: 'live',
+      password: 'a-new-password',
+    });
+
+    expect(response.status).toBe(200);
+    expect(fakeDb().tokenVersionOf(OWNER_ID)).toBe(1);
+
+    const replay = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${captured}`)
+      .set('Cookie', [`csrf-token=${CSRF_TOKEN}`]);
+    expect(replay.status).toBe(401);
+  });
+
+  it('does not consume the token or revoke when no account holds the address', async () => {
+    fakeDb().seed('passwordResetToken', {
+      id: 'reset-2',
+      token: 'orphan',
+      email: 'nobody@example.com',
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    const response = await post(app, '/api/auth/reset-password', 'anonymous', {
+      token: 'orphan',
+      password: 'a-new-password',
+    });
+
+    // The same refusal as an unknown or expired token, so the endpoint cannot be
+    // used to learn which addresses have accounts.
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('INVALID_PAYLOAD');
+    expect(fakeDb().rows('passwordResetToken')).toHaveLength(1);
   });
 
   it('answers 500 when the service throws', async () => {

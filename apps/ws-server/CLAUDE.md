@@ -234,18 +234,21 @@ Room state is persisted to DB via two mechanisms:
 
 Loaded from the **root** `.env` via `dotenv -e ../../.env`.
 
-| Variable                                              | Required                 | Purpose                                                                         |
-| ----------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------- |
-| `JWT_SECRET`                                          | ✅ in current env schema | Session/config compatibility; WS auth uses tickets, not client JWT verification |
-| `WS_PORT`                                             | ✅                       | WebSocket server port (default `3001`)                                          |
-| `FRONTEND_URL`                                        | ✅                       | CORS origin check for upgrade requests                                          |
-| `DATABASE_URL`                                        | ✅                       | Persist room state to DB                                                        |
-| `HTTP_SERVER_URL`                                     | ✅                       | Internal ticket validation endpoint                                             |
-| `INTERNAL_SECRET`                                     | ✅ in production         | Server-to-server ticket validation                                              |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Optional                 | Distributed limiter and fan-out                                                 |
-| `PERIODIC_SAVE_INTERVAL_MS`                           | Optional                 | Periodic save interval (default `15000`)                                        |
+| Variable                                              | Required         | Purpose                                  |
+| ----------------------------------------------------- | ---------------- | ---------------------------------------- |
+| `WS_PORT`                                             | ✅               | WebSocket server port (default `3001`)   |
+| `FRONTEND_URL`                                        | ✅               | CORS origin check for upgrade requests   |
+| `DATABASE_URL`                                        | ✅               | Persist room state to DB                 |
+| `HTTP_SERVER_URL`                                     | ✅               | Internal ticket validation endpoint      |
+| `INTERNAL_SECRET`                                     | ✅ in production | Server-to-server ticket validation       |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Optional         | Distributed limiter and fan-out          |
+| `PERIODIC_SAVE_INTERVAL_MS`                           | Optional         | Periodic save interval (default `15000`) |
 
-> `JWT_SECRET` **throws at startup** if missing.
+> This service holds **no signing key**. WS auth is ticket-based: a client
+> redeems a single-use ticket at `http-server`'s `/internal/validate-ticket`
+> behind `INTERNAL_SECRET`, so `JWT_SECRET` is neither required nor read here.
+> Keeping it out of the environment means the key that can mint a session for any
+> account exists in exactly one service.
 
 ---
 

@@ -79,3 +79,140 @@ export async function initializeDb(): Promise<PrismaClient> {
   }
   return prismaInstance;
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * Session-token revocation
+ * ---------------------------------------------------------------------------
+ *
+ * WHY A GENERATION COUNTER AND NOT A DENY LIST
+ *
+ * A deny list answers "is this exact token revoked?", so it needs one row per
+ * revoked token, an index to look it up by, and a sweep to expire the rows that
+ * outlive their tokens -- and the sweep's failure mode is a list that silently
+ * stops shrinking. A generation counter answers the only question that actually
+ * gets asked, "was this token minted before the account's last revocation?",
+ * which is one indexed primary-key read and one `increment`. It holds no
+ * per-token state at any size, so there is nothing to prune and nothing that can
+ * fall behind. Its one cost is that revocation is all-or-nothing per account,
+ * which for a session cookie is the honest reading of "log me out" anyway.
+ *
+ * WHY IT LIVES HERE
+ *
+ * `verifyToken` in `@dripl/utils/auth` takes the stored version as a *required*
+ * argument rather than importing it, because `pkg:core` may not depend on
+ * `pkg:data` (the `boundaries` block in the root `turbo.json`). The cost of that
+ * indirection is that a caller could pass a stand-in, so these are the only
+ * implementations of that argument in the tree, and every token-accepting entry
+ * point imports one of them rather than writing its own query. A caller that
+ * forgets the check cannot compile; a caller that tries to fake it has to add a
+ * new database query rather than forget an argument, which is a visible diff.
+ */
+
+/**
+ * Structurally the `StoredTokenVersion` type from `@dripl/utils/auth`, restated
+ * rather than imported: `pkg:data` may not depend on `pkg:core` (the `boundaries`
+ * block in the root `turbo.json`), which is the same rule that forces
+ * `verifyToken` to receive this as an argument. Duplicating one function type is
+ * the cheaper half of that rule.
+ */
+export type TokenVersionReader = (userId: string) => Promise<number | null>;
+
+/**
+ * The narrow slice of Prisma Client these two functions need.
+ *
+ * Declared structurally rather than as `PrismaClient` so that an in-memory
+ * stand-in can be passed in -- which it must be, because every http-server suite
+ * replaces this module wholesale (see `test-utils/fakeDbModule.ts`). The two
+ * methods are the entire contract, so naming them is the whole specification of
+ * what revocation depends on: one `User` read by primary key, one `User` write.
+ */
+export interface TokenVersionStore {
+  user: {
+    findUnique(args: {
+      where: { id: string };
+      select: { tokenVersion: true };
+    }): Promise<{ tokenVersion: number } | null>;
+    update(args: {
+      where: { id: string };
+      data: { tokenVersion: { increment: number } };
+      select: { tokenVersion: true };
+    }): Promise<{ tokenVersion: number }>;
+  };
+}
+
+/**
+ * The one place `PrismaClient` is narrowed to `TokenVersionStore`.
+ *
+ * A cast, and a deliberate one: Prisma's generated delegates are generic methods
+ * (`<T extends UserFindUniqueArgs>(args: SelectSubset<T, ...>) => ...`), which no
+ * hand-written structural interface can be assignable to without also giving up
+ * the two concrete argument and result shapes this file relies on. So the
+ * narrowing happens here, once, where it can be read and justified -- rather than
+ * scattered through every call, or worked around by typing the queries loosely
+ * enough that a typo in `select` would type-check.
+ */
+function asTokenVersionStore(client: PrismaClient): TokenVersionStore {
+  return client as unknown as TokenVersionStore;
+}
+
+/**
+ * The generation currently stored for `userId`, or `null` if there is no such
+ * account.
+ *
+ * A signed token for an account that does not exist must not authenticate. Before
+ * revocation existed, one did: it kept working for its remaining lifetime, and
+ * `POST /api/auth/ws-ticket` would mint a live collaboration ticket for a subject
+ * nothing else could resolve. `null` is a refusal, never a default.
+ *
+ * One column off the primary key, and deliberately not cached: a cache would turn
+ * revocation back into "eventually, once the entry expires", which is the property
+ * this exists to remove.
+ *
+ * Built from `tokenVersionReader(db)` rather than written against `db` directly so
+ * that the one implementation is testable. http-server's suites replace this whole
+ * module with an in-memory stand-in (see `test-utils/fakeDbModule.ts`), and a
+ * function that closed over the module-local `db` could not be handed to that
+ * stand-in -- which would leave every suite running its own copy of the revocation
+ * arithmetic instead of the real thing.
+ */
+export function tokenVersionReader(client: TokenVersionStore): TokenVersionReader {
+  return async userId => {
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      select: { tokenVersion: true },
+    });
+    return user?.tokenVersion ?? null;
+  };
+}
+
+/**
+ * Revoke every session token an account has ever been issued, by moving the
+ * generation past the one currently stored. Returns the new generation.
+ *
+ * Prisma renders `increment` as `SET "tokenVersion" = "tokenVersion" + 1` -- a
+ * read-modify-write the database performs with the row locked -- so two
+ * concurrent logouts produce two distinct generations rather than one. Both
+ * outcomes invalidate every previously issued token, so the difference is
+ * immaterial; what matters is that the increment is never lost, which a
+ * read-then-write in application code would not guarantee.
+ *
+ * Factory-shaped for the same reason as `tokenVersionReader`, and with the same
+ * consequence: the suites exercise this function over fake storage rather than a
+ * reimplementation of it.
+ */
+export function tokenRevoker(client: TokenVersionStore): (userId: string) => Promise<number> {
+  return async userId => {
+    const user = await client.user.update({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } },
+      select: { tokenVersion: true },
+    });
+    return user.tokenVersion;
+  };
+}
+
+export const loadStoredTokenVersion: TokenVersionReader = tokenVersionReader(
+  asTokenVersionStore(db)
+);
+export const revokeIssuedTokens = tokenRevoker(asTokenVersionStore(db));

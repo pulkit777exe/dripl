@@ -81,6 +81,19 @@ const harness = vi.hoisted(() => {
   };
 
   const client = {
+    /**
+     * The stored token generation for this file's single principal.
+     *
+     * `getSnapshotCaller` refuses a token whose `ver` claim does not match what is
+     * stored here, so a caller that is not in this table is refused -- which is the
+     * behaviour under test, and the reason a contract test cannot be given an
+     * anonymous caller by accident.
+     */
+    user: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        where.id === userId ? { tokenVersion: 0 } : null,
+      update: async () => ({ tokenVersion: 0 }),
+    },
     canvasSnapshot: {
       create: async ({ data }: { data: Row }) => {
         if (state.failure) throw state.failure;
@@ -155,10 +168,14 @@ const harness = vi.hoisted(() => {
   return { rows, state, client, file, userId };
 });
 
-vi.mock('@dripl/db', () => ({
-  initializeDb: async () => ({ ...harness.client, file: harness.file }),
-  db: harness.client,
-}));
+vi.mock('@dripl/db', async () => {
+  const { revocationExports } = await import('./helpers/revocation');
+  return {
+    initializeDb: async () => ({ ...harness.client, file: harness.file }),
+    db: harness.client,
+    ...(await revocationExports(harness.client as never)),
+  };
+});
 
 const { GET, POST } = await import('../../app/api/canvas/snapshots/route');
 
@@ -176,7 +193,7 @@ const { rows: database, state: storage, client: fakeClient } = harness;
 vi.stubEnv('JWT_SECRET', 'test-jwt-secret-for-snapshot-contract-tests');
 
 const OWNER_ID = harness.userId;
-const OWNER_TOKEN = signToken(OWNER_ID);
+const OWNER_TOKEN = signToken(OWNER_ID, 0);
 
 function authHeaders(headers: Record<string, string> = {}): Record<string, string> {
   return { cookie: `dripl-session=${OWNER_TOKEN}`, ...headers };

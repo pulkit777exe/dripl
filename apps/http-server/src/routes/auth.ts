@@ -5,6 +5,7 @@ import { sendError } from '../lib/response';
 import {
   authMiddleware,
   clearSessionCookie,
+  identifySession,
   setSessionCookie,
   signSessionToken,
   type AuthenticatedRequest,
@@ -138,7 +139,11 @@ authRouter.post('/login', async (req, res) => {
         sendError(res, 429, 'ACCOUNT_LOCKED', 'Too many failed attempts. Try again later.');
         break;
       case 'success': {
-        const token = signSessionToken(result.user!.id);
+        // The version comes from the row `login` just read, so the token is
+        // minted at the account's current generation. Reading it here rather
+        // than defaulting is what makes a revoked session unrecoverable: a
+        // token signed below the stored generation is dead on arrival.
+        const token = signSessionToken(result.user!.id, result.sessionTokenVersion!);
         setSessionCookie(res, token);
         res.json({ user: result.user, sessionToken: token });
         break;
@@ -150,8 +155,47 @@ authRouter.post('/login', async (req, res) => {
   }
 });
 
-authRouter.post('/logout', (_req, res) => {
+/**
+ * `POST /api/auth/logout` -- clear this device's cookie, and revoke this
+ * account's session tokens.
+ *
+ * NOT behind `authMiddleware`, and the difference is the point. `authMiddleware`
+ * answers 401 for a token it cannot accept, which is right for every route that
+ * grants something, but logout grants nothing: it clears a cookie and moves a
+ * counter. A user whose token has *already* been revoked, or who simply has no
+ * token, must still get their cookie cleared and a 200 -- otherwise "log out"
+ * is the one action that leaves the stale credential in place.
+ *
+ * So this route identifies the caller best-effort with `identifySession` and
+ * revokes only if that succeeded. Which is complete, not merely convenient: a
+ * token that fails the version check is already revoked, and a token that fails
+ * the signature check names nobody, so there is no state left to change in
+ * either case.
+ *
+ * PRODUCT DECISION, stated rather than assumed: revoking on logout is
+ * sign-out-everywhere. Logging out on one device ends the sessions on all of
+ * them, because the account has one generation and a token that outlives the
+ * cookie is exactly what this change exists to prevent. The cost is that a
+ * shared or family account signs everybody out, and that a user who logs out on
+ * their phone has to sign in again on their laptop. Both are recoverable by
+ * signing in; the alternative -- leaving logout cosmetic -- means a token
+ * captured from a network log stays good for its remaining 6 days and 23 hours.
+ */
+authRouter.post('/logout', async (req: Request, res: Response) => {
+  // Unconditional, and first: whatever else happens, this device stops sending
+  // the cookie.
   clearSessionCookie(res);
+
+  try {
+    const caller = await identifySession(req);
+    if (caller) await AuthService.revokeAllTokens(caller.userId);
+  } catch (error) {
+    // The cookie is already cleared, so the user's intent is satisfied. Failing
+    // loudly here is still right -- a revocation that could not be written is
+    // the one thing an operator needs to see.
+    logger.error({ event: 'logout_revoke_failed', error }, 'Failed to revoke session tokens');
+  }
+
   res.json({ ok: true });
 });
 
@@ -201,10 +245,13 @@ authRouter.post('/google', async (req, res) => {
       payload.picture ?? null
     );
 
-    const sessionToken = signSessionToken(user.id);
+    const sessionToken = signSessionToken(user.id, user.tokenVersion);
     setSessionCookie(res, sessionToken);
 
-    res.json({ user, sessionToken });
+    res.json({
+      user: { id: user.id, email: user.email, name: user.name, image: user.image },
+      sessionToken,
+    });
   } catch (error) {
     logger.error({ event: 'google_auth_error', error }, 'Failed to authenticate with Google');
     sendError(res, 401, 'INVALID_GOOGLE_TOKEN', 'Invalid Google token');

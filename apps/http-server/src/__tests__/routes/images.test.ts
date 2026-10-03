@@ -8,12 +8,32 @@ import { join } from 'node:path';
 import { signToken } from '@dripl/utils/auth';
 import type { StructuredLogger } from '@dripl/utils/logger';
 
+// `authMiddleware` resolves the token's stored generation through `@dripl/db`.
+// The image router never touches the database itself, so this `user` stub is the
+// only query involved -- but answering it is what keeps an upload test from
+// depending on a live PostgreSQL. `fakeRevocation` supplies the production
+// resolution itself, so this suite is not running its own version arithmetic.
+// `vi.hoisted` rather than a plain `vi.fn`, because both `vi.mock` factories and
+// the suite's `beforeEach` (which calls `vi.restoreAllMocks()`) are hoisted above
+// ordinary top-level bindings. The alternative -- re-asserting the resolved value
+// in every `beforeEach` -- is how `clearAllMocks` silently turns a version check
+// into a 401 three assertions later.
+const { userFind } = vi.hoisted(() => ({
+  userFind: vi.fn(async () => ({ tokenVersion: 0 })),
+}));
+
+vi.mock('@dripl/db', async () => {
+  const { fakeRevocation } = await import('../test-utils/fakeDbModule');
+  const db = { user: { findUnique: userFind } };
+  return { db, ...(await fakeRevocation(db as never)) };
+});
+
 const PNG_BYTES = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]);
 
 // Signed lazily inside each test, after `JWT_SECRET` is stubbed: a token
 // minted at module load would be signed with whatever secret the runner had,
 // and every authenticated case would answer 401.
-const auth = (): string => `Bearer ${signToken('user-1')}`;
+const auth = (): string => `Bearer ${signToken('user-1', 0)}`;
 
 /**
  * The three pre-existing tests below are the route's original contract, kept
@@ -40,6 +60,10 @@ describe('image routes — filesystem driver (the default)', () => {
     await rm(storageDir, { recursive: true, force: true });
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+    // `restoreAllMocks` also resets the hoisted `userFind` stub above, so the
+    // generation the revocation check reads is re-asserted here. Without it every
+    // authenticated case in this file answers 401.
+    userFind.mockResolvedValue({ tokenVersion: 0 });
   });
 
   it('serves capability-style image downloads without requiring a session', async () => {
@@ -226,6 +250,9 @@ describe('image routes — S3 driver', () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+    // Same reason as the filesystem suite: `restoreAllMocks` resets the hoisted
+    // stub the revocation check reads through.
+    userFind.mockResolvedValue({ tokenVersion: 0 });
   });
 
   it('uploads to the bucket and returns the identical response body', async () => {

@@ -137,10 +137,36 @@ const harness = vi.hoisted(() => {
   return { files, snapshots, state, client };
 });
 
-vi.mock('@dripl/db', () => ({
-  initializeDb: async () => harness.client,
-  db: harness.client,
-}));
+// The three principals in this file all sit at the initial generation. Listed by
+// name rather than left open, because an unlisted subject must be *refused* --
+// that is what `getSnapshotCaller` now does, and a store that answers for anyone
+// would hide the very case this suite exists to cover.
+const { sessionStore, setGeneration } = vi.hoisted(() => {
+  const generations = new Map<string, number>();
+  return {
+    sessionStore: {
+      user: {
+        findUnique: async ({ where }: { where: { id: string } }) =>
+          generations.has(where.id) ? { tokenVersion: generations.get(where.id) as number } : null,
+        update: async ({ where }: { where: { id: string } }) => {
+          const next = (generations.get(where.id) ?? 0) + 1;
+          generations.set(where.id, next);
+          return { tokenVersion: next };
+        },
+      },
+    },
+    setGeneration: (userId: string, generation: number) => generations.set(userId, generation),
+  };
+});
+
+vi.mock('@dripl/db', async () => {
+  const { revocationExports } = await import('./helpers/revocation');
+  return {
+    initializeDb: async () => harness.client,
+    db: harness.client,
+    ...(await revocationExports(sessionStore)),
+  };
+});
 
 const { GET, POST } = await import('../../app/api/canvas/snapshots/route');
 const { GET: GET_BY_ID } = await import('../../app/api/canvas/snapshots/[id]/route');
@@ -188,7 +214,7 @@ function tokenFor(userId: string, secret: string = JWT_SECRET): string {
   const active = process.env.JWT_SECRET;
   vi.stubEnv('JWT_SECRET', secret);
   try {
-    return signToken(userId);
+    return signToken(userId, 0);
   } finally {
     if (active === undefined) vi.unstubAllEnvs();
     else vi.stubEnv('JWT_SECRET', active);
@@ -268,6 +294,12 @@ describe('snapshot access control', () => {
     resetSnapshotSweepState();
     files.clear();
     snapshots.clear();
+    // All three principals sit at generation 0, matching the `ver` claim
+    // `tokenFor` signs. Stated per test rather than seeded once, so a test that
+    // revokes cannot leak a bumped generation into the next one.
+    setGeneration(OWNER, 0);
+    setGeneration(STRANGER, 0);
+    setGeneration(THIRD_PARTY, 0);
     state.failure = null;
     state.fileLookups = 0;
     state.snapshotReads = 0;

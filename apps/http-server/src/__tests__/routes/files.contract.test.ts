@@ -11,8 +11,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@dripl/db', async () => {
-  const { fakeDb } = await import('../test-utils/fakePrisma');
-  return { db: fakeDb().db, initializeDb: vi.fn(async () => {}) };
+  const { fakeDbModule } = await import('../test-utils/fakeDbModule');
+  return fakeDbModule();
 });
 
 import { MAX_FILE_CONTENT_BYTES } from '@dripl/common';
@@ -26,6 +26,7 @@ import {
   OUTSIDER_ID,
   patch,
   post,
+  seedSessionUser,
   VALID_ELEMENT,
 } from '../test-utils/authenticatedRequest';
 import { fakeDb, resetFakeDb } from '../test-utils/fakePrisma';
@@ -34,6 +35,19 @@ const app = buildApp([{ path: '/api/files', router: filesRouter }]);
 
 const FILE_ID = 'file-1';
 const FILE_UPDATED_AT = new Date('2026-01-01T00:00:00.000Z');
+
+/**
+ * Both principals as `User` rows.
+ *
+ * `authMiddleware` refuses a token whose subject has no stored token generation,
+ * so every authenticated request in this file needs the account to exist. Called
+ * from each `beforeEach` next to `resetFakeDb()` rather than folded into
+ * `bearer()`, so a test that wants "no such account" can still say so.
+ */
+function seedSessionUsers(): void {
+  seedSessionUser(OWNER_ID);
+  seedSessionUser(OUTSIDER_ID);
+}
 
 function seedFile(overrides: Record<string, unknown> = {}): void {
   fakeDb().seed('file', {
@@ -75,6 +89,7 @@ function oversizedContent(): unknown {
 describe('GET /api/files', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedSessionUsers();
     seedFile();
     fakeDb().seed('file', {
       id: 'file-2',
@@ -203,6 +218,7 @@ describe('GET /api/files', () => {
 describe('GET /api/files/shared', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedSessionUsers();
     seedFile();
     fakeDb().seed('sharedFile', {
       id: 'shared-1',
@@ -247,6 +263,7 @@ describe('GET /api/files/shared', () => {
 describe('POST /api/files', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedSessionUsers();
   });
 
   it('creates a file and returns 201 with just id and name', async () => {
@@ -345,6 +362,7 @@ describe('POST /api/files', () => {
 describe('GET /api/files/:id', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedSessionUsers();
     seedFile();
   });
 
@@ -382,6 +400,7 @@ describe('GET /api/files/:id', () => {
 describe('PATCH /api/files/:id', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedSessionUsers();
     seedFile();
   });
 
@@ -490,6 +509,7 @@ describe('PATCH /api/files/:id', () => {
 describe('DELETE /api/files/:id', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedSessionUsers();
     seedFile();
   });
 
@@ -522,6 +542,7 @@ describe('DELETE /api/files/:id', () => {
 describe('POST /api/files/:id/share', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedSessionUsers();
     seedFile();
   });
 
@@ -623,6 +644,7 @@ describe('POST /api/files/:id/share', () => {
 describe('DELETE /api/files/:id/share', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedSessionUsers();
     seedFile({ shareToken: 'live-token', sharePermission: 'view' });
   });
 

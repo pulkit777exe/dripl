@@ -14,12 +14,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@dripl/db', async () => {
-  // Dynamic import inside the factory: `vi.mock` is hoisted above the
-  // file's own imports, so a top-level binding is not in scope yet. The
-  // factory and the test share `fakeDb`'s singleton, which is what keeps the
-  // seeded rows and the code under test looking at the same store.
-  const { fakeDb } = await import('../test-utils/fakePrisma');
-  return { db: fakeDb().db, initializeDb: vi.fn(async () => {}) };
+  // Dynamic import inside the factory: `vi.mock` is hoisted above the file's own
+  // imports, so a top-level binding is not in scope yet. The factory and the test
+  // share `fakeDb`'s singleton, which is what keeps the seeded rows and the code
+  // under test looking at the same store -- and the production revocation
+  // functions, bound to that same store.
+  const { fakeDbModule } = await import('../test-utils/fakeDbModule');
+  return fakeDbModule();
 });
 
 import { db } from '@dripl/db';
@@ -34,6 +35,7 @@ import {
   patch,
   post,
   raw,
+  seedSessionUser,
 } from '../test-utils/authenticatedRequest';
 import { fakeDb, resetFakeDb } from '../test-utils/fakePrisma';
 
@@ -60,6 +62,10 @@ const STORED_CONTENT = JSON.stringify([
 
 function seedTwoUsers(): void {
   resetFakeDb();
+  // `authMiddleware` refuses a token whose subject has no stored generation, so
+  // both principals need a `User` row for these cases to reach the routes at all.
+  seedSessionUser(OWNER_ID);
+  seedSessionUser(OUTSIDER_ID);
   fakeDb().seed('file', {
     id: OWNER_FILE,
     userId: OWNER_ID,

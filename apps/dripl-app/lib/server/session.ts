@@ -12,8 +12,12 @@
  * The rule the three share: read the cookie, fall back to `Authorization:
  * Bearer` for cross-origin callers, verify the HS256 JWT with `JWT_SECRET`
  * through `@dripl/utils/auth`, and treat a token's `userId` as the `User.id`
- * primary key. `verifyToken` is the single verification point, so a forged or
- * expired token fails identically here.
+ * primary key. `verifyToken` is the single verification point, so a forged,
+ * expired or *revoked* token fails identically here. It is also the only place
+ * the token's version claim is compared against the account's stored
+ * generation, which is why all three readers import `loadStoredTokenVersion`
+ * from `@dripl/db` rather than each writing the query: a reader that forgot the
+ * comparison would have to be a whole new reader, not a new line in this one.
  *
  * The token itself never leaves this module's return values. Nothing here logs
  * it, and callers receive a `userId` or `null` — never the credential — so a
@@ -21,6 +25,7 @@
  */
 import { cookies } from 'next/headers';
 import { extractBearerToken, verifyToken } from '@dripl/utils/auth';
+import { loadStoredTokenVersion } from '@dripl/db';
 
 export const SESSION_COOKIE = 'dripl-session';
 
@@ -82,14 +87,23 @@ export function candidateTokens(input: {
 }
 
 /**
- * The caller's `User.id`, or `null`. Never throws: an unusable credential and an
- * unconfigured deployment both resolve to "no session" rather than a 500, which
- * is what lets a caller build its own refusal without duplicating try/catch.
+ * The caller's `User.id`, or `null`. Never throws for an unusable credential: a
+ * token that does not verify and an unconfigured deployment both resolve to "no
+ * session" rather than a 500, which is what lets a caller build its own refusal
+ * without duplicating try/catch.
+ *
+ * A *storage* failure does throw, and that asymmetry is deliberate. This reader
+ * has to ask the database whether the token is still current, and a database that
+ * cannot answer is not the same statement as "this visitor is signed out".
+ * Reporting it as "no session" would redirect a whole site to `/login` during a
+ * brief outage and hide the outage behind a login page; letting it propagate
+ * sends it to the error boundary, which is the honest report. Nothing about the
+ * account is rendered on either path.
  */
-export function userIdFromCandidates(tokens: readonly string[]): string | null {
+export async function userIdFromCandidates(tokens: readonly string[]): Promise<string | null> {
   if (!isSessionVerificationConfigured()) return null;
   for (const token of tokens) {
-    const payload = verifyToken(token);
+    const payload = await verifyToken(token, loadStoredTokenVersion);
     if (!payload || typeof payload.userId !== 'string') continue;
     const userId = payload.userId.trim();
     if (userId && userId.length <= MAX_USER_ID_LENGTH) return userId;
@@ -137,7 +151,7 @@ export async function readSessionBearer(): Promise<SessionBearer> {
   if (!isSessionVerificationConfigured()) return null;
   const jar = await cookies();
   for (const token of candidateTokens({ cookieValue: jar.get(SESSION_COOKIE)?.value })) {
-    if (userIdFromCandidates([token]) !== null) return token;
+    if ((await userIdFromCandidates([token])) !== null) return token;
   }
   return null;
 }

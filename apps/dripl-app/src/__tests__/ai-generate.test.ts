@@ -16,13 +16,35 @@ vi.mock('@google/generative-ai', () => ({
   },
 }));
 
+/**
+ * `/api/ai/generate` resolves the token's stored generation through `@dripl/db`
+ * before it accepts a request, so this suite has to answer for its subject. Every
+ * token here is `user-123`'s; an unlisted subject is refused, which is what
+ * `requires a valid signed session and ignores body identity claims` asserts
+ * against.
+ */
+const { sessionStore } = vi.hoisted(() => ({
+  sessionStore: {
+    user: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        where.id === 'user-123' ? { tokenVersion: 0 } : null,
+      update: async () => ({ tokenVersion: 0 }),
+    },
+  },
+}));
+
+vi.mock('@dripl/db', async () => {
+  const { revocationExports } = await import('./helpers/revocation');
+  return { ...(await revocationExports(sessionStore as never)) };
+});
+
 const TEST_JWT_SECRET = 'test-jwt-secret-for-ai-route-tests';
 vi.stubEnv('GEMINI_API_KEY', 'test-api-key');
 vi.stubEnv('JWT_SECRET', TEST_JWT_SECRET);
 vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
 vi.stubEnv('FRONTEND_URL', 'http://localhost:3000');
 
-const userToken = (userId = 'user-123') => signToken(userId);
+const userToken = (userId = 'user-123') => signToken(userId, 0);
 
 describe('/api/ai/generate', () => {
   let routeModule: { POST: (request: NextRequest) => Promise<Response> };

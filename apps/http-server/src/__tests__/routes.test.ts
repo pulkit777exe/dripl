@@ -1,9 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import express, { Express, type Request, type Response, type NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
+
+// `roomRoutes` mounts the production `authMiddleware`, which resolves a token's
+// stored generation through `@dripl/db`. The other mounts here use the local
+// `testAuthMiddleware` below, which is why only the room cases need this.
+vi.mock('@dripl/db', async () => {
+  const { fakeDbModule } = await import('./test-utils/fakeDbModule');
+  return fakeDbModule();
+});
+
+import { fakeDb, resetFakeDb } from './test-utils/fakePrisma';
 import { authRouter } from '../routes/auth';
 import { filesRouter } from '../routes/files';
 import { foldersRouter } from '../routes/folders';
@@ -12,6 +22,20 @@ import type { AuthRequest } from '../middlewares/authMiddleware';
 import { MAX_FILE_CONTENT_BYTES } from '@dripl/common';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
+
+/**
+ * The stored token generation this suite's tokens are minted at.
+ *
+ * `routes.test.ts` hand-rolls its auth guard for files, folders and rooms rather
+ * than importing `authMiddleware`, so that guard does not read storage and needs no
+ * `User` rows. `roomRoutes` still mounts the real `authMiddleware` behind it, so the
+ * room cases do need one -- `resetFakeDb()` plus `seedRoomsUser()` below. Both
+ * tokens are signed with an explicit `ver` matching the stored generation; the real
+ * revocation check is covered in `middlewares.test.ts` and the real routes in
+ * `routes/*.test.ts`, and a second copy of it here would only be another thing to
+ * keep in step.
+ */
+const TOKEN_VERSION = 0;
 
 const testAuthMiddleware = (req: Request, res: Response, next: NextFunction): void => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -51,7 +75,27 @@ function createTestApp(): Express {
 
 const app = createTestApp();
 
+/**
+ * The account the room cases' tokens belong to.
+ *
+ * `roomRoutes` mounts the production `authMiddleware` even when a caller has
+ * already been authenticated upstream, and that middleware refuses a token whose
+ * subject has no stored generation. Without this row the room cases would answer
+ * 401 from the guard rather than the 413 or 404 they are about.
+ */
+function seedRoomsUser(): void {
+  fakeDb().seed('user', {
+    id: 'user-1',
+    email: 'user-1@example.com',
+    tokenVersion: TOKEN_VERSION,
+  });
+}
+
 describe('HTTP Server Routes', () => {
+  beforeEach(() => {
+    resetFakeDb();
+    seedRoomsUser();
+  });
   describe('GET /health', () => {
     it('should return 200 with status ok', async () => {
       const res = await request(app).get('/health');
@@ -144,7 +188,7 @@ describe('HTTP Server Routes', () => {
     });
 
     it('returns 413 PAYLOAD_TOO_LARGE for content over the byte limit', async () => {
-      const token = jwt.sign({ userId: 'user-1' }, JWT_SECRET);
+      const token = jwt.sign({ userId: 'user-1', ver: TOKEN_VERSION }, JWT_SECRET);
       const res = await request(app)
         .post('/api/rooms')
         .set('Authorization', `Bearer ${token}`)
@@ -158,7 +202,7 @@ describe('HTTP Server Routes', () => {
 
   describe('PUT /api/rooms/:slug', () => {
     it('returns 413 PAYLOAD_TOO_LARGE for content over the byte limit', async () => {
-      const token = jwt.sign({ userId: 'user-1' }, JWT_SECRET);
+      const token = jwt.sign({ userId: 'user-1', ver: TOKEN_VERSION }, JWT_SECRET);
       const res = await request(app)
         .put('/api/rooms/test-room')
         .set('Authorization', `Bearer ${token}`)

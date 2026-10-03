@@ -8,18 +8,38 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@dripl/db', async () => {
-  const { fakeDb } = await import('../test-utils/fakePrisma');
-  return { db: fakeDb().db, initializeDb: vi.fn(async () => {}) };
+  const { fakeDbModule } = await import('../test-utils/fakeDbModule');
+  return fakeDbModule();
 });
 
 import { db } from '@dripl/db';
 import { foldersRouter } from '../../routes/folders';
-import { buildApp, del, get, OWNER_ID, patch, post } from '../test-utils/authenticatedRequest';
+import {
+  buildApp,
+  del,
+  get,
+  OWNER_ID,
+  OUTSIDER_ID,
+  patch,
+  post,
+  seedSessionUser,
+} from '../test-utils/authenticatedRequest';
 import { fakeDb, resetFakeDb } from '../test-utils/fakePrisma';
 
 const app = buildApp([{ path: '/api/folders', router: foldersRouter }]);
 
 const FOLDER_ID = 'folder-1';
+
+/**
+ * `authMiddleware` refuses a token whose subject has no stored token generation,
+ * so every authenticated request in this file needs the account to exist. Called
+ * next to `resetFakeDb()` rather than folded into `bearer()`, so a test that wants
+ * "no such account" can still say so.
+ */
+function seedSessionUsers(): void {
+  seedSessionUser(OWNER_ID);
+  seedSessionUser(OUTSIDER_ID);
+}
 
 function seedFolder(overrides: Record<string, unknown> = {}): void {
   fakeDb().seed('folder', {
@@ -40,6 +60,7 @@ function rowOf(id: string): Record<string, unknown> | undefined {
 describe('GET /api/folders', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedSessionUsers();
     seedFolder();
     fakeDb().seed('file', {
       id: 'file-in-folder',
@@ -84,6 +105,7 @@ describe('GET /api/folders', () => {
 describe('POST /api/folders', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedSessionUsers();
   });
 
   it('creates a root folder and answers 201', async () => {
@@ -149,6 +171,7 @@ describe('POST /api/folders', () => {
 describe('PATCH /api/folders/:id', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedSessionUsers();
     seedFolder();
   });
 
@@ -244,6 +267,7 @@ describe('PATCH /api/folders/:id', () => {
 describe('DELETE /api/folders/:id', () => {
   beforeEach(() => {
     resetFakeDb();
+    seedSessionUsers();
     seedFolder();
   });
 

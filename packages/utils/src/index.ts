@@ -2,6 +2,11 @@ export { generateKey, encrypt, decrypt, keyToBase64, base64ToKey } from './encry
 export { appendKeyToUrl, extractKeyFromUrl, createEncryptedRoomUrl } from './encryption/url';
 export type { EncryptedPayload } from './encryption/crypto';
 export { requiredEnv, requiredIntEnv } from './env';
-export { verifyToken, extractBearerToken } from './auth';
-export type { JwtPayload } from './auth';
+export {
+  verifyToken,
+  extractBearerToken,
+  INITIAL_TOKEN_VERSION,
+  TOKEN_VERSION_CLAIM,
+} from './auth';
+export type { JwtPayload, StoredTokenVersion } from './auth';
 export { createLogger } from './logger';

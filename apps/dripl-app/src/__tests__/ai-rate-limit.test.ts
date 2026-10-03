@@ -29,6 +29,37 @@ vi.mock('@upstash/ratelimit', () => ({
 }));
 vi.mock('@upstash/redis', () => ({ Redis: class {} }));
 
+/**
+ * `/api/ai/generate` identifies its caller by resolving the token's stored
+ * generation through `@dripl/db`, before it will accept a request at all. Every
+ * user id this file signs a token for is listed below at generation 0; an unlisted
+ * subject is refused, which is the behaviour `accepts a valid bearer token when a
+ * cookie is not available` and its two siblings depend on.
+ */
+const KNOWN_USERS = [
+  'user-a',
+  'user-b',
+  'real-user',
+  'bearer-user',
+  'expiring-user',
+  'distributed-user',
+];
+
+const { sessionStore } = vi.hoisted(() => ({
+  sessionStore: {
+    user: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        KNOWN_USERS.includes(where.id) ? { tokenVersion: 0 } : null,
+      update: async () => ({ tokenVersion: 0 }),
+    },
+  },
+}));
+
+vi.mock('@dripl/db', async () => {
+  const { revocationExports } = await import('./helpers/revocation');
+  return { ...(await revocationExports(sessionStore as never)) };
+});
+
 const TEST_JWT_SECRET = 'test-jwt-secret-for-ai-rate-limit-tests';
 vi.stubEnv('GEMINI_API_KEY', 'test-api-key');
 vi.stubEnv('JWT_SECRET', TEST_JWT_SECRET);
@@ -46,7 +77,7 @@ function makeRequest(
   opts?: { token?: string; userId?: string; ip?: string; authorization?: string }
 ) {
   const headers: Record<string, string> = { origin: 'http://localhost:3000' };
-  const token = opts?.token ?? signToken('user-a');
+  const token = opts?.token ?? signToken('user-a', 0);
   if (token) headers.cookie = `dripl-session=${token}`;
   if (opts?.authorization) headers.authorization = opts.authorization;
   if (opts?.ip) headers['x-forwarded-for'] = opts.ip;
@@ -87,7 +118,7 @@ describe('AI rate limiting and identity enforcement', () => {
   });
 
   it('uses the verified JWT user as the local rate-limit key', async () => {
-    const token = signToken('user-a');
+    const token = signToken('user-a', 0);
     for (let i = 0; i < 10; i++) {
       const response = await routeModule.POST(makeRequest('test', { token }));
       expect(response.status).toBe(200);
@@ -99,7 +130,7 @@ describe('AI rate limiting and identity enforcement', () => {
   });
 
   it('does not let a client-supplied userId rotate the rate-limit bucket', async () => {
-    const token = signToken('real-user');
+    const token = signToken('real-user', 0);
     for (let i = 0; i < 10; i++) {
       await routeModule.POST(makeRequest('test', { token }));
     }
@@ -112,8 +143,8 @@ describe('AI rate limiting and identity enforcement', () => {
   });
 
   it('gives different signed users independent buckets', async () => {
-    const tokenA = signToken('user-a');
-    const tokenB = signToken('user-b');
+    const tokenA = signToken('user-a', 0);
+    const tokenB = signToken('user-b', 0);
     for (let i = 0; i < 10; i++) {
       await routeModule.POST(makeRequest('test', { token: tokenA }));
     }
@@ -136,7 +167,7 @@ describe('AI rate limiting and identity enforcement', () => {
   });
 
   it('accepts a valid bearer token when a cookie is not available', async () => {
-    const token = signToken('bearer-user');
+    const token = signToken('bearer-user', 0);
     const response = await routeModule.POST(
       makeRequest('test', { token: '', authorization: `Bearer ${token}` })
     );
@@ -145,7 +176,7 @@ describe('AI rate limiting and identity enforcement', () => {
   });
 
   it('expires local buckets and cleans their state without a long-lived timer', async () => {
-    const token = signToken('expiring-user');
+    const token = signToken('expiring-user', 0);
     for (let i = 0; i < 10; i++) {
       await routeModule.POST(makeRequest('test', { token }));
     }
@@ -164,7 +195,7 @@ describe('AI rate limiting and identity enforcement', () => {
     routeModule.clearAiRateLimitState();
     mockLimit.mockResolvedValue({ success: false, reset: Date.now() + 60_000 });
 
-    const token = signToken('distributed-user');
+    const token = signToken('distributed-user', 0);
     const response = await routeModule.POST(makeRequest('test', { token, userId: 'forged-user' }));
 
     expect(response.status).toBe(429);

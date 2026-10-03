@@ -21,14 +21,41 @@ import request from 'supertest';
 import { signToken } from '@dripl/utils/auth';
 import { authMiddleware } from '../../middlewares/authMiddleware';
 import { validateCsrfToken } from '../../middlewares/csrfMiddleware';
+import { fakeDb } from './fakePrisma';
 
 /** The two principals every authorisation case is written between. */
 export const OWNER_ID = 'user-owner';
 export const OUTSIDER_ID = 'user-outsider';
 
-/** Any signed token for `userId`. */
-export function bearer(userId: string): string {
-  return `Bearer ${signToken(userId)}`;
+/**
+ * Seed the account a `bearer()` token will be minted for.
+ *
+ * `authMiddleware` refuses a token whose subject has no stored generation -- a
+ * signed token for an account that does not exist used to authenticate for its
+ * remaining lifetime -- so a test that presents `bearer(OWNER_ID)` without a
+ * matching `User` row is now testing a 401. Calling this keeps the fixture's
+ * meaning ("a signed-in user") rather than making every suite re-derive it.
+ *
+ * Deliberately a *separate* call from `bearer()`. Folding the seed in would mean
+ * every credential helper silently wrote to the `User` table, which hides the
+ * write from tests that assert on user rows -- and makes "no account exists" an
+ * unrepresentable state, which is exactly the state the revocation tests need.
+ */
+export function seedSessionUser(userId: string, overrides: Record<string, unknown> = {}): void {
+  fakeDb().seed('user', {
+    id: userId,
+    email: `${userId}@example.com`,
+    name: userId,
+    image: null,
+    emailVerified: true,
+    tokenVersion: 0,
+    ...overrides,
+  });
+}
+
+/** Any signed token for `userId`, at whatever generation it currently holds. */
+export function bearer(userId: string, tokenVersion = 0): string {
+  return `Bearer ${signToken(userId, tokenVersion)}`;
 }
 
 /**
@@ -58,9 +85,17 @@ const CSRF_TOKEN = 'e'.repeat(64);
  * `public: true` opts a router out of authentication, for the two routes that
  * are capability-URL based by design (`GET /api/share/:token`,
  * `GET /api/images/:id`).
+ *
+ * `auth: false` is narrower: CSRF still applies, authentication does not. It
+ * exists for `/api/auth`, which `app.ts` mounts *without* `authMiddleware`
+ * because login and register have no session to present — the four routes there
+ * that do require one (`/me`, `/profile`, `/change-password`, `/ws-ticket`) and
+ * `/logout` carry their own. Mounting it behind a global guard would make this
+ * fixture stricter than the server under test, and every case in the auth suite
+ * would be asserting the fixture rather than the route.
  */
 export function buildApp(
-  mounts: Array<{ path: string; router: Router; public?: boolean }>,
+  mounts: Array<{ path: string; router: Router; public?: boolean; auth?: boolean }>,
   options: { csrf?: boolean; auth?: boolean } = {}
 ): Express {
   const app: Express = express();
@@ -70,7 +105,8 @@ export function buildApp(
   for (const mount of mounts) {
     const guards: RequestHandler[] = [];
     if (options.csrf !== false) guards.push(validateCsrfToken);
-    if (options.auth !== false && !mount.public) guards.push(authMiddleware);
+    const wantsAuth = options.auth !== false && !mount.public && mount.auth !== false;
+    if (wantsAuth) guards.push(authMiddleware);
     app.use(mount.path, ...guards, mount.router);
   }
   return app;

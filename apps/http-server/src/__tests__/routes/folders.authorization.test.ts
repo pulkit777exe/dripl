@@ -9,8 +9,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@dripl/db', async () => {
-  const { fakeDb } = await import('../test-utils/fakePrisma');
-  return { db: fakeDb().db, initializeDb: vi.fn(async () => {}) };
+  const { fakeDbModule } = await import('../test-utils/fakeDbModule');
+  return fakeDbModule();
 });
 
 import { db } from '@dripl/db';
@@ -25,6 +25,7 @@ import {
   patch,
   post,
   raw,
+  seedSessionUser,
 } from '../test-utils/authenticatedRequest';
 import { fakeDb, resetFakeDb } from '../test-utils/fakePrisma';
 
@@ -46,6 +47,10 @@ const unguardedApp = buildApp([{ path: '/api/folders', router: foldersRouter }],
  */
 function seedTwoTrees(): void {
   resetFakeDb();
+  // `authMiddleware` refuses a token whose subject has no stored generation, so
+  // both principals need a `User` row for these cases to reach the routes at all.
+  seedSessionUser(OWNER_ID);
+  seedSessionUser(OUTSIDER_ID);
   fakeDb().seed('folder', {
     id: 'owner-root',
     userId: OWNER_ID,

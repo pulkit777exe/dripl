@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logError } from '@dripl/common';
 import { extractBearerToken, verifyToken } from '@dripl/utils/auth';
+import { loadStoredTokenVersion } from '@dripl/db';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { z } from 'zod';
@@ -175,9 +176,21 @@ function getSessionTokens(request: NextRequest): string[] {
   return tokens;
 }
 
-function getAuthenticatedUserId(request: NextRequest): string | null {
+/**
+ * The caller's `User.id`, or `null`.
+ *
+ * Asynchronous because revocation is: `verifyToken` compares the token's `ver`
+ * claim against the generation stored for the account, which needs a database
+ * read. A revoked token is refused exactly as a forged one is, so this endpoint
+ * cannot be used to learn whether a captured token was ever valid.
+ *
+ * A storage failure propagates. Answering 401 for it would tell a signed-in user
+ * that their session ended, when what actually happened is that the revocation
+ * check could not run — and it would hide an outage behind an auth error.
+ */
+async function getAuthenticatedUserId(request: NextRequest): Promise<string | null> {
   for (const token of getSessionTokens(request)) {
-    const payload = verifyToken(token);
+    const payload = await verifyToken(token, loadStoredTokenVersion);
     if (!payload || typeof payload.userId !== 'string') continue;
     const userId = payload.userId.trim();
     if (userId && userId.length <= 200) return userId;
@@ -295,7 +308,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     return errorResponse('Authentication is not configured', 'AUTH_CONFIG_ERROR', 503);
   }
 
-  const userId = getAuthenticatedUserId(request);
+  const userId = await getAuthenticatedUserId(request);
   if (!userId) {
     return errorResponse('Sign in to use AI diagram generation', 'AUTH_REQUIRED', 401);
   }

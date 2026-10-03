@@ -7,9 +7,23 @@ import jwt from 'jsonwebtoken';
 const dbMock = vi.hoisted(() => ({
   canvasRoom: { findUnique: vi.fn() },
   canvasRoomMember: { findUnique: vi.fn(), create: vi.fn() },
+  // `roomRoutes` mounts `authMiddleware` for everything under `/api/rooms`, and the
+  // middleware resolves the token's stored generation here. It must answer
+  // `{ tokenVersion: 0 }` to match the `ver` claim `authHeader()` signs; the two
+  // are compared, so a mismatch would answer 401 for a reason this suite is not
+  // about.
+  user: { findUnique: vi.fn(async () => ({ tokenVersion: 0 })) },
 }));
 
-vi.mock('@dripl/db', () => ({ db: dbMock }));
+// `authMiddleware` -- mounted by `roomRoutes` -- resolves the token's stored
+// generation through `@dripl/db`, and that resolution is a *separate export* of
+// this module. A literal `{ db: dbMock }` factory leaves it `undefined`, the
+// middleware throws, and every request answers 401; `fakeRevocation` supplies the
+// real functions against the `user` stub above.
+vi.mock('@dripl/db', async () => {
+  const { fakeRevocation } = await import('../test-utils/fakeDbModule');
+  return { db: dbMock, ...(await fakeRevocation(dbMock as never)) };
+});
 
 import roomRoutes from '../../routes/roomRoutes';
 
@@ -27,10 +41,16 @@ function buildApp(): express.Express {
 
 const app = buildApp();
 
+/**
+ * Signed with an explicit `ver: 0`, matching what `dbMock.user.findUnique` above
+ * reports. The two have to agree: the revocation check compares them, and a token
+ * whose claim disagreed with storage would be refused for a reason this suite is
+ * not about.
+ */
 function authHeader(): string {
   const secret = process.env.JWT_SECRET;
   expect(secret).toBeTruthy();
-  return `Bearer ${jwt.sign({ userId: 'user-1' }, secret as string)}`;
+  return `Bearer ${jwt.sign({ userId: 'user-1', ver: 0 }, secret as string)}`;
 }
 
 function mockAddMemberFlow(): void {
@@ -46,6 +66,10 @@ function mockAddMemberFlow(): void {
 describe('room member role wire vocabulary', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // `clearAllMocks` drops the `vi.fn` implementation set in `dbMock`, including
+    // the one the revocation check reads. Re-asserting it here keeps every case in
+    // this file about wire vocabulary rather than about a 401.
+    dbMock.user.findUnique.mockResolvedValue({ tokenVersion: 0 });
   });
 
   it('maps wire edit to the DB EDITOR enum and returns wire edit', async () => {

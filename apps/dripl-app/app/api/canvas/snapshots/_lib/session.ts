@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { logError, logWarn } from '@dripl/common';
 import { verifyToken } from '@dripl/utils/auth';
+import { loadStoredTokenVersion } from '@dripl/db';
 import {
   MAX_USER_ID_LENGTH,
   SESSION_COOKIE,
@@ -64,12 +65,20 @@ export type SnapshotCaller =
   { authorized: true; userId: string } | { authorized: false; response: NextResponse };
 
 /**
- * Identify the caller, or produce the refusal. Never throws and never queries
- * storage, so a caller with no usable credential cannot reach the database
- * through this function at all — that is what makes the 401 independent of
- * whether the requested canvas exists.
+ * Identify the caller, or produce the refusal.
+ *
+ * Asynchronous because revocation does: a token is accepted only if its `ver`
+ * claim still matches the generation stored for its account, and that is a
+ * database read. A revoked token gets the same 401 as a forged one, so a caller
+ * learns nothing about whether a credential was ever valid.
+ *
+ * A storage failure propagates rather than resolving to a refusal, because
+ * "cannot tell" and "not yours" are different statements and folding an
+ * unreachable database into the 401 would report the second for a canvas the
+ * caller may well own. It surfaces as the 500 that `snapshotAccessCheckFailed`
+ * already exists to produce.
  */
-export function getSnapshotCaller(request: NextRequest): SnapshotCaller {
+export async function getSnapshotCaller(request: NextRequest): Promise<SnapshotCaller> {
   if (!isAuthConfigured()) {
     return {
       authorized: false,
@@ -81,7 +90,7 @@ export function getSnapshotCaller(request: NextRequest): SnapshotCaller {
   }
 
   for (const token of sessionTokens(request)) {
-    const payload = verifyToken(token);
+    const payload = await verifyToken(token, loadStoredTokenVersion);
     if (!payload || typeof payload.userId !== 'string') continue;
     const userId = payload.userId.trim();
     if (userId && userId.length <= MAX_USER_ID_LENGTH) {

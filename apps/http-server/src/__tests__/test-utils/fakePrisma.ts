@@ -111,6 +111,14 @@ export interface FakeDb {
   reset(): void;
   rows(table: string): Row[];
   seed(table: string, row: Row): Row;
+  /**
+   * The generation currently stored for `userId`, or `null` for an unknown one.
+   *
+   * The counterpart to `loadStoredTokenVersion` in `@dripl/db`: a test that
+   * revokes and then re-presents the token needs to read the generation back off
+   * the row rather than off a return value the fake computed for itself.
+   */
+  tokenVersionOf(userId: string): number | null;
 }
 
 const EPOCH = '2026-01-01T00:00:00.000Z';
@@ -265,6 +273,56 @@ function stripUndefined(data: Row): Row {
   return result;
 }
 
+/**
+ * Resolve Prisma's atomic update operators against the row being updated.
+ *
+ * `{ increment: n }` is rendered by Prisma as `SET "col" = "col" + n`, so the fake
+ * has to do the same -- otherwise a revocation would leave the stored generation
+ * where it was and every test built on one would pass for the wrong reason.
+ *
+ * One operator per field, and only the one that is present. Prisma rejects a spec
+ * carrying more than one, so an unrecognised key is a loud error rather than a
+ * silent no-op: a typo like `{ incremnet: 1 }` must not read as "nothing to do".
+ */
+const UPDATE_OPERATORS = {
+  increment: (current: number, operand: number): number => current + operand,
+  decrement: (current: number, operand: number): number => current - operand,
+  multiply: (current: number, operand: number): number => current * operand,
+  divide: (current: number, operand: number): number =>
+    operand === 0 ? current : current / operand,
+} as const;
+
+type UpdateOperator = keyof typeof UPDATE_OPERATORS;
+
+function isUpdateOperatorSpec(value: unknown): value is Record<UpdateOperator, number> {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.keys(value as Row).length > 0 &&
+    Object.keys(value as Row).every(key => key in UPDATE_OPERATORS)
+  );
+}
+
+function applyOperators(data: Row, target: Row): Row {
+  const resolved: Row = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (!isUpdateOperatorSpec(value)) {
+      resolved[key] = value;
+      continue;
+    }
+    const [operator, operand] = Object.entries(value)[0] as [UpdateOperator, number];
+    const current = normalise(target[key]) as number | null;
+    if (typeof current !== 'number') {
+      throw new Error(
+        `fakePrisma: cannot apply { ${operator}: ${operand} } to ${key}, which holds ${typeof current}`
+      );
+    }
+    resolved[key] = UPDATE_OPERATORS[operator](current, operand);
+  }
+  return resolved;
+}
+
 function createFakeDb(): FakeDb {
   const tables: Record<string, Row[]> = {};
   const counters: Record<string, number> = {};
@@ -375,7 +433,9 @@ function createFakeDb(): FakeDb {
       async update(args: UpdateArgs) {
         const target = rows(table).find(row => matches(row, args.where));
         if (!target) throw new Error(`fakePrisma: update matched no row in ${table} (P2025 shape)`);
-        Object.assign(target, stripUndefined(args.data), { updatedAt: now() });
+        Object.assign(target, applyOperators(stripUndefined(args.data), target), {
+          updatedAt: now(),
+        });
         return project(table, target, args.select);
       },
 
@@ -449,7 +509,13 @@ function createFakeDb(): FakeDb {
     for (const key of Object.keys(counters)) delete counters[key];
   };
 
-  return { db, reset, rows, seed };
+  const tokenVersionOf = (userId: string): number | null => {
+    const row = rows('user').find(candidate => candidate.id === userId);
+    if (!row) return null;
+    return typeof row.tokenVersion === 'number' ? row.tokenVersion : null;
+  };
+
+  return { db, reset, rows, seed, tokenVersionOf };
 }
 
 let singleton: FakeDb | null = null;

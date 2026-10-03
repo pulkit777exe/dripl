@@ -51,10 +51,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Too many snapshot requests' }, { status: 429 });
   }
 
-  // Identity before existence. `getSnapshotCaller` never touches storage, so
-  // the 401 for a caller with no credential is byte- and timing-identical for a
-  // real canvas and a made-up one.
-  const caller = getSnapshotCaller(request);
+  // Identity before existence. The 401 for a caller with no usable credential is
+  // byte-identical for a real canvas and a made-up one, so the refusal cannot
+  // be used to probe which canvases exist. The revocation check inside
+  // `getSnapshotCaller` reads `User.tokenVersion` by primary key and no canvas
+  // column, so it does not widen that probe.
+  const caller = await getSnapshotCaller(request);
   if (!caller.authorized) return caller.response;
 
   const access = await authorizeCanvas(canvasId, caller.userId, 'snapshot_list_denied');
@@ -116,7 +118,7 @@ export async function POST(request: NextRequest) {
     // requirement on the write path.
     let scopedCanvasId: string | undefined;
     if (typeof body.canvasId === 'string') {
-      const caller = getSnapshotCaller(request);
+      const caller = await getSnapshotCaller(request);
       if (!caller.authorized) return caller.response;
 
       const access = await authorizeCanvas(body.canvasId, caller.userId, 'snapshot_create_denied');

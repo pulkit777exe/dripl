@@ -19,15 +19,20 @@ vi.mock('@upstash/redis', () => ({
   Redis: class {},
 }));
 
-vi.mock('@dripl/db', () => ({
-  db: {
+vi.mock('@dripl/db', async () => {
+  const { fakeRevocation } = await import('../test-utils/fakeDbModule');
+  const db = {
     file: {
       findFirst: vi.fn(),
       findUnique: vi.fn(),
       updateMany: vi.fn(),
     },
-  },
-}));
+    // `shareRouter` mounts `authMiddleware`, which resolves the token's stored
+    // generation through this before the route runs.
+    user: { findUnique: vi.fn(async () => ({ tokenVersion: 0 })) },
+  };
+  return { db, ...(await fakeRevocation(db as never)) };
+});
 
 import { db, type Prisma } from '@dripl/db';
 import { shareRouter } from '../../routes/share';
@@ -37,6 +42,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
 const mockFindFirst = vi.mocked(db.file.findFirst);
 const mockFindUnique = vi.mocked(db.file.findUnique);
 const mockUpdateMany = vi.mocked(db.file.updateMany);
+const mockUserFindUnique = vi.mocked(db.user.findUnique);
 
 const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -128,6 +134,21 @@ describe('POST /api/share', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUpdateMany.mockResolvedValue({ count: 1 });
+    // Re-asserted after `clearAllMocks`, which drops the `vi.fn` implementation.
+    // The token these cases present is signed at generation 0.
+    // `select` narrows the row Prisma returns, so the stub has to carry the whole
+    // shape the revocation check reads back -- not just the column under test.
+    mockUserFindUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'user-1@example.com',
+      name: null,
+      image: null,
+      password: null,
+      emailVerified: true,
+      tokenVersion: 0,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
   });
 
   it('returns 401 when the request has no auth token', async () => {

@@ -3,7 +3,17 @@ import request from 'supertest';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
+
+// `authMiddleware` resolves the token's stored generation through `@dripl/db`, so
+// the middleware is not exercisable without a `User` table behind it. The shared
+// factory supplies the production revocation function over in-memory storage.
+vi.mock('@dripl/db', async () => {
+  const { fakeDbModule } = await import('./test-utils/fakeDbModule');
+  return fakeDbModule();
+});
+
 import { authMiddleware, type AuthRequest } from '../middlewares/authMiddleware';
+import { fakeDb, resetFakeDb } from './test-utils/fakePrisma';
 import { generateCsrfToken, validateCsrfToken } from '../middlewares/csrfMiddleware';
 
 function createTestApp(middleware: express.RequestHandler) {
@@ -26,6 +36,11 @@ describe('authMiddleware', () => {
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c2VyLTEyMyIsImlhdCI6MTcwMDAwMDAwMH0.test-signature';
 
   beforeEach(() => {
+    resetFakeDb();
+    // The account the mocked `jwt.verify` below claims to be. Without this row the
+    // revocation check has nothing to compare against and every case answers 401 --
+    // which is the correct behaviour, but not the one these cases are about.
+    fakeDb().seed('user', { id: 'user-123', email: 'user-123@example.com', tokenVersion: 0 });
     vi.spyOn(jwt, 'verify').mockImplementation(() => ({
       userId: 'user-123',
       iat: 1700000000,
@@ -84,6 +99,61 @@ describe('authMiddleware', () => {
       .get('/protected')
       .set('Cookie', [`dripl-session=${VALID_JWT}`]);
     expect(res.status).toBe(401);
+  });
+
+  /**
+   * The revocation check, at the one place every http-server request passes
+   * through. The mocked `jwt.verify` above returns no `ver` claim, so this
+   * token reads as the initial generation and is compared against storage --
+   * which is what makes these three cases meaningful rather than an artefact of
+   * a claim that happens to be absent.
+   */
+  describe('a token the account has revoked', () => {
+    it('is refused once the stored generation has moved past it', async () => {
+      fakeDb().seed('user', {
+        id: 'user-123',
+        email: 'user-123@example.com',
+        tokenVersion: 1,
+      });
+      const app = createTestApp(authMiddleware);
+
+      const res = await request(app)
+        .get('/protected')
+        .set('Cookie', [`dripl-session=${VALID_JWT}`]);
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('UNAUTHORIZED');
+    });
+
+    it('is refused when the account no longer exists at all', async () => {
+      resetFakeDb();
+      const app = createTestApp(authMiddleware);
+
+      const res = await request(app)
+        .get('/protected')
+        .set('Cookie', [`dripl-session=${VALID_JWT}`]);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('is refused when the revocation check itself cannot be performed', async () => {
+      // Failing closed: a database that cannot answer must not produce an
+      // authenticated request, and must not produce a 500 that tells the caller
+      // its credential is fine.
+      const { db } = await import('@dripl/db');
+      const findUnique = vi
+        .spyOn(db.user, 'findUnique')
+        .mockRejectedValueOnce(new Error('connection terminated'));
+      const app = createTestApp(authMiddleware);
+
+      const res = await request(app)
+        .get('/protected')
+        .set('Cookie', [`dripl-session=${VALID_JWT}`]);
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('UNAUTHORIZED');
+      findUnique.mockRestore();
+    });
   });
 });
 
