@@ -39,9 +39,15 @@ export function NameInputModal({ onSubmit }: NameInputModalProps) {
       className={`fixed inset-0 z-400 flex items-center justify-center p-4 box-content backdrop-blur-sm pointer-events-auto t-modal ${animState === 'open' ? 'is-open' : ''}`}
       style={{ backgroundColor: 'rgba(26, 25, 23, 0.6)' }}
     >
-      <div className="rounded-xl shadow-lg p-7 w-full max-w-sm mx-4" style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}>
+      <div
+        className="rounded-xl shadow-lg p-7 w-full max-w-sm mx-4"
+        style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}
+      >
         <div className="flex items-center gap-2 mb-4 justify-center">
-          <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#E8462A' }}>
+          <div
+            className="h-8 w-8 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: '#E8462A' }}
+          >
             <PenLine className="h-4 w-4" style={{ color: '#FAFAF7' }} />
           </div>
         </div>

@@ -20,7 +20,10 @@ export function applyStrokeStyle(
 export function createCanvas(
   width: number,
   height: number
-): { canvas: OffscreenCanvas | HTMLCanvasElement; ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null } {
+): {
+  canvas: OffscreenCanvas | HTMLCanvasElement;
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
+} {
   if (typeof OffscreenCanvas !== 'undefined') {
     const canvas = new OffscreenCanvas(width, height);
     return { canvas, ctx: canvas.getContext('2d') };

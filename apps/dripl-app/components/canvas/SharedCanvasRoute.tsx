@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { base64ToKey, decrypt } from '@dripl/utils';
+// `@dripl/utils/encryption`, not the package root. The root barrel also
+// re-exports `./auth` (jsonwebtoken, and with it semver and seven lodash.*
+// packages) and `./logger` (pino, and with it quick-format-unescaped), so a
+// two-symbol import of the Web Crypto helpers used to ship a JWT verifier and a
+// structured logger to every recipient of a share link — roughly 60 kB of
+// generated JavaScript that this component never calls. The subpath export is
+// already declared in `packages/utils/package.json`, and the whole
+// `@dripl/utils/encryption` module depends on nothing outside itself.
+import { base64ToKey, decrypt } from '@dripl/utils/encryption';
 import { DriplElementSchema, MAX_SCENE_ELEMENTS, type DriplElement } from '@dripl/common';
 import { z } from 'zod';
 import { useCanvasStore } from '@/lib/store';

@@ -20,9 +20,7 @@ export function useCanvasClipboard() {
     const currentElements = useCanvasStore.getState().elements;
     let baseIndex = currentElements.length;
     const copies = selectedElements.map(element => {
-      const fractionalIndex = generateFractionalIndexAfterAll(
-        currentElements.slice(0, baseIndex)
-      );
+      const fractionalIndex = generateFractionalIndexAfterAll(currentElements.slice(0, baseIndex));
       baseIndex++;
       return {
         ...element,
@@ -83,11 +81,11 @@ export function useCanvasClipboard() {
           if (item.types.includes('image/png')) {
             const blob = await item.getType('image/png');
             const file = new File([blob], 'clipboard-image.png', { type: 'image/png' });
-            
+
             // Upload to server and get URL
             const imageUrl = await uploadImageToServer(file);
             const imageResult = await loadImage(imageUrl);
-            
+
             const element: DriplElement = {
               id: uuidv4(),
               type: 'image',

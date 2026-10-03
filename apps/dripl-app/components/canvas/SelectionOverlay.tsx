@@ -224,10 +224,22 @@ export function SelectionOverlay({
         <div style={containerStyle}>
           <style dangerouslySetInnerHTML={{ __html: customStyleSheet }} />
           {/* Corner handles */}
-          <div className="dripl-corner-handle nw-handle" onPointerDown={e => onResizeStart('nw', e)} />
-          <div className="dripl-corner-handle ne-handle" onPointerDown={e => onResizeStart('ne', e)} />
-          <div className="dripl-corner-handle se-handle" onPointerDown={e => onResizeStart('se', e)} />
-          <div className="dripl-corner-handle sw-handle" onPointerDown={e => onResizeStart('sw', e)} />
+          <div
+            className="dripl-corner-handle nw-handle"
+            onPointerDown={e => onResizeStart('nw', e)}
+          />
+          <div
+            className="dripl-corner-handle ne-handle"
+            onPointerDown={e => onResizeStart('ne', e)}
+          />
+          <div
+            className="dripl-corner-handle se-handle"
+            onPointerDown={e => onResizeStart('se', e)}
+          />
+          <div
+            className="dripl-corner-handle sw-handle"
+            onPointerDown={e => onResizeStart('sw', e)}
+          />
           {/* Floating Rotation Handle */}
           <div className="dripl-rotate-handle" onPointerDown={onRotateStart} />
         </div>
@@ -268,7 +280,13 @@ export function SelectionOverlay({
     const arrowEndpoints = (() => {
       if (!('points' in el) || !el.points || el.points.length < 2) return [];
       const points = el.points as Point[];
-      const result: Array<{ id: string; left: number; top: number; isEndpoint: boolean; isInsert: boolean }> = [];
+      const result: Array<{
+        id: string;
+        left: number;
+        top: number;
+        isEndpoint: boolean;
+        isInsert: boolean;
+      }> = [];
 
       // Add point handles
       points.forEach((pt, i) => {
@@ -372,7 +390,10 @@ export function SelectionOverlay({
   );
 }
 
-const areSelectionOverlayEqual = (prev: SelectionOverlayProps, next: SelectionOverlayProps): boolean => {
+const areSelectionOverlayEqual = (
+  prev: SelectionOverlayProps,
+  next: SelectionOverlayProps
+): boolean => {
   return (
     prev.zoom === next.zoom &&
     prev.panX === next.panX &&

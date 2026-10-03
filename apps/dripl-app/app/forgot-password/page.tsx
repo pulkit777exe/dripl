@@ -27,7 +27,12 @@ export default function ForgotPasswordPage(): React.ReactNode {
   };
 
   return (
-    <AuthShell title="Reset password" subtitle="We’ll email you a secure reset link." isError={status === 'error'} onErrorShake={() => setStatus('idle')}>
+    <AuthShell
+      title="Reset password"
+      subtitle="We’ll email you a secure reset link."
+      isError={status === 'error'}
+      onErrorShake={() => setStatus('idle')}
+    >
       {status === 'success' ? (
         <div className="space-y-6 text-center">
           <div className="rounded-md border border-[#2f9e44] bg-[#b2f2bb] px-4 py-4 text-sm text-[#1A1917]">

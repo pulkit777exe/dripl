@@ -67,7 +67,7 @@ export function useInterpolatedCursors(
 
       let hasChanges = false;
 
-      cursorsRef.current.forEach((cursor) => {
+      cursorsRef.current.forEach(cursor => {
         const dx = cursor.targetX - cursor.x;
         const dy = cursor.targetY - cursor.y;
 

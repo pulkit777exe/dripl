@@ -9,9 +9,24 @@ interface SharePermissionToggleProps {
   disabled?: boolean;
 }
 
-const OPTIONS: ReadonlyArray<{ value: SharePermission; label: string; description: string; Icon: typeof Eye }> = [
-  { value: 'view', label: 'View only', description: 'Anyone with the link can open and view.', Icon: Eye },
-  { value: 'edit', label: 'Can edit', description: 'Anyone with the link can make changes.', Icon: Pencil },
+const OPTIONS: ReadonlyArray<{
+  value: SharePermission;
+  label: string;
+  description: string;
+  Icon: typeof Eye;
+}> = [
+  {
+    value: 'view',
+    label: 'View only',
+    description: 'Anyone with the link can open and view.',
+    Icon: Eye,
+  },
+  {
+    value: 'edit',
+    label: 'Can edit',
+    description: 'Anyone with the link can make changes.',
+    Icon: Pencil,
+  },
 ];
 
 /**
