@@ -573,6 +573,9 @@ importers:
       eslint:
         specifier: ^9.39.5
         version: 9.39.5(jiti@2.7.0)
+      fast-check:
+        specifier: ^3.23.2
+        version: 3.23.2
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
