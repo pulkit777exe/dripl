@@ -74,11 +74,29 @@ export function runAuthorizationSweep(): void {
         user
           .revalidate()
           .catch(error => {
+            // Fail OPEN, matching `roomOwnership.ts`. A revalidation that
+            // *throws* means the check could not be performed — the database was
+            // unreachable — which is not the same statement as "access was
+            // revoked". This used to return `false`, making the two
+            // indistinguishable, so a momentary Postgres blip closed 4003 on every
+            // socket in every room and dropped every live collaborator in the
+            // deployment. ADR-002 already decided this trade for the room lease
+            // ("a demonstrably held lease fails closed; a transport error fails
+            // open ... turning a Redis outage into a product outage is a worse
+            // failure than the divergence it risks"); authorization was simply
+            // not following it.
+            //
+            // A throw leaves `currentRoomAccess` untouched, so the previous
+            // decision stands, and the next sweep retries one
+            // `AUTHORIZATION_SWEEP_INTERVAL_MS` later — a genuinely revoked user
+            // is still cut off promptly once the database recovers.
             logger.error({ event: 'ws_authorization_refresh_failed', roomId: room.roomId, error });
-            return false;
+            return null;
           })
-          .then(allowed => {
-            if (!allowed && user.ws.readyState === WebSocket.OPEN) {
+          .then(verdict => {
+            // `false` is a decision; `null` is the absence of one. Only the
+            // former may close a socket.
+            if (verdict === false && user.ws.readyState === WebSocket.OPEN) {
               user.ws.close(4003, 'Room access revoked');
             }
           })

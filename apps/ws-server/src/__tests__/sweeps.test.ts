@@ -139,14 +139,47 @@ describe('sweep failure paths', () => {
       });
       expect(stillValid.close).not.toHaveBeenCalled();
 
-      // A revalidation that *threw* is treated as not-allowed, so its socket is
-      // closed too. That is the opposite of `roomOwnership.ts`, where a failed
-      // round-trip is explicitly not treated as proof of loss and the healthy
-      // room is kept. Two modules, two policies for the same class of transient
-      // failure; pinned here so the divergence is visible rather than
-      // incidental. See the task report — this is the one place in ws-server
-      // where a momentary Postgres blip drops live collaborators.
-      expect(broken.close).toHaveBeenCalledWith(4003, 'Room access revoked');
+      // A revalidation that *threw* is NOT treated as a revocation, and that is
+      // the point. Returning `false` from the catch made "the database was
+      // unreachable" indistinguishable from "access was revoked" and closed 4003
+      // on every socket in every room, so one momentary Postgres blip dropped
+      // every live collaborator in the deployment — from a sweep whose stated
+      // purpose is graceful degradation. `roomOwnership.ts` had already decided
+      // the opposite way for the same class of transient failure, on the
+      // reasoning that turning a brief outage into a product outage is the worse
+      // failure; authorization now follows it. The next sweep retries, so a real
+      // revocation is still enforced within one interval.
+      expect(broken.close).not.toHaveBeenCalled();
+    });
+
+    it('still enforces a revocation that arrives after an earlier check failed', async () => {
+      // Fail-open must not become fail-forever: once the database recovers, the
+      // very next sweep has to cut a genuinely revoked user off. Without this,
+      // "keep the socket on error" would quietly mean "never revoke".
+      const flaky = makeWs();
+      const room = getOrCreateRoom('sweep-authz-recovery');
+      let attempt = 0;
+      room.users.set('flaky', {
+        userId: 'flaky',
+        displayName: 'f',
+        color: '#000',
+        ws: flaky,
+        isAlive: true,
+        revalidate: async () => {
+          attempt += 1;
+          if (attempt === 1) throw new Error('database unreachable');
+          return false;
+        },
+      });
+
+      runAuthorizationSweep();
+      await vi.waitFor(() => expect(attempt).toBe(1));
+      expect(flaky.close).not.toHaveBeenCalled();
+
+      runAuthorizationSweep();
+      await vi.waitFor(() => {
+        expect(flaky.close).toHaveBeenCalledWith(4003, 'Room access revoked');
+      });
     });
 
     it('does not close a socket that is already closing', async () => {
