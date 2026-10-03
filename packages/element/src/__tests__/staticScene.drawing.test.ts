@@ -601,12 +601,23 @@ describe('OffscreenCanvas preference', () => {
     const afterFirst = getElementBitmapCacheStatsForTest();
     expect(afterFirst.entries).toBe(1);
 
-    // A mutated element is a new object, so this is a fresh cache key; the old
-    // one is dropped by `mutateElement`'s id-keyed invalidation.
+    // A mutated element is a new object, so this is a fresh cache key.
+    //
+    // In production the superseded object is dropped by `mutateElement`'s
+    // id-keyed invalidation — but this test drives `renderStaticScene` directly,
+    // so no invalidation happens and `getOrCreateElementCanvas` has to drop the
+    // object it supersedes itself. It used not to, which is why this assertion
+    // said 2: `bitmapOrder` holds strong references by necessity, so the old
+    // object and its bitmap stayed accounted for until a ceiling evicted them.
+    // `bench/cache-retention.ts` measures what that cost: five rounds of
+    // replacing every element object in a 1,200-element viewport left 3,270
+    // entries and 81 MB of a 128 MB budget holding objects the scene could no
+    // longer draw.
     draw({ ...first, version: 2 });
     const afterSecond = getElementBitmapCacheStatsForTest();
-    expect(afterSecond.entries).toBe(2);
-    expect(afterSecond.trackedBytes).toBe(afterFirst.trackedBytes * 2);
+    expect(afterSecond.entries).toBe(1);
+    // One live entry of the same size, not two: the total still tracks reality.
+    expect(afterSecond.trackedBytes).toBe(afterFirst.trackedBytes);
     expect(constructed).toBe(2);
     vi.unstubAllGlobals();
   });

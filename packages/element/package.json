@@ -31,6 +31,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "bench:render": "tsx bench/render-path.bench.ts",
+    "bench:pixels": "tsx bench/pixel-diff.ts --selftest",
+    "bench:cache": "tsx bench/cache-retention.ts",
+    "bench:walk": "tsx bench/cache-walk.ts",
     "check-types": "tsc --noEmit -p tsconfig.check.json"
   },
   "dependencies": {

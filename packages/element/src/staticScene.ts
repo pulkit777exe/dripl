@@ -460,6 +460,15 @@ export function renderStaticScene(
   // generating. Elements past the budget get a placeholder instead.
   let newBitmapsRemaining = config.maxNewBitmapsPerFrame ?? DEFAULT_MAX_NEW_BITMAPS_PER_FRAME;
 
+  // Canvas state that outlives an element. Every element sets the alpha it draws
+  // with, so nothing *inside* this frame can be surprised by the previous
+  // element's value -- but the context is reused across frames, and the grid is
+  // drawn at the top of a frame before any element touches alpha. So the entry
+  // value is captured here and restored at the end, which is what the
+  // per-element `save`/`restore` pair used to buy. One read and at most one write
+  // per frame, against two calls per element.
+  const entryAlpha = ctx.globalAlpha;
+
   for (const element of drawableElements) {
     if (element.isDeleted) continue;
 
@@ -504,6 +513,10 @@ export function renderStaticScene(
     }
   }
 
+  // See `entryAlpha` above: hand the context back the way it was found, so the
+  // next frame's grid and any caller-supplied state are unaffected.
+  if (ctx.globalAlpha !== entryAlpha) ctx.globalAlpha = entryAlpha;
+
   config.onFrameStats?.(stats);
 }
 
@@ -538,6 +551,34 @@ function dropCachedBitmap(element: DriplElement): void {
 
 export const dropCachedBitmapForTest = dropCachedBitmap;
 
+/**
+ * Drop every strong reference the cache holds.
+ *
+ * Deliberately has no production caller, and that is the settled answer rather
+ * than an oversight. The claim that its absence leaks was investigated against
+ * the cache's three structures — a `WeakMap` keyed on the element, a strong
+ * id→element map, and the strong insertion order that eviction needs — by
+ * observation (`bench/cache-retention.ts`), not by inspection:
+ *
+ * - Replacing an element *object* without bumping its version — what
+ *   `bringForward` does to the whole scene, and what a remote delta carrying an
+ *   unchanged version does — did retain the superseded object and its bitmap,
+ *   because nothing invalidates by id and `bitmapOrder` holds strong references.
+ *   Five such rounds left 3,270 entries and 81 MB of a 128 MB budget holding
+ *   objects the scene could no longer draw. That is fixed at the point it
+ *   happens, in `getOrCreateElementCanvas`, by dropping the superseded object when
+ *   the same id is cached again.
+ * - Every other path was already self-correcting: `invalidateElementCache` prunes
+ *   by id, and both branches of the store's `setElements` and both directions of
+ *   undo/redo call it for the ids involved.
+ *
+ * So the cache is bounded and self-correcting without a flush, and a flush wired
+ * to a guess about which path might leak would trade a self-healing cache for a
+ * cliff: every element's bitmap rebuilt from scratch on the next frame. Kept as
+ * the escape hatch for the case nothing else covers — a scene torn down wholesale,
+ * such as navigating away from a board — and as the subject of the test that pins
+ * what it empties.
+ */
 export function clearStaticSceneCache(): void {
   // WeakMap entries are reclaimed with their element objects. The parallel
   // strong ID map does retain removed elements, so clear that index when a
@@ -678,17 +719,30 @@ function drawElement(
   // Opacity — apply before drawing so it composites correctly.
   const opacity = typeof element.opacity === 'number' ? element.opacity : 1;
 
-  ctx.save();
+  // The only canvas state this draw mutates is `globalAlpha`, plus the transform
+  // when the element is rotated. So the `save`/`restore` pair is needed *only*
+  // when there is a transform to undo.
+  //
+  // Measured on a 10,000-element scene: `save` + `restore` were exactly two
+  // calls per blit — 66.5% of every call a steady frame makes on the visible
+  // canvas — while `setTransform`, `scale` and `translate` were called once per
+  // frame between them. For an unrotated element the pair guarded nothing but
+  // the alpha, which the line below sets anyway and `renderStaticScene` restores
+  // once per frame. Rotated elements keep the pair: the transform really does
+  // need undoing, and `restore` is how it is undone without composing a matrix by
+  // hand (which would not be bit-identical to what the context accumulates).
+  const rotated = element.angle;
+  if (rotated) ctx.save();
   ctx.globalAlpha = opacity;
 
   // Apply rotation at draw time. The cached bitmap is generated in local
   // element coordinates, so rotating it here avoids the previous double
   // transform from the static and Rough renderers.
-  if (element.angle) {
+  if (rotated) {
     const cx = element.x + element.width / 2;
     const cy = element.y + element.height / 2;
     ctx.translate(cx, cy);
-    ctx.rotate(element.angle);
+    ctx.rotate(rotated);
     ctx.translate(-cx, -cy);
   }
 
@@ -705,7 +759,7 @@ function drawElement(
     offscreen.height / entry.pixelsPerUnit
   );
 
-  ctx.restore();
+  if (rotated) ctx.restore();
   return { status: 'drawn', generated };
 }
 
@@ -742,15 +796,19 @@ function drawElementPlaceholder(
   const height = element.height;
   if (!(width > 0) || !(height > 0)) return;
 
-  ctx.save();
+  // Same reasoning as `drawElement`: the pair guards the alpha and the rotation,
+  // and the fill/stroke styles below are written before every use, so neither
+  // needs unwinding. Alpha is restored once per frame by `renderStaticScene`.
   const opacity = typeof element.opacity === 'number' ? element.opacity : 1;
+  const rotated = element.angle;
+  if (rotated) ctx.save();
   ctx.globalAlpha = opacity;
 
-  if (element.angle) {
+  if (rotated) {
     const cx = element.x + width / 2;
     const cy = element.y + height / 2;
     ctx.translate(cx, cy);
-    ctx.rotate(element.angle);
+    ctx.rotate(rotated);
     ctx.translate(-cx, -cy);
   }
 
@@ -761,7 +819,7 @@ function drawElementPlaceholder(
   ctx.strokeStyle = element.strokeColor || (config.theme === 'dark' ? '#ffffff' : '#1e1e1e');
   ctx.lineWidth = element.strokeWidth || 1;
   ctx.strokeRect(element.x, element.y, width, height);
-  ctx.restore();
+  if (rotated) ctx.restore();
 }
 
 // ─── Offscreen element canvas (with cache) ────────────────────────────────────
@@ -817,6 +875,23 @@ function getOrCreateElementCanvas(
   const replaced = cached;
   if (replaced) cachedBitmapBytes -= bitmapBytes(replaced.canvas);
   if (cachedBitmapBytes < 0) cachedBitmapBytes = 0;
+
+  // A new object carrying an id the cache already holds *supersedes* the old
+  // one, and the old one has to go here rather than wait for a ceiling to
+  // notice. `bitmapOrder` holds strong references by necessity (it is the
+  // eviction order), so a superseded entry keeps its element alive and its
+  // backing store accounted until something drops it — and nothing does, because
+  // the paths that replace an element object do not bump `version`:
+  // `bringForward` in the store maps the whole scene to `{ ...el }`, and a remote
+  // delta that carries an unchanged version does the same. Measured on a
+  // 1,200-element viewport: five such rounds left 3,270 entries and 81 MB of a
+  // 128 MB budget holding objects the scene could no longer draw.
+  //
+  // Dropping by id is O(1) and needs no full flush: `invalidateElementCache` is
+  // not involved, and if the superseded object is drawn again later — an undo
+  // restoring a snapshot, say — it simply regenerates an identical bitmap.
+  const superseded = elementIdMap.get(element.id);
+  if (superseded !== undefined && superseded !== element) dropCachedBitmap(superseded);
 
   elementCanvasCache.set(element, entry);
   elementIdMap.set(element.id, element);
