@@ -505,6 +505,15 @@ export function renderRoughElement(
       strokeWidth: element.strokeWidth,
       fill: element.strokeColor,
       fillStyle: 'solid',
+      // Without this the arrowhead is the one part of the element that gets a
+      // fresh roll of Rough's randomness on every bitmap regeneration — theme
+      // change, eviction, cold load — while the body stays put, because the body
+      // is seeded at line 215. Zoom far enough out to evict an arrow and its
+      // head visibly twitches. Same seed as the body is deliberate: the head is a
+      // different shape consuming the stream in a different order, so the two do
+      // not correlate, and reusing `resolveElementSeed` keeps a single rule for
+      // "how is this element made deterministic".
+      seed: resolveElementSeed(element),
     };
     if (element.roughness !== undefined) {
       arrowHeadOptions.roughness = element.roughness;
