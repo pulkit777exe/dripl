@@ -1,6 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { generateKey, keyToBase64, base64ToKey, encrypt, decrypt } from './encryption/crypto';
-import { appendKeyToUrl, extractKeyFromUrl, createEncryptedRoomUrl } from './encryption/url';
+import {
+  appendKeyToUrl,
+  extractKeyFromUrl,
+  createEncryptedRoomUrl,
+  getKeyFromCurrentUrl,
+} from './encryption/url';
 
 // ===== crypto.ts =====
 
@@ -214,5 +219,74 @@ describe('createEncryptedRoomUrl', () => {
     const encrypted = await enc({ test: 'data' }, result.key);
     const decrypted = await dec<typeof encrypted>(encrypted, result.key);
     expect(decrypted).toEqual({ test: 'data' });
+  });
+});
+
+// ===== getKeyFromCurrentUrl =====
+//
+// This is the entry point that actually turns a shared link's fragment into a
+// usable decryption key, and it had no tests at all — the sibling helpers
+// `appendKeyToUrl` / `extractKeyFromUrl` were covered while this one, which
+// touches `window`, was not.
+//
+// Its three early returns are all load-bearing:
+//   - `typeof window === 'undefined'` is the SSR path. This repo server-renders
+//     the share route, so the guard is reached during render, and a broken one
+//     would throw instead of returning null.
+//   - a URL with no key fragment is an ordinary unencrypted link.
+//   - a key that will not import must fail *closed* to null rather than reject,
+//     since a hostile or truncated fragment is user-supplied input.
+
+describe('getKeyFromCurrentUrl', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns null during server-side rendering, where window is undefined', async () => {
+    // No window stub at all: this is the SSR case, and the guard must be what
+    // stops it rather than a ReferenceError from touching window.location.
+    expect(typeof window).toBe('undefined');
+    await expect(getKeyFromCurrentUrl()).resolves.toBeNull();
+  });
+
+  it('returns null when the URL carries no key fragment', async () => {
+    vi.stubGlobal('window', { location: { href: 'https://app.com/share/abc' } });
+    await expect(getKeyFromCurrentUrl()).resolves.toBeNull();
+  });
+
+  it('fails closed to null when the fragment is not a usable key', async () => {
+    // 'AAAA' is syntactically valid base64 but decodes to 3 bytes, and
+    // importKey is called with length 256 — so this throws inside WebCrypto.
+    // The requirement is that it surfaces as null, not as a rejected promise.
+    vi.stubGlobal('window', { location: { href: 'https://app.com/share/abc#key=AAAA' } });
+    await expect(getKeyFromCurrentUrl()).resolves.toBeNull();
+  });
+
+  it('returns a usable CryptoKey for a real key in the fragment', async () => {
+    const created = await createEncryptedRoomUrl('https://app.com/share/abc');
+    vi.stubGlobal('window', { location: { href: created.url } });
+
+    const key = await getKeyFromCurrentUrl();
+
+    expect(key).not.toBeNull();
+    expect(key?.algorithm).toMatchObject({ name: 'AES-GCM' });
+  });
+
+  it('produces a key that actually decrypts a payload', async () => {
+    // The end-to-end property that matters: a link built by
+    // `createEncryptedRoomUrl`, read back through `getKeyFromCurrentUrl`, has to
+    // decrypt its own ciphertext. Anything that broke the base64 round trip or
+    // the fragment parsing would fail here rather than on a null check alone.
+    const created = await createEncryptedRoomUrl('https://app.com/share/abc');
+    const payload = await encrypt({ secret: 'shared canvas' }, created.key);
+    vi.stubGlobal('window', { location: { href: created.url } });
+
+    const key = await getKeyFromCurrentUrl();
+    // Narrow rather than cast: `expect(...).not.toBeNull()` does not narrow the
+    // type, so a cast here would hide the very null case under test.
+    if (key === null) throw new Error('expected a key from the URL fragment');
+
+    const decrypted = await decrypt<{ secret: string }>(payload, key);
+    expect(decrypted).toEqual({ secret: 'shared canvas' });
   });
 });
