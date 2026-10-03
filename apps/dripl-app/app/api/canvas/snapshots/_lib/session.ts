@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { logError, logWarn } from '@dripl/common';
-import { extractBearerToken, verifyToken } from '@dripl/utils/auth';
+import { verifyToken } from '@dripl/utils/auth';
+import {
+  MAX_USER_ID_LENGTH,
+  SESSION_COOKIE,
+  candidateTokens,
+  isSessionVerificationConfigured,
+} from '@/lib/server/session';
 
 /**
  * Caller identity for the snapshot collection routes.
@@ -21,15 +27,13 @@ import { extractBearerToken, verifyToken } from '@dripl/utils/auth';
  *
  * Every denial is built here rather than at the call sites so the two routes
  * cannot drift into answering different bodies for the same class of refusal.
+ *
+ * Token extraction and the `userId` bound live in `lib/server/session`, shared
+ * with the Server Components that read the same cookie through `cookies()`.
+ * A third local copy of that decoding is the drift this note exists to prevent,
+ * and `canvasSnapshots.authz.test.ts` drives both routes through this module,
+ * so the sharing is covered rather than assumed.
  */
-const SESSION_COOKIE = 'dripl-session';
-
-/**
- * Longest accepted `userId`. A `User.id` is a uuid, so this only bounds what a
- * caller can push through a forged-but-signed token; it is not an ownership
- * signal.
- */
-const MAX_USER_ID_LENGTH = 200;
 
 /** Denials are per-caller data. Never let a proxy or the browser keep one. */
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
@@ -41,26 +45,14 @@ const NO_STORE = { 'Cache-Control': 'no-store' } as const;
  * 503 it is, matching `/api/ai/generate`.
  */
 export function isAuthConfigured(): boolean {
-  return Boolean(process.env.JWT_SECRET);
+  return isSessionVerificationConfigured();
 }
 
 function sessionTokens(request: NextRequest): string[] {
-  const tokens: string[] = [];
-  const cookieToken = request.cookies?.get(SESSION_COOKIE)?.value;
-  if (cookieToken) {
-    // The cookie is written with `encodeURIComponent` by `lib/api.ts` and the
-    // OAuth callback, so a value containing a literal `%` is a real token and
-    // must not be dropped by a throwing `decodeURIComponent`.
-    try {
-      tokens.push(decodeURIComponent(cookieToken));
-    } catch {
-      tokens.push(cookieToken);
-    }
-  }
-
-  const bearerToken = extractBearerToken(request.headers.get('authorization') ?? undefined);
-  if (bearerToken && !tokens.includes(bearerToken)) tokens.push(bearerToken);
-  return tokens;
+  return candidateTokens({
+    cookieValue: request.cookies?.get(SESSION_COOKIE)?.value,
+    authorization: request.headers.get('authorization') ?? undefined,
+  });
 }
 
 /**

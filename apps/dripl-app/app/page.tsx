@@ -1,9 +1,5 @@
-'use client';
-
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   PenLine,
   MousePointerClick,
@@ -12,11 +8,29 @@ import {
   Undo2,
   Download,
   Sparkles,
-  ChevronDown,
 } from 'lucide-react';
-import { useAuth } from '@/app/context/AuthContext';
-import { LoadingState } from '@/components/ui/LoadingState';
 import { LandingNavbar } from '@/components/landing/LandingNavbar';
+import { FaqAccordion } from '@/components/landing/FaqAccordion';
+import { SignedInRedirect } from '@/components/landing/SignedInRedirect';
+
+/**
+ * A Server Component, deliberately.
+ *
+ * Every word below is static, so it belongs in the first HTML response. It used
+ * to be a Client Component whose only data dependency was `useAuth()`, and the
+ * page rendered `<LoadingState message="Loading..." />` at full viewport height
+ * until `/auth/me` came back — so the marketing surface a first-time visitor
+ * sees was a spinner wrapped around content that never needed fetching.
+ *
+ * Only two islands remain, both client components: the accordion, which needs
+ * state, and `SignedInRedirect`, which needs the session. Nothing on this page
+ * is personalised, which is what lets the route stay a static prerender.
+ *
+ * `new Date().getFullYear()` in the footer is evaluated at render time on the
+ * server rather than in the browser, so the copyright year is baked into the
+ * prerender and stops tracking the calendar mid-year. That is the right
+ * trade for a page with no per-request data.
+ */
 
 /* ----------  FAQ data  ---------- */
 const faqs = [
@@ -73,22 +87,9 @@ const features = [
 ];
 
 export default function LandingPage(): React.ReactNode {
-  const router = useRouter();
-  const { user, loading } = useAuth();
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!loading && user) {
-      router.replace('/dashboard');
-    }
-  }, [loading, router, user]);
-
-  if (loading) {
-    return <LoadingState message="Loading..." className="min-h-dvh bg-[#F0EDE6]" />;
-  }
-
   return (
     <main className="min-h-dvh bg-[#F0EDE6] text-[#1A1917] font-sans selection:bg-[#FAE8E5]">
+      <SignedInRedirect />
       <LandingNavbar />
 
       {/* ═══════════  HERO  ═══════════ */}
@@ -218,27 +219,7 @@ export default function LandingPage(): React.ReactNode {
       {/* ═══════════  FAQ  ═══════════ */}
       <section id="faq" className="mx-auto max-w-2xl px-6 py-16 font-ui">
         <h2 className="text-center text-[24px] font-medium tracking-tight mb-10">FAQ</h2>
-        <div className="space-y-2">
-          {faqs.map((faq, i) => (
-            <div
-              key={i}
-              className="border border-[#E4E0D9] rounded-lg bg-[#FAFAF7] overflow-hidden"
-            >
-              <button
-                onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                className="flex w-full items-center justify-between px-5 py-4 text-left text-[14px] font-medium hover:bg-white transition-colors"
-              >
-                {faq.q}
-                <ChevronDown
-                  className={`h-4 w-4 text-[#9B9890] transition-transform ${openFaq === i ? 'rotate-180' : ''}`}
-                />
-              </button>
-              {openFaq === i && (
-                <div className="px-5 pb-4 text-[13px] leading-relaxed text-[#6B6860]">{faq.a}</div>
-              )}
-            </div>
-          ))}
-        </div>
+        <FaqAccordion faqs={faqs} />
       </section>
 
       {/* ═══════════  FOOTER  ═══════════ */}

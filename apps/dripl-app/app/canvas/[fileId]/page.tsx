@@ -1,25 +1,9 @@
-'use client';
-
-import React, { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
-import { HelpCircle, ShieldCheck } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { logError } from '@dripl/common';
-import { CanvasToolbar } from '@/components/canvas/CanvasToolbar';
-import { CanvasControls } from '@/components/canvas/CanvasControls';
-import { useTheme } from '@/hooks/useTheme';
-import { TopBar } from '@/components/canvas/TopBar';
-import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
-import { useAuth } from '@/app/context/AuthContext';
-import { apiClient } from '@/lib/api';
-import { Spinner } from '@/components/button/Spinner';
-import HelpModal from '@/components/canvas/HelpModal';
-
-const CommandPalette = dynamic(
-  () => import('@/components/canvas/CommandPalette').then(m => m.CommandPalette),
-  { ssr: false }
-);
-import { CanvasErrorBoundary } from '@/components/canvas/CanvasErrorBoundary';
+import { serverApiGet, serverApiError } from '@/lib/server/api';
+import { readSessionBearer, readSessionUserId } from '@/lib/server/session';
+import { CanvasRoomRoute } from '@/components/canvas/CanvasRoomRoute';
 
 interface CanvasFilePageProps {
   params: Promise<{
@@ -27,136 +11,96 @@ interface CanvasFilePageProps {
   }>;
 }
 
-export default function CanvasFilePage({ params }: CanvasFilePageProps): React.ReactNode {
-  const { fileId: roomId } = React.use(params);
-  const { effectiveTheme } = useTheme();
-  const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+type RoomResponse = {
+  room: { id: string; slug: string; name: string; isPublic: boolean; content: string };
+};
 
-  const [isLoadingRoom, setIsLoadingRoom] = useState(true);
-  const [roomMissing, setRoomMissing] = useState(false);
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
+/**
+ * A collaboration room, resolved on the server.
+ *
+ * This route is not converted to server rendering so much as it is moved ahead
+ * of hydration. The canvas itself stays a client component — pointer handlers,
+ * a spatial index, a render loop and a theme that only exists in the browser are
+ * not server-renderable, and pretending otherwise would be fiction. What *is*
+ * server-renderable is everything the client used to make it wait for:
+ *
+ * - **Authentication.** `useAuth()` resolved first, then `router.replace()`
+ *     pushed an anonymous visitor to `/login?next=…`, with a centred spinner
+ *     painted in between. The refusal is now the first thing that happens.
+ * - **Room existence.** `GET /rooms/:id` ran in `useEffect` purely to decide
+ *     between the canvas and a "this session has ended" panel. That is one
+ *     server-side await, and it happens before the client bundle is even
+ *     requested.
+ *
+ * Measured effect: the route's time-to-first-byte carries the session check and
+ * the room lookup instead of the browser's four-step waterfall, and the page no
+ * longer ships a spinner in its HTML at all.
+ *
+ * The room check is `no-store` on purpose. It is per-caller and mutable — a
+ * room can be closed between this render and the next — so a cached answer
+ * would be both a cross-user leak and a stale one.
+ */
+export default async function CanvasFilePage({
+  params,
+}: CanvasFilePageProps): Promise<React.ReactNode> {
+  const { fileId: roomId } = await params;
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      router.replace(`/login?next=${encodeURIComponent(`/canvas/${roomId}`)}`);
-      return;
+  const userId = await readSessionUserId();
+  if (!userId) {
+    redirect(`/login?next=${encodeURIComponent(`/canvas/${roomId}`)}`);
+  }
+
+  const token = await readSessionBearer();
+  if (!token) {
+    redirect(`/login?next=${encodeURIComponent(`/canvas/${roomId}`)}`);
+  }
+
+  let room: RoomResponse;
+  try {
+    room = await serverApiGet<RoomResponse>(`/rooms/${encodeURIComponent(roomId)}`, {
+      token,
+      cache: 'no-store',
+    });
+  } catch (error) {
+    // A refusal here means the session did not survive to the API, which is the
+    // same outcome as having no session at all.
+    if (serverApiError(error, [401, 403])) {
+      redirect(`/login?next=${encodeURIComponent(`/canvas/${roomId}`)}`);
     }
 
-    let cancelled = false;
-    const checkRoom = async () => {
-      try {
-        await apiClient.getCanvasRoom(roomId);
-        if (!cancelled) setRoomMissing(false);
-      } catch (error) {
-        const err = error as { status?: number };
-        if (err.status === 404) {
-          if (!cancelled) setRoomMissing(true);
-        } else {
-          logError('Failed to load room', error);
-          if (!cancelled) setRoomMissing(true);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoadingRoom(false);
-        }
-      }
-    };
-
-    void checkRoom();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, roomId, router, user]);
-
-  useEffect(() => {
-    const handleOpenHelp = () => setIsHelpOpen(true);
-    window.addEventListener('dripl:open-help', handleOpenHelp as EventListener);
-    return () => window.removeEventListener('dripl:open-help', handleOpenHelp as EventListener);
-  }, []);
-
-  if (authLoading || isLoadingRoom) {
-    return (
-      <div className="flex h-dvh items-center justify-center bg-[#f5f0e8]">
-        <Spinner className="size-6 text-[#7a7267]" />
-      </div>
+    // A 404 is the ordinary "the room is gone" case, and the original client
+    // code rendered exactly this panel for it. Any other failure — the API down,
+    // a timeout — also lands here, which is what the original did too: it could
+    // not tell them apart from the browser either, and it logged before falling
+    // back. The log is structured and carries no credential.
+    logError(
+      JSON.stringify({
+        level: 'error',
+        event: 'canvas_room_lookup_failed',
+        roomId,
+        status: error instanceof Error && 'status' in error ? error.status : undefined,
+      })
     );
-  }
-  if (roomMissing) {
-    return (
-      <div className="flex h-dvh items-center justify-center bg-[#f5f0e8] p-6">
-        <div className="max-w-md rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] p-5">
-          <p className="text-[14px] font-medium text-[#1A1917]">
-            This collaboration session has ended or doesn&apos;t exist.
-          </p>
-          <button
-            type="button"
-            className="mt-4 rounded-md bg-[#E8462A] px-4 py-2 text-[13px] text-white"
-            onClick={() => router.push('/canvas')}
-          >
-            Go to canvas
-          </button>
-        </div>
-      </div>
-    );
+    return <RoomUnavailable />;
   }
 
+  return <CanvasRoomRoute roomId={room.room.slug} />;
+}
+
+function RoomUnavailable() {
   return (
-    <div
-      className={`w-screen h-dvh relative overflow-hidden ${
-        effectiveTheme === 'dark' ? 'bg-[#1A1714]' : 'bg-[#F5F0E8]'
-      }`}
-    >
-      <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E\")",
-        }}
-      />
-
-      <CanvasErrorBoundary name="TopBar">
-        <TopBar />
-      </CanvasErrorBoundary>
-      <CanvasBootstrap mode="room" roomSlug={roomId} theme={effectiveTheme} />
-
-      <div className="absolute left-1/2 top-16 z-30 -translate-x-1/2 sm:top-4">
-        <CanvasErrorBoundary name="CanvasToolbar">
-          <CanvasToolbar />
-        </CanvasErrorBoundary>
-      </div>
-
-      <div className="absolute bottom-6 left-6 z-20">
-        <CanvasErrorBoundary name="CanvasControls">
-          <CanvasControls />
-        </CanvasErrorBoundary>
-      </div>
-
-      <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2 pointer-events-auto">
-        <button
-          type="button"
-          onClick={() => setIsHelpOpen(true)}
-          className="canvas-chrome-btn size-10"
-          aria-label="Help"
+    <div className="flex h-dvh items-center justify-center bg-[#f5f0e8] p-6">
+      <div className="max-w-md rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] p-5">
+        <p className="text-[14px] font-medium text-[#1A1917]">
+          This collaboration session has ended or doesn&apos;t exist.
+        </p>
+        <Link
+          href="/canvas"
+          className="mt-4 inline-block rounded-md bg-[#E8462A] px-4 py-2 text-[13px] text-white"
         >
-          <HelpCircle className="size-5" />
-        </button>
-        <span
-          className="canvas-chrome-btn size-10"
-          aria-label="Verification status"
-          title="Verified"
-          role="status"
-        >
-          <ShieldCheck className="size-5" />
-        </span>
+          Go to canvas
+        </Link>
       </div>
-
-      <CanvasErrorBoundary name="CommandPalette">
-        <CommandPalette />
-      </CanvasErrorBoundary>
-      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </div>
   );
 }
