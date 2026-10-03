@@ -41,8 +41,13 @@ export function getPathPoints(element: DriplElement): Point[] {
 
   return element.points
     .filter(
+      // `Number.isFinite`, not `typeof === 'number'`: `typeof NaN` is 'number',
+      // so a type check alone lets a non-finite point through and emits NaN
+      // path coordinates, which canvas silently drops mid-path. `PointSchema`
+      // in `@dripl/common` is `z.number().finite()`, and this re-derivation of
+      // point validity must agree with it.
       (point): point is Point =>
-        Boolean(point) && typeof point.x === 'number' && typeof point.y === 'number'
+        Boolean(point) && Number.isFinite(point.x) && Number.isFinite(point.y)
     )
     .map(point => ({
       x: point.x + element.x,

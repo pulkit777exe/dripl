@@ -1,9 +1,22 @@
 import { apiClient } from '@/lib/api';
 
+/**
+ * `NEXT_PUBLIC_API_URL` is documented as including the `/api` suffix
+ * (`.env.example`, `docker-compose.yml`). Tolerate the variants anyway, but
+ * strip trailing slashes FIRST: `'.../api/'.endsWith('/api')` is false, so
+ * checking before normalising appended a second `/api` and every upload and
+ * download 404'd against `.../api/api/images`.
+ *
+ * Note `lib/api.ts` takes the same variable verbatim. The two disagree for a
+ * bare origin — this module appends `/api`, that one does not — and
+ * `apps/http-server/src/routes/images.ts` normalises the same way this module
+ * does, which leaves `lib/api.ts` as the odd one out of three.
+ */
 const configuredApiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002';
-const API_BASE = configuredApiBase.endsWith('/api')
-  ? configuredApiBase
-  : `${configuredApiBase.replace(/\/$/, '')}/api`;
+const apiBaseWithoutTrailingSlash = configuredApiBase.replace(/\/+$/, '');
+const API_BASE = apiBaseWithoutTrailingSlash.endsWith('/api')
+  ? apiBaseWithoutTrailingSlash
+  : `${apiBaseWithoutTrailingSlash}/api`;
 
 export interface ImageUploadResult {
   id: string;
@@ -29,8 +42,13 @@ export async function uploadImage(file: File): Promise<ImageUploadResult> {
   });
 
   if (!res.ok) {
-    const error = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(error.error ?? `Upload failed: ${res.status}`);
+    const error = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+    // `message` first, `error` second, exactly as `lib/api.ts`'s `parseError`
+    // does. The server's `sendError` puts a machine CODE in `error`
+    // ('PAYLOAD_TOO_LARGE') and the human sentence in `message` ('Image too
+    // large. Maximum size is 10MB.'), so preferring `error` showed users a
+    // status code where the server meant to show a sentence.
+    throw new Error(error.message ?? error.error ?? `Upload failed: ${res.status}`);
   }
 
   return res.json() as Promise<ImageUploadResult>;

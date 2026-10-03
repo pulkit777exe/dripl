@@ -135,6 +135,8 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
     const last = points[points.length - 1];
     if (!first || !last) return;
 
+    ctx.moveTo(first.x + offsetX, first.y + offsetY);
+
     // Calculate control point for quadratic bezier
     const midX = (first.x + last.x) / 2;
     const midY = (first.y + last.y) / 2;
@@ -142,13 +144,22 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
     const dy = last.y - first.y;
     const length = Math.sqrt(dx * dx + dy * dy);
 
+    // A zero-length chord has no direction to bow away from, and normalising by
+    // it is 0/0. `calculateAngle` below already falls back to the straight
+    // direction for that case; do the same here so the shaft and its arrowhead
+    // agree, instead of the shaft emitting NaN coordinates — which canvas drops
+    // silently, making the whole arrow disappear with no error anywhere.
+    if (length === 0) {
+      ctx.lineTo(last.x + offsetX, last.y + offsetY);
+      return;
+    }
+
     // Perpendicular offset for curvature
     const offsetX2 = (-dy / length) * length * 0.25;
     const offsetY2 = (dx / length) * length * 0.25;
     const controlX = midX + offsetX2;
     const controlY = midY + offsetY2;
 
-    ctx.moveTo(first.x + offsetX, first.y + offsetY);
     ctx.quadraticCurveTo(
       controlX + offsetX,
       controlY + offsetY,

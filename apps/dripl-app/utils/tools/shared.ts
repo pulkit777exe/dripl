@@ -99,7 +99,12 @@ export function snapPointToElements(
   return snappedPoint;
 }
 
-export function getBoundingBox(points: Point[]): { minX: number; minY: number; maxX: number; maxY: number } {
+export function getBoundingBox(points: Point[]): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} {
   const minX = Math.min(...points.map(p => p.x));
   const minY = Math.min(...points.map(p => p.y));
   const maxX = Math.max(...points.map(p => p.x));

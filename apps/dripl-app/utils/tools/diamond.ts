@@ -23,16 +23,22 @@ export function createDiamondElement(
   const x = width < 0 ? state.startPoint.x + width : state.startPoint.x;
   const y = height < 0 ? state.startPoint.y + height : state.startPoint.y;
 
-  const size = Math.max(Math.abs(width), Math.abs(height));
-  const centerX = x + size / 2;
-  const centerY = y + size / 2;
-
+  // The box is the drag rectangle, exactly as for `rectangle` and `ellipse`:
+  // Shift squares it, and the renderer fits a rhombus to whatever box it gets
+  // (`renderDiamond` puts its four vertices on the edge midpoints), so nothing
+  // downstream needs the element to be square.
+  //
+  // It used to be forced to a `max(|width|, |height|)` square anchored at the
+  // drag rect's top-left. That made the element overshoot the drag on the short
+  // axis (a purely horizontal 100px drag committed a 100x100 diamond), and it
+  // made `isTinyPreview`'s `height < TINY_SHAPE_PX` guard unreachable for
+  // diamonds, since the produced height could never be smaller than the width.
   return {
     ...baseProps,
     type: 'diamond',
-    x: centerX - size / 2,
-    y: centerY - size / 2,
-    width: size,
-    height: size,
+    x,
+    y,
+    width: Math.abs(width),
+    height: Math.abs(height),
   };
 }
