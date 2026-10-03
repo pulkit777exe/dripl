@@ -3,7 +3,9 @@ export interface MockCanvas2DOptions {
   fontMetrics?: Record<string, { width: number; height: number }>;
 }
 
-export function createMockCanvasContext(options: MockCanvas2DOptions = {}): CanvasRenderingContext2D {
+export function createMockCanvasContext(
+  options: MockCanvas2DOptions = {}
+): CanvasRenderingContext2D {
   const { textWidth = 50 } = options;
 
   const mockContext = {

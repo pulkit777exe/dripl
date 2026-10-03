@@ -219,7 +219,7 @@ describe('mock canvas', () => {
   it('measures text with custom font metrics', () => {
     const ctx = createMockCanvasContext({
       fontMetrics: {
-        'Hello': { width: 45, height: 20 },
+        Hello: { width: 45, height: 20 },
       },
     });
     const metrics = ctx.measureText('Hello');

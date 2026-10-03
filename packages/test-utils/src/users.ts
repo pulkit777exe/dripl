@@ -11,10 +11,7 @@ export function createTestUser(overrides: Partial<User> = {}): User {
   };
 }
 
-export function createTestPresence(
-  userId: string,
-  overrides: Partial<Presence> = {}
-): Presence {
+export function createTestPresence(userId: string, overrides: Partial<Presence> = {}): Presence {
   return {
     userId,
     cursor: overrides.cursor ?? { x: 0, y: 0 },

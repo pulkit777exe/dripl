@@ -12,7 +12,12 @@ export {
   resetIdCounter,
 } from './elements';
 
-export type { ElementFactoryOptions, TextElementOptions, ImageElementOptions, FrameElementOptions } from './elements';
+export type {
+  ElementFactoryOptions,
+  TextElementOptions,
+  ImageElementOptions,
+  FrameElementOptions,
+} from './elements';
 
 export { createTestUser, createTestPresence, resetUserCounter } from './users';
 
