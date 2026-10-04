@@ -457,3 +457,73 @@ describe('useCanvasSync gesture locks', () => {
     expect(collab.options?.shareToken).toBe('tok-123');
   });
 });
+
+describe('useCanvasSync full sync on a share link', () => {
+  /**
+   * A share link's scene comes from the capability URL, and for an *encrypted*
+   * share it exists nowhere else: the server stores only the AES-GCM envelope, so
+   * `parseStoredElements` finds no `elements` array and the room's authoritative
+   * snapshot is legitimately empty. Adopting that empty snapshot replaced a
+   * decrypted canvas the recipient could already see with a blank one.
+   *
+   * The known trade-off, stated rather than hidden: a *plaintext* share whose owner
+   * genuinely deleted everything also produces an empty snapshot, and the
+   * recipient keeps the stale scene. A blank canvas is the worse failure, and the
+   * two are not distinguishable from this hook — only the component that decrypted
+   * the payload knows which happened.
+   */
+  it('keeps the share scene when the server snapshot is empty', () => {
+    seed([rect('local')]);
+    setup({ shareToken: 'tok' });
+
+    act(() => {
+      collab.options?.onFullSync?.([]);
+      collab.isConnected = true;
+    });
+
+    expect(useCanvasStore.getState().elements.map(e => e.id)).toEqual(['local']);
+  });
+
+  it('still adopts a non-empty snapshot on a share link', () => {
+    seed([rect('local')]);
+    setup({ shareToken: 'tok' });
+
+    act(() => {
+      collab.options?.onFullSync?.([rect('remote')]);
+      collab.isConnected = true;
+    });
+
+    // Live collaboration and the authoritative-sync contract are untouched.
+    expect(useCanvasStore.getState().elements.map(e => e.id)).toEqual(['remote']);
+  });
+
+  it('still adopts an empty snapshot when there is no share token', () => {
+    // The control: without a share link an empty snapshot is authoritative and
+    // must be applied, or deleting everything in a normal room would stop working.
+    seed([rect('local')]);
+    setup({ shareToken: null });
+
+    act(() => {
+      collab.options?.onFullSync?.([]);
+      collab.isConnected = true;
+    });
+
+    expect(useCanvasStore.getState().elements).toEqual([]);
+  });
+
+  it('does not tombstone the ids it kept, so later remote edits still land', () => {
+    seed([rect('local')]);
+    setup({ shareToken: 'tok' });
+
+    act(() => {
+      collab.options?.onFullSync?.([]);
+      collab.isConnected = true;
+    });
+    act(() => {
+      collab.options?.onRemoteElements?.([], [rect('local', 2)], []);
+      collab.isConnected = true;
+    });
+
+    expect(useCanvasStore.getState().elements.map(e => e.version)).toEqual([2]);
+  });
+});

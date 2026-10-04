@@ -70,9 +70,25 @@ export function useCanvasSync({
     onFullSync: remoteElements => {
       hasReceivedInitialSyncRef.current = true;
       suppressRemoteBroadcastRef.current = true;
-      // Full sync is authoritative: forget markers for ids the server
-      // resurrected (explicit restore) and remember server-side deletes.
-      const nextIds = new Set(remoteElements.map(el => el.id));
+      // A share page's scene comes from the capability link, and for an
+      // encrypted share it exists nowhere else: the server stores only the
+      // AES-GCM envelope, so that room's authoritative snapshot is legitimately
+      // empty (ws-server's `parseStoredElements` finds no `elements` array in an
+      // envelope). An empty snapshot there is "this room has no server-side
+      // plaintext scene", not "the owner deleted everything", and adopting it
+      // replaced a decrypted canvas the recipient could already see with a
+      // blank one. The same shape arrives when the join is served by an
+      // instance whose room holds nothing for this id.
+      //
+      // So: keep the link's scene for that one case, and keep the known-id
+      // baseline in step with what is actually on screen — tombstoning the ids
+      // we are holding would make `reconcileScene` discard every later remote
+      // edit to them. Any non-empty snapshot still wins, so live collaboration
+      // and the authoritative-sync contract are unchanged.
+      const localElements = useCanvasStore.getState().elements;
+      const keepShareScene =
+        shareToken !== null && remoteElements.length === 0 && localElements.length > 0;
+      const nextIds = new Set((keepShareScene ? localElements : remoteElements).map(el => el.id));
       const prevIds = knownIdsRef.current;
       if (prevIds) {
         for (const id of prevIds) {
@@ -80,7 +96,9 @@ export function useCanvasSync({
         }
       }
       knownIdsRef.current = nextIds;
-      setElements(remoteElements, { skipHistory: true });
+      if (!keepShareScene) {
+        setElements(remoteElements, { skipHistory: true });
+      }
     },
     onRemoteElements: (added, updated, deleted) => {
       const state = useCanvasStore.getState();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 // `@dripl/utils/encryption`, not the package root. The root barrel also
 // re-exports `./auth` (jsonwebtoken, and with it semver and seven lodash.*
@@ -62,8 +62,32 @@ export function SharedCanvasRoute({ token, share }: SharedCanvasRouteProps) {
   const setFileMetadata = useCanvasStore(state => state.setFileMetadata);
   const setUserId = useCanvasStore(state => state.setUserId);
 
+  /**
+   * The share payload this mount has already applied, by identity.
+   *
+   * The loader used to be gated on `scene === 'pending'`, and `scene` only
+   * becomes `'pending'` for an *encrypted* share — so for a plaintext share the
+   * effect returned immediately, forever, and `share.elements` was never read.
+   * The page then depended entirely on the collaboration socket to put anything
+   * on the canvas, which is what made a share link render blank whenever the
+   * room's snapshot was empty or never arrived. `scene` is an output of this
+   * effect, so it cannot be its trigger; the payload it reads can be.
+   */
+  const appliedShareRef = useRef<{ elements: unknown; encryptedPayload: unknown } | null>(null);
+
   useEffect(() => {
-    if (scene !== 'pending') return;
+    const applied = appliedShareRef.current;
+    if (
+      applied !== null &&
+      applied.elements === share.elements &&
+      applied.encryptedPayload === share.encryptedPayload
+    ) {
+      return;
+    }
+    appliedShareRef.current = {
+      elements: share.elements,
+      encryptedPayload: share.encryptedPayload,
+    };
     let cancelled = false;
 
     const loadScene = async () => {
@@ -109,16 +133,19 @@ export function SharedCanvasRoute({ token, share }: SharedCanvasRouteProps) {
     return () => {
       cancelled = true;
     };
+    // Keyed on the payload this scene is loaded *from*, never on `scene`: the
+    // loader sets `scene`, so including it would re-run the effect on its own
+    // result. `share.elements` / `share.encryptedPayload` are the only inputs
+    // that can change what should be on the canvas.
   }, [
-    scene,
-    setElements,
-    setFileMetadata,
-    setSelectedIds,
-    setUserId,
     share.elements,
     share.encryptedPayload,
     share.file.id,
     share.file.name,
+    setElements,
+    setFileMetadata,
+    setSelectedIds,
+    setUserId,
   ]);
 
   const readOnly = permission === 'view';
