@@ -223,7 +223,7 @@ export function ExtraToolsDropdown({ readOnly = false }: { readOnly?: boolean })
 
   const renderActiveIcon = () => {
     if (activeTool === 'frame') return <Frame size={18} />;
-
+    if (activeTool === 'laser') return <Zap size={18} />;
     if (activeTool === 'embed') return <Globe size={18} />;
     return <Library size={18} />;
   };
