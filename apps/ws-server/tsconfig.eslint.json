@@ -2,11 +2,15 @@
   // Lint-only project for apps/ws-server. See tooling/eslint-config/index.js
   // for why these files exist and why `@dripl/*` is mapped to source here.
   // `*.ts` in `include` is the root-level `vitest.config.ts`, which the build
-  // tsconfig does not cover but `eslint .` does lint. `@/*` is inherited from
-  // the build config and must be repeated here because `paths` is replaced
-  // wholesale rather than merged.
+  // tsconfig does not cover but `eslint .` does lint. `bench/**/*.ts` is the
+  // hot-path benchmark harness, for the same reason `@dripl/element` covers its
+  // own `bench/`: the harness must never be compiled into `dist/`, but `eslint .`
+  // still has to type-check it, because the shared config enables a type-aware
+  // rule (`no-floating-promises`) over every `.ts` file and a file with no project
+  // is a hard error, not a warning. `@/*` is inherited from the build config and
+  // must be repeated here because `paths` is replaced wholesale rather than merged.
   "extends": "./tsconfig.json",
-  "include": ["src/**/*.ts", "*.ts"],
+  "include": ["src/**/*.ts", "*.ts", "bench/**/*.ts"],
   "exclude": ["node_modules", "dist"],
   "compilerOptions": {
     "noEmit": true,

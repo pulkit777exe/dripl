@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "check-types": "tsc --noEmit -p tsconfig.check.json",
-    "health": "curl -f http://localhost:${WS_PORT:-3001}/health || exit 1"
+    "health": "curl -f http://localhost:${WS_PORT:-3001}/health || exit 1",
+    "bench:hot": "tsx bench/hot-path.bench.ts"
   },
   "dependencies": {
     "@dripl/common": "workspace:*",
