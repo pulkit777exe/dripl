@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthShell } from '@/components/auth/AuthShell';
@@ -35,6 +35,13 @@ export default function LoginPage(): React.ReactNode {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<ReactNode>('');
   const [loading, setLoading] = useState(false);
+  // A ref, not the `loading` state, closes the double-submit window. `disabled`
+  // is not in the DOM until React re-renders, and inside one batch the second
+  // `handleSubmit` still closes over `loading === false` -- so a state guard is
+  // inert by construction and two submits in the same tick fire two sign-in
+  // requests. `DashboardFiles` already uses this shape. Released in the `finally`
+  // so one failure does not wedge the form.
+  const inFlightRef = useRef(false);
   const router = useRouter();
   const { login } = useAuth();
   const [nextPath, setNextPath] = useState('/dashboard');
@@ -55,6 +62,10 @@ export default function LoginPage(): React.ReactNode {
   }, []);
 
   const handleSubmit = async (event?: React.FormEvent) => {
+    // Latched before the first await, so a second submit in the same tick
+    // returns instead of racing a duplicate registration or sign-in.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     if (event) event.preventDefault();
     setError('');
     setLoading(true);
@@ -81,6 +92,7 @@ export default function LoginPage(): React.ReactNode {
         setError(errorMessage);
       }
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   };

@@ -270,7 +270,22 @@ describe('/login — a refused sign-in', () => {
    * into, and adding the ref makes this test fail, which is the point: the fix has to
    * be a decision, not an accident.
    */
-  it('LABELLED fires two requests for two submits in the same tick', async () => {
+  /**
+   * Regression: the double-submit latch.
+   *
+   * `disabled` is not in the DOM until React re-renders, so two clicks inside one
+   * batch both reach the handler. The guard has to be a **ref**, not the `loading`
+   * state: inside a single `act`, the two `setLoading(true)` calls batch and React
+   * does not re-render, so the second `handleSubmit` still closes over
+   * `loading === false` and a state guard is inert by construction. That was
+   * verified by mutation -- adding `if (loading) return;` changed nothing, while
+   * adding the ref latch turns this test green.
+   *
+   * A second registration for one address races the first and produces a confusing
+   * 409; a second sign-in doubles the credential check against the rate limiter.
+   * `DashboardFiles` already uses this ref shape.
+   */
+  it('fires one request for two submits in the same tick', async () => {
     render(<LoginPage />);
     fillCredentials();
 
@@ -280,7 +295,7 @@ describe('/login — a refused sign-in', () => {
     });
     await settle();
 
-    expect(login).toHaveBeenCalledTimes(2);
+    expect(login).toHaveBeenCalledTimes(1);
   });
 
   /**

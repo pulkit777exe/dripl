@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthShell } from '@/components/auth/AuthShell';
@@ -16,10 +16,21 @@ export default function SignupPage(): React.ReactNode {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<ReactNode>('');
   const [loading, setLoading] = useState(false);
+  // A ref, not the `loading` state, closes the double-submit window. `disabled` is
+  // not in the DOM until React re-renders, and inside one batch the second
+  // `handleSubmit` still closes over `loading === false` -- so a state guard is
+  // inert by construction and two submits in the same tick fire two requests.
+  // `DashboardFiles` already uses this shape. Released in the `finally` so one
+  // failure does not wedge the form.
+  const inFlightRef = useRef(false);
   const router = useRouter();
   const { signup } = useAuth();
 
   const handleSubmit = async (event?: React.FormEvent) => {
+    // Latched before the first await, so a second submit in the same tick
+    // returns instead of racing a duplicate registration or sign-in.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     if (event) event.preventDefault();
     setError('');
     setLoading(true);
@@ -34,7 +45,14 @@ export default function SignupPage(): React.ReactNode {
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to sign up';
 
-      if (errorMessage.includes('already verified')) {
+      // Branched on the message `/auth/register` actually sends.
+      //
+      // This tested for 'already verified', which is the error on
+      // `/auth/resend-verification` (`routes/auth.ts:360`) — a route sign-up
+      // never calls. The duplicate-address error is 'Email is already
+      // registered' (`routes/auth.ts:102`), so the branch was unreachable and
+      // the one failure that most needs the 'Sign in' link got plain text.
+      if (errorMessage.includes('already registered')) {
         setError(
           <span>
             {errorMessage}{' '}
@@ -47,6 +65,7 @@ export default function SignupPage(): React.ReactNode {
         setError(errorMessage);
       }
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -59,7 +78,12 @@ export default function SignupPage(): React.ReactNode {
     >
       {error && (
         <InlineError
-          message={typeof error === 'string' ? error : 'An error occurred'}
+          // Passed through as-is. This collapsed to
+          // `typeof error === 'string' ? error : 'An error occurred'`, throwing away
+          // the span built above — so a duplicate address was reported with no way
+          // to sign in. `InlineError`'s prop is `ReactNode` and renders it, and
+          // `/login` had the identical defect with the identical fix.
+          message={error}
           onRetry={async () => {
             setError('');
             await handleSubmit();
