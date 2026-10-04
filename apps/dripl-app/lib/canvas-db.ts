@@ -27,12 +27,21 @@ let dbPromise: Promise<IDBPDatabase> | null = null;
 
 function getDB(): Promise<IDBPDatabase> {
   if (!dbPromise) {
+    // A failed open must not be cached. `dbPromise` held the *rejected* promise,
+    // so one failure — private browsing, a revoked storage grant, a quota
+    // failure at open time — disabled the durable mirror for the rest of the
+    // session with no retry, even after the cause cleared. Clearing the cache on
+    // rejection means the next caller tries again, and a healthy environment
+    // recovers on its own.
     dbPromise = openDB(DB_NAME, DB_VERSION, {
       upgrade(db) {
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: 'roomId' });
         }
       },
+    }).catch((error: unknown) => {
+      dbPromise = null;
+      throw error;
     });
   }
   return dbPromise;
@@ -90,7 +99,11 @@ export async function loadCanvasFromIndexedDB(roomId: string): Promise<DriplElem
 export async function clearCanvasFromIndexedDB(roomId: string): Promise<void> {
   try {
     const db = await getDB();
-    await db.delete(STORE_NAME, roomId);
+    // Truncated exactly as `save` and `load` do. Without it, a room id over 100
+    // characters deletes a key that was never written: save stored it truncated
+    // and load reads it truncated, so the untruncated delete missed and the stale
+    // snapshot survived a clear.
+    await db.delete(STORE_NAME, roomId.slice(0, 100));
   } catch (error) {
     logError('Failed to clear canvas from IndexedDB:', error);
     throw error;

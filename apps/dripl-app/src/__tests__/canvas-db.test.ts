@@ -283,11 +283,16 @@ describe('saveCanvasToIndexedDB', () => {
   // storage becomes available again (a quota prompt accepted mid-session, a
   // second tab's cleanup, an extension's storage policy expiring). This test
   // pins the current behaviour so a fix is a visible change.
-  it('keeps a failed connection cached instead of retrying it', async () => {
+  it('retries a failed open instead of caching the rejection forever', async () => {
+    // Regression: `dbPromise` held the *rejected* promise, so one failed open --
+    // private browsing, a revoked storage grant, a quota failure at open time --
+    // disabled the durable mirror for the rest of the session with no retry, even
+    // after the cause cleared. Nothing reported it beyond the first `false`.
     const fake = useFakeDb({ openRejects: true });
     const { saveCanvasToIndexedDB } = await loadModule();
 
     expect(await saveCanvasToIndexedDB('room-1', [element('a')])).toBe(false);
+    expect(openDB).toHaveBeenCalledTimes(1);
 
     // Storage recovers: `openDB` would now succeed.
     fake.db.createObjectStore.mockClear();
@@ -297,9 +302,10 @@ describe('saveCanvasToIndexedDB', () => {
       return fake.db;
     });
 
-    expect(await saveCanvasToIndexedDB('room-1', [element('a')])).toBe(false);
-    expect(openDB).toHaveBeenCalledTimes(1);
-    expect(fake.records.size).toBe(0);
+    // The second attempt reopens, and the write lands.
+    expect(await saveCanvasToIndexedDB('room-1', [element('a')])).toBe(true);
+    expect(openDB).toHaveBeenCalledTimes(2);
+    expect(fake.records.size).toBe(1);
   });
 });
 
@@ -440,17 +446,24 @@ describe('clearCanvasFromIndexedDB', () => {
   // written: the record survives, and no retry of the same call can remove it.
   // Nothing in the repo calls `clear` today, so this is latent rather than
   // user-visible; it becomes one the moment a room id from a URL reaches it.
-  it('does not remove a long room id saved under its truncated key', async () => {
+  it('clears a long room id under the same truncated key it was saved with', async () => {
+    // Regression: `save` and `load` both truncate the room id to 100 characters,
+    // but `clear` passed it through untruncated -- so a longer id deleted a key
+    // that was never written, and the snapshot survived a clear. The only symptom
+    // was a canvas that reappeared from a previous session.
     const fake = useFakeDb();
     const { saveCanvasToIndexedDB, loadCanvasFromIndexedDB, clearCanvasFromIndexedDB } =
       await loadModule();
     const longRoomId = 'r'.repeat(150);
+
     await saveCanvasToIndexedDB(longRoomId, [element('a')]);
+    expect((await loadCanvasFromIndexedDB(longRoomId)).map(e => e.id)).toEqual(['a']);
 
     await clearCanvasFromIndexedDB(longRoomId);
 
-    expect(fake.db.delete).toHaveBeenCalledWith('canvas-rooms', longRoomId);
-    expect((await loadCanvasFromIndexedDB(longRoomId)).map(e => e.id)).toEqual(['a']);
+    // Deleted under the truncated key, which is the key it was written to.
+    expect(fake.db.delete).toHaveBeenCalledWith('canvas-rooms', longRoomId.slice(0, 100));
+    expect(await loadCanvasFromIndexedDB(longRoomId)).toEqual([]);
   });
 });
 
