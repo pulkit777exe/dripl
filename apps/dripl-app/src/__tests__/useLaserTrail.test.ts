@@ -139,4 +139,91 @@ describe('useLaserTrail', () => {
     addSpy.mockRestore();
     removeSpy.mockRestore();
   });
+
+  it('end() deactivates the trail and ignores any later laser-move', () => {
+    // Regression: `end()` is the "stop drawing" path used when the laser
+    // pointer is released or focus is lost. If it left the internal mirror
+    // active, every stray dripl:laser-move after the stop would keep appending
+    // points to a trail nobody is drawing — the state never settles.
+    const { result } = renderHook(() => useLaserTrail());
+    act(() => {
+      emitLaserStart(0, 0);
+      emitLaserMove(10, 10);
+    });
+    expect(result.current.points.current).toHaveLength(2);
+
+    act(() => {
+      result.current.end();
+    });
+    expect(result.current.isActive).toBe(false);
+
+    act(() => {
+      emitLaserMove(20, 20);
+      emitLaserMove(30, 30);
+    });
+    expect(result.current.points.current).toHaveLength(2);
+    expect(result.current.points.current.at(-1)).toMatchObject({ x: 10, y: 10 });
+  });
+
+  it('ignores a laser-start event that carries no coordinates', () => {
+    // Regression: a re-broadcast or a bare `new CustomEvent('dripl:laser-start')`
+    // has `detail === undefined`. Seeding a point from it would put
+    // `{x: undefined, y: undefined}` in the trail, which renders as a NaN blob
+    // and never expires.
+    const { result } = renderHook(() => useLaserTrail());
+    act(() => {
+      window.dispatchEvent(new CustomEvent('dripl:laser-start'));
+    });
+
+    expect(result.current.points.current).toEqual([]);
+    expect(result.current.isActive).toBe(false);
+  });
+
+  it('ignores a laser-move event with no coordinates while the trail is live', () => {
+    // Regression: only the pre-start guard is defensive; a detail-less move
+    // during an active laser appends an undefined point that outlives prune().
+    const { result } = renderHook(() => useLaserTrail());
+    act(() => {
+      emitLaserStart(1, 2);
+    });
+    act(() => {
+      window.dispatchEvent(new CustomEvent('dripl:laser-move'));
+    });
+
+    expect(result.current.points.current).toHaveLength(1);
+    expect(result.current.points.current[0]).toMatchObject({ x: 1, y: 2 });
+  });
+
+  it('clear() on an already empty trail stays empty and inactive', () => {
+    // Regression: clear() has an empty-trail early return; if that path threw
+    // or resurrected the active flag, calling it twice (the dialog closing and
+    // then the canvas unmounting) would leave a phantom laser running.
+    const { result } = renderHook(() => useLaserTrail());
+    act(() => {
+      emitLaserStart(0, 0);
+    });
+    act(() => {
+      result.current.clear();
+      result.current.clear();
+    });
+
+    expect(result.current.points.current).toEqual([]);
+    expect(result.current.isActive).toBe(false);
+  });
+
+  it('stops reacting to laser events after unmount', () => {
+    // Regression: the listener teardown is what stops the hook writing into a
+    // dead ref after unmount. Behavioural counterpart to the listener-count
+    // test above — a leaked listener keeps a stale trail alive.
+    const { result, unmount } = renderHook(() => useLaserTrail());
+    unmount();
+
+    act(() => {
+      emitLaserStart(0, 0);
+      emitLaserMove(5, 5);
+    });
+
+    expect(result.current.points.current).toEqual([]);
+    expect(result.current.isActive).toBe(false);
+  });
 });

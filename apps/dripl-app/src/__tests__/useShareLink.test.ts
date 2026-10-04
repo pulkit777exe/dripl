@@ -136,3 +136,114 @@ describe('useShareLink', () => {
     expect(result.current.error).toMatch(/generate.*first|copy.*url/i);
   });
 });
+
+describe('useShareLink failure handling', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('reports an error when the API returns a response with no link', async () => {
+    // Regression: `generate` stores the payload unconditionally, so a 200
+    // response missing `shareUrl` publishes a Copy button that copies `null`.
+    vi.spyOn(apiClient, 'shareFile').mockResolvedValue({
+      token: 'tok',
+      permission: 'view',
+      expiresAt: null,
+      shareUrl: undefined as unknown as string,
+    });
+
+    const { result } = renderHook(() => useShareLink(FILE_ID));
+    await act(async () => {
+      await result.current.generate('view');
+    });
+
+    expect(result.current.url).toBeNull();
+    expect(result.current.error).toMatch(/did not return a link/i);
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it('falls back to a generic message when the rejection is not an Error', async () => {
+    // Regression: the catch assumes `error.message` exists, so a thrown string
+    // or a failed `fetch` payload surfaces "undefined" to the user.
+    vi.spyOn(apiClient, 'shareFile').mockRejectedValue('boom');
+
+    const { result } = renderHook(() => useShareLink(FILE_ID));
+    await act(async () => {
+      await result.current.generate('view');
+    });
+
+    expect(result.current.error).toMatch(/network error/i);
+    expect(result.current.url).toBeNull();
+  });
+
+  it('does not claim the link was copied when the clipboard write fails', async () => {
+    // Regression: `copied` is the only signal the Share button uses to show
+    // "Copied!", so a rejected clipboard write (insecure context, denied
+    // permission) must not leave the UI lying about the clipboard.
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    vi.spyOn(apiClient, 'shareFile').mockResolvedValue({
+      token: 'tok',
+      permission: 'view',
+      expiresAt: null,
+      shareUrl: shareUrl('tok'),
+    });
+
+    const { result } = renderHook(() => useShareLink(FILE_ID));
+    await act(async () => {
+      await result.current.generate('view');
+    });
+    await act(async () => {
+      await result.current.copy();
+    });
+
+    expect(writeText).toHaveBeenCalledWith(shareUrl('tok'));
+    expect(result.current.copied).toBe(false);
+    expect(result.current.error).toMatch(/clipboard/i);
+    // A later successful generate must clear the stale failure message.
+    await act(async () => {
+      await result.current.generate('edit');
+    });
+    expect(result.current.error).toBeNull();
+  });
+
+  it('reset() drops the url, the copied flag and the error together', async () => {
+    // Regression: reset() is how the Share dialog revokes/closes its state.
+    // Leaving any one field behind re-opens the dialog showing "Copied!" for
+    // a link that is no longer on screen, or keeps an error from a previous
+    // attempt visible.
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    vi.spyOn(apiClient, 'shareFile').mockResolvedValue({
+      token: 'tok',
+      permission: 'view',
+      expiresAt: null,
+      shareUrl: shareUrl('tok'),
+    });
+
+    const { result } = renderHook(() => useShareLink(FILE_ID));
+    await act(async () => {
+      await result.current.generate('view');
+    });
+    await act(async () => {
+      await result.current.copy();
+    });
+    expect(result.current.copied).toBe(true);
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(result.current).toMatchObject({
+      url: null,
+      copied: false,
+      error: null,
+      isLoading: false,
+    });
+  });
+});

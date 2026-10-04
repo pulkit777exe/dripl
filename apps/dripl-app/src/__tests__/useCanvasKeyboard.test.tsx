@@ -601,3 +601,126 @@ describe('useCanvasKeyboard listener lifecycle', () => {
     expect(useCanvasStore.getState().activeTool).toBe('hand');
   });
 });
+
+describe('useCanvasKeyboard history shortcuts', () => {
+  beforeEach(() => {
+    seed();
+  });
+
+  it('undoes and redoes a store mutation', () => {
+    // Regression: the undo/redo arms are the ones most easily shadowed by a
+    // neighbouring binding — undo silently doing nothing leaves the canvas
+    // looking frozen while Ctrl+Z appears to work.
+    seed([rect('a', 100, 100)], ['a']);
+    setup();
+    act(() => {
+      useCanvasStore.getState().translateElements(['a'], 50, 0);
+    });
+    expect(useCanvasStore.getState().elementsById.get('a')).toMatchObject({ x: 150 });
+
+    keyDown('z', { ctrlKey: true });
+    expect(useCanvasStore.getState().elementsById.get('a')).toMatchObject({ x: 100 });
+
+    keyDown('z', { ctrlKey: true, shiftKey: true });
+    expect(useCanvasStore.getState().elementsById.get('a')).toMatchObject({ x: 150 });
+  });
+
+  it('binds the modifier to the platform: meta on macOS, ctrl elsewhere', () => {
+    // Regression: the platform check is the only thing standing between a Mac
+    // user and Ctrl+Z (which on macOS is "delete backwards"), and between a
+    // Windows/Linux user and Cmd+Z, which they cannot press at all.
+    seed([rect('a', 100, 100)], ['a']);
+    act(() => {
+      useCanvasStore.getState().translateElements(['a'], 50, 0);
+    });
+    Object.defineProperty(navigator, 'platform', { configurable: true, get: () => 'MacIntel' });
+    try {
+      setup();
+      // Ctrl must NOT be the undo modifier on macOS.
+      expect(keyDown('z', { ctrlKey: true }).defaultPrevented).toBe(false);
+      expect(useCanvasStore.getState().elementsById.get('a')).toMatchObject({ x: 150 });
+
+      keyDown('z', { metaKey: true });
+      expect(useCanvasStore.getState().elementsById.get('a')).toMatchObject({ x: 100 });
+    } finally {
+      Reflect.deleteProperty(navigator, 'platform');
+    }
+  });
+});
+
+describe('useCanvasKeyboard z-order extremes', () => {
+  beforeEach(() => {
+    seed();
+  });
+
+  it('sends to back and brings to front with the modified brackets', () => {
+    // Regression: the plain brackets own "backward/forward"; if the modified
+    // pair falls through to the same arm, "send to back" is unreachable.
+    seed([rect('a'), rect('b', 300), rect('c', 600)], ['c']);
+    setup();
+
+    keyDown('[', { ctrlKey: true, code: 'BracketLeft' });
+    expect(useCanvasStore.getState().elements.map(el => el.id)).toEqual(['c', 'a', 'b']);
+
+    keyDown(']', { ctrlKey: true, code: 'BracketRight' });
+    expect(useCanvasStore.getState().elements.map(el => el.id)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('useCanvasKeyboard space auto-repeat', () => {
+  beforeEach(() => {
+    seed();
+  });
+
+  it('keeps the pre-space tool as the restore target across repeated key-downs', () => {
+    // Regression: a held space key repeats keydown. If the repeat overwrote the
+    // recorded tool with 'hand', releasing space would leave the canvas stuck
+    // in the hand tool with no way to get back without clicking.
+    const { rerender, lastToolBeforeSpaceRef } = setup({ activeTool: 'rectangle' });
+
+    keyDown(' ', { code: 'Space' });
+    expect(lastToolBeforeSpaceRef.current).toBe('rectangle');
+
+    // While the key is still held the incoming activeTool prop can be anything:
+    // a batched second key-down can land before the first store update has
+    // been read back, and a collaborator (or an undo) can change the active
+    // tool mid-gesture.
+    act(() => {
+      rerender({ readOnly: false, activeTool: 'select' });
+    });
+    keyDown(' ', { code: 'Space' });
+    keyDown(' ', { code: 'Space' });
+    // The repeats must not adopt whatever the incoming prop happened to be:
+    // the restore target is the tool from *before* space went down.
+    expect(lastToolBeforeSpaceRef.current).toBe('rectangle');
+
+    act(() => {
+      rerender({ readOnly: false, activeTool: 'hand' });
+    });
+    keyUp(' ', { code: 'Space' });
+    expect(useCanvasStore.getState().activeTool).toBe('rectangle');
+  });
+
+  it('does not clear the space-pan flag when an unrelated key is released', () => {
+    // Regression: the keyup handler is global, so releasing any key while
+    // space-panning runs through it. If it cleared the flag unconditionally
+    // the next space key-down would re-run the hand-tool override and clobber
+    // the restore target, leaving the canvas stuck in the hand tool.
+    const { rerender, interactionRef, lastToolBeforeSpaceRef } = setup({
+      activeTool: 'rectangle',
+    });
+
+    keyDown(' ', { code: 'Space' });
+    expect(interactionRef.current.isSpacePressed).toBe(true);
+
+    keyUp('r');
+    expect(interactionRef.current.isSpacePressed).toBe(true);
+    expect(lastToolBeforeSpaceRef.current).toBe('rectangle');
+
+    act(() => {
+      rerender({ readOnly: false, activeTool: 'hand' });
+    });
+    keyUp(' ', { code: 'Space' });
+    expect(useCanvasStore.getState().activeTool).toBe('rectangle');
+  });
+});
