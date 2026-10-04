@@ -21,6 +21,36 @@ export interface SpatialIndexState {
 }
 
 /**
+ * Identity predicate for `RBush#remove`.
+ *
+ * rbush 4 changed `remove` to match by **reference**: `findItem` is
+ * `items.indexOf(item)` unless an `equalsFn` is supplied. rbush 3 defaulted to
+ * structural equality, so every call site here — which builds a fresh object
+ * literal for the box it wants gone — silently stopped removing anything on the
+ * v3 -> v4 bump, and nothing failed loudly.
+ *
+ * Two consequences, both invisible until the scene grows:
+ *
+ *   stale boxes  — a removed element's box, and the pre-move and pre-drag boxes of
+ *                  a changed one, accumulate forever. Hit testing still looks
+ *                  correct because it filters through `byId`, but every query
+ *                  walks a tree that only ever grows.
+ *   duplicates   — the `updated` loop removes the old box and then inserts the
+ *                  new one. With the remove a no-op the insert is additive, so an
+ *                  element ends up in the tree twice. Marquee select and culling
+ *                  then see it twice. Measured: one add leaves `tree.all()`
+ *                  holding 9 entries for 8 elements.
+ *
+ * Passing the predicate restores removal for a literal that is equal in value.
+ */
+const sameSpatialItem = (a: SpatialItem, b: SpatialItem): boolean => a.id === b.id;
+
+/** Remove the box for `id` with the bounds given, matching by id rather than reference. */
+function removeBox(tree: RBush<SpatialItem>, box: Omit<SpatialItem, 'id'> & { id: string }): void {
+  tree.remove(box, sameSpatialItem);
+}
+
+/**
  * Incremental RBush spatial index plus viewport culling, extracted verbatim
  * from RoughCanvas. Purely algorithmic: no DOM, no socket, no canvas.
  *
@@ -67,7 +97,7 @@ export function useSpatialIndex(
         const needsReindex = previous.version !== next.version;
         if (needsReindex) {
           const previousBounds = getElementBounds(previous);
-          prev.tree.remove({
+          removeBox(prev.tree, {
             minX: previousBounds.x,
             minY: previousBounds.y,
             maxX: previousBounds.x + previousBounds.width,
@@ -129,7 +159,7 @@ export function useSpatialIndex(
         const prevEl = prev.byId.get(id);
         if (prevEl) {
           const bounds = getElementBounds(prevEl);
-          prev.tree.remove({
+          removeBox(prev.tree, {
             minX: bounds.x,
             minY: bounds.y,
             maxX: bounds.x + bounds.width,
@@ -156,7 +186,7 @@ export function useSpatialIndex(
         const prevEl = prev.byId.get(el.id);
         if (prevEl) {
           const prevBounds = getElementBounds(prevEl);
-          prev.tree.remove({
+          removeBox(prev.tree, {
             minX: prevBounds.x,
             minY: prevBounds.y,
             maxX: prevBounds.x + prevBounds.width,
