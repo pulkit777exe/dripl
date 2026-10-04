@@ -39,6 +39,15 @@ export function calculateCurvedPath(start: Point, end: Point, curvature: number 
 
   // Offset perpendicular to the line
   const length = Math.sqrt(dx * dx + dy * dy);
+  // A zero-length segment has no direction, so the perpendicular offset is 0/0.
+  // The control point then comes out `{x: NaN, y: NaN}`, and because it is the
+  // middle point of the path, every consumer downstream inherits the NaN: the
+  // renderer silently drops the element, and a serialised arrow round-trips with
+  // `"NaN"` in it. The identical function in
+  // `packages/element/src/rough-renderer.ts` carries this guard; this copy had
+  // drifted from it. A degenerate arrow is a straight line, so [start, end] is
+  // both correct and finite.
+  if (length === 0) return [start, end];
   const offsetX = (-dy / length) * length * curvature * 0.25;
   const offsetY = (dx / length) * length * curvature * 0.25;
 

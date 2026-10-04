@@ -195,10 +195,39 @@ describe('arrow-routing path construction', () => {
     }
   });
 
-  // FINDING (reported, not asserted): `calculateCurvedPath(a, a, c)` computes
-  // `(-0/0)*0` for both offsets, so the control point is `{x: NaN, y: NaN}`.
-  // See the deliverable: a test asserting finiteness here fails on the current
-  // tree, which is why it is documented rather than committed.
+  it('a zero-length curved arrow stays finite instead of producing a NaN control point', () => {
+    // Regression: a zero-length segment has no direction, so the perpendicular
+    // offset is `(-0/0) * 0`, i.e. `NaN`. That NaN is the *middle* point of the
+    // path, so it propagates to every consumer: the renderer silently drops the
+    // element and a serialised arrow round-trips with `"NaN"` in it.
+    //
+    // The identical function in `packages/element/src/rough-renderer.ts` has
+    // always had `if (length === 0) return [start, end];`. This copy had drifted
+    // from it, which is how the two diverged unnoticed. Latent only because
+    // production renders through the package copy -- this export is what a caller
+    // in the app actually reaches for.
+    const path = calculateCurvedPath(A, A, 0.5);
+
+    expect(path.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))).toBe(true);
+    // And not merely finite: a degenerate arrow is a straight line, so the
+    // endpoints are the whole path.
+    expect(path).toEqual([A, A]);
+  });
+
+  it('still curves a non-degenerate arrow, so the guard did not disable curvature', () => {
+    // The control for the test above. A fix that returned `[start, end]`
+    // unconditionally would pass it, so this pins that the three-point path and a
+    // genuinely offset control point survive.
+    const path = calculateCurvedPath(A, B, 0.5);
+
+    expect(path).toHaveLength(3);
+    expect(path[0]).toEqual(A);
+    expect(path[2]).toEqual(B);
+    // The control point must actually be off the straight line between them.
+    const midX = (A.x + B.x) / 2;
+    const midY = (A.y + B.y) / 2;
+    expect(path[1]!.x === midX && path[1]!.y === midY).toBe(false);
+  });
 });
 
 describe('arrow-routing direction and arrowheads', () => {
