@@ -364,20 +364,100 @@ describe('exportToSvg: element geometry', () => {
     expect(images[0]!.getAttribute('href')).toBe('/assets/a.png');
   });
 
+  it('exports a frame as the rectangle the renderer draws', async () => {
+    // Regression: `frame` is a real editor tool (shortcut F, `ExtraToolsDropdown`)
+    // and a valid scene type, and `rough-renderer.ts` draws it as a plain
+    // rectangle. It used to fall through to `return ''`, so drawing a frame and
+    // exporting to SVG produced a file with a hole where it was -- silently, since
+    // the rest of the scene exported fine.
+    //
+    // Asserted through a real parse, and against the same shape the renderer
+    // emits, so this is about the element surviving rather than about one string.
+    const frame = {
+      ...rectangle('frame', { ...STYLE, x: 10, y: 20, width: 400, height: 300 }),
+      type: 'frame',
+      title: 'Flow',
+    } as unknown as DriplElement;
+
+    const doc = await parseSvg([frame]);
+    const rect = doc.querySelector('rect');
+
+    expect(rect).not.toBeNull();
+    expect(rect!.getAttribute('x')).toBe('10');
+    expect(rect!.getAttribute('y')).toBe('20');
+    expect(rect!.getAttribute('width')).toBe('400');
+    expect(rect!.getAttribute('height')).toBe('300');
+  });
+
+  it('exports an embed through its cached preview', async () => {
+    // Regression: an embed is an iframe, which a static SVG cannot express -- but
+    // it carries a `cachedPreview` image, and dropping it meant a user who pasted
+    // a link saw nothing at all where the preview should be. The preview is run
+    // through the same `safeSvgUrl` allow-list as any other image, so a
+    // `javascript:` preview cannot become an `href`.
+    const embed = {
+      ...rectangle('embed', { ...STYLE, x: 0, y: 500, width: 200, height: 120 }),
+      type: 'embed',
+      url: 'https://example.com',
+      cachedPreview: 'data:image/png;base64,AAA',
+    } as unknown as DriplElement;
+
+    const doc = await parseSvg([embed]);
+    const image = doc.querySelector('image');
+
+    expect(image).not.toBeNull();
+    expect(image!.getAttribute('href')).toBe('data:image/png;base64,AAA');
+    expect(image!.getAttribute('width')).toBe('200');
+  });
+
+  it('omits an embed with no preview rather than emitting an unusable one', async () => {
+    // The control for the test above. With nothing to show there is no faithful
+    // output -- an `<iframe>` is not valid SVG content and a bare placeholder rect
+    // would be a drawing the user never made. Dropping it is correct; the rest of
+    // the scene must still survive.
+    const embed = {
+      ...rectangle('embed', { ...STYLE, x: 0, y: 500, width: 200, height: 120 }),
+      type: 'embed',
+      url: 'https://example.com',
+    } as unknown as DriplElement;
+
+    const doc = await parseSvg([embed, rectangle('kept', { ...STYLE })]);
+
+    expect(doc.querySelector('image')).toBeNull();
+    expect(doc.querySelectorAll('rect').length).toBe(1);
+  });
+
+  it('rejects an embed preview that is not an allowed image URL', async () => {
+    // Regression: the preview is attacker-influenced data reaching an `href`. It
+    // goes through `safeSvgUrl`, so a `javascript:` or `data:text/html` preview is
+    // dropped rather than becoming a live reference in the exported file.
+    const embed = {
+      ...rectangle('embed', { ...STYLE, x: 0, y: 0, width: 200, height: 120 }),
+      type: 'embed',
+      url: 'https://example.com',
+      cachedPreview: 'javascript:alert(1)',
+    } as unknown as DriplElement;
+
+    const doc = await parseSvg([embed]);
+
+    expect(doc.querySelector('image')).toBeNull();
+    expect(doc.documentElement.getAttribute('href')).toBeNull();
+  });
+
   it('omits an element it cannot represent without harming the rest of the file', async () => {
-    // Regression: `frame` and `embed` are real scene types with no SVG
-    // equivalent here, and they take the `return ''` branch. The rest of the
-    // scene must survive, and the markup must stay well-formed.
+    // Regression: a scene can still contain something with no SVG equivalent --
+    // this uses a `text` element with no `points`, which matches neither the text
+    // arm nor the path arm and falls to `return ''`. The rest of the scene must
+    // survive, and the markup must stay well-formed.
+    //
+    // This test used `frame` and `embed`, which *were* genuinely dropped and are
+    // now exported; see the two tests below for those.
     const doc = await parseSvg([
       {
-        ...rectangle('frame', { ...STYLE, x: 0, y: 0, width: 400, height: 400 }),
-        type: 'frame',
-        title: 'Flow',
-      } as unknown as DriplElement,
-      {
-        ...rectangle('embed', { ...STYLE, x: 0, y: 500, width: 200, height: 120 }),
-        type: 'embed',
-        url: 'https://example.com',
+        ...rectangle('unrepresentable', { ...STYLE, x: 0, y: 0, width: 400, height: 400 }),
+        type: 'text',
+        text: 'no points, no text arm',
+        points: [],
       } as unknown as DriplElement,
       {
         ...rectangle('kept', { ...STYLE, x: 0, y: 700, width: 50, height: 50 }),

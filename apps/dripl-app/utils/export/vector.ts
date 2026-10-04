@@ -135,6 +135,29 @@ export function exportToSvg(
           ? `<image x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" href="${href}" opacity="${opacity}" />`
           : '';
       }
+      // A frame is a real editor tool (`ExtraToolsDropdown`, shortcut F) and a
+      // valid scene type, and `rough-renderer.ts` draws it as a plain rectangle.
+      // Falling through to `return ''` dropped it, so a user who drew a frame and
+      // exported to SVG got a file with a hole where it was. Emitted the same way
+      // the renderer draws it rather than invented from scratch.
+      if (type === 'frame') {
+        return `<rect x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" rx="0" stroke="${stroke}" fill="${fill}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
+      }
+      // An embed is an iframe, which a static SVG cannot express. It does carry a
+      // `cachedPreview` image, though, so when the client captured one the export
+      // shows what the user was looking at instead of nothing. With no preview
+      // there is nothing faithful to emit and it is still dropped -- an iframe in
+      // an SVG would be neither valid nor safe.
+      if (type === 'embed') {
+        const preview =
+          'cachedPreview' in element && typeof element.cachedPreview === 'string'
+            ? element.cachedPreview
+            : undefined;
+        const href = preview ? escapeXml(safeSvgUrl(preview)) : '';
+        return href
+          ? `<image x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" href="${href}" opacity="${opacity}" />`
+          : '';
+      }
       return '';
     })
     .filter(Boolean)
