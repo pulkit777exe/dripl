@@ -74,7 +74,19 @@ function CanvasContent() {
   useEffect(() => {
     if (hasResolvedSnapshotRef.current) return;
     if (!snapshotId) {
-      hasResolvedSnapshotRef.current = true;
+      // Deliberately does NOT mark the snapshot as resolved.
+      //
+      // Marking it here meant that mounting on a plain `/canvas` permanently
+      // blocked every later snapshot: the ref was set before any fetch, so a
+      // client-side navigation to `/canvas?snapshot=<id>` -- the shape a shared
+      // link takes when it is followed from inside the app -- returned at the
+      // guard above and silently did nothing. The user got their own canvas and
+      // no error, having followed a link a colleague sent.
+      //
+      // Leaving it unset is safe because this effect's only dependency is
+      // `snapshotId`: with no parameter it cannot re-run, so there is no fetch
+      // loop. A snapshot that *does* arrive is still resolved exactly once,
+      // because the `finally` below sets the ref on the path that fetched.
       return;
     }
     let cancelled = false;

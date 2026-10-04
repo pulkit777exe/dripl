@@ -697,6 +697,47 @@ describe('/canvas snapshot link', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('loads a snapshot that arrives after a plain /canvas mount', async () => {
+    // Regression: this test could not be written before the fix, which is why it
+    // is worth having now.
+    //
+    // The effect marked the snapshot as resolved when there was no `?snapshot=`
+    // parameter — before any fetch — so the ref was already set by the time a
+    // parameter arrived. A client-side navigation to `/canvas?snapshot=<id>`, which
+    // is the shape a shared link takes when it is followed from inside the app,
+    // returned at the guard and did nothing at all: the user got their own canvas,
+    // no error, having followed a link a colleague sent.
+    mockSearchParams = new URLSearchParams();
+    const { rerender } = render(<CanvasPage />);
+    await waitFor(() => expect(useCanvasStore.getState().userId).toBeTruthy());
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    mockSearchParams = new URLSearchParams('snapshot=late');
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: payloadOf([element('theirs')]) }),
+    });
+    rerender(<CanvasPage />);
+
+    // The prompt appears, which is the thing that was silently missing.
+    await screen.findByText('Load shared canvas?');
+    expect(fetchMock).toHaveBeenCalledWith('/api/canvas/snapshots/late');
+  });
+
+  it('does not refetch on a re-render with no snapshot parameter', async () => {
+    // The control for the fix above. Leaving the ref unset could in principle
+    // allow repeated work, so this pins that it does not: the effect's only
+    // dependency is `snapshotId`, so with no parameter it cannot re-run.
+    mockSearchParams = new URLSearchParams();
+    const { rerender } = render(<CanvasPage />);
+    await waitFor(() => expect(useCanvasStore.getState().userId).toBeTruthy());
+
+    rerender(<CanvasPage />);
+    rerender(<CanvasPage />);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('does not load a second snapshot when the parameter changes mid-session', async () => {
     // Regression, and the case the resolve-once guard actually exists for. A plain
     // re-render never re-runs the effect anyway, because its only dependency is
