@@ -561,14 +561,17 @@ describe('resize gestures beyond the box handle', () => {
     ]);
   });
 
-  it('does not scale a perfectly axis-aligned linear path', () => {
-    // DOCUMENTED DEFECT, with a control: the scaling branch is gated on
-    // `el.width !== 0 && el.height !== 0`, so a horizontal arrow — which is
-    // what a shift-snapped drag produces — takes the branch's `else` and its
-    // path is never rescaled. `width`/`height` change, the drawn path does
-    // not, and because a linear element's bounds come from its points the
-    // frame the user is dragging snaps straight back. Same code path, same
-    // gesture, one row below: a sloped arrow scales correctly.
+  it('scales a perfectly axis-aligned linear path', () => {
+    // A horizontal arrow has one zero extent — which is exactly what a
+    // shift-snapped drag produces, and what `commitDraft` does not clamp. The
+    // scaling branch used to be gated on `el.width !== 0 && el.height !== 0`,
+    // so such an arrow took the branch's `else` and its path was never rescaled:
+    // `width`/`height` changed, the drawn path did not, and because a linear
+    // element's bounds come from its points the frame snapped straight back and
+    // the drag read as inert.
+    //
+    // The control one row above is the same code path with a sloped arrow, so
+    // this is about the zero extent specifically and not about the gesture.
     const horizontal = arrow('flat', 0, 0, {});
     const { result } = setup(false, { elements: [horizontal] });
     act(() => {
@@ -586,9 +589,12 @@ describe('resize gestures beyond the box handle', () => {
 
     const flat = useCanvasStore.getState().elementsById.get('flat')!;
     expect(flat).toMatchObject({ width: 150 });
+    // 100 wide, dragged 50 further: x scales by 1.5. The zero-height axis is
+    // left alone rather than divided by, which is what `resizeSingleLinearElement`
+    // guarantees with `prevHeight === 0 ? 1 : ...`.
     expect(flat.points).toEqual([
       { x: 0, y: 0 },
-      { x: 100, y: 0 },
+      { x: 150, y: 0 },
     ]);
   });
 

@@ -221,13 +221,13 @@ describe('arrow endpoint drag', () => {
     // The arrow's geometry followed the pointer.
     expect(bound.x + ((bound.points ?? [])[1]?.x ?? 0)).toBe(210);
 
-    // DOCUMENTED GAP, not an endorsement: the gesture writes only the arrow.
-    // The shape-side `boundElements` index that `buildBoundArrowsByShape`
-    // reads when a shape moves is never written here, so a binding made by
-    // dragging an endpoint does not make the arrow follow the shape for the
-    // rest of the session. Only `finishDrawing` → `bindCommittedArrow`
-    // populates that index, and that is the commit path for a *drawn* arrow.
-    expect(boundIds(state.elementsById.get('box'))).toEqual([]);
+    // The shape-side `boundElements` index is written too. It used not to
+    // be: the handler took only the arrow out of `bindArrowToElement`'s
+    // result and discarded the target's half, and `buildBoundArrowsByShape`
+    // -- what `updateBoundArrows` reads when a *shape* moves -- is built from
+    // these entries. So an arrow bound by dragging an endpoint never followed
+    // the shape; only a *drawn* arrow did, via `bindCommittedArrow`.
+    expect(boundIds(state.elementsById.get('box'))).toEqual(['ar']);
   });
 
   it('drops the binding and the reverse index when the endpoint leaves', () => {
@@ -250,7 +250,9 @@ describe('arrow endpoint drag', () => {
     // DOCUMENTED GAP: the reverse index on the shape is left stale. It is
     // only a stale read (`updateBoundArrows` skips an arrow with no matching
     // binding), but it is the index the follow path is built from.
-    expect(boundIds(state.elementsById.get('box'))).toEqual(['ar']);
+    // Cleared rather than left stale: the handler that writes the index on
+    // bind removes it on unbind, so the two halves cannot drift apart.
+    expect(boundIds(state.elementsById.get('box'))).toEqual([]);
   });
 
   it('binds inside the 20px snap radius', () => {
@@ -285,15 +287,17 @@ describe('arrow endpoint drag', () => {
     expect(result.current.hoveredBindingId).toBeNull();
   });
 
-  it('cannot drop a binding it made during the same gesture', () => {
-    // DOCUMENTED DEFECT, pinned so it cannot regress silently: the endpoint
-    // handler derives each frame's element from the gesture-start snapshot
-    // (`resizeInitialEl`), so the `endBinding` it writes mid-gesture is not
-    // in the snapshot it reads on the next move. `currentBinding` is read
-    // from that snapshot, so the unbind branch never fires, and the store
-    // merge in `mutateElement` keeps the stale key. A binding made by
-    // dragging therefore survives until the pointer is released and the
-    // gesture is re-armed from scratch.
+  it('drops a binding it made during the same gesture', () => {
+    // The endpoint handler derives each frame's element from the gesture-start
+    // snapshot (`resizeInitialEl`) so repeated moves cannot accumulate drift --
+    // but `currentBinding` used to be read from that same snapshot, which by
+    // construction never learns about a binding written on the previous move.
+    // One move bound the endpoint to a shape; the next still saw no binding, so
+    // the unbind branch could not fire and dragging away left the arrow stuck to
+    // the shape until the pointer was released.
+    //
+    // Geometry still comes from the snapshot; only the binding state is read
+    // live. The control at the end re-arms from the store, so the two agree.
     const elements = [arrow('ar', 0, 0, 100), rect('box', 200, -50)];
     const { result } = setup(elements);
     armHandle(result, 'arrow-end');
@@ -309,21 +313,21 @@ describe('arrow endpoint drag', () => {
       result.current.handlePointerMove(pointerEvent(20, 0));
     });
 
-    // Expected of a correct implementation: null. Actual: still bound.
+    // Dropped within the same press, without lifting the pointer.
     expect(
       (useCanvasStore.getState().elementsById.get('ar') as LinearElement).endBinding
-    ).toMatchObject({ elementId: 'box' });
-    // Control: a *fresh* gesture from the unbound snapshot unbinds normally.
+    ).toBeFalsy();
+    expect(result.current.hoveredBindingId).toBeNull();
+
+    // Control: re-binding, then re-arming from the store, behaves identically.
     act(() => {
       result.current.handlePointerUp(pointerEvent(20, 0));
       armHandle(result, 'arrow-end');
-    });
-    act(() => {
-      result.current.handlePointerMove(pointerEvent(20, 0));
+      result.current.handlePointerMove(pointerEvent(85, 0));
     });
     expect(
       (useCanvasStore.getState().elementsById.get('ar') as LinearElement).endBinding
-    ).toBeNull();
+    ).toMatchObject({ elementId: 'box' });
   });
 
   it('leaves the other endpoint binding alone when one end is dragged', () => {
@@ -362,9 +366,9 @@ describe('arrow endpoint drag', () => {
     expect((state.elementsById.get('ar') as LinearElement).startBinding).toMatchObject({
       elementId: 'box',
     });
-    // Same documented gap as the end-handle case: the shape-side index is
-    // not written by the gesture.
-    expect(boundIds(state.elementsById.get('box'))).toEqual([]);
+    // Same as the end-handle case: the shape-side index is written by the
+    // gesture too, not only on the commit path.
+    expect(boundIds(state.elementsById.get('box'))).toEqual(['ar']);
   });
 
   it('leaves the store element untouched when the element has no id to write to', () => {
