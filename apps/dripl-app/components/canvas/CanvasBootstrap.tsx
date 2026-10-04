@@ -31,6 +31,35 @@ type FileModeProps = BaseProps & {
 
 export type CanvasBootstrapProps = LocalModeProps | RoomModeProps | FileModeProps;
 
+/**
+ * A stable string identifying a file scene by content.
+ *
+ * Element ids and versions, plus the serialized app state, are what make two
+ * file scenes the same scene. This exists because a props object cannot: React
+ * builds a fresh one per parent render, so any effect keyed on the `initialData`
+ * object restarts on every parent render. Exported for tests, which pin the
+ * property that matters — equal scenes must produce equal keys, so the key can
+ * be used as an effect dependency without re-running on an unrelated render.
+ */
+export function fileSceneKeyFor(initialData: unknown): string | null {
+  if (!initialData) return null;
+  const data = initialData as { elements?: unknown; appState?: unknown };
+  const elements = Array.isArray(data.elements) ? (data.elements as DriplElement[]) : [];
+  const ids = elements.map(element => `${element?.id ?? ''}@${element?.version ?? ''}`);
+  let appStateKey = '';
+  if (data.appState && typeof data.appState === 'object') {
+    try {
+      appStateKey = JSON.stringify(data.appState);
+    } catch {
+      // A non-serializable app state cannot be compared by value; leaving the
+      // key empty means such a scene reloads on every parent render, which is
+      // the pre-fix behaviour rather than a new failure mode.
+      appStateKey = '';
+    }
+  }
+  return `${ids.join(',')}|${appStateKey}`;
+}
+
 function applyAppStateToStore(appState: Partial<LocalCanvasState> | null) {
   if (!appState) return;
   const store = useCanvasStore.getState();
@@ -79,13 +108,34 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
 
   const [isInitialized, setIsInitialized] = useState(false);
   const initialElementsRef = useRef<DriplElement[] | null>(null);
+  /**
+   * The scene this mount is responsible for loading, kept by identity so the
+   * bootstrap effect cannot be restarted by a parent that re-renders with an
+   * equivalent-but-new `initialData` object.
+   *
+   * `initialData` arrives as a prop, and a props object is a new reference on
+   * every parent render. The bootstrap effect must not therefore depend on it
+   * directly: it applies the file scene with `setElements`, which replaces the
+   * store's element array, which re-renders the parent, which produces a new
+   * `initialData`, which re-runs the effect. That cycle has no fixed point, so
+   * with any non-empty scene the page never yields — the main thread runs
+   * React commits back to back, allocates the scene per pass, and grows without
+   * bound. An empty scene did not reproduce because `setElements([])` leaves an
+   * array that shallow-compares equal to itself, so the parent never re-renders
+   * and the cycle has nothing to drive it.
+   *
+   * Keying the effect on the *contents* rather than the object identity fixes
+   * it without changing which scene is loaded: a genuinely new scene (a
+   * navigation to another file) still changes the key and still reloads.
+   */
+  const rawFileInitialData = mode === 'file' ? (props as FileModeProps).initialData : null;
+  const fileSceneKey = fileSceneKeyFor(rawFileInitialData);
   if (initialElementsRef.current === null) {
     initialElementsRef.current = useCanvasStore.getState().elements;
   }
 
   const roomSlug = mode === 'room' ? (props as RoomModeProps).roomSlug : null;
   const shareToken = mode === 'room' ? ((props as RoomModeProps).shareToken ?? null) : null;
-  const fileInitialData = mode === 'file' ? (props as FileModeProps).initialData : null;
   const replaceExisting =
     mode === 'file' ? (props as FileModeProps).replaceExisting === true : false;
 
@@ -152,7 +202,11 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
       if (mode === 'file') {
         const scene = await loadInitialScene({
           source: 'file',
-          initialData: fileInitialData,
+          // Read from the closure, not from a ref: React invokes the effect
+          // body from the render that scheduled it, so this is the scene that
+          // matched `fileSceneKey`, and a later parent render cannot swap it
+          // out from under a run already in flight.
+          initialData: rawFileInitialData,
         });
         if (cancelled || !scene) {
           setIsInitialized(true);
@@ -222,7 +276,10 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
     return () => {
       cancelled = true;
     };
-  }, [fileInitialData, mode, replaceExisting, roomSlug, setElements, setSelectedIds]);
+    // `fileSceneKey` identifies the scene by content, standing in for the
+    // `initialData` object — see its definition above. Listing `rawFileInitialData`
+    // here would reintroduce the exact cycle this key exists to break.
+  }, [fileSceneKey, mode, replaceExisting, roomSlug, setElements, setSelectedIds]);
 
   useEffect(() => {
     if (!isInitialized || mode !== 'local' || isDrawing) return;
