@@ -123,6 +123,19 @@ export interface FakeDb {
 
 const EPOCH = '2026-01-01T00:00:00.000Z';
 
+/**
+ * `@default` values from `schema.prisma`, for columns http-server's services omit
+ * on insert. Verified against a real `postgres:16` rather than read off the schema:
+ * that is how the `googleAuth` gap described at `create` was found.
+ */
+const COLUMN_DEFAULTS: Record<string, Row> = {
+  user: { emailVerified: false, tokenVersion: 0, password: null },
+  canvasRoomMember: { role: 'EDITOR' },
+  shareLink: { permission: 'VIEW' },
+  file: { content: '[]', sharePermission: 'view', shareToken: null },
+  canvasRoom: { content: '[]', isPublic: false },
+};
+
 function unsupported(detail: string): never {
   throw new Error(`fakePrisma: unsupported query shape — ${detail}`);
 }
@@ -220,6 +233,33 @@ const RELATION_TABLE: Record<string, string> = {
   file: 'file',
 };
 
+/**
+ * The one-to-many relations, from `schema.prisma`: relation field name -> the
+ * table and the foreign key that points back at the including row.
+ *
+ * `RELATION_TABLE` above answers the *many-to-one* direction, where the including
+ * row carries the foreign key. These are the reverse, and without them the fake
+ * resolved `CanvasRoom.members` through the many-to-one path -- reading
+ * `row.membersId`, which no `CanvasRoom` row has, and answering `null`. That made
+ * `RoomService.getRoom` throw on `room.members.some(...)`, so every route-level
+ * test of `GET /api/rooms/:slug` saw a 500 and no test could reach the
+ * authorisation branch it was written for.
+ *
+ * The failure was quiet in the worst way: a 500 is a plausible-looking assertion
+ * failure, and a suite that reads as "the route errors" would have been filed as
+ * an app bug rather than a gap in the harness.
+ */
+const HAS_MANY_RELATIONS: Record<string, { table: string; foreignKey: string }> = {
+  members: { table: 'canvasRoomMember', foreignKey: 'roomId' },
+  shareLinks: { table: 'shareLink', foreignKey: 'roomId' },
+};
+
+function manyTableOf(field: string): string {
+  const relation = HAS_MANY_RELATIONS[field];
+  if (!relation) unsupported(`'${field}' is not a has-many relation`);
+  return relation.table;
+}
+
 function matchesCondition(actual: unknown, condition: unknown): boolean {
   // Prisma drops `undefined` entries from a `where` rather than matching NULL.
   if (condition === undefined) return true;
@@ -233,19 +273,71 @@ function matchesCondition(actual: unknown, condition: unknown): boolean {
   return matchesOperators(actual, condition as Record<string, unknown>);
 }
 
-function matches(row: Row, where: Where | undefined): boolean {
+/**
+ * How a `where` clause reaches the storage this fake holds rows in.
+ *
+ * `matches` is module-level and needs one thing the row itself cannot answer: the
+ * rows on the far side of a one-to-many relation. `RoomService.listRooms` filters
+ * with `{ members: { some: { userId } } }` -- that clause *is* the authorisation
+ * (it is what admits a collaborator's room), so a fake that cannot evaluate it
+ * cannot test the authorisation at all. Without this context the fake threw
+ * `field filter with unknown keys: some`, every `GET /api/rooms` answered 500, and
+ * the suite read as though the route were broken.
+ */
+export interface MatchContext {
+  rowsOf(field: string, row: Row): Row[] | null;
+}
+
+/** The relation *quantifiers* Prisma allows inside a field filter on a list relation. */
+const RELATION_QUANTIFIERS = new Set(['some', 'none', 'every']);
+
+function matchesRelationFilter(
+  list: Row[],
+  quantifiers: Record<string, unknown>,
+  ctx: MatchContext
+): boolean {
+  return Object.entries(quantifiers).every(([quantifier, filter]) => {
+    const where = (filter ?? {}) as Where;
+    switch (quantifier) {
+      case 'some':
+        return list.some(related => matches(related, where, ctx));
+      case 'none':
+        return !list.some(related => matches(related, where, ctx));
+      case 'every':
+        return list.every(related => matches(related, where, ctx));
+      default:
+        return unsupported(`relation quantifier '${quantifier}' is not implemented`);
+    }
+  });
+}
+
+function matches(row: Row, where: Where | undefined, ctx: MatchContext): boolean {
   if (!where) return true;
   return Object.entries(where).every(([field, condition]) => {
     if (field === 'AND') {
       const branches = condition as Where[];
-      return branches.every(branch => matches(row, branch));
+      return branches.every(branch => matches(row, branch, ctx));
     }
     if (field === 'OR') {
       const branches = condition as Where[];
-      return branches.some(branch => matches(row, branch));
+      return branches.some(branch => matches(row, branch, ctx));
     }
     if (isCompoundWhere(field, condition)) {
-      return matches(row, condition as Where);
+      return matches(row, condition as Where, ctx);
+    }
+    const related =
+      condition !== null && typeof condition === 'object' && !Array.isArray(condition)
+        ? ctx.rowsOf(field, row)
+        : null;
+    if (related) {
+      const quantifiers = condition as Record<string, unknown>;
+      const keys = Object.keys(quantifiers);
+      if (keys.length > 0 && !keys.some(key => RELATION_QUANTIFIERS.has(key))) {
+        return unsupported(
+          `filter on has-many relation '${field}' uses unknown keys: ${keys.join(', ')}`
+        );
+      }
+      return matchesRelationFilter(related, quantifiers, ctx);
     }
     return matchesCondition(row[field], condition);
   });
@@ -341,6 +433,12 @@ function createFakeDb(): FakeDb {
     return `${table}-${counters[table]}`;
   };
 
+  const relatedRowsFor = (field: string, row: Row): Row[] | null => {
+    const many = HAS_MANY_RELATIONS[field];
+    if (!many) return null;
+    return rows(many.table).filter(candidate => candidate[many.foreignKey] === row.id);
+  };
+
   function resolveRelation(sourceTable: string, row: Row, field: string, spec: SelectMap): unknown {
     if (field === '_count') {
       const wanted = Object.keys((spec.select as SelectMap | undefined) ?? {});
@@ -350,6 +448,18 @@ function createFakeDb(): FakeDb {
         counts[relation] = rows('file').filter(file => file.folderId === row.id).length;
       }
       return counts;
+    }
+    // One-to-many first: `RELATION_TABLE` also carries `members`, and resolving it
+    // through the many-to-one path below would read a column no including row has.
+    const related = relatedRowsFor(field, row);
+    if (related) {
+      const selector = (spec as SelectMap).select;
+      if (selector === undefined || typeof selector !== 'object') {
+        unsupported(`has-many relation '${field}' needs an explicit select`);
+      }
+      return related.map(candidate =>
+        project(manyTableOf(field), candidate, selector as SelectMap)
+      );
     }
     // A Prisma relation FIELD NAME is not the model name: `CanvasRoomMember.room`
     // points at `CanvasRoom`, not at a table called `room`. Guessing made the
@@ -362,9 +472,9 @@ function createFakeDb(): FakeDb {
     }
     const foreignValue = row[`${field}Id`];
     if (foreignValue === null || foreignValue === undefined) return null;
-    const related = rows(relatedTable).find(candidate => candidate.id === foreignValue);
-    if (!related) return null;
-    return project(relatedTable, related, spec.select as SelectMap | undefined);
+    const single = rows(relatedTable).find(candidate => candidate.id === foreignValue);
+    if (!single) return null;
+    return project(relatedTable, single, spec.select as SelectMap | undefined);
   }
 
   function project(table: string, row: Row, select?: SelectMap, include?: SelectMap): Row {
@@ -390,15 +500,19 @@ function createFakeDb(): FakeDb {
     return projected;
   }
 
+  // The one context every `where` evaluation in this store shares. Reads the
+  // tables live, so rows seeded or created after the module loaded are visible.
+  const ctx: MatchContext = { rowsOf: relatedRowsFor };
+
   function buildModel(table: string): FakeModel {
     return {
       async findFirst(args: FindArgs = {}) {
-        const found = rows(table).find(row => matches(row, args.where));
+        const found = rows(table).find(row => matches(row, args.where, ctx));
         return found ? project(table, found, args.select, args.include) : null;
       },
 
       async findUnique(args: FindArgs = {}) {
-        const found = rows(table).filter(row => matches(row, args.where));
+        const found = rows(table).filter(row => matches(row, args.where, ctx));
         if (found.length > 1) unsupported(`findUnique matched ${found.length} rows in ${table}`);
         const only = found[0];
         return only ? project(table, only, args.select, args.include) : null;
@@ -406,7 +520,7 @@ function createFakeDb(): FakeDb {
 
       async findMany(args: FindArgs = {}) {
         const matched = sortRows(
-          rows(table).filter(row => matches(row, args.where)),
+          rows(table).filter(row => matches(row, args.where, ctx)),
           args.orderBy
         );
         const start = args.skip ?? 0;
@@ -416,7 +530,7 @@ function createFakeDb(): FakeDb {
       },
 
       async count(args: CountArgs = {}) {
-        return rows(table).filter(row => matches(row, args.where)).length;
+        return rows(table).filter(row => matches(row, args.where, ctx)).length;
       },
 
       async create(args: CreateArgs) {
@@ -424,6 +538,22 @@ function createFakeDb(): FakeDb {
           id: nextId(table),
           createdAt: now(),
           updatedAt: now(),
+          // Column defaults from `schema.prisma`, applied before the caller's data
+          // so an explicit value still wins.
+          //
+          // WITHOUT THESE the fake returns a row with `emailVerified` and
+          // `tokenVersion` *absent*, where PostgreSQL returns `false` and `0`. That
+          // is not cosmetic: `googleAuth` creates an account without naming either
+          // column and hands the result straight to `POST /api/auth/google`, which
+          // signs the session token from `tokenVersion`. Against the fake the field
+          // reads `undefined`, against the real database it reads `0` — so a suite
+          // built on the fake cannot tell the two apart, and a defect in either is
+          // invisible until it reaches a deployed environment.
+          //
+          // Only the columns http-server's services actually omit are listed. A
+          // column the services always set is not a divergence, and guessing at the
+          // rest would be a second schema to keep in step.
+          ...(COLUMN_DEFAULTS[table] ?? {}),
           ...args.data,
         };
         rows(table).push(created);
@@ -431,7 +561,7 @@ function createFakeDb(): FakeDb {
       },
 
       async update(args: UpdateArgs) {
-        const target = rows(table).find(row => matches(row, args.where));
+        const target = rows(table).find(row => matches(row, args.where, ctx));
         if (!target) throw new Error(`fakePrisma: update matched no row in ${table} (P2025 shape)`);
         Object.assign(target, applyOperators(stripUndefined(args.data), target), {
           updatedAt: now(),
@@ -443,7 +573,7 @@ function createFakeDb(): FakeDb {
         const patch = stripUndefined(args.data);
         let count = 0;
         for (const row of rows(table)) {
-          if (!matches(row, args.where)) continue;
+          if (!matches(row, args.where, ctx)) continue;
           Object.assign(row, patch);
           count += 1;
         }
@@ -454,7 +584,7 @@ function createFakeDb(): FakeDb {
         const patch = stripUndefined(args.data);
         const updated: Row[] = [];
         for (const row of rows(table)) {
-          if (!matches(row, args.where)) continue;
+          if (!matches(row, args.where, ctx)) continue;
           Object.assign(row, patch);
           updated.push(project(table, row, args.select));
         }
@@ -463,7 +593,7 @@ function createFakeDb(): FakeDb {
 
       async delete(args: DeleteArgs) {
         const tableRows = rows(table);
-        const index = tableRows.findIndex(row => matches(row, args.where));
+        const index = tableRows.findIndex(row => matches(row, args.where, ctx));
         if (index === -1) {
           throw new Error(`fakePrisma: delete matched no row in ${table} (P2025 shape)`);
         }
@@ -473,7 +603,7 @@ function createFakeDb(): FakeDb {
 
       async deleteMany(args: DeleteManyArgs = {}) {
         const tableRows = rows(table);
-        const kept = tableRows.filter(row => !matches(row, args.where));
+        const kept = tableRows.filter(row => !matches(row, args.where, ctx));
         const count = tableRows.length - kept.length;
         tables[table] = kept;
         return { count };
