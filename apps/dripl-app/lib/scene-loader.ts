@@ -9,11 +9,6 @@ export interface LoadedScene {
   source: SceneSource;
   elements: DriplElement[];
   appState?: Partial<LocalCanvasState> | null;
-  /**
-   * Indicates that the scene came from a cache (localStorage/IndexedDB/file),
-   * and may be superseded by a live collaboration source.
-   */
-  isFromCache?: boolean;
 }
 
 interface LoadLocalSceneOptions {
@@ -43,7 +38,6 @@ export async function loadInitialScene(options: LoadSceneOptions): Promise<Loade
         source: 'local',
         elements: normalizedElements,
         appState: (appState as Partial<LocalCanvasState>) || null,
-        isFromCache: true,
       };
     }
 
@@ -60,7 +54,6 @@ export async function loadInitialScene(options: LoadSceneOptions): Promise<Loade
         source: 'room',
         elements: normalizedElements,
         appState: null,
-        isFromCache: true,
       };
     }
 
@@ -97,7 +90,6 @@ export async function loadInitialScene(options: LoadSceneOptions): Promise<Loade
         source: 'file',
         elements: normalizedElements,
         appState,
-        isFromCache: true,
       };
     }
 

@@ -58,10 +58,13 @@ beforeEach(() => {
 });
 
 describe('loadInitialScene: local', () => {
-  it('marks the localStorage copy as a cache that a live source may supersede', async () => {
-    // Regression: `isFromCache` is the flag that says "this copy loses to a live
-    // collaboration source". Without it a stale local copy reads as
-    // authoritative and can be preferred over the room the user just joined.
+  it('returns the stored local copy with its elements normalised', async () => {
+    // This test previously asserted `isFromCache: true`, named after a
+    // regression that could not happen: nothing in the repo ever read that
+    // flag, so a stale local copy was never 'preferred over the room the user
+    // just joined'. The field and its doc comment claimed a guarantee that was
+    // never enforced, and have been removed. What is worth keeping is the part
+    // that *is* enforced -- the stored copy comes back as real elements.
     loadLocalCanvasFromStorage.mockReturnValue({
       elements: [element('a'), element('b')],
       appState: null,
@@ -71,7 +74,6 @@ describe('loadInitialScene: local', () => {
 
     expect(scene).toEqual({
       source: 'local',
-      isFromCache: true,
       appState: null,
       elements: [expect.objectContaining({ id: 'a' }), expect.objectContaining({ id: 'b' })],
     });
@@ -86,7 +88,6 @@ describe('loadInitialScene: local', () => {
 
     expect(scene).not.toBeNull();
     expect(scene!.elements).toEqual([]);
-    expect(scene!.isFromCache).toBe(true);
   });
 
   it('carries the stored app state through so theme and viewport come back', async () => {
@@ -182,7 +183,6 @@ describe('loadInitialScene: file', () => {
     });
 
     expect(scene!.elements.map(e => e.id)).toEqual(['from-array']);
-    expect(scene!.isFromCache).toBe(true);
   });
 
   it('reads elements and app state out of an object payload', async () => {
@@ -238,7 +238,7 @@ describe('loadInitialScene: file', () => {
   it('ignores an elements field that is not an array', async () => {
     // Regression: `elements` is cast, not validated. Letting a string through
     // would hand the consumer a "scene" whose elements are a string, and
-    // `isFromCache: true` would make it look like a valid cache hit.
+    // makes that observable is the element list itself, so that is asserted.
     const scene = await loadInitialScene({
       source: 'file',
       initialData: { elements: 'not-an-array' },
