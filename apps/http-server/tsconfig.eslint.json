@@ -4,7 +4,7 @@
   // `*.ts` in `include` is the root-level `vitest.config.ts`, which the build
   // tsconfig does not cover but `eslint .` does lint.
   "extends": "./tsconfig.json",
-  "include": ["src/**/*.ts", "*.ts"],
+  "include": ["src/**/*.ts", "*.ts", "bench/**/*.ts"],
   "exclude": ["node_modules", "dist"],
   "compilerOptions": {
     "noEmit": true,
