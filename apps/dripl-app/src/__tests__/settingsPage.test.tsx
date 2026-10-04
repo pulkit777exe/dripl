@@ -365,7 +365,7 @@ describe('/settings — profile', () => {
     // `src` is matched loosely because the real `next/image` rewrites it into an
     // optimizer URL; what matters is that it points at the account's image.
     expect(screen.getAllByAltText('Ada')).toHaveLength(2);
-    expect(screen.getAllByAltText('Ada')[0].getAttribute('src')).toContain('avatar.png');
+    expect(screen.getAllByAltText('Ada')[0]!.getAttribute('src')).toContain('avatar.png');
     expect(screen.getByText('From Google account')).toBeInTheDocument();
     // No initial at all when there is a real image to show.
     expect(avatarInitials()).toEqual([]);
