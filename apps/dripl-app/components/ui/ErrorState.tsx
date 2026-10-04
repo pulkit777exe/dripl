@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { AlertCircle, RefreshCw, X, Info, CheckCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -99,7 +100,20 @@ export function ErrorState({
 }
 
 interface InlineErrorProps {
-  message: string;
+  /**
+   * A node, not just a string.
+   *
+   * It was `string`, and `app/login/page.tsx` duly worked around that by building a
+   * `<span>` with the server's "verify your email" message plus a *Resend
+   * verification* link — then rendering `typeof error === 'string' ? error :
+   * 'An error occurred'`, which discarded the element it had just built. An
+   * unverified user was told "An error occurred" and offered no way to resend.
+   *
+   * The message was already interpolated into a `<p>`, so rendering a node was
+   * always possible; only the type said otherwise. Narrowing the prop is what
+   * pushed the caller into the workaround.
+   */
+  message: ReactNode;
   onRetry?: () => void;
   className?: string;
 }

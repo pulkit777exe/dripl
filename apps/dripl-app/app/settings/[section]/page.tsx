@@ -60,15 +60,27 @@ function ProfileSettings() {
   const [name, setName] = useState(user?.name || '');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSave = async () => {
     setLoading(true);
     setSuccess(false);
+    // Cleared on entry, matching `PasswordSettings`. Without it a previous failure
+    // sits next to a fresh attempt, so the user sees the old message while the new
+    // save is in flight and cannot tell which one they are looking at.
+    setError('');
     try {
       await updateProfile(name || undefined);
       await refreshUser();
       setSuccess(true);
       setTimeout(() => setSuccess(false), 1800);
+    } catch (err) {
+      // This had no `catch` at all: a rejected `updateProfile` became an unhandled
+      // promise rejection, `success` stayed false, and the card rendered neither an
+      // acknowledgement nor a failure. The user could not tell the save had failed
+      // at all -- and since the field keeps what they typed, retrying was the only
+      // way to find out. `PasswordSettings` below has always had this.
+      setError(err instanceof Error ? err.message : 'Failed to update profile.');
     } finally {
       setLoading(false);
     }
@@ -128,6 +140,7 @@ function ProfileSettings() {
           {success ? 'Saved' : 'Save changes'}
         </button>
       </div>
+      {error && <p className="text-[12px] text-[#C0392B]">{error}</p>}
     </SectionCard>
   );
 }

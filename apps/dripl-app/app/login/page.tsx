@@ -93,7 +93,11 @@ export default function LoginPage(): React.ReactNode {
     >
       {error && (
         <InlineError
-          message={typeof error === 'string' ? error : 'An error occurred'}
+          // Passed through as-is. This used to collapse to
+          // `typeof error === 'string' ? error : 'An error occurred'`, which threw
+          // away the resend link built above — so an unverified user saw "An error
+          // occurred" and no way forward. `InlineError` renders a node.
+          message={error}
           onRetry={async () => {
             setError('');
             await handleSubmit();
