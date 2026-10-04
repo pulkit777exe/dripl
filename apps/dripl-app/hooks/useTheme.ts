@@ -43,6 +43,13 @@ export function useTheme() {
 
   useEffect(() => {
     if (theme === 'system') {
+      // Guarded exactly as `getSystemTheme` guards it. This call site was not,
+      // and the asymmetry is the whole bug: with `theme === 'system'` and no
+      // `matchMedia` -- an older engine, an embedded webview, a test environment
+      // -- the effect threw `TypeError: window.matchMedia is not a function` on
+      // mount, which takes the canvas down with it rather than falling back to
+      // the light theme the getter above already chose.
+      if (typeof window === 'undefined' || !window.matchMedia) return;
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handleChange = () => setEffectiveTheme(getSystemTheme());
       mediaQuery.addEventListener('change', handleChange);
