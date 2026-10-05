@@ -20,7 +20,15 @@ export function normalizeElement(element: DriplElement): DriplElement {
     y: element.y ?? 0,
     width: element.width ?? 100,
     height: element.height ?? 100,
-    angle: typeof element.angle === 'number' ? element.angle : 0,
+    // Finiteness, not type: `typeof NaN === 'number'` and so is `typeof Infinity`, so a
+    // `typeof` guard waves all three through. The modulo then yields `NaN` for each and
+    // `NaN < 0` is false, so nothing corrects them — and an element leaving here with a
+    // `NaN` rotation produces `NaN` coordinates everywhere downstream, which is far
+    // harder to trace back than a zeroed angle. `JSON.stringify` renders these as
+    // `null`, so they cannot arrive from a stored scene or a remote delta; the live
+    // path is an in-process producer, e.g. `computeRotationAngle` returning `NaN` when
+    // a pointer coordinate has gone non-finite mid-gesture.
+    angle: Number.isFinite(element.angle) ? element.angle : 0,
     version: element.version || 1,
     versionNonce: element.versionNonce || Math.floor(Math.random() * 2_147_483_647),
     opacity: typeof element.opacity === 'number' ? element.opacity : 1,
@@ -38,8 +46,10 @@ export function normalizeElement(element: DriplElement): DriplElement {
   normalized.width = Math.max(normalized.width, 1);
   normalized.height = Math.max(normalized.height, 1);
 
-  // Ensure angle is between 0 and 2π
-  if (typeof normalized.angle === 'number') {
+  // Ensure angle is between 0 and 2π. The guard is finiteness for the same reason as
+  // above — by this point `normalized.angle` is already known finite, so the `else` is
+  // unreachable and exists only as a type narrowing.
+  if (typeof normalized.angle === 'number' && Number.isFinite(normalized.angle)) {
     normalized.angle = normalized.angle % (2 * Math.PI);
     if (normalized.angle < 0) {
       normalized.angle += 2 * Math.PI;
