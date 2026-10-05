@@ -2,7 +2,7 @@ import type { DriplElement } from '@dripl/common';
 import { useCanvasStore } from '@/lib/store';
 import type { RemoteCursor, RemoteUser } from '@/lib/store/helpers';
 import { filterReplayPending } from './sceneDelta';
-import type { ClientMessage, ServerMessage } from './protocol';
+import type { ServerMessage } from './protocol';
 
 export interface RemoteElementsHandler {
   (added: DriplElement[], updated: DriplElement[], deleted: string[]): void;
@@ -29,7 +29,6 @@ export interface MessageRouterContext {
   activeUserIdRef: Ref<string>;
   prevElementsRef: Ref<DriplElement[]>;
   isFirstSyncRef: Ref<boolean>;
-  offlineQueueRef: Ref<Array<{ msg: ClientMessage; timestamp: number }>>;
   pendingElementsRef: Ref<DriplElement[] | null>;
   followedUserIdRef: Ref<string | null>;
   onRemoteElementsRef: Ref<RemoteElementsHandler | undefined>;
@@ -45,8 +44,6 @@ export interface MessageRouterContext {
   /** Re-run the coalesced outbound broadcast (healing / post-sync replay). */
   flushElementBroadcast: () => void;
   /** Send raw text on the current socket (offline-queue replay path). */
-  sendText: (text: string) => void;
-  isSocketOpen: () => boolean;
 }
 
 function refreshBaselineAfterRemote(ctx: MessageRouterContext): void {
@@ -102,35 +99,34 @@ function handleSyncRoomState(
     });
   }
 
-  // The server has now completed join authorization and loaded the
-  // room. Replay queued scene messages in order, then send the latest
-  // coalesced snapshot if one is waiting. If an element that existed
-  // in our last local snapshot is absent from the authoritative sync,
-  // treat queued updates to that ID as stale rather than resurrecting
-  // a server-side deletion. This is a conservative reconnect guard;
-  // the server still needs durable tombstones for a complete CRDT-
-  // style convergence guarantee.
+  // The server has now completed join authorization and loaded the room. Send the
+  // latest coalesced snapshot if one is waiting.
+  //
+  // There is deliberately **no offline message queue here.** One used to exist: a
+  // `send()` branch that enqueued scene messages whenever the socket was not open,
+  // plus this replay loop that drained it. It was unreachable -- the only two callers
+  // that sent a scene-typed message sat *behind* `flushElementBroadcast`'s
+  // `readyState !== OPEN` guard, so the queue was never populated and this loop always
+  // iterated an empty array. Proven by deleting both halves and watching every test
+  // still pass.
+  //
+  // What actually carries work made while disconnected is `pendingElementsRef` plus the
+  // flush immediately below: `flushElementBroadcast` returns at its readyState guard
+  // rather than sending, so the snapshot is retained and re-sent once an authoritative
+  // sync lands. That is the whole recovery mechanism, and it is one path rather than
+  // two.
+  //
+  // Excalidraw takes the same position: its collab client has no offline queue either,
+  // and handles a dropped connection with a warning banner rather than a buffer that
+  // implies durability it does not provide.
+  //
+  // If an element that existed in our last local snapshot is absent from the
+  // authoritative sync, pending updates to that ID are treated as stale rather than
+  // resurrecting a server-side deletion. This is a conservative reconnect guard; the
+  // server still needs durable tombstones for a complete CRDT-style convergence
+  // guarantee.
   const serverIds = new Set(message.elements.map(element => element.id));
   const previousIds = new Set(previousLocalElements.map(element => element.id));
-  const queuedMessages = ctx.offlineQueueRef.current.splice(0);
-  for (const { msg } of queuedMessages) {
-    let messageToSend = msg;
-    if (msg.type === 'scene-delta') {
-      const added = msg.added?.filter(element => !previousIds.has(element.id));
-      const updated = msg.updated?.filter(
-        element => !previousIds.has(element.id) || serverIds.has(element.id)
-      );
-      if (msg.added && !added?.length && msg.updated && !updated?.length && !msg.deleted?.length) {
-        continue;
-      }
-      messageToSend = { ...msg, added, updated };
-    } else if (msg.type === 'scene-update') {
-      const elements = filterReplayPending(msg.elements, previousIds, serverIds);
-      if (elements.length === 0) continue;
-      messageToSend = { ...msg, elements };
-    }
-    if (ctx.isSocketOpen()) ctx.sendText(JSON.stringify(messageToSend));
-  }
   if (ctx.pendingElementsRef.current) {
     const filteredPending = filterReplayPending(
       ctx.pendingElementsRef.current,

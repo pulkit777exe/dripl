@@ -6,7 +6,6 @@ import {
   RECONNECT_BASE_MS,
   RECONNECT_MAX_MS,
 } from '@/lib/collab/reconnect';
-import { enqueueOfflineMessage, OFFLINE_QUEUE_MAX } from '@/lib/collab/offlineQueue';
 
 describe('computeReconnectDelay', () => {
   it('grows exponentially from the base', () => {
@@ -35,19 +34,5 @@ describe('shouldGiveUpReconnecting', () => {
   it('gives up at the max attempt count', () => {
     expect(shouldGiveUpReconnecting(MAX_RECONNECT_ATTEMPTS - 1)).toBe(false);
     expect(shouldGiveUpReconnecting(MAX_RECONNECT_ATTEMPTS)).toBe(true);
-  });
-});
-
-describe('enqueueOfflineMessage', () => {
-  it('appends with a timestamp', () => {
-    const queue: Array<{ msg: string; timestamp: number }> = [];
-    enqueueOfflineMessage(queue, 'a', OFFLINE_QUEUE_MAX, 1234);
-    expect(queue).toEqual([{ msg: 'a', timestamp: 1234 }]);
-  });
-
-  it('evicts oldest first at capacity', () => {
-    const queue = [1, 2].map(n => ({ msg: `m${n}`, timestamp: n }));
-    enqueueOfflineMessage(queue, 'm3', 2, 3);
-    expect(queue.map(q => q.msg)).toEqual(['m2', 'm3']);
   });
 });

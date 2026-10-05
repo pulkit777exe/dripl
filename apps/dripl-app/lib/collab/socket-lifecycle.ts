@@ -30,7 +30,6 @@ export interface SocketLifecycleContext {
   isFirstSyncRef: Ref<boolean>;
   pendingElementsRef: Ref<DriplElement[] | null>;
   prevElementsRef: Ref<DriplElement[]>;
-  offlineQueueRef: Ref<Array<{ msg: ClientMessage; timestamp: number }>>;
   activeUserIdRef: Ref<string>;
   displayNameRef: Ref<string>;
   colorRef: Ref<string>;
@@ -110,7 +109,6 @@ export function handleSocketClose(ws: WebSocket, code: number, ctx: SocketLifecy
   if (ctx.wsRef.current !== ws) return;
   if (code === ACCESS_DENIED_CLOSE_CODE) {
     ctx.shouldReconnectRef.current = false;
-    ctx.offlineQueueRef.current = [];
     ctx.pendingElementsRef.current = null;
     ctx.setConnectionMessage('Access denied');
     ctx.setIsStoreConnected(false);

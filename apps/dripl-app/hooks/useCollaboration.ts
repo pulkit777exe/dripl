@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DriplElement } from '@dripl/common';
 import { useCanvasStore } from '@/lib/store';
 import { computeSceneDelta } from '@/lib/collab/sceneDelta';
-import { enqueueOfflineMessage, OFFLINE_QUEUE_MAX } from '@/lib/collab/offlineQueue';
 import { routeCollabMessage } from '@/lib/collab/messageRouter';
 import {
   handleSocketClose,
@@ -52,9 +51,6 @@ export function useCollaboration(
   const reconnectAttemptRef = useRef(0);
   const lastCursorSentAtRef = useRef(0);
 
-  // Offline queue for messages sent while disconnected (bounded; see lib/collab/offlineQueue)
-  const offlineQueueRef = useRef<Array<{ msg: ClientMessage; timestamp: number }>>([]);
-
   // Follow mode
   const followedUserIdRef = useRef<string | null>(null);
   const viewportBroadcastThrottleRef = useRef(0);
@@ -101,12 +97,17 @@ export function useCollaboration(
   }, [options.displayName]);
 
   const send = useCallback((message: ClientMessage) => {
-    if (wsRef.current?.readyState !== WebSocket.OPEN) {
-      if (message.type === 'scene-update' || message.type === 'scene-delta') {
-        enqueueOfflineMessage(offlineQueueRef.current, message, OFFLINE_QUEUE_MAX);
-      }
-      return;
-    }
+    // A closed socket means the message is dropped, not buffered. There used to be an
+    // offline queue here, but it was unreachable: the only two callers that send a
+    // scene-typed message live inside `flushElementBroadcast`, which returns at its own
+    // readyState guard *before* reaching `send`. So nothing was ever enqueued, and the
+    // replay loop that drained it always iterated an empty array.
+    //
+    // Scene work made while disconnected is recovered by `pendingElementsRef` and the
+    // post-sync flush in `messageRouter` -- one path, and it works. Other message types
+    // (cursor moves, locks, viewport) are deliberately not replayed: a stale cursor or a
+    // stale lock is worse than no cursor and no lock.
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(JSON.stringify(message));
   }, []);
 
@@ -236,7 +237,6 @@ export function useCollaboration(
     // elements when its first sync arrives.
     isFirstSyncRef.current = true;
     pendingElementsRef.current = null;
-    offlineQueueRef.current = [];
     prevElementsRef.current = [];
   }, [roomId, shareToken]);
 
@@ -308,7 +308,6 @@ export function useCollaboration(
         isFirstSyncRef,
         pendingElementsRef,
         prevElementsRef,
-        offlineQueueRef,
         activeUserIdRef,
         displayNameRef,
         colorRef,
@@ -354,7 +353,6 @@ export function useCollaboration(
           activeUserIdRef,
           prevElementsRef,
           isFirstSyncRef,
-          offlineQueueRef,
           pendingElementsRef,
           followedUserIdRef,
           onRemoteElementsRef,
@@ -368,8 +366,6 @@ export function useCollaboration(
           setElementLock,
           releaseElementLock,
           flushElementBroadcast,
-          sendText: text => ws.send(text),
-          isSocketOpen: () => ws.readyState === WebSocket.OPEN,
         });
       };
 

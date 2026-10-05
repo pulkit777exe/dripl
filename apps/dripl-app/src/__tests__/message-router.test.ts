@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCanvasStore } from '@/lib/store';
 import type { DriplElement } from '@dripl/common';
 import { routeCollabMessage, type MessageRouterContext } from '@/lib/collab/messageRouter';
-import type { ClientMessage, ServerMessage } from '@/lib/collab/protocol';
 
 const el = (id: string, version = 1): DriplElement =>
   ({
@@ -22,7 +21,6 @@ function stubContext(overrides: Partial<MessageRouterContext> = {}): MessageRout
     activeUserIdRef: { current: 'user-1' },
     prevElementsRef: { current: [] },
     isFirstSyncRef: { current: true },
-    offlineQueueRef: { current: [] },
     pendingElementsRef: { current: null },
     followedUserIdRef: { current: null },
     onRemoteElementsRef: { current: vi.fn() },
@@ -36,11 +34,11 @@ function stubContext(overrides: Partial<MessageRouterContext> = {}): MessageRout
     setElementLock: store.setElementLock,
     releaseElementLock: store.releaseElementLock,
     flushElementBroadcast: vi.fn(),
-    sendText: vi.fn(),
-    isSocketOpen: () => true,
     ...overrides,
   };
 }
+
+import type { ServerMessage } from '@/lib/collab/protocol';
 
 function route(message: ServerMessage, ctx: MessageRouterContext): boolean {
   return routeCollabMessage(message, ctx);
@@ -56,14 +54,12 @@ describe('routeCollabMessage sync', () => {
     });
   });
 
-  it('applies the authoritative snapshot and replays the offline queue', () => {
+  // The offline queue is gone: it could never be populated, because the only callers
+  // that send a scene-typed message sit behind `flushElementBroadcast`'s readyState
+  // guard. Recovery is `pendingElementsRef` plus the flush below, and these tests pin
+  // that single path.
+  it('applies the authoritative snapshot and flushes the pending elements', () => {
     const ctx = stubContext();
-    const queued: ClientMessage = {
-      type: 'scene-delta',
-      added: [el('fresh')],
-      clientMsgId: 'm1',
-    };
-    ctx.offlineQueueRef.current = [{ msg: queued, timestamp: 1 }];
     ctx.pendingElementsRef.current = [el('fresh')];
 
     const handled = route(
@@ -84,31 +80,25 @@ describe('routeCollabMessage sync', () => {
     expect(ctx.isFirstSyncRef.current).toBe(false);
     expect(ctx.activeUserIdRef.current).toBe('user-9');
     expect(useCanvasStore.getState().readOnly).toBe(true);
-    // Queued + pending replay went out on the open socket.
-    expect(ctx.sendText).toHaveBeenCalled();
+    // The pending snapshot is what goes out after a sync.
     expect(ctx.flushElementBroadcast).toHaveBeenCalled();
-    expect(ctx.offlineQueueRef.current).toEqual([]);
     // Presence landed in the store, excluding self.
     expect(useCanvasStore.getState().remoteUsers.has('user-2')).toBe(true);
     expect(useCanvasStore.getState().remoteCursors.get('user-2')?.x).toBe(1);
   });
 
-  it('drops queued updates for server-deleted ids', () => {
+  it('drops pending updates for server-deleted ids', () => {
     const ctx = stubContext();
     ctx.prevElementsRef.current = [el('gone')];
-    ctx.offlineQueueRef.current = [
-      { msg: { type: 'scene-delta', updated: [el('gone', 2)], clientMsgId: 'm2' }, timestamp: 1 },
-    ];
+    ctx.pendingElementsRef.current = [el('gone', 2)];
+
     route({ type: 'sync_room_state', elements: [], users: [] }, ctx);
-    // The stale update is filtered out; what (if anything) goes out carries
-    // no reference to the deleted id — no resurrection.
-    const sent = (ctx.sendText as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
-      ([text]) => JSON.parse(text as string) as { added?: unknown[]; updated?: unknown[] }
-    );
-    for (const msg of sent) {
-      expect(msg.added ?? []).toEqual([]);
-      expect(msg.updated ?? []).toEqual([]);
-    }
+
+    // The stale element is filtered out, so nothing resurrects a server-side deletion.
+    // `null`, not `[]`: the source assigns `filteredPending.length > 0 ? filteredPending : null`,
+    // and an empty array here would be a different (also plausible) contract.
+    expect(ctx.pendingElementsRef.current).toBeNull();
+    expect(ctx.flushElementBroadcast).not.toHaveBeenCalled();
   });
 });
 

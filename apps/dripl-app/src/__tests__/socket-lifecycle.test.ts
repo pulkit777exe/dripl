@@ -31,7 +31,6 @@ function stubContext(overrides: Partial<SocketLifecycleContext> = {}): SocketLif
     isFirstSyncRef: { current: false },
     pendingElementsRef: { current: null },
     prevElementsRef: { current: [] },
-    offlineQueueRef: { current: [] },
     activeUserIdRef: { current: 'user-1' },
     displayNameRef: { current: 'Ada' },
     colorRef: { current: '#ff0000' },
@@ -110,11 +109,9 @@ describe('handleSocketClose', () => {
     const ws = fakeSocket();
     const ctx = stubContext();
     ctx.wsRef.current = ws;
-    ctx.offlineQueueRef.current = [{ msg: { type: 'leave' }, timestamp: 1 }];
     ctx.pendingElementsRef.current = [];
     handleSocketClose(ws, ACCESS_DENIED_CLOSE_CODE, ctx);
     expect(ctx.shouldReconnectRef.current).toBe(false);
-    expect(ctx.offlineQueueRef.current).toEqual([]);
     expect(ctx.pendingElementsRef.current).toBeNull();
     expect(ctx.setConnectionMessage).toHaveBeenCalledWith('Access denied');
     expect(ctx.scheduled).toHaveLength(0);
