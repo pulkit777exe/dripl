@@ -211,7 +211,7 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
       height: '100%',
       zIndex: 1,
       touchAction: 'none',
-      imageRendering: 'crisp-edges',
+      imageRendering: 'auto',
       pointerEvents: 'none',
     }),
     []
