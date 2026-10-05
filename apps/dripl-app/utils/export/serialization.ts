@@ -3,6 +3,7 @@ import type { DriplElement } from '@dripl/common';
 import { exportToPng } from './raster';
 import { exportToSvg } from './vector';
 import { exportToDripl, parseDriplDocument, MAX_IMPORT_ELEMENTS } from './native';
+import { exportToCsv } from './csv';
 import { remapElementReferences } from './normalize';
 
 // Re-exported from `./native` because the cap is a property of the document
@@ -39,7 +40,7 @@ export function exportToJson(elements: DriplElement[]): Blob {
  * wrong file.
  */
 export function exportCanvas(
-  format: 'png' | 'svg' | 'json' | 'dripl',
+  format: 'png' | 'svg' | 'json' | 'dripl' | 'csv',
   elements: DriplElement[],
   options?: {
     scale?: number;
@@ -59,14 +60,16 @@ export function exportCanvas(
       return exportToDripl(elements, options?.appState);
     case 'json':
       return exportToJson(elements);
+    case 'csv':
+      return exportToCsv(elements);
     default: {
       // Widened before it reaches the message: in this branch `format` is
-      // `never` under the union above, and an error naming one of the four
-      // handled formats would be worse than no error at all.
+      // `never` under the union above, and an error naming one of the handled
+      // formats would be worse than no error at all.
       const unhandled: string = format;
       throw new Error(
         `Unsupported export format: "${unhandled}". ` +
-          'exportCanvas serialises png, svg, json and dripl; any other format ' +
+          'exportCanvas serialises png, svg, json, dripl and csv; any other format ' +
           '(pdf, for one) has to be built by the caller.'
       );
     }

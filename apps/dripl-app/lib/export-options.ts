@@ -89,6 +89,7 @@ const EXTENSIONS: Record<string, string> = {
   svg: 'svg',
   json: 'json',
   dripl: 'dripl',
+  csv: 'csv',
   pdf: 'pdf',
 };
 

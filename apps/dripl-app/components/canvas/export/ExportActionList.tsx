@@ -5,6 +5,7 @@ import {
   Download,
   FileCode,
   FileJson,
+  FileSpreadsheet,
   FileText,
   Image as ImageIcon,
   Loader2,
@@ -105,6 +106,13 @@ export function ExportActionList({
         title={exporting ? <BusyLabel label="Exporting..." /> : 'Export as PDF'}
         subtitle="Document format"
         onClick={() => onExport('pdf')}
+        disabled={exporting}
+      />
+      <ExportActionRow
+        icon={<FileSpreadsheet className="w-4 h-4" />}
+        title={exporting ? <BusyLabel label="Exporting..." /> : 'Export as CSV'}
+        subtitle="One row per element, for spreadsheets"
+        onClick={() => onExport('csv')}
         disabled={exporting}
       />
       <ExportActionRow

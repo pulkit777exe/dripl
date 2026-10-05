@@ -1,9 +1,9 @@
 'use client';
 
-import { FileCode, FileJson, FileText, Image as ImageIcon } from 'lucide-react';
+import { FileCode, FileJson, FileSpreadsheet, FileText, Image as ImageIcon } from 'lucide-react';
 import type { ExportFormat } from './exportTypes';
 
-/** Format grid (PNG/SVG/JSON/Dripl/PDF) with the active highlight. */
+/** Format grid (PNG/SVG/JSON/Dripl/CSV/PDF) with the active highlight. */
 export function ExportFormatPicker({
   selectedFormat,
   onSelect,
@@ -16,8 +16,8 @@ export function ExportFormatPicker({
       <label className="text-[12px] font-medium mb-2 block" style={{ color: '#6B6860' }}>
         Format
       </label>
-      <div className="grid grid-cols-5 gap-2">
-        {(['png', 'svg', 'json', 'dripl', 'pdf'] as ExportFormat[]).map(format => (
+      <div className="grid grid-cols-6 gap-2">
+        {(['png', 'svg', 'json', 'dripl', 'csv', 'pdf'] as ExportFormat[]).map(format => (
           <button
             key={format}
             onClick={() => onSelect(format)}
@@ -47,6 +47,7 @@ const FORMAT_LABELS: Record<ExportFormat, string> = {
   svg: 'SVG',
   json: 'JSON',
   dripl: 'DRIPL',
+  csv: 'CSV',
   pdf: 'PDF',
 };
 
@@ -59,6 +60,8 @@ function getFormatIcon(format: ExportFormat) {
     case 'json':
     case 'dripl':
       return <FileJson className="w-4 h-4" />;
+    case 'csv':
+      return <FileSpreadsheet className="w-4 h-4" />;
     case 'pdf':
       return <FileText className="w-4 h-4" />;
   }
