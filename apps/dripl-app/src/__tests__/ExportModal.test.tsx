@@ -179,31 +179,35 @@ function stubImage(width: number, height: number, mode: 'load' | 'error' = 'load
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-let pathLength: number | null = null;
-
+/**
+ * jsdom implements no SVG geometry, and this environment exposes no
+ * `SVGPathElement` global to patch either. Reach the constructor through a real
+ * element's prototype instead, so every <path> React creates inherits the stub.
+ *
+ * Installed at module scope and deliberately **never removed**. `ExportModal` calls
+ * `getTotalLength` from an effect keyed on `exportSuccess`, and a React passive effect
+ * can flush *after* the test that rendered it has finished -- so an `afterEach` that
+ * deleted this property raced that effect and threw
+ * `path.getTotalLength is not a function` from inside the component. The blame landed on
+ * whichever test ran next, which is why this surfaced as an unattributed flake that
+ * failed a *different* test on each run. A prototype method standing in for a real
+ * browser API has no per-test state to unwind: `patchPathLength` just re-sets the value
+ * for whichever test needs an exact one.
+ */
 function patchPathLength(length: number) {
   const proto = Object.getPrototypeOf(document.createElementNS(SVG_NS, 'path'));
   Object.defineProperty(proto, 'getTotalLength', {
     configurable: true,
     value: () => length,
   });
-  pathLength = length;
 }
 
-afterEach(() => {
-  if (pathLength === null) return;
-  const proto = Object.getPrototypeOf(document.createElementNS(SVG_NS, 'path'));
-  delete proto.getTotalLength;
-  pathLength = null;
-});
+// Installed before the first render, so no component can ever observe it missing.
+patchPathLength(42.4);
 
 beforeEach(() => {
   mockVisible = true;
-  // jsdom implements no SVG geometry at all, and this environment does not expose
-  // an `SVGPathElement` global to patch either. Reach the constructor through a
-  // real element's prototype instead, so every <path> React creates inherits the
-  // stub. The measured length is then a known value and the dash maths can be
-  // asserted exactly.
+  // A known measured length, so the dash maths can be asserted exactly.
   patchPathLength(42.4);
   vi.clearAllMocks();
   vi.useRealTimers();
@@ -339,12 +343,15 @@ describe('ExportModal PDF branch', () => {
     await act(async () => {
       fireEvent.click(screen.getByText('do-export-pdf'));
     });
-    // Wait for the condition, not a duration. `stubImage` fires `onload`/`onerror`
-    // from a `setTimeout(..., 0)`, so the PDF path needs one macrotask plus
-    // however many microtasks the promise resolution and the React re-render
-    // take. A fixed 5ms sleep is a race, and it loses when the event loop is
-    // congested -- which is exactly when the full suite runs these tests.
-    await waitFor(() => expect(jsPDFCtor).toHaveBeenCalled());
+    // Wait for the condition this test actually asserts, not a proxy for it. An
+    // earlier version of this file slept a fixed 5ms; replacing that with
+    // `waitFor(() => expect(jsPDFCtor).toHaveBeenCalled())` was still wrong, because
+    // the constructor runs *before* the save, the object-URL revoke and the success
+    // re-render — so the wait could resolve while the final assertion was still racing.
+    // That produced an intermittent "Unable to find ... PDF exported successfully"
+    // under full-suite load. The message is the last step of the path, so waiting for
+    // it makes every assertion below deterministic.
+    await waitFor(() => screen.getByText('PDF exported successfully'));
 
     // A PNG first, and it is a *raster* export regardless of the document format.
     expect(exportCanvas.mock.calls[0]![0]).toBe('png');

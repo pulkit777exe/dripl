@@ -30,7 +30,6 @@ import { useCanvasStore } from '@/lib/store';
 import { AIGenerateModal } from '@/components/canvas/AIGenerateModal';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-let pathLengthPatched = false;
 
 /**
  * jsdom implements no SVG geometry at all and exposes no `SVGPathElement`
@@ -39,11 +38,17 @@ let pathLengthPatched = false;
  * runs, and a component that shipped a half-drawn tick would still pass every
  * test in this file. The prototype is taken from a real element so every `<path>`
  * React creates inherits the stub.
+ *
+ * Never removed. A React passive effect can flush *after* the test that rendered it
+ * has finished, so deleting this in `afterEach` raced the effect that calls it -- and
+ * because the component guards with `typeof path.getTotalLength === 'function'`, the
+ * race failed *silently*: the dash maths was skipped and the assertion on
+ * `strokeDasharray` failed instead, on whichever test happened to run next. A
+ * prototype method standing in for a real browser API has no per-test state to unwind.
  */
 function patchPathLength(length: number) {
   const proto = Object.getPrototypeOf(document.createElementNS(SVG_NS, 'path'));
   Object.defineProperty(proto, 'getTotalLength', { configurable: true, value: () => length });
-  pathLengthPatched = true;
 }
 
 function rect(id: string, extra: Record<string, unknown> = {}) {
@@ -155,11 +160,6 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
-  if (pathLengthPatched) {
-    const proto = Object.getPrototypeOf(document.createElementNS(SVG_NS, 'path'));
-    delete proto.getTotalLength;
-    pathLengthPatched = false;
-  }
 });
 
 describe('AIGenerateModal refusals never reach the model', () => {
