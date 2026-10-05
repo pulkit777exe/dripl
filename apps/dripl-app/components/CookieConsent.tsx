@@ -7,6 +7,13 @@ import { useModalAnimation } from '@/hooks/useModalAnimation';
 
 const COOKIE_CONSENT_KEY = 'dripl-cookie-consent';
 
+/**
+ * Window event through which any surface can ask for the preferences modal.
+ * Spelled out as a literal at both ends, matching the other `dripl:*` signals
+ * (`dripl:open-command-palette`, `dripl:files-changed`): the name is the contract.
+ */
+const OPEN_PREFERENCES_EVENT = 'dripl:open-cookie-preferences';
+
 interface CookieConsentState {
   accepted: boolean;
   timestamp?: number;
@@ -42,6 +49,24 @@ export default function CookieConsent() {
     } else {
       setShowConsent(true);
     }
+  }, []);
+
+  /**
+   * The second door into this modal.
+   *
+   * The banner below is gated on there being *no* stored consent, so on its own it
+   * can only ever be seen by someone who has nothing to withdraw — leaving a user
+   * who has already answered unable to revisit their answer except by clearing
+   * site data. `/settings/cookies` dispatches this event to open the same modal,
+   * which keeps one modal with two ways in rather than a second copy of it.
+   */
+  useEffect(() => {
+    const onOpenPreferences = () => {
+      setShowPreferences(true);
+    };
+
+    window.addEventListener(OPEN_PREFERENCES_EVENT, onOpenPreferences);
+    return () => window.removeEventListener(OPEN_PREFERENCES_EVENT, onOpenPreferences);
   }, []);
 
   if (!isMounted) return null;

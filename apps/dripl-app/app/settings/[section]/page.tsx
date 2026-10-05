@@ -13,11 +13,19 @@ import {
   Type,
   Settings,
   Bell,
+  Cookie,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/app/context/AuthContext';
 
-type SectionId = 'profile' | 'password' | 'font' | 'plan' | 'account';
+/**
+ * Window event `CookieConsent` listens for to open its preferences modal. Named
+ * here as well as there because the two live in different trees and cannot share
+ * a module without coupling the settings page to the layout-level banner.
+ */
+const OPEN_PREFERENCES_EVENT = 'dripl:open-cookie-preferences';
+
+type SectionId = 'profile' | 'password' | 'font' | 'plan' | 'account' | 'cookies';
 
 const SECTION_NAV: Array<{
   id: SectionId;
@@ -30,6 +38,7 @@ const SECTION_NAV: Array<{
   { id: 'font', label: 'Font', helper: 'Canvas typography', icon: Type },
   { id: 'plan', label: 'Billing', helper: 'Plans and upgrade', icon: CreditCard },
   { id: 'account', label: 'Notifications', helper: 'Email and account', icon: Bell },
+  { id: 'cookies', label: 'Cookies', helper: 'Analytics and privacy', icon: Cookie },
 ];
 
 interface SectionCardProps {
@@ -359,6 +368,34 @@ function AccountSettings() {
   );
 }
 
+/**
+ * Cookie preferences are edited inside the banner's own modal rather than here.
+ * Restating the toggles would give consent two sources of truth, so this section
+ * only has to make the existing one reachable — and it has to, because the banner
+ * is suppressed for anyone who has already consented, which is precisely the
+ * audience that wants to change their mind.
+ */
+function CookieSettings() {
+  return (
+    <SectionCard title="Cookies" description="Control the cookies Dripl is allowed to use.">
+      <div className="space-y-4">
+        <p className="text-[13px] text-[#6B6860] max-w-xl">
+          Necessary cookies are always on because the site cannot work without them. Analytics and
+          marketing are your call, and changing them takes effect on the categories you switch off.
+        </p>
+
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent(OPEN_PREFERENCES_EVENT))}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#10332B] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0C2821] transition-colors"
+        >
+          <Cookie className="size-4" />
+          Cookie settings
+        </button>
+      </div>
+    </SectionCard>
+  );
+}
+
 function renderSection(section: SectionId) {
   switch (section) {
     case 'profile':
@@ -371,6 +408,8 @@ function renderSection(section: SectionId) {
       return <PlanSettings />;
     case 'account':
       return <AccountSettings />;
+    case 'cookies':
+      return <CookieSettings />;
     default:
       return <ProfileSettings />;
   }
@@ -388,6 +427,7 @@ export default function SettingsPage(): React.ReactNode {
     if (candidate === 'font') return 'font';
     if (candidate === 'plan' || candidate === 'billing') return 'plan';
     if (candidate === 'account' || candidate === 'notifications') return 'account';
+    if (candidate === 'cookies' || candidate === 'privacy') return 'cookies';
     return 'profile';
   }, [params?.section]);
 
