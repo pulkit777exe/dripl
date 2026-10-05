@@ -15,6 +15,29 @@ export function exportToJson(elements: DriplElement[]): Blob {
   });
 }
 
+/**
+ * Serialise a scene in one of the formats this module writes itself.
+ *
+ * `'pdf'` is absent from the union by design and not by oversight: a PDF is a
+ * rasterised page wrapped in a document, so `ExportModal` builds it from a PNG
+ * plus `jsPDF` and returns before ever calling here. The union is the boundary
+ * that keeps that split honest — `ExportFormat` is wider than this, and the
+ * narrow type is what makes the call at `ExportModal` a compile error until the
+ * `'pdf'` branch handles PDF itself.
+ *
+ * The dispatch ends in an explicit rejection rather than a residual
+ * `return exportToJson(elements)`, because the union is erased at runtime and
+ * the guarantee must not rest on one `if` in another file. `ExportModal`'s early
+ * return is the only thing currently keeping `'pdf'` out of this call; move it,
+ * reorder it, or lift it into a helper and `'pdf'` arrives here unhandled. With a
+ * JSON fallthrough it would be handed to `downloadBlob` under
+ * `exportFileName('pdf')` — a `.pdf` file containing JSON, reported to the user
+ * as a success. Upstream Excalidraw ends its dispatch the same way
+ * (`data/index.ts`: an explicit unsupported-export-type case). Throwing is safe
+ * for every caller because each one already wraps the call in `try`/`catch`, so
+ * an unhandled format becomes a logged, visible export failure instead of a
+ * wrong file.
+ */
 export function exportCanvas(
   format: 'png' | 'svg' | 'json' | 'dripl',
   elements: DriplElement[],
@@ -27,16 +50,27 @@ export function exportCanvas(
     appState?: Record<string, unknown>;
   }
 ): Promise<Blob> | Blob {
-  if (format === 'png') {
-    return exportToPng(elements, options);
+  switch (format) {
+    case 'png':
+      return exportToPng(elements, options);
+    case 'svg':
+      return exportToSvg(elements, options);
+    case 'dripl':
+      return exportToDripl(elements, options?.appState);
+    case 'json':
+      return exportToJson(elements);
+    default: {
+      // Widened before it reaches the message: in this branch `format` is
+      // `never` under the union above, and an error naming one of the four
+      // handled formats would be worse than no error at all.
+      const unhandled: string = format;
+      throw new Error(
+        `Unsupported export format: "${unhandled}". ` +
+          'exportCanvas serialises png, svg, json and dripl; any other format ' +
+          '(pdf, for one) has to be built by the caller.'
+      );
+    }
   }
-  if (format === 'svg') {
-    return exportToSvg(elements, options);
-  }
-  if (format === 'dripl') {
-    return exportToDripl(elements, options?.appState);
-  }
-  return exportToJson(elements);
 }
 
 /** What an import produced, and what it could not. */

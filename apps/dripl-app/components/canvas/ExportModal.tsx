@@ -86,6 +86,13 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         return;
       }
 
+      // This early return is load-bearing, not just an optimisation: PDF has no
+      // writer in `utils/export/serialization.ts`, so `ExportModal` owns it
+      // (PNG in, jsPDF out). `exportCanvas` takes the narrower union without
+      // `'pdf'`, which is what keeps TypeScript on this side of the branch — and
+      // it also rejects any format it does not handle at runtime, so if this
+      // branch is ever moved, reordered, or lifted into a helper, `'pdf'` fails
+      // loudly instead of being serialised as JSON and downloaded as `*.pdf`.
       if (format === 'pdf') {
         const pngBlob = await Promise.resolve(
           exportCanvas('png', exportElements, buildRasterExportOptions(dims, exportBackground))
