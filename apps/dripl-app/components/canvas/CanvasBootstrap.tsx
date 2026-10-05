@@ -156,6 +156,17 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
 
   useEffect(() => {
     let cancelled = false;
+    // The prompt this effect run appended, held so the teardown can remove *its own*.
+    //
+    // The previous version swept the document with
+    // `querySelector('.fixed.inset-0.bg-black\\/60.z-100')` after the prompt resolved.
+    // That could never clean the orphan it was written for: every `resolve` path calls
+    // `cleanup()` first, so by the time the `await` resumed the modal was already gone
+    // and the query only matched a *different* instance's prompt. Answering a dead
+    // instance's prompt therefore removed the live one, whose promise then never
+    // resolved and whose canvas could never load. Removing the element this run created
+    // fixes the leak the sweep was after and cannot touch anyone else's modal.
+    let promptModal: HTMLDivElement | null = null;
     const bootstrap = async () => {
       if (mode === 'local') {
         const LOCAL_ROOM_ID = 'local-canvas';
@@ -216,6 +227,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
         if (initialElements.length > 0 && scene.elements.length > 0 && !replaceExisting) {
           const shouldOverride = await new Promise<boolean>(resolve => {
             const modal = document.createElement('div');
+            promptModal = modal;
             modal.className =
               'fixed inset-0 bg-black/60 z-100 flex items-center justify-center p-4';
             modal.innerHTML =
@@ -241,10 +253,6 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
             });
           });
           if (!shouldOverride || cancelled) {
-            if (cancelled) {
-              const staleModal = document.querySelector('.fixed.inset-0.bg-black\\/60.z-100');
-              if (staleModal) staleModal.remove();
-            }
             setIsInitialized(true);
             return;
           }
@@ -275,6 +283,10 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
     });
     return () => {
       cancelled = true;
+      // The prompt is appended imperatively and outlives the React tree, so teardown
+      // has to take it with it. Without this an unmount while the prompt is up leaves
+      // an unclickable overlay on screen for the rest of the session.
+      promptModal?.remove();
     };
     // `fileSceneKey` identifies the scene by content, standing in for the
     // `initialData` object — see its definition above. Listing `rawFileInitialData`
