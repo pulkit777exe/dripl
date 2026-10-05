@@ -339,12 +339,12 @@ describe('ExportModal PDF branch', () => {
     await act(async () => {
       fireEvent.click(screen.getByText('do-export-pdf'));
     });
-    await act(async () => {
-      await new Promise(r => setTimeout(r, 5));
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
+    // Wait for the condition, not a duration. `stubImage` fires `onload`/`onerror`
+    // from a `setTimeout(..., 0)`, so the PDF path needs one macrotask plus
+    // however many microtasks the promise resolution and the React re-render
+    // take. A fixed 5ms sleep is a race, and it loses when the event loop is
+    // congested -- which is exactly when the full suite runs these tests.
+    await waitFor(() => expect(jsPDFCtor).toHaveBeenCalled());
 
     // A PNG first, and it is a *raster* export regardless of the document format.
     expect(exportCanvas.mock.calls[0]![0]).toBe('png');
@@ -366,9 +366,12 @@ describe('ExportModal PDF branch', () => {
     await act(async () => {
       fireEvent.click(screen.getByText('do-export-pdf'));
     });
-    await act(async () => {
-      await new Promise(r => setTimeout(r, 5));
-    });
+    // Wait for the condition, not a duration. `stubImage` fires `onload`/`onerror`
+    // from a `setTimeout(..., 0)`, so the PDF path needs one macrotask plus
+    // however many microtasks the promise resolution and the React re-render
+    // take. A fixed 5ms sleep is a race, and it loses when the event loop is
+    // congested -- which is exactly when the full suite runs these tests.
+    await waitFor(() => expect(jsPDFCtor).toHaveBeenCalled());
 
     expect(jsPDFCtor).toHaveBeenCalledWith(
       expect.objectContaining({ orientation: 'portrait', format: [400, 800] })
@@ -385,15 +388,14 @@ describe('ExportModal PDF branch', () => {
     await act(async () => {
       fireEvent.click(screen.getByText('do-export-pdf'));
     });
-    await act(async () => {
-      await new Promise(r => setTimeout(r, 5));
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
+    // Wait for the condition, not a duration. `stubImage` fires `onload`/`onerror`
+    // from a `setTimeout(..., 0)`, so the PDF path needs one macrotask plus
+    // however many microtasks the promise resolution and the React re-render
+    // take. A fixed 5ms sleep is a race, and it loses when the event loop is
+    // congested -- which is exactly when the full suite runs these tests.
+    await waitFor(() => screen.getByText('Export failed. Please try again.'));
 
     expect(jsPDFSave).not.toHaveBeenCalled();
-    expect(screen.getByText('Export failed. Please try again.')).toBeInTheDocument();
     expect(screen.getByTestId('action-list').dataset.exporting).toBe('false');
   });
 });
