@@ -24,7 +24,22 @@ export const DRIPL_SCENE_VERSION = 1;
 /** Hard ceiling on elements read from a document, matching the scene limit. */
 export const MAX_IMPORT_ELEMENTS = MAX_SCENE_ELEMENTS;
 
-/** Hard ceiling on document bytes, applied before `JSON.parse`. */
+/**
+ * Hard ceiling on document bytes, applied before `JSON.parse`.
+ *
+ * Counted as real UTF-8 bytes via `TextEncoder`, not as
+ * `String.prototype.length`. `length` is UTF-16 code units, so it undercounts
+ * every multi-byte character: a document of astral-plane emoji measures half
+ * its true size, and a constant named `..._BYTES` that silently admits twice
+ * the payload it promises is a trap for the next caller who reuses it as an
+ * upload limit. UTF-8 is the right unit here because a `.dripl` file is a
+ * UTF-8 JSON document on disk, so bytes are what its size on disk is.
+ *
+ * Encoding is UTF-8 in both jsdom and Node (WHATWG), so this is the same
+ * number `file.size` would report for the file the user picked — and matches
+ * `MAX_SNAPSHOT_BYTES` in `app/api/canvas/snapshots/route.ts`, which measures
+ * the same way for the same reason.
+ */
 export const MAX_IMPORT_BYTES = 5_000_000;
 
 export interface DriplSceneDocument {
@@ -98,7 +113,12 @@ export interface ParsedDriplDocument {
  * one outcome this function exists to make impossible.
  */
 export function parseDriplDocument(raw: string): ParsedDriplDocument {
-  if (raw.length > MAX_IMPORT_BYTES) throw new Error('Scene file is too large');
+  // Measured in encoded UTF-8 bytes, and before `JSON.parse` — see the
+  // `MAX_IMPORT_BYTES` note. An oversized document is refused without ever
+  // being materialised as objects.
+  if (new TextEncoder().encode(raw).byteLength > MAX_IMPORT_BYTES) {
+    throw new Error('Scene file is too large');
+  }
 
   const parsed: unknown = JSON.parse(raw);
   const sourceElements = Array.isArray(parsed)
