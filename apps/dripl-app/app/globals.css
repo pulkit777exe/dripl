@@ -803,6 +803,12 @@ input[type='range']::-moz-range-thumb {
      immediately, so this removes motion without removing feedback. */
   .t-theme,
   .t-metric { transition: none !important; }
+  /* `.t-error-msg` was missing here. It fades an inline error message in over
+     `--revert-dur`, and it hides itself with `visibility` rather than `display`, so
+     `transition: none` makes it appear instantly and still appear — the feedback
+     survives, only the glide does not. Found by `reducedMotionCoverage.test.ts`, which
+     checks every declared `t-*` class appears in this block. */
+  .t-error-msg { transition: none !important; }
   .t-modal { transition: none !important; }
   .t-dropdown { transition: none !important; }
   .t-panel-slide { transition: none !important; }

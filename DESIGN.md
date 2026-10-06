@@ -232,7 +232,48 @@ The typography uses Inter's natural scale with these common sizes:
 
 ## Motion
 
+### Reduced motion
+
+Every animated class in `app/globals.css` is enumerated in a single
+`@media (prefers-reduced-motion: reduce)` block that sets `transition: none !important` (or
+`animation: none !important`).
+
+`transition: none` still applies the _final_ value immediately, so this removes motion
+without removing feedback: a button that changes colour still changes colour, and a usage
+meter still shows its new width — it just does not glide there. Nothing here conveys state
+through movement alone, which is why blanket removal is safe.
+
+**Adding an animation means adding its class to that block.** The block lists classes by
+name rather than applying a blanket `* { transition: none }`, so a new `t-*` class that is
+not listed will animate for users who asked it not to.
+
 ### Transitions
+
+#### Naming the properties, never `transition-all`
+
+Every transition in the app names its properties, via a `t-*` class in `app/globals.css`
+rather than a Tailwind `transition-*` wildcard.
+
+`transition-all` asks the browser to watch every animatable property, including `width`,
+`height`, `padding`, `margin` and `font-size`. On a control whose states only change
+colour, that costs nothing today and is a trap tomorrow: the day a `width` starts changing
+there, the transition silently becomes a layout-thrashing repaint on every frame, with no
+code change to point at. Naming the properties means an unlisted property animates
+instantly — visible in review instead of invisible in production.
+
+The two shared classes:
+
+| Class       | Properties                                                                                              |
+| ----------- | ------------------------------------------------------------------------------------------------------- |
+| `.t-theme`  | `background-color`, `border-color`, `color`, `outline-color`, `box-shadow`, `opacity`, `fill`, `stroke` |
+| `.t-metric` | `width` — only for the storage-usage meter, where the width transition _is_ the effect                  |
+
+`.t-theme` is a deliberate superset of what any single control varies, so a new state on an
+existing control animates without touching the class. Add to the list when a control starts
+varying something outside it; never widen it to `all`.
+
+Duration stays a Tailwind `duration-*` utility, which sets `transition-duration` and so
+composes with a class-set `transition-property`.
 
 #### Standard Transitions
 
@@ -252,6 +293,32 @@ The typography uses Inter's natural scale with these common sizes:
 - **Resize Handle**: Transform, shadow (0.1s ease-out)
 - **Rotate Handle**: Transform, shadow (0.1s ease-out)
 - **Zoom**: Transform (0.1s ease-out)
+
+#### Input is applied per frame, not per event
+
+Pointer and wheel input are **accumulated and applied once per animation frame**
+(`utils/throttleToFrame.ts`). The streams are faster than the display: a trackpad emits
+`wheel` at roughly 100–200 events/second and a high-polling-rate mouse emits `pointermove`
+at its polling rate, so applying state per event ran up to about three times the updates
+there are frames to draw them on a 120Hz panel.
+
+Two consequences worth knowing before changing this code:
+
+- **Accumulate the _product_, never the sum.** Zoom is multiplicative —
+  `wheelZoomFactor` is `exp(-clamp(dy) · I)` and `zoomToCursor` multiplies — so k events in
+  sequence equal `zoom · Π factors`. Summing deltas looks equivalent and is not: each event
+  clamps to 150px first, so a fast flick gets clamped back to one event's worth and
+  visibly under-zooms.
+- **Keep the _last_ value, not the first.** A dropped trailing call leaves the viewport one
+  increment short of the gesture.
+
+**No inertia on the viewport.** A previous implementation ran a 0.95-decay velocity loop and
+glided a single 200-unit notch ~6,000px, carrying the viewport off the scene. Frame
+batching removes work rather than adding motion — do not reintroduce easing here.
+
+A store subscription whose value is only consumed by one tool's UI should return a stable
+`null` for every other tool (`selectEraserCursorPosition`), so Zustand skips the re-render
+instead of re-rendering to produce nothing.
 
 ### Animations
 
