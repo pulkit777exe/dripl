@@ -109,10 +109,12 @@ export function useCanvasWheel({ containerRef, containerReady }: UseCanvasWheelO
       if (!pending || pending.kind !== next.kind) {
         // Switching gesture mid-frame: settle what is already owed before changing shape,
         // or the earlier half is silently discarded.
-        if (pending) {
-          pendingRef.current = null;
-          applyPending();
-        }
+        //
+        // `applyPending` reads the ref and clears it, so it must be called *before* the
+        // ref is overwritten. Clearing the ref here first looks equivalent and is not: the
+        // pending value is destroyed before anything applies it, and the earlier half of
+        // the gesture vanishes.
+        if (pending) applyPending();
         pendingRef.current = next;
         throttledApply();
         return;

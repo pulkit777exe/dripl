@@ -271,6 +271,61 @@ describe('useCanvasWheel', () => {
     expect(zoom).toBe(1);
   });
 
+  // Regression: the cache-ignore flag tells the spatial/render caches to skip their work
+  // during a gesture. If it were never cleared, those caches would stay bypassed for the
+  // rest of the session and every later render would take the slow path -- a permanent,
+  // invisible performance regression from one missed timer.
+  it('clears the gesture flag once the gesture goes quiet', () => {
+    wheel(container, { deltaY: -100, clientX: 400, clientY: 300 });
+    flushFrames();
+    expect(useCanvasStore.getState().shouldCacheIgnoreZoom).toBe(true);
+
+    // Each event extends the window, so a continuous gesture keeps the flag up.
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(useCanvasStore.getState().shouldCacheIgnoreZoom).toBe(true);
+
+    // Past the 150ms window with no further events, it releases.
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(useCanvasStore.getState().shouldCacheIgnoreZoom).toBe(false);
+  });
+
+  // Regression: zoom and pan are accumulated separately because they are not composable
+  // into one viewport step. A gesture that switches between them inside a single frame --
+  // shift pressed partway through a trackpad flick -- would silently discard the earlier
+  // half if the two were merged or if the first were overwritten. This asserts the earlier
+  // half is *applied* before the new shape starts.
+  it('settles the earlier half when a gesture switches between zoom and pan mid-frame', () => {
+    wheel(container, { deltaY: -100, clientX: 400, clientY: 300 });
+    // Nothing applied yet -- the zoom is pending.
+    expect(useCanvasStore.getState().zoom).toBe(1);
+
+    // Shift arrives before the frame. The pending zoom must be applied now, not dropped.
+    wheel(container, { deltaY: -50, shiftKey: true });
+    expect(useCanvasStore.getState().zoom).toBeCloseTo(wheelZoomFactor(-100), 12);
+
+    // Capture where the zoom step left the pan. `zoomToCursor` moves `panX` to keep the
+    // point under the cursor anchored, so the pan half is a *delta* from here rather than
+    // an absolute position -- asserting an absolute would be asserting the zoom's own
+    // arithmetic instead of this behaviour.
+    const panAfterZoom = useCanvasStore.getState().panX;
+    expect(panAfterZoom).not.toBe(0);
+
+    flushFrames();
+
+    const { zoom, panX } = useCanvasStore.getState();
+    // The zoom half stands...
+    expect(zoom).toBeCloseTo(wheelZoomFactor(-100), 12);
+    // ...and the pan half applied once, on its own terms, not compounded with the zoom.
+    // Expressed with the source's own formula: a *negative* wheel delta increases `panX`,
+    // because the hook subtracts the scaled delta. Writing the sign the other way round
+    // produced a test that was wrong in a way the zoom assertion could not see.
+    expect(panX).toBeCloseTo(panAfterZoom - -50 * 1.5, 9);
+  });
+
   it('prevents the default scroll so the page does not move', () => {
     const event = wheel(container, { deltaY: 200 });
     expect(event.defaultPrevented).toBe(true);

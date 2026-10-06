@@ -1,6 +1,30 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+/**
+ * The `transition-property` list of a class in the real stylesheet.
+ *
+ * Read from `globals.css` rather than restated here: the list *is* the contract, so a copy
+ * in the test would only prove the copy is internally consistent. Reading the source means
+ * narrowing the class in CSS fails this test.
+ */
+function readTransitionProperties(selector: string): string[] {
+  // Resolved from the package root rather than `import.meta.url`: under this runner
+  // `import.meta.url` is not a `file:` URL, so both `fileURLToPath` and `.pathname`
+  // produce a filesystem path relative to `/`. Vitest sets cwd to the package root.
+  const css = readFileSync(resolve(process.cwd(), 'app/globals.css'), 'utf8');
+  const rule = new RegExp(`\\${selector}\\s*\\{([^}]*)\\}`, 'm').exec(css);
+  if (!rule) throw new Error(`No ${selector} rule in globals.css`);
+  const declaration = /transition-property:\s*([^;]+);/.exec(rule[1] ?? '');
+  if (!declaration) throw new Error(`${selector} declares no transition-property`);
+  return (declaration[1] ?? '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean);
+}
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -230,7 +254,7 @@ describe('TabsTrigger', () => {
       'text-sm',
       'font-medium',
       'ring-offset-background',
-      'transition-all',
+      't-theme',
       'focus-visible:outline-none',
       'focus-visible:ring-2',
       'focus-visible:ring-ring',
@@ -242,6 +266,24 @@ describe('TabsTrigger', () => {
       'data-[state=active]:shadow',
     ]) {
       expect(trigger.className).toContain(cls);
+    }
+  });
+
+  // Regression: `t-theme` replaced `transition-all`, which is the point — the wildcard
+  // watches `width`, `height`, `padding` and `font-size` as well. But a narrower
+  // property list is only safe if it still covers everything this trigger varies, and the
+  // classes above show it varies background, colour, shadow *and* opacity
+  // (`disabled:opacity-50`). Dropping `opacity` from the list would silently make the
+  // disabled state snap instead of fade, which no className assertion would catch.
+  it('transitions every property its own state classes vary', () => {
+    const properties = readTransitionProperties('.t-theme');
+
+    expect(properties).toEqual(
+      expect.arrayContaining(['background-color', 'color', 'box-shadow', 'opacity'])
+    );
+    // And nothing layout-animating leaked in.
+    for (const property of ['width', 'height', 'padding', 'margin', 'font-size']) {
+      expect(properties).not.toContain(property);
     }
   });
 
