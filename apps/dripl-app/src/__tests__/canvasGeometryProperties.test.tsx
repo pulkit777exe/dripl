@@ -1,5 +1,5 @@
 import { act, render, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { canvasToScreen, screenToCanvas, type Viewport } from '@/utils/canvas-coordinates';
 import { DEFAULT_ZOOM_SETTINGS, zoomToCursor } from '@/utils/zoomUtils';
 import { useCanvasWheel } from '@/hooks/canvas/useCanvasWheel';
@@ -168,6 +168,19 @@ describe('wheel pan and undo', () => {
     return null;
   }
 
+  // Wheel input is accumulated per animation frame and applied once, so the viewport only
+  // moves when a frame runs -- exactly as in the browser. Frames are driven from an
+  // explicit queue rather than fake timers so the flush is deterministic.
+  let pendingFrames: FrameRequestCallback[] = [];
+
+  function flushFrames(): void {
+    const due = pendingFrames;
+    pendingFrames = [];
+    act(() => {
+      for (const cb of due) cb(0);
+    });
+  }
+
   function wheel(deltaY: number, deltaX = 0, init: WheelEventInit = {}) {
     const event = new WheelEvent('wheel', {
       bubbles: true,
@@ -182,6 +195,14 @@ describe('wheel pan and undo', () => {
 
   beforeEach(() => {
     useCanvasStore.setState({ zoom: 1, panX: 0, panY: 0, shouldCacheIgnoreZoom: false });
+    pendingFrames = [];
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      pendingFrames.push(cb);
+      return pendingFrames.length;
+    });
+    vi.stubGlobal('cancelAnimationFrame', () => {
+      pendingFrames = [];
+    });
   });
 
   it('pans by the exact delta each time, so a pan and its inverse cancel', () => {
@@ -191,11 +212,13 @@ describe('wheel pan and undo', () => {
       useCanvasStore.setState({ panX: 0, panY: 0 });
 
       wheel(0, dx, { shiftKey: true });
+      flushFrames();
       expect(useCanvasStore.getState().panX).toBeCloseTo(-dx * 1.5, 6);
 
       // The opposite delta must undo it exactly. Accumulating from a stale
       // base, or applying the delta to the wrong axis, would leave a residue.
       wheel(0, -dx, { shiftKey: true });
+      flushFrames();
       expect(useCanvasStore.getState().panX).toBeCloseTo(0, 6);
     }
   });
@@ -205,6 +228,7 @@ describe('wheel pan and undo', () => {
     useCanvasStore.setState({ panX: 0, panY: 55 });
 
     wheel(0, 120, { shiftKey: true });
+    flushFrames();
 
     expect(useCanvasStore.getState().panY).toBe(55);
   });
@@ -215,6 +239,7 @@ describe('wheel pan and undo', () => {
     const { zoom, panX, panY } = useCanvasStore.getState();
 
     wheel(-100, 0, { clientX: 200, clientY: 150 });
+    flushFrames();
     const zoomed = useCanvasStore.getState();
     expect(zoomed.zoom).not.toBe(zoom);
 
@@ -253,6 +278,7 @@ describe('wheel pan and undo', () => {
 
     for (let i = 0; i < 12; i++) {
       wheel(i % 2 === 0 ? -40 : 25, 0, { clientX: anchorX, clientY: anchorY });
+      flushFrames();
       const state = useCanvasStore.getState();
       const back = canvasToScreen(world.x, world.y, {
         x: state.panX,
@@ -270,6 +296,7 @@ describe('wheel pan and undo', () => {
     render(<Harness />);
     for (let i = 0; i < 40; i++) {
       wheel(i % 3 === 0 ? -500 : 500, 0, { clientX: 100, clientY: 100 });
+      flushFrames();
       const { zoom } = useCanvasStore.getState();
       expect(zoom).toBeGreaterThanOrEqual(DEFAULT_ZOOM_SETTINGS.minZoom);
       expect(zoom).toBeLessThanOrEqual(DEFAULT_ZOOM_SETTINGS.maxZoom);
