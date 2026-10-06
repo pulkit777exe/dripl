@@ -12,7 +12,7 @@ export function FontSizeSection({ selectedElement, updateProp }: PanelSectionPro
           <button
             key={size}
             onClick={() => updateProp('fontSize', size)}
-            className={`flex-1 py-1.5 rounded-md text-[11px] font-medium transition-all duration-150 ${
+            className={`flex-1 py-1.5 rounded-md text-[11px] font-medium t-theme duration-150 ${
               selectedElement?.fontSize === size
                 ? 'bg-[#E8462A] text-white shadow-sm'
                 : 'bg-[#D4D0C9] text-[#5A5750] hover:bg-[#C8C4BC]'
@@ -35,7 +35,7 @@ export function FontFamilySection({ selectedElement, updateProp }: PanelSectionP
           <button
             key={key}
             onClick={() => updateProp('fontFamily', value)}
-            className={`px-2.5 py-1.5 rounded-md text-[10px] font-medium transition-all duration-150 ${
+            className={`px-2.5 py-1.5 rounded-md text-[10px] font-medium t-theme duration-150 ${
               selectedElement?.fontFamily === value
                 ? 'bg-[#E8462A] text-white shadow-sm'
                 : 'bg-[#D4D0C9] text-[#5A5750] hover:bg-[#C8C4BC]'

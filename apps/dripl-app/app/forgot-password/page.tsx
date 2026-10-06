@@ -6,7 +6,7 @@ import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
 
 const fieldClassName =
-  'w-full rounded-md border border-[#D4D0C9] bg-white px-3 py-2 text-sm text-[#1A1917] outline-none transition-all placeholder:text-[#9B9890] focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20';
+  'w-full rounded-md border border-[#D4D0C9] bg-white px-3 py-2 text-sm text-[#1A1917] outline-none t-theme placeholder:text-[#9B9890] focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20';
 
 export default function ForgotPasswordPage(): React.ReactNode {
   const [email, setEmail] = useState('');

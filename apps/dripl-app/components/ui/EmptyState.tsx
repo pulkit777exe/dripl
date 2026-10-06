@@ -38,7 +38,7 @@ export function EmptyState({ icon, title, description, action, className }: Empt
           disabled={action.disabled}
           aria-disabled={action.disabled}
           className={cn(
-            'flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-medium transition-all',
+            'flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-medium t-theme',
             action.variant === 'primary'
               ? 'bg-[#E8462A] text-white hover:bg-[#D93D22] shadow-sm'
               : 'border border-[#D4D0C9] bg-white text-[#1A1917] hover:bg-[#E8E5DE]',

@@ -92,7 +92,7 @@ export function CanvasToolbar() {
       {/* Lock button */}
       <button
         type="button"
-        className="shrink-0 p-1.5 sm:p-2 rounded-md transition-all duration-150"
+        className="shrink-0 p-1.5 sm:p-2 rounded-md t-theme duration-150"
         style={
           toolLocked
             ? {
@@ -141,7 +141,7 @@ export function CanvasToolbar() {
             }}
             onClick={() => setActiveTool(tool.id as ActiveTool)}
             disabled={readOnly && tool.id !== 'hand' && tool.id !== 'select'}
-            className="relative shrink-0 p-1.5 sm:p-2 rounded-md transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50"
+            className="relative shrink-0 p-1.5 sm:p-2 rounded-md t-theme duration-150 disabled:cursor-not-allowed disabled:opacity-50"
             style={
               isActive
                 ? {

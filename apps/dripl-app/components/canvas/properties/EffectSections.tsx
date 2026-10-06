@@ -137,7 +137,7 @@ export function GlobalExportSection({ onExport }: { onExport: () => void }) {
     <div className="pt-2" style={{ borderTop: '1px solid var(--color-panel-divider)' }}>
       <button
         onClick={onExport}
-        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs transition-all duration-120"
+        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs t-theme duration-120"
         style={{
           backgroundColor: 'var(--color-panel-btn-bg)',
           color: 'var(--color-panel-label)',

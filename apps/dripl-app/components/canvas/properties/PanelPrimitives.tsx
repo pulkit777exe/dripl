@@ -61,7 +61,7 @@ export function RowBtn({ active, onClick, title, children }: RowBtnProps) {
     <button
       onClick={onClick}
       title={title}
-      className="flex-1 h-7 rounded flex items-center justify-center transition-all duration-120"
+      className="flex-1 h-7 rounded flex items-center justify-center t-theme duration-120"
       style={
         active
           ? {
@@ -105,7 +105,7 @@ export function ActionBtn({
     <button
       onClick={onClick}
       title={title}
-      className="flex-1 h-7 rounded flex items-center justify-center transition-all duration-120"
+      className="flex-1 h-7 rounded flex items-center justify-center t-theme duration-120"
       style={{
         backgroundColor: 'var(--color-panel-btn-bg)',
         color: 'var(--color-panel-text)',

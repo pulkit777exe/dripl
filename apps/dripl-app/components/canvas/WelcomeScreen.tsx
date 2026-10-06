@@ -111,7 +111,7 @@ export function WelcomeScreen({ onClose }: WelcomeScreenProps) {
                 }}
                 aria-label={`${tool.label} tool, shortcut ${tool.shortcut}`}
                 aria-pressed={isActive}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all group"
+                className="flex flex-col items-center gap-1.5 p-3 rounded-xl border t-theme group"
                 style={{
                   borderColor: isActive ? 'var(--color-primary)' : 'var(--color-panel-border)',
                   backgroundColor: isActive

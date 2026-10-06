@@ -283,7 +283,7 @@ export function Menu({
                 <button
                   key={t}
                   onClick={() => setTheme(t)}
-                  className="p-1.5 rounded-md transition-all duration-150"
+                  className="p-1.5 rounded-md t-theme duration-150"
                   style={
                     isSelected
                       ? {
@@ -319,7 +319,7 @@ export function Menu({
                 <button
                   key={preset}
                   onClick={() => setCanvasBackground(preset)}
-                  className="w-6 h-6 rounded-full border transition-all duration-150"
+                  className="w-6 h-6 rounded-full border t-theme duration-150"
                   style={{
                     backgroundColor: preset,
                     borderColor: 'var(--color-panel-border)',
@@ -344,7 +344,7 @@ export function Menu({
             {canvasBackground !== null && (
               <button
                 onClick={() => setCanvasBackground(null)}
-                className="p-1 rounded-md transition-all duration-150"
+                className="p-1 rounded-md t-theme duration-150"
                 style={{ color: 'var(--color-muted-foreground)' }}
                 title="Reset to theme default"
                 aria-label="Reset canvas background to theme default"

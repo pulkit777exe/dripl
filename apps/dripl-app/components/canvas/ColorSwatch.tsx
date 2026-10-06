@@ -9,7 +9,7 @@ interface ColorSwatchProps {
 export const ColorSwatch: React.FC<ColorSwatchProps> = ({ color, isSelected, onClick }) => (
   <button
     onClick={onClick}
-    className={`w-7 h-7 rounded-md border-2 transition-all relative ${
+    className={`w-7 h-7 rounded-md border-2 t-theme relative ${
       isSelected
         ? 'border-[#a8a5ff] shadow-sm shadow-[#a8a5ff]/30'
         : 'border-gray-600 hover:border-gray-400'

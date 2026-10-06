@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { Spinner } from '@/components/button/Spinner';
 
 const fieldClassName =
-  'w-full rounded-md border border-[#D4D0C9] bg-white px-3 py-2 text-sm text-[#1A1917] outline-none transition-all placeholder:text-[#9B9890] focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20';
+  'w-full rounded-md border border-[#D4D0C9] bg-white px-3 py-2 text-sm text-[#1A1917] outline-none t-theme placeholder:text-[#9B9890] focus:border-[#E8462A] focus:ring-1 focus:ring-[#E8462A]/20';
 
 function ResetPasswordForm() {
   const [password, setPassword] = useState('');

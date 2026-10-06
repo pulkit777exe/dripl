@@ -563,6 +563,52 @@ input[type='range']::-moz-range-thumb {
   background: var(--color-muted-foreground);
 }
 
+/* ── transitions-dev: Theme / state changes ──────────── */
+/**
+ * Replaces Tailwind's `transition-all` on controls whose hover, active and selected
+ * states are expressed as colour, shadow and opacity changes.
+ *
+ * `transition-all` is a wildcard: the browser watches *every* animatable property,
+ * including `width`, `height`, `padding`, `margin` and `font-size`. None of those change
+ * on these controls, so the wildcard costs nothing today and is a trap tomorrow — the
+ * moment one of them does change, the transition silently becomes a layout-thrashing
+ * repaint on every frame with no code change to point at.
+ *
+ * Naming the properties means an unlisted property animates instantly and visibly during
+ * review, instead of animating quietly and expensively. The list is a superset of what
+ * these controls actually vary, so nothing that used to animate stops animating.
+ *
+ * `transition-duration` is left to Tailwind's `duration-*` utilities, which compose with
+ * this class rather than conflicting with it.
+ */
+.t-theme {
+  transition-property:
+    background-color,
+    border-color,
+    color,
+    outline-color,
+    box-shadow,
+    opacity,
+    fill,
+    stroke;
+  /* No `will-change`: these are short, event-driven transitions on many elements, and
+     promoting each to its own layer costs more memory than the compositing saves. The
+     duration is in the range where the transition runs on the compositor only for
+     transform, which these properties are not. */
+}
+
+/**
+ * The one place a layout property is animated on purpose: a storage-usage meter whose
+ * `width` is set from a percentage. Explicit rather than `transition-all` because here the
+ * width transition *is* the effect — and `width` is not compositor-friendly, so this
+ * deliberately keeps it short and does not encourage reuse elsewhere.
+ */
+.t-metric {
+  transition-property: width;
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 /* ── transitions-dev: Modal open / close ─────────────── */
 .t-modal {
   transform-origin: center;
@@ -751,6 +797,12 @@ input[type='range']::-moz-range-thumb {
 
 /* ── transitions-dev: Reduced motion ──────────────────── */
 @media (prefers-reduced-motion: reduce) {
+  /* Theme and metric transitions are decoration, not state: a control that changes
+     colour, or a meter that changes width, must still *show* the new value — it just
+     should not glide there. `transition: none` still applies the final value
+     immediately, so this removes motion without removing feedback. */
+  .t-theme,
+  .t-metric { transition: none !important; }
   .t-modal { transition: none !important; }
   .t-dropdown { transition: none !important; }
   .t-panel-slide { transition: none !important; }

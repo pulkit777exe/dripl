@@ -25,7 +25,7 @@ export function StrokeSection({ selectedElement, updateProp }: PanelSectionProps
             }
             title={label}
             aria-label={label}
-            className="w-5 h-5 rounded transition-all duration-120"
+            className="w-5 h-5 rounded t-theme duration-120"
             style={{
               backgroundColor: value,
               border:
@@ -63,7 +63,7 @@ export function BackgroundSection({ selectedElement, updateProp }: PanelSectionP
             }
             title={label}
             aria-label={label}
-            className={`w-5 h-5 rounded transition-all duration-120${
+            className={`w-5 h-5 rounded t-theme duration-120${
               value === 'transparent'
                 ? " bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22%3E%3Crect width=%224%22 height=%224%22 fill=%22%23ddd%22/%3E%3Crect x=%224%22 y=%224%22 width=%224%22 height=%224%22 fill=%22%23ddd%22/%3E%3C/svg%3E')]"
                 : ''

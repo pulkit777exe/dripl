@@ -169,7 +169,7 @@ export function FileBrowser({
               aria-label="Grid view"
               aria-pressed={viewMode === 'grid'}
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded transition-all ${
+              className={`p-1.5 rounded t-theme ${
                 viewMode === 'grid'
                   ? 'bg-[#E8E5DE] text-[#1A1917]'
                   : 'text-[#9B9890] hover:text-[#1A1917]'
@@ -182,7 +182,7 @@ export function FileBrowser({
               aria-label="List view"
               aria-pressed={viewMode === 'list'}
               onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded transition-all ${
+              className={`p-1.5 rounded t-theme ${
                 viewMode === 'list'
                   ? 'bg-[#E8E5DE] text-[#1A1917]'
                   : 'text-[#9B9890] hover:text-[#1A1917]'
@@ -222,7 +222,7 @@ export function FileBrowser({
             <Link
               key={file.id}
               href={`/file/${file.id}`}
-              className="group relative rounded-lg border border-[#E4E0D9] bg-[#FAFAF7] hover:border-[#D4D0C9] hover:shadow-sm transition-all"
+              className="group relative rounded-lg border border-[#E4E0D9] bg-[#FAFAF7] hover:border-[#D4D0C9] hover:shadow-sm t-theme"
             >
               <div className="relative aspect-square bg-[#E8E5DE]/40 flex items-center justify-center rounded-t-lg overflow-hidden">
                 {file.preview ? (
@@ -378,7 +378,7 @@ export function FileBrowser({
                         e.stopPropagation();
                         setOpenMenuId(openMenuId === file.id ? null : file.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-[#E8E5DE] rounded-lg transition-all"
+                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-[#E8E5DE] rounded-lg t-theme"
                     >
                       <MoreHorizontal className="h-4 w-4" style={{ color: '#6B6860' }} />
                     </button>

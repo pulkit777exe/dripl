@@ -64,7 +64,7 @@ export function NameInputModal({ onSubmit }: NameInputModalProps) {
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="Your Name (e.g. Alice)"
-            className="w-full px-3 py-2.5 rounded-md text-[14px] outline-none transition-all"
+            className="w-full px-3 py-2.5 rounded-md text-[14px] outline-none t-theme"
             style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9', color: '#1A1917' }}
             autoFocus
           />

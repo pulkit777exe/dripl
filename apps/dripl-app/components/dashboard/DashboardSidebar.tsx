@@ -148,7 +148,7 @@ export function DashboardSidebar() {
           </div>
           <div className="mt-2 h-1.5 w-full rounded-full bg-[#E8E5DE]">
             <div
-              className="h-full rounded-full bg-[#E8462A] transition-all"
+              className="h-full rounded-full bg-[#E8462A] t-metric"
               style={{ width: `${usagePercent}%` }}
             />
           </div>
@@ -196,7 +196,7 @@ export function DashboardSidebar() {
       {user && (
         <div className="px-3 pb-4 mt-auto">
           <div
-            className={`p-1.5 flex flex-col gap-1 rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] shadow-sm transition-all`}
+            className={`p-1.5 flex flex-col gap-1 rounded-xl border border-[#E4E0D9] bg-[#FAFAF7] shadow-sm t-theme`}
           >
             {/* Expanded Menu */}
             {(userMenuOpen || closing) && (
