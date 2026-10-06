@@ -1,7 +1,11 @@
 import * as Sentry from '@sentry/nextjs';
+import { sentryInitOptions } from './sentry.options';
 
-Sentry.init({
-  dsn: process.env.SENTRY_DSN,
-  tracesSampleRate: process.env.NODE_ENV === 'development' ? 1.0 : 0.1,
-  enableLogs: true,
-});
+/**
+ * Edge runtime entry point. The Node counterpart is `sentry.server.config.ts`.
+ *
+ * Deliberately a separate module from its counterpart rather than a re-export of it: the
+ * Next.js Sentry SDK resolves the runtime by which of these two paths is loaded, so
+ * collapsing them would change which bundle believes it is running where.
+ */
+Sentry.init(sentryInitOptions);
