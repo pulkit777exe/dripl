@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useShallow } from 'zustand/shallow';
-import { useCanvasStore } from '@/lib/store';
+import { selectEraserCursorPosition, useCanvasStore } from '@/lib/store';
 import { getOrCreateCollaboratorName } from '@/utils/username';
 import { useAuth } from '@/app/context/AuthContext';
 import { MemoizedSelectionOverlay } from './SelectionOverlay';
@@ -65,7 +65,10 @@ export default function RoughCanvas({ roomSlug, theme, shareToken = null }: Canv
   const isResizing = useCanvasStore(s => s.isResizing);
   const textInput = useCanvasStore(s => s.textInput);
   const eraserPath = useCanvasStore(state => state.eraserPath);
-  const cursorPosition = useCanvasStore(state => state.cursorPosition);
+  // Tracked only while the eraser is the active tool — see
+  // `selectEraserCursorPosition` for why that is a performance property and not a
+  // convenience, and for why it is a named export rather than a ternary inlined here.
+  const cursorPosition = useCanvasStore(selectEraserCursorPosition);
   const [welcomeScreenDismissed, setWelcomeScreenDismissed] = useState(false);
   const marqueeSelection = useCanvasStore(state => state.marqueeSelection);
 
