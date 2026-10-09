@@ -655,6 +655,19 @@ function bootstrapCanvas(
 
 // ─── Grid ────────────────────────────────────────────────────────────────────
 
+/**
+ * Minimum on-screen distance between grid lines, in CSS pixels. Zooming out
+ * compresses cells: at `gridSize` 20 and zoom 0.1 a cell is 2px and an
+ * 800px-wide canvas strokes ~400 verticals. Past this density the lines merge
+ * into a grey wash while the segment count keeps climbing, so the step grows
+ * to hold cells at least this far apart. Mirrors Excalidraw's grid pass, which
+ * stops drawing regular lines once cells compress past 10px (`strokeGrid` in
+ * `packages/excalidraw/renderer/staticScene.ts`) — except it keeps a coarser
+ * grid visible instead of dropping lines, so the grid fades by coarsening
+ * rather than popping out of existence.
+ */
+const MIN_GRID_CELL_PX = 10;
+
 function drawGrid(
   ctx: CanvasRenderingContext2D,
   viewport: StaticSceneViewport,
@@ -662,6 +675,15 @@ function drawGrid(
 ): void {
   const { gridSize } = config;
   const zoom = config.zoom;
+
+  // Coarsen the step when zoomed out so neighbouring lines stay at least
+  // MIN_GRID_CELL_PX apart on screen. The step stays a multiple of gridSize,
+  // so lines keep their alignment at every zoom — at normal zoom the factor
+  // is 1 and the output is unchanged. A non-positive step would hang the
+  // loops below, so degenerate input draws nothing.
+  const cellPx = gridSize * zoom;
+  const step = cellPx > 0 ? gridSize * Math.max(1, Math.ceil(MIN_GRID_CELL_PX / cellPx)) : 0;
+  if (!(step > 0)) return;
 
   // World-space visible area
   const worldLeft = -viewport.x / zoom;
@@ -675,15 +697,15 @@ function drawGrid(
   ctx.lineWidth = 1 / zoom;
 
   // Snap start to grid
-  const startX = Math.floor(worldLeft / gridSize) * gridSize;
-  const startY = Math.floor(worldTop / gridSize) * gridSize;
+  const startX = Math.floor(worldLeft / step) * step;
+  const startY = Math.floor(worldTop / step) * step;
 
   ctx.beginPath();
-  for (let wx = startX; wx <= worldRight; wx += gridSize) {
+  for (let wx = startX; wx <= worldRight; wx += step) {
     ctx.moveTo(wx, worldTop);
     ctx.lineTo(wx, worldBottom);
   }
-  for (let wy = startY; wy <= worldBottom; wy += gridSize) {
+  for (let wy = startY; wy <= worldBottom; wy += step) {
     ctx.moveTo(worldLeft, wy);
     ctx.lineTo(worldRight, wy);
   }
