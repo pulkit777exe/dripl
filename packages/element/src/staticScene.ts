@@ -592,6 +592,30 @@ export function clearStaticSceneCache(): void {
 
 // ─── Canvas bootstrap ────────────────────────────────────────────────────────
 
+/**
+ * The pan the static layer draws at: the real pan, rounded to whole device
+ * pixels. Panning writes a fractional pan (pointer deltas, often divided by
+ * zoom), and an element's cached bitmap blitted at a fractional device offset
+ * gets resampled — so as the fraction drifts under a pan, every element pulses
+ * between crisp and soft. A whole-pixel pan moves the scene the way a browser
+ * scrolls a page: each element keeps its own, constant sub-pixel phase and a
+ * pan never changes how anything is filtered. The difference stays under half
+ * a device pixel, so hit-testing and DOM overlays keep using the real pan.
+ *
+ * This mirrors Excalidraw's `snapScrollToDevicePixels`
+ * (`packages/excalidraw/renderer/helpers.ts`), adapted for this camera: their
+ * device offset carries zoom (`scroll * zoom * scale`), while ours divides it
+ * back out (`translate(pan / zoom)` after `scale(zoom)`), so the device offset
+ * here is `pan * dpr` and the snap grid is `1 / dpr`. Their export path shares
+ * the static renderer and must opt out of the snap; ours renders through a
+ * separate vector path (`apps/dripl-app/utils/export`), so there is nothing
+ * to exempt.
+ */
+export function snapPanToDevicePixels(pan: number, dpr: number): number {
+  if (!(dpr > 0)) return pan;
+  return Math.round(pan * dpr) / dpr;
+}
+
 function bootstrapCanvas(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
@@ -617,12 +641,16 @@ function bootstrapCanvas(
   // Camera transform stack (applied in reverse order because it's a matrix):
   //   1. Scale by DPR   → crisp pixels on hi-DPI screens
   //   2. Scale by zoom  → world-space zoom
-  //   3. Translate by   → pan / scroll
+  //   3. Translate by   → pan, snapped so the device-pixel offset is whole
+  //     (see `snapPanToDevicePixels`)
   //
   // Resulting transform: pixel = world * zoom * dpr + pan * dpr
   ctx.scale(dpr, dpr);
   ctx.scale(config.zoom, config.zoom);
-  ctx.translate(viewport.x / config.zoom, viewport.y / config.zoom);
+  ctx.translate(
+    snapPanToDevicePixels(viewport.x, dpr) / config.zoom,
+    snapPanToDevicePixels(viewport.y, dpr) / config.zoom
+  );
 }
 
 // ─── Grid ────────────────────────────────────────────────────────────────────
