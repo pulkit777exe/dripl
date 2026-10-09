@@ -135,3 +135,55 @@ export function updateBoundLabels(
     }
   }
 }
+
+/**
+ * Resolve one gesture frame into a single store commit.
+ *
+ * Drag/resize/rotate compute primary updates, then binding follow-ups (bound
+ * arrows, labels) against the post-primary scene. Committing those as two
+ * store writes re-renders the canvas subtree twice per frame for a single
+ * visible frame. Folding the follow-ups into the primary map keeps one commit
+ * per frame with an identical end state: the store's own `mutateElement`
+ * still owns version bumps and no-op guards at commit time, so an element
+ * touched by both halves is bumped once instead of twice and a follow-up
+ * that changes nothing still washes out.
+ *
+ * The follow-ups read from a post-primary *view* — primaries overlaid on a
+ * copy — so the store map is never mutated here and the commit below still
+ * sees pre-frame state. An element in both halves keeps its primary geometry
+ * with the follow-up spread over it, which is what the two-commit sequence
+ * produced.
+ *
+ * Rotation passes `includeBoundArrows: false`: the rotate path has only ever
+ * repositioned labels, and rebinding arrow endpoints mid-rotate is a behavior
+ * change of its own, not batching.
+ */
+export function resolveGestureUpdates(
+  previousById: ReadonlyMap<string, DriplElement>,
+  primary: ReadonlyMap<string, Partial<DriplElement>>,
+  boundArrowsByShape: ReadonlyMap<string, ReadonlySet<string>>,
+  options: { includeBoundArrows?: boolean } = {}
+): Map<string, Partial<DriplElement>> {
+  if (primary.size === 0) return new Map();
+  const view = new Map<string, DriplElement>();
+  for (const [id, element] of previousById) view.set(id, element);
+  for (const [id, partial] of primary) {
+    const previous = view.get(id);
+    // `previous` is complete and the partial only overrides present keys —
+    // the same spread the commit path runs — so the result is complete.
+    if (previous) view.set(id, { ...previous, ...partial } as DriplElement);
+  }
+  const movedIds = new Set(primary.keys());
+  const bound = new Map<string, Partial<DriplElement>>();
+  if (options.includeBoundArrows !== false) {
+    updateBoundArrows(movedIds, view, boundArrowsByShape, bound);
+  }
+  updateBoundLabels(movedIds, view, bound);
+  if (bound.size === 0) return new Map(primary);
+  const merged = new Map<string, Partial<DriplElement>>(primary);
+  for (const [id, partial] of bound) {
+    const existing = merged.get(id);
+    merged.set(id, existing ? { ...existing, ...partial } : partial);
+  }
+  return merged;
+}

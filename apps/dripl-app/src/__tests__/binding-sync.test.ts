@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DriplElement } from '@dripl/common';
 import {
   buildBoundArrowsByShape,
+  resolveGestureUpdates,
   updateBoundArrows,
   updateBoundLabels,
 } from '@/lib/canvas/binding-sync';
@@ -136,5 +137,152 @@ describe('updateBoundLabels', () => {
     const updates = new Map<string, Partial<DriplElement>>();
     updateBoundLabels(new Set(['owner']), byId, updates);
     expect(updates.size).toBe(0);
+  });
+});
+
+describe('resolveGestureUpdates', () => {
+  function boundShape(): DriplElement {
+    return rect('shape', {
+      x: 10,
+      y: 10,
+      labelId: 'label-1',
+      boundElements: [{ id: 'arrow-1', type: 'arrow' }],
+    });
+  }
+
+  function boundArrow(): DriplElement {
+    return arrow('arrow-1', {
+      startBinding: { elementId: 'shape', fixedPoint: { x: 0.5, y: 0 }, mode: 'inside' },
+    });
+  }
+
+  function textLabel(): DriplElement {
+    return {
+      id: 'label-1',
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 40,
+      height: 20,
+      text: 'hi',
+      fontSize: 20,
+    } as unknown as DriplElement;
+  }
+
+  function index(): Map<string, Set<string>> {
+    return new Map([['shape', new Set(['arrow-1'])]]);
+  }
+
+  type Point = { x: number; y: number };
+  const pointsOf = (value: Partial<DriplElement> | undefined): Point[] =>
+    (value as unknown as { points: Point[] }).points;
+
+  it('folds the arrow follow-up into the primary commit', () => {
+    const shape = boundShape();
+    const bound = boundArrow();
+    const byId = new Map<string, DriplElement>([
+      ['shape', shape],
+      ['arrow-1', bound],
+      ['label-1', textLabel()],
+    ]);
+    const moved = { ...shape, x: 30 };
+
+    const merged = resolveGestureUpdates(byId, new Map([['shape', moved]]), index());
+
+    // Primary entry keeps its identity rather than a copy; the arrow follows.
+    expect(merged.get('shape')).toBe(moved);
+    const mergedPoints = pointsOf(merged.get('arrow-1'));
+    expect(mergedPoints[0]).not.toEqual({ x: 0, y: 5 });
+    expect(mergedPoints[1]).toEqual({ x: 60, y: 5 });
+  });
+
+  it('keeps primary geometry when an element is both moved and bound-followed', () => {
+    const shape = boundShape();
+    const bound = boundArrow();
+    const byId = new Map<string, DriplElement>([
+      ['shape', shape],
+      ['arrow-1', bound],
+      ['label-1', textLabel()],
+    ]);
+    const movedShape = { ...shape, x: 30 };
+    const movedArrow = { ...bound, x: 130 };
+
+    const merged = resolveGestureUpdates(
+      byId,
+      new Map([
+        ['shape', movedShape],
+        ['arrow-1', movedArrow],
+      ]),
+      index()
+    );
+
+    // Spread order is follow-up over primary: the moved x survives while the
+    // points are the recomputed ones, not the primary's stale copy.
+    const mergedArrow = merged.get('arrow-1');
+    expect(mergedArrow).toMatchObject({ x: 130 });
+    expect(pointsOf(mergedArrow)[0]).not.toEqual({ x: 0, y: 5 });
+  });
+
+  it('repositions labels in the same commit', () => {
+    const shape = boundShape();
+    const byId = new Map<string, DriplElement>([
+      ['shape', shape],
+      ['arrow-1', boundArrow()],
+      ['label-1', textLabel()],
+    ]);
+    const moved = { ...shape, x: 30 };
+
+    const merged = resolveGestureUpdates(byId, new Map([['shape', moved]]), new Map(), {
+      includeBoundArrows: false,
+    });
+
+    // Moved shape spans x 30..130: the label centres on x 80 with the
+    // container width minus padding. y depends on font metrics, so only x is
+    // pinned here.
+    expect(merged.get('label-1')).toMatchObject({ x: 80, width: 90 });
+  });
+
+  it('skips arrows but keeps labels in labels-only mode', () => {
+    const shape = boundShape();
+    const byId = new Map<string, DriplElement>([
+      ['shape', shape],
+      ['arrow-1', boundArrow()],
+      ['label-1', textLabel()],
+    ]);
+    const moved = { ...shape, x: 30 };
+
+    const merged = resolveGestureUpdates(byId, new Map([['shape', moved]]), index(), {
+      includeBoundArrows: false,
+    });
+
+    // The rotate path this mode serves has only ever repositioned labels;
+    // rebinding endpoints would be a behavior change of its own.
+    expect(merged.has('arrow-1')).toBe(false);
+    expect(merged.has('label-1')).toBe(true);
+  });
+
+  it('returns the primary map alone when nothing follows', () => {
+    const shape = rect('shape');
+    const byId = new Map<string, DriplElement>([['shape', shape]]);
+    const moved = { ...shape, x: 5 };
+
+    const merged = resolveGestureUpdates(byId, new Map([['shape', moved]]), new Map());
+
+    expect(merged.size).toBe(1);
+    expect(merged.get('shape')).toBe(moved);
+  });
+
+  it('returns empty for empty primary and never mutates its inputs', () => {
+    const shape = boundShape();
+    const byId = new Map<string, DriplElement>([
+      ['shape', shape],
+      ['arrow-1', boundArrow()],
+    ]);
+    const primary = new Map<string, Partial<DriplElement>>();
+
+    expect(resolveGestureUpdates(byId, primary, index()).size).toBe(0);
+    expect(byId.get('shape')).toBe(shape);
+    expect(byId.size).toBe(2);
+    expect(primary.size).toBe(0);
   });
 });

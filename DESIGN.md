@@ -320,6 +320,10 @@ Two consequences worth knowing before changing this code:
   pan/zoom commit; closing over it would mint a new coordinate callback — and downstream a new
   pointer-move handler and a new canvas prop — on every frame of a gesture. Reading the ref at
   event time keeps handler identity stable while always applying the latest transform.
+- **One commit per gesture frame.** A drag, resize, or rotate that also moves binding
+  follow-ups (bound arrows, labels) resolves everything into a single store commit
+  (`resolveGestureUpdates`): two commits re-render the canvas subtree twice for one visible
+  frame, with an identical end state.
 
 **No inertia on the viewport.** A previous implementation ran a 0.95-decay velocity loop and
 glided a single 200-unit notch ~6,000px, carrying the viewport off the scene. Frame

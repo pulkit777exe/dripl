@@ -7,11 +7,7 @@ import { resizeSingleElement } from '@dripl/element/resizeElements';
 import { uploadImageToServer, loadImage } from '@/utils/tools/image';
 import { v4 as uuidv4 } from 'uuid';
 import { calculateArrowBinding } from '@/utils/arrow-routing';
-import {
-  buildBoundArrowsByShape,
-  updateBoundArrows,
-  updateBoundLabels,
-} from '@/lib/canvas/binding-sync';
+import { buildBoundArrowsByShape, resolveGestureUpdates } from '@/lib/canvas/binding-sync';
 import { computeRotationAngle } from '@/lib/canvas/rotation';
 import {
   computeBoxResize,
@@ -826,13 +822,14 @@ export function useCanvasPointerEvents({
         }
 
         if (el.id) {
-          updateElementTransient(el.id, updatedElement);
-          // Update arrows bound to the resized element in one state batch.
-          const elementsById = useCanvasStore.getState().elementsById;
-          const boundUpdates = new Map<string, Partial<DriplElement>>();
-          updateBoundArrows(new Set([el.id]), elementsById, getGestureBoundArrows(), boundUpdates);
-          updateBoundLabels(new Set([el.id]), elementsById, boundUpdates);
-          updateElementsTransient(boundUpdates);
+          // Primary plus binding follow-ups in one commit, as the drag path.
+          updateElementsTransient(
+            resolveGestureUpdates(
+              useCanvasStore.getState().elementsById,
+              new Map([[el.id, updatedElement]]),
+              getGestureBoundArrows()
+            )
+          );
         }
         return;
       }
@@ -846,11 +843,16 @@ export function useCanvasPointerEvents({
         }
         const updatedElement: DriplElement = { ...el, angle };
         if (el.id) {
-          updateElementTransient(el.id, updatedElement);
-          const elementsById = useCanvasStore.getState().elementsById;
-          const boundUpdates = new Map<string, Partial<DriplElement>>();
-          updateBoundLabels(new Set([el.id]), elementsById, boundUpdates);
-          updateElementsTransient(boundUpdates);
+          // Labels only: rebinding arrow endpoints mid-rotate would be a
+          // behavior change of its own, not batching.
+          updateElementsTransient(
+            resolveGestureUpdates(
+              useCanvasStore.getState().elementsById,
+              new Map([[el.id, updatedElement]]),
+              getGestureBoundArrows(),
+              { includeBoundArrows: false }
+            )
+          );
         }
         return;
       }
@@ -868,7 +870,6 @@ export function useCanvasPointerEvents({
           interactionRef.current.historyPushed = true;
         }
 
-        const movedIds = new Set<string>();
         const primaryUpdates = new Map<string, Partial<DriplElement>>();
         interactionRef.current.dragInitialElements.forEach((initialEl, id) => {
           const updatedEl: DriplElement = {
@@ -878,16 +879,17 @@ export function useCanvasPointerEvents({
           };
 
           primaryUpdates.set(id, updatedEl);
-          movedIds.add(id);
         });
-        updateElementsTransient(primaryUpdates);
-
-        // Update arrows bound to moved elements in one state batch.
-        const elementsById = useCanvasStore.getState().elementsById;
-        const boundUpdates = new Map<string, Partial<DriplElement>>();
-        updateBoundArrows(movedIds, elementsById, getGestureBoundArrows(), boundUpdates);
-        updateBoundLabels(movedIds, elementsById, boundUpdates);
-        updateElementsTransient(boundUpdates);
+        // Primary geometry plus binding follow-ups (bound arrows, labels) in
+        // one commit: two commits re-render the canvas subtree twice per frame
+        // for a single visible frame.
+        updateElementsTransient(
+          resolveGestureUpdates(
+            useCanvasStore.getState().elementsById,
+            primaryUpdates,
+            getGestureBoundArrows()
+          )
+        );
 
         return;
       }
