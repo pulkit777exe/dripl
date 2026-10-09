@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore, type ActiveTool } from '@/lib/store';
 import { isPointNearElement } from '@dripl/math/intersection';
@@ -173,6 +173,68 @@ export function useCanvasPointerEvents({
     startPointBindingIdRef.current = id;
     setStartPointBindingId(id);
   }, []);
+
+  // Eraser samples accumulate here until the trailing-edge flush appends the
+  // frame's batch in a single store commit (see the eraser branch of
+  // handlePointerMove). Eraser input preserves every coalesced sample, so a
+  // frame can carry several; committing each one re-rendered the canvas
+  // subtree per sample for a single visible frame.
+  const eraserPendingRef = useRef<Array<{ x: number; y: number }>>([]);
+  const eraserFlushRef = useRef<number | null>(null);
+
+  const flushEraserAccumulator = useCallback(() => {
+    if (eraserFlushRef.current !== null) {
+      if (typeof cancelAnimationFrame !== 'undefined') {
+        cancelAnimationFrame(eraserFlushRef.current);
+      }
+      eraserFlushRef.current = null;
+    }
+    const batch = eraserPendingRef.current;
+    if (batch.length === 0) return;
+    eraserPendingRef.current = [];
+    useCanvasStore.getState().setEraserPath(prev => [...prev, ...batch]);
+    const state = useCanvasStore.getState();
+    for (const point of batch) {
+      const candidates = spatialIndex.tree.search({
+        minX: point.x - 20,
+        minY: point.y - 20,
+        maxX: point.x + 20,
+        maxY: point.y + 20,
+      });
+      candidates.forEach(candidate => {
+        const element = spatialIndex.byId.get(candidate.id);
+        if (!element) return;
+        const lockOwner = state.elementLocks.get(element.id);
+        if (lockOwner && lockOwner !== state.userId) return;
+        if (isPointNearElement(point, element, 20)) {
+          eraserHitIdsRef.current.add(element.id);
+        }
+      });
+    }
+  }, [spatialIndex]);
+
+  const scheduleEraserFlush = useCallback(() => {
+    if (eraserFlushRef.current !== null) return;
+    // No frame source: apply inline, which is exactly the pre-batching
+    // behavior for environments without animation frames.
+    if (typeof requestAnimationFrame === 'undefined') {
+      flushEraserAccumulator();
+      return;
+    }
+    eraserFlushRef.current = requestAnimationFrame(() => {
+      eraserFlushRef.current = null;
+      flushEraserAccumulator();
+    });
+  }, [flushEraserAccumulator]);
+
+  useEffect(
+    () => () => {
+      if (eraserFlushRef.current !== null && typeof cancelAnimationFrame !== 'undefined') {
+        cancelAnimationFrame(eraserFlushRef.current);
+      }
+    },
+    []
+  );
 
   const getGestureBoundArrows = useCallback((): ReadonlyMap<string, ReadonlySet<string>> => {
     if (!interactionRef.current.bindingIndexReady) {
@@ -455,6 +517,15 @@ export function useCanvasPointerEvents({
       if (currentTool === 'eraser') {
         setIsDrawing(true);
         eraserHitIdsRef.current.clear();
+        // Drop a batch stranded by an interrupted stroke; flushing here would
+        // append stale points ahead of the new stroke.
+        if (eraserFlushRef.current !== null) {
+          if (typeof cancelAnimationFrame !== 'undefined') {
+            cancelAnimationFrame(eraserFlushRef.current);
+          }
+          eraserFlushRef.current = null;
+        }
+        eraserPendingRef.current = [];
         setEraserPath([{ x, y }]);
         return;
       }
@@ -897,23 +968,10 @@ export function useCanvasPointerEvents({
       if (!useCanvasStore.getState().isDrawing) return;
 
       if (currentTool === 'eraser') {
-        useCanvasStore.getState().setEraserPath(prev => [...prev, { x, y }]);
-        const state = useCanvasStore.getState();
-        const candidates = spatialIndex.tree.search({
-          minX: x - 20,
-          minY: y - 20,
-          maxX: x + 20,
-          maxY: y + 20,
-        });
-        candidates.forEach(candidate => {
-          const element = spatialIndex.byId.get(candidate.id);
-          if (!element) return;
-          const lockOwner = state.elementLocks.get(element.id);
-          if (lockOwner && lockOwner !== state.userId) return;
-          if (isPointNearElement({ x, y }, element, 20)) {
-            eraserHitIdsRef.current.add(element.id);
-          }
-        });
+        // Accumulate the sample; the scheduled flush appends the frame's
+        // batch in one commit (see flushEraserAccumulator).
+        eraserPendingRef.current.push({ x, y });
+        scheduleEraserFlush();
         return;
       }
 
@@ -1006,6 +1064,7 @@ export function useCanvasPointerEvents({
       pushHistory,
       updateDrawing,
       getGestureBoundArrows,
+      scheduleEraserFlush,
     ]
   );
 
@@ -1109,6 +1168,9 @@ export function useCanvasPointerEvents({
         }
 
         if (currentTool === 'eraser') {
+          // Drain samples that never reached a frame, so the erase set is
+          // complete even for a tap with no frame in between.
+          flushEraserAccumulator();
           const elementsToErase = collectCascadeDeleteIds(eraserHitIdsRef.current);
 
           if (elementsToErase.length > 0) {
@@ -1163,6 +1225,7 @@ export function useCanvasPointerEvents({
       collectCascadeDeleteIds,
       finishDrawing,
       applyFrameGrouping,
+      flushEraserAccumulator,
     ]
   );
 

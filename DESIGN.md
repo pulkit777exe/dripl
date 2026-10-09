@@ -324,6 +324,10 @@ Two consequences worth knowing before changing this code:
   follow-ups (bound arrows, labels) resolves everything into a single store commit
   (`resolveGestureUpdates`): two commits re-render the canvas subtree twice for one visible
   frame, with an identical end state.
+- **Eraser samples accumulate, then append once.** Eraser input keeps every coalesced
+  sample, so the trail and hit-testing ride a trailing-edge flush instead of committing per
+  sample; pointer-up drains synchronously so the erase set is complete with no frame in
+  between, and a new stroke cancels a stranded batch rather than appending it.
 
 **No inertia on the viewport.** A previous implementation ran a 0.95-decay velocity loop and
 glided a single 200-unit notch ~6,000px, carrying the viewport off the scene. Frame

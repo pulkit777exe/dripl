@@ -628,6 +628,20 @@ describe('resize gestures beyond the box handle', () => {
 
 describe('eraser', () => {
   it('never marks an element locked by another user for deletion', () => {
+    // Frame queue: the eraser trail commits on a trailing edge (see
+    // flushEraserAccumulator), so the move below only lands once a frame runs.
+    // Mocked per-test — with synchronous delivery — so the file's other
+    // suites keep their timing.
+    const frameQueue = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 1;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+      const id = nextFrameId++;
+      frameQueue.set(id, cb);
+      return id;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      frameQueue.delete(id);
+    });
     const elements = [rect('a', 100, 100)];
     const { result } = setup(false, { elements });
     useCanvasStore.setState({
@@ -640,6 +654,11 @@ describe('eraser', () => {
     });
     act(() => {
       result.current.handlePointerMove(pointerEvent(155, 145));
+    });
+    act(() => {
+      const pending = Array.from(frameQueue.values());
+      frameQueue.clear();
+      for (const cb of pending) cb(performance.now());
     });
 
     // The eraser radius covers the element, but the lock wins.
