@@ -111,10 +111,6 @@ let nextFrameId: number;
 function setup(elements: DriplElement[]) {
   seed(elements);
   const store = useCanvasStore.getState();
-  // Installed before render so the hook's store subscription picks up the
-  // spy; it calls through, so the state assertions below observe the real
-  // commit the count observes.
-  const pathSpy = vi.spyOn(store, 'setEraserPath');
   const props = {
     readOnly: false,
     getCanvasCoordinates: (e: { clientX: number; clientY: number }) => ({
@@ -144,7 +140,24 @@ function setup(elements: DriplElement[]) {
     applyFrameGrouping: vi.fn<(frame: DriplElement) => void>(),
     spatialIndex: spatialIndexFor(elements),
   };
-  return { hook: renderHook(() => useCanvasPointerEvents(props)), pathSpy };
+  return { hook: renderHook(() => useCanvasPointerEvents(props)) };
+}
+
+// Trail commits observed, not spied. Spying on a Zustand state function does
+// not survive the store: `set()` copies the mock into every future state
+// object while `restoreAllMocks` only heals the stale one, so the mock — and
+// its call log — leaks across tests. A subscription counts each trail
+// identity change instead, which is also the re-render count, and it detaches
+// cleanly.
+let trailCommits: number;
+let stopWatching: (() => void) | null = null;
+
+function watchTrail() {
+  trailCommits = 0;
+  stopWatching?.();
+  stopWatching = useCanvasStore.subscribe((s, p) => {
+    if (s.eraserPath !== p.eraserPath) trailCommits += 1;
+  });
 }
 
 function selectEraser() {
@@ -175,6 +188,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  stopWatching?.();
+  stopWatching = null;
   vi.restoreAllMocks();
 });
 
@@ -182,15 +197,15 @@ describe('eraser trail batching', () => {
   it('appends a frame of samples in one commit, in order', () => {
     const {
       hook: { result },
-      pathSpy,
     } = setup([rect('a', 0), rect('b', 300)]);
     selectEraser();
+    watchTrail();
 
     act(() => {
       result.current.handlePointerDown(pointerEvent(50, 40));
     });
     // The down point commits immediately; the moves below must not.
-    expect(pathSpy.mock.calls).toHaveLength(1);
+    expect(trailCommits).toBe(1);
 
     act(() => {
       result.current.handlePointerMove(pointerEvent(55, 45));
@@ -201,11 +216,11 @@ describe('eraser trail batching', () => {
     act(() => {
       result.current.handlePointerMove(pointerEvent(65, 55));
     });
-    expect(pathSpy.mock.calls).toHaveLength(1);
+    expect(trailCommits).toBe(1);
 
     runFrames();
 
-    expect(pathSpy.mock.calls).toHaveLength(2);
+    expect(trailCommits).toBe(2);
     expect(useCanvasStore.getState().eraserPath).toEqual([
       { x: 50, y: 40 },
       { x: 55, y: 45 },
@@ -239,9 +254,9 @@ describe('eraser trail batching', () => {
   it('erases on release even when no frame ran, without resurrecting the trail', () => {
     const {
       hook: { result },
-      pathSpy,
     } = setup([rect('a', 0), rect('b', 300)]);
     selectEraser();
+    watchTrail();
 
     act(() => {
       result.current.handlePointerDown(pointerEvent(50, 40));
@@ -259,9 +274,9 @@ describe('eraser trail batching', () => {
     expect(after.eraserPath).toEqual([]);
 
     // A late frame must not append the drained batch back onto the cleared path.
-    const callsAfterUp = pathSpy.mock.calls.length;
+    const commitsAfterUp = trailCommits;
     runFrames();
-    expect(pathSpy.mock.calls).toHaveLength(callsAfterUp);
+    expect(trailCommits).toBe(commitsAfterUp);
     expect(useCanvasStore.getState().eraserPath).toEqual([]);
   });
 

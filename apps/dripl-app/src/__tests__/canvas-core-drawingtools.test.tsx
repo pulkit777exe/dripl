@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCanvasStore } from '@/lib/store';
 import { useDrawingTools } from '@/hooks/useDrawingTools';
 import { DriplElementSchema } from '@dripl/common';
@@ -60,6 +60,10 @@ function draft(): DriplElement | null {
 
 beforeEach(() => {
   seed();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('draft lifecycle', () => {
@@ -334,6 +338,19 @@ describe('tool-specific commits', () => {
   });
 
   it('records the pointer pressure of every freedraw sample', () => {
+    // Frame queue: freedraw draft syncs land on a trailing edge, so the
+    // assertions below run after a frame. The pressure plumbing under test —
+    // every sample advancing the tool state — is unchanged.
+    const frameQueue = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 1;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+      const id = nextFrameId++;
+      frameQueue.set(id, cb);
+      return id;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      frameQueue.delete(id);
+    });
     const { result } = renderHook(() => useDrawingTools());
     act(() => {
       result.current.startDrawing({ x: 0, y: 0 }, 'freedraw', { shiftKey: false }, BASE);
@@ -343,6 +360,11 @@ describe('tool-specific commits', () => {
         { x: 40, y: 30 },
         { shiftKey: false, altKey: false, pressure: 0.8 }
       );
+    });
+    act(() => {
+      const pending = Array.from(frameQueue.values());
+      frameQueue.clear();
+      for (const cb of pending) cb(performance.now());
     });
 
     // One entry per sample: the start's default plus the pointer's value. A
@@ -484,5 +506,165 @@ describe('committing into an occupied scene', () => {
     expect(useCanvasStore.getState().elements).toHaveLength(1);
     expect(committedId).not.toBe('');
     expect(useCanvasStore.getState().draftElement).toBeNull();
+  });
+});
+
+describe('freedraw draft batching', () => {
+  // Frame queue, scoped to these tests: the file's other suites keep their
+  // synchronous timing, and `afterEach` above restores the spies.
+  let frameQueue: Map<number, FrameRequestCallback>;
+  let nextFrameId: number;
+
+  function mockFrames() {
+    frameQueue = new Map();
+    nextFrameId = 1;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+      const id = nextFrameId++;
+      frameQueue.set(id, cb);
+      return id;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      frameQueue.delete(id);
+    });
+  }
+
+  function runFrames() {
+    act(() => {
+      const pending = Array.from(frameQueue.values());
+      frameQueue.clear();
+      for (const cb of pending) cb(performance.now());
+    });
+  }
+
+  function startFreedraw() {
+    const { result } = renderHook(() => useDrawingTools());
+    act(() => {
+      result.current.startDrawing({ x: 0, y: 0 }, 'freedraw', { shiftKey: false }, BASE);
+    });
+    return { result };
+  }
+
+  // Draft commits observed, not spied. Spying on a Zustand state function
+  // does not survive the store: `set()` copies the mock into every future
+  // state object while `restoreAllMocks` only heals the stale one, so the
+  // mock — and its call log — leaks across tests. A subscription counts each
+  // draft identity change instead, which is also the re-render count, and it
+  // detaches cleanly.
+  let draftCommits: Array<DriplElement | null>;
+  let stopWatching: (() => void) | null = null;
+
+  function watchDrafts() {
+    draftCommits = [];
+    stopWatching?.();
+    stopWatching = useCanvasStore.subscribe((s, p) => {
+      if (s.draftElement !== p.draftElement) draftCommits.push(s.draftElement);
+    });
+  }
+
+  afterEach(() => {
+    stopWatching?.();
+    stopWatching = null;
+  });
+
+  type FreedrawDraft = { points: Array<{ x: number; y: number }> };
+  const draftPoints = () => (draft() as unknown as FreedrawDraft).points;
+
+  it('syncs a frame of samples once with every sample preserved', () => {
+    mockFrames();
+    const { result } = startFreedraw();
+    // Past the start's own commit: the initial draft is the whole content.
+    watchDrafts();
+    expect(draftPoints()).toEqual([{ x: 0, y: 0 }]);
+
+    act(() => {
+      result.current.updateDrawing({ x: 10, y: 0 }, { shiftKey: false, altKey: false });
+    });
+    act(() => {
+      result.current.updateDrawing({ x: 20, y: 0 }, { shiftKey: false, altKey: false });
+    });
+    act(() => {
+      result.current.updateDrawing({ x: 30, y: 0 }, { shiftKey: false, altKey: false });
+    });
+    // State advanced three times; the store heard nothing yet.
+    expect(draftCommits).toHaveLength(0);
+
+    runFrames();
+
+    expect(draftCommits).toHaveLength(1);
+    // Ends survive simplification (interior collinear samples are the tool
+    // state's business, pinned by the pressure and commit tests): what the
+    // batching guarantees is one commit carrying the frame's first-to-last.
+    const points = draftPoints();
+    expect(points[0]).toEqual({ x: 0, y: 0 });
+    expect(points[points.length - 1]).toEqual({ x: 30, y: 0 });
+  });
+
+  it('commits unflushed samples on finish with no stale sync after', () => {
+    mockFrames();
+    const { result } = startFreedraw();
+    watchDrafts();
+
+    act(() => {
+      result.current.updateDrawing({ x: 10, y: 0 }, { shiftKey: false, altKey: false });
+    });
+    act(() => {
+      result.current.updateDrawing({ x: 20, y: 0 }, { shiftKey: false, altKey: false });
+    });
+    expect(draftCommits).toHaveLength(0);
+
+    // No frame ran, yet the commit carries every sample: the preview is built
+    // from the tool state, not from the deferred draft.
+    let committed: DriplElement | null = null;
+    act(() => {
+      committed = result.current.finishDrawing();
+    });
+    const points = (committed as unknown as FreedrawDraft).points;
+    expect(points[points.length - 1]).toEqual({ x: 20, y: 0 });
+    // The finish's own preview sync plus the commit clearing the draft.
+    expect(draftCommits).toHaveLength(2);
+    expect(draftCommits[1]).toBeNull();
+
+    runFrames();
+    expect(draftCommits).toHaveLength(2);
+    expect(draft()).toBeNull();
+  });
+
+  it('drops unflushed samples on cancel', () => {
+    mockFrames();
+    const { result } = startFreedraw();
+    watchDrafts();
+    expect(draftCommits).toHaveLength(0);
+
+    act(() => {
+      result.current.updateDrawing({ x: 10, y: 0 }, { shiftKey: false, altKey: false });
+    });
+    expect(draftCommits).toHaveLength(0);
+    act(() => {
+      result.current.cancelDrawing();
+    });
+
+    // Exactly the cancel's own nulling — no sample sync before or after.
+    expect(draftCommits).toEqual([null]);
+    runFrames();
+    expect(draftCommits).toEqual([null]);
+    expect(draft()).toBeNull();
+  });
+
+  it('keeps shape tools syncing every update', () => {
+    mockFrames();
+    const { result } = renderHook(() => useDrawingTools());
+
+    // Only freedraw batches: every other tool delivers at most one sample per
+    // frame already, so deferring them would change their contract for no gain.
+    act(() => {
+      result.current.startDrawing({ x: 10, y: 20 }, 'rectangle', { shiftKey: false }, BASE);
+    });
+    watchDrafts();
+    act(() => {
+      result.current.updateDrawing({ x: 60, y: 70 }, { shiftKey: false, altKey: false });
+    });
+
+    expect(draftCommits).toHaveLength(1);
+    expect(draft()).toMatchObject({ type: 'rectangle' });
   });
 });

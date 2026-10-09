@@ -328,6 +328,11 @@ Two consequences worth knowing before changing this code:
   sample, so the trail and hit-testing ride a trailing-edge flush instead of committing per
   sample; pointer-up drains synchronously so the erase set is complete with no frame in
   between, and a new stroke cancels a stranded batch rather than appending it.
+- **Freedraw advances per sample but syncs once.** The tool state still moves with every
+  sample for full fidelity; only the draft store commit waits for the frame. Finish and
+  cancel drain or cancel the pending sync, so a commit never loses unflushed samples and a
+  stale flush never lands. Shape tools keep syncing inline — they deliver at most one
+  sample per frame already.
 
 **No inertia on the viewport.** A previous implementation ran a 0.95-decay velocity loop and
 glided a single 200-unit notch ~6,000px, carrying the viewport off the scene. Frame

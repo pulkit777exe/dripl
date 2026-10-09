@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { DriplElement, Point, ArrowStyle } from '@dripl/common';
 import { useCanvasStore } from '@/lib/store';
@@ -118,6 +118,45 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     [buildElement, updateDraftElement]
   );
 
+  // Freedraw samples accumulate in `activeRef` until the trailing-edge flush
+  // syncs the draft in a single store commit (see updateDrawing). A freehand
+  // stroke replays every coalesced sample in one frame; syncing each one
+  // re-rendered the canvas subtree per sample for a single visible frame.
+  // Other tools deliver at most one sample per frame (the pointer queue
+  // collapses them), so they keep syncing inline — batching them would change
+  // their synchronous contract for no gain.
+  const draftFlushRef = useRef<number | null>(null);
+
+  const cancelDraftFlush = useCallback(() => {
+    if (draftFlushRef.current !== null) {
+      if (typeof cancelAnimationFrame !== 'undefined') {
+        cancelAnimationFrame(draftFlushRef.current);
+      }
+      draftFlushRef.current = null;
+    }
+  }, []);
+
+  const flushDraftToStore = useCallback(() => {
+    cancelDraftFlush();
+    const { toolState, baseProps } = activeRef.current;
+    // Finished or cancelled since scheduling: nothing to sync.
+    if (!toolState || !baseProps) return;
+    syncDraftToStore(toolState, baseProps);
+  }, [syncDraftToStore, cancelDraftFlush]);
+
+  const scheduleDraftFlush = useCallback(() => {
+    if (draftFlushRef.current !== null) return;
+    // No frame source: apply inline, which is the pre-batching behavior.
+    if (typeof requestAnimationFrame === 'undefined') {
+      flushDraftToStore();
+      return;
+    }
+    draftFlushRef.current = requestAnimationFrame(() => {
+      draftFlushRef.current = null;
+      flushDraftToStore();
+    });
+  }, [flushDraftToStore]);
+
   const startDrawing = useCallback(
     (
       point: Point,
@@ -126,6 +165,8 @@ export function useDrawingTools(): UseDrawingToolsReturn {
       baseProps: BaseToolProps,
       _elements?: DriplElement[]
     ) => {
+      // A previous stroke's scheduled sync must not land on the new stroke.
+      cancelDraftFlush();
       const id = uuidv4();
       const seed = Math.floor(Math.random() * 1_000_000);
       const { toolState, bindMode } = createToolState(tool, point, options, id, seed);
@@ -138,7 +179,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
         setDraftElement(initial);
       }
     },
-    [buildElement, setDraftElement]
+    [buildElement, setDraftElement, cancelDraftFlush]
   );
 
   const updateDrawing = useCallback(
@@ -149,18 +190,27 @@ export function useDrawingTools(): UseDrawingToolsReturn {
       const next = advanceToolState(toolState, point, options);
       activeRef.current = { toolState: next, baseProps };
 
-      syncDraftToStore(next, baseProps);
+      if (next.type === 'freedraw') {
+        // State advances per sample for full fidelity; the store sync lands
+        // once per frame (see scheduleDraftFlush).
+        scheduleDraftFlush();
+      } else {
+        syncDraftToStore(next, baseProps);
+      }
       if (next.type === 'arrow' && elements) {
         // Placeholder for future arrow binding support without affecting behavior.
         void elements;
       }
     },
-    [syncDraftToStore]
+    [syncDraftToStore, scheduleDraftFlush]
   );
 
   const finishDrawing = useCallback((): DriplElement | null => {
     const { toolState, baseProps } = activeRef.current;
     activeRef.current = { toolState: null, baseProps: null };
+    // The preview below is built from the tool state, which already holds
+    // every sample, so a pending sync is redundant rather than load-bearing.
+    cancelDraftFlush();
     if (!toolState || !baseProps) {
       setDraftElement(null);
       return null;
@@ -203,12 +253,15 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     }
 
     return committed;
-  }, [buildElement, commitDraft, setDraftElement, updateDraftElement]);
+  }, [buildElement, commitDraft, setDraftElement, updateDraftElement, cancelDraftFlush]);
 
   const cancelDrawing = useCallback(() => {
     activeRef.current = { toolState: null, baseProps: null };
+    cancelDraftFlush();
     setDraftElement(null);
-  }, [setDraftElement]);
+  }, [setDraftElement, cancelDraftFlush]);
+
+  useEffect(() => () => cancelDraftFlush(), [cancelDraftFlush]);
 
   const lifecycle = useCanvasStore(state => state.drawingLifecycle);
 
