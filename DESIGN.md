@@ -311,6 +311,15 @@ Two consequences worth knowing before changing this code:
   visibly under-zooms.
 - **Keep the _last_ value, not the first.** A dropped trailing call leaves the viewport one
   increment short of the gesture.
+- **Read the canvas origin once per frame.** `getBoundingClientRect` forces layout, and the
+  canvas box does not move within a frame — viewport changes are applied as a canvas draw
+  transform, not as DOM movement. `useCanvasCoordinates` caches the origin until the next
+  frame, so a freehand stroke's coalesced samples share one reading instead of paying one
+  layout per sample.
+- **Hold the viewport in a ref, not in the callback.** The viewport object is rebuilt on every
+  pan/zoom commit; closing over it would mint a new coordinate callback — and downstream a new
+  pointer-move handler and a new canvas prop — on every frame of a gesture. Reading the ref at
+  event time keeps handler identity stable while always applying the latest transform.
 
 **No inertia on the viewport.** A previous implementation ran a 0.95-decay velocity loop and
 glided a single 200-unit notch ~6,000px, carrying the viewport off the scene. Frame
