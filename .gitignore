@@ -52,12 +52,9 @@ skills
 dev-docs
 .kilo
 .env*.local
-docs/
-!docs/
-!docs/codebase-audit.md
-!docs/collaboration-crdt-e2ee-decision.md
-!docs/database-migration-notes.md
-!docs/performance-benchmark.md
+# docs/ is tracked in full (`git ls-files docs/`). A previous `docs/` + `!docs/`
+# allowlist block lived here, but `git check-ignore` proved it ignored nothing —
+# the negations only suggested otherwise — so it was removed outright.
 bun.lock
 
 # Prisma 7 generated client (regenerate with `pnpm db:generate`)
