@@ -119,8 +119,8 @@ describe('/verify-email — a link with no token', () => {
 
   /**
    * Regression: a dead verification link is an account that never got confirmed, so
-   * the only useful way forward is a fresh sign-up. `/login` would send them to a
-   * form that answers "please verify your email first" — a loop.
+   * the only useful way forward is a fresh sign-up. `/login` cannot help: it answers
+   * the same generic 401 for every refusal and never names verification state.
    */
   it('offers a fresh sign-up rather than a sign-in', async () => {
     visit('');
@@ -324,7 +324,7 @@ describe('/verify-email — a refused verification', () => {
   /**
    * Regression: success and failure must not look alike, and the two branches offer
    * opposite advice. Offering `/login` on a failure sends the user to a form that
-   * answers "please verify your email before signing in" — a loop.
+   * answers a generic refusal with no way to act on verification state.
    */
   it('offers a fresh sign-up, not a sign-in, when the verification fails', async () => {
     verifyEmail.mockRejectedValue(new Error('Verification token has expired'));

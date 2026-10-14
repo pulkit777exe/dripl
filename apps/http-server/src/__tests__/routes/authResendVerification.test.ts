@@ -170,6 +170,32 @@ describe('POST /api/auth/resend-verification', () => {
       // validation changed shape.
       expect(resendVerificationSpy).toHaveBeenCalledWith('user@example.com');
     });
+
+    it('answers the same ok:true when the address is already verified (non-enumerating)', async () => {
+      // Was 400 INVALID_PAYLOAD 'Email is already verified', which revealed
+      // account existence and verification state. Mail is still sent only when
+      // applicable inside the service; the wire no longer says when that was.
+      resendVerificationSpy.mockResolvedValueOnce(false);
+
+      const res = await postResendUnguarded({ email: 'verified@example.com' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ ok: true });
+    });
+
+    it('answers the same ok:true for an unknown address as for a pending one', async () => {
+      // The forgot-password shape: unknown and pending are wire-identical, so
+      // the endpoint cannot be used to learn which addresses have accounts.
+      resendVerificationSpy.mockResolvedValueOnce(true);
+      const pending = await postResendUnguarded({ email: 'pending@example.com' });
+      resendVerificationSpy.mockResolvedValueOnce(true);
+      const unknown = await postResendUnguarded({ email: 'nobody@example.com' });
+
+      expect(pending.status).toBe(200);
+      expect(unknown.status).toBe(200);
+      expect(pending.body).toEqual({ ok: true });
+      expect(unknown.body).toEqual({ ok: true });
+    });
   });
 
   describe('CSRF protection on the composed app', () => {

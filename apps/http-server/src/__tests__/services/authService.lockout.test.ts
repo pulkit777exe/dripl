@@ -326,7 +326,9 @@ describe('an address that cannot log in is never counted as an attempt', () => {
    *
    * `needs_verification` returns before `bcrypt.compare`, for the same reason: a
    * fresh account that has not clicked its email yet should not be one typo away from
-   * a 15-minute lockout on its very first login attempt.
+   * a 15-minute lockout on its very first login attempt. (Service-level type; the
+   * route answers the same 401 INVALID_CREDENTIALS as every other refusal, so the
+   * wire reveals nothing about verification state.)
    */
   it('does not count an unverified account', async () => {
     const address = freshAddress();

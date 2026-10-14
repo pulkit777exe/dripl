@@ -36,34 +36,15 @@ export default function SignupPage(): React.ReactNode {
     setLoading(true);
 
     try {
-      const result = await signup(email, password, name);
-      if (result.pendingVerification) {
-        router.push('/verify-pending?email=' + encodeURIComponent(email));
-      } else {
-        router.push('/dashboard');
-      }
+      // Non-enumerating register: the server always answers 201 with
+      // pendingVerification:true (new, pending, or already-registered), so every
+      // success lands on verify-pending. There is no dashboard branch and no
+      // already-registered error branch (the pre-change 409 CONFLICT is gone).
+      await signup(email, password, name);
+      router.push('/verify-pending?email=' + encodeURIComponent(email));
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to sign up';
-
-      // Branched on the message `/auth/register` actually sends.
-      //
-      // This tested for 'already verified', which is the error on
-      // `/auth/resend-verification` (`routes/auth.ts:360`) — a route sign-up
-      // never calls. The duplicate-address error is 'Email is already
-      // registered' (`routes/auth.ts:102`), so the branch was unreachable and
-      // the one failure that most needs the 'Sign in' link got plain text.
-      if (errorMessage.includes('already registered')) {
-        setError(
-          <span>
-            {errorMessage}{' '}
-            <Link href="/login" className="underline hover:text-[#E8462A]">
-              Sign in
-            </Link>
-          </span>
-        );
-      } else {
-        setError(errorMessage);
-      }
+      setError(errorMessage);
     } finally {
       inFlightRef.current = false;
       setLoading(false);
@@ -80,9 +61,8 @@ export default function SignupPage(): React.ReactNode {
         <InlineError
           // Passed through as-is. This collapsed to
           // `typeof error === 'string' ? error : 'An error occurred'`, throwing away
-          // the span built above — so a duplicate address was reported with no way
-          // to sign in. `InlineError`'s prop is `ReactNode` and renders it, and
-          // `/login` had the identical defect with the identical fix.
+          // any node built above. `InlineError`'s prop is `ReactNode` and renders
+          // it, and `/login` had the identical defect with the identical fix.
           message={error}
           onRetry={async () => {
             setError('');

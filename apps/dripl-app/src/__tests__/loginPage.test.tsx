@@ -518,38 +518,24 @@ describe('/login — messages from the auth callback', () => {
   });
 
   /**
-   * The source builds a `<span>` carrying the server's message plus a "Resend
-   * verification" link, then rendered
-   * `message={typeof error === 'string' ? error : 'An error occurred'}` — so a
-   * non-string `error` reached `InlineError` as the literal text "An error
-   * occurred" and the element holding the message and the link was discarded. A
-   * user whose address is unverified was told nothing about why and was offered
-   * no way to resend.
-   *
-   * The branch exists only to give them that link, so the intent was never in
-   * doubt; what was wrong was `InlineError`'s prop being typed `string` while the
-   * component interpolated it into a `<p>` anyway. Widening the prop to
-   * `ReactNode` and passing `error` through is the whole fix.
+   * Non-enumerating login: the server answers the same 401 INVALID_CREDENTIALS
+   * for unknown, unverified, and wrong-password, so there is no
+   * needs-verification branch on this page. The pre-change wire answered
+   * NEEDS_VERIFICATION for a pending account and this page built a "Resend
+   * verification" link from it — that oracle is gone, and every refusal renders
+   * as generic text with no link and no navigation.
    */
-  it('shows the resend-verification message and link for an unverified address', async () => {
-    login.mockRejectedValue(new Error('Please verify your email before signing in'));
+  it('shows a generic failure with no resend link for an unverified-shaped refusal', async () => {
+    login.mockRejectedValue(new Error('Invalid email or password'));
     render(<LoginPage />);
     fillCredentials();
 
     await submitForm();
 
     const alert = screen.getByRole('alert');
-    // The server's own words, not a generic apology.
-    expect(alert).toHaveTextContent('Please verify your email before signing in');
+    expect(alert).toHaveTextContent('Invalid email or password');
     expect(alert).not.toHaveTextContent('An error occurred');
-
-    // And the way forward, carrying the address so the resend page knows where to
-    // send. This is the entire reason the branch exists.
-    const resend = screen.getByRole('link', { name: /resend verification/i });
-    expect(resend).toHaveAttribute(
-      'href',
-      `/verify-pending?email=${encodeURIComponent('ada@dripl.test')}`
-    );
+    expect(screen.queryByRole('link', { name: /resend verification/i })).not.toBeInTheDocument();
 
     // Still a failure: no navigation.
     expect(router.replace).not.toHaveBeenCalled();

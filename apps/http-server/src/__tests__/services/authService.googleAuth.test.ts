@@ -109,10 +109,11 @@ describe('a Google account seen for the first time', () => {
    * `verifyEmail` has no token to redeem. The account is stuck.
    *
    * The consequence is a lockout, not a data leak: `POST /api/auth/login` answers
-   * `needs_verification` for the account forever, so a user who signed in with Google
-   * and later tries to sign in with a password cannot, and one who *only* ever uses
-   * Google keeps working because `POST /api/auth/google` mints its session token
-   * without consulting the flag.
+   * the same generic 401 INVALID_CREDENTIALS for the account as for any other
+   * refusal (the pre-change NEEDS_VERIFICATION oracle is gone), so a user who
+   * signed in with Google and later tries to sign in with a password cannot, and
+   * one who *only* ever uses Google keeps working because
+   * `POST /api/auth/google` mints its session token without consulting the flag.
    *
    * This assertion states what the code does, not what it should do, because the
    * contract cannot be changed here and a green suite must not depend on a fix

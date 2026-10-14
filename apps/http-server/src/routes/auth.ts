@@ -104,29 +104,23 @@ authRouter.post('/register', async (req, res) => {
   }
 
   try {
-    const result = await AuthService.register(
+    // WIRE (non-enumerating): every outcome answers the same 201 with the same
+    // body — new account, unverified re-register, or already-registered address —
+    // mirroring forgot-password's non-enumerating `ok:true`. The pre-change wire
+    // distinguished them (409 CONFLICT for a verified address, 200 with distinct
+    // 'already sent' / 'sent' messages for pending ones), which let a caller learn
+    // whether an address holds an account. Side effects still differ inside the
+    // service (mail is re-issued only when applicable); the wire does not.
+    await AuthService.register(
       parsed.data.email,
       parsed.data.password,
       parsed.data.name
     );
 
-    switch (result.type) {
-      case 'email_already_registered':
-        sendError(res, 409, 'CONFLICT', 'Email is already registered');
-        break;
-      case 'pending_verification':
-        res.json({ message: result.message, pendingVerification: true });
-        break;
-      case 'verification_sent':
-        res.json({ message: result.message, pendingVerification: true });
-        break;
-      case 'registered':
-        res.status(201).json({
-          message: 'Registration successful. Please verify your email to login.',
-          pendingVerification: true,
-        });
-        break;
-    }
+    res.status(201).json({
+      message: 'Registration successful. Please verify your email to login.',
+      pendingVerification: true,
+    });
   } catch (error) {
     logger.error({ event: 'register_error', error }, 'Failed to register user');
     sendError(res, 500, 'INTERNAL_ERROR', 'Failed to register user');
@@ -149,17 +143,14 @@ authRouter.post('/login', async (req, res) => {
     const result = await AuthService.login(parsed.data.email, parsed.data.password);
 
     switch (result.type) {
+      // WIRE (non-enumerating): not_found, needs_verification and
+      // invalid_password all answer the same 401 INVALID_CREDENTIALS. The
+      // pre-change wire answered NEEDS_VERIFICATION (with needsVerification:true)
+      // for an unverified account, which revealed that the address holds a
+      // pending account. The service still distinguishes the cases internally
+      // (lockout accounting skips unverified accounts); the wire does not.
       case 'not_found':
-        sendError(res, 401, 'INVALID_CREDENTIALS', 'Invalid email or password');
-        break;
       case 'needs_verification':
-        res.status(401).json({
-          error: 'NEEDS_VERIFICATION',
-          message: 'Please verify your email before logging in',
-          statusCode: 401,
-          needsVerification: true,
-        });
-        break;
       case 'invalid_password':
         sendError(res, 401, 'INVALID_CREDENTIALS', 'Invalid email or password');
         break;
@@ -395,11 +386,12 @@ authRouter.post('/resend-verification', async (req, res) => {
   }
 
   try {
-    const result = await AuthService.resendVerification(parsed.data.email);
-    if (!result) {
-      sendError(res, 400, 'INVALID_PAYLOAD', 'Email is already verified');
-      return;
-    }
+    // WIRE (non-enumerating): always `ok:true`, whether the address is unknown,
+    // pending, or already verified — mirroring forgot-password. The pre-change
+    // wire answered 400 'Email is already verified' for a verified address, which
+    // revealed account existence and verification state. Mail is still sent only
+    // when applicable inside the service; the wire does not say when that was.
+    await AuthService.resendVerification(parsed.data.email);
     res.json({ ok: true });
   } catch (error) {
     logger.error(

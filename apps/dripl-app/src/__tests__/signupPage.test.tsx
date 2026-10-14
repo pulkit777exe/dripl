@@ -13,12 +13,12 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
  *   2. There is still no same-tick submit latch (no `inFlightRef`).
  *
  * Both are pinned LABELLED as they behave today and reported, not fixed. The
- * branch the discarded node was built for is, additionally, unreachable from
- * this API: `/auth/register` answers `'Email is already registered'`, and the
- * only `'already verified'` string in the server is on `/auth/resend-verification`.
+ * non-enumerating register contract means no failure branch offers a sign-in
+ * link: `/auth/register` always answers 201 pendingVerification (never 409),
+ * so every refusal renders as generic text.
  *
  * `useAuth` is pinned by `AuthContext.test.tsx`, so what is under test here is
- * this page's handling of a signup that fails, is already pending verification,
+ * this page's handling of a signup that fails, is pending verification,
  * or is clicked twice.
  */
 
@@ -101,7 +101,7 @@ describe('/signup — a successful sign-up', () => {
    * from the DOM at submit time — creates the account with no name, and the name
    * is what the product shows on every canvas this person draws.
    */
-  it('submits the address, password and name, then goes to the dashboard', async () => {
+  it('submits the address, password and name, then goes to the verify-pending page', async () => {
     render(<SignupPage />);
     fillForm();
 
@@ -109,15 +109,17 @@ describe('/signup — a successful sign-up', () => {
 
     expect(signup).toHaveBeenCalledTimes(1);
     expect(signup).toHaveBeenCalledWith(EMAIL, 'hunter2', NAME);
-    expect(router.push).toHaveBeenCalledWith('/dashboard');
+    // Non-enumerating register: every success answers pendingVerification, so
+    // every success lands on verify-pending — never the dashboard.
+    expect(router.push).toHaveBeenCalledWith(`/verify-pending?email=${encodeURIComponent(EMAIL)}`);
+    expect(router.push).not.toHaveBeenCalledWith('/dashboard');
   });
 
   /**
-   * Regression: `/auth/register` answers `pendingVerification` for every outcome
-   * that is not already-registered, and the account has no session until the
-   * address is verified. Pushing `/dashboard` instead leaves the new user
-   * signed out on a page that immediately redirects them to `/login`, which
-   * reads as "sign-up did not work".
+   * Regression: `/auth/register` always answers `pendingVerification`, and the
+   * account has no session until the address is verified. Pushing `/dashboard`
+   * instead leaves the new user signed out on a page that immediately redirects
+   * them to `/login`, which reads as "sign-up did not work".
    */
   it('sends a pending account to the verify-pending page, not the dashboard', async () => {
     signup.mockResolvedValueOnce({ pendingVerification: true });
@@ -153,7 +155,7 @@ describe('/signup — a successful sign-up', () => {
    * for the failure only ever existed in a network tab.
    */
   it('does not navigate when the signup fails', async () => {
-    signup.mockRejectedValueOnce(new Error('Email is already registered'));
+    signup.mockRejectedValueOnce(new Error('Request failed'));
     render(<SignupPage />);
     fillForm();
 
@@ -165,18 +167,18 @@ describe('/signup — a successful sign-up', () => {
 
 describe('/signup — a refused sign-up', () => {
   /**
-   * Regression: the whole point of the `catch`. This is the message
-   * `/auth/register` actually answers with for a duplicate address — the single
-   * most likely failure on this page — so it has to reach the screen verbatim.
+   * Regression: the whole point of the `catch`. The server's message has to
+   * reach the screen verbatim (non-enumerating: never an already-registered
+   * oracle — every refusal is generic text with no sign-in link).
    */
-  it('shows the server message for an address that is already registered', async () => {
-    signup.mockRejectedValueOnce(new Error('Email is already registered'));
+  it('shows the server message for a refused sign-up', async () => {
+    signup.mockRejectedValueOnce(new Error('Request failed'));
     render(<SignupPage />);
     fillForm();
 
     await submitForm();
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Email is already registered');
+    expect(screen.getByRole('alert')).toHaveTextContent('Request failed');
   });
 
   /**
@@ -186,7 +188,7 @@ describe('/signup — a refused sign-up', () => {
    * address can never correct it.
    */
   it('releases the in-flight latch so a second attempt is possible', async () => {
-    signup.mockRejectedValueOnce(new Error('Email is already registered'));
+    signup.mockRejectedValueOnce(new Error('Request failed'));
     render(<SignupPage />);
     fillForm();
     await submitForm();
@@ -195,7 +197,7 @@ describe('/signup — a refused sign-up', () => {
     await submitForm();
 
     expect(signup).toHaveBeenCalledTimes(2);
-    expect(router.push).toHaveBeenCalledWith('/dashboard');
+    expect(router.push).toHaveBeenCalledWith(`/verify-pending?email=${encodeURIComponent(EMAIL)}`);
   });
 
   /**
@@ -283,13 +285,13 @@ describe('/signup — a refused sign-up', () => {
   /**
    * Regression: `handleSubmit` clears `error` before it awaits, so the previous
    * failure does not sit on screen during the next attempt. Without the clear
-   * the user reads "Email is already registered" while a request that may well
-   * succeed is still open — the form contradicts itself. (Note this is the
-   * *second* `setError('')`: `InlineError`'s `onRetry` also clears it, so
-   * removing either one alone is invisible and only removing both shows up.)
+   * the user reads the old failure while a request that may well succeed is
+   * still open — the form contradicts itself. (Note this is the *second*
+   * `setError('')`: `InlineError`'s `onRetry` also clears it, so removing
+   * either one alone is invisible and only removing both shows up.)
    */
   it('takes the previous failure down while the next attempt is in flight', async () => {
-    signup.mockRejectedValueOnce(new Error('Email is already registered'));
+    signup.mockRejectedValueOnce(new Error('Request failed'));
     render(<SignupPage />);
     fillForm();
     await submitForm();
@@ -345,7 +347,7 @@ describe('/signup — a refused sign-up', () => {
    * correctly, and re-pick the address they had already confirmed.
    */
   it('keeps the typed name, address and password on screen after a refusal', async () => {
-    signup.mockRejectedValueOnce(new Error('Email is already registered'));
+    signup.mockRejectedValueOnce(new Error('Request failed'));
     render(<SignupPage />);
     fillForm();
 
@@ -412,7 +414,7 @@ describe('/signup — retry from the error banner', () => {
    * retry that succeeds would otherwise appear to have failed.
    */
   it('clears the stale message before the retry request goes out', async () => {
-    signup.mockRejectedValueOnce(new Error('Email is already registered'));
+    signup.mockRejectedValueOnce(new Error('Request failed'));
     render(<SignupPage />);
     fillForm();
     await submitForm();
@@ -426,12 +428,12 @@ describe('/signup — retry from the error banner', () => {
     expect(submitButton()).toBeDisabled();
 
     await act(async () => release());
-    expect(router.push).toHaveBeenCalledWith('/dashboard');
+    expect(router.push).toHaveBeenCalledWith(`/verify-pending?email=${encodeURIComponent(EMAIL)}`);
   });
 
   /** Regression: Retry must re-submit rather than only dismissing the message. */
   it('re-submits the same credentials rather than only hiding the message', async () => {
-    signup.mockRejectedValueOnce(new Error('Email is already registered'));
+    signup.mockRejectedValueOnce(new Error('Request failed'));
     render(<SignupPage />);
     fillForm();
     await submitForm();
@@ -445,46 +447,35 @@ describe('/signup — retry from the error banner', () => {
   });
 });
 
-describe('/signup — the already-verified branch', () => {
+describe('/signup — failures are generic (non-enumerating)', () => {
   /**
-   * Two defects on one path, both now fixed.
+   * Non-enumerating register: the server never answers 409, so no failure is
+   * an "existing account" signal and no failure grows a sign-in link. The
+   * pre-change page branched on 'already registered' to offer one; that oracle
+   * is gone and every refusal renders as plain text.
    *
-   * 1. The render collapsed a non-string `error` to the literal "An error
-   *    occurred", discarding the span carrying the message and the *Sign in* link.
-   *    Verbatim the defect `loginPage.test.tsx` documents on `/login`, fixed there
-   *    by widening `InlineError`'s `message` prop to `ReactNode`.
-   * 2. The branch tested for 'already verified' — the error on
-   *    `/auth/resend-verification` (`routes/auth.ts:360`), a route sign-up never
-   *    calls. The duplicate-address error is 'Email is already registered'
-   *    (`routes/auth.ts:102`), so the branch was unreachable and the failure that
-   *    most needs the link got plain text.
-   *
-   * Both together mean the most likely sign-up failure told a user their address
-   * was taken and offered them nothing to do about it.
+   * The page-level sign-in link ("Already have an account? Sign in" below the
+   * form) is unaffected — it is static navigation, not a failure branch.
    */
-  it('offers a sign-in route when the address is already registered', async () => {
-    signup.mockRejectedValueOnce(new Error('Email is already registered'));
+  it('shows a refusal as plain text, with no sign-in link in the alert', async () => {
+    signup.mockRejectedValueOnce(new Error('Request failed'));
     render(<SignupPage />);
     fillForm();
 
     await submitForm();
 
     const alert = screen.getByRole('alert');
-    // The server's own words, not a generic apology.
-    expect(alert).toHaveTextContent('Email is already registered');
+    expect(alert).toHaveTextContent('Request failed');
     expect(alert).not.toHaveTextContent('An error occurred');
-
-    // And the way forward. This is the whole reason the branch exists.
-    expect(within(alert).getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/login');
+    expect(within(alert).queryByRole('link', { name: /sign in/i })).toBeNull();
 
     // Still a failure: no navigation.
     expect(router.push).not.toHaveBeenCalled();
   });
 
   it('still shows an unrelated failure as plain text, with no link', async () => {
-    // The control for the test above. Widening the prop and adding a branch must
-    // not have given every failure a sign-in link — a password policy error has
-    // nothing to do with an existing account.
+    // The control for the test above: a password policy error behaves the same
+    // as any other refusal — nothing about the failure distinguishes accounts.
     signup.mockRejectedValueOnce(new Error('Password is too short'));
     render(<SignupPage />);
     fillForm();
@@ -495,11 +486,10 @@ describe('/signup — the already-verified branch', () => {
     expect(within(screen.getByRole('alert')).queryByRole('link')).toBeNull();
   });
 
-  it('does not offer a sign-in link for the resend route error it never sees', async () => {
-    // Regression on the branch condition itself: 'already verified' belongs to
-    // `/auth/resend-verification`. Branching on it matched nothing, which is how
-    // the real duplicate-address case ended up with no link. This asserts the
-    // branch is keyed to the message register actually sends.
+  it('does not branch on the resend-route error it never sees', async () => {
+    // Regression on the old branch condition: 'already verified' belongs to
+    // `/auth/resend-verification`, a route sign-up never calls. No failure
+    // message grows a link, including this one.
     signup.mockRejectedValueOnce(new Error('Email is already verified'));
     render(<SignupPage />);
     fillForm();
@@ -508,19 +498,13 @@ describe('/signup — the already-verified branch', () => {
 
     // Still shown verbatim...
     expect(screen.getByRole('alert')).toHaveTextContent('Email is already verified');
-    // ...but without the link, because that error is not an existing account.
+    // ...but without a link, because no failure names an existing account.
     expect(within(screen.getByRole('alert')).queryByRole('link')).toBeNull();
   });
 
   /**
    * Regression: the ordinary failure path must keep its message and must not grow a
    * sign-in link it never built.
-   *
-   * This used to use `Email is already registered` as its example, on the reasoning
-   * that the branch was dead so the message stayed plain. That stopped being true
-   * once the branch was keyed to the message register actually sends -- which is
-   * the point. The control now uses an error that genuinely has nothing to do with
-   * an existing account, so it tests what it claims: the *else* path.
    */
   it('shows an unrelated failure as plain text with no link', async () => {
     signup.mockRejectedValueOnce(new Error('Password is too short'));
@@ -542,7 +526,7 @@ describe('/signup — the already-verified branch', () => {
    * like a form that is merely complaining.
    */
   it('flags the shell as in-error state so the whole form reacts', async () => {
-    signup.mockRejectedValueOnce(new Error('Email is already registered'));
+    signup.mockRejectedValueOnce(new Error('Request failed'));
     const { container } = render(<SignupPage />);
     fillForm();
 

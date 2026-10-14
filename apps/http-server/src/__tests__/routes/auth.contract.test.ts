@@ -110,7 +110,10 @@ describe('POST /api/auth/register', () => {
     expect(fakeDb().rows('emailVerificationToken')).toHaveLength(1);
   });
 
-  it('answers 409 CONFLICT when the address is already verified', async () => {
+  it('answers the same 201 pending-verification for an already-registered address', async () => {
+    // Non-enumerating register: a verified address gets the identical wire
+    // answer as a new one (was 409 CONFLICT 'Email is already registered'),
+    // so the endpoint cannot be used to learn which addresses have accounts.
     seedUser();
 
     const response = await post(app, '/api/auth/register', 'anonymous', {
@@ -118,15 +121,18 @@ describe('POST /api/auth/register', () => {
       password: 'longenough1',
     });
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(201);
     expect(response.body).toEqual({
-      error: 'CONFLICT',
-      message: 'Email is already registered',
-      statusCode: 409,
+      message: 'Registration successful. Please verify your email to login.',
+      pendingVerification: true,
     });
+    // And nothing was created or mailed for the existing account.
+    expect(fakeDb().rows('user')).toHaveLength(1);
+    expect(fakeDb().rows('emailVerificationToken')).toHaveLength(0);
   });
 
-  it('re-issues a token for an unverified address rather than failing', async () => {
+  it('answers the same 201 pending-verification for an unverified address with a live token', async () => {
+    // Was 200 with 'Verification email already sent. Please check your inbox.'
     seedUser({ emailVerified: false });
     fakeDb().seed('emailVerificationToken', {
       id: 'tok-old',
@@ -140,11 +146,14 @@ describe('POST /api/auth/register', () => {
       password: 'longenough1',
     });
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(201);
     expect(response.body).toEqual({
-      message: 'Verification email already sent. Please check your inbox.',
+      message: 'Registration successful. Please verify your email to login.',
       pendingVerification: true,
     });
+    // The live token is left alone, not accumulated.
+    expect(fakeDb().rows('emailVerificationToken')).toHaveLength(1);
+    expect(fakeDb().rows('emailVerificationToken')[0]?.token).toBe('old');
   });
 
   it('rotates an expired verification token', async () => {
@@ -161,8 +170,11 @@ describe('POST /api/auth/register', () => {
       password: 'longenough1',
     });
 
-    expect(response.status).toBe(200);
-    expect(response.body.message).toBe('Verification email sent. Please check your inbox.');
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual({
+      message: 'Registration successful. Please verify your email to login.',
+      pendingVerification: true,
+    });
     // The stale row is replaced, not accumulated.
     expect(fakeDb().rows('emailVerificationToken')).toHaveLength(1);
     expect(fakeDb().rows('emailVerificationToken')[0]?.token).not.toBe('stale');
@@ -215,7 +227,11 @@ describe('POST /api/auth/login', () => {
     });
   });
 
-  it('answers 401 NEEDS_VERIFICATION for an unverified account', async () => {
+  it('answers the same 401 INVALID_CREDENTIALS for an unverified account as for an unknown one', async () => {
+    // Non-enumerating login: was 401 NEEDS_VERIFICATION with
+    // needsVerification:true, which revealed a pending account. Now identical
+    // to the unknown-address answer so the endpoint cannot be used to learn
+    // which addresses hold accounts.
     const email = nextEmail();
     seedUser({ email, emailVerified: false });
 
@@ -226,11 +242,11 @@ describe('POST /api/auth/login', () => {
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({
-      error: 'NEEDS_VERIFICATION',
-      message: 'Please verify your email before logging in',
+      error: 'INVALID_CREDENTIALS',
+      message: 'Invalid email or password',
       statusCode: 401,
-      needsVerification: true,
     });
+    expect(response.body).not.toHaveProperty('needsVerification');
   });
 
   it('answers 401 INVALID_CREDENTIALS for a wrong password', async () => {
