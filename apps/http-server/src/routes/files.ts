@@ -73,14 +73,20 @@ filesRouter.get(
         cursor,
       });
 
-      const responseHash = createHash('md5')
-        .update(
-          JSON.stringify({
-            files: result.files,
-            total: result.isCursorBased ? undefined : result.total,
-          })
-        )
-        .digest('hex');
+      // Stable pagination shape: `total` and `page` are always populated —
+      // `cursor` is the primary forward-paging mechanism and `total`/`page`
+      // are informational passthrough for the existing offset UI. (A previous
+      // revision stripped them in cursor mode, so the same endpoint answered
+      // two shapes; that is what this pins against.)
+      const stableBody = {
+        files: result.files,
+        total: result.total,
+        page,
+        limit,
+        nextCursor: result.nextCursor,
+      };
+
+      const responseHash = createHash('md5').update(JSON.stringify(stableBody)).digest('hex');
       const etag = `"${responseHash}"`;
 
       if (req.headers['if-none-match'] === etag) {
@@ -90,13 +96,7 @@ filesRouter.get(
 
       res.set('Cache-Control', 'private, max-age=0, must-revalidate');
       res.set('ETag', etag);
-      res.json({
-        files: result.files,
-        total: result.isCursorBased ? undefined : result.total,
-        page: result.isCursorBased ? undefined : page,
-        limit,
-        nextCursor: result.nextCursor,
-      });
+      res.json(stableBody);
     },
   })
 );
@@ -120,10 +120,12 @@ filesRouter.get(
         cursor,
       });
 
+      // Same stable-shape rule as `GET /` above: `total`/`page` always
+      // populated, `nextCursor` null when the page is not full.
       res.json({
         files: result.files,
-        total: result.isCursorBased ? undefined : result.total,
-        page: result.isCursorBased ? undefined : page,
+        total: result.total,
+        page,
         limit,
         nextCursor: result.nextCursor,
       });

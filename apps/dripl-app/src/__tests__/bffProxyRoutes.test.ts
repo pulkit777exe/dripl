@@ -622,6 +622,18 @@ describe('BFF proxy routes: /api/share and /api/canvas/rooms', () => {
     expect(calledUrls()).toEqual([`${API_ORIGIN}/api/csrf-token`, `${API_ORIGIN}/api/rooms`]);
   });
 
+  it('reads the room out of the uniform { data } envelope', async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (String(url).includes('/csrf-token')) return upstream({ token: 'issued-csrf' });
+      return upstream({ data: { status: 'room created', room: { slug: 'room-9' } } }, 201);
+    });
+
+    const response = await roomsRoute.POST(roomsRequest());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ roomId: 'room-9' });
+  });
+
   /* ------------------------------------------------------------------ *
    * GET /api/share/[token] — public read side of the same surface
    * ------------------------------------------------------------------ */

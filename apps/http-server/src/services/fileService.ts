@@ -111,6 +111,19 @@ export class FileService {
       ...(isCursorBased ? { updatedAt: { lt: new Date(cursor) } } : {}),
     };
 
+    // `total` is always counted, even in cursor mode: the list wire shape is
+    // stable (`{ files, total, page, limit, nextCursor }` — no keys drop out),
+    // and `cursor` is the primary forward-paging mechanism while `total`/`page`
+    // stay informational for the existing offset UI. The count ignores the
+    // cursor predicate, so it names the whole filtered set, not the page.
+    const countWhere = {
+      userId,
+      ...(typeof folderId === 'string' ? { folderId } : {}),
+      ...(typeof search === 'string'
+        ? { name: { contains: search, mode: 'insensitive' as const } }
+        : {}),
+    };
+
     const [files, total] = await Promise.all([
       db.file.findMany({
         where,
@@ -126,23 +139,13 @@ export class FileService {
           updatedAt: true,
         },
       }),
-      isCursorBased
-        ? Promise.resolve(undefined)
-        : db.file.count({
-            where: {
-              userId,
-              ...(typeof folderId === 'string' ? { folderId } : {}),
-              ...(typeof search === 'string'
-                ? { name: { contains: search, mode: 'insensitive' as const } }
-                : {}),
-            },
-          }),
+      db.file.count({ where: countWhere }),
     ]);
 
     const nextCursor =
       files.length === limit ? (files[files.length - 1]?.updatedAt?.toISOString() ?? null) : null;
 
-    return { files, total: isCursorBased ? undefined : total, nextCursor, isCursorBased };
+    return { files, total, nextCursor, isCursorBased };
   }
 
   static async listSharedFiles(options: ListSharedFilesOptions) {
@@ -187,16 +190,16 @@ export class FileService {
           },
         },
       }),
-      isCursorBased
-        ? Promise.resolve(undefined)
-        : db.sharedFile.count({
-            where: {
-              userId,
-              ...(typeof search === 'string'
-                ? { file: { name: { contains: search, mode: 'insensitive' as const } } }
-                : {}),
-            },
-          }),
+      // Same stable-shape rule as `listFiles`: always counted, cursor
+      // predicate excluded, so `total` names the whole filtered set.
+      db.sharedFile.count({
+        where: {
+          userId,
+          ...(typeof search === 'string'
+            ? { file: { name: { contains: search, mode: 'insensitive' as const } } }
+            : {}),
+        },
+      }),
     ]);
 
     const nextCursor =
@@ -210,7 +213,7 @@ export class FileService {
       sharedBy: sf.file.user,
     }));
 
-    return { files, total: isCursorBased ? undefined : total, nextCursor, isCursorBased };
+    return { files, total, nextCursor, isCursorBased };
   }
 
   static async createFile(options: CreateFileOptions): Promise<CreateFileResult> {

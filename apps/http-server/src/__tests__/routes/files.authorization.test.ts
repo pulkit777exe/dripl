@@ -130,8 +130,8 @@ describe('files authorisation — outsider against owner resources', () => {
     const response = await get(app, '/api/files', OUTSIDER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body.files.map((file: { id: string }) => file.id)).toEqual([OUTSIDER_FILE]);
-    expect(response.body.total).toBe(1);
+    expect(response.body.data.files.map((file: { id: string }) => file.id)).toEqual([OUTSIDER_FILE]);
+    expect(response.body.data.total).toBe(1);
   });
 
   it('GET /api/files?folderId=<owner folder> — the outsider folder filter leaks nothing', async () => {
@@ -142,8 +142,8 @@ describe('files authorisation — outsider against owner resources', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(response.body.files).toEqual([]);
-    expect(response.body.total).toBe(0);
+    expect(response.body.data.files).toEqual([]);
+    expect(response.body.data.total).toBe(0);
   });
 
   it('PATCH /api/files/:id — outsider cannot rename the owner file', async () => {
@@ -232,11 +232,13 @@ describe('files authorisation — outsider against owner resources', () => {
 
     expect(response.status).toBe(201);
     expect(response.body).toEqual({
-      id: expect.any(String),
-      name: 'legitimate',
+      data: {
+        id: expect.any(String),
+        name: 'legitimate',
+      },
     });
-    expect(rowOf('file', response.body.id)?.userId).toBe(OWNER_ID);
-    expect(rowOf('file', response.body.id)?.folderId).toBe(OWNER_FOLDER);
+    expect(rowOf('file', response.body.data.id)?.userId).toBe(OWNER_ID);
+    expect(rowOf('file', response.body.data.id)?.folderId).toBe(OWNER_FOLDER);
   });
 });
 

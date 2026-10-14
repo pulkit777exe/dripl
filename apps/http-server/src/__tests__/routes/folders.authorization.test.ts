@@ -112,13 +112,13 @@ describe('folders authorisation — outsider against owner resources', () => {
     const response = await get(app, '/api/folders', OUTSIDER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body.folders.map((folder: { id: string }) => folder.id).sort()).toEqual([
+    expect(response.body.data.folders.map((folder: { id: string }) => folder.id).sort()).toEqual([
       'outsider-child',
       'outsider-root',
     ]);
     // The per-folder file count must also be scoped, or it leaks the owner's
     // activity to anyone who can guess a folder id.
-    const outsiderChild = response.body.folders.find(
+    const outsiderChild = response.body.data.folders.find(
       (folder: { id: string }) => folder.id === 'outsider-child'
     );
     expect(outsiderChild.fileCount).toBe(1);

@@ -34,8 +34,18 @@ export type PaginatedQueryInput = z.input<ReturnType<typeof paginatedQuery>>;
 
 /**
  * Uniform pagination envelope for list responses. New endpoints should return
- * this shape; existing `{ files, total, page, limit, nextCursor }` responses
- * are NOT migrated yet (wire unchanged — follow-up).
+ * this shape.
+ *
+ * DECISION (documented, not migrated): the existing file/share list endpoints
+ * (`GET /files`, `GET /files/shared`) keep their historical `{ files, total,
+ * page, limit, nextCursor }` keys — renaming `files` to `items` would churn
+ * every caller for no wire benefit. What IS standardized is the shape's
+ * stability: `total` and `page` are always populated (the cursor predicate is
+ * excluded from the count, so `total` names the whole filtered set), and
+ * `nextCursor` is `string | null` (null when the page is not full). `cursor`
+ * is the primary forward-paging mechanism; `total`/`page` stay informational
+ * for the existing offset UI. The stable shape is pinned by `FileListPage`
+ * below and by the files contract tests.
  */
 export interface Page<T> {
   items: T[];
@@ -43,6 +53,21 @@ export interface Page<T> {
   page?: number;
   limit: number;
   nextCursor?: string;
+}
+
+/**
+ * The stable list shape the file/share endpoints actually send (inside the
+ * `{ data }` success envelope): every key always present, `nextCursor` null
+ * when there is no further page. Kept distinct from `Page<T>` on purpose —
+ * see the decision above — so a rename of one cannot silently become a rename
+ * of the other.
+ */
+export interface FileListPage<T> {
+  files: T[];
+  total: number;
+  page: number;
+  limit: number;
+  nextCursor: string | null;
 }
 
 /**

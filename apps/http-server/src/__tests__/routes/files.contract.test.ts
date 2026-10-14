@@ -116,14 +116,16 @@ describe('GET /api/files', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
-      files: [
-        expect.objectContaining({ id: 'file-2', name: 'Second' }),
-        expect.objectContaining({ id: FILE_ID, name: 'Canvas' }),
-      ],
-      total: 2,
-      page: 1,
-      limit: 20,
-      nextCursor: null,
+      data: {
+        files: [
+          expect.objectContaining({ id: 'file-2', name: 'Second' }),
+          expect.objectContaining({ id: FILE_ID, name: 'Canvas' }),
+        ],
+        total: 2,
+        page: 1,
+        limit: 20,
+        nextCursor: null,
+      },
     });
     expect(response.headers['cache-control']).toBe('private, max-age=0, must-revalidate');
     expect(response.headers.etag).toMatch(/^"[a-f0-9]{32}"$/);
@@ -133,12 +135,12 @@ describe('GET /api/files', () => {
     const response = await get(app, '/api/files?page=2&limit=1', OWNER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body.files.map((file: { id: string }) => file.id)).toEqual([FILE_ID]);
-    expect(response.body.page).toBe(2);
-    expect(response.body.limit).toBe(1);
+    expect(response.body.data.files.map((file: { id: string }) => file.id)).toEqual([FILE_ID]);
+    expect(response.body.data.page).toBe(2);
+    expect(response.body.data.limit).toBe(1);
   });
 
-  it('drops total and page in cursor mode and hands back a cursor', async () => {
+  it('keeps total and page populated in cursor mode and hands back a cursor', async () => {
     fakeDb().seed('file', {
       id: 'file-4',
       userId: OWNER_ID,
@@ -158,20 +160,24 @@ describe('GET /api/files', () => {
     expect(response.status).toBe(200);
     // Ordered newest-first and truncated to `limit`, so the cursor is the
     // updatedAt of the LAST row in this page, not the newest overall.
-    expect(response.body.files.map((file: { id: string }) => file.id)).toEqual([
+    expect(response.body.data.files.map((file: { id: string }) => file.id)).toEqual([
       'file-4',
       'file-2',
     ]);
-    expect(response.body).not.toHaveProperty('total');
-    expect(response.body).not.toHaveProperty('page');
-    expect(response.body.nextCursor).toBe('2026-01-02T00:00:00.000Z');
+    // Stable pagination shape: `total` names the whole filtered set (the
+    // cursor predicate is excluded from the count) and `page` echoes the
+    // query, so cursor mode answers the same keys as offset mode.
+    expect(response.body.data.total).toBe(3);
+    expect(response.body.data.page).toBe(1);
+    expect(response.body.data.limit).toBe(2);
+    expect(response.body.data.nextCursor).toBe('2026-01-02T00:00:00.000Z');
   });
 
   it('filters by search, case-insensitively', async () => {
     const response = await get(app, '/api/files?search=SECOND', OWNER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body.files.map((file: { id: string }) => file.id)).toEqual(['file-2']);
+    expect(response.body.data.files.map((file: { id: string }) => file.id)).toEqual(['file-2']);
   });
 
   it('answers 400 INVALID_QUERY with zod details for a bad page', async () => {
@@ -232,9 +238,9 @@ describe('GET /api/files/shared', () => {
     const response = await get(app, '/api/files/shared', OWNER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body.total).toBe(1);
-    expect(response.body.files).toHaveLength(1);
-    expect(response.body.files[0]).toMatchObject({
+    expect(response.body.data.total).toBe(1);
+    expect(response.body.data.files).toHaveLength(1);
+    expect(response.body.data.files[0]).toMatchObject({
       id: FILE_ID,
       sharedAt: '2026-01-05T00:00:00.000Z',
     });
@@ -270,7 +276,7 @@ describe('POST /api/files', () => {
     const response = await post(app, '/api/files', OWNER_ID, { name: 'Fresh' });
 
     expect(response.status).toBe(201);
-    expect(response.body).toEqual({ id: expect.any(String), name: 'Fresh' });
+    expect(response.body).toEqual({ data: { id: expect.any(String), name: 'Fresh' } });
   });
 
   it('defaults the name and content when the body is empty', async () => {
@@ -279,7 +285,7 @@ describe('POST /api/files', () => {
     expect(response.status).toBe(201);
     const created = fakeDb()
       .rows('file')
-      .find(row => row.id === response.body.id);
+      .find(row => row.id === response.body.data.id);
     expect(created?.name).toBe('Untitled file');
     // ADR-004: content is a serialized envelope, not a bare array. An absent
     // scene is an empty `elements` list inside it.
@@ -370,7 +376,7 @@ describe('GET /api/files/:id', () => {
     const response = await get(app, `/api/files/${FILE_ID}`, OWNER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body.file).toMatchObject({
+    expect(response.body.data.file).toMatchObject({
       id: FILE_ID,
       name: 'Canvas',
       content: [VALID_ELEMENT],
@@ -408,7 +414,7 @@ describe('PATCH /api/files/:id', () => {
     const response = await patch(app, `/api/files/${FILE_ID}`, OWNER_ID, { name: 'Renamed' });
 
     expect(response.status).toBe(200);
-    expect(response.body.file).toMatchObject({ id: FILE_ID, name: 'Renamed' });
+    expect(response.body.data.file).toMatchObject({ id: FILE_ID, name: 'Renamed' });
     expect(fakeDb().rows('file')[0]?.name).toBe('Renamed');
   });
 
@@ -420,7 +426,7 @@ describe('PATCH /api/files/:id', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(response.body.file.folderId).toBe('folder-mine');
+    expect(response.body.data.file.folderId).toBe('folder-mine');
   });
 
   it('accepts an explicit null folder to move the file to the root', async () => {
@@ -429,7 +435,7 @@ describe('PATCH /api/files/:id', () => {
     const response = await patch(app, `/api/files/${FILE_ID}`, OWNER_ID, { folderId: null });
 
     expect(response.status).toBe(200);
-    expect(response.body.file.folderId).toBeNull();
+    expect(response.body.data.file.folderId).toBeNull();
   });
 
   it('answers 404 for a missing file', async () => {
@@ -550,14 +556,14 @@ describe('POST /api/files/:id/share', () => {
     const response = await post(app, `/api/files/${FILE_ID}/share`, OWNER_ID, {});
 
     expect(response.status).toBe(201);
-    expect(response.body.permission).toBe('view');
-    expect(response.body.expiresAt).toBeNull();
-    expect(response.body.token).toEqual(expect.any(String));
+    expect(response.body.data.permission).toBe('view');
+    expect(response.body.data.expiresAt).toBeNull();
+    expect(response.body.data.token).toEqual(expect.any(String));
     // The decryption key must never travel to the server, so it lives in the
     // fragment — which is not sent in a request line.
-    expect(response.body.shareUrl).toContain('#key=');
-    expect(response.body.shareUrl.split('#')[0]).not.toContain('key=');
-    expect(fakeDb().rows('file')[0]?.shareToken).toBe(response.body.token);
+    expect(response.body.data.shareUrl).toContain('#key=');
+    expect(response.body.data.shareUrl.split('#')[0]).not.toContain('key=');
+    expect(fakeDb().rows('file')[0]?.shareToken).toBe(response.body.data.token);
   });
 
   it('accepts an edit permission and an hours-based expiry', async () => {
@@ -567,8 +573,8 @@ describe('POST /api/files/:id/share', () => {
     });
 
     expect(response.status).toBe(201);
-    expect(response.body.permission).toBe('edit');
-    expect(new Date(String(response.body.expiresAt)).getTime()).toBeGreaterThan(Date.now());
+    expect(response.body.data.permission).toBe('edit');
+    expect(new Date(String(response.body.data.expiresAt)).getTime()).toBeGreaterThan(Date.now());
   });
 
   it('answers 400 INVALID_PAYLOAD for an unknown permission', async () => {

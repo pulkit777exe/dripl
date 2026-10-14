@@ -8,6 +8,7 @@ import {
   FolderSummarySchema,
   RoomSummarySchema,
   type Page,
+  type FileListPage,
   type FileSummary,
 } from './contract';
 // Barrel precedence: './schemas' and './contract' both provide these names;
@@ -89,6 +90,44 @@ describe('Page', () => {
 
     const minimal: Page<string> = { items: [], limit: 20 };
     expect(minimal.items).toEqual([]);
+  });
+});
+
+describe('FileListPage — the stable shape the list endpoints send', () => {
+  // DECISION PIN: `GET /files` and `GET /files/shared` keep `{ files, total,
+  // page, limit, nextCursor }` (inside the `{ data }` envelope) rather than
+  // migrating to `Page<T>`'s `items`. Every key is always present — `total`
+  // and `page` are NOT dropped in cursor mode — and `nextCursor` is
+  // `string | null`, null when the page is not full.
+  it('has every key always present, with nextCursor null when the page is not full', () => {
+    const full: FileListPage<FileSummary> = {
+      files: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      nextCursor: null,
+    };
+    expect(Object.keys(full).sort()).toEqual(['files', 'limit', 'nextCursor', 'page', 'total']);
+
+    const paged: FileListPage<FileSummary> = {
+      files: [
+        {
+          id: 'f1',
+          name: 'Board',
+          preview: null,
+          folderId: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-02T00:00:00.000Z',
+        },
+      ],
+      total: 3,
+      page: 1,
+      limit: 2,
+      nextCursor: '2026-01-02T00:00:00.000Z',
+    };
+    expect(paged.files).toHaveLength(1);
+    expect(paged.total).toBe(3);
+    expect(typeof paged.nextCursor).toBe('string');
   });
 });
 

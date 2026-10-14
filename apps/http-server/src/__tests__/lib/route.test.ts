@@ -65,7 +65,7 @@ describe('defineRoute auth', () => {
     const response = await request(app).get('/').set(AUTH_HEADER, USER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ userId: USER_ID });
+    expect(response.body).toEqual({ data: { userId: USER_ID } });
   });
 });
 
@@ -117,8 +117,9 @@ describe('defineRoute validation', () => {
     const response = await request(app).post('/').set(AUTH_HEADER, USER_ID).send({ name: '  hi  ' });
 
     expect(response.status).toBe(200);
-    // The handler sees the schema output (trimmed), not the raw payload.
-    expect(response.body).toEqual({ name: 'hi' });
+    // The handler sees the schema output (trimmed), not the raw payload, and
+    // the success envelope wraps it whole as `{ data }`.
+    expect(response.body).toEqual({ data: { name: 'hi' } });
   });
 
   it('answers 400 INVALID_QUERY with zod details for a bad query', async () => {
@@ -194,7 +195,7 @@ describe('defineRoute validation', () => {
 });
 
 describe('defineRoute handler results', () => {
-  it('passes an ok result through without touching the handler response', async () => {
+  it('wraps an ok result response in the uniform { data } envelope', async () => {
     const app = testApp(app => {
       app.post(
         '/',
@@ -212,7 +213,27 @@ describe('defineRoute handler results', () => {
     const response = await request(app).post('/').set(AUTH_HEADER, USER_ID);
 
     expect(response.status).toBe(201);
-    expect(response.body).toEqual({ folder: { id: 'f1' } });
+    expect(response.body).toEqual({ data: { folder: { id: 'f1' } } });
+  });
+
+  it('leaves a non-2xx res.json body raw, so handler-sent errors keep their shape', async () => {
+    const app = testApp(app => {
+      app.get(
+        '/raw-error',
+        defineRoute({
+          auth: 'required',
+          event: 'raw_error_test',
+          handler: async ({ res }) => {
+            res.status(404).json({ error: 'NOT_FOUND', message: 'Gone', statusCode: 404 });
+          },
+        })
+      );
+    });
+
+    const response = await request(app).get('/raw-error').set(AUTH_HEADER, USER_ID);
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'NOT_FOUND', message: 'Gone', statusCode: 404 });
   });
 
   it('delegates non-ok kinds to sendServiceError without changing KIND_TO_HTTP', async () => {

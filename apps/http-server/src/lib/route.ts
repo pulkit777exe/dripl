@@ -9,8 +9,29 @@ import { sendServiceError } from './serviceResult';
  * One home for the auth/validation/service-error/500 boilerplate every
  * http-server route hand-rolls.
  *
- * The handler owns the success response (status + envelope vary per
- * operation and stay at the call site, byte-identical). `defineRoute` owns
+ * SUCCESS ENVELOPE (uniform, enforced here): every 2xx JSON body sent through
+ * `defineRoute` is wrapped as `{ data: <original-body> }` — the original body
+ * is wrapped whole, never restructured. `GET /files/:id` answering `{ file }`
+ * arrives as `{ data: { file } }`; `POST /files` answering the raw
+ * `{ id, name }` row arrives as `{ data: { id, name } }`. Deletes keep their
+ * 204 with no body, and 304s pass through untouched. Error answers keep
+ * `{ error, message, statusCode }` (+ `details` where Zod or the service put
+ * one) and are never wrapped: only `res.json` calls made while the response
+ * status is 2xx are enveloped, so `sendError`/`sendServiceError` (4xx/5xx)
+ * flow through byte-identical.
+ *
+ * NOT enveloped (deliberate, documented exceptions — none of these go through
+ * `defineRoute`): the `auth.ts` routes (`{ user }`, `{ ok: true }`, …), the
+ * image upload (`{ id, url, size }`, a streamed binary body that cannot go
+ * through JSON validation), `/csrf-token` (`{ token }`, read by the CSRF
+ * bootstrap before any envelope could be negotiated), the internal ticket
+ * router, the share `ws-ticket` bridge (kept raw so a thrown route error
+ * still reaches the terminal handler), and the ops probes (`/live`,
+ * `/health`, `/metrics`, `/`). Clients unwrap `{ data }` transparently and
+ * accept a raw body too, so both shapes keep working.
+ *
+ * The handler owns the success response (status + inner shape stay at the
+ * call site, byte-identical inside `data`). `defineRoute` owns
  * everything else:
  * - `auth: 'required'` answers 401 when the mount did not authenticate, and
  *   narrows the handler's `userId` to `string`.
@@ -104,6 +125,19 @@ export function defineRoute<
       sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
       return;
     }
+
+    // Uniform success envelope, enforced in this one place: any 2xx `res.json`
+    // body the handler sends is wrapped whole as `{ data: body }`. The status
+    // gate is what keeps errors raw — `sendError`/`sendServiceError` answer
+    // 4xx/5xx, so they flow through untouched — and 204/304 never reach
+    // `res.json` (they use `.send()`/`.end()`).
+    const originalJson = res.json.bind(res);
+    res.json = ((body: unknown) => {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return originalJson({ data: body });
+      }
+      return originalJson(body);
+    }) as typeof res.json;
 
     let body = req.body as Body;
     if (bodySchema) {
