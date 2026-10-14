@@ -1,3 +1,11 @@
+import type { FileSummary, FolderSummary, Page, RoomSummary } from '@dripl/common';
+
+// Shared contract DTOs — single source of truth in @dripl/common/contract.ts.
+// Re-exported here so existing `@/lib/api` type imports keep working.
+// Page is the forward-path pagination envelope (uniform envelope adoption is
+// a follow-up; current list methods keep their wire shapes below).
+export type { FileSummary, FolderSummary, Page, RoomSummary };
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002/api';
 
 export interface AuthUser {
@@ -5,24 +13,6 @@ export interface AuthUser {
   email: string;
   name: string | null;
   image: string | null;
-}
-
-export interface FileSummary {
-  id: string;
-  name: string;
-  preview: string | null;
-  folderId: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface FolderSummary {
-  id: string;
-  name: string;
-  parentId: string | null;
-  fileCount: number;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface FileDetails extends FileSummary {
@@ -442,14 +432,7 @@ class ApiClient {
   }
 
   async listCanvasRooms(): Promise<{
-    rooms: Array<{
-      id: string;
-      slug: string;
-      name: string;
-      isPublic: boolean;
-      createdAt: string;
-      updatedAt: string;
-    }>;
+    rooms: RoomSummary[];
   }> {
     return this.request('/rooms');
   }
