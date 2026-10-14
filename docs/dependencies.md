@@ -70,13 +70,17 @@ Snapshot date: 2026-10-14. 827 production dependencies.
 
 ### Vulnerability audit
 
-`pnpm audit --prod`: 8 advisories (4 high, 4 moderate, 0 critical).
+`pnpm audit --prod` (2026-10-14 rerun): **0 advisories**. Full `pnpm audit`
+(including dev): 1 advisory — `braces` 3.0.3 (CVE-2026-93687, high), which has
+no patched version (`patched_versions: <0.0.0`).
 
-| Advisory                                                                                   | Reachability                                                                                                                                | Why no upgrade                                                                                                                    |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `deepmerge-ts` stack exhaustion (GHSA-ggr8-5vv4-36mx, via `prisma > @prisma/config`)       | Transitive dev/build chain of `@prisma/client`; trigger needs recursive object graphs, which plain JSON sync payloads cannot express        | Upstream fix is a major (`v8.0.0`); moves with the `prisma` group in `renovate.json`, not ad hoc                                  |
-| `mysql2` auth-plugin downgrade + zlib decompression bomb (2 advisories, via `prisma`)      | Transitive of `prisma` CLI; the repo connects to PostgreSQL only (`@prisma/adapter-pg`, `pg`), so the MySQL protocol handler is unreachable | Same as above — rides the `prisma` renovate group                                                                                 |
-| `nodemailer` address-parser / DNS-cache issues (5 advisories, direct dep of `http-server`) | Reachable only through the SMTP mail path (`SMTP_USER` + `SMTP_PASS` both set); no mail is sent in default or test deployments              | Parser DoS hardening belongs upstream; upgrading `nodemailer` alone is deferred to its renovate grouping rather than a blind bump |
+| Change (2026-10-14)                                                                           | Result                                                                                                                                                                  |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nodemailer` 9.1.1 → ^10.1.1 (direct dep, 5 advisories incl. address-parser ReDoS)            | Cleared. Usage is `createTransport` + `sendMail` only; mailer suite 11/11 + typecheck pass unchanged                                                                    |
+| `pnpm.overrides`: `mysql2` → ^3.22.0, `deepmerge-ts` → ^8.0.0 (prisma CLI transitives)        | Cleared (resolved 3.24.6 / 8.0.2; `prisma generate` verified). Both are dev-only: MySQL protocol unreachable (PostgreSQL only), deepmerge-ts merges local prisma config |
+| `braces` 3.0.3 via `eslint-config-next > fast-glob > micromatch` (stack exhaustion, no patch) | Accepted risk: lint-time only, patterns come from our own configs (trusted input), and no fixed version exists to upgrade to                                            |
+
+Previous snapshot (8 prod advisories) is superseded by the rerun above.
 
 ### License scan
 
