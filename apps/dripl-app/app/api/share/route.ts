@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { normalizeOrigin } from '@dripl/utils/origin';
 import { readRequestBody, RequestBodyTooLargeError } from '@/lib/server/requestBody';
 import { z } from 'zod';
 
@@ -43,12 +44,9 @@ function forwardedCookie(request: NextRequest, csrfToken?: string): string {
  */
 function configuredAppOrigin(): string | null {
   const value = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL;
-  if (!value) return null;
-  try {
-    return new URL(value).origin;
-  } catch {
-    return null;
-  }
+  // Shared normalizer (also used by lib/server/origin.ts and http-server
+  // CORS): non-HTTP(S) values read as null rather than as an origin string.
+  return normalizeOrigin(value);
 }
 
 export async function POST(request: NextRequest) {

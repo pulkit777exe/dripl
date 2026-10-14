@@ -13,6 +13,10 @@
       "types": "./dist/auth.d.ts",
       "default": "./dist/auth.js"
     },
+    "./origin": {
+      "types": "./dist/origin.d.ts",
+      "default": "./dist/origin.js"
+    },
     "./encryption": {
       "types": "./dist/encryption/index.d.ts",
       "default": "./dist/encryption/index.js"

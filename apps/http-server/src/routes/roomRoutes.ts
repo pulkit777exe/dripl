@@ -113,6 +113,13 @@ function requireUserId(req: AuthenticatedRequest, res: Response): string | null 
 router.get('/share/:token', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const { token } = req.params as { token: string };
+  // Length guard before the DB, same contract as the file-share routes:
+  // issued tokens are short, so an overlong value answers the same 404 a
+  // miss gets — wire-identical, no huge string reaches Prisma.
+  if (typeof token !== 'string' || token.length > 512) {
+    sendError(res, 404, 'NOT_FOUND', 'Share link not found');
+    return;
+  }
 
   try {
     const result = await RoomService.getShareLink(token);

@@ -1,4 +1,7 @@
 import type { NextRequest } from 'next/server';
+import { normalizeOrigin, parseAllowedOrigins } from '@dripl/utils/origin';
+
+export { normalizeOrigin };
 
 /**
  * Single origin policy for all dripl-app BFF routes. Previously each route
@@ -9,23 +12,16 @@ import type { NextRequest } from 'next/server';
  * POSTs), so all routes now enforce presence. In development the allowed set
  * falls back to the request's own origin (i.e. localhost), never to the
  * Host header in production.
+ *
+ * `normalizeOrigin` itself lives in `@dripl/utils/origin` (re-exported
+ * above) alongside the http-server CORS allowlist so the two cannot drift;
+ * this module owns only the Next-specific allowlist policy around it.
  */
-export function normalizeOrigin(value: string | null | undefined): string | null {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-    return url.origin;
-  } catch {
-    return null;
-  }
-}
-
 export function getAllowedOrigins(request: NextRequest): Set<string> {
-  const configured = [process.env.NEXT_PUBLIC_APP_URL, process.env.FRONTEND_URL]
-    .flatMap(value => value?.split(',') ?? [])
-    .map(value => normalizeOrigin(value))
-    .filter((value): value is string => value !== null);
+  const configured = parseAllowedOrigins([
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.FRONTEND_URL,
+  ]);
 
   if (configured.length > 0) return new Set(configured);
 

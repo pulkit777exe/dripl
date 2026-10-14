@@ -73,7 +73,11 @@ const registerSchema = z.object({
 
 const loginSchema = z.object({
   email: emailSchema,
-  password: z.string().min(1),
+  // Max mirrors register: an unbounded password reaches bcrypt.compare, so a
+  // multi-megabyte string (inside the 5mb body-parser budget) buys CPU per
+  // request. Overlong now answers the same 400 as a malformed payload
+  // instead of a 401 — documented wire change, garbage input only.
+  password: z.string().min(1).max(128),
 });
 
 const authRouter: Router = Router();
@@ -236,11 +240,15 @@ authRouter.get('/me', authMiddleware, async (req: AuthenticatedRequest, res) => 
 });
 
 authRouter.post('/google', async (req, res) => {
-  const { token } = req.body;
-  if (!token) {
+  // Bounded before the value reaches `verifyIdToken` (a network call): an
+  // ID token is ~1-2KB, so 8192 is generous and anything larger is hostile.
+  // Non-string/missing still answers the same 400 TOKEN_REQUIRED as before.
+  const parsed = z.object({ token: z.string().min(1).max(8192) }).safeParse(req.body);
+  if (!parsed.success) {
     sendError(res, 400, 'TOKEN_REQUIRED', 'No token provided');
     return;
   }
+  const { token } = parsed.data;
 
   try {
     const { client, clientId } = getGoogleAuth();
@@ -295,8 +303,25 @@ authRouter.post('/forgot-password', async (req, res) => {
 
 authRouter.post('/reset-password', async (req, res) => {
   const { token, password } = req.body;
-  if (!token || !password) {
+  if (typeof token !== 'string' || typeof password !== 'string' || !token || !password) {
     sendError(res, 400, 'PASSWORDS_REQUIRED', 'Token and password are required');
+    return;
+  }
+  // Token bound matches the internal ticket bound (512): overlong answers
+  // the same 400 an unknown token gets, without a DB lookup. The password
+  // floor is the vuln fix — reset previously accepted a 1-character password
+  // while register and change-password require 8 — and the ceiling mirrors
+  // register so an unbounded value never reaches bcrypt.hash.
+  if (token.length > 512) {
+    sendError(res, 400, 'INVALID_PAYLOAD', 'Invalid or expired reset token');
+    return;
+  }
+  if (password.length < 8) {
+    sendError(res, 400, 'VALIDATION_ERROR', 'New password must be at least 8 characters');
+    return;
+  }
+  if (password.length > 128) {
+    sendError(res, 400, 'VALIDATION_ERROR', 'New password must be at most 128 characters');
     return;
   }
 
@@ -315,8 +340,14 @@ authRouter.post('/reset-password', async (req, res) => {
 
 authRouter.post('/verify-email', async (req, res) => {
   const { token } = req.body;
-  if (!token) {
+  if (typeof token !== 'string' || !token) {
     sendError(res, 400, 'VERIFICATION_TOKEN_REQUIRED', 'Verification token is required');
+    return;
+  }
+  // Bound before the DB lookup: overlong answers the same 400 an unknown
+  // token gets, so the wire is unchanged and no huge string reaches Prisma.
+  if (token.length > 512) {
+    sendError(res, 400, 'INVALID_PAYLOAD', 'Invalid or expired verification token');
     return;
   }
 
@@ -370,13 +401,30 @@ authRouter.post('/resend-verification', async (req, res) => {
   }
 });
 
+/**
+ * Profile update bounds. Previously `name`/`image` passed straight from the
+ * body into `db.user.update`: an object `name` threw inside Prisma (500),
+ * and an unbounded `image` string reached the `String` column. Caps mirror
+ * the registration name bound (100) and the file-preview bound (2_000_000).
+ * Garbage input now answers 400 instead of 500 — documented wire change.
+ */
+const profileSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  image: z.string().max(2_000_000).nullable().optional(),
+});
+
 authRouter.put('/profile', authMiddleware, async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
     sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
-  const { name, image } = req.body;
+  const parsed = profileSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    sendError(res, 400, 'INVALID_PAYLOAD', 'Invalid profile payload');
+    return;
+  }
+  const { name, image } = parsed.data;
 
   try {
     const user = await AuthService.updateProfile(req.userId, { name, image });
@@ -395,13 +443,30 @@ authRouter.post('/change-password', authMiddleware, async (req: AuthenticatedReq
 
   const { currentPassword, newPassword } = req.body;
 
-  if (!currentPassword || !newPassword) {
+  if (
+    typeof currentPassword !== 'string' ||
+    typeof newPassword !== 'string' ||
+    !currentPassword ||
+    !newPassword
+  ) {
     sendError(res, 400, 'PASSWORDS_REQUIRED', 'Current and new password are required');
     return;
   }
 
   if (newPassword.length < 8) {
     sendError(res, 400, 'VALIDATION_ERROR', 'New password must be at least 8 characters');
+    return;
+  }
+
+  // Ceilings so unbounded values never reach bcrypt: the new password mirrors
+  // register (128); the current one is a DoS bound only (1024) — any real
+  // password is far shorter, and a wrong one still answers the same 400.
+  if (newPassword.length > 128) {
+    sendError(res, 400, 'VALIDATION_ERROR', 'New password must be at most 128 characters');
+    return;
+  }
+  if (currentPassword.length > 1024) {
+    sendError(res, 400, 'INVALID_PAYLOAD', 'Cannot change password for this account');
     return;
   }
 

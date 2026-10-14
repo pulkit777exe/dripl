@@ -9,4 +9,5 @@ export {
   TOKEN_VERSION_CLAIM,
 } from './auth';
 export type { JwtPayload, StoredTokenVersion } from './auth';
+export { normalizeOrigin, parseAllowedOrigins } from './origin';
 export { createLogger } from './logger';
