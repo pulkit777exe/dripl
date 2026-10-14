@@ -91,6 +91,48 @@ export async function serverApiGet<T>(path: string, options: ServerFetchOptions)
 }
 
 /**
+ * One JSON call against `http-server`, authenticated, uncached, and typed.
+ *
+ * Same contract as `serverApiGet`, plus an optional JSON body: `POST` with a
+ * defined `body` sends it as `application/json`; `GET` (the default) sends no
+ * body. The token is forwarded on `Authorization: Bearer` exactly as in
+ * `serverApiGet`, the call is `no-store` for the same cross-visitor cache
+ * reason, and refusals surface as `ServerApiError` carrying the upstream
+ * `status` — the upstream body is never forwarded, for the same reason.
+ */
+export type ServerApiCallOptions = ServerFetchOptions & {
+  method?: 'GET' | 'POST';
+  body?: unknown;
+};
+
+export async function serverApiCall<T>(
+  path: string,
+  options: ServerApiCallOptions,
+): Promise<T> {
+  const headers = new Headers({ Accept: 'application/json' });
+  if (options.token) headers.set('Authorization', `Bearer ${options.token}`);
+
+  const init: RequestInit = {
+    method: options.method ?? 'GET',
+    headers,
+    cache: options.cache,
+    signal: options.signal,
+  };
+  if (options.body !== undefined) {
+    headers.set('Content-Type', 'application/json');
+    init.body = JSON.stringify(options.body);
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, init);
+
+  if (!response.ok) {
+    throw new ServerApiError(response.status, await errorMessage(response));
+  }
+
+  return (await response.json()) as T;
+}
+
+/**
  * Whether a rejection is an upstream refusal with one of these statuses.
  *
  * Callers use it to answer a refusal the way the API answered it rather than

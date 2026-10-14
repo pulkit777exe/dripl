@@ -1,0 +1,34 @@
+name: Supply-chain audit
+
+# Weekly advisory scan of production dependencies. Intentionally separate from
+# ci.yml: that workflow runs on push/PR and blocks merges, while this one runs
+# on a schedule and never blocks anything — `continue-on-error: true` keeps a
+# newly disclosed advisory visible without turning it into a merge gate.
+# Findings are recorded in docs/dependencies.md; fixes ride the existing
+# renovate groupings, not ad-hoc bumps (no Dependabot, no new scanners).
+on:
+  schedule:
+    # Mondays at 06:00 UTC.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: pnpm audit (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Audit production dependencies
+        run: pnpm audit --prod
