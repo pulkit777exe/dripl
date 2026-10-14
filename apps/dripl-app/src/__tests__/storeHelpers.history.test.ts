@@ -574,3 +574,55 @@ describe('commitPresentFromHistory', () => {
     expect(out.past[0]).toBe(snapshot);
   });
 });
+
+describe('pushPast — no-op skip', () => {
+  // A push identical to the latest entry must not clone or grow the stack:
+  // it would create an undo step that restores exactly what is on screen.
+  it('skips a snapshot identical to the latest entry', () => {
+    const past = [[rect('a'), rect('b')]];
+    const snapshot = [rect('a'), rect('b')];
+
+    const next = pushPast(past, snapshot);
+
+    expect(next).toHaveLength(1);
+    expect(next[0]).toBe(past[0]);
+  });
+
+  it('skips when element references are shared with the latest entry', () => {
+    const shared = [rect('a')];
+    const past = [shared];
+
+    expect(pushPast(past, shared)).toHaveLength(1);
+  });
+
+  it('pushes when a version marker moved, even with the same ids', () => {
+    const past = [[rect('a', { version: 1, versionNonce: 1 })]];
+    const snapshot = [rect('a', { version: 2, versionNonce: 9 })];
+
+    const next = pushPast(past, snapshot);
+
+    expect(next).toHaveLength(2);
+  });
+
+  it('pushes when membership changed', () => {
+    const past = [[rect('a')]];
+
+    expect(pushPast(past, [rect('a'), rect('b')])).toHaveLength(2);
+    expect(pushPast(past, [])).toHaveLength(2);
+    expect(pushPast([], [])).toHaveLength(1);
+  });
+
+  /**
+   * Marker-less elements (legacy/imported scenes) cannot hide behind absent
+   * markers: without the JSON fallback a same-id prop change with no version
+   * fields would be swallowed and its undo step lost.
+   */
+  it('compares marker-less elements by value, not by id', () => {
+    const bare = (id: string, x: number): DriplElement =>
+      ({ id, type: 'rectangle', x, y: 0, width: 10, height: 10 }) as DriplElement;
+    const past = [[bare('a', 0)]];
+
+    expect(pushPast(past, [bare('a', 0)])).toHaveLength(1);
+    expect(pushPast(past, [bare('a', 5)])).toHaveLength(2);
+  });
+});
