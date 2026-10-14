@@ -4,10 +4,9 @@ import { db } from '@dripl/db';
 import { issueWsTicket, type WsTicketPrincipal } from './auth';
 import { ShareService, type SharePermission } from '../services/shareService';
 import { authMiddleware } from '../middlewares/authMiddleware';
+import { defineRoute } from '../lib/route';
 import { sendError } from '../lib/response';
-import { sendServiceError } from '../lib/serviceResult';
 import { createRateLimiter } from '../lib/rateLimiter';
-import { logger } from '../logger';
 
 const shareRouter: Router = Router();
 
@@ -33,42 +32,49 @@ const createShareBodySchema = z.object({
   permission: z.enum(['view', 'edit']),
 });
 
-shareRouter.post('/', authMiddleware, shareLimiter, async (req, res) => {
-  const userId = (req as { userId?: string }).userId;
-  if (!userId) {
-    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
-    return;
-  }
+shareRouter.post(
+  '/',
+  authMiddleware,
+  shareLimiter,
+  defineRoute({
+    auth: 'required',
+    // Parsed manually inside the handler rather than via `body:` so the 400
+    // keeps its historical no-`details` envelope (`sendError`, not the
+    // zod-flatten shape `defineRoute` validation would answer).
+    errors: {
+      not_found: 'File not found',
+      forbidden: 'You do not have permission to share this file',
+    },
+    event: 'create_share_error',
+    internalError: 'Failed to create share link',
+    handler: async ({ userId, req, res }) => {
+      const parsed = createShareBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        sendError(res, 400, 'INVALID_PAYLOAD', 'fileId and permission are required');
+        return;
+      }
 
-  const parsed = createShareBodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    sendError(res, 400, 'INVALID_PAYLOAD', 'fileId and permission are required');
-    return;
-  }
+      const result = await ShareService.upsertShareToken(
+        parsed.data.fileId,
+        userId,
+        parsed.data.permission as SharePermission
+      );
 
-  try {
-    const result = await ShareService.upsertShareToken(
-      parsed.data.fileId,
-      userId,
-      parsed.data.permission as SharePermission
-    );
+      if (result.kind !== 'ok') return result;
 
-    if (result.kind !== 'ok') {
-      sendServiceError(res, result, {
-        not_found: 'File not found',
-        forbidden: 'You do not have permission to share this file',
-      });
-      return;
-    }
-
-    res.status(200).json({ token: result.token });
-  } catch (error) {
-    logger.error({ event: 'create_share_error', error }, 'Failed to create share link');
-    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to create share link');
-  }
-});
+      res.status(200).json({ token: result.token });
+      return result;
+    },
+  })
+);
 
 shareRouter.get('/:token/ws-ticket', shareLimiter, async (req, res) => {
+  // Intentionally NOT on defineRoute: `appErrorClassification.test.ts` and
+  // `appComposition.test.ts` drive this route with a rejecting
+  // `db.file.findUnique` to prove a thrown route error reaches the terminal
+  // handler (`http_server_error`, stack attached). defineRoute would catch the
+  // throw itself and answer the same 500 with a route event instead, moving
+  // the fault from the server branch to a route log line.
   res.set('Cache-Control', 'no-store');
   const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
   if (!token) {
@@ -105,42 +111,46 @@ shareRouter.get('/:token/ws-ticket', shareLimiter, async (req, res) => {
   res.json({ ticket: issueWsTicket(principal), fileId: file.id, permission });
 });
 
-shareRouter.get('/:token', shareLimiter, async (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
-  if (!token) {
-    sendError(res, 400, 'INVALID_PAYLOAD', 'Share token is required');
-    return;
-  }
-  // Same length guard as the ws-ticket bridge above: same 404 as a miss.
-  if (token.length > 512) {
-    sendError(res, 404, 'NOT_FOUND', 'Share link not found');
-    return;
-  }
+shareRouter.get(
+  '/:token',
+  shareLimiter,
+  defineRoute({
+    auth: 'none',
+    event: 'get_share_error',
+    internalError: 'Failed to load shared file',
+    handler: async ({ req, res }) => {
+      res.set('Cache-Control', 'no-store');
+      const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
+      if (!token) {
+        sendError(res, 400, 'INVALID_PAYLOAD', 'Share token is required');
+        return;
+      }
+      // Same length guard as the ws-ticket bridge above: same 404 as a miss.
+      if (token.length > 512) {
+        sendError(res, 404, 'NOT_FOUND', 'Share link not found');
+        return;
+      }
 
-  try {
-    const result = await ShareService.resolveShare(token);
+      const result = await ShareService.resolveShare(token);
 
-    if (!result) {
-      sendError(res, 404, 'NOT_FOUND', 'Share link not found');
-      return;
-    }
+      if (!result) {
+        sendError(res, 404, 'NOT_FOUND', 'Share link not found');
+        return;
+      }
 
-    if (result.expired) {
-      sendError(res, 410, 'EXPIRED', 'Share link has expired');
-      return;
-    }
+      if (result.expired) {
+        sendError(res, 410, 'EXPIRED', 'Share link has expired');
+        return;
+      }
 
-    res.json({
-      file: result.file,
-      permission: result.permission,
-      encryptedPayload: result.encryptedPayload,
-      elements: result.elements,
-    });
-  } catch (error) {
-    logger.error({ event: 'get_share_error', error }, 'Failed to load shared file');
-    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to load shared file');
-  }
-});
+      res.json({
+        file: result.file,
+        permission: result.permission,
+        encryptedPayload: result.encryptedPayload,
+        elements: result.elements,
+      });
+    },
+  })
+);
 
 export { shareRouter };
