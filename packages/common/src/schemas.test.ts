@@ -138,6 +138,75 @@ describe('BaseElementSchema', () => {
   });
 });
 
+describe('BaseElementSchema link scheme hardening', () => {
+  const linked = (link?: string) =>
+    BaseElementSchema.safeParse({
+      id: UUID,
+      type: 'rectangle',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      ...(link === undefined ? {} : { link }),
+    });
+
+  it.each([
+    'javascript:alert(1)',
+    'JAVASCRIPT:alert(1)',
+    'JaVaScRiPt:alert(document.domain)',
+    '   javascript:alert(1)',
+    '\n\t javascript:alert(1)',
+    'javascript :alert(1)',
+    'vbscript:msgbox(1)',
+    'VBScript:msgbox(1)',
+    '  vbscript:msgbox(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'DATA:TEXT/HTML;base64,PGI+',
+    '   data:text/html,hi',
+    'data:text/html;charset=utf-8,<p>hi</p>',
+  ])('rejects the executable link %s', link => {
+    expect(linked(link).success).toBe(false);
+  });
+
+  it.each([
+    'https://example.com',
+    'http://example.com/path?q=1#frag',
+    'HTTPS://EXAMPLE.COM/UPPER',
+    '/relative/path',
+    './relative',
+    '../up',
+    '#anchor',
+    '',
+    'example.com',
+    'mailto:someone@example.com',
+    'data:image/png;base64,AAAA',
+  ])('keeps the valid link %s', link => {
+    const result = linked(link);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.link).toBe(link);
+  });
+
+  it('keeps link optional and still caps length at 2000', () => {
+    expect(linked(undefined).success).toBe(true);
+    expect(linked('x'.repeat(2000)).success).toBe(true);
+    expect(linked('x'.repeat(2001)).success).toBe(false);
+  });
+
+  it('rejects an executable link through the discriminated union too', () => {
+    const result = DriplElementSchema.safeParse({
+      id: UUID,
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 30,
+      text: 'click me',
+      link: 'javascript:alert(1)',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
 describe('DriplElementSchema', () => {
   it('validates rectangle elements', () => {
     const result = DriplElementSchema.safeParse({

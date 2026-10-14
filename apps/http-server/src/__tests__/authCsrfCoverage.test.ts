@@ -18,9 +18,18 @@
  *
  * WHAT THIS FILE FOUND
  *
- * `POST /api/auth/google` and `POST /api/auth/verify-email` are **not** in the list at
- * `app.ts:212-219`, and both answer 200 to a cookie-only cross-site POST. See the
- * named cases below; they are characterised as defects, not asserted as intended.
+ * `POST /api/auth/google` is **not** in the CSRF list in `app.ts`, and answers
+ * without a 403 to a cookie-only cross-site POST. See the named case below; it is
+ * characterised as a defect-with-a-reason, not asserted as intended: its only
+ * legitimate caller is the server-side Next callback
+ * (`apps/dripl-app/app/api/auth/google/callback/route.ts`), which holds no CSRF
+ * cookie or header, so the double-submit guard cannot apply there.
+ *
+ * `POST /api/auth/verify-email` and `PUT /api/auth/profile` were in the same
+ * state and are now guarded: both are called only through `ApiClient`
+ * (`apps/dripl-app/lib/api.ts`), which attaches `x-csrf-token` on every unsafe
+ * method, so the guard breaks no legitimate caller. Their named cases below
+ * assert the 403.
  */
 
 import { afterAll, describe, expect, it, vi } from 'vitest';
@@ -74,9 +83,10 @@ const STATE_CHANGING: ReadonlyArray<readonly [method: string, path: string, body
   ['post', '/api/auth/resend-verification', { email: 'a@example.com' }],
   ['post', '/api/auth/change-password', { currentPassword: 'x', newPassword: 'password123' }],
   ['post', '/api/auth/ws-ticket', {}],
-  // The three below are NOT in `app.ts`'s CSRF list. Each is handled by a named case
-  // further down rather than here, because each needs its own severity argument and
-  // a loop assertion cannot carry one.
+  ['put', '/api/auth/profile', { name: 'Renamed' }],
+  // `POST /api/auth/google` is NOT in `app.ts`'s CSRF list. It is handled by a named
+  // case further down rather than here, because it needs its own severity argument
+  // and a loop assertion cannot carry one.
 ];
 
 /**
@@ -93,12 +103,11 @@ function crossSite(method: string, path: string, body: unknown): request.Test {
 
 describe('every state-changing auth route refuses a cross-site POST', () => {
   for (const [method, path, body] of STATE_CHANGING) {
-    // The two named gaps, each with its own case and its own explanation, so they are
-    // not lost inside a loop. Both are characterised as defects: the assertion records
-    // what the server does, because the contract cannot be changed here and a green
-    // suite must not depend on a fix landing.
+    // The named gap, with its own case and its own explanation, so it is
+    // not lost inside a loop. It is characterised as a defect-with-a-reason:
+    // the assertion records what the server does, because the contract cannot
+    // be changed here and a green suite must not depend on a fix landing.
     if (path === '/api/auth/google') continue;
-    if (path === '/api/auth/verify-email') continue;
     it(`refuses ${method.toUpperCase()} ${path} without the CSRF header`, async () => {
       const response = await crossSite(method, path, body);
 
@@ -144,8 +153,8 @@ describe('DEFECT: POST /api/auth/google is not CSRF-guarded', () => {
    * mount — the gap is in the composition root's path list, so only the composed app
    * can show it.
    *
-   * `app.ts:212-219` lists eight paths under `/api/auth` and `/google` is not one of
-   * them. `validateCsrfToken` is never applied to it on any other path either, so a
+   * `app.ts`'s CSRF list covers eight paths under `/api/auth` and `/google` is not
+   * one of them. `validateCsrfToken` is never applied to it on any other path either, so a
    * cross-site POST carrying the victim's `csrf-token` cookie reaches the handler and
    * is answered 200.
    *
@@ -181,44 +190,33 @@ describe('DEFECT: POST /api/auth/google is not CSRF-guarded', () => {
   });
 });
 
-describe('DEFECT: PUT /api/auth/profile is not CSRF-guarded', () => {
+describe('PUT /api/auth/profile is CSRF-guarded', () => {
   /**
-   * Recorded as it behaves, and the sharpest of the three.
+   * The 403 comes from `validateCsrfToken`, before `authMiddleware` runs.
    *
-   * `app.ts:212-219` guards `change-password` and `ws-ticket` but not `profile`, so a
-   * cross-site PUT reaches the handler. It answers 401 here only because this request
-   * carries no session — the CSRF gate ran nowhere, and `authMiddleware` is the guard
-   * that answered.
-   *
-   * With a victim who *is* signed in, the same cross-site PUT carries their cookie and
-   * their session cookie, and rewrites their own profile: `updateProfile` is scoped to
-   * `req.userId`, so the blast radius is one account and the attacker learns nothing
-   * from the response. The realistic damage is a silent name and avatar overwrite, plus
-   * the fact that the endpoint accepts state-changing requests from any origin at all.
-   *
-   * The distinguishing evidence is the status: 401 from the middleware, not 403 from
-   * `validateCsrfToken`. A guarded route answers 403 before any of this runs.
+   * `PUT /api/auth/profile` is called only through `ApiClient.updateProfile`,
+   * which goes through `sendRequest` and attaches `x-csrf-token` on every
+   * unsafe method — so the guard breaks no legitimate caller, unlike the
+   * Google route below whose caller is server-side.
    */
-  it('reaches authMiddleware and answers 401, never the 403 a CSRF gate would give', async () => {
+  it('refuses a cross-site PUT without the CSRF header', async () => {
     const response = await crossSite('put', '/api/auth/profile', { name: 'Renamed' });
 
-    expect(response.status).toBe(401);
-    expect(response.body.error).toBe('UNAUTHORIZED');
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ error: 'CSRF_TOKEN_MISSING' });
   });
 
   /**
-   * The control, and the sharp end of the argument: the very same request with a
-   * valid session cookie *succeeds*. That is what makes the missing guard exploitable
-   * rather than merely untidy — the only thing standing between a cross-origin page and
-   * a rewritten profile is a browser rule about cookies that this endpoint does not
-   * opt out of.
+   * The control: the very same request with a valid session *and* the header
+   * succeeds, proving the guard admits the legitimate caller rather than
+   * refusing all PUTs regardless.
    */
-  it('succeeds cross-site when the victim also carries a session', async () => {
+  it('accepts the same PUT once the header is present', async () => {
     const { signToken } = await import('@dripl/utils/auth');
     const { fakeDb } = await import('./test-utils/fakePrisma');
     fakeDb().seed('user', {
-      id: 'user-victim',
-      email: 'victim@example.test',
+      id: 'user-guarded',
+      email: 'guarded@example.test',
       name: 'Original',
       image: null,
       emailVerified: true,
@@ -227,44 +225,44 @@ describe('DEFECT: PUT /api/auth/profile is not CSRF-guarded', () => {
 
     const response = await request(app)
       .put('/api/auth/profile')
-      .set('Cookie', [`csrf-token=${CSRF_TOKEN}`, `dripl-session=${signToken('user-victim', 0)}`])
-      .send({ name: 'Renamed by another origin' });
+      .set('Cookie', [`csrf-token=${CSRF_TOKEN}`, `dripl-session=${signToken('user-guarded', 0)}`])
+      .set('x-csrf-token', CSRF_TOKEN)
+      .send({ name: 'Renamed with a header' });
 
     expect(response.status).toBe(200);
-    expect(response.body.user.name).toBe('Renamed by another origin');
-    expect(fakeDb().rows('user')[0]?.name).toBe('Renamed by another origin');
+    expect(response.body.user.name).toBe('Renamed with a header');
   });
 });
 
-describe('DEFECT: POST /api/auth/verify-email is not CSRF-guarded', () => {
+describe('POST /api/auth/verify-email is CSRF-guarded', () => {
   /**
-   * Recorded as it behaves.
+   * The 403 comes from `validateCsrfToken`, before the handler runs.
    *
-   * `/api/auth/verify-email` is also absent from `app.ts:212-219`. The severity is
-   * lower than the Google case: the body is a verification token delivered to an
-   * inbox, so an attacker cannot supply one without already controlling the victim's
-   * mail. The consequence of the missing guard is that the route is reachable
-   * cross-site at all, which is the precondition for any token-leak or
-   * content-type-confusion attack against it, and the list is the only thing that
-   * would otherwise have caught one being added.
-   *
-   * A cross-site POST here with a guessed token answers 400 from the route — the
-   * handler runs — rather than 403 from a gate that never ran.
+   * `POST /api/auth/verify-email` is called only through
+   * `ApiClient.verifyEmail`, which attaches `x-csrf-token` on every unsafe
+   * method — so the guard breaks no legitimate caller. The severity of the
+   * former gap was lower than the Google case (the body is a verification
+   * token delivered to an inbox), but the route is no longer reachable
+   * cross-site at all.
    */
-  it('reaches the handler, answering the route’s own 400 rather than a 403 gate', async () => {
+  it('refuses a cross-site POST without the CSRF header', async () => {
     const response = await crossSite('post', '/api/auth/verify-email', { token: 'guessed' });
 
-    expect(response.status).not.toBe(403);
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ error: 'CSRF_TOKEN_MISSING' });
   });
 
   /**
-   * And with no token in the body at all the handler's own guard answers — which is
-   * what distinguishes "the CSRF gate ran and refused" from "the route ran and found
-   * nothing to do". The 400 code is the route's (`VERIFICATION_TOKEN_REQUIRED`), not
-   * the middleware's (`CSRF_TOKEN_MISSING`).
+   * The control: with the header the request reaches the handler, which answers
+   * its own validation error — proving the gate admits the legitimate caller
+   * rather than refusing all POSTs regardless.
    */
-  it('answers the route’s own validation error, proving the handler ran', async () => {
-    const response = await crossSite('post', '/api/auth/verify-email', {});
+  it('reaches the handler once the header is present', async () => {
+    const response = await request(app)
+      .post('/api/auth/verify-email')
+      .set('Cookie', [`csrf-token=${CSRF_TOKEN}`])
+      .set('x-csrf-token', CSRF_TOKEN)
+      .send({});
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('VERIFICATION_TOKEN_REQUIRED');
@@ -307,17 +305,16 @@ describe('the other routers are guarded at the mount, not by a list', () => {
 /**
  * The routes this file knows are NOT CSRF-guarded, each with a named case above.
  *
- * Declared here so the completeness argument below can be exhaustive: it compares the
- * router's own route table against `STATE_CHANGING` plus this list, and requires the
- * two to account for every state-changing method `authRouter` exposes. A route added
- * to `routes/auth.ts` and to neither list fails by name, which is the entire point —
- * it is the failure mode an explicit path list in `app.ts` cannot report on its own.
+ * Currently exactly one: `POST /api/auth/google`, whose only legitimate caller
+ * is server-side and cannot present a double-submit token. Declared here so the
+ * completeness argument below can be exhaustive: it compares the router's own
+ * route table against `STATE_CHANGING` plus this list, and requires the two to
+ * account for every state-changing method `authRouter` exposes. A route added
+ * to `routes/auth.ts` and to neither list fails by name, which is the entire
+ * point — it is the failure mode an explicit path list in `app.ts` cannot
+ * report on its own.
  */
-const KNOWN_UNGUARDED = [
-  '/api/auth/google',
-  '/api/auth/profile',
-  '/api/auth/verify-email',
-] as const;
+const KNOWN_UNGUARDED = ['/api/auth/google'] as const;
 
 describe('the enumeration above accounts for every state-changing route', () => {
   it('matches the router’s own route table exactly', () => {
@@ -338,10 +335,10 @@ describe('the enumeration above accounts for every state-changing route', () => 
     }
 
     // Deduped: `STATE_CHANGING` already enumerates every state-changing route the
-    // router exposes, including the unguarded ones — which is why the loop above
-    // skips `/google` and `/verify-email` rather than omitting them. Unioning
-    // `KNOWN_UNGUARDED` in as well counted those paths twice and made this check
-    // report a phantom duplicate route.
+    // router exposes, including the unguarded one — which is why the loop above
+    // skips `/google` rather than omitting it. Unioning `KNOWN_UNGUARDED` in as
+    // well counted that path twice and made this check report a phantom
+    // duplicate route.
     const accounted = [
       ...new Set([...STATE_CHANGING.map(([, path]) => path), ...KNOWN_UNGUARDED]),
     ].sort();

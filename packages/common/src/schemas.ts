@@ -31,6 +31,23 @@ const ImageSourceSchema = z
     }
   }, 'Image source must be an HTTP(S), local, or raster data URL');
 
+/**
+ * Schemes that turn an element hyperlink into script execution when the link
+ * is opened or rendered as an `href`.
+ *
+ * Matched case-insensitively after leading whitespace: `new URL` and browsers
+ * both ignore that whitespace, so `   JavaScript:…` executes exactly like
+ * `javascript:…`. `data:` is narrowed to `data:text/html` — the executable
+ * HTML carrier — so inert payloads keep parsing; anything executable is
+ * garbage input and is refused at the boundary.
+ */
+const UNSAFE_LINK_SCHEME = /^\s*(?:javascript|vbscript)\s*:/i;
+const UNSAFE_LINK_DATA_HTML = /^\s*data\s*:\s*text\/html/i;
+
+function isSafeElementLink(value: string): boolean {
+  return !UNSAFE_LINK_SCHEME.test(value) && !UNSAFE_LINK_DATA_HTML.test(value);
+}
+
 export const ElementTypeSchema = z.enum([
   'rectangle',
   'ellipse',
@@ -85,8 +102,11 @@ export const BaseElementSchema = z.object({
   labelId: z.string().max(100).optional(),
   containerId: z.string().max(100).optional(),
   boundElementId: z.string().max(100).optional(),
-  /** Hyperlink attached to the element (validated as safe http(s) at the UI/export layers). */
-  link: z.string().max(2000).optional(),
+  /** Hyperlink attached to the element. Executable schemes are refused at the
+   * schema boundary (the UI open-button and the export normaliser gate on top
+   * of this); every other shape — http(s), relative, fragment, bare host —
+   * parses exactly as before. */
+  link: z.string().max(2000).refine(isSafeElementLink, 'Link must not use an executable scheme').optional(),
   boundElements: z
     .array(
       z.object({
