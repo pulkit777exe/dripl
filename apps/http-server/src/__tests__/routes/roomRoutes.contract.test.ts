@@ -143,14 +143,14 @@ describe('GET /api/rooms', () => {
     const response = await get(app, '/api/rooms', OUTSIDER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body.rooms.map((room: { slug: string }) => room.slug)).toEqual([
+    expect(response.body.data.rooms.map((room: { slug: string }) => room.slug)).toEqual([
       // `OUTSIDER_ID` owns `outsider-room` and is a member of `owner-room`.
       OWNER_ROOM,
       OUTSIDER_ROOM,
     ]);
     // The membership is what admits a non-owner, and the projection carries no
     // scene: a list response that leaked `content` would hand out rooms wholesale.
-    expect(Object.keys(response.body.rooms[0]).sort()).toEqual([
+    expect(Object.keys(response.body.data.rooms[0]).sort()).toEqual([
       'createdAt',
       'id',
       'isPublic',
@@ -183,11 +183,11 @@ describe('GET /api/rooms/shared', () => {
     const response = await get(app, '/api/rooms/shared', OUTSIDER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body.rooms).toHaveLength(1);
-    expect(response.body.rooms[0].room.slug).toBe(OWNER_ROOM);
+    expect(response.body.data.rooms).toHaveLength(1);
+    expect(response.body.data.rooms[0].room.slug).toBe(OWNER_ROOM);
     // Regression: the membership query losing `userId` returns every membership
     // in the table, which is a directory of who collaborates on what.
-    expect(response.body.rooms.map((entry: { userId: string }) => entry.userId)).toEqual([
+    expect(response.body.data.rooms.map((entry: { userId: string }) => entry.userId)).toEqual([
       OUTSIDER_ID,
     ]);
   });
@@ -211,8 +211,8 @@ describe('POST /api/rooms', () => {
     const response = await post(app, '/api/rooms', OWNER_ID, { name: 'Sketch' });
 
     expect(response.status).toBe(201);
-    expect(response.body.status).toBe('room created');
-    expect(response.body.room).toMatchObject({
+    expect(response.body.data.status).toBe('room created');
+    expect(response.body.data.room).toMatchObject({
       name: 'Sketch',
       ownerId: OWNER_ID,
       isPublic: false,
@@ -344,8 +344,8 @@ describe('GET /api/rooms/:slug', () => {
     const response = await get(app, `/api/rooms/${OWNER_ROOM}`, OWNER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body.room.slug).toBe(OWNER_ROOM);
-    expect(response.body.room.members.map((m: { role: string }) => m.role)).toEqual(['edit']);
+    expect(response.body.data.room.slug).toBe(OWNER_ROOM);
+    expect(response.body.data.room.members.map((m: { role: string }) => m.role)).toEqual(['edit']);
   });
 
   // Regression: `getRoom` dropping the `members.some(userId)` check would answer
@@ -354,7 +354,7 @@ describe('GET /api/rooms/:slug', () => {
     const response = await get(app, `/api/rooms/${OWNER_ROOM}`, OUTSIDER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body.room.slug).toBe(OWNER_ROOM);
+    expect(response.body.data.room.slug).toBe(OWNER_ROOM);
   });
 
   it('refuses a stranger on a private room and answers 404 for a slug that does not exist', async () => {
@@ -401,7 +401,7 @@ describe('PUT /api/rooms/:slug', () => {
     const response = await put(app, `/api/rooms/${OWNER_ROOM}`, OWNER_ID, { name: 'Renamed' });
 
     expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({ status: 'room updated' });
+    expect(response.body.data).toMatchObject({ status: 'room updated' });
     expect(rowOf('canvasRoom', OWNER_ROOM)?.name).toBe('Renamed');
   });
 
@@ -463,7 +463,7 @@ describe('DELETE /api/rooms/:slug', () => {
     const response = await del(app, `/api/rooms/${OWNER_ROOM}`, OWNER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ status: 'room deleted' });
+    expect(response.body).toEqual({ data: { status: 'room deleted' } });
     expect(rowOf('canvasRoom', OWNER_ROOM)).toBeUndefined();
     // Regression: dropping the `canvasRoomMember.deleteMany` leaves membership rows
     // pointing at a room that no longer exists, which `listRooms` would keep
@@ -551,7 +551,7 @@ describe('POST /api/rooms/:slug/members', () => {
     });
 
     expect(response.status).toBe(201);
-    expect(response.body.member).toMatchObject({ userId: 'user-recruit', role: 'view' });
+    expect(response.body.data.member).toMatchObject({ userId: 'user-recruit', role: 'view' });
     // The wire answer is lowercase; the row keeps the DB enum. Asserted on the
     // stored row rather than the response, because the response alone cannot tell
     // a stored `VIEWER` from a response-layer rename.
@@ -580,7 +580,7 @@ describe('DELETE /api/rooms/:slug/members/:userId', () => {
     const response = await del(app, `/api/rooms/${OWNER_ROOM}/members/${OUTSIDER_ID}`, OWNER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ status: 'member removed' });
+    expect(response.body).toEqual({ data: { status: 'member removed' } });
     expect(rows('canvasRoomMember')).toEqual([]);
     expect(rowOf('canvasRoom', OWNER_ROOM)).toBeDefined();
   });
@@ -633,12 +633,12 @@ describe('POST /api/rooms/:slug/share', () => {
     });
 
     expect(response.status).toBe(201);
-    expect(response.body).toMatchObject({ status: 'share link created', permission: 'EDIT' });
-    expect(response.body.token).toEqual(expect.any(String));
+    expect(response.body.data).toMatchObject({ status: 'share link created', permission: 'EDIT' });
+    expect(response.body.data.token).toEqual(expect.any(String));
     // The URL is what the client navigates to; a wrong host sends a shared canvas
     // to a page that does not exist.
-    expect(response.body.url).toBe(
-      `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/board/${response.body.token}`
+    expect(response.body.data.url).toBe(
+      `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/board/${response.body.data.token}`
     );
   });
 
@@ -649,7 +649,7 @@ describe('POST /api/rooms/:slug/share', () => {
     });
 
     expect(response.status).toBe(201);
-    const link = rows('shareLink').find(row => row.token === response.body.token);
+    const link = rows('shareLink').find(row => row.token === response.body.data.token);
     expect(link).toMatchObject({ roomId: OWNER_ROOM, permission: 'VIEW', createdById: OWNER_ID });
   });
 
@@ -741,11 +741,11 @@ describe('GET /api/rooms/share/:token', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers['cache-control']).toBe('no-store');
-    expect(response.body).toMatchObject({ permission: 'VIEW' });
+    expect(response.body.data).toMatchObject({ permission: 'VIEW' });
     // The scene is parsed on the way out and re-serialised, so a malformed
     // `content` column cannot hand a capability-link reader a payload the client
     // cannot load. `'[]'` is a valid scene, so it round-trips as `'[]'`.
-    expect(JSON.parse(response.body.room.content)).toEqual([]);
+    expect(JSON.parse(response.body.data.room.content)).toEqual([]);
   });
 
   it('answers 404 for an unknown token and 410 for an expired one', async () => {

@@ -66,6 +66,24 @@ async function parseError(response: Response): Promise<string> {
   }
 }
 
+/**
+ * Unwrap the uniform `{ data: T }` success envelope. Accepts a raw body too,
+ * so routes outside `defineRoute` (auth, images, csrf) keep working without
+ * their own branch: anything that is not a plain object carrying `data` is
+ * returned as-is.
+ */
+function unwrapEnvelope<T>(body: unknown): T {
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    !Array.isArray(body) &&
+    Object.prototype.hasOwnProperty.call(body, 'data')
+  ) {
+    return (body as { data: T }).data;
+  }
+  return body as T;
+}
+
 class ApiClient {
   private csrfToken: string | null = null;
   private csrfTokenPromise: Promise<string> | null = null;
@@ -197,7 +215,12 @@ class ApiClient {
       return undefined as T;
     }
 
-    return (await response.json()) as T;
+    const body = (await response.json()) as unknown;
+    // Uniform success envelope: `defineRoute` answers `{ data: T }` for 2xx
+    // JSON. Unwrapped here so every public method signature stays identical —
+    // callers keep receiving the inner body. A raw body (routes outside
+    // `defineRoute`: auth, images, csrf) passes through untouched.
+    return unwrapEnvelope<T>(body);
   }
 
   async register(payload: {
@@ -297,7 +320,14 @@ class ApiClient {
     folderId?: string;
     page?: number;
     limit?: number;
-  }): Promise<{ files: FileSummary[]; total: number; page: number; limit: number }> {
+  }): Promise<{
+    files: FileSummary[];
+    total: number;
+    page: number;
+    limit: number;
+    /** Primary forward-paging cursor; null when the page is not full. */
+    nextCursor?: string | null;
+  }> {
     const searchParams = new URLSearchParams();
     if (params?.search) searchParams.set('search', params.search);
     if (params?.folderId) searchParams.set('folderId', params.folderId);
@@ -311,7 +341,14 @@ class ApiClient {
     search?: string;
     page?: number;
     limit?: number;
-  }): Promise<{ files: SharedFileSummary[]; total: number; page: number; limit: number }> {
+  }): Promise<{
+    files: SharedFileSummary[];
+    total: number;
+    page: number;
+    limit: number;
+    /** Primary forward-paging cursor; null when the page is not full. */
+    nextCursor?: string | null;
+  }> {
     const searchParams = new URLSearchParams();
     if (params?.search) searchParams.set('search', params.search);
     if (params?.page) searchParams.set('page', String(params.page));

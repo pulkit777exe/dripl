@@ -34,7 +34,7 @@ describe('public room capability links', () => {
 
     const response = await request(app()).get('/api/rooms/share/share-token');
     expect(response.status).toBe(200);
-    expect(response.body.room.slug).toBe('room-1');
+    expect(response.body.data.room.slug).toBe('room-1');
   });
 
   it('keeps the capability route public when the full app is mounted', async () => {
@@ -47,7 +47,7 @@ describe('public room capability links', () => {
 
     const response = await request(createApp()).get('/api/rooms/share/app-share-token');
     expect(response.status).toBe(200);
-    expect(response.body.permission).toBe('VIEW');
+    expect(response.body.data.permission).toBe('VIEW');
   });
 
   it('rejects expired capability links', async () => {

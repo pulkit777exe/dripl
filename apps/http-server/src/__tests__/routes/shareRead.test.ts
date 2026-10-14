@@ -105,16 +105,16 @@ describe('GET /api/share/:token — the resolved share', () => {
     const response = await request(app()).get(`/api/share/${TOKEN}`);
 
     expect(response.status).toBe(200);
-    expect(response.body.permission).toBe('view');
-    expect(response.body.elements).toEqual([ELEMENT]);
-    expect(response.body.file).toEqual({
+    expect(response.body.data.permission).toBe('view');
+    expect(response.body.data.elements).toEqual([ELEMENT]);
+    expect(response.body.data.file).toEqual({
       id: FILE_ID,
       name: 'Shared canvas',
       updatedAt: expect.any(String),
     });
-    expect(response.body.file).not.toHaveProperty('content');
-    expect(response.body.file).not.toHaveProperty('userId');
-    expect(response.body.file).not.toHaveProperty('shareToken');
+    expect(response.body.data.file).not.toHaveProperty('content');
+    expect(response.body.data.file).not.toHaveProperty('userId');
+    expect(response.body.data.file).not.toHaveProperty('shareToken');
   });
 
   /**
@@ -196,7 +196,7 @@ describe('GET /api/share/:token — the resolved share', () => {
     const response = await request(app()).get(`/api/share/${TOKEN}`);
 
     expect(response.status).toBe(200);
-    expect(response.body.elements).toEqual([ELEMENT]);
+    expect(response.body.data.elements).toEqual([ELEMENT]);
   });
 
   /**
@@ -228,10 +228,10 @@ describe('GET /api/share/:token — the resolved share', () => {
     const response = await request(app()).get('/api/share/encrypted-token');
 
     expect(response.status).toBe(200);
-    expect(response.body.encryptedPayload).toEqual({ iv: 'aXY=', data: 'Y2lwaGVy' });
+    expect(response.body.data.encryptedPayload).toEqual({ iv: 'aXY=', data: 'Y2lwaGVy' });
     // Null, not `[]`: the distinction is what tells the client to decrypt rather
     // than to render an empty scene.
-    expect(response.body.elements).toBeNull();
+    expect(response.body.data.elements).toBeNull();
   });
 
   /**
@@ -254,7 +254,7 @@ describe('GET /api/share/:token — the resolved share', () => {
     const response = await request(app()).get(`/api/share/${TOKEN}`);
 
     expect(response.status).toBe(200);
-    expect(response.body.elements).toEqual([]);
+    expect(response.body.data.elements).toEqual([]);
   });
 
   it('answers 500 rather than a partial body when the service throws', async () => {

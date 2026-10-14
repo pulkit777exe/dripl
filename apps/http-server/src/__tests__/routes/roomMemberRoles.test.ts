@@ -83,7 +83,7 @@ describe('room member role wire vocabulary', () => {
     expect(dbMock.canvasRoomMember.create).toHaveBeenCalledWith({
       data: { roomId: 'room-1', userId: 'user-2', role: 'EDITOR' },
     });
-    expect(res.body.member.role).toBe('edit');
+    expect(res.body.data.member.role).toBe('edit');
   });
 
   it('defaults an omitted role to the old EDITOR grant, in wire terms', async () => {
@@ -97,7 +97,7 @@ describe('room member role wire vocabulary', () => {
     expect(dbMock.canvasRoomMember.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ role: 'EDITOR' }) })
     );
-    expect(res.body.member.role).toBe('edit');
+    expect(res.body.data.member.role).toBe('edit');
   });
 
   it('rejects uppercase DB names — one casing on the wire', async () => {
@@ -127,6 +127,6 @@ describe('room member role wire vocabulary', () => {
     const res = await request(app).get('/api/rooms/some-room').set('Authorization', authHeader());
 
     expect(res.status).toBe(200);
-    expect(res.body.room.members.map((m: { role: string }) => m.role)).toEqual(['edit', 'view']);
+    expect(res.body.data.room.members.map((m: { role: string }) => m.role)).toEqual(['edit', 'view']);
   });
 });

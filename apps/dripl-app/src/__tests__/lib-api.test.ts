@@ -727,6 +727,61 @@ describe('success bodies', () => {
   });
 });
 
+describe('success envelope unwrapping', () => {
+  it('unwraps { data } so a defineRoute body resolves to the inner shape', async () => {
+    const client = await loadClient();
+    const user = { id: 'u1', email: 'a@b.c', name: null, image: null };
+    stubFetch(res({ data: { user } }));
+    await expect(client.me()).resolves.toEqual({ user });
+  });
+
+  it('unwraps a file payload without the caller changing shape', async () => {
+    const client = await loadClient();
+    stubFetch(res({ data: { file: { id: 'f1', name: 'n' } } }));
+    await expect(client.getFile('f1')).resolves.toEqual({ file: { id: 'f1', name: 'n' } });
+  });
+
+  it('unwraps a list payload including nextCursor', async () => {
+    const client = await loadClient();
+    const page = { files: [], total: 0, page: 1, limit: 20, nextCursor: null };
+    stubFetch(res({ data: page }));
+    await expect(client.listFiles()).resolves.toEqual(page);
+  });
+
+  it('still accepts a raw body from routes outside defineRoute', async () => {
+    const client = await loadClient();
+    const user = { id: 'u1', email: 'a@b.c', name: null, image: null };
+    stubFetch(res({ user }));
+    await expect(client.me()).resolves.toEqual({ user });
+  });
+
+  it('applies the roomId shim on top of an enveloped room', async () => {
+    const client = await loadClient();
+    const room = { id: 'id-1', slug: 'slug-1', name: 'n', isPublic: true, content: '[]' };
+    stubFetch(csrf('t'), res({ data: { room } }));
+    const result = await client.createCanvasRoom({ name: 'n' });
+    expect(result.room).toEqual(room);
+    expect(result.roomId).toBe('slug-1');
+  });
+
+  it('returns an enveloped websocket ticket', async () => {
+    const client = await loadClient();
+    stubFetch(csrf('t'), res({ data: { ticket: 'ws-9' } }));
+    await expect(client.getWsTicket()).resolves.toBe('ws-9');
+  });
+
+  it('stores the session token from an enveloped login', async () => {
+    const client = await loadClient();
+    stubFetch(
+      csrf('t'),
+      res({ data: { user: { id: 'u', email: 'e', name: null, image: null }, sessionToken: 's-1' } })
+    );
+    await client.login({ email: 'a@b.c', password: 'p' });
+    expect(document.cookie).toContain('dripl-session=s-1');
+    document.cookie = 'dripl-session=; path=/; max-age=0';
+  });
+});
+
 describe('method and path table', () => {
   it('maps every public method to the documented verb and path', async () => {
     const cases: Array<[string, (c: Client) => Promise<unknown>, string, string]> = [

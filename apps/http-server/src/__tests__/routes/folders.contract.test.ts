@@ -76,8 +76,8 @@ describe('GET /api/folders', () => {
     const response = await get(app, '/api/folders', OWNER_ID);
 
     expect(response.status).toBe(200);
-    expect(response.body.folders).toHaveLength(1);
-    expect(response.body.folders[0]).toMatchObject({
+    expect(response.body.data.folders).toHaveLength(1);
+    expect(response.body.data.folders[0]).toMatchObject({
       id: FOLDER_ID,
       name: 'Design',
       parentId: null,
@@ -112,8 +112,8 @@ describe('POST /api/folders', () => {
     const response = await post(app, '/api/folders', OWNER_ID, { name: 'Research' });
 
     expect(response.status).toBe(201);
-    expect(response.body.folder).toMatchObject({ name: 'Research', parentId: null });
-    expect(rowOf(response.body.folder.id)?.userId).toBe(OWNER_ID);
+    expect(response.body.data.folder).toMatchObject({ name: 'Research', parentId: null });
+    expect(rowOf(response.body.data.folder.id)?.userId).toBe(OWNER_ID);
   });
 
   it('creates a nested folder when the parent exists', async () => {
@@ -125,7 +125,7 @@ describe('POST /api/folders', () => {
     });
 
     expect(response.status).toBe(201);
-    expect(response.body.folder.parentId).toBe(FOLDER_ID);
+    expect(response.body.data.folder.parentId).toBe(FOLDER_ID);
   });
 
   it('maps parent_not_found to 404', async () => {
@@ -179,7 +179,7 @@ describe('PATCH /api/folders/:id', () => {
     const response = await patch(app, `/api/folders/${FOLDER_ID}`, OWNER_ID, { name: 'Renamed' });
 
     expect(response.status).toBe(200);
-    expect(response.body.folder).toMatchObject({ id: FOLDER_ID, name: 'Renamed' });
+    expect(response.body.data.folder).toMatchObject({ id: FOLDER_ID, name: 'Renamed' });
   });
 
   it('accepts an explicit null parentId to move the folder to the root', async () => {
@@ -188,7 +188,7 @@ describe('PATCH /api/folders/:id', () => {
     const response = await patch(app, `/api/folders/${FOLDER_ID}`, OWNER_ID, { parentId: null });
 
     expect(response.status).toBe(200);
-    expect(response.body.folder.parentId).toBeNull();
+    expect(response.body.data.folder.parentId).toBeNull();
   });
 
   it('maps not_found to 404', async () => {

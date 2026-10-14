@@ -213,8 +213,8 @@ describe('POST /api/share', () => {
       .send({ fileId: 'file-1', permission: 'edit' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ token: expect.any(String) });
-    expect(res.body.token.length).toBeGreaterThanOrEqual(24);
+    expect(res.body).toEqual({ data: { token: expect.any(String) } });
+    expect(res.body.data.token.length).toBeGreaterThanOrEqual(24);
     // The rotate path is fenced on the row it read.
     expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -237,7 +237,7 @@ describe('POST /api/share', () => {
       .send({ fileId: 'file-1', permission: 'view' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ token: 'kept-token-xyz' });
+    expect(res.body).toEqual({ data: { token: 'kept-token-xyz' } });
     // No rotation: no DB update
     expect(mockUpdateMany).not.toHaveBeenCalled();
   });
@@ -251,7 +251,7 @@ describe('POST /api/share', () => {
       .send({ fileId: 'file-1', permission: 'edit' });
 
     expect(res.status).toBe(200);
-    expect(res.body.token).not.toBe('old-view');
+    expect(res.body.data.token).not.toBe('old-view');
     expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

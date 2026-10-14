@@ -54,6 +54,24 @@ async function errorMessage(response: Response): Promise<string> {
   }
 }
 
+/**
+ * Unwrap the uniform `{ data: T }` success envelope http-server's
+ * `defineRoute` sends for 2xx JSON. Accepts a raw body too, so callers keep
+ * their existing `T` (the inner shape) whichever route they hit — auth and
+ * the other non-`defineRoute` routes still answer raw bodies.
+ */
+function unwrapEnvelope<T>(body: unknown): T {
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    !Array.isArray(body) &&
+    Object.prototype.hasOwnProperty.call(body, 'data')
+  ) {
+    return (body as { data: T }).data;
+  }
+  return body as T;
+}
+
 export type ServerFetchOptions = {
   /**
    * The verified session token from `readSessionBearer()`. `null` means "make
@@ -87,7 +105,7 @@ export async function serverApiGet<T>(path: string, options: ServerFetchOptions)
     throw new ServerApiError(response.status, await errorMessage(response));
   }
 
-  return (await response.json()) as T;
+  return unwrapEnvelope<T>(await response.json());
 }
 
 /**
@@ -129,7 +147,7 @@ export async function serverApiCall<T>(
     throw new ServerApiError(response.status, await errorMessage(response));
   }
 
-  return (await response.json()) as T;
+  return unwrapEnvelope<T>(await response.json());
 }
 
 /**

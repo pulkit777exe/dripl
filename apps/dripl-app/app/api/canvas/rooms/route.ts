@@ -84,11 +84,18 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       return NextResponse.json({ error: 'Unable to create room.' }, { status: response.status });
     }
-    const payload = (await response.json()) as { room?: { slug?: string } };
-    if (!payload.room?.slug) {
+    const payload = (await response.json()) as {
+      room?: { slug?: string };
+      data?: { room?: { slug?: string } };
+    };
+    // `POST /rooms` answers through `defineRoute`, so the room lives inside
+    // the uniform `{ data }` envelope; the raw shape is still accepted so an
+    // older http-server keeps working against this proxy.
+    const room = payload.room ?? payload.data?.room;
+    if (!room?.slug) {
       return NextResponse.json({ error: 'Invalid room response.' }, { status: 500 });
     }
-    return NextResponse.json({ roomId: payload.room.slug });
+    return NextResponse.json({ roomId: room.slug });
   } catch {
     return NextResponse.json({ error: 'Unable to create room.' }, { status: 500 });
   }
