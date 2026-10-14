@@ -17,6 +17,7 @@
     "test:coverage": "turbo run test -- --coverage",
     "boundaries": "turbo boundaries",
     "check:google-oauth": "node scripts/check-google-oauth.mjs",
+    "sbom": "pnpm list --prod --json | node scripts/sbom.mjs --output sbom.json",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "benchmark:canvas": "tsx scripts/benchmarks/canvas-performance.ts",
     "prepare": "husky || true"

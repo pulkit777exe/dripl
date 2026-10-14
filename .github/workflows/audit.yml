@@ -6,6 +6,10 @@ name: Supply-chain audit
 # newly disclosed advisory visible without turning it into a merge gate.
 # Findings are recorded in docs/dependencies.md; fixes ride the existing
 # renovate groupings, not ad-hoc bumps (no Dependabot, no new scanners).
+# The sbom job below reuses the same install to emit a CycloneDX-ish inventory
+# (`pnpm sbom`, scripts/sbom.mjs, stdlib only) and uploads it as an artifact.
+# It is evidence, not a gate: no provenance attestation, see
+# docs/dependencies.md appendix.
 on:
   schedule:
     # Mondays at 06:00 UTC.
@@ -32,3 +36,25 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Audit production dependencies
         run: pnpm audit --prod
+
+  sbom:
+    name: SBOM (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Generate SBOM
+        run: pnpm sbom
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json

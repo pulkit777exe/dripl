@@ -103,5 +103,23 @@ rewrite of the rendering aesthetic, not a supply-chain fix.
 `renovate.json` groups `prisma`, `typescript`, `react`, and `next` (no
 automerge) and automerges minor/patch for the rest. CI (`ci.yml`) installs
 with `--frozen-lockfile` and runs lint, boundaries, build, test, type-check,
-and production-stack E2E — but has no scheduled audit job and no SBOM or
-provenance attestation; see report gaps.
+and production-stack E2E. The weekly advisory scan lives in `audit.yml`
+(schedule plus `workflow_dispatch`, `continue-on-error: true` so it never
+blocks merges): one job runs `pnpm audit --prod`, and a second job runs
+`pnpm sbom` (`scripts/sbom.mjs`, stdlib only) and uploads the CycloneDX-ish
+`sbom.json` as a workflow artifact. Regenerate locally with `pnpm sbom`.
+There is still no build provenance attestation; see the appendix below.
+
+## Appendix: Build provenance
+
+No SLSA provenance or build attestation is produced today. Release images are
+built with `docker compose build` (locally or in CI) and pushed without
+signed provenance, and neither `ci.yml` nor `audit.yml` attaches anything
+verifiable to the artifacts they produce — the uploaded `sbom.json` is an
+inventory of what is shipped, not a claim about how it was built.
+
+Enabling GitHub artifact attestations would need no code changes, only
+maintainer action: grant the workflow `id-token: write` permission, add an
+attestation step for the SBOM/container artifact, and verify with
+`gh attestation verify`. That step is deliberately not added here — it needs
+repo-level permission approval to verify end to end, so it remains manual.

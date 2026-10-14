@@ -369,3 +369,4 @@ For major architectural decisions, see:
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
+No Developer Certificate of Origin (DCO) sign-off or Contributor License Agreement (CLA) is required.
