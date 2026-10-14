@@ -156,31 +156,32 @@ describe('DEFECT: POST /api/auth/google is not CSRF-guarded', () => {
    * `app.ts`'s CSRF list covers eight paths under `/api/auth` and `/google` is not
    * one of them. `validateCsrfToken` is never applied to it on any other path either, so a
    * cross-site POST carrying the victim's `csrf-token` cookie reaches the handler and
-   * is answered 200.
+   * is answered without a CSRF 403.
    *
-   * The impact is login CSRF: an attacker with their own Google account obtains an ID
-   * token for this client id on their own origin and posts it from a page the victim
-   * visits. The server verifies it — it is a genuine token — and sets
-   * `dripl-session` on the *victim's* browser, silently signing the victim into the
-   * attacker's account. Canvases the victim then creates belong to the attacker, who
-   * can read them through the ordinary file API. The victim sees a working session and
-   * no error at any point.
+   * The impact the exemption used to leave open was login CSRF: an attacker with
+   * their own Google account obtains an ID token for this client id on their own
+   * origin and posts it from a page the victim visits. The server verifies it — it
+   * is a genuine token — and sets `dripl-session` on the *victim's* browser,
+   * silently signing the victim into the attacker's account. Canvases the victim
+   * then creates belong to the attacker, who can read them through the ordinary
+   * file API. The victim sees a working session and no error at any point.
    *
-   * The obvious fix — `app.use('/api/auth/google', validateCsrfToken)` — is **wrong**,
-   * and this comment used to call it only "one line". `validateCsrfToken` requires a
-   * `csrf-token` cookie *and* a matching `X-CSRF-Token` header, and the only
-   * legitimate caller is `apps/dripl-app/app/api/auth/google/callback/route.ts`: a
-   * server-side Next route handler that exchanges a Google code and POSTs here over
-   * the network, with no cookie jar and no such header. That guard would 403 every
-   * real Google sign-in — and a test driving this route directly would keep passing
-   * while the feature was broken in production.
+   * What closes it is the same-origin check at the top of the handler, not the
+   * double-submit guard — and the distinction is why this case still asserts what
+   * it asserts. A browser always sends `Origin` on a POST, so a forgery from an
+   * attacker's page always carries a foreign origin and now answers 403
+   * `FORBIDDEN_ORIGIN` before Google is contacted (see
+   * `routes/authGoogleOrigin.test.ts`). This case sends *no* `Origin` at all —
+   * which no browser does — so it exercises the header-less arm the server-side
+   * Next callback legitimately uses, and that arm is admitted by design. In
+   * other words: the CSRF-cookie gap below is still real, and it is now
+   * unreachable from any caller a browser can produce.
    *
-   * What actually closes it must be satisfiable by a server-to-server caller: an
-   * `Origin`/`Sec-Fetch-Site` check admitting same-origin and header-less requests
-   * while refusing `cross-site`, or an internal shared secret as `ws-server` uses for
-   * ticket redemption. Either changes this route's threat model, so it is a
-   * maintainer decision and is not applied here. See the matching case in
-   * `routes/authGoogle.test.ts`.
+   * The fix that was *not* applied is still `app.use('/api/auth/google',
+   * validateCsrfToken)`, and it is still wrong: the only legitimate caller is
+   * `apps/dripl-app/app/api/auth/google/callback/route.ts`, a server-side Next
+   * route handler with no cookie jar and no such header, so that guard would 403
+   * every real Google sign-in.
    */
   it('answers 200 to a cross-site POST, which is the defect', async () => {
     const response = await crossSite('post', '/api/auth/google', { token: 'an-id-token' });

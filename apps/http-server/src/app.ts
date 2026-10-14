@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import * as Sentry from '@sentry/node';
 import { validateCsrfToken, generateCsrfToken } from './middlewares/csrfMiddleware';
 import { authMiddleware } from './middlewares/authMiddleware';
-import { parseAllowedOrigins } from '@dripl/utils/origin';
+import { getAllowedOrigins } from './lib/allowedOrigins';
 import { sendError } from './lib/response';
 import { logger } from './logger';
 import { createRateLimiter } from './lib/rateLimiter';
@@ -181,14 +181,7 @@ export function createApp(): Application {
   app.use(compression());
   app.use(rateLimitMiddleware);
 
-  const allowedOrigins = parseAllowedOrigins([
-    process.env.FRONTEND_URL,
-    process.env.NEXT_PUBLIC_APP_URL,
-  ]);
-
-  if (process.env.NODE_ENV !== 'production' && !allowedOrigins.includes('http://localhost:3000')) {
-    allowedOrigins.push('http://localhost:3000');
-  }
+  const allowedOrigins = getAllowedOrigins();
 
   app.use(
     cors({

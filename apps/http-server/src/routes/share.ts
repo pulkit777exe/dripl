@@ -1,7 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { db } from '@dripl/db';
-import { issueWsTicket, type WsTicketPrincipal } from './auth';
+import { issueTicket, type WsTicketPrincipal } from './auth';
 import { ShareService, type SharePermission } from '../services/shareService';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { defineRoute } from '../lib/route';
@@ -108,7 +108,7 @@ shareRouter.get('/:token/ws-ticket', shareLimiter, async (req, res) => {
     token,
     permission,
   };
-  res.json({ ticket: issueWsTicket(principal), fileId: file.id, permission });
+  res.json({ ticket: await issueTicket(principal), fileId: file.id, permission });
 });
 
 shareRouter.get(

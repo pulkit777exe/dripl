@@ -261,6 +261,65 @@ describe('the 10 MB ceiling is enforced while streaming', () => {
   });
 });
 
+describe('the signature check runs while streaming, not after', () => {
+  /**
+   * A large body whose first bytes already disprove the declared type.
+   *
+   * The old handler buffered everything up to the 10 MB cap and only then
+   * validated, so this input answered 413: the size tripped mid-stream and
+   * the signature was never evaluated. Now the mismatch is provable from the
+   * first chunk, so the stream is destroyed at 12 bytes and the answer is the
+   * same 400 an end-of-stream mismatch gets. The status flip from 413 to 400
+   * on this input is the observable proof of the early abort — nothing about
+   * the body changed, only when the verdict was reached.
+   */
+  it('refuses a large misdeclared body with 400 instead of buffering it to the cap', async () => {
+    const garbage = Buffer.alloc(11 * 1024 * 1024, 0);
+
+    const response = await upload(garbage, 'image/png');
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'INVALID_IMAGE',
+      message: 'File contents do not match the declared image type',
+      statusCode: 400,
+    });
+    expect(await stored()).toEqual([]);
+  });
+
+  /**
+   * The control: an honest header on an over-large body still answers 413.
+   *
+   * Without this, the case above would pass for a handler whose size check
+   * had been broken rather than preceded — the 400 must come from the
+   * signature short-circuiting the size, not from the size never firing.
+   */
+  it('still refuses an over-large body with an honest header as 413', async () => {
+    const oversized = Buffer.concat([SIGNATURES.png, Buffer.alloc(10 * 1024 * 1024, 0)]);
+
+    const response = await upload(oversized, 'image/png');
+
+    expect(response.status).toBe(413);
+    expect(response.body.error).toBe('PAYLOAD_TOO_LARGE');
+    expect(await stored()).toEqual([]);
+  });
+
+  /**
+   * A small valid body still streams through to a stored file.
+   *
+   * The early check must not reject what it cannot yet disprove: bodies under
+   * 12 bytes never trigger it and fall through to the end-of-stream verdict,
+   * and an honest 12-byte prefix passes it on the way to the same 201.
+   */
+  it('still stores a small body with an honest header', async () => {
+    const response = await upload(SIGNATURES.png, 'image/png');
+
+    expect(response.status).toBe(201);
+    expect(response.body.size).toBe(SIGNATURES.png.length);
+    expect(await stored()).toEqual([response.body.id]);
+  });
+});
+
 describe('the upload URL is derived from the configured API base', () => {
   /**
    * The URL the client is handed back.
