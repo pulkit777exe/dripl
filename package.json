@@ -1,6 +1,7 @@
 {
   "name": "dripl",
   "private": true,
+  "license": "MIT",
   "engines": {
     "node": ">=20.0.0 <21.0.0"
   },

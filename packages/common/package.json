@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Shared types, schemas, and utilities for Dripl",
   "license": "MIT",
+  "private": true,
   "main": "./dist/index",
   "type": "module",
   "exports": {

@@ -60,3 +60,48 @@ pnpm run dev       # Run all apps in dev mode
 pnpm run lint      # Lint all packages
 pnpm run test      # Run all tests
 ```
+
+## Supply-Chain Snapshot
+
+Evidence, not policy. Re-run with `pnpm audit --prod --json` and
+`pnpm licenses list --prod --json`; do not hand-edit the numbers below.
+
+Snapshot date: 2026-10-14. 827 production dependencies.
+
+### Vulnerability audit
+
+`pnpm audit --prod`: 8 advisories (4 high, 4 moderate, 0 critical).
+
+| Advisory                                                                                   | Reachability                                                                                                                                | Why no upgrade                                                                                                                    |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `deepmerge-ts` stack exhaustion (GHSA-ggr8-5vv4-36mx, via `prisma > @prisma/config`)       | Transitive dev/build chain of `@prisma/client`; trigger needs recursive object graphs, which plain JSON sync payloads cannot express        | Upstream fix is a major (`v8.0.0`); moves with the `prisma` group in `renovate.json`, not ad hoc                                  |
+| `mysql2` auth-plugin downgrade + zlib decompression bomb (2 advisories, via `prisma`)      | Transitive of `prisma` CLI; the repo connects to PostgreSQL only (`@prisma/adapter-pg`, `pg`), so the MySQL protocol handler is unreachable | Same as above — rides the `prisma` renovate group                                                                                 |
+| `nodemailer` address-parser / DNS-cache issues (5 advisories, direct dep of `http-server`) | Reachable only through the SMTP mail path (`SMTP_USER` + `SMTP_PASS` both set); no mail is sent in default or test deployments              | Parser DoS hardening belongs upstream; upgrading `nodemailer` alone is deferred to its renovate grouping rather than a blind bump |
+
+### License scan
+
+`pnpm licenses list --prod`: 501 MIT, 57 Apache-2.0, 43 ISC, plus BSD/BlueOak/Unlicense.
+No GPL/AGPL anywhere. Remaining non-permissive entries, all low-risk:
+
+| License               | Package                                              | Why acceptable                                                                      |
+| --------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| MPL-2.0 (file-level)  | `lightningcss` (via `tailwindcss`)                   | Build-time CSS minifier, not shipped; file-level copyleft does not propagate        |
+| MPL-2.0 OR Apache-2.0 | `dompurify`                                          | Dual-licensed; used under Apache-2.0                                                |
+| LGPL-3.0-or-later     | `@img/sharp-libvips-*` (prebuilt binary via `sharp`) | Dynamically linked image codecs, standard practice; no static linking into app code |
+| EPL-2.0               | `elkjs` (via `prisma > @prisma/studio-core`)         | Dev-only Studio dependency, not in the shipped servers                              |
+| FSL-1.1-MIT           | `@sentry/cli`                                        | Build-time uploader, converts to MIT over time                                      |
+| CC-BY-4.0             | `caniuse-lite`                                       | Data tables; attribution satisfied by the package's own notice                      |
+| Python-2.0            | `argparse`                                           | Ancient permissive license, deep transitive                                         |
+
+`roughjs` (canvas rendering core) is noted as slow-release upstream
+(maintenance mode, single maintainer). It is pinned via `pnpm-lock.yaml` and
+covered by determinism tests in `@dripl/element`; replacement would be a
+rewrite of the rendering aesthetic, not a supply-chain fix.
+
+### Automation coverage
+
+`renovate.json` groups `prisma`, `typescript`, `react`, and `next` (no
+automerge) and automerges minor/patch for the rest. CI (`ci.yml`) installs
+with `--frozen-lockfile` and runs lint, boundaries, build, test, type-check,
+and production-stack E2E — but has no scheduled audit job and no SBOM or
+provenance attestation; see report gaps.

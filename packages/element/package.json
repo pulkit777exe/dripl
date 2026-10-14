@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Element factory and rendering for Dripl canvas",
   "license": "MIT",
+  "private": true,
   "type": "module",
   "exports": {
     "./staticScene": {
