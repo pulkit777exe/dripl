@@ -232,6 +232,8 @@ export function createApp(): Application {
   app.use('/api/auth/logout', validateCsrfToken);
   app.use('/api/auth/ws-ticket', validateCsrfToken);
   app.use('/api/auth/resend-verification', validateCsrfToken);
+  app.use('/api/auth/verify-email', validateCsrfToken);
+  app.use('/api/auth/profile', validateCsrfToken);
 
   for (const path of AUTH_RATE_LIMITED_PATHS) {
     app.use(path, authRateLimitMiddleware);
