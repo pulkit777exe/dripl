@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { db as prisma } from '@dripl/db';
-import { isValidSceneContent } from '../lib/sceneValidation';
+import { isValidSceneContent, isValidSceneString } from '../lib/sceneValidation';
 
 export const MAX_ROOMS_PER_DAY = 10;
 export const MAX_SLUG_ATTEMPTS = 5;
@@ -11,11 +11,10 @@ export function generateSlug(): string {
 }
 
 export function isValidRoomContent(value: string): boolean {
-  try {
-    return isValidSceneContent(JSON.parse(value));
-  } catch {
-    return false;
-  }
+  // String form goes through the memoized validator: room saves carry the
+  // already-serialized scene, so repeat saves of one scene skip the Zod walk.
+  // Identical verdicts to parse-then-validate by construction (same bytes in).
+  return isValidSceneString(value);
 }
 
 export function parseRoomContent(raw: string): unknown {

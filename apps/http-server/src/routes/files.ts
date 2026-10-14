@@ -148,8 +148,15 @@ filesRouter.post(
     handler: async ({ userId, body, res }) => {
       const payload = body;
 
-      if (payload.content !== undefined) {
-        const contentSize = Buffer.byteLength(JSON.stringify(payload.content), 'utf8');
+      // Serialized once: the string both measures the payload (413 guard
+      // below) and travels to the service, which validates and stores from
+      // it directly instead of re-serializing. Same bytes measured and
+      // stored, so the guard cannot disagree with what is written.
+      const contentString =
+        payload.content !== undefined ? JSON.stringify(payload.content) : undefined;
+
+      if (contentString !== undefined) {
+        const contentSize = Buffer.byteLength(contentString, 'utf8');
         if (contentSize > MAX_FILE_CONTENT_BYTES) {
           sendError(
             res,
@@ -165,7 +172,7 @@ filesRouter.post(
         userId,
         name: payload.name,
         folderId: payload.folderId,
-        content: payload.content,
+        content: contentString ?? payload.content,
         preview: payload.preview,
       });
 
@@ -233,8 +240,13 @@ filesRouter.patch(
 
       const payload = body;
 
-      if (payload.content !== undefined) {
-        const contentSize = Buffer.byteLength(JSON.stringify(payload.content), 'utf8');
+      // Serialized once (see POST / above): the same string feeds the 413
+      // guard and the service, which validates and stores from it directly.
+      const contentString =
+        payload.content !== undefined ? JSON.stringify(payload.content) : undefined;
+
+      if (contentString !== undefined) {
+        const contentSize = Buffer.byteLength(contentString, 'utf8');
         if (contentSize > MAX_FILE_CONTENT_BYTES) {
           sendError(
             res,
@@ -250,7 +262,7 @@ filesRouter.patch(
         userId,
         fileId: id,
         name: payload.name,
-        content: payload.content,
+        content: contentString ?? payload.content,
         preview: payload.preview,
         folderId: payload.folderId,
         expectedUpdatedAt: payload.expectedUpdatedAt,

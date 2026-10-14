@@ -30,7 +30,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { MAX_SCENE_ELEMENTS } from '@dripl/common';
-import { isValidSceneContent } from '../../lib/sceneValidation';
+import { isValidSceneContent, isValidSceneString } from '../../lib/sceneValidation';
 
 /** A minimal valid element. */
 const element = (id: string): Record<string, unknown> => ({
@@ -236,5 +236,55 @@ describe('the element-count ceiling, at the boundary', () => {
     // One of them on its own is a valid one-element scene.
     expect(isValidSceneContent([overLimit[0]])).toBe(true);
     expect(isValidSceneContent(overLimit)).toBe(false);
+  });
+});
+
+describe('isValidSceneString — memoized string form', () => {
+  /**
+   * The memo must agree with the object form on every shape: a hit may only
+   * repeat the verdict the same bytes earned through the unmemoized path.
+   */
+  it('agrees with isValidSceneContent on arrays, envelopes, and garbage', () => {
+    const cases: Array<[string, boolean]> = [
+      [JSON.stringify([element('a'), element('b')]), true],
+      [JSON.stringify({ elements: [element('a')] }), true],
+      ['[]', true],
+      ['not json', false],
+      ['42', false],
+      ['null', false],
+      [JSON.stringify([element('a'), { id: 'bad' }]), false],
+      [JSON.stringify({ elements: 'nope' }), false],
+    ];
+    for (const [input, expected] of cases) {
+      expect(isValidSceneString(input)).toBe(expected);
+      // Second call exercises the memo hit; the verdict must not move.
+      expect(isValidSceneString(input)).toBe(expected);
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(input) as unknown;
+      } catch {
+        parsed = null;
+      }
+      expect(isValidSceneString(input)).toBe(isValidSceneContent(parsed));
+    }
+  });
+
+  it('applies the element-count ceiling through the string form', () => {
+    const atLimit = Array.from({ length: MAX_SCENE_ELEMENTS }, (_, i) => element(`e${i}`));
+    expect(isValidSceneString(JSON.stringify(atLimit))).toBe(true);
+    expect(isValidSceneString(JSON.stringify([...atLimit, element('x')]))).toBe(false);
+  });
+
+  /**
+   * The memo is bounded: churning more distinct scenes than the limit must
+   * stay correct (evicted entries re-validate) rather than growing without
+   * bound or going stale. 60 entries × a small scene keeps this fast.
+   */
+  it('stays correct past the memo eviction point', () => {
+    const scenes = Array.from({ length: 60 }, (_, i) => JSON.stringify([element(`m${i}`)]));
+    for (const scene of scenes) expect(isValidSceneString(scene)).toBe(true);
+    // Every entry still answers correctly whether evicted (re-validated) or not.
+    for (const scene of scenes) expect(isValidSceneString(scene)).toBe(true);
+    expect(isValidSceneString('garbage!!')).toBe(false);
   });
 });
