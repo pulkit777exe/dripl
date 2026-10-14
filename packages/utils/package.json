@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Utility functions for Dripl (encryption, storage, throttling)",
   "license": "MIT",
+  "private": true,
   "type": "module",
   "exports": {
     ".": {

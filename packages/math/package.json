@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Math utilities for geometry and intersection calculations",
   "license": "MIT",
+  "private": true,
   "type": "module",
   "exports": {
     "./geometry": {
