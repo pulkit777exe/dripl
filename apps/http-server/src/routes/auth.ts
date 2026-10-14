@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { sendError } from '../lib/response';
 import {
@@ -13,24 +13,33 @@ import {
 import { OAuth2Client } from 'google-auth-library';
 import { AuthService } from '../services/authService';
 import { logger } from '../logger';
+import {
+  CryptoIds,
+  SystemClock,
+  WS_TICKET_TTL_MS,
+  createMemoryTicketStore,
+  type TicketPrincipal,
+} from '../ports';
 
-export type WsTicketPrincipal =
-  | { kind: 'user'; userId: string }
-  | { kind: 'share'; fileId: string; token: string; permission: 'view' | 'edit' };
+/** The ticket principal shape lives on the port; this alias keeps existing imports working. */
+export type WsTicketPrincipal = TicketPrincipal;
 
-export const wsTicketStore = new Map<string, { principal: WsTicketPrincipal; expiresAt: number }>();
+type WsTicketEntry = { principal: WsTicketPrincipal; expiresAt: number };
+
+const ticketEntries = new Map<string, WsTicketEntry>();
+const ticketStore = createMemoryTicketStore(SystemClock, CryptoIds, { entries: ticketEntries });
+
+/**
+ * Compat shims over the ticket-store port. `wsTicketStore` is the store's own
+ * backing map (same object, not a copy), so existing direct uses — tests
+ * seeding entries, the sweep below — keep seeing live state. `issueWsTicket`
+ * stays synchronous and delegates to the store's sync core with the shared
+ * TTL; the async port methods wrap that same core.
+ */
+export const wsTicketStore: Map<string, WsTicketEntry> = ticketEntries;
 
 export function issueWsTicket(principal: WsTicketPrincipal): string {
-  const ticket = randomUUID();
-  if (wsTicketStore.size >= 10_000) {
-    const oldest = wsTicketStore.keys().next().value;
-    if (oldest) wsTicketStore.delete(oldest);
-  }
-  wsTicketStore.set(ticket, {
-    principal,
-    expiresAt: Date.now() + 30_000,
-  });
-  return ticket;
+  return ticketStore.issueSync(principal, WS_TICKET_TTL_MS);
 }
 
 const wsTicketCleanup = setInterval(() => {
@@ -453,14 +462,12 @@ export function createInternalRouter(): Router {
       res.status(400).json({ error: 'Ticket is required' });
       return;
     }
-    const entry = wsTicketStore.get(ticket);
-    if (!entry || entry.expiresAt < Date.now()) {
-      wsTicketStore.delete(ticket);
+    const principal = ticketStore.consumeSync(ticket);
+    if (!principal) {
       res.status(401).json({ error: 'Invalid or expired ticket' });
       return;
     }
-    wsTicketStore.delete(ticket);
-    res.json(entry.principal);
+    res.json(principal);
   });
 
   return internalRouter;
