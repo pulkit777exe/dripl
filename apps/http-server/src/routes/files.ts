@@ -1,12 +1,11 @@
 import { createHash } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
-import type { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { sendError } from '../lib/response';
+import { defineRoute } from '../lib/route';
 import { sendServiceError } from '../lib/serviceResult';
 import { FileService } from '../services/fileService';
 import { MAX_FILE_CONTENT_BYTES } from '@dripl/common';
-import { logger } from '../logger';
 
 const listFilesQuerySchema = z.object({
   search: z.string().trim().min(1).max(200).optional(),
@@ -54,375 +53,324 @@ const listSharedFilesQuerySchema = z.object({
 
 const filesRouter: Router = Router();
 
-filesRouter.get('/', async (req: AuthenticatedRequest, res) => {
-  if (!req.userId) {
-    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
-    return;
-  }
+filesRouter.get(
+  '/',
+  defineRoute({
+    auth: 'required',
+    query: listFilesQuerySchema,
+    invalidQuery: { message: 'Invalid file query parameters' },
+    event: 'list_files_error',
+    internalError: 'Failed to list files',
+    handler: async ({ userId, query, req, res }) => {
+      const { search, folderId, page, limit, cursor } = query;
 
-  const parsedQuery = listFilesQuerySchema.safeParse(req.query);
-  if (!parsedQuery.success) {
-    res.status(400).json({
-      error: 'INVALID_QUERY',
-      message: 'Invalid file query parameters',
-      statusCode: 400,
-      details: parsedQuery.error.flatten(),
-    });
-    return;
-  }
-
-  const { search, folderId, page, limit, cursor } = parsedQuery.data;
-
-  try {
-    const result = await FileService.listFiles({
-      userId: req.userId,
-      search,
-      folderId,
-      limit,
-      page,
-      cursor,
-    });
-
-    const responseHash = createHash('md5')
-      .update(
-        JSON.stringify({
-          files: result.files,
-          total: result.isCursorBased ? undefined : result.total,
-        })
-      )
-      .digest('hex');
-    const etag = `"${responseHash}"`;
-
-    if (req.headers['if-none-match'] === etag) {
-      res.status(304).end();
-      return;
-    }
-
-    res.set('Cache-Control', 'private, max-age=0, must-revalidate');
-    res.set('ETag', etag);
-    res.json({
-      files: result.files,
-      total: result.isCursorBased ? undefined : result.total,
-      page: result.isCursorBased ? undefined : page,
-      limit,
-      nextCursor: result.nextCursor,
-    });
-  } catch (error) {
-    logger.error({ event: 'list_files_error', error }, 'Failed to list files');
-    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to list files');
-  }
-});
-
-filesRouter.get('/shared', async (req: AuthenticatedRequest, res) => {
-  if (!req.userId) {
-    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
-    return;
-  }
-
-  const parsedQuery = listSharedFilesQuerySchema.safeParse(req.query);
-  if (!parsedQuery.success) {
-    res.status(400).json({
-      error: 'INVALID_QUERY',
-      message: 'Invalid query parameters',
-      statusCode: 400,
-      details: parsedQuery.error.flatten(),
-    });
-    return;
-  }
-
-  const { search, page, limit, cursor } = parsedQuery.data;
-
-  try {
-    const result = await FileService.listSharedFiles({
-      userId: req.userId,
-      search,
-      limit,
-      page,
-      cursor,
-    });
-
-    res.json({
-      files: result.files,
-      total: result.isCursorBased ? undefined : result.total,
-      page: result.isCursorBased ? undefined : page,
-      limit,
-      nextCursor: result.nextCursor,
-    });
-  } catch (error) {
-    logger.error({ event: 'list_shared_files_error', error }, 'Failed to list shared files');
-    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to list shared files');
-  }
-});
-
-filesRouter.post('/', async (req: AuthenticatedRequest, res) => {
-  if (!req.userId) {
-    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
-    return;
-  }
-
-  const parsedBody = createFileSchema.safeParse(req.body);
-  if (!parsedBody.success) {
-    res.status(400).json({
-      error: 'INVALID_PAYLOAD',
-      message: 'Invalid create file payload',
-      statusCode: 400,
-      details: parsedBody.error.flatten(),
-    });
-    return;
-  }
-
-  const payload = parsedBody.data;
-
-  if (payload.content !== undefined) {
-    const contentSize = Buffer.byteLength(JSON.stringify(payload.content), 'utf8');
-    if (contentSize > MAX_FILE_CONTENT_BYTES) {
-      sendError(
-        res,
-        413,
-        'PAYLOAD_TOO_LARGE',
-        `File content too large (${contentSize} bytes, max ${MAX_FILE_CONTENT_BYTES})`
-      );
-      return;
-    }
-  }
-
-  try {
-    const result = await FileService.createFile({
-      userId: req.userId,
-      name: payload.name,
-      folderId: payload.folderId,
-      content: payload.content,
-      preview: payload.preview,
-    });
-
-    if (result && 'kind' in result) {
-      // The quota message embeds the live limit from the service result —
-      // the only kind carrying a payload. Other entries are ignored for
-      // non-quota kinds (the map must still list every kind: exhaustiveness).
-      const quotaMessage =
-        result.kind === 'quota_exceeded'
-          ? `Free plan limit reached (${result.limit} canvases). Delete one or upgrade to Premium.`
-          : 'Quota exceeded';
-      sendServiceError(res, result, {
-        quota_exceeded: quotaMessage,
-        folder_not_found: 'Folder not found',
-        invalid_scene: 'Invalid scene content',
+      const result = await FileService.listFiles({
+        userId,
+        search,
+        folderId,
+        limit,
+        page,
+        cursor,
       });
-      return;
-    }
 
-    res.status(201).json(result.file);
-  } catch (error) {
-    logger.error({ event: 'create_file_error', error }, 'Failed to create file');
-    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to create file');
-  }
-});
+      const responseHash = createHash('md5')
+        .update(
+          JSON.stringify({
+            files: result.files,
+            total: result.isCursorBased ? undefined : result.total,
+          })
+        )
+        .digest('hex');
+      const etag = `"${responseHash}"`;
 
-filesRouter.get('/:id', async (req: AuthenticatedRequest, res) => {
-  if (!req.userId) {
-    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
-    return;
-  }
+      if (req.headers['if-none-match'] === etag) {
+        res.status(304).end();
+        return;
+      }
 
-  const id = typeof req.params.id === 'string' ? req.params.id : null;
-  if (!id) {
-    sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
-    return;
-  }
-
-  try {
-    const file = await FileService.getFile(req.userId, id);
-
-    if (!file) {
-      sendError(res, 404, 'NOT_FOUND', 'File not found');
-      return;
-    }
-
-    res.json({ file });
-  } catch (error) {
-    logger.error({ event: 'get_file_error', error }, 'Failed to load file');
-    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to load file');
-  }
-});
-
-filesRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
-  if (!req.userId) {
-    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
-    return;
-  }
-
-  const id = typeof req.params.id === 'string' ? req.params.id : null;
-  if (!id) {
-    sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
-    return;
-  }
-
-  const parsedBody = patchFileSchema.safeParse(req.body);
-  if (!parsedBody.success) {
-    res.status(400).json({
-      error: 'INVALID_PAYLOAD',
-      message: 'Invalid update file payload',
-      statusCode: 400,
-      details: parsedBody.error.flatten(),
-    });
-    return;
-  }
-
-  const payload = parsedBody.data;
-
-  if (payload.content !== undefined) {
-    const contentSize = Buffer.byteLength(JSON.stringify(payload.content), 'utf8');
-    if (contentSize > MAX_FILE_CONTENT_BYTES) {
-      sendError(
-        res,
-        413,
-        'PAYLOAD_TOO_LARGE',
-        `File content too large (${contentSize} bytes, max ${MAX_FILE_CONTENT_BYTES})`
-      );
-      return;
-    }
-  }
-
-  try {
-    const result = await FileService.updateFile({
-      userId: req.userId,
-      fileId: id,
-      name: payload.name,
-      content: payload.content,
-      preview: payload.preview,
-      folderId: payload.folderId,
-      expectedUpdatedAt: payload.expectedUpdatedAt,
-    });
-
-    if (!result) {
-      sendError(res, 404, 'NOT_FOUND', 'File not found');
-      return;
-    }
-
-    if ('kind' in result) {
-      sendServiceError(res, result, {
-        folder_not_found: 'Folder not found',
-        invalid_scene: 'Invalid scene content',
-        conflict: 'File changed while saving',
+      res.set('Cache-Control', 'private, max-age=0, must-revalidate');
+      res.set('ETag', etag);
+      res.json({
+        files: result.files,
+        total: result.isCursorBased ? undefined : result.total,
+        page: result.isCursorBased ? undefined : page,
+        limit,
+        nextCursor: result.nextCursor,
       });
-      return;
-    }
+    },
+  })
+);
 
-    res.json({ file: result.file });
-  } catch (error) {
-    logger.error({ event: 'update_file_error', error }, 'Failed to update file');
-    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to update file');
-  }
-});
+filesRouter.get(
+  '/shared',
+  defineRoute({
+    auth: 'required',
+    query: listSharedFilesQuerySchema,
+    invalidQuery: { message: 'Invalid query parameters' },
+    event: 'list_shared_files_error',
+    internalError: 'Failed to list shared files',
+    handler: async ({ userId, query, res }) => {
+      const { search, page, limit, cursor } = query;
 
-filesRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
-  if (!req.userId) {
-    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
-    return;
-  }
-
-  const id = typeof req.params.id === 'string' ? req.params.id : null;
-  if (!id) {
-    sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
-    return;
-  }
-
-  try {
-    const deleted = await FileService.deleteFile(req.userId, id);
-
-    if (!deleted) {
-      sendError(res, 404, 'NOT_FOUND', 'File not found');
-      return;
-    }
-
-    res.status(204).send();
-  } catch (error) {
-    logger.error({ event: 'delete_file_error', error }, 'Failed to delete file');
-    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to delete file');
-  }
-});
-
-filesRouter.post('/:id/share', async (req: AuthenticatedRequest, res) => {
-  if (!req.userId) {
-    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
-    return;
-  }
-
-  const id = typeof req.params.id === 'string' ? req.params.id : null;
-  if (!id) {
-    sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
-    return;
-  }
-
-  const parsedBody = createShareSchema.safeParse(req.body ?? {});
-  if (!parsedBody.success) {
-    res.status(400).json({
-      error: 'INVALID_PAYLOAD',
-      message: 'Invalid share payload',
-      statusCode: 400,
-      details: parsedBody.error.flatten(),
-    });
-    return;
-  }
-
-  try {
-    const result = await FileService.createShare({
-      userId: req.userId,
-      fileId: id,
-      permission: parsedBody.data.permission,
-      expiresAt: parsedBody.data.expiresAt,
-      expiresInHours: parsedBody.data.expiresInHours,
-    });
-
-    if (!result) {
-      sendError(res, 404, 'NOT_FOUND', 'File not found');
-      return;
-    }
-    if ('kind' in result) {
-      sendServiceError(res, result, {
-        invalid_scene: 'Invalid scene content',
-        conflict: 'Share changed while creating; retry',
+      const result = await FileService.listSharedFiles({
+        userId,
+        search,
+        limit,
+        page,
+        cursor,
       });
-      return;
-    }
 
-    res.status(201).json({
-      token: result.token,
-      permission: result.permission,
-      expiresAt: result.expiresAt,
-      shareUrl: result.shareUrl,
-    });
-  } catch (error) {
-    logger.error({ event: 'share_file_error', error }, 'Failed to create share link');
-    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to create share link');
-  }
-});
+      res.json({
+        files: result.files,
+        total: result.isCursorBased ? undefined : result.total,
+        page: result.isCursorBased ? undefined : page,
+        limit,
+        nextCursor: result.nextCursor,
+      });
+    },
+  })
+);
 
-filesRouter.delete('/:id/share', async (req: AuthenticatedRequest, res) => {
-  if (!req.userId) {
-    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
-    return;
-  }
+filesRouter.post(
+  '/',
+  defineRoute({
+    auth: 'required',
+    body: createFileSchema,
+    invalidBody: { message: 'Invalid create file payload' },
+    errors: {
+      folder_not_found: 'Folder not found',
+      invalid_scene: 'Invalid scene content',
+    },
+    event: 'create_file_error',
+    internalError: 'Failed to create file',
+    handler: async ({ userId, body, res }) => {
+      const payload = body;
 
-  const id = typeof req.params.id === 'string' ? req.params.id : null;
-  if (!id) {
-    sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
-    return;
-  }
+      if (payload.content !== undefined) {
+        const contentSize = Buffer.byteLength(JSON.stringify(payload.content), 'utf8');
+        if (contentSize > MAX_FILE_CONTENT_BYTES) {
+          sendError(
+            res,
+            413,
+            'PAYLOAD_TOO_LARGE',
+            `File content too large (${contentSize} bytes, max ${MAX_FILE_CONTENT_BYTES})`
+          );
+          return;
+        }
+      }
 
-  try {
-    const revoked = await FileService.revokeShare(req.userId, id);
+      const result = await FileService.createFile({
+        userId,
+        name: payload.name,
+        folderId: payload.folderId,
+        content: payload.content,
+        preview: payload.preview,
+      });
 
-    if (!revoked) {
-      sendError(res, 404, 'NOT_FOUND', 'File not found');
-      return;
-    }
+      if (result && 'kind' in result && result.kind === 'quota_exceeded') {
+        // The quota message embeds the live limit from the service result —
+        // the only kind carrying a payload. Handled inline because the
+        // `errors` map is static; the remaining kinds delegate to it below.
+        sendServiceError(res, result, {
+          quota_exceeded: `Free plan limit reached (${result.limit} canvases). Delete one or upgrade to Premium.`,
+        });
+        return;
+      }
+      if (result && 'kind' in result) return result;
 
-    res.status(204).send();
-  } catch (error) {
-    logger.error({ event: 'revoke_share_error', error }, 'Failed to revoke share link');
-    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to revoke share link');
-  }
-});
+      res.status(201).json(result.file);
+      return result;
+    },
+  })
+);
+
+filesRouter.get(
+  '/:id',
+  defineRoute({
+    auth: 'required',
+    event: 'get_file_error',
+    internalError: 'Failed to load file',
+    handler: async ({ userId, req, res }) => {
+      const id = typeof req.params.id === 'string' ? req.params.id : null;
+      if (!id) {
+        sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
+        return;
+      }
+
+      const file = await FileService.getFile(userId, id);
+
+      if (!file) {
+        sendError(res, 404, 'NOT_FOUND', 'File not found');
+        return;
+      }
+
+      res.json({ file });
+    },
+  })
+);
+
+filesRouter.patch(
+  '/:id',
+  defineRoute({
+    auth: 'required',
+    body: patchFileSchema,
+    invalidBody: { message: 'Invalid update file payload' },
+    errors: {
+      folder_not_found: 'Folder not found',
+      invalid_scene: 'Invalid scene content',
+      conflict: 'File changed while saving',
+    },
+    event: 'update_file_error',
+    internalError: 'Failed to update file',
+    handler: async ({ userId, body, req, res }) => {
+      const id = typeof req.params.id === 'string' ? req.params.id : null;
+      if (!id) {
+        sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
+        return;
+      }
+
+      const payload = body;
+
+      if (payload.content !== undefined) {
+        const contentSize = Buffer.byteLength(JSON.stringify(payload.content), 'utf8');
+        if (contentSize > MAX_FILE_CONTENT_BYTES) {
+          sendError(
+            res,
+            413,
+            'PAYLOAD_TOO_LARGE',
+            `File content too large (${contentSize} bytes, max ${MAX_FILE_CONTENT_BYTES})`
+          );
+          return;
+        }
+      }
+
+      const result = await FileService.updateFile({
+        userId,
+        fileId: id,
+        name: payload.name,
+        content: payload.content,
+        preview: payload.preview,
+        folderId: payload.folderId,
+        expectedUpdatedAt: payload.expectedUpdatedAt,
+      });
+
+      if (!result) {
+        sendError(res, 404, 'NOT_FOUND', 'File not found');
+        return;
+      }
+
+      if ('kind' in result) return result;
+
+      res.json({ file: result.file });
+      return result;
+    },
+  })
+);
+
+filesRouter.delete(
+  '/:id',
+  defineRoute({
+    auth: 'required',
+    event: 'delete_file_error',
+    internalError: 'Failed to delete file',
+    handler: async ({ userId, req, res }) => {
+      const id = typeof req.params.id === 'string' ? req.params.id : null;
+      if (!id) {
+        sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
+        return;
+      }
+
+      const deleted = await FileService.deleteFile(userId, id);
+
+      if (!deleted) {
+        sendError(res, 404, 'NOT_FOUND', 'File not found');
+        return;
+      }
+
+      res.status(204).send();
+    },
+  })
+);
+
+filesRouter.post(
+  '/:id/share',
+  defineRoute({
+    auth: 'required',
+    // Parsed manually inside the handler (`req.body ?? {}`) rather than via
+    // `body:` so an absent JSON body keeps its historical 201-with-defaults
+    // instead of a 400. The 400 below replicates the invalidBody envelope.
+    errors: {
+      invalid_scene: 'Invalid scene content',
+      conflict: 'Share changed while creating; retry',
+    },
+    event: 'share_file_error',
+    internalError: 'Failed to create share link',
+    handler: async ({ userId, req, res }) => {
+      const id = typeof req.params.id === 'string' ? req.params.id : null;
+      if (!id) {
+        sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
+        return;
+      }
+
+      const parsedBody = createShareSchema.safeParse(req.body ?? {});
+      if (!parsedBody.success) {
+        res.status(400).json({
+          error: 'INVALID_PAYLOAD',
+          message: 'Invalid share payload',
+          statusCode: 400,
+          details: parsedBody.error.flatten(),
+        });
+        return;
+      }
+
+      const result = await FileService.createShare({
+        userId,
+        fileId: id,
+        permission: parsedBody.data.permission,
+        expiresAt: parsedBody.data.expiresAt,
+        expiresInHours: parsedBody.data.expiresInHours,
+      });
+
+      if (!result) {
+        sendError(res, 404, 'NOT_FOUND', 'File not found');
+        return;
+      }
+      if ('kind' in result) return result;
+
+      res.status(201).json({
+        token: result.token,
+        permission: result.permission,
+        expiresAt: result.expiresAt,
+        shareUrl: result.shareUrl,
+      });
+      return result;
+    },
+  })
+);
+
+filesRouter.delete(
+  '/:id/share',
+  defineRoute({
+    auth: 'required',
+    event: 'revoke_share_error',
+    internalError: 'Failed to revoke share link',
+    handler: async ({ userId, req, res }) => {
+      const id = typeof req.params.id === 'string' ? req.params.id : null;
+      if (!id) {
+        sendError(res, 400, 'FILE_ID_REQUIRED', 'File id is required');
+        return;
+      }
+
+      const revoked = await FileService.revokeShare(userId, id);
+
+      if (!revoked) {
+        sendError(res, 404, 'NOT_FOUND', 'File not found');
+        return;
+      }
+
+      res.status(204).send();
+    },
+  })
+);
 
 export { filesRouter };
