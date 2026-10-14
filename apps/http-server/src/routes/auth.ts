@@ -11,14 +11,20 @@ import {
   type AuthenticatedRequest,
 } from '../middlewares/authMiddleware';
 import { OAuth2Client } from 'google-auth-library';
+import { Redis } from '@upstash/redis';
+import { normalizeOrigin } from '@dripl/utils/origin';
 import { AuthService } from '../services/authService';
+import { getAllowedOrigins } from '../lib/allowedOrigins';
 import { logger } from '../logger';
 import {
   CryptoIds,
   SystemClock,
   WS_TICKET_TTL_MS,
   createMemoryTicketStore,
+  createRedisTicketStore,
+  resolveTicketConfig,
   type TicketPrincipal,
+  type TicketStorePort,
 } from '../ports';
 
 /** The ticket principal shape lives on the port; this alias keeps existing imports working. */
@@ -27,19 +33,68 @@ export type WsTicketPrincipal = TicketPrincipal;
 type WsTicketEntry = { principal: WsTicketPrincipal; expiresAt: number };
 
 const ticketEntries = new Map<string, WsTicketEntry>();
-const ticketStore = createMemoryTicketStore(SystemClock, CryptoIds, { entries: ticketEntries });
+const memoryTicketStore = createMemoryTicketStore(SystemClock, CryptoIds, {
+  entries: ticketEntries,
+});
 
 /**
- * Compat shims over the ticket-store port. `wsTicketStore` is the store's own
- * backing map (same object, not a copy), so existing direct uses — tests
- * seeding entries, the sweep below — keep seeing live state. `issueWsTicket`
- * stays synchronous and delegates to the store's sync core with the shared
- * TTL; the async port methods wrap that same core.
+ * The selected ticket driver: the memory store above, unless the Upstash
+ * variables resolve to Redis — the same Upstash-with-memory-fallback contract
+ * `lib/rateLimiter.ts` uses. In memory mode this *is* `memoryTicketStore` (same
+ * object, not a copy), so the memory path below behaves byte-for-byte as it
+ * always did: same map, same TTL, same eviction, same sweep.
+ *
+ * `new Redis()` is constructed inside the `try` because it throws
+ * synchronously on a malformed `UPSTASH_REDIS_REST_URL` (the ws-server Redis
+ * module documents exactly that), and a typo in an env var must degrade to
+ * process-local tickets rather than crash boot.
+ */
+function createTicketStorePort(): TicketStorePort {
+  const config = resolveTicketConfig(process.env);
+  if (config.kind === 'redis') {
+    try {
+      return createRedisTicketStore(
+        new Redis({ url: config.url, token: config.token }),
+        SystemClock,
+        CryptoIds
+      );
+    } catch {
+      return memoryTicketStore;
+    }
+  }
+  return memoryTicketStore;
+}
+
+const ticketStorePort: TicketStorePort = createTicketStorePort();
+
+/**
+ * Compat shims over the ticket-store port. `wsTicketStore` is the memory
+ * store's own backing map (same object, not a copy), so existing direct uses —
+ * tests seeding entries, the sweep below — keep seeing live state.
+ * `issueWsTicket` stays synchronous and delegates to the memory store's sync
+ * core with the shared TTL.
+ *
+ * Both shims are memory-only by construction: a synchronous call cannot cross
+ * the network. Production routes must use the async `issueTicket` /
+ * `ticketStorePort` below, which reach the selected driver — in Redis mode a
+ * ticket minted through these shims would be invisible to every other
+ * instance, which is the split brain the Redis driver exists to remove. No
+ * production caller uses them; they remain for the test suites that drive the
+ * memory path directly.
  */
 export const wsTicketStore: Map<string, WsTicketEntry> = ticketEntries;
 
 export function issueWsTicket(principal: WsTicketPrincipal): string {
-  return ticketStore.issueSync(principal, WS_TICKET_TTL_MS);
+  return memoryTicketStore.issueSync(principal, WS_TICKET_TTL_MS);
+}
+
+/**
+ * The one production minting path: through the selected driver, so a ticket
+ * issued by this instance is redeemable on every instance behind the load
+ * balancer. Same TTL, same principal — only the driver differs.
+ */
+export function issueTicket(principal: WsTicketPrincipal): Promise<string> {
+  return ticketStorePort.issue(principal, WS_TICKET_TTL_MS);
 }
 
 const wsTicketCleanup = setInterval(() => {
@@ -249,6 +304,35 @@ authRouter.get('/me', authMiddleware, async (req: AuthenticatedRequest, res) => 
 });
 
 authRouter.post('/google', async (req, res) => {
+  // Same-origin check, the CSRF-equivalent for a route that cannot take the
+  // double-submit guard. `POST /api/auth/google` mints a session from a
+  // third-party assertion, and its only legitimate caller is the server-side
+  // Next callback (`apps/dripl-app/app/api/auth/google/callback/route.ts`),
+  // which `fetch`es here with no `Origin` header at all.
+  //
+  // So the rule is: enforce when present, admit when absent. Browsers always
+  // send `Origin` on a POST — including a cross-site one, which is exactly
+  // the login-CSRF shape this refuses — so a forged request from an attacker's
+  // page always carries a foreign origin and answers 403 here. A missing
+  // header can only come from a non-browser caller, which was never subject
+  // to CSRF in the first place. Rate limiting still applies either way
+  // (`AUTH_RATE_LIMITED_PATHS` in `app.ts`).
+  //
+  // A *present but unparseable* origin (garbage, or the literal `null` a
+  // sandboxed iframe sends) is refused, not admitted: no legitimate caller
+  // sends one — the callback sends none — so rejecting it breaks nothing and
+  // keeps an opaque-origin login-CSRF attempt from slipping through the
+  // "absent" arm. The allowlist is the same one CORS enforces
+  // (`lib/allowedOrigins.ts`), so the two cannot drift.
+  const rawOrigin = req.headers.origin;
+  if (rawOrigin !== undefined) {
+    const origin = normalizeOrigin(rawOrigin);
+    if (origin === null || !getAllowedOrigins().includes(origin)) {
+      sendError(res, 403, 'FORBIDDEN_ORIGIN', 'Request origin is not allowed');
+      return;
+    }
+  }
+
   // Bounded before the value reaches `verifyIdToken` (a network call): an
   // ID token is ~1-2KB, so 8192 is generous and anything larger is hostile.
   // Non-string/missing still answers the same 400 TOKEN_REQUIRED as before.
@@ -492,12 +576,12 @@ authRouter.post('/change-password', authMiddleware, async (req: AuthenticatedReq
   }
 });
 
-authRouter.post('/ws-ticket', authMiddleware, (req: AuthenticatedRequest, res) => {
+authRouter.post('/ws-ticket', authMiddleware, async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
-  const ticket = issueWsTicket({ kind: 'user', userId: req.userId });
+  const ticket = await issueTicket({ kind: 'user', userId: req.userId });
   res.json({ ticket });
 });
 
@@ -521,13 +605,16 @@ export function createInternalRouter(): Router {
     next();
   }
 
-  internalRouter.post('/validate-ticket', requireInternalSecret, (req, res) => {
+  internalRouter.post('/validate-ticket', requireInternalSecret, async (req, res) => {
     const { ticket } = req.body;
     if (!ticket || typeof ticket !== 'string' || ticket.length > 512) {
       res.status(400).json({ error: 'Ticket is required' });
       return;
     }
-    const principal = ticketStore.consumeSync(ticket);
+    // Through the selected driver, so a ticket minted by any instance is
+    // spendable on this one. In memory mode this is the same store (and the
+    // same single-threaded atomicity) the previous sync call provided.
+    const principal = await ticketStorePort.consume(ticket);
     if (!principal) {
       res.status(401).json({ error: 'Invalid or expired ticket' });
       return;

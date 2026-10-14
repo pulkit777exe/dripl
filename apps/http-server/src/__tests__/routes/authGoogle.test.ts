@@ -351,14 +351,16 @@ describe('the OAuth configuration gate', () => {
    * broken in production, which is the mirror image of the trap it was written to
    * avoid.
    *
-   * **Residual risk, stated rather than dismissed.** The session cookie is
-   * `SameSite=none` under HTTPS (`authMiddleware.ts:99`), so a browser will send
-   * it cross-site, and a cross-site POST here could sign a victim into an
-   * attacker's Google account. Closing that needs something a server-to-server
-   * caller can satisfy — an `Origin`/`Sec-Fetch-Site` check that admits
-   * same-origin and header-less calls while refusing `cross-site`, or an internal
-   * shared secret as `ws-server` uses for ticket redemption. Both change this
-   * route's threat model, so neither is applied unilaterally here.
+   * The CSRF-equivalent that *does* apply is the same-origin check at the top of
+   * the handler (`routes/auth.ts`): a request carrying an `Origin` header must
+   * carry this deployment's origin or it answers 403 `FORBIDDEN_ORIGIN` before
+   * Google is contacted, while a header-less call (the server-side callback) is
+   * admitted. Browsers always send `Origin` on a POST, so a cross-site forgery
+   * from an attacker's page is refused — which closes the login-CSRF shape below
+   * (victim silently signed into the attacker's account) for every caller a
+   * browser can produce. See `routes/authGoogleOrigin.test.ts`. What remains
+   * knowingly open is a header-less non-browser POST, which was never subject
+   * to CSRF in the first place.
    */
   it('is reachable without a CSRF token, because its only caller is server-side', async () => {
     const { createApp } = await import('../../app');

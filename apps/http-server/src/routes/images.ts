@@ -9,6 +9,13 @@ const router: ReturnType<typeof Router> = Router();
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 
+/**
+ * How many leading bytes prove the declared type. 12 is the maximum any
+ * supported format needs (WEBP's `RIFF....WEBP`), so every format's verdict
+ * is final once 12 bytes are buffered — PNG needs 8, JPEG 3, GIF 6.
+ */
+const EARLY_SIGNATURE_BYTES = 12;
+
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 
 // POST /api/images — Upload image
@@ -29,6 +36,11 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     // Collect raw body chunks
     const chunks: Buffer[] = [];
     let totalSize = 0;
+    // The first bytes seen, retained separately so the signature can be
+    // checked without re-concatenating everything buffered so far. Capped at
+    // EARLY_SIGNATURE_BYTES: once full it is never grown again.
+    let prefix = Buffer.alloc(0);
+    let prefixChecked = false;
 
     req.on('data', (chunk: Buffer) => {
       totalSize += chunk.length;
@@ -40,6 +52,34 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
         return;
       }
       chunks.push(chunk);
+      // Early reject: the declared type is attacker-chosen, and a body whose
+      // first bytes already disprove it will never become valid no matter how
+      // much more arrives — so refuse it now instead of buffering up to 10MB
+      // of garbage first. The status and body are the same 400 INVALID_IMAGE
+      // the end-of-stream check answers; only the timing changes.
+      //
+      // Ordering note: a body that is both over-large *and* misdeclared now
+      // answers 400 rather than 413, because the mismatch is provable from
+      // the first chunk while the size is not yet known. A body with an
+      // honest header still streams to the cap and answers 413 there.
+      if (!prefixChecked) {
+        prefix = Buffer.concat([prefix, chunk]).subarray(0, EARLY_SIGNATURE_BYTES);
+        if (prefix.length >= EARLY_SIGNATURE_BYTES) {
+          prefixChecked = true;
+          if (!hasValidImageSignature(prefix, baseType)) {
+            if (!res.headersSent) {
+              sendError(
+                res,
+                400,
+                'INVALID_IMAGE',
+                'File contents do not match the declared image type'
+              );
+            }
+            req.destroy();
+            return;
+          }
+        }
+      }
     });
 
     req.on('end', async () => {
