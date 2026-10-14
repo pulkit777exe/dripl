@@ -74,23 +74,13 @@ export default function LoginPage(): React.ReactNode {
       await login(email, password);
       router.replace(nextPath);
     } catch (err: unknown) {
+      // Non-enumerating login: the server answers the same 401
+      // INVALID_CREDENTIALS for unknown, unverified, and wrong-password, so
+      // there is no pending-verification branch here. Every refusal renders as
+      // generic text with no resend link (the pre-change wire revealed pending
+      // accounts via NEEDS_VERIFICATION and this page linked to verify-pending).
       const errorMessage = err instanceof Error ? err.message : 'Failed to login';
-
-      if (errorMessage.includes('verify your email')) {
-        setError(
-          <span>
-            {errorMessage}{' '}
-            <Link
-              href={'/verify-pending?email=' + encodeURIComponent(email)}
-              className="underline hover:text-[#E8462A]"
-            >
-              Resend verification
-            </Link>
-          </span>
-        );
-      } else {
-        setError(errorMessage);
-      }
+      setError(errorMessage);
     } finally {
       inFlightRef.current = false;
       setLoading(false);
@@ -107,8 +97,7 @@ export default function LoginPage(): React.ReactNode {
         <InlineError
           // Passed through as-is. This used to collapse to
           // `typeof error === 'string' ? error : 'An error occurred'`, which threw
-          // away the resend link built above — so an unverified user saw "An error
-          // occurred" and no way forward. `InlineError` renders a node.
+          // away the node built above. `InlineError` renders a node.
           message={error}
           onRetry={async () => {
             setError('');

@@ -106,12 +106,11 @@ interface InlineErrorProps {
    * It was `string`, and `app/login/page.tsx` duly worked around that by building a
    * `<span>` with the server's "verify your email" message plus a *Resend
    * verification* link — then rendering `typeof error === 'string' ? error :
-   * 'An error occurred'`, which discarded the element it had just built. An
-   * unverified user was told "An error occurred" and offered no way to resend.
+   * 'An error occurred'`, which discarded the element it had just built.
    *
-   * The message was already interpolated into a `<p>`, so rendering a node was
-   * always possible; only the type said otherwise. Narrowing the prop is what
-   * pushed the caller into the workaround.
+   * Both link-building branches (login's resend link, signup's sign-in link) were
+   * removed when auth went non-enumerating, so no caller builds a node today; the
+   * prop stays `ReactNode` so a future caller can render one without re-widening.
    */
   message: ReactNode;
   onRetry?: () => void;
