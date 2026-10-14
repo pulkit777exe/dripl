@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import * as Sentry from '@sentry/node';
 import { validateCsrfToken, generateCsrfToken } from './middlewares/csrfMiddleware';
 import { authMiddleware } from './middlewares/authMiddleware';
+import { parseAllowedOrigins } from '@dripl/utils/origin';
 import { sendError } from './lib/response';
 import { logger } from './logger';
 import { createRateLimiter } from './lib/rateLimiter';
@@ -120,6 +121,30 @@ export async function authRateLimitMiddleware(
   next();
 }
 
+/**
+ * Every unauthenticated credential-guessing route behind the auth limiter.
+ *
+ * Single table rather than one `app.use` line per path: the five original
+ * lines covered login/register/forgot/verify/resend but not `google`
+ * (an expensive `verifyIdToken` call) or `reset-password` (a random-token
+ * guess), and nothing said so. Adding a route to `authRouter` without
+ * adding it here is the failure mode `authRateLimitCoverage.test.ts` guards.
+ *
+ * Authenticated routes (`change-password`, `ws-ticket`, `profile`, `me`)
+ * stay out: they already require a session, so they are not guessing
+ * oracles, and charging them against the per-IP auth budget would let one
+ * device's password changes lock out a shared egress.
+ */
+export const AUTH_RATE_LIMITED_PATHS = [
+  '/api/auth/login',
+  '/api/auth/forgot-password',
+  '/api/auth/register',
+  '/api/auth/verify-email',
+  '/api/auth/resend-verification',
+  '/api/auth/google',
+  '/api/auth/reset-password',
+] as const;
+
 export function createApp(): Application {
   const app = express();
 
@@ -156,20 +181,10 @@ export function createApp(): Application {
   app.use(compression());
   app.use(rateLimitMiddleware);
 
-  const normalizeOrigin = (value: string | undefined): string | null => {
-    if (!value) return null;
-    try {
-      const parsed = new URL(value);
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
-      return parsed.origin;
-    } catch {
-      return null;
-    }
-  };
-  const allowedOrigins = [process.env.FRONTEND_URL, process.env.NEXT_PUBLIC_APP_URL]
-    .flatMap(value => value?.split(',') ?? [])
-    .map(normalizeOrigin)
-    .filter((value): value is string => value !== null);
+  const allowedOrigins = parseAllowedOrigins([
+    process.env.FRONTEND_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+  ]);
 
   if (process.env.NODE_ENV !== 'production' && !allowedOrigins.includes('http://localhost:3000')) {
     allowedOrigins.push('http://localhost:3000');
@@ -218,11 +233,9 @@ export function createApp(): Application {
   app.use('/api/auth/ws-ticket', validateCsrfToken);
   app.use('/api/auth/resend-verification', validateCsrfToken);
 
-  app.use('/api/auth/login', authRateLimitMiddleware);
-  app.use('/api/auth/forgot-password', authRateLimitMiddleware);
-  app.use('/api/auth/register', authRateLimitMiddleware);
-  app.use('/api/auth/verify-email', authRateLimitMiddleware);
-  app.use('/api/auth/resend-verification', authRateLimitMiddleware);
+  for (const path of AUTH_RATE_LIMITED_PATHS) {
+    app.use(path, authRateLimitMiddleware);
+  }
   app.use('/api/auth', authRouter);
   app.use('/api/share', validateCsrfToken, shareRouter);
   app.use('/api/files', validateCsrfToken, authMiddleware, filesRouter);

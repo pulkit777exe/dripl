@@ -75,6 +75,12 @@ shareRouter.get('/:token/ws-ticket', shareLimiter, async (req, res) => {
     sendError(res, 400, 'INVALID_PAYLOAD', 'Share token is required');
     return;
   }
+  // Length guard before the DB: issued tokens are ~32 chars, so an overlong
+  // value is hostile. Answers the same 404 a miss gets — wire-identical.
+  if (token.length > 512) {
+    sendError(res, 404, 'NOT_FOUND', 'Share link not found');
+    return;
+  }
 
   const file = await db.file.findUnique({
     where: { shareToken: token },
@@ -104,6 +110,11 @@ shareRouter.get('/:token', shareLimiter, async (req, res) => {
   const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
   if (!token) {
     sendError(res, 400, 'INVALID_PAYLOAD', 'Share token is required');
+    return;
+  }
+  // Same length guard as the ws-ticket bridge above: same 404 as a miss.
+  if (token.length > 512) {
+    sendError(res, 404, 'NOT_FOUND', 'Share link not found');
     return;
   }
 

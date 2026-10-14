@@ -6,12 +6,14 @@ import { FolderService } from '../services/folderService';
 
 const createFolderSchema = z.object({
   name: z.string().trim().min(1).max(200),
-  parentId: z.string().trim().min(1).nullable().optional(),
+  // Bound: an unbounded id reaches a DB lookup. Overlong now answers 400
+  // instead of a 404 miss — documented wire change, garbage input only.
+  parentId: z.string().trim().min(1).max(100).nullable().optional(),
 });
 
 const patchFolderSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
-  parentId: z.string().trim().min(1).nullable().optional(),
+  parentId: z.string().trim().min(1).max(100).nullable().optional(),
 });
 
 const foldersRouter: Router = Router();

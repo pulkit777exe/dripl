@@ -290,7 +290,7 @@ export class AuthService {
     return true;
   }
 
-  static async updateProfile(userId: string, data: { name?: string; image?: string }) {
+  static async updateProfile(userId: string, data: { name?: string; image?: string | null }) {
     return db.user.update({
       where: { id: userId },
       data: {
