@@ -1023,6 +1023,10 @@ async function shutdown() {
   // which is fine, because lease expiry alone is sufficient for a handover.
   await releaseAllRooms();
   await db.$disconnect();
+  // The one record that this exit was deliberate: without it a graceful
+  // SIGTERM drain is indistinguishable from a crash in the log. Best-effort
+  // by construction (`process.exit` follows), like everything above.
+  logger.info({ event: 'ws_server_shutdown', saveFailed });
   process.exit(saveFailed ? 1 : 0);
 }
 

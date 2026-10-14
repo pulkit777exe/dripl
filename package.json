@@ -8,7 +8,7 @@
   "scripts": {
     "build": "pnpm turbo run build",
     "db:generate": "prisma generate --schema=./packages/db/prisma/schema.prisma",
-    "db:migrate": "prisma migrate dev --schema=./packages/db/prisma/schema.prisma",
+    "db:migrate": "pnpm --filter @dripl/db exec prisma migrate dev",
     "db:push": "prisma db push --schema=./packages/db/prisma/schema.prisma",
     "dev": "pnpm run db:generate && rm -rf apps/dripl-app/.next && turbo run dev",
     "lint": "turbo run lint",

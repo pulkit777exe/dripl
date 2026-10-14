@@ -1,0 +1,46 @@
+# Production runbook
+
+How Dripl is verified production-worthy, what a deploy needs, and what is
+still unproven. Evidence first: every claim below names how it was checked.
+
+## Verified with real images (2026-10-14)
+
+Built from a clean tree with `docker compose build` (dummy secrets for
+interpolation only) and run against disposable PostgreSQL 16
+(`postgres:16-alpine`, migrations via `prisma migrate deploy`):
+
+| Check                                                  | Result                                                                                                                                                               |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dripl-http-server` boots, `NODE_ENV=production`       | `/live` 200, DB-backed `/health` 200                                                                                                                                 |
+| `dripl-ws-server` boots                                | `/health` 200                                                                                                                                                        |
+| `dripl-dripl-app` (`next start`) serves pages          | `/` 200, `/login` 200, share-miss renders the error page (BFF reached http-server)                                                                                   |
+| Anonymous surface                                      | `/csrf-token` issues, `/api/files` 401, bad register body 403 (CSRF first), share-miss 404, `X-RateLimit-Remaining` present, malformed JSON 500 (pinned contract)    |
+| Seeded verified user: login → create → get → ws-ticket | All 200, including the uniform `{data}` envelope live in the bundle                                                                                                  |
+| WS upgrade with valid ticket + allowed origin          | `101 Switching Protocols` (proves cross-container ticket validation via `INTERNAL_SECRET`)                                                                           |
+| WS with bad ticket / missing origin / foreign origin   | Refused (401/403, `ws_origin_rejected`)                                                                                                                              |
+| Register without SMTP configured                       | 500 with `register_error` log naming `SMTP_USER` (deploy must provide mail credentials)                                                                              |
+| `SIGTERM` to ws-server                                 | Exit 0 after draining saves; now logs `ws_server_shutdown` (was silent before)                                                                                       |
+| `PORT` env (Render convention)                         | Honored by both servers (`PORT` first, then `HTTP_PORT`/`WS_PORT`)                                                                                                   |
+| `render.yaml` health checks                            | Point at `/live` (no I/O), not `/health` (DB-backed 503) — a DB blip must not restart processes                                                                      |
+| Root `pnpm db:migrate`                                 | Now runs via `@dripl/db` so Prisma finds its config (previously failed config discovery from root). CI deploys with `migrate deploy`; `migrate dev` remains dev-only |
+
+## Deploy inputs (all `sync: false` in `render.yaml`)
+
+`DATABASE_URL`, `JWT_SECRET`, `INTERNAL_SECRET`, `FRONTEND_URL`,
+`NEXT_PUBLIC_APP_URL`, `GOOGLE_CLIENT_ID/SECRET`, `SMTP_USER/SMTP_PASS`,
+`HTTP_SERVER_URL` (ws → http internal address). Redis (`UPSTASH_*`) optional —
+both servers fall back to bounded process-local limiters, and the ticket store
+uses memory unless Redis is configured (see `resolveTicketConfig`).
+
+## Not established (do not claim)
+
+- Remote/managed PostgreSQL and real Redis: only disposable local containers
+  and unit fakes have run. The two-instance lease proof covers ownership, not
+  a hosted topology.
+- TLS termination, secret rotation, and backup/restore: no evidence.
+- Real SMTP delivery: register was proven to fail loudly without credentials,
+  never to deliver with them.
+- Browser QA of the production (`next start`) build: pages return 200 and the
+  error boundary renders; no interaction, canvas, or second-client run.
+- Load/latency numbers: the benchmarks in `performance-benchmark.md` are
+  synthetic and dev-build browser captures, not production claims.
