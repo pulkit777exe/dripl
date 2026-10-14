@@ -29,6 +29,8 @@ test-results/
 out/
 build
 dist
+# Generated SBOM (`pnpm sbom`); CI uploads it as an artifact, never committed.
+sbom.json
 next-env.d.ts
 apps/*/.next/
 apps/*/out/
