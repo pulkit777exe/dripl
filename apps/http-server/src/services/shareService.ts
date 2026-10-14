@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { db } from '@dripl/db';
 import { parseStoredFileContent } from '../lib/encrypt';
-import { isValidSceneContent } from '../lib/sceneValidation';
+import { isValidSceneString } from '../lib/sceneValidation';
 
 export interface ResolveShareResult {
   file: {
@@ -44,7 +44,9 @@ export class ShareService {
 
     const expired = Boolean(file.shareExpiresAt && file.shareExpiresAt.getTime() < Date.now());
     const parsed = parseStoredFileContent(file.content);
-    const elements = isValidSceneContent(parsed.elements) ? parsed.elements : [];
+    // Stored string at hand: memoized verdict, identical boolean to
+    // validating the parsed elements (see FileService.getFile).
+    const elements = isValidSceneString(file.content) ? parsed.elements : [];
 
     return {
       file: { id: file.id, name: file.name, updatedAt: file.updatedAt },

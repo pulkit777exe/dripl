@@ -20,6 +20,7 @@
     "sbom": "pnpm list --prod --json | node scripts/sbom.mjs --output sbom.json",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "benchmark:canvas": "tsx scripts/benchmarks/canvas-performance.ts",
+    "benchmark:scene-save": "tsx scripts/benchmarks/scene-save.ts",
     "prepare": "husky || true"
   },
   "devDependencies": {

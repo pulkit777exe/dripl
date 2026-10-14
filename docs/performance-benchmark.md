@@ -477,3 +477,42 @@ The browser capture above does not cover, and no claim is made about:
   application cost, and conflict handling. No browser run involved a second client.
 - Memory over a long session, and memory growth from caches.
 - WebSocket, HTTP, PostgreSQL, or Redis latency of any kind.
+
+---
+
+## Follow-up: save-path and history-push costs (2026-10-14)
+
+Two synthetic benches added alongside the canvas one (`pnpm benchmark:scene-save`,
+`pnpm benchmark:history`; same reporter style, same caveats — one run each,
+Node v22, Linux, synthetic rectangles, not browser claims):
+
+| Bench (5,000 elements)                                   |   Median |
+| -------------------------------------------------------- | -------: |
+| scene validate, object form                              |  7.58 ms |
+| scene validate, string form, cold (sha256 + parse + Zod) | 11.86 ms |
+| scene validate, string form, warm (memo hit)             |  0.56 ms |
+| `JSON.stringify` of the scene                            |  2.39 ms |
+| history push, changed scene (≈ `structuredClone`)        |  8.69 ms |
+| history push, identical scene (equality scan, no clone)  |  0.52 ms |
+
+What changed on the strength of these numbers:
+
+- **Save path** (`sceneValidation.ts`, `fileService.ts`, `roomService.ts`,
+  `shareService.ts`, `routes/files.ts`): string-form validation through a
+  50-entry sha256-keyed memo (hashes and booleans only, never content; sha256
+  because validation enforces the count/field caps and non-crypto hashes are
+  cheap to collide), and one serialization per save instead of three — the
+  route's measured string travels to the service, which validates and parses
+  from it. Repeat saves of byte-identical content went from ~15 ms to ~3 ms
+  at 5k elements; first saves are roughly equal (the hash offsets the saved
+  serializations). Verdicts are byte-identical: the one behavioral difference
+  found during the change (corrupt-row handling in file share creation, where
+  the lenient stored-content parser made string-vs-object validation differ)
+  was reverted to the pinned behavior. `createShare` therefore still validates
+  the parsed object; everything else validates the string.
+- **History** (`store/helpers.ts` `pushPast`): pushes identical to the latest
+  entry are skipped (marker comparison on id/version/versionNonce/updated,
+  JSON fallback for marker-less legacy elements) instead of cloned. Undo
+  granularity is unchanged — a skipped push would have restored exactly what
+  is on screen. The byte-budget rescan was left alone: at ≤100 trivial
+  iterations it is noise next to the clone.

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { db } from '@dripl/db';
-import { isValidSceneContent } from '../lib/sceneValidation';
+import { isValidSceneContent, isValidSceneString } from '../lib/sceneValidation';
 import {
   buildEncryptedShare,
   parseStoredFileContent,
@@ -8,6 +8,17 @@ import {
 } from '../lib/encrypt';
 
 export const FREE_PLAN_FILE_LIMIT = 3;
+
+/**
+ * The scene's single serialization per save. Routes measure this exact string
+ * for the 413 guard and hand it down, so validation and parsing reuse it
+ * instead of each serializing the object again. Non-string input (legacy
+ * callers, tests) serializes here — verdicts match the object path (see
+ * createFile).
+ */
+function toContentString(content: unknown): string {
+  return typeof content === 'string' ? content : JSON.stringify(content);
+}
 
 export type CreateFileResult =
   | { file: { id: string; name: string } }
@@ -230,11 +241,19 @@ export class FileService {
       return { kind: 'folder_not_found' } as const;
     }
 
+    // The route hands over the already-serialized scene (it measured the
+    // same string for the 413 guard), so validation runs on the string form
+    // through the memoized validator and the record parses from it directly:
+    // one serialization per save instead of three. A caller passing an
+    // object takes the legacy path with identical verdicts — stringify /
+    // parse round-trips preserve everything the schema can observe (NaN and
+    // undefined array holes fail on both sides), so the two forms agree.
     const rawContent = content !== undefined ? content : [];
-    if (!isValidSceneContent(rawContent)) {
+    const contentString = toContentString(rawContent);
+    if (!isValidSceneString(contentString)) {
       return { kind: 'invalid_scene' } as const;
     }
-    const contentRecord = parseStoredFileContent(JSON.stringify(rawContent));
+    const contentRecord = parseStoredFileContent(contentString);
 
     const file = await db.file.create({
       data: {
@@ -258,7 +277,10 @@ export class FileService {
     if (!file) return null;
 
     const parsedContent = parseStoredFileContent(file.content);
-    const elements = isValidSceneContent(parsedContent.elements) ? parsedContent.elements : [];
+    // Stored string at hand: memoized verdict, same boolean as validating
+    // the parsed elements (whole-string parse covers both array and
+    // envelope stored forms).
+    const elements = isValidSceneString(file.content) ? parsedContent.elements : [];
 
     return {
       id: file.id,
@@ -298,13 +320,17 @@ export class FileService {
       return { kind: 'folder_not_found' } as const;
     }
 
-    if (content !== undefined && !isValidSceneContent(content)) {
+    // Same single-serialization rule as createFile above: the route passes
+    // the measured string, validation is memoized on it, and the record
+    // parses from it directly.
+    const contentString = content !== undefined ? toContentString(content) : undefined;
+    if (contentString !== undefined && !isValidSceneString(contentString)) {
       return { kind: 'invalid_scene' } as const;
     }
 
     const existingContent = parseStoredFileContent(existing.content);
     const requestedContent =
-      content !== undefined ? parseStoredFileContent(JSON.stringify(content)) : existingContent;
+      contentString !== undefined ? parseStoredFileContent(contentString) : existingContent;
     const nextContent = {
       ...requestedContent,
       // Owner saves carry the current scene but normally do not carry the
@@ -378,6 +404,10 @@ export class FileService {
     ).replace(/\/$/, '');
     const baseShareUrl = `${baseUrl}/share/${token}`;
     const parsedContent = parseStoredFileContent(file.content);
+    // Object form deliberately: parseStoredFileContent is lenient (corrupt
+    // rows decode to an empty scene), and the pinned behavior for those rows
+    // is to proceed, not refuse. Changing that verdict is a product call,
+    // not a performance fix, so this guard stays off the memo path.
     if (!isValidSceneContent(parsedContent.elements)) {
       return { kind: 'invalid_scene' } as const;
     }
