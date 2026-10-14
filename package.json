@@ -21,6 +21,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "benchmark:canvas": "tsx scripts/benchmarks/canvas-performance.ts",
     "benchmark:scene-save": "tsx scripts/benchmarks/scene-save.ts",
+    "benchmark:history": "tsx --tsconfig apps/dripl-app/tsconfig.json scripts/benchmarks/history-snapshot.ts",
     "prepare": "husky || true"
   },
   "devDependencies": {

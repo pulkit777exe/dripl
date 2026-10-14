@@ -126,10 +126,56 @@ function estimateSnapshotBytes(snapshot: readonly DriplElement[]): number {
   return snapshot.length * 250;
 }
 
+/**
+ * Whether two snapshots hold the same scene state, without cloning.
+ *
+ * Fast path first: reference-equal elements are trivially equal. Otherwise an
+ * element counts as unchanged when its identity and all three freshness
+ * markers match — every mutation through `mutateElement` bumps `version` and
+ * mints a new `versionNonce`, so markers that agree mean the app's own sync
+ * layer would also call the pair identical. Elements carrying none of the
+ * markers (legacy/imported scenes, and several unit fixtures) fall back to a
+ * JSON comparison for that pair only, so a real change can never hide behind
+ * absent markers.
+ */
+function snapshotsEqual(
+  a: readonly DriplElement[],
+  b: readonly DriplElement[]
+): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const ea = a[i] as DriplElement | undefined;
+    const eb = b[i] as DriplElement | undefined;
+    if (ea === eb) continue;
+    if (!ea || !eb || ea.id !== eb.id) return false;
+    const eaMarked =
+      ea.version !== undefined || ea.versionNonce !== undefined || ea.updated !== undefined;
+    const ebMarked =
+      eb.version !== undefined || eb.versionNonce !== undefined || eb.updated !== undefined;
+    if (eaMarked && ebMarked) {
+      if (ea.version !== eb.version || ea.versionNonce !== eb.versionNonce || ea.updated !== eb.updated)
+        return false;
+    } else if (JSON.stringify(ea) !== JSON.stringify(eb)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function pushPast(
   past: readonly DriplElement[][],
   snapshot: readonly DriplElement[]
 ): DriplElement[][] {
+  // Skip no-op pushes: a snapshot identical to the latest entry would create
+  // an undo step that restores exactly what is already on screen (≈8 ms of
+  // structuredClone at 5k elements for zero effect). Undo depth only shrinks
+  // by steps that were never steps — `canUndo` still answers past.length > 0.
+  const last = past[past.length - 1];
+  if (last && snapshotsEqual(last, snapshot)) {
+    return [...past];
+  }
+
   const next = [...past, cloneElements(snapshot)];
 
   // Enforce count limit
