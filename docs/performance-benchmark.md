@@ -516,3 +516,36 @@ What changed on the strength of these numbers:
   granularity is unchanged — a skipped push would have restored exactly what
   is on screen. The byte-budget rescan was left alone: at ≤100 trivial
   iterations it is noise next to the clone.
+
+### Fixed: min-zoom scenes blanked by default downscale filtering (2026-10-15)
+
+The performance spec's never-blank assertion started failing at the end of
+the zoom-out phase: the static layer ended fully transparent (alpha absolute
+0, not merely faint) at exactly the 0.1 min-zoom floor, while 0.11 painted.
+The failure reproduced via keyboard zoom, Ctrl+wheel, and a direct
+zoom-to-fit jump, so it was never input-specific, and a long elimination
+pass — valid blits, healthy source bitmaps, sane viewport/transform, balanced
+context state, no remount, no post-frame clear, no errors — kept confirming
+the paint path was doing everything right.
+
+The discriminator was replaying the app's exact blit (same source bitmap,
+same args, same transform) onto a scratch canvas while sweeping the
+image-smoothing quality: `low` (the default) painted 0 ink pixels, `medium`
+and `high` painted 45. At min zoom every element blit is a ~10:1 downscale of
+sparse sketch strokes, and the default quality drops that content entirely in
+this Chromium build. It is a filtering fidelity issue, not a lost paint:
+nothing was ever cleared, skipped, or miscalculated.
+
+`bootstrapCanvas` (`packages/element/src/staticScene.ts`) now sets
+`imageSmoothingQuality = 'high'` once per frame next to the camera transform
+it belongs with. Per-output-pixel cost is negligible next to generation
+(~76 us) and the blits themselves (~1.7 us), and at 1:1 zooms quality is a
+no-op. Pinned by a unit test asserting the setting survives; the zoom-out
+phase ends with ~16k ink at 1,000 elements where it ended with 0.
+
+An honest boundary for this fix: it restores visibility, not brightness.
+Sub-pixel strokes at min zoom are faint by physics, and `medium` measured
+identically to `high` here — `high` was chosen so fidelity, not the
+perceptual threshold of one scene, decides. A scene whose every stroke lands
+between sample points can still read near-zero; the assertion guards the
+regression (a fully transparent layer with a non-empty scene), not legibility.

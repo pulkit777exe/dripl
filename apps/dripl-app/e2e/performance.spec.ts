@@ -320,7 +320,7 @@ async function openSeededCanvas(page: Page, count: number): Promise<void> {
     { elements: buildElements(count), payload: buildScene() }
   );
 
-  await page.goto('/canvas');
+  await page.goto('/canvas?perf=1');
   await page.waitForFunction(
     () => Boolean((window as PerformanceWindow).__driplPerformance?.snapshot().measures.length),
     undefined,

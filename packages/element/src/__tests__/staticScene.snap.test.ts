@@ -114,4 +114,16 @@ describe('static scene camera snap', () => {
 
     expect(translate).toHaveBeenCalledWith(120, -40);
   });
+
+  it('keeps high-quality downscale filtering on, so zoomed-out blits survive', () => {
+    // Regression: at min zoom every element blit is a ~10:1 downscale of
+    // sparse sketch strokes, and the default quality drops them entirely
+    // (measured 0 ink pixels at zoom 0.1 versus 45 with medium/high in
+    // headless Chromium, same scene). The quality lives next to the camera
+    // transform it belongs with, set once per frame.
+    const ctx = createMockCanvasContext();
+    renderAtPan(ctx, { x: 0, y: 0 }, { dpr: 1, zoom: 0.1 });
+
+    expect(ctx.imageSmoothingQuality).toBe('high');
+  });
 });

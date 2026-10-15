@@ -34,8 +34,10 @@ const observers: PerformanceObserver[] = [];
 const samples: PerformanceSample[] = [];
 let started = false;
 
+import { isPerfMeasurementEnabled } from './performance';
+
 function isEnabled(): boolean {
-  return typeof window !== 'undefined' && process.env.NODE_ENV !== 'production';
+  return typeof window !== 'undefined' && isPerfMeasurementEnabled();
 }
 
 /** Long animation frames expose per-script attribution; other entry types do not. */

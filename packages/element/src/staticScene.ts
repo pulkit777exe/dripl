@@ -638,6 +638,15 @@ function bootstrapCanvas(
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, bufferW, bufferH);
 
+  // Downscale filtering quality. Zoomed out, every element blit is a steep
+  // downscale (10:1 at min zoom) of sparse sketch strokes, and the default
+  // quality drops them entirely: measured 0 ink pixels for a 50-element scene
+  // at zoom 0.1 versus 45 with medium/high (Playwright, headless Chromium).
+  // Set once per frame next to the transform it belongs with; the per-output-
+  // pixel cost is negligible next to bitmap generation (~76 us) and the blits
+  // themselves (~1.7 us).
+  ctx.imageSmoothingQuality = 'high';
+
   // Camera transform stack (applied in reverse order because it's a matrix):
   //   1. Scale by DPR   → crisp pixels on hi-DPI screens
   //   2. Scale by zoom  → world-space zoom

@@ -3,11 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 type PerfModule = typeof import('../../utils/performance');
 
 /**
- * `utils/performance.ts` is three timing utilities plus a module-level kill
- * switch. The kill switch is the part with real risk: `perfEnabled` is computed
- * once at module load, so a change to how it is computed (or to `NODE_ENV`)
- * silently stops every measurement -- with no error anywhere. These tests load
- * the module fresh under each condition rather than mocking the flag.
+ * `utils/performance.ts` is three timing utilities plus a lazily-cached kill
+ * switch. The kill switch is the part with real risk: it is computed once per
+ * page load (dev builds, or any build with `?perf=1` in the URL), so a change
+ * to how it is computed silently stops every measurement -- with no error
+ * anywhere. These tests load the module fresh under each condition rather
+ * than mocking the flag.
  *
  * Fake timers are scoped to `debounce`/`throttle`. Vitest's fake clock replaces
  * `performance` with its own shim, and that shim does not reproduce the real
@@ -27,8 +28,8 @@ afterEach(() => {
 /**
  * Import a fresh instance of the module.
  *
- * `vi.resetModules()` is what makes this meaningful: `perfEnabled` is a `const`
- * evaluated at load time, so without the reset the second and third imports
+ * `vi.resetModules()` is what makes this meaningful: the enabled flag is
+ * cached per page load, so without the reset the second and third imports
  * would reuse the first one's value and the production/SSR cases would silently
  * be testing the development path.
  */
@@ -312,9 +313,9 @@ describe('useRenderTiming', () => {
 });
 
 describe('performance instrumentation in a production build', () => {
-  // Regression: `perfEnabled` is a module-load-time constant. Dropping the
-  // `NODE_ENV !== 'production'` term would make every production render
-  // accumulate measures in the user timing buffer with nothing reading them.
+  // Regression: the production term is what keeps every production render
+  // from accumulating measures in the user timing buffer with nothing reading
+  // them. Dropping it would re-enable instrumentation for all users.
   it('neither marks nor measures when NODE_ENV is production', async () => {
     const { perfMark } = await loadPerformance({ production: true });
     const mark = vi.spyOn(performance, 'mark');
@@ -357,6 +358,52 @@ describe('performance instrumentation in a production build', () => {
   });
 });
 
+describe('performance instrumentation with ?perf=1', () => {
+  // The Playwright performance spec runs against production builds through
+  // `?perf=1`, because the collector it reads would otherwise not exist
+  // there. Without the flag exception the spec times out on prod with no
+  // measures; with it, marking and measuring behave exactly as in development.
+  it('marks and measures in production when ?perf=1 is present', async () => {
+    const mod = await loadPerformance({ production: true });
+    window.history.pushState({}, '', '/?perf=1');
+    mod.resetPerfMeasurementCache();
+
+    const mark = vi.spyOn(performance, 'mark');
+    mod.perfMark('flag:start');
+    expect(mark).toHaveBeenCalledWith('flag:start');
+
+    performance.mark('flag:a');
+    performance.mark('flag:b');
+    expect(mod.perfMeasure('flag:m', 'flag:a', 'flag:b')).toBeGreaterThanOrEqual(0);
+    performance.clearMarks();
+  });
+
+  it('stays off in production without the flag, even on the same import', async () => {
+    const mod = await loadPerformance({ production: true });
+    window.history.pushState({}, '', '/');
+    mod.resetPerfMeasurementCache();
+
+    const mark = vi.spyOn(performance, 'mark');
+    mod.perfMark('noflag:start');
+    expect(mark).not.toHaveBeenCalled();
+    expect(mod.perfMeasure('m', 'a', 'b')).toBe(0);
+  });
+
+  it('caches the verdict per page load until the test hook resets it', async () => {
+    const mod = await loadPerformance({ production: true });
+    window.history.pushState({}, '', '/?perf=1');
+    mod.resetPerfMeasurementCache();
+    expect(mod.isPerfMeasurementEnabled()).toBe(true);
+
+    // Navigating away does not flip an already-computed verdict mid-load;
+    // only a fresh module (or the test hook) recomputes.
+    window.history.pushState({}, '', '/');
+    expect(mod.isPerfMeasurementEnabled()).toBe(true);
+    mod.resetPerfMeasurementCache();
+    expect(mod.isPerfMeasurementEnabled()).toBe(false);
+  });
+});
+
 describe('useRenderTiming without a window', () => {
   // Regression: `useRenderTiming` guards on `typeof window` because it runs during
   // render, which also happens on the server. Returning a cleanup that closes
@@ -371,7 +418,7 @@ describe('useRenderTiming without a window', () => {
     expect(mark).not.toHaveBeenCalled();
   });
 
-  // Regression: with no window there is no `window.performance`, so `perfEnabled`
+  // Regression: with no window there is no `window.performance`, so the flag
   // is false and the module-level functions degrade instead of throwing. Calling
   // them must not blow up the render that happened to invoke them.
   it('degrades perfMark and perfMeasure to no-ops with no window', async () => {
