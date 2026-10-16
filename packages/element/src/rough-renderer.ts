@@ -581,16 +581,6 @@ export function renderRoughElement(
 }
 
 /**
- * Generate a Rough.js Drawable for an element without touching the shape
- * cache. Used by the interactive draft layer so the in-progress preview is
- * pixel-identical to the committed bitmap (same generator, same options,
- * same seed) instead of a look-alike reimplementation.
- */
-export function generateDrawableForElement(element: DriplElement): _Drawable | _Drawable[] {
-  return generateShape(element);
-}
-
-/**
  * Unit direction of an arrowhead at each endpoint, in the caller's point
  * space. Straight and multi-point shafts use the last/first segment; curved
  * shafts use the bezier tangent at the endpoint (control point from

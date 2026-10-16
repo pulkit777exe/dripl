@@ -34,12 +34,18 @@ export function useTheme() {
     const params = new URLSearchParams(window.location.search);
     const themeParam = params.get('theme');
     if (themeParam === 'dark' || themeParam === 'light') {
+      // A view override, not a preference change: it must reach the store
+      // (canvas prop source, export payload, restore) without rewriting the
+      // user's persisted next-themes preference. Previously only the
+      // hook-local effectiveTheme saw it, so files saved or exported under
+      // ?theme= recorded the wrong theme.
+      setCanvasTheme(themeParam);
       setEffectiveTheme(themeParam);
       return;
     }
     const resolved = resolvedTheme ?? getEffectiveTheme();
     setEffectiveTheme(resolved === 'dark' ? 'dark' : 'light');
-  }, [theme, resolvedTheme]);
+  }, [theme, resolvedTheme, setCanvasTheme]);
 
   useEffect(() => {
     if (theme === 'system') {

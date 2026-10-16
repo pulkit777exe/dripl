@@ -83,26 +83,3 @@ export function getFreedrawOutline(element: DriplElement): Point[] {
   if (!outline || outline.length < MIN_OUTLINE_POINTS) return world;
   return outline.map(([x, y]) => ({ x, y }));
 }
-
-/** Fill the freedraw outline on `ctx` with the element's stroke color. */
-export function fillFreedrawOutline(
-  ctx: CanvasRenderingContext2D,
-  element: DriplElement,
-  outline?: Point[]
-): void {
-  const poly = outline ?? getFreedrawOutline(element);
-  if (poly.length === 0) return;
-  const color = element.strokeColor ?? '#000000';
-  ctx.save();
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  const first = poly[0]!;
-  ctx.moveTo(first.x, first.y);
-  for (let i = 1; i < poly.length; i += 1) {
-    const p = poly[i]!;
-    ctx.lineTo(p.x, p.y);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}

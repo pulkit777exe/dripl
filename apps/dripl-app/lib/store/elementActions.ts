@@ -231,7 +231,11 @@ export const createElementActions: StateCreator<
       const nextElements = state.elements.map(e => (e.id === id ? updated : e));
       // Transient gestures update the same map in place. The array identity
       // still changes (and drives React/render invalidation), while avoiding a
-      // full O(n) Map clone for every pointer move.
+      // full O(n) Map clone for every pointer move. This is safe because no
+      // React subscriber selects the map itself: all reads are imperative via
+      // getState() (always fresh) or flow through the `elements` array, whose
+      // identity changes on every write here. Do not add a `useX(state =>
+      // state.elementsById)` subscription without revisiting this.
       state.elementsById.set(id, updated);
 
       return {

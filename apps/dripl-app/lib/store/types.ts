@@ -154,7 +154,7 @@ export interface CollabSlice {
   setReadOnly: (readOnly: boolean) => void;
   setUserId: (userId: string | null) => void;
   setRemoteUsers: (users: Map<string, RemoteUser>) => void;
-  addRemoteUser: (user: RemoteUser) => void;
+  addRemoteUser: (user: Omit<RemoteUser, 'lastSeenAt'>) => void;
   removeRemoteUser: (userId: string) => void;
   updateRemoteCursor: (userId: string, cursor: Omit<RemoteCursor, 'updatedAt'>) => void;
   removeRemoteCursor: (userId: string) => void;

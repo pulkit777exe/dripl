@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { apiClient } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { useCanvasStore } from '@/lib/store';
 
 type User = {
   id: string;
@@ -83,6 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiClient.logout();
     } finally {
       setUser(null);
+      // The canvas store keeps its own identity copy for locks and cursor
+      // filtering; without this it would keep attributing to the logged-out
+      // user until the next room sync overwrote it.
+      useCanvasStore.getState().setUserId(null);
       router.push('/');
     }
   }, [router]);

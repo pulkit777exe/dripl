@@ -20,8 +20,8 @@ vi.mock('@/utils/username', () => ({
   getOrCreateCollaboratorName: () => 'Local Person',
 }));
 
-function peer(userId: string, userName: string, color = '#ff0000') {
-  return { userId, userName, color };
+function peer(userId: string, userName: string, color = '#ff0000', lastSeenAt = 1_000_000) {
+  return { userId, userName, color, lastSeenAt };
 }
 
 function seed(opts: {

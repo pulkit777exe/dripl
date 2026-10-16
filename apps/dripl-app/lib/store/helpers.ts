@@ -5,12 +5,19 @@ import { compareZOrder, sortElementsByZIndex } from '@/utils/zIndexUtils';
 export const MAX_HISTORY = 100;
 export const MAX_HISTORY_BYTES = 10 * 1024 * 1024; // 10 MB budget for undo history
 
-export type DrawingLifecycle = 'idle' | 'drawing' | 'committing';
+export type DrawingLifecycle = 'idle' | 'drawing';
 
 export interface RemoteUser {
   userId: string;
   userName: string;
   color: string;
+  /**
+   * Last proof of presence (join, sync, or cursor-move). The cursor sweeper
+   * evicts users unseen for much longer than the cursor TTL, so a missed
+   * user-leave cannot pin an avatar (or a 0,0 collaborator) forever, while
+   * an idle-but-connected reader keeps theirs.
+   */
+  lastSeenAt: number;
 }
 
 export interface RemoteCursor {

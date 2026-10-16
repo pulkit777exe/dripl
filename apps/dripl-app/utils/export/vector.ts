@@ -1,6 +1,7 @@
 import type { DriplElement, Point } from '@dripl/common';
 import { canvasFontFamily } from '@dripl/element/text';
 import { getFreedrawOutline } from '@dripl/element/freedraw';
+import { applyDarkModeFilter } from '@dripl/element/theme';
 import { arrowHeadLength } from '@dripl/math/intersection';
 import { getSceneBounds } from './bounds';
 
@@ -34,9 +35,17 @@ export function safeSvgPaint(value: string, fallback: string): string {
 
 export function exportToSvg(
   elements: DriplElement[],
-  options: { padding?: number; customWidth?: number; customHeight?: number } = {}
+  options: {
+    padding?: number;
+    customWidth?: number;
+    customHeight?: number;
+    theme?: 'light' | 'dark';
+  } = {}
 ): Blob {
   const padding = options.padding ?? 16;
+  // Transparent background reads as light; pass 'dark' for dark slides so
+  // the achromatic extremes remap exactly like the canvas renderer.
+  const theme = options.theme ?? 'light';
   const bounds = getSceneBounds(elements);
   const requestedWidth =
     Number.isFinite(options.customWidth) && (options.customWidth ?? 0) > 0
@@ -158,14 +167,20 @@ export function exportToSvg(
   const body = elements
     .map(element => {
       const type = element.type as string;
-      const stroke = escapeXml(safeSvgPaint(element.strokeColor ?? '#000000', '#000000'));
+      const stroke = escapeXml(
+        applyDarkModeFilter(safeSvgPaint(element.strokeColor ?? '#000000', '#000000'), theme) ??
+          '#000000'
+      );
       const fill = escapeXml(
-        safeSvgPaint(
-          'fillColor' in element && typeof element.fillColor === 'string'
-            ? element.fillColor
-            : (element.backgroundColor ?? 'transparent'),
-          'transparent'
-        )
+        applyDarkModeFilter(
+          safeSvgPaint(
+            'fillColor' in element && typeof element.fillColor === 'string'
+              ? element.fillColor
+              : (element.backgroundColor ?? 'transparent'),
+            'transparent'
+          ),
+          theme
+        ) ?? 'transparent'
       );
       const opacity = element.opacity ?? 1;
       const strokeWidth = element.strokeWidth ?? 2;

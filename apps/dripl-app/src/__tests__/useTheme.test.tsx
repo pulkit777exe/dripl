@@ -367,6 +367,21 @@ describe('theme from the URL', () => {
 
     expect(result.current.effectiveTheme).toBe('dark');
   });
+
+  it('publishes the parameter theme to the canvas store, not just the hook', () => {
+    // Regression: the parameter used to set only the hook-local effective
+    // theme, so a file saved or exported under ?theme= recorded the stored
+    // preference instead of what was on screen. The persisted user
+    // preference (next-themes) intentionally keeps its own value.
+    themeState.theme = 'light';
+    themeState.resolvedTheme = 'light';
+    setSearch('?theme=dark');
+    stubSystemTheme('light');
+
+    renderHook(() => useTheme());
+
+    expect(useCanvasStore.getState().theme).toBe('dark');
+  });
 });
 
 describe('store and next-themes wiring', () => {

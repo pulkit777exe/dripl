@@ -49,6 +49,8 @@ export function exportCanvas(
     customWidth?: number;
     customHeight?: number;
     appState?: Record<string, unknown>;
+    /** SVG (and future) achromatic remap; defaults to light. */
+    theme?: 'light' | 'dark';
   }
 ): Promise<Blob> | Blob {
   switch (format) {

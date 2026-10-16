@@ -209,7 +209,10 @@ export function useCanvasPointerEvents({
   const startPointBindingIdRef = useRef<string | null>(null);
   const [hoveredBindingId, setHoveredBindingId] = useState<string | null>(null);
   const [startPointBindingId, setStartPointBindingId] = useState<string | null>(null);
-  const [bindMode] = useState<'orbit' | 'inside'>('orbit');
+  // NOTE: there is deliberately no `bindMode` state here. Arrow bind mode
+  // lives in one place — `useDrawingTools`' bindModeRef, set from Alt at
+  // stroke start. A second, always-'orbit' copy here would be one wiring
+  // away from silently overriding it.
 
   // Helper to update both ref and state for hoveredBindingId
   const updateHoveredBindingId = useCallback((id: string | null) => {
@@ -301,6 +304,10 @@ export function useCanvasPointerEvents({
       if (eraserFlushRef.current !== null && typeof cancelAnimationFrame !== 'undefined') {
         cancelAnimationFrame(eraserFlushRef.current);
       }
+      // A mid-stroke unmount must not strand the trail in the global store:
+      // the next canvas would render a frozen eraser path until its own
+      // first stroke. Refs and hit sets die with the hook.
+      useCanvasStore.getState().setEraserPath([]);
     },
     []
   );
@@ -1386,12 +1393,32 @@ export function useCanvasPointerEvents({
           currentTool === 'arrow' ||
           currentTool === 'line' ||
           currentTool === 'freedraw' ||
-          currentTool === 'frame'
+          currentTool === 'frame' ||
+          currentTool === 'embed'
         ) {
+          if (currentTool === 'embed') {
+            // An embed without a captured URL cannot commit: the schema
+            // requires one, so finishing would store an unrenderable element.
+            // Discard the draft instead of leaving it stuck (the old fallthrough
+            // armed neither finish nor cancel) and drop the stale pending URL
+            // so the next embed does not reuse it.
+            const draft = useCanvasStore.getState().draftElement;
+            const url = draft && 'url' in draft && typeof draft.url === 'string' ? draft.url : '';
+            useCanvasStore.getState().clearPendingEmbed();
+            if (!url) {
+              cancelDrawing();
+              setIsDrawing(false);
+              maybeRevertToSelectTool(currentTool);
+              return;
+            }
+          }
           const finishedElement = finishDrawing();
           if (finishedElement) {
             if (finishedElement.type === 'frame') {
               applyFrameGrouping(finishedElement);
+            }
+            if (finishedElement.type === 'embed') {
+              useCanvasStore.getState().clearPendingEmbed();
             }
           }
           setIsDrawing(false);
@@ -1548,7 +1575,6 @@ export function useCanvasPointerEvents({
     eraserHitIdsRef,
     hoveredBindingId,
     startPointBindingId,
-    bindMode,
     handleDragOver,
     handleDrop,
     handlePointerDown,

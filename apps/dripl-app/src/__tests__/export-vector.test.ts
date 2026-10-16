@@ -650,6 +650,22 @@ describe('exportToSvg: style and annotation fidelity', () => {
     expect(texts.map(t => t.textContent)).toEqual(['Flow']);
   });
 
+  it('remaps the achromatic extremes for dark slides', async () => {
+    const scene = [
+      rectangle('dark', { ...STYLE, x: 0, y: 0, width: 10, height: 10, strokeColor: '#1e1e1e' }),
+      rectangle('light', { ...STYLE, x: 20, y: 0, width: 10, height: 10, strokeColor: '#ffffff' }),
+      rectangle('color', { ...STYLE, x: 40, y: 0, width: 10, height: 10, strokeColor: '#e8462a' }),
+    ];
+    const light = await parseSvg(scene);
+    expect(light.querySelector('rect')!.getAttribute('stroke')).toBe('#1e1e1e');
+
+    const dark = await parseSvg(scene, { theme: 'dark' });
+    const rects = Array.from(dark.querySelectorAll('svg > rect'));
+    expect(rects[0]!.getAttribute('stroke')).toBe('#e9ecef');
+    expect(rects[1]!.getAttribute('stroke')).toBe('#1e1e1e');
+    expect(rects[2]!.getAttribute('stroke')).toBe('#e8462a');
+  });
+
   it('clips frame members to the frame and leaves outsiders alone', async () => {
     const doc = await parseSvg([
       {

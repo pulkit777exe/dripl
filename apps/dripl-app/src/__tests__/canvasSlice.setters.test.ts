@@ -128,8 +128,8 @@ describe('one-line state setters', () => {
     }
   });
 
-  it('setDrawingLifecycle writes all three lifecycle phases', () => {
-    for (const phase of ['idle', 'drawing', 'committing'] as const) {
+  it('setDrawingLifecycle writes both lifecycle phases', () => {
+    for (const phase of ['idle', 'drawing'] as const) {
       state().setDrawingLifecycle(phase);
       expect(state().drawingLifecycle).toBe(phase);
     }

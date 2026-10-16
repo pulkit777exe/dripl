@@ -269,7 +269,17 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     setDraftElement(null);
   }, [setDraftElement, cancelDraftFlush]);
 
-  useEffect(() => () => cancelDraftFlush(), [cancelDraftFlush]);
+  // Unmount mid-stroke must not strand a draft in the global store: the next
+  // canvas would render another room's in-progress stroke. Clear both the
+  // gesture ref and the mirrored preview.
+  useEffect(
+    () => () => {
+      cancelDraftFlush();
+      activeRef.current = { toolState: null, baseProps: null };
+      setDraftElement(null);
+    },
+    [cancelDraftFlush, setDraftElement]
+  );
 
   const lifecycle = useCanvasStore(state => state.drawingLifecycle);
 
@@ -279,6 +289,6 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     finishDrawing,
     cancelDrawing,
     bindModeRef,
-    isDrawing: lifecycle === 'drawing' || lifecycle === 'committing',
+    isDrawing: lifecycle === 'drawing',
   };
 }
