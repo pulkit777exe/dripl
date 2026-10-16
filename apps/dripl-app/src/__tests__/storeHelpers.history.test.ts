@@ -447,6 +447,27 @@ describe('pushPast — byte budget', () => {
     expect(next.map(s => s.map(e => e.id))).toEqual([['a'], ['b'], ['c']]);
   });
 
+  // Regression: the estimator used to charge 250B per element regardless of
+  // payload, so a single 2000-point stroke (~64KB+ serialized) counted as
+  // 250B and stroke-heavy scenes never tripped the guard. Points, pressures
+  // and text must count toward the budget.
+  it('charges stroke payload toward the budget, not just the element count', () => {
+    const pointCount = Math.ceil((MAX_HISTORY_BYTES - 250) / 32) + 1;
+    const stroke = {
+      ...rect('stroke'),
+      type: 'freedraw',
+      points: Array.from({ length: pointCount }, (_, i) => ({ x: i, y: 0 })),
+      pressureValues: Array.from({ length: pointCount }, () => 0.5),
+    } as unknown as DriplElement;
+    const past: DriplElement[][] = [[rect('ancient')], [stroke]];
+
+    const next = pushPast(past, [rect('newest')]);
+
+    expect(next.flat().some(e => e.id === 'ancient')).toBe(false);
+    expect(next.flat().some(e => e.id === 'stroke')).toBe(true);
+    expect(next.flat().some(e => e.id === 'newest')).toBe(true);
+  });
+
   // Regression: the count limit runs first. A history that is over the count but
   // under the byte budget must be trimmed by count, so the byte walk is not even
   // reached -- which is why the result here is exactly MAX_HISTORY long.

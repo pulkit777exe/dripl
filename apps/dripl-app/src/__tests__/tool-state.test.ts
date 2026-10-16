@@ -6,7 +6,10 @@ import {
   createToolState,
   detectArrowBindings,
   isTinyPreview,
+  rdpKeptIndices,
   smoothFinishedPoints,
+  smoothFinishedStroke,
+  velocityPressure,
 } from '@/lib/draw/tool-state';
 
 const rect = (extra: Partial<DriplElement> = {}): DriplElement =>
@@ -149,6 +152,105 @@ describe('smoothFinishedPoints', () => {
       { x: 0, y: 0 },
       { x: 3, y: 0 },
     ]);
+  });
+});
+
+describe('smoothFinishedStroke + rdpKeptIndices', () => {
+  it('filters pressures by the same kept indices as points', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 2, y: 0 },
+      { x: 3, y: 0 },
+    ];
+    const { points: kept, pressures } = smoothFinishedStroke(points, [0.1, 0.2, 0.3, 0.4]);
+    expect(kept).toEqual([
+      { x: 0, y: 0 },
+      { x: 3, y: 0 },
+    ]);
+    expect(pressures).toEqual([0.1, 0.4]);
+  });
+
+  it('keeps point/pressure pairing when nothing is simplified', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      { x: 20, y: 0 },
+    ];
+    const { points: kept, pressures } = smoothFinishedStroke(points, [0.5, 0.6, 0.7]);
+    expect(kept).toHaveLength(3);
+    expect(pressures).toEqual([0.5, 0.6, 0.7]);
+  });
+
+  it('rdpKeptIndices agrees with simplifyRdp on kept endpoints', () => {
+    const points = [0, 1, 2, 3, 4].map(x => ({ x, y: x % 2 }));
+    const kept = rdpKeptIndices(points, 0.8);
+    expect(kept[0]).toBe(0);
+    expect(kept[kept.length - 1]).toBe(points.length - 1);
+    expect([...kept].sort((a, b) => a - b)).toEqual(kept);
+  });
+});
+
+describe('freedraw capture', () => {
+  function freedrawState() {
+    const { toolState } = createToolState(
+      'freedraw',
+      { x: 0, y: 0 },
+      { shiftKey: false, pressure: 0.9, pointerType: 'pen' },
+      'id',
+      1
+    );
+    if (!toolState || toolState.type !== 'freedraw') throw new Error('no freedraw state');
+    return toolState;
+  }
+
+  it('seeds pressureValues with the pointer-down pressure', () => {
+    expect(freedrawState().state.pressureValues).toEqual([0.9]);
+  });
+
+  it('stores real pen pressure verbatim', () => {
+    const next = advanceToolState(
+      freedrawState(),
+      { x: 10, y: 0 },
+      { shiftKey: false, pressure: 0.7, pointerType: 'pen' }
+    );
+    if (next.type !== 'freedraw') throw new Error('wrong type');
+    expect(next.state.pressureValues).toEqual([0.9, 0.7]);
+  });
+
+  it('derives pressure from velocity for mouse pointers', () => {
+    const slow = advanceToolState(
+      freedrawState(),
+      { x: 2, y: 0 },
+      { shiftKey: false, pressure: 0.5, pointerType: 'mouse', simulatePressure: true }
+    );
+    const fast = advanceToolState(
+      freedrawState(),
+      { x: 100, y: 0 },
+      { shiftKey: false, pressure: 0.5, pointerType: 'mouse', simulatePressure: true }
+    );
+    if (slow.type !== 'freedraw' || fast.type !== 'freedraw') throw new Error('wrong type');
+    const slowP = slow.state.pressureValues?.[1] ?? NaN;
+    const fastP = fast.state.pressureValues?.[1] ?? NaN;
+    expect(slowP).toBeGreaterThan(fastP);
+    expect(slowP).toBeLessThanOrEqual(1);
+    expect(fastP).toBeGreaterThanOrEqual(0.3);
+  });
+
+  it('drops coincident samples without growing either array', () => {
+    const next = advanceToolState(
+      freedrawState(),
+      { x: 0.2, y: 0.1 },
+      { shiftKey: false, pressure: 0.7, pointerType: 'pen' }
+    );
+    if (next.type !== 'freedraw') throw new Error('wrong type');
+    expect(next.state.points).toHaveLength(1);
+    expect(next.state.pressureValues).toHaveLength(1);
+  });
+
+  it('velocityPressure is 1 for stillness and floors at 0.3 for speed', () => {
+    expect(velocityPressure({ x: 0, y: 0 }, { x: 0, y: 0 })).toBe(1);
+    expect(velocityPressure({ x: 0, y: 0 }, { x: 1000, y: 0 })).toBe(0.3);
   });
 });
 

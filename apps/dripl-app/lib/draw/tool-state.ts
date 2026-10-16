@@ -1,7 +1,7 @@
 import type { DriplElement, LinearElement, NormalizedBinding, Point } from '@dripl/common';
 import { bindArrowToElement } from '@/utils/arrow-binding';
 import { findNearestShape } from './find-shape';
-import { getDistance, simplifyRdp, snapAngle } from './simplify';
+import { getDistance, perpendicularDistance, simplifyRdp, snapAngle } from './simplify';
 import type { RectangleToolState } from '@/utils/tools/rectangle';
 import type { EllipseToolState } from '@/utils/tools/ellipse';
 import type { DiamondToolState } from '@/utils/tools/diamond';
@@ -53,12 +53,21 @@ export type ToolTypeName =
 export interface ToolStartOptions {
   shiftKey: boolean;
   altKey?: boolean;
+  pressure?: number;
+  pointerType?: string;
 }
 
 export interface ToolUpdateOptions {
   shiftKey: boolean;
   altKey?: boolean;
   pressure?: number;
+  pointerType?: string;
+  /**
+   * True for mouse/touch pointers: derive pressure from velocity instead of
+   * storing the constant 0.5 the hardware reports (Excalidraw parity — only
+   * pen pressure is real).
+   */
+  simulatePressure?: boolean;
 }
 
 export interface ToolStart {
@@ -149,7 +158,7 @@ export function createToolState(
         type: 'freedraw',
         id,
         seed,
-        state: { points: [point], pressureValues: [0.5], isComplete: false },
+        state: { points: [point], pressureValues: [options.pressure ?? 0.5], isComplete: false },
       };
       break;
     case 'frame':
@@ -237,7 +246,17 @@ export function advanceToolState(
       };
     }
     case 'freedraw': {
-      const pressure = options.pressure ?? 0.5;
+      const samples = toolState.state.points;
+      const last = samples[samples.length - 1];
+      // Coincident samples bloat points/pressures (history, broadcast,
+      // IndexedDB) without changing the outline — streamline already masks
+      // them at render. Drop them at capture.
+      if (last && getDistance(last, point) < MIN_FREEDRAW_SAMPLE_PX) return toolState;
+      const pressure = options.simulatePressure
+        ? last
+          ? velocityPressure(last, point)
+          : 0.5
+        : (options.pressure ?? 0.5);
       return {
         ...toolState,
         state: {
@@ -359,4 +378,73 @@ export function bindCommittedArrow(
 /** Smooth a finished freedraw stroke before preview (RDP, 0.8px). */
 export function smoothFinishedPoints(points: Point[]): Point[] {
   return simplifyRdp(points, 0.8);
+}
+
+/** Minimum world-space spacing between captured freedraw samples. */
+export const MIN_FREEDRAW_SAMPLE_PX = 1.25;
+
+/** Velocity-derived pressure in 0.3–1: fast moves are light, slow moves heavy. */
+export function velocityPressure(from: Point, to: Point): number {
+  const speed = getDistance(from, to) / 16;
+  return Math.max(0.3, Math.min(1, 1 - speed * 0.3));
+}
+
+/**
+ * RDP simplification returning kept indices instead of points, so parallel
+ * arrays (pressures) can be filtered identically. Same predicate as
+ * `simplifyRdp` (keep when deviation exceeds epsilon).
+ */
+export function rdpKeptIndices(points: Point[], epsilon: number): number[] {
+  const n = points.length;
+  if (n === 0) return [];
+  const keep = new Array<boolean>(n).fill(false);
+  keep[0] = true;
+  if (n > 1) keep[n - 1] = true;
+  const stack: Array<[number, number]> = n > 2 ? [[0, n - 1]] : [];
+  while (stack.length > 0) {
+    const [start, end] = stack.pop()!;
+    const first = points[start];
+    const last = points[end];
+    if (!first || !last || end - start < 2) continue;
+    let maxDistance = -1;
+    let maxIndex = start;
+    for (let i = start + 1; i < end; i += 1) {
+      const point = points[i];
+      if (!point) continue;
+      const distance = perpendicularDistance(point, first, last);
+      if (distance > maxDistance) {
+        maxDistance = distance;
+        maxIndex = i;
+      }
+    }
+    if (maxDistance > epsilon) {
+      keep[maxIndex] = true;
+      stack.push([start, maxIndex], [maxIndex, end]);
+    }
+  }
+  const indices: number[] = [];
+  for (let i = 0; i < n; i += 1) {
+    if (keep[i]) indices.push(i);
+  }
+  return indices;
+}
+
+/**
+ * Joint point+pressure smoothing for finished strokes. RDP drops points but
+ * the old code left `pressureValues` at full length, so every smoothed stroke
+ * length-mismatched and the renderer silently discarded real stylus pressure.
+ * Filtering both arrays by the same kept indices keeps them aligned.
+ */
+export function smoothFinishedStroke(
+  points: Point[],
+  pressures: number[]
+): { points: Point[]; pressures: number[] } {
+  if (points.length <= 2 || pressures.length !== points.length) {
+    return { points: simplifyRdp(points, 0.8), pressures };
+  }
+  const kept = rdpKeptIndices(points, 0.8);
+  return {
+    points: kept.map(i => points[i]!),
+    pressures: kept.map(i => pressures[i]!),
+  };
 }

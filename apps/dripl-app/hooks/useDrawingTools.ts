@@ -18,7 +18,7 @@ import {
   createToolState,
   detectArrowBindings,
   isTinyPreview,
-  smoothFinishedPoints,
+  smoothFinishedStroke,
   type ActiveToolState,
   type ToolStartOptions,
   type ToolTypeName,
@@ -76,7 +76,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
   );
 
   const buildElement = useCallback(
-    (toolState: ActiveToolState, base: BaseToolProps): DriplElement | null => {
+    (toolState: ActiveToolState, base: BaseToolProps, preview = false): DriplElement | null => {
       const props = makeProps(toolState.id, toolState.seed, base);
 
       switch (toolState.type) {
@@ -91,7 +91,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
         case 'line':
           return createLineElement(toolState.state, props);
         case 'freedraw':
-          return createFreedrawElement(toolState.state, props);
+          return createFreedrawElement(toolState.state, props, { preview });
         case 'frame':
           return createFrameElement(toolState.state, props);
         case 'embed': {
@@ -110,7 +110,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
 
   const syncDraftToStore = useCallback(
     (toolState: ActiveToolState, base: BaseToolProps) => {
-      const element = buildElement(toolState, base);
+      const element = buildElement(toolState, base, true);
       if (element) {
         updateDraftElement(element as Partial<DriplElement>);
       }
@@ -217,9 +217,17 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     }
 
     if (toolState.type === 'freedraw') {
+      // Joint smoothing: RDP drops points, so pressures must be filtered by
+      // the same kept indices or the stored arrays misalign and the renderer
+      // discards real stylus pressure.
+      const smoothed = smoothFinishedStroke(
+        toolState.state.points,
+        toolState.state.pressureValues ?? []
+      );
       toolState.state = {
         ...toolState.state,
-        points: smoothFinishedPoints(toolState.state.points),
+        points: smoothed.points,
+        pressureValues: smoothed.pressures,
       };
     }
 

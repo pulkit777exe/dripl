@@ -15,13 +15,12 @@ export interface FreedrawToolState {
   pressureValues?: number[];
 }
 
-function optimizePoints(points: Point[], threshold: number = 2): Point[] {
-  if (points.length < 3) return points;
-
-  const optimized: Point[] = [points[0]!];
+function optimizeKeptIndices(points: Point[], threshold: number = 0.85): number[] {
+  if (points.length < 3) return points.map((_, i) => i);
+  const kept: number[] = [0];
 
   for (let i = 1; i < points.length - 1; i++) {
-    const prev = optimized[optimized.length - 1]!;
+    const prev = points[kept[kept.length - 1]!]!;
     const curr = points[i]!;
     const next = points[i + 1]!;
 
@@ -35,15 +34,15 @@ function optimizePoints(points: Point[], threshold: number = 2): Point[] {
       );
 
       if (distance > threshold) {
-        optimized.push(curr);
+        kept.push(i);
       }
     } else {
-      optimized.push(curr);
+      kept.push(i);
     }
   }
 
-  optimized.push(points[points.length - 1]!);
-  return optimized;
+  kept.push(points.length - 1);
+  return kept;
 }
 
 function calculatePressure(point: Point, points: Point[]): number {
@@ -64,47 +63,44 @@ function calculatePressure(point: Point, points: Point[]): number {
   return pressure;
 }
 
-function calculateVariableWidth(
-  points: Point[],
-  baseWidth: number,
-  pressureValues: number[]
-): number[] {
-  const widths = [];
-
-  for (let i = 0; i < points.length; i++) {
-    const pressure = pressureValues[i] ?? 0.5;
-    widths.push(baseWidth * (0.5 + pressure * 1.5)); // 0.75x to 2x width
-  }
-
-  return widths;
-}
-
 export function createFreedrawElement(
   state: FreedrawToolState,
-  baseProps: Omit<DriplElement, 'type' | 'x' | 'y' | 'width' | 'height' | 'points'> & { id: string }
+  baseProps: Omit<DriplElement, 'type' | 'x' | 'y' | 'width' | 'height' | 'points'> & {
+    id: string;
+  },
+  options: { preview?: boolean } = {}
 ): FreeDrawElement {
   if (state.points.length === 0) {
     throw new Error('Freedraw must have at least one point');
   }
 
-  let processedPoints = state.points;
-  if (processedPoints.length > 2) {
-    processedPoints = optimizePoints(processedPoints, 0.85);
-  }
-
-  const { minX, minY, maxX, maxY } = getBoundingBox(processedPoints);
-  const relativePoints = toRelativePoints(processedPoints);
-
-  // Calculate pressure values for variable width
-  const pressureValues =
+  // Carry (point, pressure) tuples through the optimize filter so kept
+  // points keep their own pressures. Filtering points alone misaligned
+  // `pressureValues` with the stored points, and the renderer then discarded
+  // real stylus pressure as length-mismatched.
+  const pressures =
     state.pressureValues && state.pressureValues.length === state.points.length
       ? state.pressureValues
       : state.points.map((point, index) =>
           calculatePressure(point, state.points.slice(0, index + 1))
         );
 
+  let processedPoints = state.points;
+  let processedPressures = pressures;
+  // Draft previews rebuild on every frame (O(frames × samples) per stroke),
+  // so they skip the optimize pass; the commit below still simplifies. The
+  // preview box can exceed the committed box by the sub-pixel runs the
+  // simplifier would have dropped — invisible at any zoom.
+  if (!options.preview && processedPoints.length > 2) {
+    const kept = optimizeKeptIndices(processedPoints, 0.85);
+    processedPoints = kept.map(i => processedPoints[i]!);
+    processedPressures = kept.map(i => processedPressures[i]!);
+  }
+
+  const { minX, minY, maxX, maxY } = getBoundingBox(processedPoints);
+  const relativePoints = toRelativePoints(processedPoints);
+
   const brushSize = state.brushSize ?? 2;
-  const widths = calculateVariableWidth(processedPoints, brushSize, pressureValues);
 
   return {
     ...baseProps,
@@ -115,8 +111,7 @@ export function createFreedrawElement(
     height: maxY - minY,
     points: relativePoints,
     brushSize,
-    pressureValues, // Store pressure values for rendering
-    widths, // Store calculated widths for rendering
+    pressureValues: processedPressures,
   };
 }
 

@@ -318,7 +318,6 @@ describe('tool-specific commits', () => {
       width: number;
       points: Array<{ x: number; y: number }>;
       pressureValues: number[];
-      widths: number[];
     };
     expect(stroke.type).toBe('freedraw');
     expect(stroke.x).toBe(0);
@@ -327,7 +326,6 @@ describe('tool-specific commits', () => {
     // The factory keys variable width off a 1:1 points/pressures pairing; the
     // stroke must commit with the pairing intact.
     expect(stroke.pressureValues).toHaveLength(stroke.points.length);
-    expect(stroke.widths).toHaveLength(stroke.points.length);
     // The stroke's extremes survive: simplification may drop interior
     // samples, never the ends.
     const first = stroke.points[0]!;

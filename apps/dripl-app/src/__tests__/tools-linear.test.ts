@@ -1018,7 +1018,7 @@ describe('createFreedrawElement', () => {
     ]);
   });
 
-  it('defaults the brush to 2 and derives one width per processed point', () => {
+  it('defaults the brush to 2 and keeps one pressure per processed point', () => {
     const element = createFreedrawElement(
       drawState([
         { x: 0, y: 0 },
@@ -1027,7 +1027,7 @@ describe('createFreedrawElement', () => {
       baseProps('f') as never
     );
     expect(element.brushSize).toBe(2);
-    expect(element.widths).toHaveLength(element.points.length);
+    expect(element.pressureValues).toHaveLength(element.points.length);
   });
 
   it('honours an explicit brush size', () => {
@@ -1044,7 +1044,27 @@ describe('createFreedrawElement', () => {
     expect(element.brushSize).toBe(8);
   });
 
-  it('scales each width to between 0.75x and 2x the brush size', () => {
+  it('skips simplification for previews but keeps the pairing intact', () => {
+    const state = drawState(
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 400, y: 0 },
+      ],
+      { pressureValues: [0.2, 0.9, 0.4] }
+    );
+    const preview = createFreedrawElement(state, baseProps('f') as never, { preview: true });
+    expect(preview.points).toHaveLength(3);
+    expect(preview.pressureValues).toEqual([0.2, 0.9, 0.4]);
+    const committed = createFreedrawElement(state, baseProps('f') as never);
+    expect(committed.points).toHaveLength(2);
+    expect(committed.pressureValues).toEqual([0.2, 0.4]);
+  });
+
+  it('keeps pressures aligned with kept points when interior points are dropped', () => {
+    // Three points on one straight horizontal line: the middle one is within
+    // the 0.85px simplification threshold, so it is discarded — and its
+    // pressure must go with it, or the renderer discards real pen data.
     const element = createFreedrawElement(
       drawState(
         [
@@ -1052,14 +1072,12 @@ describe('createFreedrawElement', () => {
           { x: 1, y: 0 },
           { x: 400, y: 0 },
         ],
-        { brushSize: 4 }
+        { brushSize: 4, pressureValues: [0.2, 0.9, 0.4] }
       ),
       baseProps('f') as never
     ) as FreeDrawElement;
-    for (const width of element.widths!) {
-      expect(width).toBeGreaterThanOrEqual(4 * 0.75 - 1e-9);
-      expect(width).toBeLessThanOrEqual(4 * 2 + 1e-9);
-    }
+    expect(element.points).toHaveLength(2);
+    expect(element.pressureValues).toEqual([0.2, 0.4]);
   });
 
   it('drops near-collinear interior points but always keeps the first and last', () => {
@@ -1126,7 +1144,7 @@ describe('createFreedrawElement', () => {
     );
   });
 
-  it('keeps a caller-supplied pressure array of matching length', () => {
+  it('keeps a caller-supplied pressure array, filtered with its points', () => {
     const points = [
       { x: 0, y: 0 },
       { x: 30, y: 0 },
@@ -1136,6 +1154,24 @@ describe('createFreedrawElement', () => {
       drawState(points, { pressureValues: [0.1, 0.2, 0.3] }),
       baseProps('f') as never
     );
+    // The collinear middle point is simplified away, and its pressure goes
+    // with it — keeping all three would misalign the arrays and make the
+    // renderer discard real pen data.
+    expect(element.points).toHaveLength(2);
+    expect(element.pressureValues).toEqual([0.1, 0.3]);
+  });
+
+  it('keeps every caller-supplied pressure when no point is simplified', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 30, y: 40 },
+      { x: 90, y: 0 },
+    ];
+    const element = createFreedrawElement(
+      drawState(points, { pressureValues: [0.1, 0.2, 0.3] }),
+      baseProps('f') as never
+    );
+    expect(element.points).toHaveLength(3);
     expect(element.pressureValues).toEqual([0.1, 0.2, 0.3]);
   });
 
@@ -1296,6 +1332,16 @@ describe('createTextElement', () => {
     expect(createTextElement(state('Hello', 40), baseProps('t') as never).height).toBe(50);
   });
 
+  it('sizes multi-line text by the longest line and the line count', () => {
+    const element = createTextElement(state('a\nbb\nccc', 16), baseProps('t') as never);
+    // Longest line 3 chars * 16 * 0.6 = 28.8, below the floor; 3 lines * 20.
+    expect(element.width).toBe(100);
+    expect(element.height).toBe(60);
+    const wide = createTextElement(state(`${'x'.repeat(200)}\nshort`, 16), baseProps('t') as never);
+    expect(wide.width).toBe(1920);
+    expect(wide.height).toBe(40);
+  });
+
   it('gives empty text a zero width estimate, floored to 100, and zero height at size 0', () => {
     const element = createTextElement(state('', 0), baseProps('t') as never);
     expect(element.width).toBe(100);
@@ -1347,6 +1393,18 @@ describe('updateTextDimensions', () => {
 
   it('keeps the 100px width floor without a canvas', () => {
     expect(updateTextDimensions(element(), 'ab').width).toBe(100);
+  });
+
+  it('measures each line with a canvas and sizes by the longest', () => {
+    const canvas = {
+      getContext: () => ({
+        font: '',
+        measureText: (text: string) => ({ width: text.length * 30 }),
+      }),
+    } as unknown as HTMLCanvasElement;
+    const next = updateTextDimensions(element(), 'ab\nabcde', canvas);
+    expect(next.width).toBe(150);
+    expect(next.height).toBe(40);
   });
 
   it('uses the canvas measurement when one is supplied, keeping the same floor', () => {

@@ -121,9 +121,20 @@ export function sortedInsert(elements: DriplElement[], newElement: DriplElement)
 }
 
 function estimateSnapshotBytes(snapshot: readonly DriplElement[]): number {
-  // Rough estimate: JSON.stringify size + overhead per element
-  // Inaccurate but fast — good enough for budget enforcement
-  return snapshot.length * 250;
+  // Rough estimate: base overhead per element plus payload for variable-length
+  // arrays. Points/pressures run ~30B+/point serialized, so a 2000-point
+  // stroke is ~100KB — counting it as 250B let stroke-heavy scenes blow past
+  // the budget with 100 deep snapshots.
+  let bytes = 0;
+  for (const element of snapshot) {
+    bytes += 250;
+    if (Array.isArray(element.points)) bytes += element.points.length * 32;
+    if (Array.isArray(element.pressureValues)) {
+      bytes += (element.pressureValues as number[]).length * 8;
+    }
+    if (typeof element.text === 'string') bytes += element.text.length * 2;
+  }
+  return bytes;
 }
 
 /**
@@ -138,10 +149,7 @@ function estimateSnapshotBytes(snapshot: readonly DriplElement[]): number {
  * JSON comparison for that pair only, so a real change can never hide behind
  * absent markers.
  */
-function snapshotsEqual(
-  a: readonly DriplElement[],
-  b: readonly DriplElement[]
-): boolean {
+function snapshotsEqual(a: readonly DriplElement[], b: readonly DriplElement[]): boolean {
   if (a === b) return true;
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
@@ -154,7 +162,11 @@ function snapshotsEqual(
     const ebMarked =
       eb.version !== undefined || eb.versionNonce !== undefined || eb.updated !== undefined;
     if (eaMarked && ebMarked) {
-      if (ea.version !== eb.version || ea.versionNonce !== eb.versionNonce || ea.updated !== eb.updated)
+      if (
+        ea.version !== eb.version ||
+        ea.versionNonce !== eb.versionNonce ||
+        ea.updated !== eb.updated
+      )
         return false;
     } else if (JSON.stringify(ea) !== JSON.stringify(eb)) {
       return false;

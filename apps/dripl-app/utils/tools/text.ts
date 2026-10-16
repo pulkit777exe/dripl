@@ -14,10 +14,12 @@ export function createTextElement(
     'type' | 'x' | 'y' | 'width' | 'height' | 'text' | 'fontSize' | 'fontFamily'
   > & { id: string }
 ): TextElement {
-  // Estimate text dimensions (rough approximation)
-  // In a real implementation, you'd measure the actual text
-  const estimatedWidth = state.text.length * (state.fontSize * 0.6);
-  const estimatedHeight = state.fontSize * 1.25;
+  // Estimate text dimensions per line: the renderers lay out one fillText per
+  // line at a 1.25 pitch, so sizing off the whole string (or a single line)
+  // misplaces verticalAlign middle/bottom against the stored box.
+  const lines = state.text.split('\n');
+  const estimatedWidth = Math.max(0, ...lines.map(line => line.length * (state.fontSize * 0.6)));
+  const estimatedHeight = lines.length * state.fontSize * 1.25;
 
   return {
     ...baseProps,
@@ -45,13 +47,15 @@ export function updateTextDimensions(
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.font = `${element.fontSize}px ${element.fontFamily}`;
-      const metrics = ctx.measureText(text);
-      width = Math.max(metrics.width, 100);
-      height = element.fontSize * 1.25;
+      const lines = text.split('\n');
+      const measured = lines.map(line => ctx.measureText(line).width);
+      width = Math.max(...measured, 100);
+      height = lines.length * element.fontSize * 1.25;
     }
   } else {
-    width = Math.max(text.length * (element.fontSize * 0.6), 100);
-    height = element.fontSize * 1.25;
+    const lines = text.split('\n');
+    width = Math.max(...lines.map(line => line.length * (element.fontSize * 0.6)), 100);
+    height = lines.length * element.fontSize * 1.25;
   }
 
   return {
