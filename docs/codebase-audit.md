@@ -160,6 +160,15 @@ is credited only where the Dripl source and tests support the claim.
   payloads are not rebroadcast.
 - Scene deltas, deletes, combined capacity limits, deduplication IDs, persistence generation checks, optimistic database fencing, and remote Redis application were tightened.
 - Stored scene parsing validates elements and caps the room scene.
+- (2026-10-16) Move-only deltas: a pure translation travels as `{id, x, y,
+version, versionNonce}` instead of the whole record, through the same
+  lock/tombstone/freshness funnel on clients (materialized onto the local
+  copy in `reconcileScene`) and server (merged against the room copy in
+  `acceptMovedElements`, relayed in compact form). Legacy unversioned
+  records and mixed-content edits still travel whole. This does not change
+  the convergence model above — it is a bandwidth reduction on the same
+  versioned JSON protocol, covered by sender/reconcile/router/server unit
+  tests, not by a multi-client deployment test.
 
 ### Not yet proven
 
@@ -211,7 +220,26 @@ is credited only where the Dripl source and tests support the claim.
 
 Implemented improvements include the portal-based extra-tools menu, dirty-only canvas render scheduling with image-load invalidation, laser-trail idle stop, pointer snapshot/coalesced-event support for freehand/eraser, keyboard tool/zoom mappings, selection mode toggle, multi-selection alignment/distribution controls, read-only/pre-sync AI guards, room-toolbar placement, auth labels/deep-link recovery, accessible AI modal behavior, and safer SVG export attributes/dimensions.
 
-Known UI gaps remain: no full canvas-object accessibility tree, no mature responsive browser pass, no verified mobile menu layout, limited library/mermaid flows, incomplete frame semantics, and no visual regression suite. The existing `<img>` lint warnings are non-blocking cleanup; the prior Next/Turbopack Prisma export warning was removed by narrowing the DB package export.
+(2026-10-16 Excalidraw-parity follow-up, seven commits `f42c1ae..34e0b91`
+plus collab/state follow-ups, all verified below.) Draft previews now draw
+through the shared Rough.js generator with the same options/seed/tangents
+as committed bitmaps; freedraw is pressure-aware perfect-freehand ink in
+both layers with end-to-end pressure alignment; PNG exports render through
+the committed bitmap path; SVG exports carry rotation, dashes, arrowhead
+markers, true outlines, routed curves/elbows, frame dressing, clip-paths,
+and a dark theme; frame members clip to their frame on canvas and in SVG;
+group resize/rotate, click-vs-drag thresholding, live eraser, two-stage
+Escape, pointer-cancel rollback, and per-tool cursors are implemented;
+presence, identity, theme-param, and draft/eraser lifecycle single-source
+gaps found by audit are fixed. Byte-exact SVG golden files
+(`src/__tests__/golden/`) pin shapes, freedraw, and dark output. Text
+measurement is per-line at creation and render; history budgets count
+stroke payload; the eraser is screen-space constant; hit-testing and
+bounds use true ink extent. Not covered: browser frame-rate evidence for
+any of this (existing capture predates it), mobile flows, CRDT
+convergence (unchanged — versioned JSON), and production deployment.
+
+Known UI gaps remain: no full canvas-object accessibility tree, no mature responsive browser pass, no verified mobile menu layout, limited library/mermaid flows, and incomplete frame navigation semantics (membership is still creation-time grouping; clipping itself is now implemented on canvas and in SVG export). The existing `<img>` lint warnings are non-blocking cleanup; the prior Next/Turbopack Prisma export warning was removed by narrowing the DB package export.
 
 ## Performance evidence
 

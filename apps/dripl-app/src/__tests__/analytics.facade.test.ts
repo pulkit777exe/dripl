@@ -214,13 +214,13 @@ describe('analytics — category facade', () => {
     emit();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(deliveredPayload(fetchMock)).toMatchObject({
-      type: 'analytics',
-      category,
-      action,
-      label: options?.label,
-      value: options?.value,
-    });
+    // Only provided label/value are asserted: absent options travel as absent
+    // JSON keys (JSON.stringify drops undefined), so expecting `undefined`
+    // values would pin key presence rather than survival of what was given.
+    const expected: Record<string, unknown> = { type: 'analytics', category, action };
+    if (options?.label !== undefined) expected.label = options.label;
+    if (options?.value !== undefined) expected.value = options.value;
+    expect(deliveredPayload(fetchMock)).toMatchObject(expected);
   }
 
   it('files a navigation event under navigation', () => {

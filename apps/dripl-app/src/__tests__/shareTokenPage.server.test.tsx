@@ -36,11 +36,15 @@ import { render } from '@testing-library/react';
  * pair it hands across, and that is what gets asserted.
  */
 
-const notFound = vi.hoisted(() =>
-  vi.fn((): never => {
-    throw new Error('NEXT_NOT_FOUND');
-  })
-);
+const notFound = vi.hoisted(() => {
+  // One shared sentinel: refusals are compared by identity (`thrown ===
+  // NOT_FOUND_THROWN`), so the mock must throw the same object every time.
+  // Throwing a fresh Error per call would make every refusal unrecognisable.
+  const sentinel = new Error('NEXT_NOT_FOUND');
+  return vi.fn((): never => {
+    throw sentinel;
+  });
+});
 
 const serverApiGet = vi.hoisted(() =>
   vi.fn<
@@ -287,7 +291,11 @@ describe('/share/[token] — the token in the path', () => {
     // Derived from the hostile input rather than restated, so the expectation
     // cannot drift from the string the test feeds in.
     expect(path).toBe(`/share/${encodeURIComponent(hostile)}`);
-    expect(path).not.toContain('..');
+    // Percent-encoding preserves the dots (`..%2F`) but neutralises every
+    // separator: no decoded `../` traversal, no query, no fragment, and no
+    // raw `/files` route. Asserting the absence of bare `..` would be wrong —
+    // dots are legal in a segment; only `../` climbs.
+    expect(path).not.toContain('../');
     expect(path).not.toContain('?');
     expect(path).not.toContain('#');
     expect(path).not.toContain('/files');
