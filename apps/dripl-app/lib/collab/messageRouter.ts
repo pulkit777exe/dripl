@@ -1,11 +1,11 @@
-import type { DriplElement } from '@dripl/common';
+import type { DriplElement, MovedElement } from '@dripl/common';
 import { useCanvasStore } from '@/lib/store';
 import type { RemoteCursor, RemoteUser } from '@/lib/store/helpers';
 import { filterReplayPending } from './sceneDelta';
 import type { ServerMessage } from './protocol';
 
 export interface RemoteElementsHandler {
-  (added: DriplElement[], updated: DriplElement[], deleted: string[]): void;
+  (added: DriplElement[], updated: DriplElement[], deleted: string[], moved?: MovedElement[]): void;
 }
 
 export interface FullSyncHandler {
@@ -37,7 +37,7 @@ export interface MessageRouterContext {
   setIsStoreConnected: (connected: boolean) => void;
   setRemoteUsers: (users: Map<string, RemoteUser>) => void;
   updateRemoteCursor: (userId: string, cursor: Omit<RemoteCursor, 'updatedAt'>) => void;
-  addRemoteUser: (user: RemoteUser) => void;
+  addRemoteUser: (user: Omit<RemoteUser, 'lastSeenAt'>) => void;
   removeRemoteUser: (userId: string) => void;
   setElementLock: (elementId: string, userId: string) => void;
   releaseElementLock: (elementId: string) => void;
@@ -74,6 +74,7 @@ function handleSyncRoomState(
   }
 
   const initialUsers = message.users.filter(user => user.userId !== synchronizedUserId);
+  const now = Date.now();
   ctx.setRemoteUsers(
     new Map(
       initialUsers.map(user => [
@@ -82,6 +83,7 @@ function handleSyncRoomState(
           userId: user.userId,
           userName: guestName(user.userName, user.displayName),
           color: user.color,
+          lastSeenAt: now,
         },
       ])
     )
@@ -147,10 +149,11 @@ function mergeSceneBatch(
   ctx: MessageRouterContext,
   added: DriplElement[],
   updated: DriplElement[],
-  deleted: string[]
+  deleted: string[],
+  moved: MovedElement[] = []
 ): void {
-  if (added.length > 0 || updated.length > 0 || deleted.length > 0) {
-    ctx.onRemoteElementsRef.current?.(added, updated, deleted);
+  if (added.length > 0 || updated.length > 0 || deleted.length > 0 || moved.length > 0) {
+    ctx.onRemoteElementsRef.current?.(added, updated, deleted, moved);
     refreshBaselineAfterRemote(ctx);
   }
 }
@@ -185,7 +188,13 @@ export function routeCollabMessage(message: ServerMessage, ctx: MessageRouterCon
   }
 
   if (message.type === 'scene-delta') {
-    mergeSceneBatch(ctx, message.added || [], message.updated || [], message.deleted || []);
+    mergeSceneBatch(
+      ctx,
+      message.added || [],
+      message.updated || [],
+      message.deleted || [],
+      message.moved || []
+    );
     return true;
   }
 

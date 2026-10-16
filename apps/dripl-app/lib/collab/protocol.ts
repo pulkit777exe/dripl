@@ -1,4 +1,4 @@
-import type { DriplElement } from '@dripl/common';
+import type { DriplElement, MovedElement } from '@dripl/common';
 
 // JSON scene deltas are the wire protocol. A previous revision kept a dormant
 // Yjs adapter behind YJS_WIRE_ENABLED=false; it gated only reads while write
@@ -16,7 +16,12 @@ export interface CollabUser {
 }
 
 export interface UseCollaborationOptions {
-  onRemoteElements?: (added: DriplElement[], updated: DriplElement[], deleted: string[]) => void;
+  onRemoteElements?: (
+    added: DriplElement[],
+    updated: DriplElement[],
+    deleted: string[],
+    moved?: MovedElement[]
+  ) => void;
   onFullSync?: (elements: DriplElement[]) => void;
   displayName?: string | null;
   /** Public file-share token; it is exchanged for a short-lived WS ticket. */
@@ -49,6 +54,7 @@ export type ServerMessage =
       added?: DriplElement[];
       updated?: DriplElement[];
       deleted?: string[];
+      moved?: MovedElement[];
     }
   // NOTE: single-element shapes (`add_element` etc.) travel client→server
   // only; the server relays every mutation as `scene-delta` (uniform relay),
@@ -96,6 +102,7 @@ export type ClientMessage =
       added?: DriplElement[];
       updated?: DriplElement[];
       deleted?: string[];
+      moved?: MovedElement[];
       clientMsgId?: string;
     }
   | {

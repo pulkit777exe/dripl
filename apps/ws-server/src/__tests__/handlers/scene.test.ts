@@ -395,6 +395,38 @@ describe('scene handlers', () => {
       ]);
     });
 
+    it('relays accepted moves in compact form and drops the rest', async () => {
+      // A drag flush carries only the new origin plus freshness; peers merge
+      // it onto their own copy, so the relay must preserve the compact form
+      // rather than expanding it — and fence losers must not relay at all.
+      const ctx = makeCtx();
+      ctx.room.elements.set('a', el('a', 2));
+      ctx.room.elements.set('t', el('t', 1));
+      const { deleteWithTombstone: tomb } = await import('../../tombstones');
+      tomb(ctx.room, 't');
+      await sceneDeltaHandler.apply(
+        {
+          type: 'scene-delta',
+          moved: [
+            { id: 'a', x: 40, y: 30, version: 3, versionNonce: 5 },
+            { id: 'a', x: 1, y: 1, version: 2, versionNonce: 9 },
+            { id: 't', x: 1, y: 1, version: 1, versionNonce: 1 },
+            { id: 'ghost', x: 1, y: 1, version: 1, versionNonce: 1 },
+          ],
+        } as never,
+        ctx
+      );
+      expect(mockedBroadcast).toHaveBeenCalledWith(
+        ctx.room,
+        {
+          type: 'scene-delta',
+          moved: [{ id: 'a', x: 40, y: 30, version: 3, versionNonce: 5 }],
+        },
+        'user-1'
+      );
+      expect(ctx.room.elements.get('a')).toMatchObject({ x: 40, y: 30, version: 3 });
+    });
+
     it('emits no delta at all when every change lost its fence', async () => {
       const ctx = makeCtx();
       ctx.room.elements.set('a', el('a', 9));

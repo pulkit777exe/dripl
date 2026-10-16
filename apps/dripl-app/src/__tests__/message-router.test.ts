@@ -109,7 +109,18 @@ describe('routeCollabMessage deltas and presence', () => {
     useCanvasStore.setState({ elements: [el('a')], elementsById: new Map([['a', el('a')]]) });
     const handled = route({ type: 'scene-delta', added: [el('b')], deleted: ['a'] }, ctx);
     expect(handled).toBe(true);
-    expect(ctx.onRemoteElementsRef.current).toHaveBeenCalledWith([el('b')], [], ['a']);
+    expect(ctx.onRemoteElementsRef.current).toHaveBeenCalledWith([el('b')], [], ['a'], []);
+    expect(ctx.prevElementsRef.current).toEqual(useCanvasStore.getState().elements);
+  });
+
+  it('forwards move-deltas to the merge handler', () => {
+    const ctx = stubContext();
+    ctx.isFirstSyncRef.current = false;
+    useCanvasStore.setState({ elements: [el('a')], elementsById: new Map([['a', el('a')]]) });
+    const moved = [{ id: 'a', x: 10, y: 20, version: 2, versionNonce: 3 }];
+    const handled = route({ type: 'scene-delta', moved }, ctx);
+    expect(handled).toBe(true);
+    expect(ctx.onRemoteElementsRef.current).toHaveBeenCalledWith([], [], [], moved);
     expect(ctx.prevElementsRef.current).toEqual(useCanvasStore.getState().elements);
   });
 

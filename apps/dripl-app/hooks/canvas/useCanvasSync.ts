@@ -100,13 +100,14 @@ export function useCanvasSync({
         setElements(remoteElements, { skipHistory: true });
       }
     },
-    onRemoteElements: (added, updated, deleted) => {
+    onRemoteElements: (added, updated, deleted, moved) => {
       const state = useCanvasStore.getState();
       const { nextById, changed, appliedDeleted } = reconcileScene({
         localById: state.elementsById,
         added,
         updated,
         deleted,
+        moved,
         draftId: state.draftElement?.id,
         isLocked: id => isGestureLockedRef.current(id),
         tombstones: tombstonesRef.current,

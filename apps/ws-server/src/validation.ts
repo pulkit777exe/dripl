@@ -3,6 +3,7 @@ import {
   DriplElementSchema as driplElementSchema,
   MAX_MESSAGE_BYTES,
   MAX_SCENE_ELEMENTS,
+  MovedElementSchema,
 } from '@dripl/common';
 
 const colorSchema = z.string().regex(/^#[0-9a-f]{3,8}$/i, 'Invalid color');
@@ -77,6 +78,7 @@ export const sceneDeltaSchema = z.object({
   added: z.array(driplElementSchema).max(1000).optional(),
   updated: z.array(driplElementSchema).max(1000).optional(),
   deleted: z.array(z.string()).max(1000).optional(),
+  moved: z.array(MovedElementSchema).max(1000).optional(),
   clientMsgId: z.string().min(1).max(100).optional(),
 });
 

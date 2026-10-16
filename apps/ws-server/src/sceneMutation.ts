@@ -1,4 +1,9 @@
-import { DriplElementSchema, type DriplElement } from '@dripl/common';
+import {
+  DriplElementSchema,
+  MovedElementSchema,
+  type DriplElement,
+  type MovedElement,
+} from '@dripl/common';
 import { MAX_ELEMENTS_PER_SCENE, markRoomDirty, scheduleSave } from './rooms';
 import { shouldAcceptElement } from '@dripl/common/reconciliation';
 import type { RoomState } from './types';
@@ -129,6 +134,37 @@ export function acceptAllParsed(
 }
 
 /**
+ * Admission for move-only deltas: each entry resolves against the room's copy
+ * and runs the same tombstone→freshness funnel as a full record, then stores
+ * the merged element. Unknown ids are dropped (the sender's healing tick
+ * re-baselines a receiver that missed the full record). Returns the accepted
+ * entries in their compact form for relay.
+ */
+export function acceptMovedElements(room: RoomState, moves: unknown): MovedElement[] {
+  if (!Array.isArray(moves)) return [];
+  const accepted: MovedElement[] = [];
+  for (const raw of moves) {
+    const parsed = MovedElementSchema.safeParse(raw);
+    if (!parsed.success) continue;
+    const move = parsed.data;
+    if (isSupersededByTombstone(room, move)) continue;
+    const existing = room.elements.get(move.id);
+    if (!existing) continue;
+    const merged: DriplElement = {
+      ...existing,
+      x: move.x,
+      y: move.y,
+      version: move.version,
+      versionNonce: move.versionNonce,
+    };
+    if (!shouldAcceptElement(merged, existing)) continue;
+    room.elements.set(move.id, merged);
+    accepted.push(move);
+  }
+  return accepted;
+}
+
+/**
  * Shared `clientMsgId` dedup ring. Returns `true` when the id was already
  * seen (caller acks and stops), `false` when it is new (caller proceeds).
  */
@@ -194,6 +230,11 @@ export function applyRemoteSceneMessage(room: RoomState, msg: Record<string, unk
         for (const id of msg.deleted) {
           if (typeof id === 'string' && deleteWithTombstone(room, id)) changed = true;
         }
+      }
+      // Move-only entries merge against the room copy; they add no new ids
+      // so the capacity pre-check does not apply to them.
+      if (acceptMovedElements(room, (msg as { moved?: unknown }).moved).length > 0) {
+        changed = true;
       }
       break;
     }

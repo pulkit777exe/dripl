@@ -122,6 +122,20 @@ describe('useCollaboration transport lifecycle', () => {
     });
     expect(first.sent.map(item => JSON.parse(item).type)).toEqual(['join', 'scene-delta']);
 
+    // A pure translation goes out as a move-delta: five fields, no points,
+    // no style payload — the drag hot path stays small.
+    const moved = { ...element(2), x: 40, y: 30, version: 3, versionNonce: 3 };
+    act(() => result.current.broadcastElements([moved]));
+    act(() => {
+      vi.advanceTimersByTime(50);
+    });
+    const deltas = first.sent
+      .map(item => JSON.parse(item))
+      .filter(item => item.type === 'scene-delta');
+    const last = deltas[deltas.length - 1]!;
+    expect(last.updated).toBeUndefined();
+    expect(last.moved).toEqual([{ id: 'shape-1', x: 40, y: 30, version: 3, versionNonce: 3 }]);
+
     act(() => first.close());
     const sentBeforeDisconnect = first.sent.length;
     act(() => {
@@ -263,7 +277,7 @@ describe('useCollaboration transport lifecycle', () => {
 
     // The real path still merges.
     act(() => socket.receive({ type: 'scene-delta', added: [fresh] }));
-    expect(onRemoteElements).toHaveBeenCalledWith([fresh], [], []);
+    expect(onRemoteElements).toHaveBeenCalledWith([fresh], [], [], []);
     expect(result.current.isConnected).toBe(true);
     unmount();
   });
@@ -297,8 +311,8 @@ describe('useCollaboration single-source presence', () => {
       useCanvasStore.setState({
         isConnected: true,
         remoteUsers: new Map([
-          ['u1', { userId: 'u1', userName: 'Ada', color: '#ff0000' }],
-          ['u2', { userId: 'u2', userName: 'Bo', color: '#00ff00' }],
+          ['u1', { userId: 'u1', userName: 'Ada', color: '#ff0000', lastSeenAt: 123 }],
+          ['u2', { userId: 'u2', userName: 'Bo', color: '#00ff00', lastSeenAt: 123 }],
         ]),
         remoteCursors: new Map([
           ['u1', { x: 10, y: 20, userName: 'Ada', color: '#ff0000', updatedAt: 123 }],
@@ -317,6 +331,23 @@ describe('useCollaboration single-source presence', () => {
       useCanvasStore.getState().removeRemoteCursor('u1');
     });
     expect(result.current.collaborators[0]).toMatchObject({ userId: 'u1', x: 0, y: 0 });
+    unmount();
+  });
+
+  it('publishes the pre-sync self id into the store', () => {
+    // Every self-check reads store.userId; the hook-local fallback alone left
+    // a pre-sync window with two selves (cursor filtering vs lock guards).
+    useCanvasStore.setState({ userId: null });
+    const { unmount } = renderHook(() => useCollaboration(null));
+    expect(typeof useCanvasStore.getState().userId).toBe('string');
+    expect(useCanvasStore.getState().userId).not.toBeNull();
+    unmount();
+  });
+
+  it('keeps an explicitly set identity instead of overwriting it', () => {
+    useCanvasStore.setState({ userId: 'auth-id' });
+    const { unmount } = renderHook(() => useCollaboration(null));
+    expect(useCanvasStore.getState().userId).toBe('auth-id');
     unmount();
   });
 });
@@ -362,6 +393,59 @@ describe('useCollaboration throttling, locks and teardown', () => {
       .map(raw => JSON.parse(raw) as Record<string, unknown>)
       .filter(m => m.type === type);
   }
+
+  it('evicts users unseen for 30s while keeping active ones', async () => {
+    // A missed user-leave must not pin an avatar (and a 0,0 collaborator)
+    // forever; an idle-but-connected reader keeps theirs via cursor proof.
+    const { unmount } = await connected();
+    const now = Date.now();
+    act(() => {
+      useCanvasStore.setState({
+        remoteUsers: new Map([
+          [
+            'gone',
+            { userId: 'gone', userName: 'Gone', color: '#ff0000', lastSeenAt: now - 31_000 },
+          ],
+          ['idle', { userId: 'idle', userName: 'Idle', color: '#00ff00', lastSeenAt: now - 1_000 }],
+        ]),
+        remoteCursors: new Map([
+          ['idle', { x: 1, y: 2, userName: 'Idle', color: '#00ff00', updatedAt: now - 1_000 }],
+        ]),
+      });
+    });
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    const state = useCanvasStore.getState();
+    expect(state.remoteUsers.has('gone')).toBe(false);
+    expect(state.remoteCursors.has('gone')).toBe(false);
+    expect(state.remoteUsers.has('idle')).toBe(true);
+    unmount();
+  });
+
+  it('refreshes a user last-seen on cursor moves', async () => {
+    const { unmount } = await connected();
+    const now = Date.now();
+    act(() => {
+      useCanvasStore.setState({
+        remoteUsers: new Map([
+          ['u', { userId: 'u', userName: 'U', color: '#ff0000', lastSeenAt: now - 29_000 }],
+        ]),
+      });
+    });
+    act(() => {
+      useCanvasStore
+        .getState()
+        .updateRemoteCursor('u', { x: 5, y: 5, userName: 'U', color: '#ff0000' });
+    });
+    const seen = useCanvasStore.getState().remoteUsers.get('u')?.lastSeenAt ?? 0;
+    expect(seen).toBeGreaterThan(now - 29_000);
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    expect(useCanvasStore.getState().remoteUsers.has('u')).toBe(true);
+    unmount();
+  });
 
   it('throttles cursor updates to one per 50ms', async () => {
     // Regression: a pointer move fires per frame, so at 60Hz an unthrottled

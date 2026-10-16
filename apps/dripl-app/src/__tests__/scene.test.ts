@@ -135,6 +135,66 @@ describe('scene restore + reconcile', () => {
     expect(deleteResult.changed).toBe(true);
     expect(deleteResult.appliedDeleted).toEqual(['doomed']);
   });
+
+  it('merges move-deltas onto the local copy through the same fence', () => {
+    const local = rect('e', { x: 0, y: 0, width: 50, height: 50, version: 3, versionNonce: 10 });
+    const localById = new Map([['e', local]]);
+
+    const result = reconcileScene({
+      localById,
+      added: [],
+      updated: [],
+      deleted: [],
+      moved: [{ id: 'e', x: 100, y: 200, version: 4, versionNonce: 1 }],
+    });
+    expect(result.changed).toBe(true);
+    // Position and freshness come from the move; everything else (size,
+    // style, points) stays local — the whole point of the compact form.
+    expect(result.nextById.get('e')).toMatchObject({
+      x: 100,
+      y: 200,
+      width: 50,
+      height: 50,
+      version: 4,
+      versionNonce: 1,
+    });
+  });
+
+  it('drops stale, locked, tombstoned, and unknown move-deltas', () => {
+    const local = rect('e', { version: 3, versionNonce: 10 });
+    const locked = rect('locked', { version: 1, versionNonce: 1 });
+    const tombstones = createTombstoneStore();
+    tombstones.add('gone');
+    const localById = new Map([
+      ['e', local],
+      ['locked', locked],
+    ]);
+
+    const stale = reconcileScene({
+      localById,
+      added: [],
+      updated: [],
+      deleted: [],
+      moved: [{ id: 'e', x: 1, y: 1, version: 2, versionNonce: 99 }],
+    });
+    expect(stale.changed).toBe(false);
+
+    const guarded = reconcileScene({
+      localById,
+      added: [],
+      updated: [],
+      deleted: [],
+      moved: [
+        { id: 'locked', x: 1, y: 1, version: 2, versionNonce: 2 },
+        { id: 'gone', x: 1, y: 1, version: 9, versionNonce: 9 },
+        { id: 'ghost', x: 1, y: 1, version: 9, versionNonce: 9 },
+      ],
+      isLocked: id => id === 'locked',
+      tombstones,
+    });
+    expect(guarded.changed).toBe(false);
+    expect(guarded.nextById.has('ghost')).toBe(false);
+  });
 });
 
 describe('tombstone store', () => {

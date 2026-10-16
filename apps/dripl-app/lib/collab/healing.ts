@@ -27,8 +27,8 @@ export function decideHealingAction(
   if (isFirstSync) return { kind: 'none' };
   if (pending) return { kind: 'flush-pending' };
   if (current === prev) return { kind: 'none' };
-  const { added, updated, deleted } = computeSceneDelta(prev, current);
-  if (added.length > 0 || updated.length > 0 || deleted.length > 0) {
+  const { added, updated, deleted, moved } = computeSceneDelta(prev, current);
+  if (added.length > 0 || updated.length > 0 || deleted.length > 0 || moved.length > 0) {
     return { kind: 'requeue', elements: current };
   }
   return { kind: 'none' };

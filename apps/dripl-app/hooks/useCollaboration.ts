@@ -68,6 +68,17 @@ export function useCollaboration(
   const fallbackUserIdRef = useRef(crypto.randomUUID());
   const userId = useCanvasStore(state => state.userId) ?? fallbackUserIdRef.current;
   const activeUserIdRef = useRef(userId);
+  // Publish the pre-sync self into the store: every self-check (cursor
+  // filtering, lock guards, eraser ownership) reads `store.userId`, so the
+  // fallback must live there too rather than only in this hook's ref. The
+  // server's `yourUserId` overwrites it on sync, and the route writers
+  // (auth id, anonymous share id) overwrite it on mount — whichever lands
+  // last wins, and all readers agree in every order.
+  useEffect(() => {
+    if (useCanvasStore.getState().userId == null) {
+      useCanvasStore.getState().setUserId(fallbackUserIdRef.current);
+    }
+  }, []);
   const setUserId = useCanvasStore(state => state.setUserId);
   const setIsStoreConnected = useCanvasStore(state => state.setIsConnected);
   const setRemoteUsers = useCanvasStore(state => state.setRemoteUsers);
@@ -131,14 +142,18 @@ export function useCollaboration(
       isFirstSyncRef.current = false;
     } else {
       // Subsequent syncs: compute and send delta via JSON
-      const { added, updated, deleted } = computeSceneDelta(prevElementsRef.current, pending);
+      const { added, updated, deleted, moved } = computeSceneDelta(
+        prevElementsRef.current,
+        pending
+      );
 
-      if (added.length > 0 || updated.length > 0 || deleted.length > 0) {
+      if (added.length > 0 || updated.length > 0 || deleted.length > 0 || moved.length > 0) {
         send({
           type: 'scene-delta',
           added: added.length > 0 ? added : undefined,
           updated: updated.length > 0 ? updated : undefined,
           deleted: deleted.length > 0 ? deleted : undefined,
+          moved: moved.length > 0 ? moved : undefined,
           clientMsgId: crypto.randomUUID(),
         });
       }
@@ -379,9 +394,16 @@ export function useCollaboration(
       const now = Date.now();
       state.remoteCursors.forEach((cursor, uid) => {
         if (now - cursor.updatedAt > 5000) {
-          // The collaborators view derives from remoteCursors, so dropping
-          // the cursor here is sufficient — no second map to prune.
           state.removeRemoteCursor(uid);
+        }
+      });
+      // Presence has a longer fuse than cursors: an idle-but-connected
+      // reader keeps their avatar, while a user whose leave was missed
+      // (no join/cursor proof for 30s) is evicted from both maps instead of
+      // lingering in the avatar list and rendering at 0,0.
+      state.remoteUsers.forEach((user, uid) => {
+        if (now - user.lastSeenAt > 30000) {
+          state.removeRemoteUser(uid);
         }
       });
     }, 5000);

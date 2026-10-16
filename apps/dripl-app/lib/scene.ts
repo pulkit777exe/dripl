@@ -1,4 +1,4 @@
-import type { DriplElement } from '@dripl/common';
+import type { DriplElement, MovedElement } from '@dripl/common';
 import { shouldAcceptElement } from '@dripl/common/reconciliation';
 import { normalizeElement } from '@/utils/canvasUtils';
 import { ensureFractionalIndexes, buildElementsById } from '@/lib/store/helpers';
@@ -210,6 +210,13 @@ export interface ReconcileInput {
   added: readonly DriplElement[];
   updated: readonly DriplElement[];
   deleted: readonly string[];
+  /**
+   * Move-only updates: merged onto the local copy ({...local, x, y, version,
+   * versionNonce}) and run through the same lock/tombstone/freshness rules
+   * as full updates. Unknown ids are skipped — the healing tick re-baselines
+   * a receiver that missed the full record.
+   */
+  moved?: readonly MovedElement[];
   draftId?: string | null;
   isLocked?: (id: string) => boolean;
   /**
@@ -258,6 +265,24 @@ export function reconcileScene(input: ReconcileInput): ReconcileOutput {
     if (!current || shouldAcceptElement(el, current)) {
       nextById.set(el.id, el);
       changed = true;
+    }
+  }
+  if (input.moved) {
+    for (const move of input.moved) {
+      if (isProtected(move.id) || isEntombed(move.id)) continue;
+      const current = nextById.get(move.id);
+      if (!current) continue;
+      const merged: DriplElement = {
+        ...current,
+        x: move.x,
+        y: move.y,
+        version: move.version,
+        versionNonce: move.versionNonce,
+      };
+      if (shouldAcceptElement(merged, current)) {
+        nextById.set(move.id, merged);
+        changed = true;
+      }
     }
   }
   if (input.deleted.length > 0) {

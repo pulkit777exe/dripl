@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import type { DriplElement } from '@dripl/common';
+import type { DriplElement, MovedElement } from '@dripl/common';
 import type { Handler } from './types';
 import { broadcast, send } from '../broadcast';
 import { markRoomDirty, scheduleSave, MAX_ELEMENTS_PER_SCENE } from '../rooms';
 import { publishToRoom } from '../redis';
 import {
+  acceptMovedElements,
   acceptSingleValidated,
   acceptValidated,
   wouldExceedSceneCapacity,
@@ -173,6 +174,7 @@ export const sceneDeltaHandler: Handler<typeof sceneDeltaSchema, SceneDelta> = {
     const acceptedAdded: DriplElement[] = [];
     const acceptedUpdated: DriplElement[] = [];
     const acceptedDeleted: string[] = [];
+    const acceptedMoved: MovedElement[] = [];
 
     const prospectiveElements = [
       ...(Array.isArray(msg.added) ? msg.added : []),
@@ -200,11 +202,24 @@ export const sceneDeltaHandler: Handler<typeof sceneDeltaSchema, SceneDelta> = {
       }
     }
 
-    if (acceptedAdded.length > 0 || acceptedUpdated.length > 0 || acceptedDeleted.length > 0) {
+    // Move-only entries carry no new ids, so they skip the capacity
+    // pre-check; each resolves against the room copy through the same
+    // tombstone→freshness funnel as a full record.
+    if (msg.moved && Array.isArray(msg.moved)) {
+      acceptedMoved.push(...acceptMovedElements(room, msg.moved));
+    }
+
+    if (
+      acceptedAdded.length > 0 ||
+      acceptedUpdated.length > 0 ||
+      acceptedDeleted.length > 0 ||
+      acceptedMoved.length > 0
+    ) {
       const filteredDelta: Record<string, unknown> = { type: 'scene-delta' };
       if (acceptedAdded.length > 0) filteredDelta.added = acceptedAdded;
       if (acceptedUpdated.length > 0) filteredDelta.updated = acceptedUpdated;
       if (acceptedDeleted.length > 0) filteredDelta.deleted = acceptedDeleted;
+      if (acceptedMoved.length > 0) filteredDelta.moved = acceptedMoved;
 
       broadcast(room, filteredDelta, ctx.userId ?? undefined);
       markRoomDirty(ctx.roomId);

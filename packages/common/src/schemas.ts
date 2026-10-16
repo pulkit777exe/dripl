@@ -106,7 +106,11 @@ export const BaseElementSchema = z.object({
    * schema boundary (the UI open-button and the export normaliser gate on top
    * of this); every other shape — http(s), relative, fragment, bare host —
    * parses exactly as before. */
-  link: z.string().max(2000).refine(isSafeElementLink, 'Link must not use an executable scheme').optional(),
+  link: z
+    .string()
+    .max(2000)
+    .refine(isSafeElementLink, 'Link must not use an executable scheme')
+    .optional(),
   boundElements: z
     .array(
       z.object({
@@ -148,6 +152,24 @@ export const LineElementSchema = BaseElementSchema.extend({
   points: z.array(PointSchema).min(2).max(10000),
   ...LinearStyleShape,
 });
+
+/**
+ * Move-only delta: an element whose sole mutation is translation. Carries
+ * the new origin plus the freshness markers, so receivers merge it onto
+ * their own copy instead of receiving the whole record — a drag of a
+ * 2000-point stroke moves ~100 bytes per flush instead of ~100KB.
+ * Version and nonce are required (the freshness fence cannot run without
+ * them); legacy unversioned elements always travel as full records.
+ */
+export const MovedElementSchema = z.object({
+  id: z.string().min(1).max(100),
+  x: z.number().finite().min(-100000).max(100000),
+  y: z.number().finite().min(-100000).max(100000),
+  version: z.number().int().nonnegative(),
+  versionNonce: z.number().int().nonnegative(),
+});
+
+export type MovedElement = z.infer<typeof MovedElementSchema>;
 
 export const ArrowElementSchema = BaseElementSchema.extend({
   type: z.literal('arrow'),

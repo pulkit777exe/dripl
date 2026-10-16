@@ -12,6 +12,7 @@ import { deleteWithTombstone } from '../tombstones';
 import {
   acceptAllParsed,
   acceptElement,
+  acceptMovedElements,
   acceptSingleValidated,
   acceptValidated,
   noteClientMsgId,
@@ -172,6 +173,46 @@ describe('sceneMutation', () => {
     expect(remoteInto.map(e => e.id).sort()).toEqual(
       (JSON.parse(snapshots[0] as string) as [string][]).map(row => row[0])
     );
+  });
+
+  it('acceptMovedElements merges moves onto the room copy through the fence', () => {
+    const room = getOrCreateRoom('mv1');
+    room.elements.set('a', {
+      ...el('a', 2),
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 80,
+      strokeWidth: 2,
+    } as unknown as DriplElement);
+    room.elements.set('t', el('t', 1) as unknown as DriplElement);
+    deleteWithTombstone(room, 't');
+
+    const accepted = acceptMovedElements(room, [
+      { id: 'a', x: 40, y: 30, version: 3, versionNonce: 5 },
+      // Stale: loses to the stored v3.
+      { id: 'a', x: 1, y: 1, version: 2, versionNonce: 9 },
+      // Tombstoned without a newer version: no resurrection.
+      { id: 't', x: 1, y: 1, version: 1, versionNonce: 1 },
+      // Unknown id: dropped (healing re-baselines the straggler).
+      { id: 'ghost', x: 1, y: 1, version: 1, versionNonce: 1 },
+      // Malformed: dropped.
+      { id: 'a', x: Number.NaN, y: 0, version: 9, versionNonce: 9 },
+      'garbage',
+    ]);
+
+    expect(accepted).toEqual([{ id: 'a', x: 40, y: 30, version: 3, versionNonce: 5 }]);
+    // The stored copy moved but kept everything else — width, style, points.
+    expect(room.elements.get('a')).toMatchObject({
+      x: 40,
+      y: 30,
+      width: 100,
+      height: 80,
+      version: 3,
+      versionNonce: 5,
+    });
+    expect(room.elements.has('t')).toBe(false);
+    expect(room.elements.has('ghost')).toBe(false);
   });
 
   it('wouldExceedSceneCapacity counts only new ids', () => {

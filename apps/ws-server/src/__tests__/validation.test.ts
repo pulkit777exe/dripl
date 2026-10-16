@@ -373,6 +373,13 @@ describe('sceneDeltaSchema (single hot-path gate)', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts move-deltas and strips malformed ones at the gate', () => {
+    const moved = { id: 'elem-1', x: 10, y: 20, version: 2, versionNonce: 3 };
+    const result = sceneDeltaSchema.safeParse({ type: 'scene-delta', moved: [moved] });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.moved).toEqual([moved]);
+  });
+
   it('rejects a delta containing a malformed element wholesale', () => {
     // Socket handlers apply validated elements without re-parsing (see
     // acceptValidated), so the gate must reject — never sanitize — a bad
