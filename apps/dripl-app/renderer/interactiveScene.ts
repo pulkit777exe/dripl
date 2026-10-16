@@ -82,6 +82,34 @@ function indexWantedElements(
  * bindings, eraser, locks) → screen pass (marquee, selection, cursors).
  */
 
+/**
+ * Topmost frame fully containing the draft, if any. Containment (not
+ * intersection) mirrors the grouping rule, so the preview clips exactly when
+ * the commit would join the frame.
+ */
+function findContainingFrame(
+  elements: readonly DriplElement[],
+  draft: DriplElement
+): DriplElement | undefined {
+  const draftBounds = getElementBounds(draft);
+  const draftRight = draftBounds.x + draftBounds.width;
+  const draftBottom = draftBounds.y + draftBounds.height;
+  let found: DriplElement | undefined;
+  for (const element of elements) {
+    if (element.type !== 'frame' || element.isDeleted) continue;
+    const frameBounds = getElementBounds(element);
+    if (
+      frameBounds.x <= draftBounds.x &&
+      frameBounds.y <= draftBounds.y &&
+      frameBounds.x + frameBounds.width >= draftRight &&
+      frameBounds.y + frameBounds.height >= draftBottom
+    ) {
+      found = element;
+    }
+  }
+  return found;
+}
+
 function isElementVisible(
   element: DriplElement,
   viewport: RenderSceneOptions['viewport'],
@@ -184,7 +212,21 @@ export function renderInteractiveScene({
   }
 
   if (draftElement && !draftElement.isDeleted) {
+    // Clip a draft created inside a frame, mirroring the committed static
+    // pass. Membership is by full containment — the same rule
+    // `applyFrameGrouping` commits by — so a partially overlapping draft
+    // stays unclipped exactly when it would stay ungrouped.
+    const clipFrame =
+      draftElement.type !== 'frame' ? findContainingFrame(elements, draftElement) : undefined;
+    if (clipFrame) {
+      const frameBounds = getElementBounds(clipFrame);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(frameBounds.x, frameBounds.y, frameBounds.width, frameBounds.height);
+      ctx.clip();
+    }
     renderElement(ctx, draftElement, viewport.zoom, theme);
+    if (clipFrame) ctx.restore();
   }
 
   // Draw binding indicators for both endpoint and start point

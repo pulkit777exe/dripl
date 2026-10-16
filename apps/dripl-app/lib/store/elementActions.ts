@@ -247,20 +247,23 @@ export const createElementActions: StateCreator<
     set(state => {
       if (updates.size === 0) return state;
 
+      // Single pass over the scene without building an id→index map: the
+      // hot path (drag/resize frames) usually carries one changed element,
+      // and a throwaway O(n) Map per frame was pure allocation.
       const nextElements = state.elements.slice();
-      const indexById = new Map(state.elements.map((element, index) => [element.id, index]));
       let changed = false;
 
-      for (const [id, elementUpdates] of updates) {
-        const previous = state.elementsById.get(id);
-        const index = indexById.get(id);
-        if (!previous || index === undefined) continue;
+      for (let index = 0; index < nextElements.length; index += 1) {
+        const previous = nextElements[index];
+        if (!previous) continue;
+        const elementUpdates = updates.get(previous.id);
+        if (!elementUpdates) continue;
 
         const updated = mutateElement(previous, elementUpdates);
         if (updated === previous) continue;
 
         nextElements[index] = updated;
-        state.elementsById.set(id, updated);
+        state.elementsById.set(previous.id, updated);
         changed = true;
       }
 

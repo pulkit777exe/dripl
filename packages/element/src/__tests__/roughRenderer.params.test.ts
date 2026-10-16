@@ -964,12 +964,14 @@ describe('embed elements', () => {
     );
   }
 
-  it('draws a filled rectangle with a globe placeholder', () => {
+  it('draws a filled rectangle with a vector globe glyph and a label', () => {
     const trace = embed({ url: 'https://x.test' });
     expect(trace.ctx.calls.strokeRect).toEqual([{ x: 0, y: 0, width: 200, height: 100 }]);
     expect(trace.ctx.calls.fillRect).toEqual([{ x: 0, y: 0, width: 200, height: 100 }]);
-    expect(trace.ctx.calls.fillText.some(t => t.text === '🌐')).toBe(true);
-    expect(trace.ctx.calls.fillText.find(t => t.text !== '🌐')?.y).toBe(65);
+    // The glyph is vector geometry (covered in embed.test.ts); the only text
+    // is the label below it.
+    expect(trace.ctx.calls.fillText.map(t => t.text)).toEqual(['https://x.test']);
+    expect(trace.ctx.calls.fillText[0]?.y).toBe(65);
   });
 
   it('labels the embed with its title, else its url, else a fallback', () => {
@@ -1001,11 +1003,18 @@ describe('embed elements', () => {
       translate: () => undefined,
       fillRect: () => undefined,
       strokeRect: () => undefined,
+      beginPath: () => undefined,
+      arc: () => undefined,
+      ellipse: () => undefined,
+      moveTo: () => undefined,
+      lineTo: () => undefined,
+      stroke: () => undefined,
       measureText: (text: string) => ({ width: text.length * 6 }),
       fillText: (text: string) => void labels.push(text),
       font: '',
       fillStyle: '',
       strokeStyle: '',
+      lineWidth: 0,
       textAlign: '',
       textBaseline: '',
     } as unknown as CanvasRenderingContext2D;
@@ -1018,7 +1027,7 @@ describe('embed elements', () => {
       'light'
     );
 
-    const label = labels.find(text => text !== '🌐');
+    const label = labels[0];
     // `maxWidth = width - 20 = 40`; the stub reports 6px per char, so the label
     // overflows and is cut to 30 characters plus an ellipsis.
     expect(label).toBe(`${'https://example.test/a/very/long/path'.slice(0, 30)}...`);

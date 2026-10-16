@@ -218,6 +218,34 @@ describe('draw order', () => {
     expect(bodiesDrawn(rec)).toBe(0);
   });
 
+  it('clips a draft created inside a frame to the frame rect', () => {
+    // Full containment is the grouping rule, so the preview clips exactly
+    // when the commit would join the frame.
+    render({
+      elements: [solid('frame', { type: 'frame', x: 100, y: 100, width: 200, height: 200 })],
+      draftElement: solid('draft', { x: 150, y: 150, width: 10, height: 10 }),
+    });
+    expect(rec.countOf('clip')).toBe(1);
+    expect(rec.argLists('rect')).toContainEqual([100, 100, 200, 200]);
+    // The draft itself still draws (the clip rect is the other `rect` call).
+    expect(rec.argLists('rect')).toContainEqual([150, 150, 10, 10]);
+  });
+
+  it('does not clip a draft outside every frame, or a frame draft itself', () => {
+    const frame = solid('frame', { type: 'frame', x: 100, y: 100, width: 200, height: 200 });
+    render({
+      elements: [frame],
+      draftElement: solid('draft', { x: 500, y: 500, width: 10, height: 10 }),
+    });
+    expect(rec.countOf('clip')).toBe(0);
+    rec.reset();
+    render({
+      elements: [],
+      draftElement: solid('draft-frame', { type: 'frame', x: 150, y: 150, width: 10, height: 10 }),
+    });
+    expect(rec.countOf('clip')).toBe(0);
+  });
+
   it('skips a deleted committed element without disturbing the others', () => {
     render({
       elements: [solid('gone', { x: 0, y: 0, isDeleted: true }), solid('kept', { x: 300, y: 300 })],

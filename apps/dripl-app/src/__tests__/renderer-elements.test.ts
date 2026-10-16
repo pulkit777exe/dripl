@@ -1041,12 +1041,12 @@ describe('renderEmbed', () => {
     expect(stroke.style.lineWidth).toBe(1);
   });
 
-  it('draws a globe glyph above centre and the label below it', () => {
+  it('draws a vector globe glyph above centre and the label below it', () => {
     renderElement(rec.ctx, clean(embed()), ZOOM);
-    expect(fillTexts(rec)).toEqual([
-      ['🌐', 100, 35],
-      ['https://a.dev/x', 100, 65],
-    ]);
+    // No emoji anywhere: the glyph is circle + meridian + equator geometry.
+    expect(arcs(rec)).toHaveLength(1);
+    expect(ellipses(rec)).toHaveLength(1);
+    expect(fillTexts(rec)).toEqual([['https://a.dev/x', 100, 65]]);
   });
 
   it('prefers the title over the url for the label', () => {

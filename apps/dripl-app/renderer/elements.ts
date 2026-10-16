@@ -1,6 +1,7 @@
 import type { ArrowheadType, DriplElement, LinearElement, Point } from '@dripl/common';
 import { imageCache } from '@dripl/element/image-cache';
 import { canvasFont, canvasFontFamily } from '@dripl/element/text';
+import { drawGlobeGlyph } from '@dripl/element/embed';
 import {
   createRoughCanvas,
   renderDraftElement,
@@ -520,15 +521,20 @@ function renderEmbed(ctx: CanvasRenderingContext2D, element: DriplElement) {
   ctx.fillStyle = element.backgroundColor || '#FAFAF7';
   ctx.fillRect(element.x, element.y, element.width, element.height);
 
-  // Draw globe icon placeholder
-  ctx.fillStyle = '#6B6860';
-  ctx.font = '24px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('🌐', element.x + element.width / 2, element.y + element.height / 2 - 15);
+  // Draw the vector globe glyph (identical in both layers; never an emoji,
+  // which varies by platform and is absent headless).
+  drawGlobeGlyph(
+    ctx,
+    element.x + element.width / 2,
+    element.y + element.height / 2 - 15,
+    12,
+    '#6B6860'
+  );
 
   // Draw URL or title
   ctx.font = '12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   ctx.fillStyle = '#6B6860';
   const displayText = embedEl.title || embedEl.url || 'Web Embed';
   const maxWidth = element.width - 20;

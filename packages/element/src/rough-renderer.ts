@@ -13,6 +13,7 @@ import { getFreedrawOutline } from './freedraw';
 import { getShapeFromCache, setShapeInCache } from './shape-cache';
 import { canvasFont } from './text';
 import { applyDarkModeFilter } from './theme';
+import { drawGlobeGlyph } from './embed';
 import { imageCache } from './image-cache';
 import { arrowHeadLength } from '@dripl/math/intersection';
 import type { RoughCanvas as _RoughCanvas } from 'roughjs/bin/canvas';
@@ -493,15 +494,14 @@ export function renderRoughElement(
     ctx.fillStyle = element.backgroundColor || '#FAFAF7';
     ctx.fillRect(0, 0, width, height);
 
-    // Draw globe icon placeholder
-    ctx.fillStyle = '#6B6860';
-    ctx.font = '24px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🌐', width / 2, height / 2 - 15);
+    // Draw the vector globe glyph (identical in both layers; never an emoji,
+    // which varies by platform and is absent headless).
+    drawGlobeGlyph(ctx, width / 2, height / 2 - 15, 12, '#6B6860');
 
     // Draw URL or title
     ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillStyle = '#6B6860';
     const displayText = embedEl.title || embedEl.url || 'Web Embed';
     const maxWidth = width - 20;
