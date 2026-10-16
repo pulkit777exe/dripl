@@ -27,6 +27,37 @@ const LINE_CONFIRM_THRESHOLD = 10;
 const PATH_HIT_SLACK = 2;
 
 /**
+ * Nominal freedraw outline half-width. A freedraw stroke renders as a filled
+ * perfect-freehand outline of width `strokeWidth * 4.25`, so its ink extends
+ * ~2.1x further from the centerline than `strokeWidth / 2`. Every bounds and
+ * tolerance computation for freedraw must use this, not the stroke width.
+ */
+export const FREEDRAW_SIZE_FACTOR = 4.25;
+
+export function freedrawOutlineHalfWidth(strokeWidth?: number): number {
+  const w = typeof strokeWidth === 'number' && strokeWidth > 0 ? strokeWidth : 2;
+  return (w * FREEDRAW_SIZE_FACTOR) / 2;
+}
+
+/**
+ * Arrowhead length from the stroke width. Single home for the constant the
+ * renderer (`@dripl/element` rough-renderer) and all bounds math share, so a
+ * head can never outgrow the box computed for it.
+ */
+export function arrowHeadLength(strokeWidth?: number): number {
+  return 10 + (strokeWidth || 2) * 2;
+}
+
+/**
+ * Hit tolerance for a path element: outline half-width for freedraw,
+ * stroke half-width otherwise, plus the caller's extra slack.
+ */
+export function pathHitTolerance(element: DriplElement, extra: number): number {
+  if (element.type === 'freedraw') return freedrawOutlineHalfWidth(element.strokeWidth) + extra;
+  return (element.strokeWidth || 0) / 2 + extra;
+}
+
+/**
  * Checks if a background color is considered transparent (i.e., not a visible fill).
  * Empty string, 'transparent', 'rgba(0,0,0,0)', etc. are all transparent.
  */
@@ -114,8 +145,25 @@ interface BoundsCacheEntry {
 // keeps the cache correct for legacy elements that do not carry a version.
 const boundsCache = new WeakMap<DriplElement, BoundsCacheEntry>();
 
+/**
+ * Padding from the centerline/box to the true ink extent. Freedraw needs its
+ * outline half-width and arrows need head length — `strokeWidth / 2` alone
+ * understates both, which showed up as culled arrowheads at viewport edges,
+ * marquee misses on tips, and clipped thick strokes in export bounds.
+ */
+export function pathBoundsPadding(element: DriplElement): number {
+  if (element.type === 'freedraw') return freedrawOutlineHalfWidth(element.strokeWidth);
+  if (element.type === 'arrow') {
+    const heads = element.arrowHeads ?? { start: 'none', end: 'triangle' };
+    const head =
+      heads.start !== 'none' || heads.end !== 'none' ? arrowHeadLength(element.strokeWidth) : 0;
+    return Math.max((element.strokeWidth || 0) / 2, head);
+  }
+  return (element.strokeWidth || 0) / 2;
+}
+
 function computeElementBounds(element: DriplElement): Bounds {
-  const padding = (element.strokeWidth || 0) / 2;
+  const padding = pathBoundsPadding(element);
 
   if (element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line') {
     const points = ((element as FreeDrawElement | LinearElement).points || []).map(p =>
@@ -269,7 +317,7 @@ export const isPointInElement = (point: Point, element: DriplElement): boolean =
   if (element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line') {
     const pts = (element as FreeDrawElement | LinearElement).points || [];
     const worldPts = pts.map(p => elementLocalPointToWorld(element, p));
-    const tolerance = (element.strokeWidth || 0) / 2 + PATH_HIT_SLACK;
+    const tolerance = pathHitTolerance(element, PATH_HIT_SLACK);
 
     if (worldPts.length === 1) {
       const only = worldPts[0]!;
@@ -366,7 +414,7 @@ export const elementIntersectsSegment = (
   if (element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line') {
     const pts = (element as FreeDrawElement | LinearElement).points || [];
     const worldPts = pts.map(p => elementLocalPointToWorld(element, p));
-    const tolerance = (element.strokeWidth || 0) / 2 + threshold;
+    const tolerance = pathHitTolerance(element, threshold);
 
     for (let i = 0; i < worldPts.length - 1; i++) {
       const pathSeg: LineSegment = {
@@ -520,7 +568,7 @@ export function isPointOnElementOutline(
   if (element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line') {
     const pts = (element as FreeDrawElement | LinearElement).points || [];
     const worldPts = pts.map(p => elementLocalPointToWorld(element, p));
-    const tolerance = (element.strokeWidth || 0) / 2 + threshold;
+    const tolerance = pathHitTolerance(element, threshold);
 
     for (let i = 0; i < worldPts.length - 1; i++) {
       const seg: LineSegment = { start: worldPts[i]!, end: worldPts[i + 1]! };

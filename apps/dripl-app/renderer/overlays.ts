@@ -12,7 +12,8 @@ import type { CollaboratorCursor, MarqueeSelection, SceneViewport } from './scen
  */
 
 const MARQUEE_DASH = [6, 4];
-const MIN_GRID_ZOOM = 0.3;
+/** Minimum on-screen spacing between grid dots, mirroring the static grid pass. */
+const MIN_GRID_CELL_PX = 10;
 
 export function worldToScreen(point: Point, viewport: SceneViewport): Point {
   return {
@@ -29,26 +30,33 @@ export function drawGridDots(
   theme: 'light' | 'dark',
   gridSize: number
 ) {
-  if (viewport.zoom < MIN_GRID_ZOOM) return;
+  if (!(gridSize > 0)) return;
+  // Coarsen like the static grid pass so dots stay ≥10px apart instead of
+  // merging into a wash (or being hard-hidden below an arbitrary zoom).
+  const cellPx = gridSize * viewport.zoom;
+  const step = gridSize * Math.max(1, Math.ceil(MIN_GRID_CELL_PX / cellPx));
+  if (!(step > 0)) return;
 
   const worldLeft = -viewport.x / viewport.zoom;
   const worldTop = -viewport.y / viewport.zoom;
   const worldRight = worldLeft + canvasWidth / viewport.zoom;
   const worldBottom = worldTop + canvasHeight / viewport.zoom;
-  const startX = Math.floor(worldLeft / gridSize) * gridSize;
-  const startY = Math.floor(worldTop / gridSize) * gridSize;
+  const startX = Math.floor(worldLeft / step) * step;
+  const startY = Math.floor(worldTop / step) * step;
   const radius = Math.max(0.8 / viewport.zoom, 0.35);
 
   ctx.save();
   ctx.fillStyle = theme === 'dark' ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.16)';
-
-  for (let x = startX; x <= worldRight; x += gridSize) {
-    for (let y = startY; y <= worldBottom; y += gridSize) {
-      ctx.beginPath();
+  // One path + one fill for all dots: per-dot beginPath/arc/fill was O(dots)
+  // fill calls for identical output.
+  ctx.beginPath();
+  for (let x = startX; x <= worldRight; x += step) {
+    for (let y = startY; y <= worldBottom; y += step) {
+      ctx.moveTo(x + radius, y);
       ctx.arc(x, y, radius, 0, Math.PI * 2);
-      ctx.fill();
     }
   }
+  ctx.fill();
   ctx.restore();
 }
 

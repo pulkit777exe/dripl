@@ -90,14 +90,25 @@ describe('worldToScreen', () => {
 });
 
 describe('drawGridDots', () => {
-  it('draws nothing when zoomed out past 0.3, because the lattice would be denser than the canvas', () => {
+  it('coarsens instead of hiding when zoomed out, matching the static grid pass', () => {
+    // zoom 0.29, gridSize 20: cells are 5.8px, so the step doubles to 40 and
+    // dots stay ≥10px apart rather than vanishing below a cutoff.
     drawGridDots(rec.ctx, viewport({ zoom: 0.29 }), 800, 600, 'light', 20);
-    expect(rec.ops).toHaveLength(0);
+    const xs = arcs(rec).map(a => a[0]!);
+    expect(xs.length).toBeGreaterThan(0);
+    for (const x of xs) expect(Math.abs(x % 40)).toBe(0);
   });
 
-  it('draws at exactly the 0.3 threshold', () => {
-    drawGridDots(rec.ctx, viewport({ zoom: 0.3 }), 800, 600, 'light', 20);
-    expect(arcs(rec).length).toBeGreaterThan(0);
+  it('keeps the base lattice at normal zoom', () => {
+    drawGridDots(rec.ctx, viewport({ zoom: 1 }), 800, 600, 'light', 20);
+    const xs = arcs(rec).map(a => a[0]!);
+    for (const x of xs) expect(Math.abs(x % 20)).toBe(0);
+  });
+
+  it('paints all dots in a single fill rather than one fill per dot', () => {
+    drawGridDots(rec.ctx, viewport(), 100, 100, 'light', 20);
+    expect(arcs(rec)).toHaveLength(36);
+    expect(rec.countOf('fill')).toBe(1);
   });
 
   it('uses a light or dark dot depending on the theme', () => {
@@ -156,11 +167,11 @@ describe('drawGridDots', () => {
   });
 
   it('draws more dots as the canvas grows, and never fewer than the visible lattice', () => {
-    // Zoom is floored at the 0.3 cull threshold: below it the pass returns
-    // early by design, which is what "draws nothing" above pins.
+    // The step coarsens below ~10px cells (mirroring the static grid pass),
+    // so the expectation uses the same coarsened step, not the base gridSize.
     // Canvas extents are capped because the dot count is quadratic in
-    // (size / zoom / gridSize) and this runs many times.
-    const drawn = fc.double({ min: 0.3, max: 6, noNaN: true });
+    // (size / zoom / step) and this runs many times.
+    const drawn = fc.double({ min: 0.1, max: 6, noNaN: true });
     fc.assert(
       fc.property(
         drawn,
@@ -169,7 +180,8 @@ describe('drawGridDots', () => {
         (z, w, h) => {
           const local = createRecordingContext();
           drawGridDots(local.ctx, viewport({ zoom: z }), w, h, 'light', 20);
-          const expectedCols = Math.floor(w / z / 20) + 1;
+          const step = 20 * Math.max(1, Math.ceil(10 / (20 * z)));
+          const expectedCols = Math.floor(w / z / step) + 1;
           expect(local.countOf('arc')).toBeGreaterThanOrEqual(expectedCols);
           for (const [cx, cy, r] of arcs(local)) {
             expect(Number.isFinite(cx!)).toBe(true);

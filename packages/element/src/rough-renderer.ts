@@ -8,9 +8,13 @@ import type {
   EmbedElement,
   Point,
   TextElement,
-  ImageElement,
 } from '@dripl/common';
+import { getFreedrawOutline } from './freedraw';
 import { getShapeFromCache, setShapeInCache } from './shape-cache';
+import { canvasFont } from './text';
+import { applyDarkModeFilter } from './theme';
+import { imageCache } from './image-cache';
+import { arrowHeadLength } from '@dripl/math/intersection';
 import type { RoughCanvas as _RoughCanvas } from 'roughjs/bin/canvas';
 import type { Drawable as _Drawable } from 'roughjs/bin/core';
 export type { RoughCanvas } from 'roughjs/bin/canvas';
@@ -180,6 +184,81 @@ export function resolveElementSeed(element: DriplElement): number {
   return typeof element.seed === 'number' ? element.seed : stableSeedFor(element.id);
 }
 
+/**
+ * Small-element roughness compensation, mirroring Excalidraw's
+ * `adjustRoughness`: full roughness on a <20px shape distorts it beyond
+ * recognition, so scale it down with size. Tuned to the same break-points
+ * (20px / 50px) the upstream uses for its cartoonist/artist switch.
+ */
+export function adjustRoughnessForSize(element: DriplElement): number {
+  const roughness = element.roughness ?? 1;
+  const size = Math.max(Math.abs(element.width), Math.abs(element.height));
+  if (size < 20) return roughness * 0.3;
+  if (size < 50) return roughness * 0.6;
+  return roughness;
+}
+
+/**
+ * Rough.js options with Excalidraw parity (`generateRoughOptions` in
+ * `packages/element/src/shape.ts`):
+ *
+ * - one seed per element (stable across regenerations),
+ * - non-solid strokes disable multi-stroke and gain +0.5 width so dashes
+ *   read at the same weight as solid strokes,
+ * - `fillWeight = strokeWidth / 2`, `hachureGap = strokeWidth * 4` so fills
+ *   do not change when only the stroke weight changes,
+ * - dashed `[8, 8 + w]` / dotted `[1.5, 6 + w]` dash arrays,
+ * - `preserveVertices` for low-roughness shapes so straight edges stay
+ *   straight, `curveFitting` for ellipses.
+ */
+export function getRoughOptionsForElement(
+  element: DriplElement,
+  theme: 'light' | 'dark' = 'dark',
+  continuousPath = false
+): Record<string, unknown> {
+  const strokeWidth = typeof element.strokeWidth === 'number' ? element.strokeWidth : 2;
+  const strokeStyle = element.strokeStyle ?? 'solid';
+  const nonSolid = strokeStyle !== 'solid';
+  const seed = resolveElementSeed(element);
+  const roughness = adjustRoughnessForSize(element);
+  const roundness = element.roundness ?? 0;
+
+  const options: Record<string, unknown> = {
+    stroke: applyDarkModeFilter(element.strokeColor, theme),
+    strokeWidth: nonSolid ? strokeWidth + 0.5 : strokeWidth,
+    roughness,
+    fillStyle: element.fillStyle ?? 'hachure',
+    seed,
+    hachureAngle: 45,
+    hachureGap: strokeWidth * 4,
+    fillWeight: strokeWidth / 2,
+    curveStepCount: 9,
+    simplification: 0.5,
+    roundness,
+    disableMultiStroke: nonSolid,
+    preserveVertices: continuousPath || roughness < 1,
+  };
+
+  if (element.type === 'ellipse') {
+    options.curveFitting = 1;
+  }
+  if (strokeStyle === 'dashed') {
+    options.strokeLineDash = [8, 8 + strokeWidth];
+  } else if (strokeStyle === 'dotted') {
+    options.strokeLineDash = [1.5, 6 + strokeWidth];
+  }
+
+  const fillColor =
+    element.backgroundColor ??
+    ('fillColor' in element && typeof element.fillColor === 'string'
+      ? element.fillColor
+      : 'transparent');
+  if (fillColor !== 'transparent') {
+    options.fill = applyDarkModeFilter(fillColor, theme);
+  }
+  return options;
+}
+
 export function createRoughCanvas(canvas: HTMLCanvasElement): _RoughCanvas | null {
   try {
     return rough.canvas(canvas);
@@ -191,46 +270,19 @@ export function createRoughCanvas(canvas: HTMLCanvasElement): _RoughCanvas | nul
   }
 }
 
-function generateShape(element: DriplElement): _Drawable | _Drawable[] {
+function generateShape(
+  element: DriplElement,
+  theme: 'light' | 'dark' = 'dark'
+): _Drawable | _Drawable[] {
   const width = element.width;
   const height = element.height;
-  const strokeColor = element.strokeColor;
-  const backgroundColor =
-    element.backgroundColor ??
-    ('fillColor' in element && typeof element.fillColor === 'string'
-      ? element.fillColor
-      : 'transparent');
-  const strokeWidth = element.strokeWidth;
-  const roughness = element.roughness ?? 1;
-  const strokeStyle = element.strokeStyle ?? 'solid';
-  const fillStyle = element.fillStyle ?? 'hachure';
-  const seed = resolveElementSeed(element);
-  const roundness = element.roundness ?? 0;
+  const options = getRoughOptionsForElement(element, theme);
+  // The legacy 'path' schema variant carries line-like points but is not part
+  // of the `DriplElement` union; render it as a straight polyline so stored
+  // scenes never produce an empty drawable.
+  const kind = (element.type as string) === 'path' ? 'line' : element.type;
 
-  const options: Record<string, unknown> = {
-    stroke: strokeColor,
-    strokeWidth,
-    roughness,
-    fillStyle,
-    seed,
-    hachureAngle: 45,
-    hachureGap: strokeWidth ? strokeWidth * 2 : 4,
-    curveStepCount: 9,
-    simplification: 0.5,
-    roundness,
-  };
-
-  const fillColor = backgroundColor ?? 'transparent';
-  if (fillColor !== 'transparent') {
-    options.fill = fillColor;
-  }
-  if (strokeStyle === 'dashed') {
-    options.strokeLineDash = [10, 5];
-  } else if (strokeStyle === 'dotted') {
-    options.strokeLineDash = [2, 3];
-  }
-
-  switch (element.type) {
+  switch (kind) {
     case 'rectangle':
       return getGenerator().rectangle(0, 0, width, height, options);
 
@@ -259,8 +311,10 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
 
     case 'line':
     case 'arrow': {
-      if ('points' in element && element.points.length > 1) {
-        const pts = (element.points as Point[]).map(p => [p.x, p.y] as [number, number]);
+      const pathPoints: Point[] =
+        'points' in element && Array.isArray(element.points) ? element.points : [];
+      if (pathPoints.length > 1) {
+        const pts = pathPoints.map(p => [p.x, p.y] as [number, number]);
         const linearEl = element as LinearElement;
         const arrowStyle = linearEl.arrowStyle ?? 'straight';
         const firstPt = pts[0];
@@ -309,10 +363,10 @@ function generateShape(element: DriplElement): _Drawable | _Drawable[] {
       return [];
     }
     case 'freedraw': {
-      if ('points' in element && element.points.length > 1) {
-        const pts = (element.points as Point[]).map(p => [p.x, p.y] as [number, number]);
-        return getGenerator().linearPath(pts, options);
-      }
+      // Freedraw bypasses Rough.js entirely (Excalidraw parity): the stroke
+      // is a filled perfect-freehand outline, drawn in `renderRoughElement`
+      // and cached as pixels like any other bitmap. Returning `[]` here keeps
+      // the shape cache valid without generating a meaningless Drawable.
       return [];
     }
 
@@ -350,16 +404,22 @@ export function renderRoughElement(
   if (element.type === 'text') {
     const textEl = element as TextElement;
     ctx.translate(x, y);
-    ctx.fillStyle = element.strokeColor || (theme === 'dark' ? '#ffffff' : '#000000');
-    ctx.font = `${textEl.fontSize || 16}px ${textEl.fontFamily || 'Inter'}`;
+    const explicit = element.strokeColor || undefined;
+    ctx.fillStyle =
+      applyDarkModeFilter(explicit, theme) ?? (theme === 'dark' ? '#ffffff' : '#000000');
+    // Unified with the interactive draft renderer (schema default): 20px /
+    // 1.25 line-height, one shared family fallback (`./text`). The previous
+    // 16px/1.2 here vs 20px/1.25 there made every text element reflow on
+    // commit.
+    const fontSize = textEl.fontSize || 20;
+    ctx.font = canvasFont(fontSize, textEl.fontFamily);
     ctx.textBaseline = 'top';
     ctx.textAlign =
       textEl.textAlign === 'center' || textEl.textAlign === 'right' ? textEl.textAlign : 'left';
 
     const text = textEl.text || '';
     const lines = text.split('\n');
-    const fontSize = textEl.fontSize || 16;
-    const lineHeight = fontSize * 1.2;
+    const lineHeight = fontSize * 1.25;
     const totalHeight = lines.length * lineHeight;
     const startY =
       textEl.verticalAlign === 'middle'
@@ -378,12 +438,15 @@ export function renderRoughElement(
     return;
   }
 
-  // Handle image elements specially
+  // Handle image elements specially. The static bitmap path draws images
+  // directly (`drawImageElement`); this branch serves direct-render callers
+  // (draft preview, export) through the same live `imageCache`.
   if (element.type === 'image') {
-    const imgEl = element as ImageElement & { _imageLoaded?: HTMLImageElement };
-    if (imgEl.src && imgEl._imageLoaded) {
+    const src = element.src;
+    const cached = typeof src === 'string' && src ? imageCache.get(src) : undefined;
+    if (cached?.loaded) {
       ctx.translate(x, y);
-      ctx.drawImage(imgEl._imageLoaded, 0, 0, width, height);
+      ctx.drawImage(cached.image, 0, 0, width, height);
     }
     ctx.restore();
     return;
@@ -405,10 +468,10 @@ export function renderRoughElement(
     ctx.strokeRect(padding, padding, width - 2 * padding, height - 2 * padding);
     ctx.setLineDash([]);
 
-    // Draw title above frame
+    // Draw title above frame (same font as the interactive layer).
     if (frameEl.title) {
       ctx.fillStyle = element.strokeColor || '#000000';
-      ctx.font = '14px "Comic Sans MS", "Chalkboard SE", "Marker Felt", "Comic Neue", cursive';
+      ctx.font = canvasFont(14, undefined);
       ctx.fillText(frameEl.title, 10, -10);
     }
 
@@ -452,12 +515,44 @@ export function renderRoughElement(
     return;
   }
 
+  // Freedraw bypasses Rough.js: filled perfect-freehand outline, in local
+  // coords (the bitmap context is already translated by the caller into the
+  // element's frame; here we are in scene coords, so translate first).
+  if (element.type === 'freedraw') {
+    ctx.translate(x, y);
+    if (element.angle) {
+      const cx = element.width / 2;
+      const cy = element.height / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate(element.angle);
+      ctx.translate(-cx, -cy);
+    }
+    ctx.translate(-x, -y);
+    const outline = getFreedrawOutline(element);
+    if (outline.length > 0) {
+      ctx.save();
+      ctx.fillStyle = applyDarkModeFilter(element.strokeColor, theme) ?? '#000000';
+      ctx.beginPath();
+      const first = outline[0]!;
+      ctx.moveTo(first.x, first.y);
+      for (let i = 1; i < outline.length; i += 1) {
+        const p = outline[i]!;
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+    return;
+  }
+
   // Export bypasses the cache so the latest committed state is rendered.
   let shape: ReturnType<typeof generateShape> | undefined = isExporting
     ? undefined
     : getShapeFromCache(element, theme);
   if (!shape) {
-    shape = generateShape(element);
+    shape = generateShape(element, theme);
     if (!isExporting) {
       setShapeInCache(element, shape, theme);
     }
@@ -465,24 +560,7 @@ export function renderRoughElement(
 
   ctx.translate(x, y);
 
-  if (element.type === 'arrow' && (element as LinearElement).labelId && elements) {
-    const label = getElementById(elements, (element as LinearElement).labelId!);
-
-    if (label && label.type === 'text') {
-      const labelBounds = {
-        x: label.x - x,
-        y: label.y - y,
-        width: label.width,
-        height: label.height,
-      };
-
-      ctx.save();
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.fillStyle = theme === 'dark' ? '#0f0f13' : '#f8f9fa';
-      ctx.fillRect(labelBounds.x, labelBounds.y, labelBounds.width, labelBounds.height);
-      ctx.restore();
-    }
-  }
+  drawArrowLabelCutout(ctx, element, elements);
 
   if (Array.isArray(shape)) {
     shape.forEach(s => rc.draw(s));
@@ -496,53 +574,213 @@ export function renderRoughElement(
     (element as LinearElement).points &&
     (element as LinearElement).points.length > 1
   ) {
-    const points = (element as LinearElement).points;
-    const linearEl = element as LinearElement;
-    const arrowHeads = linearEl.arrowHeads ?? { start: 'none', end: 'triangle' };
-
-    const arrowHeadOptions: Record<string, unknown> = {
-      stroke: element.strokeColor,
-      strokeWidth: element.strokeWidth,
-      fill: element.strokeColor,
-      fillStyle: 'solid',
-      // Without this the arrowhead is the one part of the element that gets a
-      // fresh roll of Rough's randomness on every bitmap regeneration — theme
-      // change, eviction, cold load — while the body stays put, because the body
-      // is seeded at line 215. Zoom far enough out to evict an arrow and its
-      // head visibly twitches. Same seed as the body is deliberate: the head is a
-      // different shape consuming the stream in a different order, so the two do
-      // not correlate, and reusing `resolveElementSeed` keeps a single rule for
-      // "how is this element made deterministic".
-      seed: resolveElementSeed(element),
-    };
-    if (element.roughness !== undefined) {
-      arrowHeadOptions.roughness = element.roughness;
-    }
-
-    const headLength = 10 + (element.strokeWidth || 2) * 2;
-
-    // Render end arrowhead
-    if (arrowHeads.end && arrowHeads.end !== 'none') {
-      const endPoint = points[points.length - 1];
-      const prevPoint = points[points.length - 2];
-      if (endPoint && prevPoint) {
-        const angle = Math.atan2(endPoint.y - prevPoint.y, endPoint.x - prevPoint.x);
-        const direction = { x: Math.cos(angle), y: Math.sin(angle) };
-        drawArrowhead(rc, endPoint, direction, arrowHeads.end, headLength, arrowHeadOptions);
-      }
-    }
-
-    // Render start arrowhead
-    if (arrowHeads.start && arrowHeads.start !== 'none') {
-      const startPoint = points[0];
-      const nextPoint = points[1];
-      if (startPoint && nextPoint) {
-        const angle = Math.atan2(startPoint.y - nextPoint.y, startPoint.x - nextPoint.x);
-        const direction = { x: Math.cos(angle), y: Math.sin(angle) };
-        drawArrowhead(rc, startPoint, direction, arrowHeads.start, headLength, arrowHeadOptions);
-      }
-    }
+    drawArrowheads(rc, element, (element as LinearElement).points, theme);
   }
 
   ctx.restore();
+}
+
+/**
+ * Generate a Rough.js Drawable for an element without touching the shape
+ * cache. Used by the interactive draft layer so the in-progress preview is
+ * pixel-identical to the committed bitmap (same generator, same options,
+ * same seed) instead of a look-alike reimplementation.
+ */
+export function generateDrawableForElement(element: DriplElement): _Drawable | _Drawable[] {
+  return generateShape(element);
+}
+
+/**
+ * Unit direction of an arrowhead at each endpoint, in the caller's point
+ * space. Straight and multi-point shafts use the last/first segment; curved
+ * shafts use the bezier tangent at the endpoint (control point from
+ * `calculateCurvedPath`); elbow shafts use the axis-aligned final/first
+ * segment. A zero-length shaft falls back to +x, matching the historical
+ * `atan2(0, 0) === 0` behavior so degenerate arrows keep their head.
+ */
+export interface ArrowEndpointGeometry {
+  endTip: { x: number; y: number };
+  endDir: { x: number; y: number };
+  startTip: { x: number; y: number };
+  startDir: { x: number; y: number };
+}
+
+function unitDirection(dx: number, dy: number): { x: number; y: number } {
+  const length = Math.sqrt(dx * dx + dy * dy);
+  if (!(length > 0)) return { x: 1, y: 0 };
+  return { x: dx / length, y: dy / length };
+}
+
+export function arrowEndpointGeometry(
+  points: Array<{ x: number; y: number }>,
+  arrowStyle?: string
+): ArrowEndpointGeometry | null {
+  if (points.length < 2) return null;
+  const start = points[0]!;
+  const end = points[points.length - 1]!;
+
+  if (arrowStyle === 'curved' && points.length === 2) {
+    if (start.x === end.x && start.y === end.y) {
+      return { endTip: end, endDir: { x: 1, y: 0 }, startTip: start, startDir: { x: 1, y: 0 } };
+    }
+    const control = calculateCurvedPath(start, end, 0.5)[1]!;
+    return {
+      endTip: end,
+      endDir: unitDirection(end.x - control.x, end.y - control.y),
+      startTip: start,
+      startDir: unitDirection(start.x - control.x, start.y - control.y),
+    };
+  }
+
+  if (arrowStyle === 'elbow' && points.length === 2) {
+    const corner =
+      Math.abs(end.x - start.x) > Math.abs(end.y - start.y)
+        ? { x: end.x, y: start.y }
+        : { x: start.x, y: end.y };
+    return {
+      endTip: end,
+      endDir: unitDirection(end.x - corner.x, end.y - corner.y),
+      startTip: start,
+      startDir: unitDirection(start.x - corner.x, start.y - corner.y),
+    };
+  }
+
+  const prev = points[points.length - 2]!;
+  const next = points[1]!;
+  return {
+    endTip: end,
+    endDir: unitDirection(end.x - prev.x, end.y - prev.y),
+    startTip: start,
+    startDir: unitDirection(start.x - next.x, start.y - next.y),
+  };
+}
+
+/**
+ * Shared arrowhead paint options: seeded like the body so the head never
+ * twitches independently across bitmap regenerations (theme change, cache
+ * eviction, cold load).
+ */
+function arrowHeadOptionsFor(
+  element: DriplElement,
+  theme: 'light' | 'dark'
+): Record<string, unknown> {
+  const stroke = applyDarkModeFilter(element.strokeColor, theme);
+  const options: Record<string, unknown> = {
+    stroke,
+    strokeWidth: element.strokeWidth,
+    fill: stroke,
+    fillStyle: 'solid',
+    seed: resolveElementSeed(element),
+  };
+  if (element.roughness !== undefined) {
+    options.roughness = element.roughness;
+  }
+  return options;
+}
+
+/**
+ * Punch the bound label's box out of an arrow shaft. Under
+ * `destination-out` the fill color is irrelevant — it erases to transparent
+ * on the per-element bitmap — so no theme branch belongs here.
+ */
+function drawArrowLabelCutout(
+  ctx: CanvasRenderingContext2D,
+  element: DriplElement,
+  elements: readonly DriplElement[] | undefined
+): void {
+  if (element.type !== 'arrow' || !(element as LinearElement).labelId || !elements) return;
+  const label = getElementById(elements, (element as LinearElement).labelId!);
+  if (!label || label.type !== 'text') return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillRect(label.x - element.x, label.y - element.y, label.width, label.height);
+  ctx.restore();
+}
+
+/**
+ * Paint both arrowheads from endpoint geometry. Shared by the cached bitmap
+ * path and the draft path so heads agree everywhere.
+ */
+function drawArrowheads(
+  rc: _RoughCanvas,
+  element: DriplElement,
+  points: Array<{ x: number; y: number }>,
+  theme: 'light' | 'dark'
+): void {
+  const linearEl = element as LinearElement;
+  const arrowHeads = linearEl.arrowHeads ?? { start: 'none', end: 'triangle' };
+  if ((arrowHeads.end ?? 'none') === 'none' && (arrowHeads.start ?? 'none') === 'none') return;
+  const geometry = arrowEndpointGeometry(points, linearEl.arrowStyle);
+  if (!geometry) return;
+  const options = arrowHeadOptionsFor(element, theme);
+  const headLength = arrowHeadLength(element.strokeWidth);
+  if (arrowHeads.end && arrowHeads.end !== 'none') {
+    drawArrowhead(rc, geometry.endTip, geometry.endDir, arrowHeads.end, headLength, options);
+  }
+  if (arrowHeads.start && arrowHeads.start !== 'none') {
+    drawArrowhead(rc, geometry.startTip, geometry.startDir, arrowHeads.start, headLength, options);
+  }
+}
+
+/**
+ * Draw a single in-progress (draft) element directly onto a scene-context
+ * `ctx` — the `renderNewElementScene` equivalent. Handles rotation,
+ * opacity, freedraw outlines (perfect-freehand fill) and arrowheads, using
+ * the same options and seed as the static bitmap path.
+ *
+ * The caller owns the world transform; this function only applies the
+ * element-local rotation around its center.
+ */
+export function renderDraftElement(
+  rc: _RoughCanvas,
+  ctx: CanvasRenderingContext2D,
+  element: DriplElement,
+  elements?: DriplElement[],
+  theme: 'light' | 'dark' = 'dark'
+): void {
+  if (element.isDeleted) return;
+  if (element.type === 'text' || element.type === 'image') {
+    renderRoughElement(rc, ctx, element, undefined, theme, true);
+    return;
+  }
+  if (element.type === 'freedraw') {
+    renderRoughElement(rc, ctx, element, undefined, theme, true);
+    return;
+  }
+  ctx.save();
+  ctx.globalAlpha = element.opacity ?? 1;
+  const angle = element.angle ?? 0;
+  if (angle) {
+    const cx = element.x + element.width / 2;
+    const cy = element.y + element.height / 2;
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.translate(-cx, -cy);
+  }
+  ctx.translate(element.x, element.y);
+  drawArrowLabelCutout(ctx, element, elements);
+  const shape = generateShape(element, theme);
+  if (Array.isArray(shape)) {
+    shape.forEach(s => rc.draw(s));
+  } else {
+    rc.draw(shape);
+  }
+  ctx.restore();
+
+  if (element.type === 'arrow') {
+    ctx.save();
+    ctx.globalAlpha = element.opacity ?? 1;
+    if (angle) {
+      const cx = element.x + element.width / 2;
+      const cy = element.y + element.height / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate(angle);
+      ctx.translate(-cx, -cy);
+    }
+    const points = (element as LinearElement).points ?? [];
+    const world = points.map(p => ({ x: p.x + element.x, y: p.y + element.y }));
+    ctx.translate(-element.x, -element.y);
+    drawArrowheads(rc, element, world, theme);
+    ctx.restore();
+  }
 }

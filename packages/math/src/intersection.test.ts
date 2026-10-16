@@ -417,6 +417,43 @@ describe('math/intersection', () => {
       expect(isPointInElement(pt(50, 60), dot)).toBe(false);
     });
 
+    it('hits a freedraw across its full rendered outline width', () => {
+      // strokeWidth 4 renders ±8.5px of ink (4*4.25/2); the old strokeWidth/2
+      // tolerance (±2+slack) missed clicks on visibly thick strokes.
+      const stroke = path('freedraw', [pt(0, 0), pt(100, 0)], { x: 0, y: 0, strokeWidth: 4 });
+      expect(isPointInElement(pt(50, 8), stroke)).toBe(true);
+      expect(isPointInElement(pt(50, 10.5), stroke)).toBe(true);
+      expect(isPointInElement(pt(50, 10.6), stroke)).toBe(false);
+    });
+
+    it('pads freedraw bounds by the outline half-width', () => {
+      const stroke = path('freedraw', [pt(0, 0), pt(100, 0)], { x: 0, y: 0, strokeWidth: 4 });
+      expect(getElementBounds(stroke)).toMatchObject({ x: -8.5, y: -8.5, width: 117, height: 17 });
+    });
+
+    it('pads arrow bounds by head length so tips are culled and Tuple-hit correctly', () => {
+      const arrow = path('arrow', [pt(0, 0), pt(100, 0)], {
+        x: 0,
+        y: 0,
+        strokeWidth: 2,
+        arrowHeads: { start: 'none', end: 'triangle' },
+      });
+      // headLength = 10 + 2*2 = 14 past the tip.
+      const bounds = getElementBounds(arrow);
+      expect(bounds.x + bounds.width).toBeGreaterThanOrEqual(114);
+      expect(isPointNearElement(pt(108, 0), arrow, 0)).toBe(true);
+    });
+
+    it('skips head padding when both arrowheads are none', () => {
+      const plain = path('arrow', [pt(0, 0), pt(100, 0)], {
+        x: 0,
+        y: 0,
+        strokeWidth: 2,
+        arrowHeads: { start: 'none', end: 'none' },
+      });
+      expect(getElementBounds(plain)).toMatchObject({ x: -1, y: -1, width: 102, height: 2 });
+    });
+
     it('fills a closed freedraw but not an open one', () => {
       // Loop gap is 1.41 here and 80 in the open case; the fill test uses a
       // strokeWidth/2 + 1 = 2 threshold, distinct from isPathALoop's 10.

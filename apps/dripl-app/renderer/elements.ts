@@ -1,6 +1,13 @@
 import type { ArrowheadType, DriplElement, LinearElement, Point } from '@dripl/common';
-import { getDefaultFontFamily } from '@/utils/fontPreferences';
 import { imageCache } from '@dripl/element/image-cache';
+import { canvasFont, canvasFontFamily } from '@dripl/element/text';
+import {
+  createRoughCanvas,
+  renderDraftElement,
+  arrowEndpointGeometry,
+  type RoughCanvas,
+} from '@dripl/element/rough-renderer';
+import { arrowHeadLength } from '@dripl/math/intersection';
 import { getArrowheadPoints, getDirectionVector } from '@/utils/arrow-routing';
 import {
   applyStrokeAndFill,
@@ -13,13 +20,52 @@ import {
 } from './elementStyles';
 
 /**
- * Element renderers — extracted verbatim from `interactiveScene.ts`.
+ * Element renderers — the interactive (draft) layer.
  *
- * One function per shape plus the `renderElement` dispatcher (unknown
- * types fall back to rectangle, deleted elements are skipped). The text
- * measurement cache lives here with the only renderer that uses it;
- * `clearTextMeasurementCache` stays public via `interactiveScene.ts`.
+ * Excalidraw parity note (`renderNewElementScene`): the in-progress element is
+ * drawn with the SAME Rough.js generator, options and seed as the committed
+ * bitmap, not with a look-alike. `renderDraftElement` in
+ * `@dripl/element/rough-renderer` owns that path; the per-shape canvas code
+ * below is the headless fallback (unit tests, SSR, or a context without a
+ * canvas), kept so the dispatcher still draws something deterministic when
+ * Rough.js cannot bind to a canvas.
  */
+
+const roughCanvasByTarget = new WeakMap<object, RoughCanvas>();
+
+function roughForContext(ctx: CanvasRenderingContext2D): RoughCanvas | null {
+  const canvas = (ctx as unknown as { canvas?: object | null }).canvas;
+  if (!canvas) return null;
+  const cached = roughCanvasByTarget.get(canvas);
+  if (cached) return cached;
+  try {
+    const rc = createRoughCanvas(canvas as HTMLCanvasElement);
+    if (!rc) return null;
+    roughCanvasByTarget.set(canvas, rc);
+    return rc;
+  } catch {
+    return null;
+  }
+}
+
+/** Rough.js draft when a canvas is available, legacy canvas path otherwise. */
+function drawShapeDraft(
+  ctx: CanvasRenderingContext2D,
+  element: DriplElement,
+  theme: 'light' | 'dark',
+  legacy: () => void
+): void {
+  const rc = roughForContext(ctx);
+  if (!rc) {
+    legacy();
+    return;
+  }
+  try {
+    renderDraftElement(rc, ctx, element, undefined, theme);
+  } catch {
+    legacy();
+  }
+}
 
 interface TextMeasurement {
   width: number;
@@ -154,9 +200,11 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
       return;
     }
 
-    // Perpendicular offset for curvature
-    const offsetX2 = (-dy / length) * length * 0.25;
-    const offsetY2 = (dx / length) * length * 0.25;
+    // Perpendicular offset for curvature. Factor matches the shared
+    // `calculateCurvedPath(start, end, 0.5)` the Rough.js path uses
+    // (length * curvature * 0.25) so the fallback draws the same bow.
+    const offsetX2 = (-dy / length) * length * 0.5 * 0.25;
+    const offsetY2 = (dx / length) * length * 0.5 * 0.25;
     const controlX = midX + offsetX2;
     const controlY = midY + offsetY2;
 
@@ -237,29 +285,21 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
       start: 'none' as ArrowheadType,
       end: 'triangle' as ArrowheadType,
     };
-    const headLength = 12;
+    const headLength = arrowHeadLength(element.strokeWidth);
     const arrowStyle = arrowElement.arrowStyle;
 
-    // Helper to calculate angle for arrowhead
-    const calculateAngle = (from: Point, to: Point, style?: string): number => {
-      if (style === 'curved') {
-        // Approximate tangent at endpoint for quadratic bezier
-        const first = points[0];
-        if (first) {
-          const midX = (first.x + to.x) / 2;
-          const midY = (first.y + to.y) / 2;
-          const dx = to.x - first.x;
-          const dy = to.y - first.y;
-          const length = Math.sqrt(dx * dx + dy * dy);
-          if (length === 0) return Math.atan2(to.y - from.y, to.x - from.x);
-          const ctrlX = midX + (-dy / length) * length * 0.25;
-          const ctrlY = midY + (dx / length) * length * 0.25;
-          return Math.atan2(to.y - ctrlY, to.x - ctrlX);
-        }
-        return Math.atan2(to.y - from.y, to.x - from.x);
-      }
-      return Math.atan2(to.y - from.y, to.x - from.x);
-    };
+    // Endpoint directions from the shared geometry helper — the same tangents
+    // the Rough.js path uses, so heads sit identically in both layers.
+    // (Falls back to segment direction if the helper ever declines.)
+    const endpointGeometry = arrowEndpointGeometry(points, arrowStyle);
+    const endAngle = (from: Point, to: Point): number =>
+      endpointGeometry
+        ? Math.atan2(endpointGeometry.endDir.y, endpointGeometry.endDir.x)
+        : Math.atan2(to.y - from.y, to.x - from.x);
+    const startAngle = (from: Point, to: Point): number =>
+      endpointGeometry
+        ? Math.atan2(endpointGeometry.startDir.y, endpointGeometry.startDir.x)
+        : Math.atan2(from.y - to.y, from.x - to.x);
 
     // Helper to render arrowhead based on type
     const renderArrowhead = (tip: Point, angle: number, type: ArrowheadType) => {
@@ -315,19 +355,18 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
       const prev = points[points.length - 2];
       if (!end || !prev) return;
 
-      const angle = calculateAngle(prev, end, arrowStyle);
+      const angle = endAngle(prev, end);
       renderArrowhead(end, angle, endArrowheadType);
     }
 
-    // Render start arrowhead
+    // Render start arrowhead (pointing outward, away from the shaft)
     const startArrowheadType = arrowHeads.start ?? 'none';
     if (startArrowheadType !== 'none') {
       const start = points[0];
       const next = points[1];
       if (!start || !next) return;
 
-      // Start arrowhead angle is opposite direction (pointing inward)
-      const angle = Math.atan2(start.y - next.y, start.x - next.x);
+      const angle = startAngle(start, next);
       renderArrowhead(start, angle, startArrowheadType);
     }
   }
@@ -341,7 +380,7 @@ function renderText(ctx: CanvasRenderingContext2D, element: DriplElement) {
   const fontFamily =
     'fontFamily' in element && typeof element.fontFamily === 'string' && element.fontFamily
       ? element.fontFamily
-      : getDefaultFontFamily();
+      : canvasFontFamily(undefined);
   const textAlign =
     'textAlign' in element &&
     (element.textAlign === 'left' ||
@@ -400,7 +439,11 @@ function renderText(ctx: CanvasRenderingContext2D, element: DriplElement) {
   }
 }
 
-function renderImage(ctx: CanvasRenderingContext2D, element: DriplElement) {
+function renderImage(
+  ctx: CanvasRenderingContext2D,
+  element: DriplElement,
+  theme: 'light' | 'dark' = 'dark'
+) {
   if (!('src' in element) || typeof element.src !== 'string' || !element.src) {
     return;
   }
@@ -410,9 +453,24 @@ function renderImage(ctx: CanvasRenderingContext2D, element: DriplElement) {
     return;
   }
 
-  // Start loading if not already in progress
+  if (cached?.error) {
+    ctx.fillStyle = theme === 'dark' ? 'rgba(255,100,100,0.15)' : 'rgba(255,0,0,0.1)';
+    ctx.fillRect(element.x, element.y, element.width, element.height);
+    return;
+  }
+
+  // Start loading if not already in progress. The static layer repaints via
+  // onAssetLoad; this layer repaints via the asset-load event the
+  // InteractiveCanvas subscribes to — otherwise a committed image that
+  // finishes loading never repaints here.
   if (!cached) {
-    imageCache.load(element.src).catch(() => {});
+    const notify = (): void => {
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('dripl:asset-load'));
+    };
+    void imageCache
+      .load(element.src)
+      .catch(() => undefined)
+      .then(notify);
   }
 
   ctx.fillStyle = 'rgba(127,127,127,0.2)';
@@ -441,7 +499,7 @@ function renderFrame(ctx: CanvasRenderingContext2D, element: DriplElement) {
   // Draw title above frame
   if (frameEl.title) {
     ctx.fillStyle = element.strokeColor || '#000000';
-    ctx.font = `14px ${getDefaultFontFamily()}, cursive`;
+    ctx.font = canvasFont(14, undefined);
     ctx.fillText(frameEl.title, element.x + 10, element.y - 10);
   }
 }
@@ -482,8 +540,38 @@ function renderEmbed(ctx: CanvasRenderingContext2D, element: DriplElement) {
   ctx.textBaseline = 'alphabetic';
 }
 
-export function renderElement(ctx: CanvasRenderingContext2D, element: DriplElement, zoom: number) {
+export function renderElement(
+  ctx: CanvasRenderingContext2D,
+  element: DriplElement,
+  zoom: number,
+  theme: 'light' | 'dark' = 'dark'
+) {
   if (element.isDeleted) return;
+  const type = element.type as string;
+  // Draft preview with Excalidraw parity: the same Rough.js generator, options
+  // and seed as the committed bitmap (`renderNewElementScene`). Without a
+  // canvas (unit tests, SSR) the legacy canvas path below stands in.
+  if (
+    type === 'line' ||
+    type === 'arrow' ||
+    type === 'freedraw' ||
+    type === 'path' ||
+    type === 'rectangle' ||
+    type === 'diamond' ||
+    type === 'ellipse'
+  ) {
+    drawShapeDraft(ctx, element, theme, () => renderLegacyShape(ctx, element, zoom, theme));
+    return;
+  }
+  renderLegacyShape(ctx, element, zoom, theme);
+}
+
+function renderLegacyShape(
+  ctx: CanvasRenderingContext2D,
+  element: DriplElement,
+  zoom: number,
+  theme: 'light' | 'dark' = 'dark'
+) {
   const type = element.type as string;
   ctx.save();
   ctx.globalAlpha = getOpacity(element);
@@ -501,7 +589,7 @@ export function renderElement(ctx: CanvasRenderingContext2D, element: DriplEleme
   } else if (type === 'text') {
     renderText(ctx, element);
   } else if (type === 'image') {
-    renderImage(ctx, element);
+    renderImage(ctx, element, theme);
   } else if (type === 'frame') {
     renderFrame(ctx, element);
   } else if (type === 'embed') {

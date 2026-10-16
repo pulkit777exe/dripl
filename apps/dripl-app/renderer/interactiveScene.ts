@@ -1,5 +1,6 @@
 import type { DriplElement } from '@dripl/common';
 import { getElementBounds } from '@dripl/math/intersection';
+import { snapPanToDevicePixels } from '@dripl/element/staticScene';
 import { clearTextMeasurementCache, renderElement } from './elements';
 import {
   drawBindingIndicator,
@@ -156,13 +157,17 @@ export function renderInteractiveScene({
   };
 
   ctx.save();
+  // Same device-pixel pan snap as the static layer (`snapPanToDevicePixels`):
+  // without it the draft preview drifts up to half a device pixel from the
+  // committed bitmap during fractional pans, and the stroke visibly jumps on
+  // commit. Mirrors Excalidraw's `snapScrollToDevicePixels`.
   ctx.setTransform(
     viewport.zoom * dpr,
     0,
     0,
     viewport.zoom * dpr,
-    viewport.x * dpr,
-    viewport.y * dpr
+    snapPanToDevicePixels(viewport.x, dpr) * dpr,
+    snapPanToDevicePixels(viewport.y, dpr) * dpr
   );
 
   if (gridEnabled) {
@@ -174,12 +179,12 @@ export function renderInteractiveScene({
       if (!isElementVisible(element, viewport, canvasWidth, canvasHeight)) {
         continue;
       }
-      renderElement(ctx, element, viewport.zoom);
+      renderElement(ctx, element, viewport.zoom, theme);
     }
   }
 
   if (draftElement && !draftElement.isDeleted) {
-    renderElement(ctx, draftElement, viewport.zoom);
+    renderElement(ctx, draftElement, viewport.zoom, theme);
   }
 
   // Draw binding indicators for both endpoint and start point

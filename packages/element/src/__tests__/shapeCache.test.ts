@@ -48,13 +48,13 @@ describe('shape cache hit and miss', () => {
     expect(getShapeFromCache(target, 'light')).toBe(shapes);
   });
 
-  it('defaults to the light theme', () => {
+  it('defaults to the dark theme, matching the renderer default', () => {
     const shape = drawable('first');
     const target = element();
     setShapeInCache(target, shape);
     expect(getShapeFromCache(target)).toBe(shape);
-    // Reading it back as dark is a different question, and a miss.
-    expect(getShapeFromCache(target, 'dark')).toBeUndefined();
+    // Reading it back as light is a different question, and a miss.
+    expect(getShapeFromCache(target, 'light')).toBeUndefined();
   });
 });
 

@@ -460,16 +460,18 @@ describe('renderPathLike: arrow styles', () => {
     expect(rec.countOf('quadraticCurveTo')).toBe(0);
   });
 
-  it('curves with a control point a quarter chord-length to the left of the midpoint', () => {
+  it('curves with a control point an eighth chord-length to the left of the midpoint', () => {
     // first (0,0) last (40,0): midpoint (20,0), dx=40 dy=0, length=40.
-    // control = (20 + (-0/40)*40*0.25, 0 + (40/40)*40*0.25) = (20, 10).
+    // control = (20 + (-0/40)*40*0.5*0.25, 0 + (40/40)*40*0.5*0.25) = (20, 5),
+    // matching the shared calculateCurvedPath(curvature 0.5) the Rough.js
+    // path uses.
     renderElement(rec.ctx, clean(arrow({ arrowStyle: 'curved' })), ZOOM);
-    expect(rec.calls('quadraticCurveTo')[0]!.args).toEqual([20, 10, 40, 0]);
+    expect(rec.calls('quadraticCurveTo')[0]!.args).toEqual([20, 5, 40, 0]);
     expect(lineTos(rec)).toEqual([]);
   });
 
   it('curves to the opposite side when the arrow points left', () => {
-    // first (40,0) last (0,0): dx=-40, dy=0 -> control (20, -10).
+    // first (40,0) last (0,0): dx=-40, dy=0 -> control (20, -5).
     renderElement(
       rec.ctx,
       clean(
@@ -485,7 +487,7 @@ describe('renderPathLike: arrow styles', () => {
       ),
       ZOOM
     );
-    expect(rec.calls('quadraticCurveTo')[0]!.args).toEqual([20, -10, 0, 0]);
+    expect(rec.calls('quadraticCurveTo')[0]!.args).toEqual([20, -5, 0, 0]);
   });
 
   it('elbows horizontally first when the chord is wider than it is tall', () => {
@@ -646,21 +648,22 @@ describe('renderPathLike: arrowheads', () => {
     expect(tips).toContainEqual([40, 0]);
   });
 
-  it('renders a dot head as a filled circle centred on the tip with radius 4.8', () => {
+  it('renders a dot head as a filled circle centred on the tip with radius 5.6', () => {
     renderElement(rec.ctx, clean(arrow({ arrowHeads: { start: 'none', end: 'dot' } })), ZOOM);
     const [cx, cy, r, start, end] = arcs(rec)[0]!;
     expect([cx, cy]).toEqual([40, 0]);
-    expect(r).toBeCloseTo(4.8, 10);
+    expect(r).toBeCloseTo(5.6, 10);
     expect(start).toBe(0);
     expect(end).toBeCloseTo(Math.PI * 2, 10);
   });
 
   it('renders a bar head as a single stroked segment perpendicular to the shaft', () => {
-    // Shaft (0,0)->(40,0), so the bar sits at the tip (40,0), spanning y -6..+6.
+    // Shaft (0,0)->(40,0), so the bar sits at the tip (40,0), spanning y -7..+7
+    // (shared arrowHeadLength: 10 + 2*2 = 14 for the default 2px stroke).
     renderElement(rec.ctx, clean(arrow({ arrowHeads: { start: 'none', end: 'bar' } })), ZOOM);
     expect(lineTos(rec)).toEqual([
       [40, 0],
-      [40, -6],
+      [40, -7],
     ]);
     // One stroke for the shaft, one for the bar, and no fill for either.
     expect(rec.countOf('stroke')).toBe(2);
@@ -718,7 +721,7 @@ describe('renderPathLike: arrowheads', () => {
       { x: tip.x - Math.cos(angle), y: tip.y - Math.sin(angle) },
       tip
     );
-    const expected = getArrowheadPoints(tip, direction, 'triangle', 12);
+    const expected = getArrowheadPoints(tip, direction, 'triangle', 14);
     renderElement(rec.ctx, clean(element), ZOOM);
     const drawn = [...moveTos(rec).slice(-1), ...lineTos(rec).slice(-(expected.length - 1))];
     expect(drawn).toEqual(expected.map(p => [p.x, p.y]));
@@ -997,7 +1000,7 @@ describe('renderFrame', () => {
       ZOOM
     );
     expect(fillTexts(rec)).toEqual([['Frame', 40, 30]]);
-    expect(rec.calls('fillText')[0]!.style.font).toBe(`14px ${getDefaultFontFamily()}, cursive`);
+    expect(rec.calls('fillText')[0]!.style.font).toBe('14px "Caveat", cursive');
   });
 
   it('omits the title text when there is none', () => {

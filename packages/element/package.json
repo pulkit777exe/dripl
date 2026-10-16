@@ -25,6 +25,22 @@
     "./image-cache": {
       "types": "./dist/image-cache.d.ts",
       "default": "./dist/image-cache.js"
+    },
+    "./freedraw": {
+      "types": "./dist/freedraw.d.ts",
+      "default": "./dist/freedraw.js"
+    },
+    "./rough-renderer": {
+      "types": "./dist/rough-renderer.d.ts",
+      "default": "./dist/rough-renderer.js"
+    },
+    "./text": {
+      "types": "./dist/text.d.ts",
+      "default": "./dist/text.js"
+    },
+    "./theme": {
+      "types": "./dist/theme.d.ts",
+      "default": "./dist/theme.js"
     }
   },
   "scripts": {
@@ -40,6 +56,7 @@
   "dependencies": {
     "@dripl/common": "workspace:*",
     "@dripl/math": "workspace:*",
+    "perfect-freehand": "^1.2.3",
     "roughjs": "^4.6.6"
   },
   "devDependencies": {

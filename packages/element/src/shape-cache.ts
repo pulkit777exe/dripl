@@ -17,6 +17,13 @@ interface CacheEntry {
   theme: 'light' | 'dark';
 }
 
+/**
+ * Default theme for cache lookups when the caller does not say. Matches
+ * `renderRoughElement`'s default so default-path callers generate once, not
+ * once per theme.
+ */
+export const DEFAULT_CACHE_THEME = 'dark' as const;
+
 const shapeCache = new WeakMap<DriplElement, CacheEntry>();
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -28,7 +35,7 @@ const shapeCache = new WeakMap<DriplElement, CacheEntry>();
  */
 export function getShapeFromCache(
   element: DriplElement,
-  theme: 'light' | 'dark' = 'light'
+  theme: 'light' | 'dark' = DEFAULT_CACHE_THEME
 ): Drawable | Drawable[] | undefined {
   const entry = shapeCache.get(element);
   if (!entry) return undefined;
@@ -47,7 +54,7 @@ export function getShapeFromCache(
 export function setShapeInCache(
   element: DriplElement,
   shape: Drawable | Drawable[],
-  theme: 'light' | 'dark' = 'light'
+  theme: 'light' | 'dark' = DEFAULT_CACHE_THEME
 ): void {
   const version = element.version ?? 0;
   shapeCache.set(element, { shape, version, theme });

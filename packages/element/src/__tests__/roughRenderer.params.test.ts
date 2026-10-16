@@ -1,7 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { DriplElement, LinearElement, Point } from '@dripl/common';
 
 import { renderRoughElement, type Drawable } from '../rough-renderer';
+import { arrowEndpointGeometry, renderDraftElement } from '../rough-renderer';
+
+const imageCacheState = vi.hoisted(() => ({
+  entries: new Map<string, { image: unknown; loaded: boolean; error: boolean }>(),
+}));
+
+vi.mock('../image-cache', () => ({
+  imageCache: {
+    get: (src: string) => imageCacheState.entries.get(src),
+  },
+}));
 
 /**
  * With `roughness: 0` Rough.js emits exact geometry, so the path operations can
@@ -273,9 +284,12 @@ describe('element to Rough.js primitive mapping', () => {
     expect(
       primitiveOf(render(base({ type: 'line', points } as Partial<DriplElement>)).drawn[0])
     ).toBe('linearPath');
-    expect(
-      primitiveOf(render(base({ type: 'freedraw', points } as Partial<DriplElement>)).drawn[0])
-    ).toBe('linearPath');
+    // Freedraw bypasses Rough.js entirely (Excalidraw parity): the stroke is a
+    // filled perfect-freehand outline, so no Drawable is generated. The
+    // outline math is covered in `freedraw.test.ts`.
+    expect(render(base({ type: 'freedraw', points } as Partial<DriplElement>)).drawn).toHaveLength(
+      0
+    );
   });
 
   it('draws the rectangle from the element origin', () => {
@@ -388,12 +402,28 @@ describe('generateShape option mapping', () => {
   });
 
   it('derives the hachure gap from the stroke width, defaulting when unset', () => {
-    expect(optionsOf(render(base({ strokeWidth: 3 })).drawn[0]).hachureGap).toBe(6);
+    // Excalidraw parity: hachureGap = strokeWidth * 4.
+    expect(optionsOf(render(base({ strokeWidth: 3 })).drawn[0]).hachureGap).toBe(12);
     expect(
       optionsOf(
         render(base({ strokeWidth: undefined } as unknown as Partial<DriplElement>)).drawn[0]
       ).hachureGap
-    ).toBe(4);
+    ).toBe(8);
+  });
+
+  it('sets fillWeight from the stroke width so fills track the stroke', () => {
+    expect(optionsOf(render(base({ strokeWidth: 3 })).drawn[0]).fillWeight).toBe(1.5);
+    expect(optionsOf(render(base()).drawn[0]).fillWeight).toBe(1);
+  });
+
+  it('disables multi-stroke for non-solid strokes and compensates the width', () => {
+    const dashed = optionsOf(render(base({ strokeStyle: 'dashed' })).drawn[0]);
+    expect(dashed.disableMultiStroke).toBe(true);
+    // +0.5 so dashes read at the same weight as solid strokes.
+    expect(dashed.strokeWidth).toBe(2.5);
+    const solid = optionsOf(render(base({ strokeStyle: 'solid' })).drawn[0]);
+    expect(solid.disableMultiStroke).toBe(false);
+    expect(solid.strokeWidth).toBe(2);
   });
 
   it('sets the fixed sketch constants the hand-drawn look depends on', () => {
@@ -404,11 +434,12 @@ describe('generateShape option mapping', () => {
   });
 
   it('maps each stroke style to its dash pattern, and leaves solid undashed', () => {
+    // Excalidraw parity: dashed [8, 8 + w], dotted [1.5, 6 + w] (base w = 2).
     expect(optionsOf(render(base({ strokeStyle: 'dashed' })).drawn[0]).strokeLineDash).toEqual([
-      10, 5,
+      8, 10,
     ]);
     expect(optionsOf(render(base({ strokeStyle: 'dotted' })).drawn[0]).strokeLineDash).toEqual([
-      2, 3,
+      1.5, 8,
     ]);
     expect(
       optionsOf(render(base({ strokeStyle: 'solid' })).drawn[0]).strokeLineDash
@@ -703,10 +734,12 @@ describe('arrow label cutout', () => {
     expect(trace.ctx.calls.restore).toBeGreaterThanOrEqual(2);
   });
 
-  it('paints the cutout in the theme background colour', () => {
+  it('punches the same cutout in either theme (destination-out erases, color is irrelevant)', () => {
     const label = base({ id: 'label-1', type: 'text' }) as unknown as DriplElement;
-    expect(render(arrowElement, [arrowElement, label], 'dark').ctx.fillStyle).toBe('#0f0f13');
-    expect(render(arrowElement, [arrowElement, label], 'light').ctx.fillStyle).toBe('#f8f9fa');
+    const dark = render(arrowElement, [arrowElement, label], 'dark');
+    const light = render(arrowElement, [arrowElement, label], 'light');
+    expect(dark.ctx.calls.fillRect).toEqual(light.ctx.calls.fillRect);
+    expect(dark.ctx.calls.fillRect).toHaveLength(1);
   });
 
   it('punches nothing when the label is missing or is not text', () => {
@@ -741,8 +774,8 @@ describe('text elements', () => {
     expect(trace.ctx.calls.translate).toEqual([{ x: 5, y: 7 }]);
     expect(trace.ctx.calls.fillText).toEqual([
       { text: 'one', x: 0, y: 0 },
-      { text: 'two', x: 0, y: 24 },
-      { text: 'three', x: 0, y: 48 },
+      { text: 'two', x: 0, y: 25 },
+      { text: 'three', x: 0, y: 50 },
     ]);
     expect(trace.ctx.font).toBe('20px Inter');
     expect(trace.drawn).toHaveLength(0);
@@ -761,7 +794,8 @@ describe('text elements', () => {
   });
 
   it('offsets vertically for middle and bottom alignment', () => {
-    // 2 lines at fontSize 20 occupies 48px of content.
+    // 2 lines at fontSize 20 occupies 50px of content (1.25 pitch, matching
+    // the interactive draft renderer so commit changes nothing).
     const middle = text({
       text: 'a\nb',
       fontSize: 20,
@@ -769,7 +803,7 @@ describe('text elements', () => {
       height: 148,
       verticalAlign: 'middle',
     } as Partial<DriplElement>);
-    expect(middle.ctx.calls.fillText[0]?.y).toBe(50);
+    expect(middle.ctx.calls.fillText[0]?.y).toBe(49);
 
     const bottom = text({
       text: 'a\nb',
@@ -778,7 +812,7 @@ describe('text elements', () => {
       height: 148,
       verticalAlign: 'bottom',
     } as Partial<DriplElement>);
-    expect(bottom.ctx.calls.fillText[0]?.y).toBe(100);
+    expect(bottom.ctx.calls.fillText[0]?.y).toBe(98);
   });
 
   it('clamps vertical alignment so content never starts above the origin', () => {
@@ -815,12 +849,12 @@ describe('text elements', () => {
     ).toBe('#ffffff');
   });
 
-  it('defaults the font to 16px Inter and the baseline to top', () => {
+  it('defaults the font to 20px "Caveat", cursive and the baseline to top', () => {
     const trace = text({
       fontSize: undefined,
       fontFamily: undefined,
     } as unknown as Partial<DriplElement>);
-    expect(trace.ctx.font).toBe('16px Inter');
+    expect(trace.ctx.font).toBe('20px "Caveat", cursive');
     expect(trace.ctx.textBaseline).toBe('top');
   });
 
@@ -833,20 +867,31 @@ describe('text elements', () => {
 });
 
 describe('image elements', () => {
-  it('draws the decoded bitmap at the element origin when one is attached', () => {
+  it('draws the cached bitmap at the element origin when one is attached', () => {
     const decoded = { naturalWidth: 10 } as unknown as HTMLImageElement;
-    const element = {
-      ...base({ type: 'image', src: 'a.png', x: 11, y: 22, width: 33, height: 44 }),
-      _imageLoaded: decoded,
-    } as unknown as DriplElement;
+    const element = base({
+      type: 'image',
+      src: 'a.png',
+      x: 11,
+      y: 22,
+      width: 33,
+      height: 44,
+    } as Partial<DriplElement>) as unknown as DriplElement;
 
-    const trace = render(element);
-    expect(trace.ctx.calls.translate).toEqual([{ x: 11, y: 22 }]);
-    expect(trace.ctx.calls.drawImage).toEqual([[decoded, 0, 0, 33, 44]]);
+    // Seed the live imageCache the renderer reads (same lookup the static
+    // bitmap path uses).
+    imageCacheState.entries.set('a.png', { image: decoded, loaded: true, error: false });
+    try {
+      const trace = render(element);
+      expect(trace.ctx.calls.translate).toEqual([{ x: 11, y: 22 }]);
+      expect(trace.ctx.calls.drawImage).toEqual([[decoded, 0, 0, 33, 44]]);
+    } finally {
+      imageCacheState.entries.delete('a.png');
+    }
   });
 
   it('draws nothing until the image has decoded', () => {
-    const trace = render(base({ type: 'image', src: 'a.png' }) as unknown as DriplElement);
+    const trace = render(base({ type: 'image', src: 'missing.png' }) as unknown as DriplElement);
     expect(trace.ctx.calls.drawImage).toHaveLength(0);
     expect(trace.ctx.calls.translate).toHaveLength(0);
   });
@@ -855,7 +900,6 @@ describe('image elements', () => {
     const element = {
       ...base({ type: 'image' }),
       src: undefined,
-      _imageLoaded: { naturalWidth: 1 },
     } as unknown as DriplElement;
     expect(render(element).ctx.calls.drawImage).toHaveLength(0);
   });
@@ -986,6 +1030,131 @@ describe('embed elements', () => {
     const trace = embed({ url: 'https://x.test' });
     expect(trace.ctx.textAlign).toBe('start');
     expect(trace.ctx.textBaseline).toBe('alphabetic');
+  });
+});
+
+describe('arrowEndpointGeometry', () => {
+  it('uses segment direction for straight and multi-point shafts', () => {
+    const geometry = arrowEndpointGeometry(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+      ],
+      'straight'
+    )!;
+    expect(geometry.endTip).toEqual({ x: 100, y: 0 });
+    expect(geometry.endDir).toEqual({ x: 1, y: 0 });
+    expect(geometry.startTip).toEqual({ x: 0, y: 0 });
+    expect(geometry.startDir).toEqual({ x: -1, y: 0 });
+  });
+
+  it('uses the bezier tangent at each end of a curved shaft', () => {
+    // (0,0)->(40,0): control (20,5) via calculateCurvedPath(curvature 0.5).
+    // End tangent (40-20, 0-5), start tangent (0-20, 0-5) — normalized.
+    const geometry = arrowEndpointGeometry(
+      [
+        { x: 0, y: 0 },
+        { x: 40, y: 0 },
+      ],
+      'curved'
+    )!;
+    const len = Math.hypot(20, -5);
+    expect(geometry.endDir.x).toBeCloseTo(20 / len, 10);
+    expect(geometry.endDir.y).toBeCloseTo(-5 / len, 10);
+    expect(geometry.startDir.x).toBeCloseTo(-20 / len, 10);
+    expect(geometry.startDir.y).toBeCloseTo(-5 / len, 10);
+  });
+
+  it('uses axis direction for elbow shafts', () => {
+    // Wide routes horizontal-then-vertical: leaves horizontally, arrives
+    // vertically. Tall is the mirror.
+    const wide = arrowEndpointGeometry(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 10 },
+      ],
+      'elbow'
+    )!;
+    expect(wide.endDir).toEqual({ x: 0, y: 1 });
+    expect(wide.startDir).toEqual({ x: -1, y: 0 });
+    const tall = arrowEndpointGeometry(
+      [
+        { x: 0, y: 0 },
+        { x: 10, y: 100 },
+      ],
+      'elbow'
+    )!;
+    expect(tall.endDir).toEqual({ x: 1, y: 0 });
+    expect(tall.startDir).toEqual({ x: 0, y: -1 });
+  });
+
+  it('falls back to +x for a zero-length shaft', () => {
+    const geometry = arrowEndpointGeometry(
+      [
+        { x: 5, y: 5 },
+        { x: 5, y: 5 },
+      ],
+      'straight'
+    )!;
+    expect(geometry.endDir).toEqual({ x: 1, y: 0 });
+    expect(geometry.startDir).toEqual({ x: 1, y: 0 });
+  });
+
+  it('returns null for fewer than two points', () => {
+    expect(arrowEndpointGeometry([], 'straight')).toBeNull();
+    expect(arrowEndpointGeometry([{ x: 0, y: 0 }], 'straight')).toBeNull();
+  });
+});
+
+describe('renderDraftElement', () => {
+  function draft(
+    element: DriplElement,
+    elements: DriplElement[] = []
+  ): { drawn: Drawable[]; ctx: TraceContext } {
+    const drawn: Drawable[] = [];
+    const rc = {
+      draw: (...args: unknown[]) => {
+        drawn.push(args[0] as Drawable);
+      },
+    } as unknown as Parameters<typeof renderDraftElement>[0];
+    const ctx = makeContext();
+    renderDraftElement(rc, ctx as unknown as CanvasRenderingContext2D, element, elements);
+    return { drawn, ctx };
+  }
+
+  it('punches the label cutout for a labeled arrow when elements are provided', () => {
+    const arrow = {
+      ...base({ type: 'arrow', x: 100, y: 200 }),
+      points: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+      ],
+      labelId: 'label-1',
+    } as unknown as DriplElement;
+    const label = base({
+      id: 'label-1',
+      type: 'text',
+      x: 130,
+      y: 205,
+      width: 40,
+      height: 20,
+    }) as unknown as DriplElement;
+    const trace = draft(arrow, [arrow, label]);
+    expect(trace.ctx.calls.fillRect).toEqual([{ x: 30, y: 5, width: 40, height: 20 }]);
+    // Shaft plus end head still draw.
+    expect(trace.drawn).toHaveLength(2);
+  });
+
+  it('draws an unlabeled arrow identically with or without elements', () => {
+    const arrow = {
+      ...base({ type: 'arrow' }),
+      points: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+      ],
+    } as unknown as DriplElement;
+    expect(draft(arrow).ctx.calls.fillRect).toHaveLength(0);
+    expect(draft(arrow, [arrow]).drawn).toHaveLength(2);
   });
 });
 

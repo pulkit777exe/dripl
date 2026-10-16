@@ -515,7 +515,10 @@ describe('arrow-routing binding to a shape', () => {
       { strokeWidth: 0 }
     );
     const arrowBounds = getElementBounds(arrow);
-    expect(arrowBounds).toEqual({ x: 500, y: 500, width: 0, height: 200 });
+    // Points-mapped bounds ((500,500)-(500,700)) padded by the default end
+    // head (headLength 14 for the falsy strokeWidth): the box follows the
+    // points, not the origin-declared rect.
+    expect(arrowBounds).toEqual({ x: 486, y: 486, width: 28, height: 228 });
 
     const binding = calculateArrowBinding({ x: 2000, y: 560 }, arrow);
     const point = recalculateBinding(binding!, arrow);

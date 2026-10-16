@@ -469,6 +469,17 @@ export function renderStaticScene(
   // per frame, against two calls per element.
   const entryAlpha = ctx.globalAlpha;
 
+  // Frame membership: `applyFrameGrouping` tags fully-contained elements with
+  // groupId `frame-<frameId>` at creation. Members are clipped to their
+  // frame so content cannot spill past the border (Excalidraw `frameClip`
+  // parity). Regular groups use bare ids, so the prefix keeps them apart.
+  const framesByGroup = new Map<string, DriplElement>();
+  for (const element of drawableElements) {
+    if (element.type === 'frame' && !element.isDeleted) {
+      framesByGroup.set(`frame-${element.id}`, element);
+    }
+  }
+
   for (const element of drawableElements) {
     if (element.isDeleted) continue;
 
@@ -476,6 +487,19 @@ export function renderStaticScene(
     // candidate here would recalculate the same bounds a second time. Keep
     // the linear fallback for callers that do not provide an index.
     if (!hasSpatialCandidates && !isElementVisible(element, viewport, config.zoom)) continue;
+
+    let clipped = false;
+    if (element.type !== 'frame' && typeof element.groupId === 'string') {
+      const frame = framesByGroup.get(element.groupId);
+      if (frame) {
+        const frameBounds = getElementBounds(frame);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(frameBounds.x, frameBounds.y, frameBounds.width, frameBounds.height);
+        ctx.clip();
+        clipped = true;
+      }
+    }
 
     stats.candidates += 1;
     const startedAt = clock();
@@ -494,10 +518,12 @@ export function renderStaticScene(
       stats.bitmapsDeferred += 1;
       stats.elementsDrawn += 1;
       if (timed) stats.directMs = (stats.directMs ?? 0) + (clock() - startedAt);
+      if (clipped) ctx.restore();
       continue;
     }
     if (result.status === 'failed') {
       stats.elementsSkipped += 1;
+      if (clipped) ctx.restore();
       continue;
     }
     stats.elementsDrawn += 1;
@@ -511,6 +537,7 @@ export function renderStaticScene(
       stats.bitmapsReused += 1;
       if (timed) stats.blitMs = (stats.blitMs ?? 0) + (clock() - startedAt);
     }
+    if (clipped) ctx.restore();
   }
 
   // See `entryAlpha` above: hand the context back the way it was found, so the
@@ -807,6 +834,16 @@ function drawElement(
 
   const PADDING = 10; // must match generateElementCanvas
 
+  // Excalidraw parity: blit cached bitmaps without smoothing so sketch strokes
+  // and text stay crisp. Smoothing stays on while pinch-zooming (blurry beats
+  // shimmering mid-gesture) and for non-right-angle rotations, where disabling
+  // it produces harsh aliasing on Chromium.
+  const angle = element.angle ?? 0;
+  const rightAngle = Math.abs(angle / (Math.PI / 2) - Math.round(angle / (Math.PI / 2))) < 1e-6;
+  const crispBlit = (angle === 0 || rightAngle) && !shouldCacheIgnoreZoom;
+  const prevSmoothing = ctx.imageSmoothingEnabled;
+  if (crispBlit) ctx.imageSmoothingEnabled = false;
+
   // Divide by the resolution the bitmap was actually rasterized at, not by the
   // nominal dpr: a bitmap downscaled to fit a browser canvas limit still has to
   // be stretched back over the element's full logical size.
@@ -817,6 +854,7 @@ function drawElement(
     offscreen.width / entry.pixelsPerUnit,
     offscreen.height / entry.pixelsPerUnit
   );
+  if (crispBlit) ctx.imageSmoothingEnabled = prevSmoothing;
 
   if (rotated) ctx.restore();
   return { status: 'drawn', generated };
