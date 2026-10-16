@@ -8,6 +8,11 @@ import { uploadImageToServer, loadImage } from '@/utils/tools/image';
 import { v4 as uuidv4 } from 'uuid';
 import { calculateArrowBinding } from '@/utils/arrow-routing';
 import { buildBoundArrowsByShape, resolveGestureUpdates } from '@/lib/canvas/binding-sync';
+import {
+  groupResizeMapping,
+  groupRotateMapping,
+  normalizeRotationDelta,
+} from '@/lib/canvas/group-transform';
 import { computeRotationAngle } from '@/lib/canvas/rotation';
 import {
   computeBoxResize,
@@ -30,6 +35,18 @@ import {
   unbindArrowFromElement,
 } from '@/utils/arrow-binding';
 import type { ToolType } from '@/hooks/useDrawingTools';
+import type { ToolStartOptions, ToolUpdateOptions } from '@/lib/draw/tool-state';
+
+/**
+ * Screen-space press-then-move threshold before a press becomes a drag or a
+ * marquee. Below it the gesture is a click: selection still applies on
+ * pointer-down, but nothing else arms.
+ */
+export const CLICK_DRAG_THRESHOLD_PX = 4;
+
+export function clickDragThresholdWorld(zoom: number): number {
+  return CLICK_DRAG_THRESHOLD_PX / Math.max(zoom, 0.1);
+}
 
 export interface InteractionState {
   panning: boolean;
@@ -38,13 +55,33 @@ export interface InteractionState {
   dragStartCanvasPos: { x: number; y: number } | null;
   dragInitialElements: Map<string, DriplElement> | null;
   dragging: boolean;
+  /**
+   * Press recorded but not yet a drag: selection is applied on pointer-down,
+   * but locks, history and `isDragging` wait until the pointer travels past
+   * CLICK_DRAG_THRESHOLD_PX (screen). A plain click therefore never churns
+   * collaboration locks or writes an undo step.
+   */
+  pendingDrag: {
+    startPos: { x: number; y: number };
+    snapshot: Map<string, DriplElement>;
+  } | null;
+  /** Empty-press recorded but not yet a marquee (same threshold gating). */
+  pendingMarqueeStart: { x: number; y: number } | null;
   historyPushed: boolean;
   resizing: boolean;
   resizeHandle: string | null;
   resizeStartCanvasPos: { x: number; y: number } | null;
   resizeInitialEl: DriplElement | null;
+  /** Multi-selection resize baseline: one frozen clone per selected element. */
+  resizeInitialEls: Map<string, DriplElement> | null;
+  /** Union frame of the multi-selection at gesture start. */
+  resizeGroupFrame: { x: number; y: number; width: number; height: number } | null;
   rotating: boolean;
   rotateInitialEl: DriplElement | null;
+  /** Multi-selection rotate baseline + center/angle at gesture start. */
+  rotateInitialEls: Map<string, DriplElement> | null;
+  rotateCenter: { x: number; y: number } | null;
+  rotateStartAngle: number;
   touchPointers: Map<number, { x: number; y: number }>;
   pinchStartDistance: number;
   pinchStartMid: { x: number; y: number } | null;
@@ -56,6 +93,8 @@ export interface InteractionState {
 
 interface CanvasPointerEventsProps {
   readOnly: boolean;
+  /** Container for client→canvas offsetting (pinch anchor, like the wheel path). */
+  containerRef?: React.RefObject<HTMLDivElement | null>;
   getCanvasCoordinates: (e: React.PointerEvent | React.DragEvent) => { x: number; y: number };
   snapPointToGrid: (point: { x: number; y: number }) => { x: number; y: number };
   broadcastCursor: (x: number, y: number) => void;
@@ -73,7 +112,7 @@ interface CanvasPointerEventsProps {
   startDrawing: (
     point: { x: number; y: number },
     tool: ToolType,
-    options: { shiftKey: boolean; altKey?: boolean },
+    options: ToolStartOptions,
     baseProps: {
       strokeColor: string;
       backgroundColor: string;
@@ -88,12 +127,13 @@ interface CanvasPointerEventsProps {
   ) => void;
   updateDrawing: (
     point: { x: number; y: number },
-    options: { shiftKey: boolean; altKey: boolean; pressure?: number },
+    options: ToolUpdateOptions,
     elements: DriplElement[]
   ) => void;
   setDrawingState: (drawing: boolean) => void;
   maybeRevertToSelectTool: (tool: ActiveTool) => void;
   finishDrawing: () => DriplElement | null;
+  cancelDrawing: () => void;
   applyFrameGrouping: (frameElement: DriplElement) => void;
   spatialIndex: {
     tree: {
@@ -110,6 +150,7 @@ interface CanvasPointerEventsProps {
 
 export function useCanvasPointerEvents({
   readOnly,
+  containerRef,
   getCanvasCoordinates,
   snapPointToGrid,
   broadcastCursor,
@@ -128,6 +169,7 @@ export function useCanvasPointerEvents({
   updateDrawing,
   maybeRevertToSelectTool,
   finishDrawing,
+  cancelDrawing,
   applyFrameGrouping,
   spatialIndex,
 }: CanvasPointerEventsProps) {
@@ -138,13 +180,20 @@ export function useCanvasPointerEvents({
     dragStartCanvasPos: null,
     dragInitialElements: null,
     dragging: false,
+    pendingDrag: null,
+    pendingMarqueeStart: null,
     historyPushed: false,
     resizing: false,
     resizeHandle: null,
     resizeStartCanvasPos: null,
     resizeInitialEl: null,
+    resizeInitialEls: null,
+    resizeGroupFrame: null,
     rotating: false,
     rotateInitialEl: null,
+    rotateInitialEls: null,
+    rotateCenter: null,
+    rotateStartAngle: 0,
     touchPointers: new Map(),
     pinchStartDistance: 0,
     pinchStartMid: null,
@@ -181,6 +230,9 @@ export function useCanvasPointerEvents({
   // subtree per sample for a single visible frame.
   const eraserPendingRef = useRef<Array<{ x: number; y: number }>>([]);
   const eraserFlushRef = useRef<number | null>(null);
+  // One undo step per stroke: pushed at the first batch that actually hits,
+  // so a stroke that erases nothing writes no history at all.
+  const eraserHistoryPushedRef = useRef(false);
 
   const flushEraserAccumulator = useCallback(() => {
     if (eraserFlushRef.current !== null) {
@@ -194,22 +246,39 @@ export function useCanvasPointerEvents({
     eraserPendingRef.current = [];
     useCanvasStore.getState().setEraserPath(prev => [...prev, ...batch]);
     const state = useCanvasStore.getState();
+    // Screen-space constant radius: a fixed world radius is a 2px needle at
+    // zoom 0.1 and an 80px bomb at zoom 4 (Excalidraw parity).
+    const radius = 20 / Math.max(state.zoom, 0.1);
     for (const point of batch) {
       const candidates = spatialIndex.tree.search({
-        minX: point.x - 20,
-        minY: point.y - 20,
-        maxX: point.x + 20,
-        maxY: point.y + 20,
+        minX: point.x - radius,
+        minY: point.y - radius,
+        maxX: point.x + radius,
+        maxY: point.y + radius,
       });
       candidates.forEach(candidate => {
         const element = spatialIndex.byId.get(candidate.id);
         if (!element) return;
         const lockOwner = state.elementLocks.get(element.id);
         if (lockOwner && lockOwner !== state.userId) return;
-        if (isPointNearElement(point, element, 20)) {
+        if (isPointNearElement(point, element, radius)) {
           eraserHitIdsRef.current.add(element.id);
         }
       });
+    }
+    // Delete on contact, not on release (Excalidraw parity): the stroke
+    // erases as it touches. History is pushed once at the first hitting
+    // batch and each batch deletes with skipHistory, so the whole stroke
+    // stays one undo step — and a stroke that hits nothing writes none.
+    if (eraserHitIdsRef.current.size > 0) {
+      const live = useCanvasStore.getState();
+      if (!eraserHistoryPushedRef.current) {
+        live.pushHistory();
+        eraserHistoryPushedRef.current = true;
+      }
+      const doomed = live.collectCascadeDeleteIds(eraserHitIdsRef.current);
+      eraserHitIdsRef.current.clear();
+      if (doomed.length > 0) live.deleteElements(doomed, { skipHistory: true });
     }
   }, [spatialIndex]);
 
@@ -236,6 +305,19 @@ export function useCanvasPointerEvents({
     []
   );
 
+  // Pinch midpoints arrive in client pixels but the zoom transform works in
+  // container pixels (pan is container-relative). The wheel path subtracts
+  // getBoundingClientRect for the same reason; without it the anchor is off
+  // by the toolbar/sidebar offset whenever the container isn't at the origin.
+  const toContainerPoint = useCallback(
+    (client: { x: number; y: number }): { x: number; y: number } => {
+      const rect = containerRef?.current?.getBoundingClientRect();
+      if (!rect) return { x: client.x, y: client.y };
+      return { x: client.x - rect.left, y: client.y - rect.top };
+    },
+    [containerRef]
+  );
+
   const getGestureBoundArrows = useCallback((): ReadonlyMap<string, ReadonlySet<string>> => {
     if (!interactionRef.current.bindingIndexReady) {
       interactionRef.current.boundArrowsByShape.clear();
@@ -254,13 +336,11 @@ export function useCanvasPointerEvents({
     setIsRotating,
     setTextInput,
     setCursorPosition,
-    deleteElements,
     setMarqueeSelection,
     setIsDrawing,
     setEraserPath,
     expandSelectionWithGroups,
     getSelectionBounds,
-    collectCascadeDeleteIds,
     setActiveTool,
   } = useCanvasStore(
     useShallow(state => ({
@@ -271,13 +351,11 @@ export function useCanvasPointerEvents({
       setIsRotating: state.setIsRotating,
       setTextInput: state.setTextInput,
       setCursorPosition: state.setCursorPosition,
-      deleteElements: state.deleteElements,
       setMarqueeSelection: state.setMarqueeSelection,
       setIsDrawing: state.setIsDrawing,
       setEraserPath: state.setEraserPath,
       expandSelectionWithGroups: state.expandSelectionWithGroups,
       getSelectionBounds: state.getSelectionBounds,
-      collectCascadeDeleteIds: state.collectCascadeDeleteIds,
       setActiveTool: state.setActiveTool,
     }))
   );
@@ -332,12 +410,16 @@ export function useCanvasPointerEvents({
           y: e.clientY,
         });
         if (interactionRef.current.touchPointers.size === 2) {
+          // A second finger preempts any pending press: the gesture is a
+          // pinch now, not a drag or marquee in waiting.
+          interactionRef.current.pendingDrag = null;
+          interactionRef.current.pendingMarqueeStart = null;
           const points = Array.from(interactionRef.current.touchPointers.values());
           const first = points[0];
           const second = points[1];
           if (first && second) {
             interactionRef.current.pinchStartDistance = pinchDistance(first, second);
-            interactionRef.current.pinchStartMid = pinchMidpoint(first, second);
+            interactionRef.current.pinchStartMid = toContainerPoint(pinchMidpoint(first, second));
             const state = useCanvasStore.getState();
             interactionRef.current.pinchStartZoom = state.zoom;
             interactionRef.current.pinchStartPan = {
@@ -360,9 +442,10 @@ export function useCanvasPointerEvents({
       const isTemporaryPan = interactionRef.current.isSpacePressed || e.button === 1;
       if (currentTool === 'hand' || isTemporaryPan) {
         e.preventDefault();
-        if (isTemporaryPan && currentTool !== 'hand') {
-          lastToolBeforeSpaceRef.current = currentTool;
-        }
+        // The tool itself never changes for a temporary pan (Space or middle
+        // button), so there is nothing to restore — the flag alone drives it.
+        // Recording the tool here would leave a stale restore behind.
+        lastToolBeforeSpaceRef.current = null;
         interactionRef.current.panning = true;
         interactionRef.current.panStartClient = { x: e.clientX, y: e.clientY };
         setIsPanning(true);
@@ -423,16 +506,10 @@ export function useCanvasPointerEvents({
             if (idsToTrack.has(el.id)) snapshot.set(el.id, JSON.parse(JSON.stringify(el)));
           });
 
-          interactionRef.current.dragging = true;
-          interactionRef.current.historyPushed = false;
-          interactionRef.current.dragStartCanvasPos = { x, y };
-          interactionRef.current.dragInitialElements = snapshot;
-
-          setIsDragging(true);
-          if (idsToTrack.size > 0) {
-            setEditingElementId(idsToTrack.size === 1 ? (Array.from(idsToTrack)[0] ?? null) : null);
-            lockElementsForGesture(idsToTrack);
-          }
+          // Record the press; the drag (locks, history, isDragging) arms on
+          // the first supra-threshold move, so a click never churns them.
+          interactionRef.current.pendingDrag = { startPos: { x, y }, snapshot };
+          interactionRef.current.pendingMarqueeStart = null;
         } else {
           const state = useCanvasStore.getState();
           const selectionBounds = getSelectionBounds(state.selectedIds, state.elements);
@@ -452,15 +529,8 @@ export function useCanvasPointerEvents({
             });
 
             if (snapshot.size > 0) {
-              interactionRef.current.dragging = true;
-              interactionRef.current.historyPushed = false;
-              interactionRef.current.dragStartCanvasPos = { x, y };
-              interactionRef.current.dragInitialElements = snapshot;
-              setIsDragging(true);
-              setEditingElementId(
-                snapshot.size === 1 ? (Array.from(snapshot.keys())[0] ?? null) : null
-              );
-              lockElementsForGesture(snapshot.keys());
+              interactionRef.current.pendingDrag = { startPos: { x, y }, snapshot };
+              interactionRef.current.pendingMarqueeStart = null;
               return;
             }
           }
@@ -468,7 +538,8 @@ export function useCanvasPointerEvents({
           if (!e.shiftKey) {
             useCanvasStore.getState().clearSelection();
           }
-          setMarqueeSelection({ start: { x, y }, end: { x, y }, active: true });
+          interactionRef.current.pendingDrag = null;
+          interactionRef.current.pendingMarqueeStart = { x, y };
         }
         return;
       }
@@ -517,6 +588,7 @@ export function useCanvasPointerEvents({
       if (currentTool === 'eraser') {
         setIsDrawing(true);
         eraserHitIdsRef.current.clear();
+        eraserHistoryPushedRef.current = false;
         // Drop a batch stranded by an interrupted stroke; flushing here would
         // append stale points ahead of the new stroke.
         if (eraserFlushRef.current !== null) {
@@ -544,7 +616,12 @@ export function useCanvasPointerEvents({
         startDrawing(
           { x, y },
           currentTool,
-          { shiftKey: e.shiftKey, altKey: e.altKey },
+          {
+            shiftKey: e.shiftKey,
+            altKey: e.altKey,
+            pressure: e.pressure,
+            pointerType: e.pointerType,
+          },
           {
             strokeColor: state.currentStrokeColor,
             backgroundColor: state.currentBackgroundColor,
@@ -581,6 +658,7 @@ export function useCanvasPointerEvents({
       setIsDrawing,
       setEraserPath,
       maybeRevertToSelectTool,
+      pushHistory,
     ]
   );
 
@@ -603,7 +681,7 @@ export function useCanvasPointerEvents({
           const first = points[0];
           const second = points[1];
           if (first && second) {
-            const mid = pinchMidpoint(first, second);
+            const mid = toContainerPoint(pinchMidpoint(first, second));
             const { zoom, panX, panY } = pinchZoomTransform(
               {
                 mid: interactionRef.current.pinchStartMid,
@@ -639,12 +717,72 @@ export function useCanvasPointerEvents({
         return;
       }
 
+      // Arm a pending press once it travels past the click threshold. Locks,
+      // history and isDragging all start here — never on pointer-down — so a
+      // click is side-effect-free beyond the selection itself.
+      const pendingDrag = interactionRef.current.pendingDrag;
+      if (pendingDrag && !interactionRef.current.dragging) {
+        const threshold = clickDragThresholdWorld(useCanvasStore.getState().zoom);
+        if (Math.hypot(x - pendingDrag.startPos.x, y - pendingDrag.startPos.y) >= threshold) {
+          interactionRef.current.dragging = true;
+          interactionRef.current.historyPushed = false;
+          interactionRef.current.dragStartCanvasPos = pendingDrag.startPos;
+          interactionRef.current.dragInitialElements = pendingDrag.snapshot;
+          interactionRef.current.pendingDrag = null;
+          setIsDragging(true);
+          const ids = Array.from(pendingDrag.snapshot.keys());
+          setEditingElementId(ids.length === 1 ? (ids[0] ?? null) : null);
+          if (ids.length > 0) lockElementsForGesture(pendingDrag.snapshot.keys());
+        }
+      }
+
+      const pendingMarquee = interactionRef.current.pendingMarqueeStart;
+      if (pendingMarquee) {
+        const threshold = clickDragThresholdWorld(useCanvasStore.getState().zoom);
+        if (Math.hypot(x - pendingMarquee.x, y - pendingMarquee.y) >= threshold) {
+          interactionRef.current.pendingMarqueeStart = null;
+          setMarqueeSelection({ start: pendingMarquee, end: { x, y }, active: true });
+        }
+      }
+
       if (currentTool === 'laser' && useCanvasStore.getState().isDrawing) {
         window.dispatchEvent(new CustomEvent('dripl:laser-move', { detail: { x, y } }));
         return;
       }
 
       if (readOnly) return;
+
+      if (
+        interactionRef.current.resizing &&
+        interactionRef.current.resizeInitialEls &&
+        interactionRef.current.resizeGroupFrame &&
+        interactionRef.current.resizeStartCanvasPos
+      ) {
+        const dx = x - interactionRef.current.resizeStartCanvasPos.x;
+        const dy = y - interactionRef.current.resizeStartCanvasPos.y;
+        if (shouldPushHistory(interactionRef.current.historyPushed, dx, dy)) {
+          pushHistory();
+          interactionRef.current.historyPushed = true;
+        }
+        const updates = groupResizeMapping(
+          interactionRef.current.resizeInitialEls,
+          interactionRef.current.resizeGroupFrame,
+          interactionRef.current.resizeHandle ?? 'se',
+          dx,
+          dy,
+          { shiftKey: e.shiftKey, altKey: e.altKey }
+        );
+        // Bound arrows outside the selection follow via the gesture index,
+        // exactly like the single-element path.
+        updateElementsTransient(
+          resolveGestureUpdates(
+            useCanvasStore.getState().elementsById,
+            updates,
+            getGestureBoundArrows()
+          )
+        );
+        return;
+      }
 
       if (
         interactionRef.current.resizing &&
@@ -905,9 +1043,43 @@ export function useCanvasPointerEvents({
         return;
       }
 
+      if (
+        interactionRef.current.rotating &&
+        interactionRef.current.rotateInitialEls &&
+        interactionRef.current.rotateCenter
+      ) {
+        const center = interactionRef.current.rotateCenter;
+        const pointerAngle = Math.atan2(y - center.y, x - center.x);
+        // Snap the relative delta (the single path snaps the absolute angle;
+        // groups have no absolute angle, only this delta).
+        const rawDelta = normalizeRotationDelta(
+          pointerAngle - interactionRef.current.rotateStartAngle
+        );
+        const delta = e.shiftKey
+          ? Math.round(rawDelta / (Math.PI / 12)) * (Math.PI / 12)
+          : rawDelta;
+        if (!interactionRef.current.historyPushed) {
+          pushHistory();
+          interactionRef.current.historyPushed = true;
+        }
+        updateElementsTransient(
+          resolveGestureUpdates(
+            useCanvasStore.getState().elementsById,
+            groupRotateMapping(interactionRef.current.rotateInitialEls, center, delta),
+            getGestureBoundArrows(),
+            { includeBoundArrows: false }
+          )
+        );
+        return;
+      }
+
       if (interactionRef.current.rotating && interactionRef.current.rotateInitialEl) {
         const el = interactionRef.current.rotateInitialEl;
-        const angle = computeRotationAngle(el, x, y);
+        // Shift snaps to 15° increments (Excalidraw parity).
+        const rawAngle = computeRotationAngle(el, x, y);
+        const angle = e.shiftKey
+          ? Math.round(rawAngle / (Math.PI / 12)) * (Math.PI / 12)
+          : rawAngle;
         if (!interactionRef.current.historyPushed) {
           pushHistory();
           interactionRef.current.historyPushed = true;
@@ -941,12 +1113,17 @@ export function useCanvasPointerEvents({
           interactionRef.current.historyPushed = true;
         }
 
+        // Shift constrains the move to the dominant axis (Excalidraw parity).
+        const moveX = e.shiftKey && Math.abs(totalDeltaY) > Math.abs(totalDeltaX) ? 0 : totalDeltaX;
+        const moveY =
+          e.shiftKey && Math.abs(totalDeltaX) >= Math.abs(totalDeltaY) ? 0 : totalDeltaY;
+
         const primaryUpdates = new Map<string, Partial<DriplElement>>();
         interactionRef.current.dragInitialElements.forEach((initialEl, id) => {
           const updatedEl: DriplElement = {
             ...initialEl,
-            x: initialEl.x + totalDeltaX,
-            y: initialEl.y + totalDeltaY,
+            x: initialEl.x + moveX,
+            y: initialEl.y + moveY,
           };
 
           primaryUpdates.set(id, updatedEl);
@@ -992,6 +1169,10 @@ export function useCanvasPointerEvents({
             shiftKey: e.shiftKey || false,
             altKey: e.altKey,
             pressure: e.pressure,
+            pointerType: e.pointerType,
+            // Only pen pressure is real; mouse/touch report a constant 0.5,
+            // which would render every stroke flat. Derive it from velocity.
+            simulatePressure: e.pointerType !== 'pen',
           },
           useCanvasStore.getState().elements
         );
@@ -1123,11 +1304,29 @@ export function useCanvasPointerEvents({
         return;
       }
 
+      // A press that never travelled past the click threshold commits
+      // nothing: a click on empty space (selection was already cleared on
+      // pointer-down) or a click on an element (selection already applied).
+      if (interactionRef.current.pendingMarqueeStart) {
+        interactionRef.current.pendingMarqueeStart = null;
+        return;
+      }
+      interactionRef.current.pendingDrag = null;
+
       if (interactionRef.current.resizing) {
         const state = useCanvasStore.getState();
+        // Group path: commit every member the same way the single path
+        // commits its one element (version bump + broadcast + cache
+        // invalidation through updateElement).
+        const groupIds = interactionRef.current.resizeInitialEls
+          ? Array.from(interactionRef.current.resizeInitialEls.keys())
+          : null;
+        if (groupIds) {
+          for (const id of groupIds) updateElement(id, {});
+        }
         finalizeResizeGesture(interactionRef.current, {
           editingId: state.isEditingElementId,
-          resizedId: interactionRef.current.resizeInitialEl?.id,
+          resizedId: groupIds ? undefined : interactionRef.current.resizeInitialEl?.id,
           clearHoverBinding: () => updateHoveredBindingId(null),
           commitTransient: (id, updates) => updateElement(id, updates),
           setIsActive: setIsResizing,
@@ -1168,14 +1367,10 @@ export function useCanvasPointerEvents({
         }
 
         if (currentTool === 'eraser') {
-          // Drain samples that never reached a frame, so the erase set is
-          // complete even for a tap with no frame in between.
+          // Drain samples that never reached a frame. Hits were already
+          // deleted live per batch (single undo step from stroke start), so
+          // this only completes a tap with no frame in between.
           flushEraserAccumulator();
-          const elementsToErase = collectCascadeDeleteIds(eraserHitIdsRef.current);
-
-          if (elementsToErase.length > 0) {
-            deleteElements(elementsToErase);
-          }
 
           useCanvasStore.getState().setEraserPath([]);
           eraserHitIdsRef.current.clear();
@@ -1218,16 +1413,134 @@ export function useCanvasPointerEvents({
       setEditingElementId,
       unlockElement,
       unlockGestureElements,
-      deleteElements,
       setIsDrawing,
       maybeRevertToSelectTool,
       setActiveTool,
-      collectCascadeDeleteIds,
       finishDrawing,
       applyFrameGrouping,
       flushEraserAccumulator,
     ]
   );
+
+  /**
+   * Roll back the armed gesture to its start snapshot and tear it down,
+   * without committing anything. Returns whether a gesture was armed.
+   *
+   * Escape calls this first (a second Escape clears the selection), and
+   * pointer-cancel calls it instead of the commit path in `handlePointerUp`.
+   * Snapshots are restored through the transient updater so no history entry
+   * is written; the matching finalize releases the collaboration locks.
+   */
+  const cancelActiveGesture = useCallback((): boolean => {
+    const interaction = interactionRef.current;
+    const state = useCanvasStore.getState();
+    let cancelled = false;
+
+    // Presses that never travelled past the click threshold evaporate: there
+    // is nothing visible to roll back, so they do not count as armed.
+    interaction.pendingDrag = null;
+    interaction.pendingMarqueeStart = null;
+
+    if (interaction.panning) {
+      interaction.panning = false;
+      interaction.panStartClient = null;
+      setIsPanning(false);
+      cancelled = true;
+    }
+
+    if (state.marqueeSelection?.active) {
+      setMarqueeSelection(null);
+      cancelled = true;
+    }
+
+    if (interaction.dragging && interaction.dragInitialElements) {
+      updateElementsTransient(
+        new Map<string, Partial<DriplElement>>(interaction.dragInitialElements)
+      );
+      finalizeDragGesture(interaction, {
+        editingId: state.isEditingElementId,
+        setIsActive: setIsDragging,
+        setEditingElementId,
+        unlockElement,
+        unlockGestureElements,
+      });
+      cancelled = true;
+    }
+
+    if (interaction.resizing && (interaction.resizeInitialEl || interaction.resizeInitialEls)) {
+      const restore = new Map<string, Partial<DriplElement>>();
+      if (interaction.resizeInitialEl) {
+        restore.set(interaction.resizeInitialEl.id, interaction.resizeInitialEl);
+      }
+      interaction.resizeInitialEls?.forEach((element, id) => restore.set(id, element));
+      updateElementsTransient(restore);
+      finalizeResizeGesture(interaction, {
+        editingId: state.isEditingElementId,
+        resizedId: undefined,
+        clearHoverBinding: () => updateHoveredBindingId(null),
+        commitTransient: () => {},
+        setIsActive: setIsResizing,
+        setEditingElementId,
+        unlockElement,
+        unlockGestureElements,
+      });
+      cancelled = true;
+    }
+
+    if (interaction.rotating && (interaction.rotateInitialEl || interaction.rotateInitialEls)) {
+      const restore = new Map<string, Partial<DriplElement>>();
+      if (interaction.rotateInitialEl) {
+        restore.set(interaction.rotateInitialEl.id, interaction.rotateInitialEl);
+      }
+      interaction.rotateInitialEls?.forEach((element, id) => restore.set(id, element));
+      updateElementsTransient(restore);
+      finalizeRotateGesture(interaction, {
+        editingId: state.isEditingElementId,
+        setIsActive: setIsRotating,
+        setEditingElementId,
+        unlockElement,
+        unlockGestureElements,
+      });
+      cancelled = true;
+    }
+
+    if (state.isDrawing) {
+      const tool = state.activeTool;
+      if (tool === 'laser') {
+        window.dispatchEvent(new CustomEvent('dripl:laser-end'));
+      } else if (tool === 'eraser') {
+        // Drop the pending batch and the accumulated hits without deleting:
+        // Escape ends the stroke, it does not erase.
+        if (eraserFlushRef.current !== null && typeof cancelAnimationFrame !== 'undefined') {
+          cancelAnimationFrame(eraserFlushRef.current);
+          eraserFlushRef.current = null;
+        }
+        eraserPendingRef.current = [];
+        eraserHitIdsRef.current.clear();
+        setEraserPath([]);
+      } else {
+        cancelDrawing();
+      }
+      setIsDrawing(false);
+      cancelled = true;
+    }
+
+    return cancelled;
+  }, [
+    setIsPanning,
+    setMarqueeSelection,
+    updateElementsTransient,
+    setIsDragging,
+    setEditingElementId,
+    unlockElement,
+    unlockGestureElements,
+    setIsResizing,
+    setIsRotating,
+    updateHoveredBindingId,
+    setEraserPath,
+    setIsDrawing,
+    cancelDrawing,
+  ]);
 
   return {
     interactionRef,
@@ -1241,5 +1554,6 @@ export function useCanvasPointerEvents({
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
+    cancelActiveGesture,
   };
 }

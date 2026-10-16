@@ -121,6 +121,7 @@ function setup(elements: DriplElement[], harness: Harness) {
     setDrawingState: vi.fn(),
     maybeRevertToSelectTool: vi.fn(),
     finishDrawing: vi.fn(),
+    cancelDrawing: vi.fn(),
     applyFrameGrouping: vi.fn(),
     spatialIndex: spatialIndexFor(elements),
   };
@@ -169,13 +170,18 @@ describe('useCanvasPointerEvents select flow', () => {
     act(() => {
       result.current.handlePointerDown(pointerEvent(250, 200));
     });
-    // Clicking empty space clears the selection and arms the marquee.
+    // Clicking empty space clears the selection and pends (not starts) the marquee.
     expect(useCanvasStore.getState().selectedIds.size).toBe(0);
-    expect(useCanvasStore.getState().marqueeSelection?.active).toBe(true);
+    expect(useCanvasStore.getState().marqueeSelection).toBeNull();
+    expect(result.current.interactionRef.current.pendingMarqueeStart).toEqual({
+      x: 250,
+      y: 200,
+    });
 
     act(() => {
       result.current.handlePointerMove(pointerEvent(450, 200));
     });
+    expect(useCanvasStore.getState().marqueeSelection?.active).toBe(true);
     act(() => {
       result.current.handlePointerUp(pointerEvent(450, 200));
     });
@@ -260,6 +266,7 @@ describe('useCanvasPointerEvents draw flow', () => {
         setDrawingState: vi.fn(),
         maybeRevertToSelectTool: maybeRevert,
         finishDrawing,
+        cancelDrawing: vi.fn(),
         applyFrameGrouping: vi.fn(),
         spatialIndex: spatialIndexFor([]),
       })

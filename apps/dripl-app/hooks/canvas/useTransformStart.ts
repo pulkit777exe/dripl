@@ -3,6 +3,7 @@
 import { useCallback, useEffect, type RefObject } from 'react';
 import { useCanvasStore } from '@/lib/store';
 import type { DriplElement } from '@dripl/common';
+import { unionFrame } from '@/lib/canvas/group-transform';
 import type { ResizeHandle } from '@/components/canvas/SelectionOverlay';
 import type { InteractionState } from './useCanvasPointerEvents';
 import type { CanvasPoint } from './useCanvasCoordinates';
@@ -40,7 +41,42 @@ export function useTransformStart({
       if (readOnly) return;
       const state = useCanvasStore.getState();
       const selectedIdsArray = Array.from(state.selectedIds);
-      if (selectedIdsArray.length !== 1) return;
+      if (selectedIdsArray.length === 0) return;
+
+      // Multi-selection: snapshot every unlocked member and arm the group
+      // path. The corner/rotate handles the overlay renders for groups were
+      // previously inert (silently dropped below); now they scale the sheet.
+      if (selectedIdsArray.length > 1) {
+        const members = state.elements.filter(
+          el =>
+            state.selectedIds.has(el.id) &&
+            !el.locked &&
+            (!state.elementLocks.get(el.id) || state.elementLocks.get(el.id) === state.userId)
+        );
+        if (members.length === 0) return;
+        const frame = unionFrame(members);
+        if (!frame) return;
+        const snapshot = new Map<string, DriplElement>();
+        for (const el of members) snapshot.set(el.id, JSON.parse(JSON.stringify(el)));
+
+        interactionRef.current.resizing = true;
+        interactionRef.current.historyPushed = false;
+        interactionRef.current.resizeHandle = handle;
+        interactionRef.current.resizeStartCanvasPos = getCanvasCoordinates(e);
+        interactionRef.current.resizeInitialEl = null;
+        interactionRef.current.resizeInitialEls = snapshot;
+        interactionRef.current.resizeGroupFrame = frame;
+
+        useCanvasStore.getState().setIsResizing(true);
+        setEditingElementId(null);
+        lockElementsForGesture(snapshot.keys());
+
+        const canvas = containerRef.current?.querySelector(
+          'canvas[data-layer="interactive"]'
+        ) as HTMLCanvasElement | null;
+        if (canvas) canvas.setPointerCapture(e.pointerId);
+        return;
+      }
 
       const element = state.elements.find(el => el.id === selectedIdsArray[0]);
       if (!element) return;
@@ -63,9 +99,11 @@ export function useTransformStart({
       setEditingElementId(element.id);
       lockElementsForGesture([element.id]);
 
-      // Capture pointer on the canvas so we still get events outside
+      // Capture pointer on the interactive canvas so we still get events outside
+      // it. Selected by layer role, not by DOM order, so reordering the
+      // static/interactive stack cannot misdirect the capture.
       const canvas = containerRef.current?.querySelector(
-        'canvas:last-child'
+        'canvas[data-layer="interactive"]'
       ) as HTMLCanvasElement | null;
       if (canvas) canvas.setPointerCapture(e.pointerId);
     },
@@ -85,7 +123,43 @@ export function useTransformStart({
       if (readOnly) return;
       const state = useCanvasStore.getState();
       const selectedIdsArray = Array.from(state.selectedIds);
-      if (selectedIdsArray.length !== 1) return;
+      if (selectedIdsArray.length === 0) return;
+
+      if (selectedIdsArray.length > 1) {
+        const members = state.elements.filter(
+          el =>
+            state.selectedIds.has(el.id) &&
+            !el.locked &&
+            (!state.elementLocks.get(el.id) || state.elementLocks.get(el.id) === state.userId)
+        );
+        if (members.length === 0) return;
+        const frame = unionFrame(members);
+        if (!frame) return;
+        const snapshot = new Map<string, DriplElement>();
+        for (const el of members) snapshot.set(el.id, JSON.parse(JSON.stringify(el)));
+        const startPos = getCanvasCoordinates(e);
+        const center = { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 };
+
+        interactionRef.current.rotating = true;
+        interactionRef.current.historyPushed = false;
+        interactionRef.current.rotateInitialEl = null;
+        interactionRef.current.rotateInitialEls = snapshot;
+        interactionRef.current.rotateCenter = center;
+        interactionRef.current.rotateStartAngle = Math.atan2(
+          startPos.y - center.y,
+          startPos.x - center.x
+        );
+
+        useCanvasStore.getState().setIsRotating(true);
+        setEditingElementId(null);
+        lockElementsForGesture(snapshot.keys());
+
+        const canvas = containerRef.current?.querySelector(
+          'canvas[data-layer="interactive"]'
+        ) as HTMLCanvasElement | null;
+        if (canvas) canvas.setPointerCapture(e.pointerId);
+        return;
+      }
 
       const element = state.elements.find(el => el.id === selectedIdsArray[0]);
       if (!element) return;
@@ -104,7 +178,7 @@ export function useTransformStart({
       lockElementsForGesture([element.id]);
 
       const canvas = containerRef.current?.querySelector(
-        'canvas:last-child'
+        'canvas[data-layer="interactive"]'
       ) as HTMLCanvasElement | null;
       if (canvas) canvas.setPointerCapture(e.pointerId);
     },

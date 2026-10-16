@@ -59,7 +59,7 @@ export interface CanvasSlice {
   updateElement: (id: string, updates: Partial<DriplElement>) => void;
   updateElementTransient: (id: string, updates: Partial<DriplElement>) => void;
   updateElementsTransient: (updates: ReadonlyMap<string, Partial<DriplElement>>) => void;
-  deleteElements: (ids: string[]) => void;
+  deleteElements: (ids: string[], options?: { skipHistory?: boolean }) => void;
   /** Bulk move with one history entry; locked elements and bindings follow the drag rules. */
   translateElements: (ids: string[], dx: number, dy: number) => void;
   /** Bulk style apply (paste styles) with one history entry; locked elements keep their style. */

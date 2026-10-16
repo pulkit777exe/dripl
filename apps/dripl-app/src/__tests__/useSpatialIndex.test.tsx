@@ -238,6 +238,37 @@ describe('useSpatialIndex tree membership', () => {
     expect(idsIn(index(), probe(550, 0, 200))).not.toContain('e-3');
   });
 
+  it('re-indexes a points-only change from a remote delta or undo', () => {
+    // Regression: the fallback diff compared x/y/width/height/angle only, so
+    // an arrow whose points moved (remote edit, undo) kept its old tree box
+    // while byId refreshed — stale hit-testing and culling until 40% churn
+    // forced a rebuild.
+    const arrow = {
+      ...rect('a', 0, 0),
+      type: 'arrow',
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+      ],
+    } as unknown as DriplElement;
+    const { commit, index } = mount();
+    commit([arrow]);
+    expect(idsAt(index(), 5, 0)).toEqual(['a']);
+
+    const moved = {
+      ...arrow,
+      points: [
+        { x: 500, y: 500 },
+        { x: 510, y: 500 },
+      ],
+      version: 2,
+    } as unknown as DriplElement;
+    commit([moved]);
+
+    expect(idsAt(index(), 505, 500)).toEqual(['a']);
+    expect(idsAt(index(), 5, 0)).toEqual([]);
+  });
+
   it('re-indexes a transient drag at its current position', () => {
     // Regression: the transient-hint fast path skips the reindex when the
     // version did not change, so a dragged shape is never findable at the

@@ -45,6 +45,8 @@ export function finalizeResizeGesture(
   interaction.resizeHandle = null;
   interaction.resizeStartCanvasPos = null;
   interaction.resizeInitialEl = null;
+  interaction.resizeInitialEls = null;
+  interaction.resizeGroupFrame = null;
   options.clearHoverBinding();
   options.setIsActive(false);
   if (options.resizedId) options.commitTransient(options.resizedId, {});
@@ -58,6 +60,8 @@ export function finalizeRotateGesture(
   interaction.rotating = false;
   resetGestureIndex(interaction);
   interaction.rotateInitialEl = null;
+  interaction.rotateInitialEls = null;
+  interaction.rotateCenter = null;
   options.setIsActive(false);
   releaseLocks(options.editingId, options);
 }
@@ -70,6 +74,7 @@ export function finalizeDragGesture(
   resetGestureIndex(interaction);
   interaction.dragStartCanvasPos = null;
   interaction.dragInitialElements = null;
+  interaction.pendingDrag = null;
   options.setIsActive(false);
   releaseLocks(options.editingId, options);
 }

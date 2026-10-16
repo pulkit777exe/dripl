@@ -22,6 +22,7 @@ interface DualCanvasProps {
   onPointerDown?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerMove?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerUp?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
+  onPointerCancel?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
   cursorPosition?: Point | null;
   isDragging?: boolean;
   isResizing?: boolean;
@@ -40,6 +41,7 @@ interface DualCanvasProps {
   startPointBindingId?: string | null;
   shouldCacheIgnoreZoom?: boolean;
   preservePointerSamples?: boolean;
+  cursor?: string;
 }
 
 /**
@@ -68,6 +70,7 @@ const DualCanvas: React.FC<DualCanvasProps> = ({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onPointerCancel,
   cursorPosition,
   isDragging,
   isResizing,
@@ -82,6 +85,7 @@ const DualCanvas: React.FC<DualCanvasProps> = ({
   startPointBindingId,
   shouldCacheIgnoreZoom = false,
   preservePointerSamples = false,
+  cursor = 'default',
 }) => {
   return (
     <div
@@ -118,6 +122,7 @@ const DualCanvas: React.FC<DualCanvasProps> = ({
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerCancel={onPointerCancel}
           cursorPosition={cursorPosition}
           isDragging={isDragging}
           isResizing={isResizing}
@@ -129,6 +134,7 @@ const DualCanvas: React.FC<DualCanvasProps> = ({
           hoveredBindingId={hoveredBindingId}
           startPointBindingId={startPointBindingId}
           preservePointerSamples={preservePointerSamples}
+          cursor={cursor}
         />
       </CanvasErrorBoundary>
     </div>
@@ -153,6 +159,7 @@ const areEqual = (prev: DualCanvasProps, next: DualCanvasProps): boolean => {
     prev.onPointerDown === next.onPointerDown &&
     prev.onPointerMove === next.onPointerMove &&
     prev.onPointerUp === next.onPointerUp &&
+    prev.onPointerCancel === next.onPointerCancel &&
     prev.cursorPosition === next.cursorPosition &&
     prev.isDragging === next.isDragging &&
     prev.isResizing === next.isResizing &&
@@ -166,7 +173,8 @@ const areEqual = (prev: DualCanvasProps, next: DualCanvasProps): boolean => {
     prev.hoveredBindingId === next.hoveredBindingId &&
     prev.startPointBindingId === next.startPointBindingId &&
     prev.shouldCacheIgnoreZoom === next.shouldCacheIgnoreZoom &&
-    prev.preservePointerSamples === next.preservePointerSamples
+    prev.preservePointerSamples === next.preservePointerSamples &&
+    prev.cursor === next.cursor
   );
 };
 

@@ -195,8 +195,10 @@ export default function RoughCanvas({ roomSlug, theme, shareToken = null }: Canv
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
+    cancelActiveGesture,
   } = useCanvasPointerEvents({
     readOnly,
+    containerRef,
     getCanvasCoordinates,
     snapPointToGrid,
     broadcastCursor,
@@ -216,6 +218,7 @@ export default function RoughCanvas({ roomSlug, theme, shareToken = null }: Canv
     setDrawingState,
     maybeRevertToSelectTool,
     finishDrawing,
+    cancelDrawing,
     applyFrameGrouping,
     spatialIndex,
   });
@@ -249,6 +252,7 @@ export default function RoughCanvas({ roomSlug, theme, shareToken = null }: Canv
     lastToolBeforeSpaceRef,
     activeTool,
     readOnly,
+    cancelActiveGesture,
     setTextInput: useCanvasStore.getState().setTextInput as (
       state: { x: number; y: number; id: string; value?: string; existingElementId?: string } | null
     ) => void,
@@ -269,6 +273,27 @@ export default function RoughCanvas({ roomSlug, theme, shareToken = null }: Canv
 
   const collaboratorCursors = collaborators;
   const shouldShowPropertiesPanel = activeTool === 'select' && selectedIds.size > 0; // RULE: Sidebar Visibility
+  const isPanning = useCanvasStore(state => state.isPanning);
+  // Per-tool surface cursor (Excalidraw parity): crosshair for creation
+  // tools, text for text, grab for hand, none where a custom ring/trail
+  // replaces the pointer (eraser ring, laser trail).
+  const canvasCursor = useMemo(() => {
+    if (isPanning) return 'grabbing';
+    switch (activeTool) {
+      case 'hand':
+        return 'grab';
+      case 'text':
+        return 'text';
+      case 'eraser':
+        return 'none';
+      case 'laser':
+        return 'crosshair';
+      case 'select':
+        return 'default';
+      default:
+        return 'crosshair';
+    }
+  }, [activeTool, isPanning]);
   const primarySelectedElement = useMemo(
     () =>
       selectedIds.size > 0 ? (elements.find(element => selectedIds.has(element.id)) ?? null) : null,
@@ -315,6 +340,7 @@ export default function RoughCanvas({ roomSlug, theme, shareToken = null }: Canv
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          onPointerCancel={cancelActiveGesture}
           cursorPosition={cursorPosition}
           isDragging={isDragging}
           isResizing={isResizing}
@@ -329,6 +355,7 @@ export default function RoughCanvas({ roomSlug, theme, shareToken = null }: Canv
           startPointBindingId={startPointBindingId}
           shouldCacheIgnoreZoom={shouldCacheIgnoreZoom}
           preservePointerSamples={activeTool === 'freedraw' || activeTool === 'eraser'}
+          cursor={canvasCursor}
         />
       )}
 

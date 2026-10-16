@@ -42,14 +42,16 @@ function seed(elements: DriplElement[], selectedIds: string[]) {
 }
 
 /**
- * The hook captures the pointer on `canvas:last-child` inside the container,
- * so the harness needs a real container with two canvases: the first must be
- * skipped.
+ * The hook captures the pointer on the interactive canvas selected by its
+ * `data-layer` role, so the harness needs a real container with two labelled
+ * canvases: the static one must be skipped.
  */
 function setup(options: { readOnly?: boolean; captured?: number[] } = {}) {
   const container = document.createElement('div');
   const overlay = document.createElement('canvas');
+  overlay.setAttribute('data-layer', 'static');
   const interactive = document.createElement('canvas');
+  interactive.setAttribute('data-layer', 'interactive');
   const captured: number[] = options.captured ?? [];
   interactive.setPointerCapture = ((pointerId: number) => {
     captured.push(pointerId);
@@ -98,8 +100,15 @@ function freshInteraction(): InteractionState {
     resizeHandle: null,
     resizeStartCanvasPos: null,
     resizeInitialEl: null,
+    resizeInitialEls: null,
+    resizeGroupFrame: null,
     rotating: false,
     rotateInitialEl: null,
+    rotateInitialEls: null,
+    rotateCenter: null,
+    rotateStartAngle: 0,
+    pendingDrag: null,
+    pendingMarqueeStart: null,
     touchPointers: new Map(),
     pinchStartDistance: 0,
     pinchStartMid: null,
@@ -185,13 +194,6 @@ describe('useTransformStart.handleResizeStart', () => {
   it.each([
     ['read-only', () => setup({ readOnly: true })],
     [
-      'a multi-selection',
-      () => {
-        seed([rect('a'), rect('b', 300)], ['a', 'b']);
-        return setup();
-      },
-    ],
-    [
       'no selection',
       () => {
         seed([rect('a')], []);
@@ -242,6 +244,66 @@ describe('useTransformStart.handleResizeStart', () => {
     expect(interactionRef.current.resizing).toBe(true);
   });
 
+  it('arms a group resize for a multi-selection, snapshotting every member', () => {
+    seed([rect('a', 100, 50), rect('b', 300, 50)], ['a', 'b']);
+    const {
+      result,
+      interactionRef,
+      lockElementsForGesture,
+      setEditingElementId,
+      captured: cap,
+    } = setup({ captured: [] });
+
+    act(() => {
+      result.current.handleResizeStart('se', pointerEvent(3, 140, 90));
+    });
+
+    const interaction = interactionRef.current;
+    expect(interaction.resizing).toBe(true);
+    expect(interaction.resizeHandle).toBe('se');
+    expect(interaction.resizeInitialEl).toBeNull();
+    expect(Array.from(interaction.resizeInitialEls?.keys() ?? [])).toEqual(['a', 'b']);
+    // Union frame of the two 100x80 boxes at x 100 and x 300, padded by
+    // half the 2px stroke on every side (the same box the overlay draws).
+    expect(interaction.resizeGroupFrame).toEqual({ x: 99, y: 49, width: 302, height: 82 });
+    expect(useCanvasStore.getState().isResizing).toBe(true);
+    expect([...lockElementsForGesture.mock.calls[0]![0]].sort()).toEqual(['a', 'b']);
+    expect(setEditingElementId).toHaveBeenCalledWith(null);
+    expect(cap).toEqual([3]);
+  });
+
+  it('skips remotely locked members when arming a group resize', () => {
+    seed([rect('a', 100, 50), rect('b', 300, 50)], ['a', 'b']);
+    useCanvasStore.setState({ elementLocks: new Map([['b', 'someone-else']]) });
+    const { result, interactionRef, lockElementsForGesture } = setup();
+
+    act(() => {
+      result.current.handleResizeStart('se', pointerEvent());
+    });
+
+    expect(interactionRef.current.resizing).toBe(true);
+    expect(Array.from(interactionRef.current.resizeInitialEls?.keys() ?? [])).toEqual(['a']);
+    expect([...lockElementsForGesture.mock.calls[0]![0]]).toEqual(['a']);
+  });
+
+  it('refuses a group resize when every member is locked elsewhere', () => {
+    seed([rect('a'), rect('b', 300)], ['a', 'b']);
+    useCanvasStore.setState({
+      elementLocks: new Map([
+        ['a', 'someone-else'],
+        ['b', 'someone-else'],
+      ]),
+    });
+    const { result, interactionRef, lockElementsForGesture } = setup();
+
+    act(() => {
+      result.current.handleResizeStart('se', pointerEvent());
+    });
+
+    expect(interactionRef.current.resizing).toBe(false);
+    expect(lockElementsForGesture).not.toHaveBeenCalled();
+  });
+
   it('carries an arrow resize handle through unchanged', () => {
     seed([rect('a')], ['a']);
     const { result, interactionRef } = setup();
@@ -275,8 +337,45 @@ describe('useTransformStart.handleRotateStart', () => {
     expect([...lockElementsForGesture.mock.calls[0]![0]]).toEqual(['a']);
   });
 
-  it('refuses under the same guards as resize', () => {
+  it('arms a group rotation for a multi-selection, centred on the union frame', () => {
+    seed([rect('a', 10, 20), rect('b', 110, 20)], ['a', 'b']);
+    const { result, interactionRef, lockElementsForGesture } = setup();
+
+    act(() => {
+      result.current.handleRotateStart(pointerEvent(11, 60, 60));
+    });
+
+    const interaction = interactionRef.current;
+    expect(interaction.rotating).toBe(true);
+    expect(interaction.rotateInitialEl).toBeNull();
+    expect(Array.from(interaction.rotateInitialEls?.keys() ?? [])).toEqual(['a', 'b']);
+    // Union of two 100x80 boxes at x 10 and x 110 -> center (110, 60).
+    expect(interaction.rotateCenter).toEqual({ x: 110, y: 60 });
+    expect(useCanvasStore.getState().isRotating).toBe(true);
+    expect([...lockElementsForGesture.mock.calls[0]![0]].sort()).toEqual(['a', 'b']);
+  });
+
+  it('refuses group rotation when every member is locked elsewhere', () => {
     seed([rect('a'), rect('b', 300)], ['a', 'b']);
+    useCanvasStore.setState({
+      elementLocks: new Map([
+        ['a', 'someone-else'],
+        ['b', 'someone-else'],
+      ]),
+    });
+    const { result, interactionRef, lockElementsForGesture } = setup();
+
+    act(() => {
+      result.current.handleRotateStart(pointerEvent());
+    });
+
+    expect(interactionRef.current.rotating).toBe(false);
+    expect(lockElementsForGesture).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the single selection is locked by another collaborator', () => {
+    seed([rect('a')], ['a']);
+    useCanvasStore.setState({ elementLocks: new Map([['a', 'someone-else']]) });
     const { result, interactionRef, lockElementsForGesture } = setup();
 
     act(() => {

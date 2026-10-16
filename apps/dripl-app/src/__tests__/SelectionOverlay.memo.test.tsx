@@ -624,14 +624,15 @@ describe('SelectionOverlay linear handle hit targets', () => {
     expect(mid).not.toBeNull();
     expect(insert).not.toBeNull();
 
-    // The 2px stroke puts the bounds at x 99, y 49, so the first point's
-    // in-box position is (1, 1) and the endpoint's 6px offset puts it at -5.
-    expect(parseFloat(start!.style.left)).toBeCloseTo(1 - 6, 6);
-    expect(parseFloat(start!.style.top)).toBeCloseTo(1 - 6, 6);
-    // Non-endpoints use the 5px offset instead: the second point sits at x 41
-    // in-box, and the first insert handle at the midpoint x 21. A shared offset
+    // Bounds include the default end-triangle head (headLength 14 for a 2px
+    // stroke), so the box starts at x 86, y 36; the first point's in-box
+    // position is (14, 14) and the endpoint's 6px offset puts it at 8.
+    expect(parseFloat(start!.style.left)).toBeCloseTo(14 - 6, 6);
+    expect(parseFloat(start!.style.top)).toBeCloseTo(14 - 6, 6);
+    // Non-endpoints use the 5px offset instead: the second point sits at x 54
+    // in-box, and the first insert handle at the midpoint x 34. A shared offset
     // would break these two without changing any handle count.
-    expect(parseFloat(mid!.style.left)).toBeCloseTo(41 - 5, 6);
-    expect(parseFloat(insert!.style.left)).toBeCloseTo(21 - 5, 6);
+    expect(parseFloat(mid!.style.left)).toBeCloseTo(54 - 5, 6);
+    expect(parseFloat(insert!.style.left)).toBeCloseTo(34 - 5, 6);
   });
 });

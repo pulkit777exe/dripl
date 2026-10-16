@@ -161,6 +161,7 @@ function setup(elements: DriplElement[], hits: DriplElement[]) {
     setDrawingState: vi.fn<(drawing: boolean) => void>(),
     maybeRevertToSelectTool: vi.fn(),
     finishDrawing: vi.fn<() => DriplElement | null>().mockReturnValue(null),
+    cancelDrawing: vi.fn(),
     applyFrameGrouping: vi.fn<(frame: DriplElement) => void>(),
     spatialIndex: spatialIndexFor(elements),
   };
@@ -185,7 +186,9 @@ describe('gesture commit batching', () => {
     act(() => {
       result.current.handlePointerDown(pointerEvent(10, 10));
     });
-    expect(useCanvasStore.getState().isDragging).toBe(true);
+    // The press only records; arming waits for the first supra-threshold move.
+    expect(useCanvasStore.getState().isDragging).toBe(false);
+    expect(result.current.interactionRef.current.pendingDrag).not.toBeNull();
 
     act(() => {
       result.current.handlePointerMove(pointerEvent(30, 40));

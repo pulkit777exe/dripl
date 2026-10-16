@@ -160,6 +160,7 @@ function setup(elements: DriplElement[]) {
     setDrawingState: vi.fn(),
     maybeRevertToSelectTool: vi.fn(),
     finishDrawing: vi.fn(() => null),
+    cancelDrawing: vi.fn(),
     applyFrameGrouping: vi.fn(),
     spatialIndex: spatialIndexFor(elements),
   };

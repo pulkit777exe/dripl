@@ -126,12 +126,19 @@ export function useSpatialIndex(
     const updated = elements.filter(e => {
       const prevEl = prev.byId.get(e.id);
       if (!prevEl) return true;
+      // Version covers points/strokeWidth-only changes (remote deltas, undo)
+      // that keep x/y/width/height/angle identical but move the tree box.
+      // The transient path above already compares versions for the same
+      // reason; the fallback must not be lazier.
+      if (prevEl.version !== e.version) return true;
       return (
         prevEl.x !== e.x ||
         prevEl.y !== e.y ||
         prevEl.width !== e.width ||
         prevEl.height !== e.height ||
-        prevEl.angle !== e.angle
+        prevEl.angle !== e.angle ||
+        prevEl.strokeWidth !== e.strokeWidth ||
+        prevEl.points !== e.points
       );
     });
 

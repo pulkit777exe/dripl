@@ -81,6 +81,7 @@ function setup(
     fitAllToScreen: vi.fn(),
     copyElementStyle: vi.fn(() => true),
     pasteElementStyle: vi.fn(() => true),
+    cancelActiveGesture: vi.fn(() => false),
   };
   const interactionRef = blankInteraction();
   const lastToolBeforeSpaceRef = { current: null as string | null };
@@ -184,26 +185,22 @@ describe('useCanvasKeyboard tool switching', () => {
   });
 });
 
-describe('useCanvasKeyboard temporary hand tool', () => {
+describe('useCanvasKeyboard temporary pan', () => {
   beforeEach(() => {
     seed();
   });
 
-  it('switches to hand on space-down and restores the prior tool on key-up', () => {
-    const { rerender, interactionRef, lastToolBeforeSpaceRef } = setup({
+  it('holds space without touching the tool; the pointer path pans off the flag alone', () => {
+    const { interactionRef, lastToolBeforeSpaceRef } = setup({
       activeTool: 'rectangle',
     });
+    useCanvasStore.getState().setActiveTool('rectangle');
 
     keyDown(' ', { code: 'Space' });
     expect(interactionRef.current.isSpacePressed).toBe(true);
-    expect(useCanvasStore.getState().activeTool).toBe('hand');
-    expect(lastToolBeforeSpaceRef.current).toBe('rectangle');
+    expect(useCanvasStore.getState().activeTool).toBe('rectangle');
+    expect(lastToolBeforeSpaceRef.current).toBeNull();
 
-    // The hook reads activeTool from props, so the real component re-renders
-    // and passes 'hand' back in before the key-up arrives.
-    act(() => {
-      rerender({ readOnly: false, activeTool: 'hand' });
-    });
     keyUp(' ', { code: 'Space' });
 
     expect(interactionRef.current.isSpacePressed).toBe(false);
@@ -211,26 +208,19 @@ describe('useCanvasKeyboard temporary hand tool', () => {
   });
 
   it('leaves the hand tool alone when it was already active before space', () => {
-    const { rerender, lastToolBeforeSpaceRef } = setup({ activeTool: 'hand' });
+    const { lastToolBeforeSpaceRef } = setup({ activeTool: 'hand' });
     useCanvasStore.getState().setActiveTool('hand');
 
     keyDown(' ', { code: 'Space' });
     expect(lastToolBeforeSpaceRef.current).toBeNull();
-
-    act(() => {
-      rerender({ readOnly: false, activeTool: 'hand' });
-    });
     keyUp(' ', { code: 'Space' });
 
     expect(useCanvasStore.getState().activeTool).toBe('hand');
   });
 
-  it('does not record the hand tool as its own restore target', () => {
-    const { rerender } = setup({ activeTool: 'select' });
+  it('never records a restore target, so release cannot flip the tool', () => {
+    setup({ activeTool: 'select' });
     keyDown(' ', { code: 'Space' });
-    act(() => {
-      rerender({ readOnly: false, activeTool: 'hand' });
-    });
     keyUp(' ', { code: 'Space' });
     expect(useCanvasStore.getState().activeTool).toBe('select');
   });
@@ -304,17 +294,29 @@ describe('useCanvasKeyboard editing commands', () => {
     seed();
   });
 
-  it('escape clears the selection, the text editor, and the drawing gesture', () => {
+  it('escape with nothing armed clears the selection, the text editor, and the drawing gesture', () => {
     const { spies } = setup();
     useCanvasStore.setState({ selectedIds: new Set(['a']) });
 
     keyDown('Escape');
 
+    expect(spies.cancelActiveGesture).toHaveBeenCalledTimes(1);
     expect(useCanvasStore.getState().selectedIds.size).toBe(0);
     expect(spies.setTextInput).toHaveBeenCalledWith(null);
     expect(spies.cancelDrawing).toHaveBeenCalledTimes(1);
     expect(spies.setDrawingState).toHaveBeenCalledWith(false);
     // Escape must not swallow the browser's own dismiss affordances.
+  });
+
+  it('escape with an armed gesture rolls it back instead of clearing the selection', () => {
+    const { spies } = setup();
+    spies.cancelActiveGesture.mockReturnValue(true);
+    useCanvasStore.setState({ selectedIds: new Set(['a']) });
+
+    keyDown('Escape');
+
+    expect(spies.cancelActiveGesture).toHaveBeenCalledTimes(1);
+    expect(useCanvasStore.getState().selectedIds.size).toBe(1);
   });
 
   it('delete hands the live selection to the cascade resolver and clears it', () => {
@@ -586,19 +588,16 @@ describe('useCanvasKeyboard listener lifecycle', () => {
     expect(useCanvasStore.getState().activeTool).toBe('select');
   });
 
-  it('removes the keyup listener too, so a released space cannot restore a stale tool', () => {
-    const { rerender, unmount, lastToolBeforeSpaceRef } = setup({ activeTool: 'rectangle' });
+  it('removes the listeners on unmount, so keys do nothing afterwards', () => {
+    const { unmount } = setup({ activeTool: 'rectangle' });
     keyDown(' ', { code: 'Space' });
-    expect(lastToolBeforeSpaceRef.current).toBe('rectangle');
 
     unmount();
-    // Simulate the store having been switched to hand while the hook was gone.
-    useCanvasStore.getState().setActiveTool('hand');
     keyUp(' ', { code: 'Space' });
-    expect(rerender).toBeDefined();
+    keyDown('r');
 
-    // With no listener the hand tool is never swapped back out.
-    expect(useCanvasStore.getState().activeTool).toBe('hand');
+    // With no listener nothing changes the tool.
+    expect(useCanvasStore.getState().activeTool).toBe('select');
   });
 });
 
@@ -672,41 +671,31 @@ describe('useCanvasKeyboard space auto-repeat', () => {
     seed();
   });
 
-  it('keeps the pre-space tool as the restore target across repeated key-downs', () => {
-    // Regression: a held space key repeats keydown. If the repeat overwrote the
-    // recorded tool with 'hand', releasing space would leave the canvas stuck
-    // in the hand tool with no way to get back without clicking.
-    const { rerender, lastToolBeforeSpaceRef } = setup({ activeTool: 'rectangle' });
+  it('ignores repeated key-downs: the flag stays set and no tool is recorded', () => {
+    // Regression: a held space key repeats keydown. With the old tool-flip
+    // this is where the restore target got clobbered; now repeats must be
+    // pure no-ops beyond holding the flag.
+    const { interactionRef, lastToolBeforeSpaceRef } = setup({ activeTool: 'rectangle' });
+    useCanvasStore.getState().setActiveTool('rectangle');
 
     keyDown(' ', { code: 'Space' });
-    expect(lastToolBeforeSpaceRef.current).toBe('rectangle');
-
-    // While the key is still held the incoming activeTool prop can be anything:
-    // a batched second key-down can land before the first store update has
-    // been read back, and a collaborator (or an undo) can change the active
-    // tool mid-gesture.
-    act(() => {
-      rerender({ readOnly: false, activeTool: 'select' });
-    });
     keyDown(' ', { code: 'Space' });
     keyDown(' ', { code: 'Space' });
-    // The repeats must not adopt whatever the incoming prop happened to be:
-    // the restore target is the tool from *before* space went down.
-    expect(lastToolBeforeSpaceRef.current).toBe('rectangle');
 
-    act(() => {
-      rerender({ readOnly: false, activeTool: 'hand' });
-    });
+    expect(interactionRef.current.isSpacePressed).toBe(true);
+    expect(lastToolBeforeSpaceRef.current).toBeNull();
+    expect(useCanvasStore.getState().activeTool).toBe('rectangle');
+
     keyUp(' ', { code: 'Space' });
+    expect(interactionRef.current.isSpacePressed).toBe(false);
     expect(useCanvasStore.getState().activeTool).toBe('rectangle');
   });
 
   it('does not clear the space-pan flag when an unrelated key is released', () => {
     // Regression: the keyup handler is global, so releasing any key while
-    // space-panning runs through it. If it cleared the flag unconditionally
-    // the next space key-down would re-run the hand-tool override and clobber
-    // the restore target, leaving the canvas stuck in the hand tool.
-    const { rerender, interactionRef, lastToolBeforeSpaceRef } = setup({
+    // space-panning runs through it. Clearing the flag unconditionally would
+    // end the pan early the moment the user taps another shortcut mid-pan.
+    const { interactionRef, lastToolBeforeSpaceRef } = setup({
       activeTool: 'rectangle',
     });
 
@@ -715,12 +704,9 @@ describe('useCanvasKeyboard space auto-repeat', () => {
 
     keyUp('r');
     expect(interactionRef.current.isSpacePressed).toBe(true);
-    expect(lastToolBeforeSpaceRef.current).toBe('rectangle');
+    expect(lastToolBeforeSpaceRef.current).toBeNull();
 
-    act(() => {
-      rerender({ readOnly: false, activeTool: 'hand' });
-    });
     keyUp(' ', { code: 'Space' });
-    expect(useCanvasStore.getState().activeTool).toBe('rectangle');
+    expect(interactionRef.current.isSpacePressed).toBe(false);
   });
 });

@@ -825,19 +825,35 @@ describe('InteractiveCanvas pointer handling', () => {
     expect(onPointerMove.mock.calls[0]?.[0]).toMatchObject({ clientX: 44, clientY: 55 });
   });
 
-  // Regression: pointer-*cancel* is wired to the same finalizer as pointer-up.
-  // A cancelled gesture -- the browser taking over for a scroll, a system
-  // gesture, or the pointer being destroyed -- must finalise the drag exactly as
-  // a release does, or the element stays stuck to the cursor.
-  it('finalises the gesture on pointer cancel as well as pointer up', () => {
-    const onPointerUp = vi.fn();
+  // Regression: pointer-*cancel* rolls back instead of committing. A cancelled
+  // gesture -- the browser taking over for a scroll, a system gesture, or the
+  // pointer being destroyed -- must reach `onPointerCancel` (which rolls back
+  // to the gesture-start snapshot), never `onPointerUp` (which would commit a
+  // drag the user did not finish). Queued moves are dropped first so nothing
+  // re-arms after the rollback.
+  it('rolls back on pointer cancel instead of finalising like pointer up', () => {
+    const order: string[] = [];
+    type PointerArgs = Parameters<NonNullable<CanvasProps['onPointerMove']>>;
+    const onPointerMove = vi.fn<(event: PointerArgs[0]) => void>(() => {
+      order.push('move');
+    });
+    const onPointerUp = vi.fn(() => {
+      order.push('up');
+    });
+    const onPointerCancel = vi.fn(() => {
+      order.push('cancel');
+    });
     const el = container();
-    renderCanvas(el, { onPointerUp });
+    renderCanvas(el, { onPointerMove, onPointerUp, onPointerCancel });
     const canvas = screen.getByLabelText('Drawing canvas') as HTMLCanvasElement;
 
+    dispatchPointerMove(canvas, 44, 55);
     fireEvent.pointerCancel(canvas, { pointerId: 1 });
 
-    expect(onPointerUp).toHaveBeenCalledTimes(1);
+    expect(onPointerCancel).toHaveBeenCalledTimes(1);
+    expect(onPointerUp).not.toHaveBeenCalled();
+    expect(onPointerMove).not.toHaveBeenCalled();
+    expect(order).toEqual(['cancel']);
   });
 
   // Regression: the pointer-leave fallback only fires when the browser does *not*

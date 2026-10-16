@@ -137,16 +137,21 @@ export function SelectionOverlay({
       border: 1.5px solid var(--color-primary, #E8462A);
       border-radius: 50%;
       position: absolute;
-      pointer-events: auto;
       z-index: 20;
       box-sizing: border-box;
       cursor: copy;
       opacity: 0;
+      pointer-events: none;
       transition: opacity 0.15s ease, transform 0.1s cubic-bezier(0.3, 0, 0, 1);
     }
 
-    .dripl-linear-insert-handle.visible {
+    /* Midpoint-insert (+) handles reveal while an endpoint handle is
+       hovered, instead of always showing (Excalidraw parity). The general
+       sibling selector works because point handles precede insert handles
+       in DOM order. Hidden handles must not intercept pointer events. */
+    .dripl-linear-handle:hover ~ .dripl-linear-insert-handle {
       opacity: 1;
+      pointer-events: auto;
     }
 
     .dripl-linear-insert-handle:hover {
@@ -334,14 +339,14 @@ export function SelectionOverlay({
               isEndpoint
                 ? 'dripl-linear-handle'
                 : isInsert
-                  ? 'dripl-linear-insert-handle visible'
+                  ? 'dripl-linear-insert-handle'
                   : 'dripl-linear-mid-handle'
             }
             style={{
               left: isEndpoint ? left - 6 : left - 5,
               top: isEndpoint ? top - 6 : top - 5,
-              pointerEvents: isInsert ? 'auto' : isEndpoint ? 'auto' : undefined,
-              cursor: isInsert ? 'copy' : isEndpoint ? 'move' : undefined,
+              pointerEvents: isEndpoint ? 'auto' : undefined,
+              cursor: isEndpoint ? 'move' : undefined,
             }}
             onPointerDown={e => onResizeStart(id as ResizeHandle, e)}
           >

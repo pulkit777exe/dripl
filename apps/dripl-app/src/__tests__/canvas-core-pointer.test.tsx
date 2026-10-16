@@ -202,6 +202,7 @@ function setup(readOnly = false, overrides: Overrides = {}) {
     setDrawingState: vi.fn(),
     maybeRevertToSelectTool: overrides.maybeRevertToSelectTool ?? vi.fn(),
     finishDrawing: overrides.finishDrawing ?? vi.fn(() => null),
+    cancelDrawing: vi.fn(),
     applyFrameGrouping: overrides.applyFrameGrouping ?? vi.fn(),
     spatialIndex: spatialIndexFor(elements),
   };
@@ -240,15 +241,20 @@ describe('dragging an existing selection', () => {
       result.current.handlePointerDown(pointerEvent(120, 120));
     });
 
+    // The press only records: no locks, no dragging, no history yet.
+    expect(useCanvasStore.getState().isDragging).toBe(false);
+    expect(lockElementsForGesture).not.toHaveBeenCalled();
+    expect(result.current.interactionRef.current.pendingDrag).not.toBeNull();
+
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(170, 140));
+    });
+
     expect(useCanvasStore.getState().isDragging).toBe(true);
     expect(Array.from(result.current.interactionRef.current.dragInitialElements!.keys())).toEqual([
       'a',
     ]);
     expect(Array.from(lockElementsForGesture.mock.calls[0]![0] as Set<string>)).toEqual(['a']);
-
-    act(() => {
-      result.current.handlePointerMove(pointerEvent(170, 140));
-    });
 
     const state = useCanvasStore.getState();
     expect(state.elementsById.get('a')).toMatchObject({ x: 150, y: 120 });
@@ -272,10 +278,16 @@ describe('dragging an existing selection', () => {
       result.current.handlePointerDown(pointerEvent(120, 120));
     });
 
-    // No drag was armed, and the press starts a marquee instead — which will
+    // No drag was armed, and the press only pends a marquee — which will
     // replace the selection on release rather than moving someone else's box.
     expect(useCanvasStore.getState().isDragging).toBe(false);
     expect(lockElementsForGesture).not.toHaveBeenCalled();
+    expect(useCanvasStore.getState().marqueeSelection).toBeNull();
+    expect(result.current.interactionRef.current.pendingMarqueeStart).toEqual({ x: 120, y: 120 });
+
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(200, 200));
+    });
     expect(useCanvasStore.getState().marqueeSelection).toMatchObject({ active: true });
   });
 
@@ -313,6 +325,11 @@ describe('dragging an existing selection', () => {
     });
 
     expect(useCanvasStore.getState().isDragging).toBe(false);
+    // The marquee itself waits for movement past the click threshold.
+    expect(useCanvasStore.getState().marqueeSelection).toBeNull();
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(450, 450));
+    });
     expect(useCanvasStore.getState().marqueeSelection).toMatchObject({ active: true });
   });
 });
@@ -354,7 +371,10 @@ describe('double click', () => {
     });
 
     expect(props.getElementAtPosition).toHaveBeenCalled();
-    expect(useCanvasStore.getState().marqueeSelection).toMatchObject({ active: true });
+    // A missed double click falls through to the normal press flow, which
+    // pends (rather than starts) a marquee.
+    expect(useCanvasStore.getState().marqueeSelection).toBeNull();
+    expect(result.current.interactionRef.current.pendingMarqueeStart).toEqual({ x: 300, y: 300 });
   });
 });
 
@@ -673,6 +693,92 @@ describe('eraser', () => {
     expect(useCanvasStore.getState().isDrawing).toBe(false);
   });
 
+  it('deletes on contact during the stroke, as one undo step', () => {
+    // Frame queue: the eraser trail commits on a trailing edge, and the live
+    // delete rides the same flush — so the element is gone before pointer-up.
+    const frameQueue = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 1;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+      const id = nextFrameId++;
+      frameQueue.set(id, cb);
+      return id;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      frameQueue.delete(id);
+    });
+    const runFrames = () => {
+      const pending = Array.from(frameQueue.values());
+      frameQueue.clear();
+      for (const cb of pending) cb(performance.now());
+    };
+
+    const elements = [rect('a', 100, 100), rect('keep', 900, 100)];
+    const { result } = setup(false, { elements });
+    useCanvasStore.setState({ activeTool: 'eraser' });
+
+    act(() => {
+      result.current.handlePointerDown(pointerEvent(150, 140));
+    });
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(155, 145));
+    });
+    act(() => {
+      runFrames();
+    });
+
+    // Gone before release, with exactly one undo step for the stroke.
+    expect(useCanvasStore.getState().elementsById.has('a')).toBe(false);
+    expect(useCanvasStore.getState().past).toHaveLength(1);
+
+    act(() => {
+      result.current.handlePointerUp(pointerEvent(155, 145));
+    });
+    expect(useCanvasStore.getState().past).toHaveLength(1);
+    expect(useCanvasStore.getState().eraserPath).toEqual([]);
+
+    // And that single step restores the stroke.
+    act(() => {
+      useCanvasStore.getState().undo();
+    });
+    expect(useCanvasStore.getState().elementsById.has('a')).toBe(true);
+    expect(useCanvasStore.getState().elementsById.has('keep')).toBe(true);
+  });
+
+  it('writes no history for a stroke that erases nothing', () => {
+    const frameQueue = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 1;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+      const id = nextFrameId++;
+      frameQueue.set(id, cb);
+      return id;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      frameQueue.delete(id);
+    });
+
+    const elements = [rect('a', 100, 100)];
+    const { result } = setup(false, { elements });
+    useCanvasStore.setState({ activeTool: 'eraser' });
+
+    act(() => {
+      result.current.handlePointerDown(pointerEvent(10, 10));
+    });
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(12, 12));
+    });
+    act(() => {
+      const pending = Array.from(frameQueue.values());
+      frameQueue.clear();
+      for (const cb of pending) cb(performance.now());
+    });
+    act(() => {
+      result.current.handlePointerUp(pointerEvent(12, 12));
+    });
+
+    expect(useCanvasStore.getState().elementsById.has('a')).toBe(true);
+    expect(useCanvasStore.getState().past).toHaveLength(0);
+  });
+
   it('deletes an arrow together with a label the stroke never touched', () => {
     // The label is parked far from the stroke — a user dragged it there — so
     // the only thing that can remove it is the cascade from the arrow.
@@ -703,6 +809,124 @@ describe('eraser', () => {
     expect(Array.from(result.current.eraserHitIdsRef.current)).toEqual([]);
     expect(useCanvasStore.getState().eraserPath).toEqual([]);
     expect(maybeRevertToSelectTool).toHaveBeenCalledWith('eraser');
+  });
+});
+
+describe('cancelActiveGesture', () => {
+  it('rolls a drag back to its start snapshot and releases the locks', () => {
+    const elements = [rect('a', 100, 100)];
+    const unlockGestureElements = vi.fn();
+    const { result } = setup(false, {
+      elements,
+      unlockGestureElements,
+      getElementAtPosition: () => elements[0]!,
+      getElementsAtPosition: () => elements,
+    });
+
+    act(() => {
+      result.current.handlePointerDown(pointerEvent(150, 140));
+    });
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(200, 140));
+    });
+    expect(useCanvasStore.getState().elementsById.get('a')).toMatchObject({ x: 150 });
+
+    let cancelled = false;
+    act(() => {
+      cancelled = result.current.cancelActiveGesture();
+    });
+
+    expect(cancelled).toBe(true);
+    expect(useCanvasStore.getState().elementsById.get('a')).toMatchObject({ x: 100, y: 100 });
+    expect(useCanvasStore.getState().isDragging).toBe(false);
+    expect(unlockGestureElements).toHaveBeenCalled();
+  });
+
+  it('reports false when nothing is armed', () => {
+    const { result } = setup(false);
+    let cancelled = true;
+    act(() => {
+      cancelled = result.current.cancelActiveGesture();
+    });
+    expect(cancelled).toBe(false);
+  });
+});
+
+describe('click versus drag disambiguation', () => {
+  it('takes no locks and arms nothing on a plain click', () => {
+    const elements = [rect('a', 100, 100)];
+    const lockElementsForGesture = vi.fn();
+    const { result } = setup(false, {
+      elements,
+      lockElementsForGesture,
+      getElementAtPosition: () => elements[0]!,
+      getElementsAtPosition: () => elements,
+    });
+
+    act(() => {
+      result.current.handlePointerDown(pointerEvent(150, 140));
+    });
+    act(() => {
+      result.current.handlePointerUp(pointerEvent(150, 140));
+    });
+
+    // Selection still applies on pointer-down; nothing else arms.
+    expect(useCanvasStore.getState().selectedIds.has('a')).toBe(true);
+    expect(lockElementsForGesture).not.toHaveBeenCalled();
+    expect(useCanvasStore.getState().isDragging).toBe(false);
+    expect(result.current.interactionRef.current.dragging).toBe(false);
+    expect(useCanvasStore.getState().past).toHaveLength(0);
+  });
+
+  it('ignores sub-threshold jitter, then drags from the press point without jumping', () => {
+    const elements = [rect('a', 100, 100)];
+    const lockElementsForGesture = vi.fn();
+    const { result } = setup(false, {
+      elements,
+      lockElementsForGesture,
+      getElementAtPosition: () => elements[0]!,
+      getElementsAtPosition: () => elements,
+    });
+
+    act(() => {
+      result.current.handlePointerDown(pointerEvent(150, 140));
+    });
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(151, 140));
+    });
+    expect(result.current.interactionRef.current.dragging).toBe(false);
+    expect(useCanvasStore.getState().elementsById.get('a')).toMatchObject({ x: 100 });
+    expect(lockElementsForGesture).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(200, 140));
+    });
+    expect(result.current.interactionRef.current.dragging).toBe(true);
+    expect(lockElementsForGesture).toHaveBeenCalledTimes(1);
+    // Delta measured from the press (150), not from the arming move (151).
+    expect(useCanvasStore.getState().elementsById.get('a')).toMatchObject({ x: 150 });
+  });
+
+  it('starts no marquee for a click on empty space', () => {
+    const elements = [rect('a', 100, 100)];
+    const { result } = setup(false, {
+      elements,
+      getElementAtPosition: () => null,
+      getElementsAtPosition: () => [],
+    });
+    useCanvasStore.setState({ selectedIds: new Set(['a']) });
+
+    act(() => {
+      result.current.handlePointerDown(pointerEvent(10, 10));
+    });
+    // Selection clears on pointer-down, as before; the marquee itself waits.
+    expect(useCanvasStore.getState().selectedIds.size).toBe(0);
+    expect(useCanvasStore.getState().marqueeSelection).toBeNull();
+    act(() => {
+      result.current.handlePointerUp(pointerEvent(10, 10));
+    });
+    expect(useCanvasStore.getState().selectedIds.size).toBe(0);
+    expect(useCanvasStore.getState().marqueeSelection).toBeNull();
   });
 });
 
@@ -856,9 +1080,9 @@ describe('frame hand-off', () => {
 });
 
 describe('temporary pan tool restore', () => {
-  it('returns to the pre-pan tool when the gesture ends on the hand tool', () => {
-    // Space-drag on the select tool records `select`, and switching to the
-    // hand tool mid-gesture must not strand the user in it after release.
+  it('never records or restores a tool around a space pan', () => {
+    // Space-drag pans off the flag alone: the tool is untouched throughout,
+    // so release restores nothing even if the tool changed mid-gesture.
     const { result } = setup(false);
 
     act(() => {
@@ -867,7 +1091,7 @@ describe('temporary pan tool restore', () => {
     act(() => {
       result.current.handlePointerDown(pointerEvent(0, 0));
     });
-    expect(result.current.lastToolBeforeSpaceRef.current).toBe('select');
+    expect(result.current.lastToolBeforeSpaceRef.current).toBeNull();
 
     act(() => {
       result.current.interactionRef.current.isSpacePressed = false;
@@ -877,7 +1101,7 @@ describe('temporary pan tool restore', () => {
       result.current.handlePointerUp(pointerEvent(10, 10));
     });
 
-    expect(useCanvasStore.getState().activeTool).toBe('select');
+    expect(useCanvasStore.getState().activeTool).toBe('hand');
     expect(useCanvasStore.getState().isPanning).toBe(false);
   });
 

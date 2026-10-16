@@ -152,6 +152,7 @@ function buildProps(readOnly: boolean, overrides: Overrides, elements: DriplElem
     setDrawingState: vi.fn(),
     maybeRevertToSelectTool: overrides.maybeRevertToSelectTool ?? vi.fn(),
     finishDrawing: overrides.finishDrawing ?? vi.fn(() => null),
+    cancelDrawing: vi.fn(),
     applyFrameGrouping: overrides.applyFrameGrouping ?? vi.fn(),
     spatialIndex: spatialIndexFor(elements),
   };
@@ -208,7 +209,7 @@ describe('panning', () => {
     expect(useCanvasStore.getState()).toMatchObject({ panX: 60, panY: -20 });
   });
 
-  it('space-drag pans from the select tool and restores the tool on release', () => {
+  it('space-drag pans from the select tool without recording a restore target', () => {
     const { result } = setup();
     act(() => {
       result.current.interactionRef.current.isSpacePressed = true;
@@ -219,23 +220,24 @@ describe('panning', () => {
     });
     expect(useCanvasStore.getState().isPanning).toBe(true);
     expect(useCanvasStore.getState().activeTool).toBe('select');
-    // The tool is recorded but not switched mid-gesture; the keyboard hook owns
-    // the space→hand swap.
-    expect(result.current.lastToolBeforeSpaceRef.current).toBe('select');
+    // No tool is recorded: temporary pans never switch the tool, so release
+    // restores nothing.
+    expect(result.current.lastToolBeforeSpaceRef.current).toBeNull();
 
     act(() => {
       result.current.handlePointerUp(pointerEvent(20, 10));
     });
     expect(useCanvasStore.getState().isPanning).toBe(false);
+    expect(useCanvasStore.getState().activeTool).toBe('select');
   });
 
-  it('middle-drag pans from the select tool and records the tool to restore', () => {
+  it('middle-drag pans from the select tool without recording a restore target', () => {
     const { result } = setup();
     act(() => {
       result.current.handlePointerDown(pointerEvent(0, 0, { button: 1 }));
     });
     expect(useCanvasStore.getState().isPanning).toBe(true);
-    expect(result.current.lastToolBeforeSpaceRef.current).toBe('select');
+    expect(result.current.lastToolBeforeSpaceRef.current).toBeNull();
 
     act(() => {
       result.current.handlePointerMove(pointerEvent(5, 5));

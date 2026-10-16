@@ -7,6 +7,8 @@
  * here, unit-tested.
  */
 
+import { DEFAULT_ZOOM_SETTINGS } from '@/utils/zoomUtils';
+
 export interface PinchPoint {
   x: number;
   y: number;
@@ -33,7 +35,8 @@ export interface PinchStart {
 /**
  * Zoom transform that keeps the world point under the gesture midpoint
  * fixed: anchor the start midpoint in world space, scale around it, then
- * re-anchor under the current midpoint. Zoom clamps to [0.1, 20].
+ * re-anchor under the current midpoint. Zoom clamps to the shared
+ * DEFAULT_ZOOM_SETTINGS, like every other zoom path.
  */
 export function pinchZoomTransform(
   start: PinchStart,
@@ -42,7 +45,10 @@ export function pinchZoomTransform(
 ): { zoom: number; panX: number; panY: number } {
   const worldX = (start.mid.x - start.pan.x) / start.zoom;
   const worldY = (start.mid.y - start.pan.y) / start.zoom;
-  const zoom = Math.max(0.1, Math.min(20, start.zoom * (currentDistance / start.distance)));
+  const zoom = Math.max(
+    DEFAULT_ZOOM_SETTINGS.minZoom,
+    Math.min(DEFAULT_ZOOM_SETTINGS.maxZoom, start.zoom * (currentDistance / start.distance))
+  );
   return {
     zoom,
     panX: currentMid.x - worldX * zoom,

@@ -18,6 +18,7 @@ interface InteractiveCanvasProps {
   onPointerDown?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerMove?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerUp?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
+  onPointerCancel?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
   cursorPosition?: Point | null;
   isDragging?: boolean;
   isResizing?: boolean;
@@ -34,6 +35,8 @@ interface InteractiveCanvasProps {
   startPointBindingId?: string | null;
   /** Preserve intermediate samples for freehand/eraser gestures. */
   preservePointerSamples?: boolean;
+  /** CSS cursor for the interactive surface, derived from the active tool. */
+  cursor?: string;
 }
 
 const areEqual = (prev: InteractiveCanvasProps, next: InteractiveCanvasProps): boolean => {
@@ -63,7 +66,9 @@ const areEqual = (prev: InteractiveCanvasProps, next: InteractiveCanvasProps): b
     prev.onPointerDown !== next.onPointerDown ||
     prev.onPointerMove !== next.onPointerMove ||
     prev.onPointerUp !== next.onPointerUp ||
-    prev.preservePointerSamples !== next.preservePointerSamples
+    prev.onPointerCancel !== next.onPointerCancel ||
+    prev.preservePointerSamples !== next.preservePointerSamples ||
+    prev.cursor !== next.cursor
   );
 };
 
@@ -78,6 +83,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onPointerCancel,
   marqueeSelection,
   collaborators = [],
   lockOwners = new Map<string, string>(),
@@ -85,6 +91,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   hoveredBindingId,
   startPointBindingId,
   preservePointerSamples = false,
+  cursor = 'default',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dprRef = useRef(1);
@@ -170,6 +177,12 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   ]);
 
   useEffect(() => {
+    const onAssetLoad = (): void => markDirty();
+    window.addEventListener('dripl:asset-load', onAssetLoad);
+    return () => window.removeEventListener('dripl:asset-load', onAssetLoad);
+  }, [markDirty]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
@@ -183,8 +196,8 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
 
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
       markDirty();
     };
 
@@ -202,7 +215,7 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     };
   }, [containerRef, markDirty]);
 
-  const { flushPointerMove, handlePointerMove } = usePointerMoveQueue(
+  const { flushPointerMove, dropPointerMove, handlePointerMove } = usePointerMoveQueue(
     onPointerMove,
     preservePointerSamples
   );
@@ -229,6 +242,24 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
     [flushPointerMove, onPointerUp]
   );
 
+  // Middle-button autoscroll is governed by mousedown/auxclick, not
+  // pointerdown (whose preventDefault the pan path already calls), so without
+  // these the browser starts autoscrolling on middle-drag.
+  const suppressMiddleButton = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (event.button === 1) event.preventDefault();
+  }, []);
+
+  // An interrupted gesture (touch cancel, alert, drag-and-drop) rolls back
+  // instead of committing: queued moves are dropped so nothing re-arms after
+  // the rollback.
+  const handlePointerCancel = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      dropPointerMove();
+      onPointerCancel?.(event);
+    },
+    [dropPointerMove, onPointerCancel]
+  );
+
   const handlePointerLeave = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       // Pointer capture is the normal path. Only use leave as a cleanup
@@ -248,11 +279,11 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   const style = useMemo<React.CSSProperties>(
     () => ({
       zIndex: 2,
-      cursor: 'default',
+      cursor,
       pointerEvents: 'auto',
       touchAction: 'none',
     }),
-    []
+    [cursor]
   );
 
   return (
@@ -262,11 +293,14 @@ const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       style={style}
       tabIndex={0}
       aria-label="Drawing canvas"
+      data-layer="interactive"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       onPointerLeave={handlePointerLeave}
+      onMouseDown={suppressMiddleButton}
+      onAuxClick={suppressMiddleButton}
     >
       Drawing canvas
     </canvas>

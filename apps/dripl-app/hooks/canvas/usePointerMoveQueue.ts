@@ -131,6 +131,19 @@ export function usePointerMoveQueue(
     }
   }, []);
 
+  /**
+   * Discard queued moves without delivering them. The pointer-cancel path
+   * rolls the gesture back, so a queued move must not land afterwards and
+   * re-arm what was just cancelled.
+   */
+  const dropPointerMove = useCallback(() => {
+    if (pointerMoveFrameRef.current !== null) {
+      cancelAnimationFrame(pointerMoveFrameRef.current);
+      pointerMoveFrameRef.current = null;
+    }
+    pendingPointerMovesRef.current.length = 0;
+  }, []);
+
   const handlePointerMove = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
     const latest = snapshotPointerMove(event);
     if (preservePointerSamplesRef.current) {
@@ -188,5 +201,5 @@ export function usePointerMoveQueue(
     };
   }, []);
 
-  return { flushPointerMove, handlePointerMove };
+  return { flushPointerMove, dropPointerMove, handlePointerMove };
 }

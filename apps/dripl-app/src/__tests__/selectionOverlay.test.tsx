@@ -256,17 +256,18 @@ describe('SelectionOverlay linear elements', () => {
       panY: 0,
     });
 
-    // Bounds with a 2px stroke: x 99..201, y 49..101.
+    // Bounds with the default end-triangle head (headLength 14 for a 2px
+    // stroke): x 86..214, y 36..114.
     const container_ = container.firstElementChild as HTMLElement;
-    expect(container_.style.left).toBe('198px');
-    expect(container_.style.top).toBe('98px');
-    expect(container_.style.width).toBe('204px');
-    expect(container_.style.height).toBe('104px');
+    expect(container_.style.left).toBe('172px');
+    expect(container_.style.top).toBe('72px');
+    expect(container_.style.width).toBe('256px');
+    expect(container_.style.height).toBe('156px');
 
-    // First point world (100, 50) → (100-99)*2 = 2 from the box left.
+    // First point world (100, 50) → (100-86)*2 = 28 from the box left.
     const start = container.querySelector('.dripl-linear-handle') as HTMLElement;
-    expect(start.style.left).toBe('-4px');
-    expect(start.style.top).toBe('-4px');
+    expect(start.style.left).toBe('22px');
+    expect(start.style.top).toBe('22px');
   });
 
   it('renders no handles for a polyline with fewer than two points', () => {

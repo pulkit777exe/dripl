@@ -25,6 +25,8 @@ interface UseCanvasKeyboardOptions {
   ) => void;
   setDrawingState: (next: boolean) => void;
   cancelDrawing: () => void;
+  /** Roll back the armed gesture without committing; true when one was armed. */
+  cancelActiveGesture: () => boolean;
   collectCascadeDeleteIds: (ids: Set<string>) => string[];
   copySelectedToClipboard: () => Promise<void>;
   pasteFromClipboard: () => Promise<void>;
@@ -43,6 +45,7 @@ export function useCanvasKeyboard({
   setTextInput,
   setDrawingState,
   cancelDrawing,
+  cancelActiveGesture,
   collectCascadeDeleteIds,
   copySelectedToClipboard,
   pasteFromClipboard,
@@ -96,13 +99,10 @@ export function useCanvasKeyboard({
       const key = e.key.toLowerCase();
 
       if (e.code === 'Space') {
-        if (!interactionRef.current.isSpacePressed) {
-          interactionRef.current.isSpacePressed = true;
-          if (activeTool !== 'hand') {
-            lastToolBeforeSpaceRef.current = activeTool;
-            store.setActiveTool('hand');
-          }
-        }
+        // Temporary pan rides on the flag alone — the pointer path pans while
+        // it is held without touching `activeTool`, so the toolbar never
+        // flickers and no restore is owed on release.
+        interactionRef.current.isSpacePressed = true;
         e.preventDefault();
       }
 
@@ -204,12 +204,18 @@ export function useCanvasKeyboard({
           store.clearSelection();
           return;
         }
-        case 'escape':
-          store.clearSelection();
+        case 'escape': {
+          // Two-stage like Excalidraw: first Escape rolls back the armed
+          // gesture (pan/drag/resize/rotate/marquee/draw/erase/laser) without
+          // committing it; only a second Escape with nothing armed clears the
+          // selection.
+          const gestureArmed = cancelActiveGesture();
+          if (!gestureArmed) store.clearSelection();
           setTextInput(null);
           cancelDrawing();
           setDrawingState(false);
           return;
+        }
         case 'nudge': {
           const ids = Array.from(useCanvasStore.getState().selectedIds);
           store.translateElements(ids, resolved.action.dx, resolved.action.dy);
@@ -226,6 +232,9 @@ export function useCanvasKeyboard({
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
+        // The tool never changed on the way down, so release only clears the
+        // flag. The legacy tool-restore below stays as a backstop for a pan
+        // armed before this change took effect.
         interactionRef.current.isSpacePressed = false;
         if (
           activeTool === 'hand' &&
@@ -254,6 +263,7 @@ export function useCanvasKeyboard({
     setTextInput,
     setDrawingState,
     cancelDrawing,
+    cancelActiveGesture,
     collectCascadeDeleteIds,
     copySelectedToClipboard,
     pasteFromClipboard,

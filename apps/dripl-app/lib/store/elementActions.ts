@@ -275,7 +275,7 @@ export const createElementActions: StateCreator<
       };
     }),
 
-  deleteElements: ids =>
+  deleteElements: (ids, options) =>
     set(state => {
       if (ids.length === 0) return state;
       const idSet = new Set(ids);
@@ -299,8 +299,23 @@ export const createElementActions: StateCreator<
       const finalElements = nextElements.filter(el => !idSet.has(el.id));
       if (finalElements.length === state.elements.length) return state;
 
-      // Step 4: Invalidate caches, push history
+      // Step 4: Invalidate caches, push history (unless the caller owns the
+      // undo step — the eraser pushes once per stroke and deletes live per
+      // batch, so per-batch history would shred one stroke into N undo steps).
       idSet.forEach(id => invalidateElementCache(id));
+
+      if (options?.skipHistory) {
+        const nextMap = new Map(state.elementsById);
+        idSet.forEach(id => nextMap.delete(id));
+        return {
+          elements: finalElements,
+          elementsById: nextMap,
+          selectedIds: new Set(
+            Array.from(state.selectedIds).filter(selectedId => !idSet.has(selectedId))
+          ),
+          spatialVersion: state.spatialVersion + 1,
+        };
+      }
 
       const history = withHistoryBeforeMutation(
         { past: state.past, future: state.future },

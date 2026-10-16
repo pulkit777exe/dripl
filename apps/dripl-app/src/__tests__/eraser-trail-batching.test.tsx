@@ -137,6 +137,7 @@ function setup(elements: DriplElement[]) {
     setDrawingState: vi.fn<(drawing: boolean) => void>(),
     maybeRevertToSelectTool: vi.fn(),
     finishDrawing: vi.fn<() => DriplElement | null>().mockReturnValue(null),
+    cancelDrawing: vi.fn(),
     applyFrameGrouping: vi.fn<(frame: DriplElement) => void>(),
     spatialIndex: spatialIndexFor(elements),
   };

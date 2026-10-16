@@ -5,11 +5,13 @@ import type { DriplElement } from '@dripl/common';
 import type { Viewport } from '@/utils/canvas-coordinates';
 import {
   renderStaticScene,
+  clearStaticSceneCache,
   getInvalidateCallCount,
   resetInvalidateCallCount,
   getElementBitmapCacheStatsForTest,
   type StaticSceneFrameStats,
 } from '@dripl/element/staticScene';
+import { clearTextMeasurementCache } from '@/renderer/interactiveScene';
 import { useCanvasRenderLoop } from '@/hooks/canvas/useCanvasRenderLoop';
 
 type StaticFrameStatsWindow = Window & {
@@ -167,6 +169,27 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
   ]);
 
   useEffect(() => {
+    // Web fonts (Caveat for handwriting) load asynchronously after first
+    // paint. Text baked into cached bitmaps before that keeps fallback glyphs
+    // until something invalidates it — Excalidraw re-renders on font load for
+    // the same reason. Drop all cached bitmaps (versions are unchanged, so
+    // nothing else would rebuild them) and clear the text metrics cache, whose
+    // widths were measured in the fallback font.
+    let cancelled = false;
+    if (typeof document !== 'undefined' && document.fonts) {
+      void document.fonts.ready.then(() => {
+        if (cancelled) return;
+        clearStaticSceneCache();
+        clearTextMeasurementCache();
+        markDirtyRef.current();
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef?.current;
     if (!canvas) return;
@@ -182,8 +205,10 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
 
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
+      // Same rounding as `bootstrapCanvas` (Math.round): disagreeing by 1px at
+      // fractional sizes retriggered a backing-store resize + clear every frame.
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
       markDirty();
     };
 
@@ -224,6 +249,7 @@ const StaticCanvas: React.FC<StaticCanvasProps> = ({
       style={canvasStyle}
       aria-hidden="true"
       tabIndex={-1}
+      data-layer="static"
     />
   );
 };
