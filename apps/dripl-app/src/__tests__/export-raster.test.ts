@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DriplElement } from '@dripl/common';
-import { clearTextMeasurementCache, renderInteractiveScene } from '@/renderer/interactiveScene';
-import type { RenderSceneOptions } from '@/renderer/sceneTypes';
+import { clearTextMeasurementCache } from '@/renderer/interactiveScene';
+import { renderStaticScene } from '@dripl/element/staticScene';
 import { exportToPng, generateThumbnail } from '@/utils/export/raster';
 import {
   createRecordingContext,
@@ -16,29 +16,61 @@ import { linear, rectangle } from './helpers/elements';
  * What is actually under test is the geometry: how a scene's world bounds become
  * a canvas size, a scale and a viewport origin. That is the part that decides
  * whether the user gets their drawing or a cropped/blank image, and none of it is
- * visible in the returned Blob. So `renderInteractiveScene` is captured rather
- * than run for most tests, and the one test that runs it for real exists because
- * the renderer culls against the viewport — which makes it the only place a wrong
- * viewport origin shows up as *missing content* rather than as a wrong number.
+ * visible in the returned Blob. So `renderStaticScene` is captured rather
+ * than run for most tests, and the tests that run it for real exist because
+ * the renderer culls against the viewport — which makes them the only place a
+ * wrong viewport origin shows up as *missing content* rather than as a wrong
+ * number.
+ *
+ * The export deliberately renders through `renderStaticScene` (the committed
+ * bitmap path), not the interactive draft path, so exported pixels are the
+ * on-screen pixels: same Rough.js seed/options, same label cutouts, same
+ * image handling.
  */
 
 const stubs = vi.hoisted(() => ({
-  /** Options passed to `renderInteractiveScene`, one entry per call. */
-  calls: [] as Array<Record<string, unknown>>,
-  /** 'capture' records the options; 'render' delegates to the real renderer. */
+  /** Calls to `renderStaticScene`, one entry per call (canvas excluded). */
+  calls: [] as Array<{
+    elements: DriplElement[];
+    viewport: { x: number; y: number; width: number; height: number; zoom: number };
+    config: Record<string, unknown>;
+  }>,
+  /** 'capture' records the call; 'render' delegates to the real renderer. */
   mode: 'capture' as 'capture' | 'render',
 }));
 
-vi.mock('@/renderer/interactiveScene', async importOriginal => {
-  const actual = await importOriginal<typeof import('@/renderer/interactiveScene')>();
+vi.mock('@dripl/element/staticScene', async importOriginal => {
+  const actual = await importOriginal<typeof import('@dripl/element/staticScene')>();
   return {
     ...actual,
-    renderInteractiveScene: (options: Record<string, unknown>) => {
-      stubs.calls.push(options);
+    renderStaticScene: (
+      canvas: HTMLCanvasElement,
+      elements: DriplElement[],
+      viewport: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        zoom: number;
+      },
+      config: Record<string, unknown>
+    ) => {
+      stubs.calls.push({ elements, viewport, config });
       if (stubs.mode === 'capture') return;
-      return (actual.renderInteractiveScene as unknown as (o: Record<string, unknown>) => unknown)(
-        options
-      );
+      return (
+        actual.renderStaticScene as unknown as (
+          canvas: HTMLCanvasElement,
+          elements: DriplElement[],
+          viewport: {
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+            zoom: number;
+          },
+          config: Record<string, unknown>
+        ) => unknown
+      )(canvas, elements, viewport, config);
     },
   };
 });
@@ -52,16 +84,16 @@ interface Viewport {
 }
 
 interface RenderOptions {
-  canvasWidth: number;
-  canvasHeight: number;
-  viewport: Viewport;
   elements: DriplElement[];
-  selectedIds: Set<string>;
-  collaborators: unknown[];
-  gridEnabled: boolean;
-  renderCommittedElements: boolean;
-  dpr: number;
-  clearCanvas: boolean;
+  viewport: Viewport;
+  config: {
+    gridEnabled: boolean;
+    gridSize: number;
+    zoom: number;
+    theme: 'light' | 'dark';
+    dpr: number;
+    elements: DriplElement[];
+  };
 }
 
 let rec: RecordingContext;
@@ -249,28 +281,28 @@ describe('exportToPng', () => {
 
     const fill = rec.argLists('fillRect')[0]!;
     expect(fill).toEqual([0, 0, 344, 214]);
-    expect(rec.style().fillStyle).toBe('rgba(0,0,0,0)');
+    // Style is read off the op (the export restores the context after the
+    // destination-over fill, so the live style no longer carries it).
+    expect(rec.calls('fillRect')[0]!.style.fillStyle).toBe('rgba(0,0,0,0)');
   });
 
-  it('hands the renderer every scene element and a viewport that keeps them on screen', async () => {
+  it('hands the renderer every scene element and a light, gridless config', async () => {
     // Regression: the renderer culls against the viewport, so an export that
-    // passes the wrong `elements` (a filtered subset, a different array) or the
-    // wrong size produces a correctly-sized but empty image. `clearCanvas: false`
-    // is asserted because a stray `true` would erase the background fill.
+    // passes the wrong `elements` (a filtered subset, a different array)
+    // produces a correctly-sized but empty image. The config pins the export
+    // contract: no grid, unit dpr (the canvas is already scaled), light theme
+    // to match the default white background.
     await exportToPng(SCENE);
 
     const options = rendered();
     expect(options.elements).toHaveLength(2);
     expect(options.elements.map(element => element.id)).toEqual(['a', 'b']);
-    expect(options.canvasWidth).toBe(344);
-    expect(options.canvasHeight).toBe(214);
-    expect(options.clearCanvas).toBe(false);
-    expect(options.renderCommittedElements).toBe(true);
-    expect(options.dpr).toBe(1);
-    expect(options.gridEnabled).toBe(false);
-    // An export never shows selection or collaborator chrome.
-    expect(options.selectedIds.size).toBe(0);
-    expect(options.collaborators).toEqual([]);
+    expect(options.viewport.width).toBe(344);
+    expect(options.viewport.height).toBe(214);
+    expect(options.config.gridEnabled).toBe(false);
+    expect(options.config.dpr).toBe(1);
+    expect(options.config.theme).toBe('light');
+    expect(options.config.zoom).toBe(2);
   });
 
   it('actually draws the scene, so a wrong viewport cannot pass unnoticed', async () => {
@@ -301,19 +333,20 @@ describe('exportToPng', () => {
     // Negative control: the identical scene with the viewport moved out of the
     // way draws nothing at all, so the count above cannot be vacuous.
     rec.reset();
-    renderInteractiveScene({
-      ...options,
-      viewport: { ...options.viewport, x: 100_000 },
-    } as unknown as RenderSceneOptions);
+    renderStaticScene(
+      canvases.at(-1)!,
+      scene,
+      { ...options.viewport, x: 100_000 },
+      { ...options.config, elements: scene }
+    );
     expect(rec.countOf('moveTo')).toBe(0);
   });
 
-  it('renders text through the export path using real font metrics', async () => {
-    // Regression: a text element measured at zero width (a font that has not
-    // loaded yet, or a metrics cache keyed on the wrong font) still calls
-    // `fillText`, but the exported bitmap loses the label — silent data loss
-    // that only surfaces on someone else's machine. The width table stands in
-    // for real metrics.
+  it('renders text through the export path', async () => {
+    // Regression: a text element that never reaches `fillText` is silent data
+    // loss that only surfaces on someone else's machine. The static bitmap
+    // path lays text out from the stored box (no live measuring), so the
+    // assertion is on the painted label rather than on metrics calls.
     stubs.mode = 'render';
     const scene = [
       {
@@ -328,7 +361,6 @@ describe('exportToPng', () => {
 
     await exportToPng(scene);
 
-    expect(rec.argLists('measureText')).toContainEqual(['Hello']);
     expect(fillTexts(rec).map(([text]) => text)).toEqual(['Hello']);
   });
 
@@ -370,9 +402,9 @@ describe('exportToPng', () => {
     // size 0 (or `NaN` dimensions) for the first thing a user ever exports.
     await exportToPng([]);
 
-    const { viewport, canvasWidth, canvasHeight } = rendered();
-    expect(canvasWidth).toBe(66);
-    expect(canvasHeight).toBe(66);
+    const { viewport } = rendered();
+    expect(viewport.width).toBe(66);
+    expect(viewport.height).toBe(66);
     for (const value of [viewport.x, viewport.y, viewport.zoom, viewport.width]) {
       expect(Number.isFinite(value)).toBe(true);
     }
@@ -442,8 +474,6 @@ describe('generateThumbnail', () => {
     // scale = min(368/1000, 268/100, 1) = 0.368
     expect(options.viewport.width).toBe(380);
     expect(options.viewport.height).toBe(49);
-    expect(options.canvasWidth).toBe(380);
-    expect(options.canvasHeight).toBe(49);
   });
 
   it('returns a JPEG data URL, which is what the preview column stores', async () => {
@@ -485,68 +515,42 @@ describe('generateThumbnail', () => {
     // Infinity and the caller stores a data URL of nothing.
     await generateThumbnail([]);
 
-    const { viewport, canvasWidth, canvasHeight } = rendered();
+    const { viewport } = rendered();
     expect(Number.isFinite(viewport.zoom)).toBe(true);
-    expect(Number.isFinite(canvasWidth)).toBe(true);
-    expect(Number.isFinite(canvasHeight)).toBe(true);
-    expect(canvasWidth).toBeGreaterThan(0);
-    expect(canvasHeight).toBeGreaterThan(0);
+    expect(Number.isFinite(viewport.width)).toBe(true);
+    expect(Number.isFinite(viewport.height)).toBe(true);
+    expect(viewport.width).toBeGreaterThan(0);
+    expect(viewport.height).toBeGreaterThan(0);
   });
 });
 
-describe('raster export on a canvas with convertToBlob', () => {
-  /** Minimal `OffscreenCanvas`: jsdom has none, so the export falls back to `toBlob`. */
-  class FakeOffscreenCanvas {
-    readonly width: number;
-    readonly height: number;
-    readonly blobRequests: Array<{ type?: string; quality?: number }> = [];
-
-    constructor(width: number, height: number) {
-      this.width = width;
-      this.height = height;
-    }
-
-    getContext(): CanvasRenderingContext2D {
-      return rec.ctx;
-    }
-
-    async convertToBlob(options?: { type?: string; quality?: number }): Promise<Blob> {
-      this.blobRequests.push({ type: options?.type, quality: options?.quality });
-      return new Blob(['offscreen'], { type: options?.type ?? 'image/png' });
-    }
-  }
-
-  let created: FakeOffscreenCanvas[];
-
-  beforeEach(() => {
-    created = [];
-    vi.stubGlobal('OffscreenCanvas', function (width: number, height: number) {
-      const canvas = new FakeOffscreenCanvas(width, height);
-      created.push(canvas);
-      return canvas;
+describe('raster export canvas plumbing', () => {
+  it('exports through an HTMLCanvasElement toBlob even when OffscreenCanvas exists', async () => {
+    // Regression: the export used to branch on `'convertToBlob' in canvas`
+    // for an OffscreenCanvas path. It now always renders through an
+    // HTMLCanvasElement (which `renderStaticScene` requires) and `toBlob`,
+    // so a present OffscreenCanvas must not divert it.
+    vi.stubGlobal('OffscreenCanvas', function () {
+      throw new Error('export must not construct an OffscreenCanvas');
     });
-  });
 
-  it('exports the PNG through convertToBlob, not through toBlob', async () => {
-    // Regression: `'convertToBlob' in canvas` is the whole OffscreenCanvas
-    // detection. Without it the export calls `toBlob`, which does not exist on
-    // an OffscreenCanvas — a TypeError in every browser that has one.
     const blob = await exportToPng(SCENE);
 
-    expect(created[0]!.width).toBe(344);
-    expect(created[0]!.blobRequests).toEqual([{ type: 'image/png', quality: undefined }]);
     expect(blob.type).toBe('image/png');
-    expect(toBlob).not.toHaveBeenCalled();
+    expect(toBlob).toHaveBeenCalledTimes(1);
   });
 
-  it('reads the thumbnail blob back into a JPEG data URL', async () => {
-    // Regression: the OffscreenCanvas branch returns the *blob* where the
+  it('returns a JPEG data URL from the thumbnail path without any blob round-trip', async () => {
+    // Regression: the OffscreenCanvas branch returned the *blob* where the
     // HTMLCanvasElement branch returns a data URL. A caller that stores the
     // result in a `preview` column would then write `[object Blob]`.
+    vi.stubGlobal('OffscreenCanvas', function () {
+      throw new Error('export must not construct an OffscreenCanvas');
+    });
+
     const url = await generateThumbnail(SCENE);
 
-    expect(created[0]!.blobRequests).toEqual([{ type: 'image/jpeg', quality: 0.8 }]);
     expect(url).toMatch(/^data:image\/jpeg;base64,/);
-    expect(toDataURL).not.toHaveBeenCalled();
+    expect(toDataURL).toHaveBeenCalledWith('image/jpeg', 0.8);
   });
 });

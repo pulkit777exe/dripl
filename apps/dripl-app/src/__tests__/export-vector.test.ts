@@ -262,7 +262,11 @@ describe('exportToSvg: element geometry', () => {
       } as unknown as DriplElement,
     ]);
 
-    const [arrow, line] = Array.from(doc.querySelectorAll('path'));
+    // Scene paths are direct children of the root; marker definitions live
+    // in <defs> and must not be mistaken for scene content.
+    const [arrow, line] = Array.from(doc.documentElement.children).filter(
+      node => node.tagName === 'path'
+    );
     expect(arrow!.getAttribute('fill')).toBe('#ff0000');
     expect(line!.getAttribute('fill')).toBe('none');
   });
@@ -470,7 +474,213 @@ describe('exportToSvg: element geometry', () => {
       '100',
     ]);
   });
+});
 
+describe('exportToSvg: style and annotation fidelity', () => {
+  it('wraps rotated elements in a rotate transform about their center', async () => {
+    const doc = await parseSvg([
+      rectangle('r', { ...STYLE, x: 0, y: 0, width: 100, height: 60, angle: Math.PI / 2 }),
+      rectangle('plain', { ...STYLE, x: 200, y: 0, width: 10, height: 10 }),
+    ]);
+
+    const groups = Array.from(doc.querySelectorAll('g'));
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.getAttribute('transform')).toBe('rotate(90 50 30)');
+    // The unrotated element stays unwrapped.
+    expect(doc.querySelectorAll('rect')).toHaveLength(2);
+  });
+
+  it('emits dash patterns matching the canvas stroke styles', async () => {
+    const doc = await parseSvg([
+      rectangle('a', {
+        ...STYLE,
+        x: 0,
+        y: 0,
+        width: 10,
+        height: 10,
+        strokeStyle: 'dashed',
+        strokeWidth: 2,
+      }),
+      rectangle('b', {
+        ...STYLE,
+        x: 20,
+        y: 0,
+        width: 10,
+        height: 10,
+        strokeStyle: 'dotted',
+        strokeWidth: 2,
+      }),
+      rectangle('c', {
+        ...STYLE,
+        x: 40,
+        y: 0,
+        width: 10,
+        height: 10,
+        strokeStyle: 'solid',
+        strokeWidth: 2,
+      }),
+    ]);
+
+    const rects = Array.from(doc.querySelectorAll('rect'));
+    expect(rects[0]!.getAttribute('stroke-dasharray')).toBe('8 10');
+    expect(rects[1]!.getAttribute('stroke-dasharray')).toBe('1.5 8');
+    expect(rects[2]!.getAttribute('stroke-dasharray')).toBeNull();
+  });
+
+  it('emits arrowhead markers for headed ends and none for bare ends', async () => {
+    const doc = await parseSvg([
+      linear(
+        'a',
+        'arrow',
+        [
+          { x: 0, y: 0 },
+          { x: 40, y: 0 },
+        ],
+        { ...STYLE, x: 0, y: 0, arrowHeads: { start: 'none', end: 'triangle' } }
+      ) as DriplElement,
+    ]);
+
+    const markers = Array.from(doc.querySelectorAll('marker'));
+    expect(markers).toHaveLength(1);
+    expect(markers[0]!.getAttribute('orient')).toBe('auto');
+    const path = doc.querySelector('svg > path')!;
+    expect(path.getAttribute('marker-end')).toMatch(/^url\(#dripl-ah-a-end\)$/);
+    expect(path.getAttribute('marker-start')).toBeNull();
+  });
+
+  it('emits a start marker with auto-start-reverse so it points outward', async () => {
+    const doc = await parseSvg([
+      linear(
+        'a',
+        'arrow',
+        [
+          { x: 0, y: 0 },
+          { x: 40, y: 0 },
+        ],
+        { ...STYLE, x: 0, y: 0, arrowHeads: { start: 'dot', end: 'none' } }
+      ) as DriplElement,
+    ]);
+
+    const marker = doc.querySelector('marker')!;
+    expect(marker.getAttribute('orient')).toBe('auto-start-reverse');
+    expect(marker.querySelector('circle')).not.toBeNull();
+  });
+
+  it('emits freedraw as a filled outline polygon, not a centerline', async () => {
+    const doc = await parseSvg([
+      linear(
+        'f',
+        'freedraw',
+        [
+          { x: 0, y: 0 },
+          { x: 20, y: 0 },
+          { x: 40, y: 0 },
+        ],
+        { ...STYLE, x: 0, y: 0, strokeWidth: 2 }
+      ) as DriplElement,
+    ]);
+
+    const polygon = doc.querySelector('polygon')!;
+    const count = polygon.getAttribute('points')!.split(' ').length;
+    // A closed ring around the stroke: many vertices, not the 3 inputs.
+    expect(count).toBeGreaterThan(6);
+    expect(polygon.getAttribute('fill')).toBe('#1e1e1e');
+  });
+
+  it('emits curved and elbow arrows along their routed geometry', async () => {
+    const doc = await parseSvg([
+      linear(
+        'c',
+        'arrow',
+        [
+          { x: 0, y: 0 },
+          { x: 40, y: 0 },
+        ],
+        { ...STYLE, x: 0, y: 0, arrowStyle: 'curved', arrowHeads: { start: 'none', end: 'none' } }
+      ) as DriplElement,
+      linear(
+        'e',
+        'arrow',
+        [
+          { x: 0, y: 0 },
+          { x: 40, y: 10 },
+        ],
+        { ...STYLE, x: 100, y: 0, arrowStyle: 'elbow', arrowHeads: { start: 'none', end: 'none' } }
+      ) as DriplElement,
+    ]);
+
+    const paths = Array.from(doc.querySelectorAll('svg > path'));
+    // Curved bows off the chord (control y 5 for a 40-long shaft).
+    expect(paths[0]!.getAttribute('d')).toBe('M 0 0 Q 20 5 40 0');
+    // Elbow routes horizontal-then-vertical through the corner.
+    expect(paths[1]!.getAttribute('d')).toBe('M 100 0 L 140 0 L 140 10');
+  });
+
+  it('offsets text vertically by its verticalAlign like the canvas does', async () => {
+    const doc = await parseSvg([
+      {
+        ...rectangle('m', { ...STYLE, x: 0, y: 0, width: 100, height: 100 }),
+        type: 'text',
+        text: 'Hi',
+        originalText: 'Hi',
+        fontSize: 20,
+        verticalAlign: 'middle',
+      } as unknown as DriplElement,
+    ]);
+
+    // 1 line at 20px: total 25, box 100 -> startY (100-25)/2 = 37.5.
+    const span = doc.querySelector('tspan')!;
+    expect(span.getAttribute('y')).toBe('57.5');
+  });
+
+  it('emits frame padding and title alongside the frame rect', async () => {
+    const doc = await parseSvg([
+      {
+        ...rectangle('f', { ...STYLE, x: 0, y: 0, width: 200, height: 100 }),
+        type: 'frame',
+        title: 'Flow',
+      } as unknown as DriplElement,
+    ]);
+
+    // Scene rects only: the clipPath rect lives inside <defs>.
+    const rects = Array.from(doc.querySelectorAll('svg > rect'));
+    expect(rects).toHaveLength(2);
+    expect(rects[1]!.getAttribute('stroke-dasharray')).toBe('5 5');
+    const texts = Array.from(doc.querySelectorAll('text'));
+    expect(texts.map(t => t.textContent)).toEqual(['Flow']);
+  });
+
+  it('clips frame members to the frame and leaves outsiders alone', async () => {
+    const doc = await parseSvg([
+      {
+        ...rectangle('f', { ...STYLE, x: 100, y: 100, width: 200, height: 200 }),
+        type: 'frame',
+      } as unknown as DriplElement,
+      rectangle('child', { ...STYLE, x: 150, y: 150, width: 50, height: 50, groupId: 'frame-f' }),
+      rectangle('outsider', { ...STYLE, x: 400, y: 400, width: 50, height: 50 }),
+      rectangle('grouped', {
+        ...STYLE,
+        x: 160,
+        y: 150,
+        width: 10,
+        height: 10,
+        groupId: 'some-uuid',
+      }),
+    ]);
+
+    const clipPath = doc.querySelector('clipPath');
+    expect(clipPath).not.toBeNull();
+    expect(clipPath!.querySelector('rect')).not.toBeNull();
+    // Scene rects only (the clipPath rect lives inside <defs>).
+    const rects = Array.from(doc.querySelectorAll('svg > rect'));
+    const byX = new Map(rects.map(r => [r.getAttribute('x'), r]));
+    expect(byX.get('150')!.getAttribute('clip-path')).toBe('url(#dripl-clip-f)');
+    expect(byX.get('400')!.getAttribute('clip-path')).toBeNull();
+    expect(byX.get('160')!.getAttribute('clip-path')).toBeNull();
+  });
+});
+
+describe('exportToSvg: determinism', () => {
   it('keeps scene order and is byte-identical for the same scene', async () => {
     // Regression: output assembled through a `Map`/`Set` keyed on something
     // order-independent would reorder the file between exports, so "export
