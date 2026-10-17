@@ -743,4 +743,110 @@ describe('production WebSocket process', () => {
     second.close();
     third.close();
   });
+
+  it('relays move-deltas compactly and merges them into room state', async () => {
+    // A drag flush carries only the new origin plus freshness. The relay must
+    // preserve the compact form (never expand to full records), and a late
+    // joiner must observe the merged origin — which proves the server applied
+    // the move to its authoritative copy rather than merely forwarding bytes.
+    stubFileAccess('move-a', ['move-b', 'move-c']);
+    const first = await openClient(port, 'move-a');
+    const second = await openClient(port, 'move-b');
+    const firstSync = waitForMessage(first, message => message.type === 'sync_room_state');
+    const secondSync = waitForMessage(second, message => message.type === 'sync_room_state');
+    first.send(JSON.stringify({ type: 'join', roomId: 'room-move', displayName: 'A' }));
+    second.send(JSON.stringify({ type: 'join', roomId: 'room-move', displayName: 'B' }));
+    await firstSync;
+    await secondSync;
+
+    const added = waitForMessage(
+      second,
+      message =>
+        message.type === 'scene-delta' &&
+        ((message.added as Array<{ id?: string }> | undefined) ?? []).some(
+          element => element.id === 'box'
+        )
+    );
+    first.send(
+      JSON.stringify({
+        type: 'scene-delta',
+        added: [
+          {
+            id: 'box',
+            type: 'rectangle',
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 80,
+            version: 1,
+            versionNonce: 1,
+          },
+        ],
+      })
+    );
+    await added;
+
+    const relayedMove = waitForMessage(
+      second,
+      message => message.type === 'scene-delta' && Array.isArray(message.moved)
+    );
+    first.send(
+      JSON.stringify({
+        type: 'scene-delta',
+        moved: [{ id: 'box', x: 40, y: 30, version: 2, versionNonce: 2 }],
+      })
+    );
+    const relayed = await relayedMove;
+    expect(relayed.moved).toEqual([{ id: 'box', x: 40, y: 30, version: 2, versionNonce: 2 }]);
+    // Compact on the wire: the move must not be re-expanded into a full record.
+    expect(relayed.updated).toBeUndefined();
+
+    const third = await openClient(port, 'move-c');
+    const thirdSync = waitForMessage(third, message => message.type === 'sync_room_state');
+    third.send(JSON.stringify({ type: 'join', roomId: 'room-move', displayName: 'C' }));
+    const state = await thirdSync;
+    const box = (state.elements as Array<Record<string, unknown>>).find(
+      element => element.id === 'box'
+    );
+    expect(box).toMatchObject({ x: 40, y: 30, width: 100, height: 80, version: 2 });
+
+    first.close();
+    second.close();
+    third.close();
+  });
+
+  it('drops a move for an unknown id instead of creating an element', async () => {
+    // Healing re-baselines a receiver that missed the full record; the server
+    // must therefore drop a move it cannot resolve, never synthesise a partial
+    // element from five fields.
+    stubFileAccess('orphan-a', ['orphan-b', 'orphan-c']);
+    const first = await openClient(port, 'orphan-a');
+    const second = await openClient(port, 'orphan-b');
+    const firstSync = waitForMessage(first, message => message.type === 'sync_room_state');
+    const secondSync = waitForMessage(second, message => message.type === 'sync_room_state');
+    first.send(JSON.stringify({ type: 'join', roomId: 'room-orphan', displayName: 'A' }));
+    second.send(JSON.stringify({ type: 'join', roomId: 'room-orphan', displayName: 'B' }));
+    await firstSync;
+    await secondSync;
+
+    // A move for an id the room has never seen earns no relay (the second
+    // client hears nothing) and materialises nothing for a later joiner.
+    first.send(
+      JSON.stringify({
+        type: 'scene-delta',
+        moved: [{ id: 'ghost', x: 40, y: 30, version: 2, versionNonce: 2 }],
+      })
+    );
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const third = await openClient(port, 'orphan-c');
+    const thirdSync = waitForMessage(third, message => message.type === 'sync_room_state');
+    third.send(JSON.stringify({ type: 'join', roomId: 'room-orphan', displayName: 'C' }));
+    const state = await thirdSync;
+    expect(state.elements).toEqual([]);
+
+    first.close();
+    second.close();
+    third.close();
+  });
 });
