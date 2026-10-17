@@ -168,7 +168,10 @@ version, versionNonce}` instead of the whole record, through the same
   records and mixed-content edits still travel whole. This does not change
   the convergence model above — it is a bandwidth reduction on the same
   versioned JSON protocol, covered by sender/reconcile/router/server unit
-  tests, not by a multi-client deployment test.
+  tests and a real-socket relay test (`production-integration.test.ts`: the
+  move is relayed in compact form, and a late joiner reads the merged
+  origin, which forwarding alone would not produce), though not by a
+  PostgreSQL-backed multi-instance deployment test.
 
 ### Not yet proven
 
