@@ -237,6 +237,12 @@ jobs:
         # on http://127.0.0.1:3000 sends a different Origin and every API call
         # is rejected, so the page renders but can never talk to its own API.
         run: E2E_BASE_URL=http://localhost:3000 pnpm --filter dripl-app test:e2e e2e/smoke.spec.ts
+      - name: Canvas interaction test against the production stack
+        # Pointer drawing, tool keyboard shortcuts, Escape cancellation and
+        # keyboard deletion on the unauthenticated local canvas — the browser
+        # behavior the audit names as unverified, exercised against a
+        # release-shaped artifact rather than the dev server.
+        run: E2E_BASE_URL=http://localhost:3000 pnpm --filter dripl-app test:e2e e2e/canvas-interactions.spec.ts
       - name: Tear down
         if: always()
         run: docker compose down -v
