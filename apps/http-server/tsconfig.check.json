@@ -32,6 +32,7 @@
       "@dripl/db": ["../../packages/db/src/index.ts"],
       "@dripl/utils": ["../../packages/utils/src/index.ts"],
       "@dripl/utils/auth": ["../../packages/utils/src/auth.ts"],
+      "@dripl/utils/origin": ["../../packages/utils/src/origin.ts"],
       "@dripl/utils/env": ["../../packages/utils/src/env.ts"],
       "@dripl/utils/logger": ["../../packages/utils/src/logger.ts"],
       "@dripl/utils/encryption": ["../../packages/utils/src/encryption/index.ts"]
