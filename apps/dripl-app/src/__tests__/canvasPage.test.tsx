@@ -200,9 +200,12 @@ describe('/canvas identity', () => {
 });
 
 describe('/canvas help affordances', () => {
-  it('opens help on "?" and on Ctrl+/', async () => {
-    // Regression: both bindings are advertised in the toolbar. Either one alone
-    // silently doing nothing is the kind of bug nobody reports.
+  it('opens help on "?" and leaves Ctrl+/ to the command palette', async () => {
+    // Regression: the menu advertises `?` for Help and Ctrl+/ for the command
+    // palette (which TopBar opens by dispatching `dripl:open-command-palette`).
+    // Binding Ctrl+/ here as well opened Help *and* the palette on one chord.
+    // The previous version fired Ctrl+/ and asserted nothing, so the collision
+    // went unnoticed.
     render(<CanvasPage />);
 
     await act(async () => {
@@ -211,8 +214,14 @@ describe('/canvas help affordances', () => {
     expect(screen.getByTestId('help-modal')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.keyDown(window, { key: '/' });
+      fireEvent.click(screen.getByText('close-help'));
     });
+    expect(screen.queryByTestId('help-modal')).toBeNull();
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: '/', ctrlKey: true });
+    });
+    expect(screen.queryByTestId('help-modal')).toBeNull();
   });
 
   it('opens help from the in-page Help button', async () => {

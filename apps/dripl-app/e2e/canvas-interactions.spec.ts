@@ -219,3 +219,47 @@ test.describe('canvas keyboard deletion', () => {
     await expectElementCount(page, 0);
   });
 });
+
+test.describe('canvas history', () => {
+  test('undoes and redoes a drawn rectangle', async ({ page }) => {
+    await openFreshCanvas(page);
+
+    await page.keyboard.press('r');
+    const box = await canvasBox(page);
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    await page.mouse.move(cx - 80, cy - 60);
+    await page.mouse.down();
+    await page.mouse.move(cx + 80, cy + 60, { steps: 10 });
+    await page.mouse.up();
+    await expectElementCount(page, 1);
+
+    await page.keyboard.press('ControlOrMeta+z');
+    await expectElementCount(page, 0);
+
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await expectElementCount(page, 1);
+  });
+});
+
+test.describe('canvas modals', () => {
+  test('opens the command palette from the keyboard and closes it with Escape', async ({
+    page,
+  }) => {
+    await openFreshCanvas(page);
+
+    const palette = page.getByRole('dialog', { name: 'Command palette' });
+    // HelpModal's h2, which only renders while Help is open.
+    const helpHeading = page.getByRole('heading', { name: 'Help' });
+    await expect(palette).toBeHidden();
+
+    await page.keyboard.press('ControlOrMeta+/');
+    await expect(palette).toBeVisible();
+    // Ctrl+/ is the command-palette chord the menu advertises; it must not also
+    // open Help (the page used to bind the same chord to both).
+    await expect(helpHeading).toBeHidden();
+
+    await page.keyboard.press('Escape');
+    await expect(palette).toBeHidden();
+  });
+});

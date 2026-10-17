@@ -56,7 +56,10 @@ function CanvasContent() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '?' || (e.ctrlKey && e.key === '/')) {
+      // Help is `?`; Ctrl+/ belongs to the command palette (TopBar + Menu both
+      // advertise it, and CommandPalette opens on that dispatch). Binding Ctrl+/
+      // here too opened Help *and* the palette on one chord.
+      if (e.key === '?') {
         e.preventDefault();
         setIsHelpOpen(true);
       }
