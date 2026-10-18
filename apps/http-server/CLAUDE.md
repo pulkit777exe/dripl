@@ -240,9 +240,14 @@ Helmet (security headers)
 
 ## Validation Pattern
 
-Most input-bearing route handlers validate request bodies with **Zod** before
-DB interaction. A few legacy auth handlers still perform manual checks; do not
-assume every endpoint has the same validation depth:
+Every input-bearing route handler validates its request body with **Zod**
+before DB interaction. This is uniform: the last manual `typeof` chains (in
+`auth.ts`: reset-password, verify-email, change-password, and the internal
+validate-ticket) were converted on 2026-10-18. Routes keep their own failure
+contract — the code/message per failure kind is load-bearing wire — so a
+route whose historical answers distinguish failure kinds maps schema issues
+back to those answers (see `sendResetPasswordError` in `routes/auth.ts`)
+rather than unifying on one generic 400:
 
 ```typescript
 // Example pattern
