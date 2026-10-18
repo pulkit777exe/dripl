@@ -560,8 +560,12 @@ export function useCanvasPointerEvents({
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
+        input.hidden = true;
+        document.body.appendChild(input);
+        const detach = () => input.remove();
         input.onchange = async event => {
           const file = (event.target as HTMLInputElement).files?.[0];
+          detach();
           if (file) {
             try {
               const imageUrl = await uploadImageToServer(file);
@@ -588,6 +592,9 @@ export function useCanvasPointerEvents({
             }
           }
         };
+        // Dismissing the picker fires `cancel` (no `change`), which would
+        // otherwise strand the hidden input in the DOM for the session.
+        input.addEventListener('cancel', detach, { once: true });
         input.click();
         return;
       }
@@ -977,24 +984,6 @@ export function useCanvasPointerEvents({
           shouldResizeFromCenter: e.altKey,
         };
 
-        // Rotation-aware origin and point mapping live in @dripl/element.
-        // For unrotated shapes the package origin coincides with the
-        // axis-aligned computation above, so only rotated shapes take the
-        // package origin. Linear/freedraw points always come from the package,
-        // scaled once from the gesture-start snapshot instead of
-        // re-scaling transient points on every move.
-        // An axis-aligned linear -- a perfectly horizontal or vertical arrow, which
-        // is exactly what a shift-snapped drag produces and what `commitDraft` does
-        // not clamp -- has one zero extent. Excluding those here meant the points
-        // branch below never ran for them: `width`/`height` were still written onto
-        // `updatedElement`, but the path was not, and since a linear element's
-        // rendered bounds come from its points the frame snapped straight back and
-        // the drag read as inert.
-        //
-        // No non-zero guard is needed here. `resizeSingleLinearElement` already
-        // treats a zero extent as "do not scale this axis"
-        // (`prevWidth === 0 ? 1 : nextWidth / prevWidth`), which is the correct
-        // reading: a horizontal arrow scales along x and keeps its y.
         const isLinearElement =
           (el.type === 'arrow' || el.type === 'line' || el.type === 'freedraw') &&
           el.points &&

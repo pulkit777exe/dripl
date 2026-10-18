@@ -243,6 +243,14 @@ jobs:
         # behavior the audit names as unverified, exercised against a
         # release-shaped artifact rather than the dev server.
         run: E2E_BASE_URL=http://localhost:3000 pnpm --filter dripl-app test:e2e e2e/canvas-interactions.spec.ts
+      - name: Image insert and responsive menu tests against the production stack
+        # Two flows the audit lists as unverified: image insertion (the tool
+        # raises a picker, the upload is issued, the element is committed) and
+        # the landing navbar's only responsive menu below `md`. Both stub the
+        # network at the context level, which is required here: production
+        # registers public/sw.js, and requests a service worker issues are
+        # invisible to page-level interception.
+        run: E2E_BASE_URL=http://localhost:3000 pnpm --filter dripl-app test:e2e e2e/canvas-image.spec.ts e2e/landing-mobile-menu.spec.ts
       - name: Tear down
         if: always()
         run: docker compose down -v
