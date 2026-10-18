@@ -104,14 +104,22 @@ export function FileCanvasRoute({
       return;
     }
 
-    const currentContent = JSON.stringify(elements);
-    const savedContent = lastSavedContentRef.current;
-
-    if (savedContent !== null && currentContent === savedContent) {
-      pendingSaveRef.current = false;
-      return;
-    }
-
+    // The comparison against the last saved content runs *inside* the debounce
+    // below rather than here. This effect fires on every store commit — that is
+    // every frame of a drag — and the comparison was a full-scene
+    // JSON.stringify over the whole array, to decide something only the timer
+    // ever acts on: for a 1,000-element scene that is milliseconds of string
+    // building per frame on the same path that just had its per-element
+    // bitmap rebuilds removed. Deferred, the identical comparison runs once
+    // per burst instead of once per frame, with the same two strings and the
+    // same outcome. It also compares at the moment of acting, which the old
+    // placement did not: a change reverted within the window left an armed
+    // timer that then saved bytes equal to what was already stored.
+    //
+    // `pendingSaveRef` is still set eagerly, before any comparison: the
+    // unmount flush reads it, so it may only ever over-report — a redundant
+    // write of identical content — never under-report and drop the tail of an
+    // edit session on navigate-away.
     pendingSaveRef.current = true;
 
     if (autosaveTimerRef.current !== null) {
@@ -121,6 +129,14 @@ export function FileCanvasRoute({
     autosaveTimerRef.current = window.setTimeout(() => {
       void (async () => {
         const currentElements = latestElementsRef.current;
+
+        const currentContent = JSON.stringify(currentElements);
+        const savedContent = lastSavedContentRef.current;
+        if (savedContent !== null && currentContent === savedContent) {
+          pendingSaveRef.current = false;
+          return;
+        }
+
         const {
           zoom: currentZoom,
           panX: currentPanX,
