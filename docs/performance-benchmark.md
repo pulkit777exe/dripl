@@ -549,3 +549,93 @@ identically to `high` here — `high` was chosen so fidelity, not the
 perceptual threshold of one scene, decides. A scene whose every stroke lands
 between sample points can still read near-zero; the assertion guards the
 regression (a fully transparent layer with a non-empty scene), not legibility.
+
+## Drag path: position-only mutations now carry their bitmap (2026-10-18)
+
+`mutateElement` invalidated both per-element caches on **every** change, and
+every frame of a drag is a change. Both caches — the offscreen bitmap and the
+Rough.js drawable — are keyed on element _object identity_, and a mutation
+always returns a new object, so the successor inherited nothing: one bitmap per
+selected element was rebuilt every frame to reproduce bytes that could not have
+changed.
+
+**Method: counts, not wall-clock.** The retraction above is why.
+`pnpm --filter @dripl/element bench:drag` reports `bitmapsGenerated` per frame
+from the renderer's own frame stats; a count of 0 cannot be noise. The `ms`
+column is printed only as a floor under the counts, and is one run each.
+
+One trap was walked into first, and is recorded so nobody repeats it: **a
+single cold frame is not a drag measurement.** The scene generates at most
+`DEFAULT_MAX_NEW_BITMAPS_PER_FRAME` (100) bitmaps per frame, so most of a
+1,000-element scene is still unbuilt when a cold frame ends — counting that
+budget catch-up as drag cost reported _46 rebuilds per frame for one moved
+element_, which is `(1000 − 100) / 20 frames` of remaining budget, not a single
+rebuild caused by moving anything. The bench now warms the cache to completion
+first (3 frames at 200 elements, 11 at 1,000 — the header prints it) and only
+then measures.
+
+| scene | dragged/frame | gen/frame before → after | reuse/frame after | ms/frame before → after |
+| ----- | ------------: | -----------------------: | ----------------: | ----------------------: |
+| 200   |             1 |                1 → **0** |               200 |             0.33 → 0.21 |
+| 200   |           100 |              100 → **0** |               200 |             5.27 → 0.08 |
+| 1,000 |             1 |                1 → **0** |             1,000 |             0.60 → 0.43 |
+| 1,000 |           100 |              100 → **0** |             1,000 |             5.56 → 0.51 |
+
+The 10-dragged rows moved identically (10 → 0). Deferred stayed 0 throughout.
+
+**Why carrying is sound** (argued in `carryForwardElementCache`'s doc in
+`packages/element/src/staticScene.ts`): the bitmap is rasterized in the
+element's own frame — `generateElementCanvas` translates by `-x, -y` and
+`drawElement` blits at `x − PADDING`, so position cancels exactly, and every
+generation branch is position-free inside that frame (shapes generate at
+(0,0), freedraw outlines are world coordinates removed again by a final
+translate, text cancels its own translate). Two keys are _not_ position-free
+and are therefore not carried: `opacity`, set as `ctx.globalAlpha` while
+generating, and `angle` for freedraw, whose outline is rotated during
+generation (every other type rotates at blit time, so it carries). An owner
+whose bitmap embeds another element — an arrow's label cutout, a shape's bound
+text — is refused rather than assumed, and `dependencyVersions` re-checks on
+every later hit. What must not be relaxed is `elementIdMap`: invalidation
+reaches the live entry _through_ it by id, so the carry has to move it too.
+
+**How it is guarded.** The contract tests assert where the caches _went_
+(a cache merely absent from the old object would pass while sitting on the
+successor unrefreshed), and one renders the carried entry to prove it is a hit
+rather than present: an entry carried without a version refresh exists and is
+missed every frame — the same waste with better optics. The browser guard is
+`e2e/canvas-drag-render.spec.ts`: it reads the static layer in-page and
+asserts the ink's bounding box travels the drag vector at unchanged size —
+relative, so no golden and no font/DPR axis — because a stale renderer is
+invisible to every persistence assertion (IndexedDB keeps the right `x`/`y`
+while the canvas paints the old bitmap). It runs in the `production-e2e` CI
+job against a `next start` build.
+
+Three sibling costs on the same path were removed in the same push (same
+section of `docs/codebase-audit.md`):
+
+- **Gesture view copy** — `resolveGestureUpdates` copied the whole scene map
+  per gesture frame to serve two consumers that only `get()` by ids drawn from
+  the moved set; now a read-through overlay, O(selection) lookups with no
+  copy, store map still never written.
+- **Text measurement** — `measureText` built a canvas _and_ a 2D context per
+  call, and `wrapText` calls it per candidate line: one canvas per word per
+  frame for every container with a bound label. Now one module-scoped canvas
+  with widths memoised on (family, size, text), bounded by wholesale clear; a
+  test pins ≤1 canvas for two multi-word labels. The context is re-derived per
+  call rather than remembered so a swapped or newly-refused context cannot
+  serve another context's numbers — a refused context still yields the zero
+  line box the collapse regression pins.
+- **Autosave comparison** — `FileCanvasRoute` ran `JSON.stringify` over the
+  whole scene on every store commit (every drag frame) to decide something
+  only its debounce timer acts on: measured here at 0.12 ms/frame (200
+  elements) and 0.68 ms/frame (1,000, 239 KiB). The identical comparison now
+  runs inside the timer — once per burst — with `pendingSaveRef` set eagerly
+  (it feeds the unmount flush, so it may only over-report) and the
+  compare-at-act also skipping a write the old placement would have made for
+  content reverted inside the window.
+
+Full workspace gates after all four commits: lint and check-types 9/9 tasks,
+test suite 18/18 tasks green (`--concurrency=1`), element 387, frontend 4123,
+and the browser suite green against the rebuilt production build (the only
+failures are the `google-oauth` specs, which need credentials this environment
+does not set and CI does not run).
