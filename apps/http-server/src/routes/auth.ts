@@ -166,11 +166,7 @@ authRouter.post('/register', async (req, res) => {
     // 'already sent' / 'sent' messages for pending ones), which let a caller learn
     // whether an address holds an account. Side effects still differ inside the
     // service (mail is re-issued only when applicable); the wire does not.
-    await AuthService.register(
-      parsed.data.email,
-      parsed.data.password,
-      parsed.data.name
-    );
+    await AuthService.register(parsed.data.email, parsed.data.password, parsed.data.name);
 
     res.status(201).json({
       message: 'Registration successful. Please verify your email to login.',
@@ -385,29 +381,66 @@ authRouter.post('/forgot-password', async (req, res) => {
   }
 });
 
-authRouter.post('/reset-password', async (req, res) => {
-  const { token, password } = req.body;
-  if (typeof token !== 'string' || typeof password !== 'string' || !token || !password) {
+/**
+ * The password rule shared by reset and change: the register ceiling (128, so
+ * an unbounded value never reaches bcrypt.hash) and the 8-character floor that
+ * reset previously lacked. The floor is a separate rule rather than `min(8)`
+ * because the two failures are different wire — an *absent* password answers
+ * `PASSWORDS_REQUIRED` while a present-but-short one answers `VALIDATION_ERROR`
+ * — and a single `min(8)` issue cannot tell the two apart.
+ */
+const newPasswordSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .refine(password => password.length >= 8, { message: 'must be at least 8 characters' });
+
+/** A field that never arrived: absent, the wrong type, or empty. */
+function isPresenceFailure(issue: z.core.$ZodIssue): boolean {
+  return issue.code === 'invalid_type' || (issue.code === 'too_small' && issue.minimum === 1);
+}
+
+const resetPasswordSchema = z.object({
+  // Token bound matches the internal ticket bound (512): overlong answers the
+  // same 400 an unknown token gets, without a DB lookup.
+  token: z.string().min(1).max(512),
+  password: newPasswordSchema,
+});
+
+/**
+ * Map a `reset-password` schema failure back onto the route's historical wire
+ * contract, which answers four distinct status/code pairs: an absent field is
+ * `PASSWORDS_REQUIRED`, an overlong token answers exactly what an unknown
+ * token answers (so the bound leaks nothing), and the two password bounds are
+ * `VALIDATION_ERROR`, naming the bound that failed. The checks run in the
+ * order the hand-written chain ran — presence, token length, password floor,
+ * password ceiling — so every combination of bad fields answers what it
+ * answered before; only the mechanism moved.
+ */
+function sendResetPasswordError(res: Response, issues: readonly z.core.$ZodIssue[]): void {
+  if (issues.some(isPresenceFailure)) {
     sendError(res, 400, 'PASSWORDS_REQUIRED', 'Token and password are required');
     return;
   }
-  // Token bound matches the internal ticket bound (512): overlong answers
-  // the same 400 an unknown token gets, without a DB lookup. The password
-  // floor is the vuln fix — reset previously accepted a 1-character password
-  // while register and change-password require 8 — and the ceiling mirrors
-  // register so an unbounded value never reaches bcrypt.hash.
-  if (token.length > 512) {
+  if (issues.some(issue => issue.path[0] === 'token' && issue.code === 'too_big')) {
     sendError(res, 400, 'INVALID_PAYLOAD', 'Invalid or expired reset token');
     return;
   }
-  if (password.length < 8) {
+  if (issues.some(issue => issue.path[0] === 'password' && issue.code === 'custom')) {
     sendError(res, 400, 'VALIDATION_ERROR', 'New password must be at least 8 characters');
     return;
   }
-  if (password.length > 128) {
-    sendError(res, 400, 'VALIDATION_ERROR', 'New password must be at most 128 characters');
+  // The only failure left is the password ceiling.
+  sendError(res, 400, 'VALIDATION_ERROR', 'New password must be at most 128 characters');
+}
+
+authRouter.post('/reset-password', async (req, res) => {
+  const parsed = resetPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    sendResetPasswordError(res, parsed.error.issues);
     return;
   }
+  const { token, password } = parsed.data;
 
   try {
     const success = await AuthService.resetPassword(token, password);
@@ -422,18 +455,24 @@ authRouter.post('/reset-password', async (req, res) => {
   }
 });
 
+const verifyEmailSchema = z.object({
+  token: z.string().min(1).max(512),
+});
+
 authRouter.post('/verify-email', async (req, res) => {
-  const { token } = req.body;
-  if (typeof token !== 'string' || !token) {
+  const parsed = verifyEmailSchema.safeParse(req.body);
+  if (!parsed.success) {
+    // An overlong token answers the same 400 an unknown one gets, so the
+    // bound is invisible on the wire and no huge string reaches Prisma.
+    const overlong = parsed.error.issues.some(issue => issue.code === 'too_big');
+    if (overlong) {
+      sendError(res, 400, 'INVALID_PAYLOAD', 'Invalid or expired verification token');
+      return;
+    }
     sendError(res, 400, 'VERIFICATION_TOKEN_REQUIRED', 'Verification token is required');
     return;
   }
-  // Bound before the DB lookup: overlong answers the same 400 an unknown
-  // token gets, so the wire is unchanged and no huge string reaches Prisma.
-  if (token.length > 512) {
-    sendError(res, 400, 'INVALID_PAYLOAD', 'Invalid or expired verification token');
-    return;
-  }
+  const { token } = parsed.data;
 
   try {
     const success = await AuthService.verifyEmail(token);
@@ -520,40 +559,51 @@ authRouter.put('/profile', authMiddleware, async (req: AuthenticatedRequest, res
   }
 });
 
+const changePasswordSchema = z.object({
+  // DoS bound only (1024): any real password is far shorter, and a wrong one
+  // still answers the same 400.
+  currentPassword: z.string().min(1).max(1024),
+  newPassword: newPasswordSchema,
+});
+
+/**
+ * Map a `change-password` schema failure back onto the route's historical
+ * wire contract: an absent field is `PASSWORDS_REQUIRED`, the new password's
+ * bounds are `VALIDATION_ERROR` naming the bound that failed, and an overlong
+ * current password answers what a wrong one answers. The order — presence,
+ * new floor, new ceiling, current ceiling — is the order the hand-written
+ * chain ran, so every combination of bad fields answers what it answered
+ * before; only the mechanism moved.
+ */
+function sendChangePasswordError(res: Response, issues: readonly z.core.$ZodIssue[]): void {
+  if (issues.some(isPresenceFailure)) {
+    sendError(res, 400, 'PASSWORDS_REQUIRED', 'Current and new password are required');
+    return;
+  }
+  if (issues.some(issue => issue.path[0] === 'newPassword' && issue.code === 'custom')) {
+    sendError(res, 400, 'VALIDATION_ERROR', 'New password must be at least 8 characters');
+    return;
+  }
+  if (issues.some(issue => issue.path[0] === 'newPassword' && issue.code === 'too_big')) {
+    sendError(res, 400, 'VALIDATION_ERROR', 'New password must be at most 128 characters');
+    return;
+  }
+  // The only failure left is the current-password DoS ceiling.
+  sendError(res, 400, 'INVALID_PAYLOAD', 'Cannot change password for this account');
+}
+
 authRouter.post('/change-password', authMiddleware, async (req: AuthenticatedRequest, res) => {
   if (!req.userId) {
     sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
     return;
   }
 
-  const { currentPassword, newPassword } = req.body;
-
-  if (
-    typeof currentPassword !== 'string' ||
-    typeof newPassword !== 'string' ||
-    !currentPassword ||
-    !newPassword
-  ) {
-    sendError(res, 400, 'PASSWORDS_REQUIRED', 'Current and new password are required');
+  const parsed = changePasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    sendChangePasswordError(res, parsed.error.issues);
     return;
   }
-
-  if (newPassword.length < 8) {
-    sendError(res, 400, 'VALIDATION_ERROR', 'New password must be at least 8 characters');
-    return;
-  }
-
-  // Ceilings so unbounded values never reach bcrypt: the new password mirrors
-  // register (128); the current one is a DoS bound only (1024) — any real
-  // password is far shorter, and a wrong one still answers the same 400.
-  if (newPassword.length > 128) {
-    sendError(res, 400, 'VALIDATION_ERROR', 'New password must be at most 128 characters');
-    return;
-  }
-  if (currentPassword.length > 1024) {
-    sendError(res, 400, 'INVALID_PAYLOAD', 'Cannot change password for this account');
-    return;
-  }
+  const { currentPassword, newPassword } = parsed.data;
 
   try {
     const success = await AuthService.changePassword(req.userId, currentPassword, newPassword);
@@ -579,6 +629,10 @@ authRouter.post('/ws-ticket', authMiddleware, async (req: AuthenticatedRequest, 
 
 export { authRouter };
 
+const validateTicketSchema = z.object({
+  ticket: z.string().min(1).max(512),
+});
+
 export function createInternalRouter(): Router {
   const internalRouter = Router();
 
@@ -598,15 +652,19 @@ export function createInternalRouter(): Router {
   }
 
   internalRouter.post('/validate-ticket', requireInternalSecret, async (req, res) => {
-    const { ticket } = req.body;
-    if (!ticket || typeof ticket !== 'string' || ticket.length > 512) {
+    // Malformed in any way — absent, the wrong type, empty, overlong —
+    // answers the same 400: this is an internal endpoint and its wire says
+    // only "no". Reading the body through the schema also removed a latent
+    // 500: the previous destructure threw when no body parser had run.
+    const parsed = validateTicketSchema.safeParse(req.body);
+    if (!parsed.success) {
       res.status(400).json({ error: 'Ticket is required' });
       return;
     }
     // Through the selected driver, so a ticket minted by any instance is
     // spendable on this one. In memory mode this is the same store (and the
     // same single-threaded atomicity) the previous sync call provided.
-    const principal = await ticketStorePort.consume(ticket);
+    const principal = await ticketStorePort.consume(parsed.data.ticket);
     if (!principal) {
       res.status(401).json({ error: 'Invalid or expired ticket' });
       return;

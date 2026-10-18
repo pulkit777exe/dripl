@@ -139,6 +139,59 @@ describe('credential-route bounds', () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('VALIDATION_ERROR');
   });
+
+  it('answers an overlong reset password with the ceiling message', async () => {
+    const response = await post(authApp, '/api/auth/reset-password', 'anonymous', {
+      token: 'live',
+      password: 'x'.repeat(129),
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'VALIDATION_ERROR',
+      message: 'New password must be at most 128 characters',
+      statusCode: 400,
+    });
+  });
+
+  it('answers an EMPTY reset password as required, not as too short', async () => {
+    // The wire splits the two: "" was "password missing" before any length
+    // rule ran, while 1-7 characters is the floor. One `min(8)` issue cannot
+    // tell them apart, which is why the schema keeps presence and floor as
+    // separate rules.
+    const response = await post(authApp, '/api/auth/reset-password', 'anonymous', {
+      token: 'live',
+      password: '',
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('PASSWORDS_REQUIRED');
+  });
+
+  it('answers a non-string reset token as required, not as a Prisma error', async () => {
+    const response = await post(authApp, '/api/auth/reset-password', 'anonymous', {
+      token: { nested: 'object' },
+      password: 'a-new-password',
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('PASSWORDS_REQUIRED');
+  });
+
+  it('answers an overlong current password exactly like a wrong one', async () => {
+    seedSessionUser(OWNER_ID);
+    const response = await post(authApp, '/api/auth/change-password', OWNER_ID, {
+      currentPassword: 'x'.repeat(1025),
+      newPassword: 'a-new-password',
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'INVALID_PAYLOAD',
+      message: 'Cannot change password for this account',
+      statusCode: 400,
+    });
+  });
 });
 
 describe('profile bounds', () => {

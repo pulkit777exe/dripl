@@ -44,4 +44,18 @@ describe('internal ticket validation authentication', () => {
 
     expect(response.status).toBe(401);
   });
+
+  it('answers a malformed ticket with 400 before the store is touched', async () => {
+    vi.stubEnv('INTERNAL_SECRET', 'expected-secret');
+    const app = internalApp();
+    const secret = { 'x-internal-secret': 'expected-secret' };
+
+    // Absent, empty, overlong, and non-string are all one answer: this
+    // endpoint's wire says only "no", and none of them reaches the store.
+    for (const body of [{}, { ticket: '' }, { ticket: 't'.repeat(513) }, { ticket: 42 }]) {
+      const response = await request(app).post('/internal/validate-ticket').set(secret).send(body);
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'Ticket is required' });
+    }
+  });
 });
