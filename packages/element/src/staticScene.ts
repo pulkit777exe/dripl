@@ -336,8 +336,18 @@ export function hasCachedBitmapForTest(element: DriplElement): boolean {
 /**
  * Insert a cache entry without allocating a real canvas. The stub exposes only
  * the `width`/`height` the byte accounting reads.
+ *
+ * `dependencyVersions` defaults to `null`, which is what a real generation
+ * records for an element that embeds nothing. Tests that need the *refused*
+ * case — an owner whose bitmap draws a label — pass a map here, because jsdom
+ * cannot allocate the context a real generation would need to record one.
  */
-export function seedCacheEntryForTest(element: DriplElement, width = 120, height = 90): void {
+export function seedCacheEntryForTest(
+  element: DriplElement,
+  width = 120,
+  height = 90,
+  dependencyVersions: ReadonlyMap<string, number> | null = null
+): void {
   // Re-seeding an element replaces its entry, so the byte total has to subtract
   // the one being replaced exactly as `getOrCreateElementCanvas` does. Adding
   // unconditionally let a double-seeded element report twice its real cost,
@@ -350,7 +360,7 @@ export function seedCacheEntryForTest(element: DriplElement, width = 120, height
     version: element.version ?? 0,
     theme: 'light',
     pixelsPerUnit: 1,
-    dependencyVersions: null,
+    dependencyVersions,
   });
   elementIdMap.set(element.id, element);
   bitmapOrder.add(element);
@@ -577,6 +587,75 @@ function dropCachedBitmap(element: DriplElement): void {
 }
 
 export const dropCachedBitmapForTest = dropCachedBitmap;
+
+/**
+ * Move a cached bitmap from an element object onto the one a position-only
+ * mutation returned, instead of dropping it.
+ *
+ * `elementCanvasCache` is keyed on element *identity*, and `mutateElement`
+ * always builds a new object, so a plain lookup misses on every mutation. That
+ * is why mutation used to invalidate unconditionally: it rebuilt one bitmap per
+ * dragged element per frame. `bench/drag-path.bench.ts` measures it exactly —
+ * `bitmapsGenerated` equal to the selection size on every frame, 100 rebuilds
+ * per frame for a 100-element drag, ~5 ms of a 16 ms frame spent regenerating
+ * pixels that could not have changed.
+ *
+ * Two conditions make carrying safe, and both are checked rather than assumed:
+ *
+ *   1. **The element's own position cancels out of the bitmap.**
+ *      `generateElementCanvas` applies `translate(PADDING, PADDING)` then
+ *      `translate(-element.x, -element.y)`, and `drawElement` blits at
+ *      `element.x - PADDING`, so `x`/`y` cancel exactly: the stored pixels are
+ *      the element in its own local frame. Within that frame every branch of
+ *      `renderRoughElement` is position-free too — shapes are generated at
+ *      (0, 0) from width/height, text draws after its own `translate(x, y)`
+ *      which cancels the generator's, and freedraw outlines are built in world
+ *      coordinates (`toWorldPoints`) and then removed again by a final
+ *      `translate(-x, -y)`. Rotation and opacity are *not* position-free:
+ *      rotation is baked by the freedraw branch and opacity is set as
+ *      `globalAlpha` for every element, which is why `mutateElement` does not
+ *      offer either key here.
+ *
+ *   2. **Nothing foreign is embedded.** An owner whose bitmap draws another
+ *      element — an arrow's label cutout, a shape's bound text — records those
+ *      elements' versions in `dependencyVersions`. Whether such an element
+ *      moved *with* this one is a question about label layout, not about this
+ *      element, so those owners are refused and drop the entry exactly as
+ *      before. Their safety was never only this function's to hold: the lookup
+ *      in `getOrCreateElementCanvas` re-checks `dependenciesUnchanged` on every
+ *      hit regardless, so a label edited after the carry still forces a rebuild.
+ *
+ * Byte accounting needs no adjustment — one canvas moves between two keys — but
+ * `elementIdMap` must follow. `invalidateElementCache` reaches entries through
+ * that map, so leaving it pointing at the superseded object would let an
+ * invalidation by id drop a bitmap no longer referenced while the live one
+ * survived, which is a stale image waiting for the next explicit invalidation.
+ */
+export function carryForwardElementCache(previous: DriplElement, next: DriplElement): void {
+  const entry = elementCanvasCache.get(previous);
+
+  if (entry === undefined) {
+    // No bitmap to move. Keep the id map on the successor anyway: eviction
+    // removes the bitmap but leaves the id entry behind, and the map's whole
+    // job is to name the object the scene will draw.
+    if (elementIdMap.get(previous.id) === previous) elementIdMap.set(next.id, next);
+    return;
+  }
+
+  const embedded = entry.dependencyVersions;
+  if (embedded !== null && embedded.size > 0) {
+    dropCachedBitmap(previous);
+    elementIdMap.delete(previous.id);
+    return;
+  }
+
+  const carried: CacheEntry = { ...entry, version: getElementVersion(next) };
+  elementCanvasCache.delete(previous);
+  elementCanvasCache.set(next, carried);
+  bitmapOrder.delete(previous);
+  bitmapOrder.add(next);
+  elementIdMap.set(next.id, next);
+}
 
 /**
  * Drop every strong reference the cache holds.

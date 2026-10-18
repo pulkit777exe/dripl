@@ -243,6 +243,14 @@ jobs:
         # behavior the audit names as unverified, exercised against a
         # release-shaped artifact rather than the dev server.
         run: E2E_BASE_URL=http://localhost:3000 pnpm --filter dripl-app test:e2e e2e/canvas-interactions.spec.ts
+      - name: Drag rendering test against the production stack
+        # A drag now hands the element's cached bitmap to the next object
+        # instead of rebuilding it every frame. Persistence cannot see a
+        # stale renderer — IndexedDB keeps the right x/y while the canvas
+        # paints the old bitmap — so this one reads the scene layer: the ink
+        # has to travel the drag vector at the same size, or the carry-forward
+        # left the drawing behind.
+        run: E2E_BASE_URL=http://localhost:3000 pnpm --filter dripl-app test:e2e e2e/canvas-drag-render.spec.ts
       - name: Image insert and responsive menu tests against the production stack
         # Two flows the audit lists as unverified: image insertion (the tool
         # raises a picker, the upload is issued, the element is committed) and

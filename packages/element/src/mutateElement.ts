@@ -1,6 +1,6 @@
 import type { DriplElement } from '@dripl/common';
-import { invalidateElementCache } from './staticScene';
-import { clearShapeFromCache } from './shape-cache';
+import { carryForwardElementCache, invalidateElementCache } from './staticScene';
+import { carryForwardShapeCache, clearShapeFromCache } from './shape-cache';
 
 /**
  * Centralized element mutation function.
@@ -77,14 +77,36 @@ function valuesEqual(a: unknown, b: unknown, key: string): boolean {
  * Mutate an element with updates. Returns the same element reference if
  * nothing changed (no-op guard), or a new element with bumped version.
  *
- * Side effects:
- * - Invalidates element canvas cache if geometry changed
- * - Clears shape cache if geometry changed
+ * Side effects — one of two, chosen by whether the change can reach a cached
+ * render:
+ *
+ * - **It can** (geometry, appearance, text, points, opacity …): the element
+ *   canvas cache is invalidated by id and the shape cache is cleared, because
+ *   both caches are keyed on element identity and the successor object has no
+ *   entry to inherit.
+ * - **It cannot** (`x`, `y`, `fractionalIndex`, and `angle` for everything but
+ *   `freedraw`): both entries are *carried* to the successor object instead.
+ *   The pixels a bitmap holds are position-independent by construction, so a
+ *   drag that rebuilt one bitmap per selected element per frame was spending
+ *   ~5 ms of a 16 ms frame on a 100-element selection to reproduce bytes it
+ *   already had (`bench/drag-path.bench.ts`).
+ *
+ * `version` still bumps on every real change either way: it is the
+ * collaboration freshness key and the spatial index re-indexs from it, and
+ * carrying a bitmap must not weaken either.
  */
 export function mutateElement<T extends DriplElement>(element: T, updates: ElementUpdate): T {
   let didChange = false;
+  let reachesPixels = false;
 
-  // Check each update field for actual changes
+  // Check each update field for actual changes.
+  //
+  // Unlike the no-op guard's earlier form this does not `break` on the first
+  // difference: deciding whether the caches may be carried needs to know about
+  // *every* field that actually changes, because one content key among five
+  // position keys still makes the render stale. The update objects are small —
+  // a handful of keys — so the extra comparisons cost less than the bitmap
+  // rebuild they prevent.
   for (const key in updates) {
     const value = updates[key];
     if (typeof value === 'undefined') continue;
@@ -95,7 +117,7 @@ export function mutateElement<T extends DriplElement>(element: T, updates: Eleme
     if (valuesEqual(currentValue, value, key)) continue;
 
     didChange = true;
-    break;
+    if (reachesCachedPixels(element, key)) reachesPixels = true;
   }
 
   // No-op guard: return same reference if nothing changed
@@ -112,15 +134,53 @@ export function mutateElement<T extends DriplElement>(element: T, updates: Eleme
     updated: Date.now(),
   } as T;
 
-  // Both caches hold rendered output keyed on element identity, so they must be
-  // dropped for any change that affects rendering: geometry (bounds, which the
-  // spatial index is keyed on) as well as appearance such as opacity or stroke
-  // color. This used to branch on a `geometryChanged` check whose two arms ran
-  // identical statements, so the branch and its computation were both dead.
-  invalidateElementCache(element.id);
-  clearShapeFromCache(element);
+  if (reachesPixels) {
+    // Both caches hold rendered output keyed on element identity, so they are
+    // dropped rather than inherited: the successor object has no entry, and the
+    // change is one their content depends on — geometry, or appearance such as
+    // stroke colour and opacity.
+    invalidateElementCache(element.id);
+    clearShapeFromCache(element);
+  } else {
+    // Position-only. Move both entries to the successor so the next frame hits
+    // instead of rebuilding; `carryForwardElementCache` re-checks the one
+    // condition this function cannot see (whether the bitmap embeds a label).
+    carryForwardElementCache(element, updated);
+    carryForwardShapeCache(element, updated);
+  }
 
   return updated;
+}
+
+/**
+ * Whether writing `key` can change what a cached bitmap or drawable contains.
+ *
+ * `x` and `y` cannot. The bitmap is generated in the element's local frame —
+ * `generateElementCanvas` translates by `-element.x, -element.y` and
+ * `drawElement` blits at `element.x - PADDING`, so the two cancel — and every
+ * branch of `renderRoughElement` is position-free inside that frame. That is
+ * also why a drag rebuild was pure waste: see `carryForwardElementCache` for
+ * the full argument, including the world-coordinate freedraw case.
+ *
+ * `fractionalIndex` is z-order. Each element is rasterized into its own bitmap,
+ * so the order other elements are drawn in never reaches these pixels.
+ *
+ * `angle` is the qualified case. Every type but `freedraw` is rotated when its
+ * bitmap is *blitted*, so the stored pixels do not change with it — but
+ * `renderRoughElement` rotates freedraw's outline while generating, which puts
+ * the angle into the bitmap itself.
+ *
+ * `opacity` is excluded deliberately, though `drawElement` applies it at blit
+ * time as well: `renderRoughElement` sets `ctx.globalAlpha` from it during
+ * generation, so the value is baked into the pixels too. Dropping the cache for
+ * it is correctness, not conservatism.
+ */
+const CARRIABLE_KEYS: ReadonlySet<string> = new Set(['x', 'y', 'fractionalIndex']);
+
+function reachesCachedPixels(element: DriplElement, key: string): boolean {
+  if (CARRIABLE_KEYS.has(key)) return false;
+  if (key === 'angle') return element.type === 'freedraw';
+  return true;
 }
 
 /**

@@ -5,8 +5,10 @@ import type { DriplElement, LinearElement } from '@dripl/common';
 import { mutateElement, type ElementUpdate } from '../mutateElement';
 import {
   hasCachedBitmapForTest,
+  renderStaticScene,
   resetElementBitmapCacheForTest,
   seedCacheEntryForTest,
+  type StaticSceneFrameStats,
 } from '../staticScene';
 import { getShapeFromCache, setShapeInCache } from '../shape-cache';
 
@@ -27,6 +29,71 @@ function arrow(overrides: Partial<LinearElement> = {}): LinearElement {
     versionNonce: 17,
     ...overrides,
   } as LinearElement;
+}
+
+/**
+ * A freedraw element — the one type whose rotation is baked into its bitmap
+ * rather than applied when the bitmap is blitted.
+ */
+function freedraw(overrides: Partial<DriplElement> = {}): DriplElement {
+  return {
+    id: 'freedraw-1',
+    type: 'freedraw',
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 50,
+    points: [
+      { x: 0, y: 0 },
+      { x: 50, y: 25 },
+      { x: 100, y: 50 },
+    ],
+    version: 1,
+    versionNonce: 5,
+    ...overrides,
+  } as DriplElement;
+}
+
+/**
+ * A canvas stand-in with a no-op context. jsdom cannot allocate a real 2D
+ * context, so this exercises the *cache* half of the render path — which is
+ * what the carry-forward changes — without pretending to rasterize anything.
+ */
+function sceneCanvas(): HTMLCanvasElement {
+  const ctx = {
+    globalAlpha: 1,
+    fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
+    imageSmoothingEnabled: true,
+    imageSmoothingQuality: 'low',
+    save: () => undefined,
+    restore: () => undefined,
+    setTransform: () => undefined,
+    clearRect: () => undefined,
+    scale: () => undefined,
+    translate: () => undefined,
+    rotate: () => undefined,
+    drawImage: () => undefined,
+    fillRect: () => undefined,
+    strokeRect: () => undefined,
+    setLineDash: () => undefined,
+    fillText: () => undefined,
+    strokeText: () => undefined,
+    beginPath: () => undefined,
+    closePath: () => undefined,
+    moveTo: () => undefined,
+    lineTo: () => undefined,
+    stroke: () => undefined,
+    fill: () => undefined,
+    measureText: () => ({ width: 0 }),
+  };
+  return {
+    getContext: () => ctx,
+    width: 800,
+    height: 600,
+    style: {},
+  } as unknown as HTMLCanvasElement;
 }
 
 const MAX_NONCE = 2_147_483_647;
@@ -204,30 +271,41 @@ describe('mutateElement no-op guard', () => {
 });
 
 describe('mutateElement cache invalidation', () => {
-  it('drops both the bitmap and the drawable on a geometry change', () => {
+  it('drops both the bitmap and the drawable on a size change', () => {
+    // `width` is a pixel-affecting key: the bitmap is rasterized at the
+    // element's size, so a carry here would freeze the old bounds. The
+    // position-only counterpart is asserted in 'mutateElement cache
+    // carry-forward' below — note that both blocks assert on the *successor*
+    // object, since a cache that merely leaves the old one is not evidence of
+    // anything: it would leave even if the entry had been carried across.
     const element = arrow();
     seedCacheEntryForTest(element);
     setShapeInCache(element, { shape: 'drawable' } as never, 'light');
 
-    mutateElement(element, { x: 42 });
+    const resized = mutateElement(element, { width: 42 });
 
     expect(hasCachedBitmapForTest(element)).toBe(false);
-    expect(getShapeFromCache(element, 'light')).toBeUndefined();
+    expect(hasCachedBitmapForTest(resized)).toBe(false);
+    expect(getShapeFromCache(resized, 'light')).toBeUndefined();
   });
 
   it('drops both caches for an appearance-only change too', () => {
     // This is the load-bearing claim in the source comment: the bitmap embeds
     // stroke colour and opacity, so a geometry-only invalidation check would
-    // leave a stale image on screen.
+    // leave a stale image on screen. `opacity` in particular is not merely
+    // applied at blit time — `renderRoughElement` also sets `globalAlpha` from
+    // it while generating, which is why it is deliberately absent from
+    // `mutateElement`'s carriable keys.
     for (const appearance of [{ opacity: 0.25 }, { strokeColor: '#ff0000' }, { strokeWidth: 7 }]) {
       const element = arrow();
       seedCacheEntryForTest(element);
       setShapeInCache(element, { shape: 'drawable' } as never, 'light');
 
-      mutateElement(element, appearance);
+      const restyled = mutateElement(element, appearance);
 
       expect(hasCachedBitmapForTest(element)).toBe(false);
-      expect(getShapeFromCache(element, 'light')).toBeUndefined();
+      expect(hasCachedBitmapForTest(restyled)).toBe(false);
+      expect(getShapeFromCache(restyled, 'light')).toBeUndefined();
     }
   });
 
@@ -235,14 +313,134 @@ describe('mutateElement cache invalidation', () => {
     // `invalidateElementCache` is string-keyed while the bitmap cache is keyed
     // by object identity, so the lookup has to go through the id map. Seeding
     // two objects under one id proves which side of that bridge is consulted.
+    // The mutation has to be one that invalidates: a position-only change now
+    // *carries* the entry to the successor, which would make this pass for a
+    // reason that has nothing to do with the id bridge.
     const original = arrow({ id: 'shared' });
     seedCacheEntryForTest(original);
     expect(hasCachedBitmapForTest(original)).toBe(true);
 
-    const replacement = mutateElement(original, { x: 1 });
+    const replacement = mutateElement(original, { width: 1 });
     expect(replacement.id).toBe('shared');
     expect(hasCachedBitmapForTest(original)).toBe(false);
-    // The mutated object is a different reference, so it never had a bitmap.
+    // The mutated object is a different reference, and the change reached the
+    // pixels, so it never had a bitmap.
     expect(hasCachedBitmapForTest(replacement)).toBe(false);
+  });
+});
+
+describe('mutateElement cache carry-forward', () => {
+  it('moves both caches to the successor on a position-only change', () => {
+    // A drag must not rebuild anything: the bitmap is generated in the
+    // element's local frame and re-positioned at blit time, so the pixels are
+    // identical wherever the element sits. Both caches therefore follow the
+    // new object rather than dying with the old one.
+    for (const position of [{ x: 42 }, { y: 7 }, { fractionalIndex: 'a3' }]) {
+      const element = arrow();
+      seedCacheEntryForTest(element);
+      setShapeInCache(element, { shape: 'drawable' } as never, 'light');
+
+      const moved = mutateElement(element, position);
+
+      expect(moved).not.toBe(element);
+      // Left the object it was cached under...
+      expect(hasCachedBitmapForTest(element)).toBe(false);
+      expect(getShapeFromCache(element, 'light')).toBeUndefined();
+      // ...and arrived on the successor, so the next frame can hit it.
+      expect(hasCachedBitmapForTest(moved)).toBe(true);
+      expect(getShapeFromCache(moved, 'light')).toEqual({ shape: 'drawable' });
+    }
+  });
+
+  it('is a cache hit on the next frame, not merely still present', () => {
+    // Presence alone would prove nothing: `getOrCreateElementCanvas` compares
+    // the entry's recorded version against the element's, so a carry that
+    // forgot to refresh it would leave an entry that exists and is missed
+    // every single frame — the same waste with better optics instead of the
+    // fix.
+    const element = arrow({ x: 10, y: 10 });
+    seedCacheEntryForTest(element);
+
+    const moved = mutateElement(element, { x: 60 });
+    // A holder rather than a `let`: the frame arrives through a callback that
+    // TypeScript cannot see running, so a local would narrow to `null` and then
+    // to `never` at the assertions.
+    const seen: { frame: StaticSceneFrameStats | null } = { frame: null };
+    renderStaticScene(
+      sceneCanvas(),
+      [moved],
+      { x: 0, y: 0, width: 800, height: 600, zoom: 1 },
+      {
+        gridEnabled: false,
+        gridSize: 20,
+        zoom: 1,
+        theme: 'light',
+        dpr: 1,
+        elements: [moved],
+        visibleElements: [moved],
+        onFrameStats: frame => {
+          seen.frame = frame;
+        },
+      }
+    );
+
+    expect(seen.frame?.bitmapsReused).toBe(1);
+    expect(seen.frame?.bitmapsGenerated).toBe(0);
+  });
+
+  it('carries angle for types rotated when blitted', () => {
+    // Every type but freedraw is rotated by `drawElement` at blit time, so the
+    // angle never reaches the stored pixels.
+    const element = arrow();
+    seedCacheEntryForTest(element);
+    setShapeInCache(element, { shape: 'drawable' } as never, 'light');
+
+    const rotated = mutateElement(element, { angle: Math.PI / 4 });
+
+    expect(hasCachedBitmapForTest(rotated)).toBe(true);
+    expect(getShapeFromCache(rotated, 'light')).toEqual({ shape: 'drawable' });
+  });
+
+  it('drops both caches for a freedraw rotation', () => {
+    // `renderRoughElement` rotates freedraw's outline *while generating*, so
+    // the angle is baked into the bitmap — carrying it would keep turning the
+    // stroke by the old angle forever.
+    const element = freedraw();
+    seedCacheEntryForTest(element);
+    setShapeInCache(element, { shape: 'drawable' } as never, 'light');
+
+    const rotated = mutateElement(element, { angle: Math.PI / 4 });
+
+    expect(hasCachedBitmapForTest(element)).toBe(false);
+    expect(hasCachedBitmapForTest(rotated)).toBe(false);
+    expect(getShapeFromCache(rotated, 'light')).toBeUndefined();
+  });
+
+  it('drops both caches when a move arrives with a content change', () => {
+    // One content key among position keys still makes the render stale, so the
+    // decision is taken over *every* key that actually changed, not the first.
+    const element = arrow();
+    seedCacheEntryForTest(element);
+    setShapeInCache(element, { shape: 'drawable' } as never, 'light');
+
+    const resized = mutateElement(element, { x: 42, width: 250 });
+
+    expect(hasCachedBitmapForTest(resized)).toBe(false);
+    expect(getShapeFromCache(resized, 'light')).toBeUndefined();
+  });
+
+  it('refuses to carry a bitmap that embeds another element', () => {
+    // An arrow's label is cut out of the arrow's own bitmap. Whether that label
+    // moved with the arrow is a question about label layout, not about this
+    // element, so such an owner drops its entry exactly as any other content
+    // change would — and the version check on lookup keeps guarding it
+    // afterwards, because a label edited later bumps its version regardless.
+    const element = arrow({ labelId: 'label-1' } as Partial<LinearElement>);
+    seedCacheEntryForTest(element, 120, 90, new Map([['label-1', 3]]));
+
+    const moved = mutateElement(element, { x: 42 });
+
+    expect(hasCachedBitmapForTest(element)).toBe(false);
+    expect(hasCachedBitmapForTest(moved)).toBe(false);
   });
 });

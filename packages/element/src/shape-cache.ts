@@ -71,3 +71,25 @@ export function setShapeInCache(
 export function clearShapeFromCache(element: DriplElement): void {
   shapeCache.delete(element);
 }
+
+/**
+ * Move a cached Rough.js drawable onto the object a position-only mutation
+ * returned, the shape-side counterpart to `carryForwardElementCache`.
+ *
+ * A `Drawable` is ops, not pixels: `generateShape` builds every kind at the
+ * origin from width, height and style alone — it never reads `x`, `y` or
+ * `angle`, and it is handed no scene, so it cannot have embedded a label or any
+ * other element. Nothing in it can therefore be affected by where the element
+ * sits, and unlike the bitmap this needs no dependency condition.
+ *
+ * The version is refreshed to the successor's so `getShapeFromCache` sees a
+ * hit; leaving the old number would make it evict the entry it had just been
+ * handed. Theme is preserved because it is part of the key and this function is
+ * only reached when the mutation did not touch appearance.
+ */
+export function carryForwardShapeCache(previous: DriplElement, next: DriplElement): void {
+  const entry = shapeCache.get(previous);
+  if (!entry) return;
+  shapeCache.delete(previous);
+  shapeCache.set(next, { ...entry, version: next.version ?? 0 });
+}
