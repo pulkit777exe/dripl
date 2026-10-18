@@ -203,6 +203,26 @@ describe('updateBoundTextPosition', () => {
     expect(placed.height).toBe(LINE_HEIGHT);
   });
 
+  it('serves every measurement from one canvas instead of allocating per call', () => {
+    // `wrapText` measures once per candidate line, so the canvas this built on
+    // every call was one canvas and one 2D context *per word* — allocated
+    // again on every drag frame that moves a container with a bound label, on
+    // the gesture path. The widths are a pure function of (family, size, text);
+    // the allocation bought nothing.
+    const createElement = vi.spyOn(document, 'createElement');
+
+    updateBoundTextPosition(shape, textElement('label-a', { text: 'alpha beta gamma delta' }));
+    updateBoundTextPosition(shape, textElement('label-b', { text: 'one two three four five' }));
+
+    const canvases = createElement.mock.calls.filter(([tag]) => tag === 'canvas');
+    createElement.mockRestore();
+
+    // Zero if an earlier test already built the shared canvas — it is
+    // module-scoped and lives for the file — one otherwise. Never one per
+    // measurement, which is what the old code produced here.
+    expect(canvases.length).toBeLessThanOrEqual(1);
+  });
+
   it('still places a label when the browser refuses a 2D context for measuring', () => {
     // Regression: `measureText` builds a throwaway canvas per call. A browser
     // that refuses the context (too many live canvases) makes that null, and

@@ -8,18 +8,71 @@ function getFontFamily(): string {
   return getDefaultFontFamily();
 }
 
+/**
+ * Measurements are memoised and served from one canvas.
+ *
+ * `measureText` used to allocate a canvas **and** a 2D context on every call,
+ * and `wrapText` calls it once per word — so dragging a container with a bound
+ * label threw away one canvas per word per frame, on the gesture path, for
+ * widths that are a pure function of (font family, size, text) and do not
+ * change between frames.
+ *
+ * The cache is keyed on all three inputs, so changing the preferred font
+ * family starts a new key space rather than serving the old family's widths.
+ * It is bounded by clearing wholesale rather than by eviction order: entries
+ * are cheap to recompute now that no canvas is allocated for them, and a clear
+ * needs no bookkeeping on the hot path.
+ *
+ * The context is *re-derived* on every call instead of remembered. It costs
+ * one native call that returns the same object for the life of the canvas,
+ * and it buys correctness twice: an environment that starts refusing contexts
+ * degrades immediately instead of reading widths an earlier context measured,
+ * and a context that is swapped for one with different font metrics (the
+ * label tests install a recording context per test) invalidates the widths
+ * measured through the previous one rather than serving them across the swap.
+ */
+const MEASURE_CACHE_LIMIT = 1024;
+const measuredWidths = new Map<string, number>();
+
+let measureCanvas: HTMLCanvasElement | null = null;
+let measureCtx: CanvasRenderingContext2D | null = null;
+
+function measurementContext(): CanvasRenderingContext2D | null {
+  if (!measureCanvas) measureCanvas = document.createElement('canvas');
+  const ctx = measureCanvas.getContext('2d');
+  if (ctx !== measureCtx) {
+    // Different source of font metrics than the one that produced the cached
+    // widths (including a first failure, or a first success after one): they
+    // are not comparable, so they go before anything can read them again.
+    measureCtx = ctx;
+    measuredWidths.clear();
+  }
+  return ctx;
+}
+
+/** Line height for a font size — a constant, so it needs no measurement. */
+function lineHeight(fontSize: number): number {
+  return Math.ceil(fontSize * 1.25);
+}
+
 function measureText(text: string, fontSize: number): { width: number; height: number } {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+  const ctx = measurementContext();
+  // No metrics means a zero line box, not a default one: callers distinguish
+  // "measured nothing" from "measured a real height" by it, and it is what
+  // keeps a context the browser refuses from throwing mid-drag.
   if (!ctx) return { width: 0, height: 0 };
 
-  ctx.font = `${fontSize}px ${getFontFamily()}, cursive`;
-  const metrics = ctx.measureText(text);
+  const fontFamily = getFontFamily();
+  const key = `${fontFamily}|${fontSize}|${text}`;
+  const cached = measuredWidths.get(key);
+  if (cached !== undefined) return { width: cached, height: lineHeight(fontSize) };
 
-  return {
-    width: Math.ceil(metrics.width),
-    height: Math.ceil(fontSize * 1.25),
-  };
+  ctx.font = `${fontSize}px ${fontFamily}, cursive`;
+  const width = Math.ceil(ctx.measureText(text).width);
+
+  if (measuredWidths.size >= MEASURE_CACHE_LIMIT) measuredWidths.clear();
+  measuredWidths.set(key, width);
+  return { width, height: lineHeight(fontSize) };
 }
 
 function wrapText(text: string, fontSize: number, maxWidth: number): string[] {
@@ -65,11 +118,13 @@ export function updateBoundTextPosition(
   const fontSize = textElement.fontSize ?? DEFAULT_FONT_SIZE;
   const originalText = textElement.text.replace(/\n/g, ' ');
   const wrappedText = wrapText(originalText, fontSize, bounds.width - 10);
+  // Measured rather than derived from `fontSize` alone: when the context is
+  // refused the measurement comes back with height 0, and the label has to
+  // collapse with it instead of claiming a line box nothing measured.
   const textHeight = wrappedText.length * measureText('A', fontSize).height;
 
   const x = bounds.x + bounds.width / 2;
   const y = bounds.y + bounds.height / 2 - textHeight / 2;
-
   return {
     ...textElement,
     text: wrappedText.join('\n'),

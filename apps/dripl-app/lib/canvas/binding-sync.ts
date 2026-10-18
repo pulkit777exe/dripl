@@ -42,9 +42,22 @@ export function buildBoundArrowsByShape(
  * Recompute endpoints of arrows bound to any of `movedElementIds`.
  * Results accumulate in `updates` (element id → partial element).
  */
+/**
+ * What the binding follow-ups need of the scene: lookup by id, nothing else.
+ *
+ * `updateBoundArrows` and `updateBoundLabels` take every id they read from the
+ * moved set and its bindings — neither ever iterates the scene — so the
+ * post-primary view behind them can be a read-through overlay. Copying the
+ * whole map first cost O(scene) on every gesture frame to serve O(selection)
+ * lookups, on the path that already runs once per dragged element per frame.
+ */
+export interface ElementLookup {
+  get(id: string): DriplElement | undefined;
+}
+
 export function updateBoundArrows(
   movedElementIds: Set<string>,
-  elementsById: ReadonlyMap<string, DriplElement>,
+  elementsById: ElementLookup,
   boundArrowsByShape: ReadonlyMap<string, ReadonlySet<string>>,
   updates: Map<string, Partial<DriplElement>>
 ): void {
@@ -113,7 +126,7 @@ export function updateBoundArrows(
  */
 export function updateBoundLabels(
   movedElementIds: Set<string>,
-  elementsById: ReadonlyMap<string, DriplElement>,
+  elementsById: ElementLookup,
   updates: Map<string, Partial<DriplElement>>
 ): void {
   for (const ownerId of movedElementIds) {
@@ -148,11 +161,12 @@ export function updateBoundLabels(
  * touched by both halves is bumped once instead of twice and a follow-up
  * that changes nothing still washes out.
  *
- * The follow-ups read from a post-primary *view* — primaries overlaid on a
- * copy — so the store map is never mutated here and the commit below still
- * sees pre-frame state. An element in both halves keeps its primary geometry
- * with the follow-up spread over it, which is what the two-commit sequence
- * produced.
+ * The follow-ups read from a post-primary *view* — primaries overlaid on the
+ * store map, merged per id the first time that id is read. Nothing is copied
+ * and nothing is written back, so the store map is never touched here and the
+ * commit below still sees pre-frame state. An element in both halves keeps its
+ * primary geometry with the follow-up spread over it, which is what the
+ * two-commit sequence produced.
  *
  * Rotation passes `includeBoundArrows: false`: the rotate path has only ever
  * repositioned labels, and rebinding arrow endpoints mid-rotate is a behavior
@@ -165,14 +179,29 @@ export function resolveGestureUpdates(
   options: { includeBoundArrows?: boolean } = {}
 ): Map<string, Partial<DriplElement>> {
   if (primary.size === 0) return new Map();
-  const view = new Map<string, DriplElement>();
-  for (const [id, element] of previousById) view.set(id, element);
-  for (const [id, partial] of primary) {
-    const previous = view.get(id);
-    // `previous` is complete and the partial only overrides present keys —
-    // the same spread the commit path runs — so the result is complete.
-    if (previous) view.set(id, { ...previous, ...partial } as DriplElement);
-  }
+
+  // Read-through overlay in place of the full-scene copy this used to make:
+  // primaries win, are merged on first read and memoised for the rest of the
+  // frame. The copy cost O(scene) per gesture frame — on frames where neither
+  // follow-up below reads a single element.
+  const mergedPrimaries = new Map<string, DriplElement>();
+  const view: ElementLookup = {
+    get: (id: string) => {
+      const patch = primary.get(id);
+      if (!patch) return previousById.get(id);
+      const cached = mergedPrimaries.get(id);
+      if (cached) return cached;
+      const previous = previousById.get(id);
+      // A primary with no predecessor is not part of the scene and stays
+      // invisible, which is what leaving it out of the copy did.
+      if (!previous) return undefined;
+      // `previous` is complete and the partial only overrides present keys —
+      // the same spread the commit path runs — so the result is complete.
+      const merged = { ...previous, ...patch } as DriplElement;
+      mergedPrimaries.set(id, merged);
+      return merged;
+    },
+  };
   const movedIds = new Set(primary.keys());
   const bound = new Map<string, Partial<DriplElement>>();
   if (options.includeBoundArrows !== false) {
