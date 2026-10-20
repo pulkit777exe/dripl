@@ -6,8 +6,18 @@ import { config } from 'dotenv';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.resolve(__dirname, '../../../.env');
 const localEnvPath = path.resolve(__dirname, '../../../.env.local');
+// Precedence: an already-set process env beats both files, then
+// `.env.local`, then `.env` — the same order the dev scripts' chain
+// (`dotenv -e ../../.env.local -e ../../.env`) produces. Loading local first
+// *without* `override` is what yields it: local's keys land, the shared file
+// fills only what is left, and neither can touch a variable the environment
+// already set. The previous form loaded `.env.local` with `override: true`,
+// which let the file clobber explicitly-set process-env sentinels — it turned
+// `envBoot.test.ts`'s `HTTP_SERVER_URL: ''` into the local URL so the
+// "refuses to boot without the secret" case booted — and in production would
+// let any stray `.env.local` beat the platform's real configuration.
+config({ path: localEnvPath });
 config({ path: envPath });
-config({ path: localEnvPath, override: true });
 
 const isProd = process.env.NODE_ENV === 'production';
 

@@ -3,11 +3,19 @@ import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Load env from repo root regardless of CWD
+// Load env from repo root regardless of CWD.
+//
+// Precedence: an already-set process env beats both files (dotenv's default,
+// and what lets tests hand in explicit sentinels), then `.env.local`, then
+// `.env` — matching the dev scripts' `dotenv -e ../../.env.local -e ../../.env`
+// chain. Local loads first *without* `override` so its keys land and the
+// shared file fills only what is left. The previous `override: true` on the
+// second load let `.env.local` clobber explicitly-set process-env values,
+// including on any machine where the file happens to exist.
 const __dirname = resolve(fileURLToPath(import.meta.url), '..');
 const repoRoot = resolve(__dirname, '../../..');
+config({ path: resolve(repoRoot, '.env.local') });
 config({ path: resolve(repoRoot, '.env') });
-config({ path: resolve(repoRoot, '.env.local'), override: true });
 
 const isProd = process.env.NODE_ENV === 'production';
 

@@ -81,6 +81,12 @@ describe('boot-time environment validation', () => {
     // `HTTP_SERVER_URL` with no `INTERNAL_SECRET` is the shape of a deploy that
     // wired the ticket endpoint but not its credential. Booting would accept
     // sockets and then reject every ticket at redemption.
+    //
+    // This case doubles as the env-file precedence pin: on any machine with a
+    // root `.env.local` (which sets `HTTP_SERVER_URL` for local dev), a loader
+    // that lets that file override the process env turns this sentinel `''`
+    // into a working URL and the boot succeeds. The loader must lose to an
+    // already-set environment; see `env.ts`.
     const result = await bootEnv({ DATABASE_URL: 'postgres://x:y@127.0.0.1:5432/x' });
     expect(result.code).toBe(1);
     expect(result.stdout).not.toContain('BOOTED');
