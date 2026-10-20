@@ -152,10 +152,13 @@ describe('AuthService', () => {
         where: { email: 'known@example.com' },
       });
       // The delete must precede the mint: a reordered pair would still leave
-      // two live tokens for one request.
-      expect(vi.mocked(db.passwordResetToken.deleteMany).mock.invocationCallOrder[0]).toBeLessThan(
-        vi.mocked(db.passwordResetToken.create).mock.invocationCallOrder[0]
-      );
+      // two live tokens for one request. The fallbacks bias the comparison to
+      // fail if either call never happened.
+      const deleteOrder =
+        vi.mocked(db.passwordResetToken.deleteMany).mock.invocationCallOrder[0] ?? Infinity;
+      const createOrder =
+        vi.mocked(db.passwordResetToken.create).mock.invocationCallOrder[0] ?? -Infinity;
+      expect(deleteOrder).toBeLessThan(createOrder);
     });
   });
 });
