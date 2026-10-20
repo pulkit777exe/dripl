@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { env } from './env';
 
 import * as Sentry from '@sentry/node';
@@ -16,13 +15,14 @@ import { createServer } from 'node:http';
 import type { IncomingMessage } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { DriplElement } from '@dripl/common';
-import { pickUserColor, MAX_MESSAGE_BYTES } from '@dripl/common';
+import { MAX_MESSAGE_BYTES } from '@dripl/common';
 import { initializeDb, db } from '@dripl/db';
 import { messageSchema, validateMessageSize } from './validation';
-import type { RoomState, UserConnection } from './types';
-import type { HandlerCtx } from './handlers/types';
+import type { UserConnection } from './types';
 import { resolveTicketFromUrl, validateTicket } from './auth';
-import { send, broadcast, roomUsersPayload, roomCursorsPayload } from './broadcast';
+import { createConnectionSession, ACCESS_RECHECK_THROTTLE_MS } from './session';
+export { ACCESS_RECHECK_THROTTLE_MS };
+import { send, broadcast } from './broadcast';
 import { cursorMoveHandler } from './handlers/cursorMove';
 import {
   elementLockHandler,
@@ -51,16 +51,12 @@ import {
   roomLastEmptyAt,
   userToRoomMap,
   wsToRoomMap,
-  getOrCreateRoom,
-  loadRoomElements,
-  persistRoom,
   awaitSettledPersist,
   type PersistOutcome,
 } from './rooms';
 import { checkRateLimit, setRateLimitIdentity, removeRateLimitIdentity } from './rateLimiter';
-import { subscribeToRoom, isRedisAvailable, unsubscribeFromRoom } from './redis';
-import { acquireRoom, onRoomOwnershipLost, releaseAllRooms } from './roomOwnership';
-import { authorizeRoomAccess, authorizeShareRoomAccess, type RoomAccess } from './roomAccess';
+import { isRedisAvailable, unsubscribeFromRoom } from './redis';
+import { onRoomOwnershipLost, releaseAllRooms } from './roomOwnership';
 import { applyRemoteSceneMessage } from './sceneMutation';
 
 const MAX_EARLY_BUFFER_BYTES = 1_000_000;
@@ -194,9 +190,6 @@ const WS_PORT =
   Number.isInteger(configuredWsPort) && configuredWsPort >= 0 ? configuredWsPort : 3001;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const PERIODIC_SAVE_INTERVAL_MS = Number(process.env.PERIODIC_SAVE_INTERVAL_MS) || 15_000;
-// Upper bound on database access checks from the per-message path. Exported
-// for tests; production keeps the 15s sweep as the revocation enforcer.
-export const ACCESS_RECHECK_THROTTLE_MS = Number(process.env.ACCESS_RECHECK_THROTTLE_MS) || 30_000;
 let shuttingDown = false;
 
 export const server = createServer(async (req, res) => {
@@ -402,76 +395,15 @@ async function onConnection(ws: WebSocket, req: IncomingMessage): Promise<void> 
     principal.kind === 'user' ? principal.userId : `share:${principal.fileId}:${principal.token}`;
   setRateLimitIdentity(ws, rateLimitIdentity);
 
-  let currentRoomId: string | null = null;
-  let currentUserId: string | null = null;
-  let currentRoomAccess: RoomAccess = { allowed: false, canEdit: false };
-  // Timestamp of the last database access check for this connection. The
-  // per-message path below used to revalidate against the database on every
-  // mutation — an active editor emits ~20 scene-deltas/sec, each costing 1-2
-  // Prisma queries. Revocation is still enforced within 15s by the
-  // authorization sweep (which always hits the database), so the hot path
-  // only needs a throttled steady-state check.
-  let lastAccessCheckAt = 0;
-
-  const rejectReadOnlyMutation = (): boolean => {
-    if (currentRoomAccess.canEdit) return false;
-    send(ws, { type: 'error', message: 'You have view-only access to this room' });
-    return true;
-  };
-
-  // Every delegated handler needs the same context shape; the user fallback
-  // mirrors what the inline cases synthesized before extraction.
-  const toHandlerCtx = (room: RoomState, userId: string): HandlerCtx => ({
+  // The per-socket session owns room membership, identity and access: join,
+  // leave and the revalidation thunks live in `session.ts`, and this function
+  // keeps only the wiring around them.
+  const session = createConnectionSession({
     ws,
-    user: room.users.get(userId) ?? {
-      userId,
-      displayName: 'Unknown',
-      color: '#000000',
-      ws,
-      isAlive: true,
-    },
-    userId,
-    roomId: room.roomId,
-    room,
-    logger,
-    rejectReadOnlyMutation,
+    principal,
+    authUserId,
+    onFanOut: handleRedisMessage,
   });
-
-  const revalidateRoomAccess = async (): Promise<boolean> => {
-    if (!currentRoomId) return true;
-    const access =
-      principal.kind === 'share'
-        ? await authorizeShareRoomAccess(
-            principal.fileId,
-            currentRoomId,
-            principal.permission,
-            principal.token
-          )
-        : await authorizeRoomAccess(principal.userId, currentRoomId);
-    currentRoomAccess = access;
-    if (!access.allowed) {
-      send(ws, { type: 'error', message: 'Room access has been revoked' });
-      ws.close(4003, 'Room access revoked');
-      return false;
-    }
-    return true;
-  };
-
-  const refreshRoomAccess = async (): Promise<boolean> => {
-    // Throttled steady-state check: trust the join-time decision between
-    // revalidations. The sweep revalidates every connection every 15s with a
-    // fresh database read, so a revoked share or removed member is still
-    // cut off within that window.
-    if (Date.now() - lastAccessCheckAt >= ACCESS_RECHECK_THROTTLE_MS) {
-      if (!(await revalidateRoomAccess())) return false;
-      lastAccessCheckAt = Date.now();
-    }
-    if (!currentRoomAccess.canEdit) {
-      send(ws, { type: 'error', message: 'You have view-only access to this room' });
-      return false;
-    }
-    return true;
-  };
 
   ws.on('pong', () => {
     const user = (ws as WebSocket & { __user?: UserConnection }).__user;
@@ -525,273 +457,99 @@ async function onConnection(ws: WebSocket, req: IncomingMessage): Promise<void> 
       }
 
       const message = validation.data;
-      if (ROOM_MUTATION_TYPES.has(message.type) && !(await refreshRoomAccess())) {
+      if (ROOM_MUTATION_TYPES.has(message.type) && !(await session.refresh())) {
         return;
       }
 
       switch (message.type) {
         case 'join_room':
         case 'join': {
-          const roomId = message.roomId;
-          if (currentRoomId && currentRoomId !== roomId) {
-            send(ws, {
-              type: 'error',
-              message: 'Leave the current room before joining another room',
-            });
-            break;
-          }
-          if (currentRoomId === roomId) break;
-          const access =
-            principal.kind === 'share'
-              ? await authorizeShareRoomAccess(
-                  principal.fileId,
-                  roomId,
-                  principal.permission,
-                  principal.token
-                )
-              : await authorizeRoomAccess(principal.userId, roomId);
-          if (!access.allowed) {
-            send(ws, { type: 'error', message: 'You do not have access to this room' });
-            ws.close(4003, 'Room access denied');
-            return;
-          }
-          currentRoomAccess = access;
-          lastAccessCheckAt = Date.now();
-
-          // Claim the room before it is loaded, not after. Every step below
-          // this line — reading the scene, admitting mutations, writing
-          // Postgres — mutates state that another instance could be mutating
-          // too, so ownership has to be settled first. A refusal here happens
-          // after the access check and before any RoomState exists, so a
-          // non-owner never loads a scene it must not serve.
-          //
-          // Cost: one Redis round-trip per *join*, never per mutation, and
-          // never on the single-instance path where ownership is disabled.
-          const ownership = await acquireRoom(roomId);
-          if (ownership === 'foreign') {
-            send(ws, {
-              type: 'error',
-              code: 'room_served_by_another_instance',
-              message: 'This room is currently served by another server. Please reconnect.',
-            });
-            logger.warn({ event: 'ws_room_ownership_rejected', roomId });
-            ws.close(4010, 'Room served by another instance');
-            return;
-          }
-
-          const room = getOrCreateRoom(roomId);
-
-          if (!room.loadedFromDb) {
-            if (!room.loadingPromise) {
-              room.loadingPromise = loadRoomElements(roomId);
-            }
-            try {
-              room.elements = await room.loadingPromise;
-              room.loadedFromDb = true;
-            } finally {
-              room.loadingPromise = undefined;
-            }
-          }
-
-          const requestedName = message.type === 'join' ? message.displayName : message.userName;
-          const requestedColor = message.type === 'join' ? message.color : undefined;
-
-          const userId = authUserId ?? `guest:${randomUUID()}`;
-          const displayName = requestedName || `User-${userId.slice(0, 4)}`;
-          const color = requestedColor || pickUserColor();
-
-          if (room.users.has(userId)) {
-            send(ws, {
-              type: 'error',
-              message: 'This account is already connected in another tab',
-            });
-            ws.close(4009, 'Duplicate connection');
-            return;
-          }
-
-          currentRoomId = roomId;
-          currentUserId = userId;
-          wsToRoomMap.set(ws, roomId);
-          userToRoomMap.set(userId, roomId);
-
-          const connection: UserConnection = {
-            userId,
-            displayName,
-            color,
-            ws,
-            isAlive: true,
-            revalidate: revalidateRoomAccess,
-          };
-          room.users.set(userId, connection);
-          (ws as WebSocket & { __user?: UserConnection }).__user = connection;
-
-          send(ws, {
-            type: 'sync_room_state',
-            roomId,
-            elements: Array.from(room.elements.values()),
-            users: roomUsersPayload(room),
-            cursors: roomCursorsPayload(room),
-            yourUserId: userId,
-            readOnly: !currentRoomAccess.canEdit,
-            timestamp: Date.now(),
-            // Monotonic per-room mutation counter. Additive: old clients
-            // ignore it. Future version-heartbeat / resync work can compare
-            // this against the last version a client acknowledged to detect
-            // a gap without a full scene transfer.
-            sceneVersion: room.mutationVersion,
-            // Wire protocol epoch. All scene mutations now fan out as
-            // scene-delta; receivers keep their legacy branches for
-            // mid-deploy tabs, but nothing new is emitted in the old
-            // shapes. Bumped only for wire-incompatible changes, never
-            // silently: old clients get read-only treatment or explicit
-            // rejection per the collaboration decision, not quiet drift.
-            protocolEpoch: 2,
-          });
-
-          broadcast(
-            room,
-            {
-              type: 'user-join',
-              roomId,
-              userId,
-              userName: displayName,
-              displayName,
-              color,
-              timestamp: Date.now(),
-            },
-            userId
-          );
-
-          if (isRedisAvailable()) {
-            subscribeToRoom(roomId, payload => handleRedisMessage(roomId, payload));
-          }
+          await session.join(message);
           break;
         }
 
         case 'leave_room':
         case 'leave': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-
-          room.users.delete(currentUserId);
-          room.cursors.delete(currentUserId);
-          wsToRoomMap.delete(ws);
-          if (userToRoomMap.get(currentUserId) === currentRoomId) {
-            userToRoomMap.delete(currentUserId);
-          }
-
-          broadcast(room, {
-            type: 'user-leave',
-            roomId: currentRoomId,
-            userId: currentUserId,
-            timestamp: Date.now(),
-          });
-
-          if (room.users.size === 0) {
-            // Single guarded write on the way out. persistRoom owns the
-            // dirty/saving/version guard; a 'busy' outcome means the
-            // periodic tick owns an in-flight write and will finish it.
-            // Unlike the old inline version this also clears dirty on a
-            // clean success, so the empty-room GC below does not pay for a
-            // second write of identical content.
-            void persistRoom(currentRoomId).then(outcome => {
-              if (outcome === 'failed') {
-                logger.error({ event: 'leave_save_failure', roomId: currentRoomId });
-              }
-            });
-            roomLastEmptyAt.set(currentRoomId, Date.now());
-          }
-
-          currentRoomId = null;
-          currentUserId = null;
-          currentRoomAccess = { allowed: false, canEdit: false };
+          await session.leave();
           break;
         }
 
         case 'add_element': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-          await addElementHandler.apply(message, toHandlerCtx(room, currentUserId));
+          const joined = session.joined();
+          if (!joined) break;
+          await addElementHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
           break;
         }
 
         case 'update_element': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-          await updateElementHandler.apply(message, toHandlerCtx(room, currentUserId));
+          const joined = session.joined();
+          if (!joined) break;
+          await updateElementHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
           break;
         }
 
         case 'delete_element': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-          await deleteElementHandler.apply(message, toHandlerCtx(room, currentUserId));
+          const joined = session.joined();
+          if (!joined) break;
+          await deleteElementHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
           break;
         }
 
         case 'scene-update': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-          await sceneUpdateHandler.apply(message, toHandlerCtx(room, currentUserId));
+          const joined = session.joined();
+          if (!joined) break;
+          await sceneUpdateHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
           break;
         }
 
         case 'scene-delta': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-          await sceneDeltaHandler.apply(message, toHandlerCtx(room, currentUserId));
+          const joined = session.joined();
+          if (!joined) break;
+          await sceneDeltaHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
           break;
         }
 
         case 'element-update': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-          await elementUpdateHandler.apply(message, toHandlerCtx(room, currentUserId));
+          const joined = session.joined();
+          if (!joined) break;
+          await elementUpdateHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
           break;
         }
 
         case 'cursor_move':
         case 'cursor-move': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
+          const joined = session.joined();
+          if (!joined) break;
 
           // Already validated against these same schemas by the dispatch
           // prologue's messageSchema pass; parsing again would double the
           // cost of the highest-frequency message on the socket.
-          await cursorMoveHandler.apply(message, toHandlerCtx(room, currentUserId));
+          await cursorMoveHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
           break;
         }
 
         case 'element-lock': {
-          if (!currentRoomId || !currentUserId) break;
-          if (rejectReadOnlyMutation()) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-          await elementLockHandler.apply(message, toHandlerCtx(room, currentUserId));
+          const joined = session.joined();
+          if (!joined) break;
+          if (session.rejectReadOnlyMutation()) break;
+          await elementLockHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
           break;
         }
 
         case 'element-unlock': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-          await elementUnlockHandler.apply(message, toHandlerCtx(room, currentUserId));
+          const joined = session.joined();
+          if (!joined) break;
+          await elementUnlockHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
           break;
         }
 
         case 'element-lock-heartbeat': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-          await elementLockHeartbeatHandler.apply(message, toHandlerCtx(room, currentUserId));
+          const joined = session.joined();
+          if (!joined) break;
+          await elementLockHeartbeatHandler.apply(
+            message,
+            session.handlerCtx(joined.room, joined.userId)
+          );
           break;
         }
 
@@ -801,26 +559,26 @@ async function onConnection(ws: WebSocket, req: IncomingMessage): Promise<void> 
         }
 
         case 'viewport-update': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-          await viewportUpdateHandler.apply(message, toHandlerCtx(room, currentUserId));
+          const joined = session.joined();
+          if (!joined) break;
+          await viewportUpdateHandler.apply(
+            message,
+            session.handlerCtx(joined.room, joined.userId)
+          );
           break;
         }
 
         case 'follow-user': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-          await followUserHandler.apply(message, toHandlerCtx(room, currentUserId));
+          const joined = session.joined();
+          if (!joined) break;
+          await followUserHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
           break;
         }
 
         case 'unfollow-user': {
-          if (!currentRoomId || !currentUserId) break;
-          const room = rooms.get(currentRoomId);
-          if (!room) break;
-          await unfollowUserHandler.apply(message, toHandlerCtx(room, currentUserId));
+          const joined = session.joined();
+          if (!joined) break;
+          await unfollowUserHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
           break;
         }
       }
@@ -866,39 +624,39 @@ async function onConnection(ws: WebSocket, req: IncomingMessage): Promise<void> 
 
   ws.on('close', () => {
     removeRateLimitIdentity(ws);
-    if (!currentRoomId || !currentUserId) return;
-    const room = rooms.get(currentRoomId);
-    if (!room) return;
+    const joined = session.joined();
+    if (!joined) return;
+    const { room, userId } = joined;
 
-    const registeredConnection = room.users.get(currentUserId);
+    const registeredConnection = room.users.get(userId);
     const ownsRegistration = registeredConnection?.ws === ws;
     if (ownsRegistration) {
-      room.users.delete(currentUserId);
-      room.cursors.delete(currentUserId);
-      room.following.delete(currentUserId);
-      room.viewports.delete(currentUserId);
+      room.users.delete(userId);
+      room.cursors.delete(userId);
+      room.following.delete(userId);
+      room.viewports.delete(userId);
       // Remove this user as a leader from anyone following them
       for (const [followerId, leaderId] of room.following) {
-        if (leaderId === currentUserId) {
+        if (leaderId === userId) {
           room.following.delete(followerId);
         }
       }
     }
     wsToRoomMap.delete(ws);
-    if (ownsRegistration && userToRoomMap.get(currentUserId) === currentRoomId) {
-      userToRoomMap.delete(currentUserId);
+    if (ownsRegistration && userToRoomMap.get(userId) === room.roomId) {
+      userToRoomMap.delete(userId);
     }
 
     if (ownsRegistration) {
       broadcast(room, {
         type: 'user-leave',
-        roomId: currentRoomId,
-        userId: currentUserId,
+        roomId: room.roomId,
+        userId,
         timestamp: Date.now(),
       });
 
       if (room.users.size === 0) {
-        roomLastEmptyAt.set(currentRoomId, Date.now());
+        roomLastEmptyAt.set(room.roomId, Date.now());
       }
     }
   });
