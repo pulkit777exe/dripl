@@ -26,6 +26,10 @@ describe('ShareService.upsertShareToken', () => {
   // Fixed so the optimistic-concurrency fence is assertable by value rather than
   // only by type. Must be a real Date: both mutating paths put it in `where`.
   const UPDATED_AT = new Date('2026-01-01T00:00:00.000Z');
+  // The service requires an expiry (Q1: no permanent file shares). The value
+  // is in the future because the idempotent path compares it with the stored
+  // expiry; assertions compare against this same Date.
+  const EXPIRES_AT = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   /**
    * Exactly the row `upsertShareToken`'s `findFirst` select returns. Deriving it
@@ -69,39 +73,93 @@ describe('ShareService.upsertShareToken', () => {
 
   it('returns not_found when the file does not exist', async () => {
     givenFile(null);
-    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view');
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view', EXPIRES_AT);
     expect(result).toEqual({ kind: 'not_found' });
   });
 
   it('returns forbidden when the user does not own the file', async () => {
     givenFile(fileMock({ userId: 'someone-else' }));
-    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view');
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view', EXPIRES_AT);
     expect(result).toEqual({ kind: 'forbidden' });
   });
 
   it('generates a new token when the file has none', async () => {
     givenFile(fileMock({ shareToken: null }));
-    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'edit');
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'edit', EXPIRES_AT);
     expect(result?.kind).toBe('ok');
     if (result?.kind !== 'ok') throw new Error('expected ok');
     expect(result.token).not.toBeNull();
     expect(result.token!.length).toBeGreaterThanOrEqual(24);
     expect(result.token!).toMatch(/^[A-Za-z0-9_-]+$/);
-    // The rotate path is fenced on the row it read.
+    expect(result.expiresAt).toEqual(EXPIRES_AT);
+    // The rotate path is fenced on the row it read, and writes the TTL.
     expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: FILE_ID, userId: USER_ID, updatedAt: UPDATED_AT }),
+        data: expect.objectContaining({ shareExpiresAt: EXPIRES_AT }),
       })
     );
   });
 
-  it('reuses an existing share token when the permission is unchanged', async () => {
-    givenFile(fileMock({ shareToken: 'existing-token-abc', sharePermission: 'view' }));
+  it('reuses an existing share token and keeps a longer expiry', async () => {
+    const laterExpiry = new Date(EXPIRES_AT.getTime() + 60 * 60 * 1000);
+    givenFile(
+      fileMock({
+        shareToken: 'existing-token-abc',
+        sharePermission: 'view',
+        shareExpiresAt: laterExpiry,
+      })
+    );
 
-    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view');
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view', EXPIRES_AT);
 
-    expect(result).toEqual({ kind: 'ok', token: 'existing-token-abc' });
+    expect(result).toEqual({
+      kind: 'ok',
+      token: 'existing-token-abc',
+      expiresAt: laterExpiry,
+    });
     expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('bounds a legacy token with no expiry without rotating it', async () => {
+    givenFile(
+      fileMock({
+        shareToken: 'legacy-token',
+        sharePermission: 'view',
+        shareExpiresAt: null,
+      })
+    );
+
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view', EXPIRES_AT);
+
+    expect(result).toEqual({ kind: 'ok', token: 'legacy-token', expiresAt: EXPIRES_AT });
+    expect(mockUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: FILE_ID, userId: USER_ID, updatedAt: UPDATED_AT }),
+        data: { shareExpiresAt: EXPIRES_AT },
+      })
+    );
+  });
+
+  it('extends a shorter expiry when the owner re-shares', async () => {
+    const shorterExpiry = new Date(Date.now() + 60 * 60 * 1000);
+    givenFile(
+      fileMock({
+        shareToken: 'short-lived',
+        sharePermission: 'view',
+        shareExpiresAt: shorterExpiry,
+      })
+    );
+
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view', EXPIRES_AT);
+
+    expect(result).toEqual({ kind: 'ok', token: 'short-lived', expiresAt: EXPIRES_AT });
+    expect(mockUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: FILE_ID, userId: USER_ID, updatedAt: UPDATED_AT }),
+        data: { shareExpiresAt: EXPIRES_AT },
+      })
+    );
   });
 
   it('rotates an expired token instead of reusing it', async () => {
@@ -112,24 +170,25 @@ describe('ShareService.upsertShareToken', () => {
         shareExpiresAt: new Date(Date.now() - 1_000),
       })
     );
-    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view');
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view', EXPIRES_AT);
 
     expect(result.kind).toBe('ok');
     if (result.kind !== 'ok') throw new Error('expected ok');
     expect(result.token).not.toBe('expired-token');
+    expect(result.expiresAt).toEqual(EXPIRES_AT);
     expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: FILE_ID, userId: USER_ID, updatedAt: UPDATED_AT }),
-        data: expect.objectContaining({ shareExpiresAt: null }),
+        data: expect.objectContaining({ shareExpiresAt: EXPIRES_AT }),
       })
     );
   });
 
   it('rotates the token when the permission changes', async () => {
     givenFile(fileMock({ shareToken: 'old-view-token', sharePermission: 'view' }));
-    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'edit');
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'edit', EXPIRES_AT);
 
-    expect(result).toEqual({ kind: 'ok', token: expect.any(String) });
+    expect(result).toEqual({ kind: 'ok', token: expect.any(String), expiresAt: EXPIRES_AT });
     if (result?.kind !== 'ok') throw new Error('expected ok');
     expect(result.token).not.toBe('old-view-token');
     expect(mockUpdateMany).toHaveBeenCalledWith(
@@ -138,7 +197,7 @@ describe('ShareService.upsertShareToken', () => {
         data: expect.objectContaining({
           sharePermission: 'edit',
           shareToken: result.token,
-          shareExpiresAt: null,
+          shareExpiresAt: EXPIRES_AT,
         }),
       })
     );
@@ -146,9 +205,9 @@ describe('ShareService.upsertShareToken', () => {
 
   it('clears the share token when called with a null permission', async () => {
     givenFile(fileMock({ shareToken: 'old-token', sharePermission: 'edit' }));
-    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, null);
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, null, EXPIRES_AT);
 
-    expect(result).toEqual({ kind: 'ok', token: null });
+    expect(result).toEqual({ kind: 'ok', token: null, expiresAt: null });
     expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: FILE_ID, userId: USER_ID, updatedAt: UPDATED_AT }),
@@ -166,7 +225,7 @@ describe('ShareService.upsertShareToken', () => {
     givenFile(fileMock({ shareToken: 'old-view-token', sharePermission: 'view' }));
     mockUpdateMany.mockResolvedValue({ count: 0 });
 
-    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'edit');
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'edit', EXPIRES_AT);
 
     expect(result).toEqual({ kind: 'not_found' });
   });
@@ -175,7 +234,18 @@ describe('ShareService.upsertShareToken', () => {
     givenFile(fileMock({ shareToken: 'old-token', sharePermission: 'edit' }));
     mockUpdateMany.mockResolvedValue({ count: 0 });
 
-    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, null);
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, null, EXPIRES_AT);
+
+    expect(result).toEqual({ kind: 'not_found' });
+  });
+
+  it('reports not_found when the expiry-refresh fence loses the race', async () => {
+    givenFile(
+      fileMock({ shareToken: 'legacy-token', sharePermission: 'view', shareExpiresAt: null })
+    );
+    mockUpdateMany.mockResolvedValue({ count: 0 });
+
+    const result = await ShareService.upsertShareToken(FILE_ID, USER_ID, 'view', EXPIRES_AT);
 
     expect(result).toEqual({ kind: 'not_found' });
   });

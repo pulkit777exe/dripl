@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { sendError } from '../lib/response';
 import { defineRoute } from '../lib/route';
 import { sendServiceError } from '../lib/serviceResult';
+import { shareExpiryFields } from '../lib/shareExpiry';
 import { FileService } from '../services/fileService';
 import { MAX_FILE_CONTENT_BYTES } from '@dripl/common';
 
@@ -32,16 +33,7 @@ const patchFileSchema = z.object({
 
 const createShareSchema = z.object({
   permission: z.enum(['view', 'edit']).default('view'),
-  expiresAt: z.coerce
-    .date()
-    .refine(value => value.getTime() > Date.now(), 'Expiry must be in the future')
-    .optional(),
-  expiresInHours: z
-    .number()
-    .int()
-    .positive()
-    .max(24 * 365)
-    .optional(),
+  ...shareExpiryFields,
 });
 
 const listSharedFilesQuerySchema = z.object({

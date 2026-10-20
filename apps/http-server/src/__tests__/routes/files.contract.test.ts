@@ -552,13 +552,16 @@ describe('POST /api/files/:id/share', () => {
     seedFile();
   });
 
-  it('creates a share link with the key in the URL fragment', async () => {
+  it('creates a share link with a default 24-hour expiry and the key in the URL fragment', async () => {
+    const before = Date.now();
     const response = await post(app, `/api/files/${FILE_ID}/share`, OWNER_ID, {});
 
     expect(response.status).toBe(201);
     expect(response.body.data.permission).toBe('view');
-    expect(response.body.data.expiresAt).toBeNull();
     expect(response.body.data.token).toEqual(expect.any(String));
+    const expiresAt = new Date(String(response.body.data.expiresAt)).getTime();
+    expect(expiresAt).toBeGreaterThan(before + 23 * 60 * 60 * 1000);
+    expect(expiresAt).toBeLessThanOrEqual(before + 24 * 60 * 60 * 1000 + 5_000);
     // The decryption key must never travel to the server, so it lives in the
     // fragment — which is not sent in a request line.
     expect(response.body.data.shareUrl).toContain('#key=');
@@ -597,13 +600,34 @@ describe('POST /api/files/:id/share', () => {
     expect(response.body.details.fieldErrors.expiresAt).toBeDefined();
   });
 
-  it('answers 400 INVALID_PAYLOAD for an expiry longer than a year', async () => {
+  it('answers 400 INVALID_PAYLOAD for an expiry longer than 30 days', async () => {
     const response = await post(app, `/api/files/${FILE_ID}/share`, OWNER_ID, {
-      expiresInHours: 24 * 365 + 1,
+      expiresInHours: 721,
     });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('INVALID_PAYLOAD');
+  });
+
+  it('answers 400 INVALID_PAYLOAD for an absolute expiry beyond 30 days', async () => {
+    const response = await post(app, `/api/files/${FILE_ID}/share`, OWNER_ID, {
+      expiresAt: new Date(Date.now() + 721 * 60 * 60 * 1000).toISOString(),
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('INVALID_PAYLOAD');
+    expect(response.body.details.fieldErrors.expiresAt).toBeDefined();
+  });
+
+  it('accepts the 30-day cap exactly', async () => {
+    const response = await post(app, `/api/files/${FILE_ID}/share`, OWNER_ID, {
+      expiresInHours: 720,
+    });
+
+    expect(response.status).toBe(201);
+    expect(new Date(String(response.body.data.expiresAt)).getTime()).toBeLessThanOrEqual(
+      Date.now() + 720 * 60 * 60 * 1000 + 5_000
+    );
   });
 
   it('answers 404 for a missing file', async () => {

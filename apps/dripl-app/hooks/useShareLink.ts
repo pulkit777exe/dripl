@@ -7,6 +7,8 @@ export type SharePermission = 'view' | 'edit';
 
 export interface ShareLinkState {
   url: string | null;
+  /** ISO timestamp from the server; every share now has a bounded TTL. */
+  expiresAt: string | null;
   isLoading: boolean;
   copied: boolean;
   error: string | null;
@@ -23,6 +25,7 @@ export interface ShareLinkState {
  */
 export function useShareLink(fileId: string): ShareLinkState {
   const [url, setUrl] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,14 +40,17 @@ export function useShareLink(fileId: string): ShareLinkState {
         if (!data.shareUrl) {
           setError('The share service did not return a link.');
           setUrl(null);
+          setExpiresAt(null);
           return;
         }
         setUrl(data.shareUrl);
+        setExpiresAt(data.expiresAt);
       } catch (error) {
         setError(
           error instanceof Error ? error.message : 'Network error while generating a share link.'
         );
         setUrl(null);
+        setExpiresAt(null);
       } finally {
         setIsLoading(false);
       }
@@ -67,10 +73,11 @@ export function useShareLink(fileId: string): ShareLinkState {
 
   const reset = useCallback(() => {
     setUrl(null);
+    setExpiresAt(null);
     setIsLoading(false);
     setCopied(false);
     setError(null);
   }, []);
 
-  return { url, isLoading, copied, error, generate, copy, reset };
+  return { url, expiresAt, isLoading, copied, error, generate, copy, reset };
 }

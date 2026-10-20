@@ -7,6 +7,7 @@ import { authMiddleware } from '../middlewares/authMiddleware';
 import { defineRoute } from '../lib/route';
 import { sendError } from '../lib/response';
 import { createRateLimiter } from '../lib/rateLimiter';
+import { resolveShareExpiry, shareExpiryFields } from '../lib/shareExpiry';
 
 const shareRouter: Router = Router();
 
@@ -30,6 +31,7 @@ async function shareLimiter(req: Request, res: Response, next: NextFunction): Pr
 const createShareBodySchema = z.object({
   fileId: z.string().min(1).max(100),
   permission: z.enum(['view', 'edit']),
+  ...shareExpiryFields,
 });
 
 shareRouter.post(
@@ -57,12 +59,13 @@ shareRouter.post(
       const result = await ShareService.upsertShareToken(
         parsed.data.fileId,
         userId,
-        parsed.data.permission as SharePermission
+        parsed.data.permission as SharePermission,
+        resolveShareExpiry(parsed.data)
       );
 
       if (result.kind !== 'ok') return result;
 
-      res.status(200).json({ token: result.token });
+      res.status(200).json({ token: result.token, expiresAt: result.expiresAt });
       return result;
     },
   })

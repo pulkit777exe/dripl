@@ -6,6 +6,7 @@ import {
   parseStoredFileContent,
   serializeStoredFileContent,
 } from '../lib/encrypt';
+import { resolveShareExpiry } from '../lib/shareExpiry';
 
 export const FREE_PLAN_FILE_LIMIT = 3;
 
@@ -34,7 +35,7 @@ export type UpdateFileResult =
   | null;
 
 export type CreateShareResult =
-  | { token: string; permission: string; expiresAt: Date | null; shareUrl: string }
+  | { token: string; permission: string; expiresAt: Date; shareUrl: string }
   | { kind: 'invalid_scene' }
   | { kind: 'conflict' }
   | null;
@@ -415,9 +416,7 @@ export class FileService {
       baseShareUrl,
       parsedContent.elements
     );
-    const expiresAt =
-      explicitExpiry ??
-      (expiresInHours ? new Date(Date.now() + expiresInHours * 60 * 60 * 1000) : null);
+    const expiresAt = resolveShareExpiry({ expiresAt: explicitExpiry, expiresInHours });
 
     const updated = await db.file.updateMany({
       where: { id: file.id, userId, updatedAt: file.updatedAt },

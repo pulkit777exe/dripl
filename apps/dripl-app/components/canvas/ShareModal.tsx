@@ -154,6 +154,11 @@ export function ShareModal({
                   {share.copied ? 'Copied' : 'Copy'}
                 </button>
               </div>
+              {share.expiresAt && (
+                <p className="text-[11px]" style={{ color: '#6B6860' }}>
+                  This link expires on {new Date(share.expiresAt).toLocaleString()}.
+                </p>
+              )}
             </div>
           )}
 

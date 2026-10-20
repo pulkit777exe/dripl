@@ -213,9 +213,11 @@ describe('POST /api/share', () => {
       .send({ fileId: 'file-1', permission: 'edit' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ data: { token: expect.any(String) } });
+    expect(res.body).toEqual({
+      data: { token: expect.any(String), expiresAt: expect.any(String) },
+    });
     expect(res.body.data.token.length).toBeGreaterThanOrEqual(24);
-    // The rotate path is fenced on the row it read.
+    // The rotate path is fenced on the row it read and writes the default TTL.
     expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -223,12 +225,57 @@ describe('POST /api/share', () => {
           userId: 'user-1',
           updatedAt: UPDATED_AT,
         }),
+        data: expect.objectContaining({ shareExpiresAt: expect.any(Date) }),
       })
     );
   });
 
+  it('defaults a share without an expiry to 24 hours', async () => {
+    givenFile(fileMock({ shareToken: null }));
+    const before = Date.now();
+    const app = createTestApp();
+    const res = await request(app)
+      .post('/api/share')
+      .set('Authorization', `Bearer ${tokenFor('user-1')}`)
+      .send({ fileId: 'file-1', permission: 'view' });
+
+    expect(res.status).toBe(200);
+    const expiresAt = new Date(res.body.data.expiresAt).getTime();
+    expect(expiresAt).toBeGreaterThan(before + 23 * 60 * 60 * 1000);
+    expect(expiresAt).toBeLessThanOrEqual(before + 24 * 60 * 60 * 1000 + 5_000);
+  });
+
+  it('accepts an hours-based expiry and rejects one above the 30-day cap', async () => {
+    givenFile(fileMock({ shareToken: null }));
+    const app = createTestApp();
+    const ok = await request(app)
+      .post('/api/share')
+      .set('Authorization', `Bearer ${tokenFor('user-1')}`)
+      .send({ fileId: 'file-1', permission: 'view', expiresInHours: 2 });
+
+    expect(ok.status).toBe(200);
+    expect(new Date(ok.body.data.expiresAt).getTime()).toBeLessThanOrEqual(
+      Date.now() + 2 * 60 * 60 * 1000 + 5_000
+    );
+
+    const tooLong = await request(app)
+      .post('/api/share')
+      .set('Authorization', `Bearer ${tokenFor('user-1')}`)
+      .send({ fileId: 'file-1', permission: 'view', expiresInHours: 721 });
+
+    expect(tooLong.status).toBe(400);
+    expect(tooLong.body.error).toBe('INVALID_PAYLOAD');
+  });
+
   it('returns 200 with the existing token when the permission is unchanged', async () => {
-    givenFile(fileMock({ shareToken: 'kept-token-xyz', sharePermission: 'view' }));
+    const laterExpiry = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    givenFile(
+      fileMock({
+        shareToken: 'kept-token-xyz',
+        sharePermission: 'view',
+        shareExpiresAt: laterExpiry,
+      })
+    );
 
     const app = createTestApp();
     const res = await request(app)
@@ -237,8 +284,10 @@ describe('POST /api/share', () => {
       .send({ fileId: 'file-1', permission: 'view' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ data: { token: 'kept-token-xyz' } });
-    // No rotation: no DB update
+    expect(res.body).toEqual({
+      data: { token: 'kept-token-xyz', expiresAt: laterExpiry.toISOString() },
+    });
+    // No rotation and no shortening: no DB update.
     expect(mockUpdateMany).not.toHaveBeenCalled();
   });
 
@@ -259,7 +308,10 @@ describe('POST /api/share', () => {
           userId: 'user-1',
           updatedAt: UPDATED_AT,
         }),
-        data: expect.objectContaining({ sharePermission: 'edit', shareExpiresAt: null }),
+        data: expect.objectContaining({
+          sharePermission: 'edit',
+          shareExpiresAt: expect.any(Date),
+        }),
       })
     );
   });

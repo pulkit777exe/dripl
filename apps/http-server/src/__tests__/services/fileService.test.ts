@@ -252,6 +252,59 @@ describe('FileService', () => {
 
       expect(result).toEqual({ kind: 'conflict' });
     });
+
+    it('defaults a share with no explicit expiry to 24 hours', async () => {
+      const { db } = await import('@dripl/db');
+      const { parseStoredFileContent, buildEncryptedShare } = await import('../../lib/encrypt');
+      vi.mocked(db.file.findFirst).mockResolvedValue(storedFile);
+      vi.mocked(parseStoredFileContent).mockReturnValue({
+        elements: [{ id: 'a', type: 'rectangle', x: 0, y: 0, width: 10, height: 10 }],
+        appState: null,
+      } as never);
+      vi.mocked(buildEncryptedShare).mockResolvedValue({
+        shareUrl: 'http://localhost:3000/share/t',
+        encryptedPayload: { iv: 'iv', data: 'ciphertext' },
+      } as never);
+      vi.mocked(db.file.updateMany).mockResolvedValue({ count: 1 } as never);
+
+      const before = Date.now();
+      const result = await FileService.createShare({
+        userId: 'user-1',
+        fileId: 'file-1',
+        permission: 'view',
+      });
+
+      if (!result || 'kind' in result) throw new Error('expected a created share');
+      const ttl = result.expiresAt.getTime() - before;
+      expect(ttl).toBeGreaterThan(23 * 60 * 60 * 1000);
+      expect(ttl).toBeLessThanOrEqual(24 * 60 * 60 * 1000 + 5_000);
+    });
+
+    it('clamps a direct caller above the 30-day cap', async () => {
+      const { db } = await import('@dripl/db');
+      const { parseStoredFileContent, buildEncryptedShare } = await import('../../lib/encrypt');
+      vi.mocked(db.file.findFirst).mockResolvedValue(storedFile);
+      vi.mocked(parseStoredFileContent).mockReturnValue({
+        elements: [{ id: 'a', type: 'rectangle', x: 0, y: 0, width: 10, height: 10 }],
+        appState: null,
+      } as never);
+      vi.mocked(buildEncryptedShare).mockResolvedValue({
+        shareUrl: 'http://localhost:3000/share/t',
+        encryptedPayload: { iv: 'iv', data: 'ciphertext' },
+      } as never);
+      vi.mocked(db.file.updateMany).mockResolvedValue({ count: 1 } as never);
+
+      const before = Date.now();
+      const result = await FileService.createShare({
+        userId: 'user-1',
+        fileId: 'file-1',
+        permission: 'view',
+        expiresInHours: 10_000,
+      });
+
+      if (!result || 'kind' in result) throw new Error('expected a created share');
+      expect(result.expiresAt.getTime()).toBeLessThanOrEqual(before + 720 * 60 * 60 * 1000 + 5_000);
+    });
   });
 
   describe('deleteFile', () => {

@@ -18,7 +18,9 @@ export interface ResolveShareResult {
 export type SharePermission = 'view' | 'edit';
 
 export type UpsertShareResult =
-  { kind: 'ok'; token: string | null } | { kind: 'not_found' } | { kind: 'forbidden' };
+  | { kind: 'ok'; token: string | null; expiresAt: Date | null }
+  | { kind: 'not_found' }
+  | { kind: 'forbidden' };
 
 const TOKEN_BYTES = 24;
 
@@ -61,13 +63,19 @@ export class ShareService {
    * Idempotently set a file's share token + permission for the
    * given user. Only the file owner may modify its share state.
    *
+   * `expiresAt` is required: product decision Q1 makes every file share a
+   * bounded capability, so there is no service path that writes a permanent
+   * link. Re-sharing keeps an existing token (live links stay valid) but may
+   * extend its expiry; it never shortens the expiry the owner already chose.
+   *
    * Returns a discriminated result so the route layer can map to
    * the right HTTP status without inspecting error shapes.
    */
   static async upsertShareToken(
     fileId: string,
     userId: string,
-    permission: SharePermission | null
+    permission: SharePermission | null,
+    expiresAt: Date
   ): Promise<UpsertShareResult> {
     const file = await db.file.findFirst({
       where: { id: fileId },
@@ -91,7 +99,7 @@ export class ShareService {
         data: { shareToken: null, sharePermission: null, shareExpiresAt: null },
       });
       if (revoked.count === 0) return { kind: 'not_found' };
-      return { kind: 'ok', token: null };
+      return { kind: 'ok', token: null, expiresAt: null };
     }
 
     // Idempotent: if the existing token + permission already match,
@@ -101,16 +109,30 @@ export class ShareService {
       file.sharePermission === permission &&
       (!file.shareExpiresAt || file.shareExpiresAt.getTime() > Date.now())
     ) {
-      return { kind: 'ok', token: file.shareToken };
+      // A legacy token with no expiry becomes bounded from now; an existing
+      // shorter expiry is extended by the request; a longer one is kept so
+      // re-sharing at the default never silently shortens the owner's choice.
+      const nextExpiry =
+        !file.shareExpiresAt || file.shareExpiresAt.getTime() < expiresAt.getTime()
+          ? expiresAt
+          : file.shareExpiresAt;
+      if (nextExpiry.getTime() !== file.shareExpiresAt?.getTime()) {
+        const refreshed = await db.file.updateMany({
+          where: { id: fileId, userId, updatedAt: file.updatedAt },
+          data: { shareExpiresAt: nextExpiry },
+        });
+        if (refreshed.count === 0) return { kind: 'not_found' };
+      }
+      return { kind: 'ok', token: file.shareToken, expiresAt: nextExpiry };
     }
 
     // New or permission changed: rotate.
     const token = generateToken();
     const updated = await db.file.updateMany({
       where: { id: fileId, userId, updatedAt: file.updatedAt },
-      data: { shareToken: token, sharePermission: permission, shareExpiresAt: null },
+      data: { shareToken: token, sharePermission: permission, shareExpiresAt: expiresAt },
     });
     if (updated.count === 0) return { kind: 'not_found' };
-    return { kind: 'ok', token };
+    return { kind: 'ok', token, expiresAt };
   }
 }

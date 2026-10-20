@@ -131,4 +131,27 @@ describe('ShareModal', () => {
       expect(input.value).toBe('https://dripl.test/share/tok-abc#key=server-key');
     });
   });
+
+  it('shows when the generated link expires', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(apiClient, 'shareFile').mockResolvedValue({
+      token: 'tok-abc',
+      permission: 'view',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+      shareUrl: 'https://dripl.test/share/tok-abc#key=server-key',
+    });
+
+    render(
+      <ShareModal
+        isOpen
+        onClose={() => {}}
+        fileId="file-1"
+        onShareCanvas={vi.fn()}
+        onCollaborate={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /^share$/i }));
+    expect(await screen.findByText(/expires on/i)).toBeInTheDocument();
+  });
 });
