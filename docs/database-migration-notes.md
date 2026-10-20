@@ -37,3 +37,30 @@ procedure appropriate to the deployment. The procedure must either:
 The exact choice depends on the database's migration ledger and backup/restore
 process. It must be exercised on a disposable copy of the production-shaped
 data before rollout.
+
+### Preflight
+
+The detector is `packages/db/src/legacyUpgrade.ts`; the operator entry point is:
+
+```bash
+DATABASE_URL=postgresql://... pnpm --filter @dripl/db db:preflight
+# machine-readable:
+DATABASE_URL=postgresql://... pnpm --filter @dripl/db db:preflight -- --json
+```
+
+It connects directly with `pg` (it does not read `.env`) and runs read-only
+queries: whether `_prisma_migrations` and `User` exist, the finished and
+non-rolled-back ledger entries, whether `User.password` exists, and the `User`
+row count. It never writes, repairs, or resolves a migration.
+
+| Exit | Meaning                                                                                                                                                                  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0    | No legacy-data hazard: fresh database, password migration already applied, or `User` is empty so the `ALTER TABLE` is safe.                                              |
+| 1    | Blocked: the populated pre-password state, a `User` table with no Prisma ledger, or ledger/schema drift. Follow the reviewed procedure above on a backup; do not deploy. |
+| 2    | The check itself could not run (missing `DATABASE_URL`, connection or query error).                                                                                      |
+
+CI (`RUN_DB_INTEGRATION=true`) seeds a throwaway database with only the initial
+migration and one user, asserts the verdict is `blocked`, and asserts that the
+real `prisma migrate deploy` still fails on it. That exercises the detector, not
+a repair: the two repair routes above remain manual and must still be rehearsed
+on a disposable copy before use.
