@@ -19,6 +19,7 @@ vi.mock('@dripl/db', () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
+      deleteMany: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -129,6 +130,32 @@ describe('AuthService', () => {
 
       await AuthService.forgotPassword('nonexistent@example.com');
       expect(sendResetPasswordEmail).not.toHaveBeenCalled();
+      expect(db.passwordResetToken.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('retires every earlier token so only the newest one is live', async () => {
+      // Minting without deleting let an arbitrary number of tokens stay live
+      // until their own expiry — a stale link from a week ago, or one an
+      // attacker observed, still reset the password after the user requested a
+      // fresh one. One live token per address is the contract, and it is
+      // established by deleting the old rows before the new one is created.
+      const { db } = await import('@dripl/db');
+      const { sendResetPasswordEmail } = await import('../../lib/mailer');
+
+      vi.mocked(db.user.findUnique).mockResolvedValue({ id: 'user-1' } as never);
+      vi.mocked(db.passwordResetToken.create).mockResolvedValue({} as never);
+      vi.mocked(sendResetPasswordEmail).mockResolvedValue(undefined as never);
+
+      await AuthService.forgotPassword('known@example.com');
+
+      expect(db.passwordResetToken.deleteMany).toHaveBeenCalledWith({
+        where: { email: 'known@example.com' },
+      });
+      // The delete must precede the mint: a reordered pair would still leave
+      // two live tokens for one request.
+      expect(vi.mocked(db.passwordResetToken.deleteMany).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(db.passwordResetToken.create).mock.invocationCallOrder[0]
+      );
     });
   });
 });

@@ -198,6 +198,15 @@ export class AuthService {
     const user = await db.user.findUnique({ where: { email } });
     if (!user) return; // Don't leak emails
 
+    // Retire every earlier token for this address, exactly as
+    // `resendVerification` does. Minting without deleting let an arbitrary
+    // number of tokens stay live until their own expiry, so a stale link from
+    // a week ago (or one an attacker observed) still reset the password after
+    // the user had already requested a fresh one. One live token per address
+    // is the intended contract; `deleteMany` also clears the expired rows that
+    // would otherwise accumulate.
+    await db.passwordResetToken.deleteMany({ where: { email } });
+
     const resetToken = randomUUID();
     const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
 
