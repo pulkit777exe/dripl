@@ -1,10 +1,11 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
+import { INITIAL_MIGRATION, classifyLegacyUpgrade, readLegacyUpgradeState } from './legacyUpgrade';
 
 /**
  * Applies every migration in this package to a brand-new, empty PostgreSQL
@@ -251,5 +252,100 @@ describeMigration('migrations build a fresh database', () => {
       'migration.sql'
     );
     expect(existsSync(snapshotMigration)).toBe(true);
+  });
+});
+
+const legacyDatabaseName = `dripl_legacy_preflight_test_${randomUUID().replaceAll('-', '')}`;
+let legacyDatabaseUrl = '';
+
+function legacyUrl(): string {
+  if (legacyDatabaseUrl) return legacyDatabaseUrl;
+  const url = new URL(adminUrl as string);
+  url.pathname = `/${legacyDatabaseName}`;
+  legacyDatabaseUrl = url.toString();
+  return legacyDatabaseUrl;
+}
+
+/**
+ * Seeds the exact state the preflight exists to catch: the historical first
+ * migration applied, one user row, and the non-null password column not yet
+ * added. It then proves both halves — the classifier blocks, and the real
+ * `prisma migrate deploy` fails — so the guard is not an untested assertion.
+ */
+describeMigration('legacy password-migration preflight', () => {
+  beforeAll(async () => {
+    await withAdmin(async client => {
+      await client.query(`CREATE DATABASE ${quoteIdentifier(legacyDatabaseName)}`);
+    });
+
+    const client = new pg.Client({ connectionString: legacyUrl(), ssl: false });
+    await client.connect();
+    try {
+      const initialSql = readFileSync(
+        path.join(packageRoot, 'prisma', 'migrations', INITIAL_MIGRATION, 'migration.sql'),
+        'utf8'
+      );
+      await client.query(initialSql);
+      await client.query(`INSERT INTO "User" ("id", "email", "updatedAt") VALUES ($1, $2, NOW())`, [
+        'legacy-user',
+        'legacy@example.test',
+      ]);
+    } finally {
+      await client.end();
+    }
+
+    // Record the manually applied migration so the ledger matches the schema.
+    execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'resolve', '--applied', INITIAL_MIGRATION], {
+      cwd: packageRoot,
+      env: { ...process.env, DATABASE_URL: legacyUrl(), NODE_ENV: 'test' },
+      stdio: 'pipe',
+    });
+  }, 180_000);
+
+  afterAll(async () => {
+    await withAdmin(async client => {
+      await client.query(
+        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1`,
+        [legacyDatabaseName]
+      );
+      await client.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(legacyDatabaseName)}`);
+    });
+  });
+
+  it('classifies the seeded database as a populated pre-password hazard', async () => {
+    const client = new pg.Client({ connectionString: legacyUrl(), ssl: false });
+    await client.connect();
+    try {
+      const state = await readLegacyUpgradeState(client);
+      const verdict = classifyLegacyUpgrade(state);
+
+      expect(state).toEqual({
+        migrationsTableExists: true,
+        appliedMigrations: [INITIAL_MIGRATION],
+        userTableExists: true,
+        passwordColumnExists: false,
+        userCount: 1,
+      });
+      expect(verdict).toMatchObject({
+        status: 'blocked',
+        reason: 'populated-before-password-migration',
+      });
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('confirms the historical password migration fails on that database', () => {
+    const result = spawnSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
+      cwd: packageRoot,
+      env: { ...process.env, DATABASE_URL: legacyUrl(), NODE_ENV: 'test' },
+      stdio: 'pipe',
+      encoding: 'utf8',
+    });
+
+    expect(result.status).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(
+      /not possible if the table is not empty|password/i
+    );
   });
 });

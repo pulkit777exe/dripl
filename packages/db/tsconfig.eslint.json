@@ -7,7 +7,7 @@
   // `include`; it is pulled back in transitively through `src/index.ts`, which
   // is what makes the Prisma types real.
   "extends": "./tsconfig.json",
-  "include": ["src/**/*.ts", "*.ts"],
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "*.ts"],
   "exclude": ["node_modules", "dist", "src/generated"],
   "compilerOptions": {
     "noEmit": true,

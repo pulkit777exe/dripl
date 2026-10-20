@@ -17,6 +17,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "db:generate": "prisma generate",
+    "db:preflight": "tsx scripts/preflight-legacy-password.ts",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "check-types": "tsc --noEmit -p tsconfig.check.json"
@@ -35,6 +36,7 @@
     "@types/pg": "^8.23.1",
     "eslint": "^9.39.5",
     "prisma": "^7.10.1",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.72.0",
     "vitest": "^4.1.12"
