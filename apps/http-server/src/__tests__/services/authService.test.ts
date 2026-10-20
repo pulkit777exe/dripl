@@ -207,4 +207,52 @@ describe('AuthService', () => {
       expect(result).toBe(false);
     });
   });
+
+  /**
+   * Register, forgot-password and resend-verification answer one uniform wire
+   * body whether or not the address holds an account, so the response may not
+   * wait on a mail that only goes out for some of those states: an SMTP round
+   * trip dominates the request and turns the uniform body into a timing oracle.
+   * These tests hold each mail promise open; awaiting it would hang the test.
+   */
+  describe('mail delivery does not gate the response', () => {
+    it('forgotPassword resolves before the reset email settles', async () => {
+      const { db } = await import('@dripl/db');
+      const { sendResetPasswordEmail } = await import('../../lib/mailer');
+      vi.mocked(db.user.findUnique).mockResolvedValue({ id: 'user-1' } as never);
+      vi.mocked(sendResetPasswordEmail).mockReturnValue(new Promise<void>(() => {}) as never);
+
+      await AuthService.forgotPassword('known@example.com');
+
+      expect(db.passwordResetToken.create).toHaveBeenCalled();
+      expect(sendResetPasswordEmail).toHaveBeenCalled();
+    });
+
+    it('register resolves before the verification email settles', async () => {
+      const { db } = await import('@dripl/db');
+      const { sendVerificationEmail } = await import('../../lib/mailer');
+      vi.mocked(db.user.findUnique).mockResolvedValue(null);
+      vi.mocked(sendVerificationEmail).mockReturnValue(new Promise<void>(() => {}) as never);
+
+      const result = await AuthService.register('new@example.com', 'password123');
+
+      expect(result.type).toBe('registered');
+      expect(sendVerificationEmail).toHaveBeenCalled();
+    });
+
+    it('resendVerification resolves before the verification email settles', async () => {
+      const { db } = await import('@dripl/db');
+      const { sendVerificationEmail } = await import('../../lib/mailer');
+      vi.mocked(db.user.findUnique).mockResolvedValue({
+        id: 'user-1',
+        emailVerified: false,
+      } as never);
+      vi.mocked(sendVerificationEmail).mockReturnValue(new Promise<void>(() => {}) as never);
+
+      const result = await AuthService.resendVerification('pending@example.com');
+
+      expect(result).toBe(true);
+      expect(sendVerificationEmail).toHaveBeenCalled();
+    });
+  });
 });

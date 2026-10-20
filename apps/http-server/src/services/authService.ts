@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { db, revokeIssuedTokens } from '@dripl/db';
 import { sendResetPasswordEmail, sendVerificationEmail } from '../lib/mailer';
 import { hashToken } from '../lib/tokenHash';
+import { logger } from '../logger';
 
 const VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 const RESET_TOKEN_TTL_MS = 1000 * 60 * 60; // 1 hour
@@ -31,6 +32,25 @@ async function comparePassword(password: string, hash: string | null): Promise<b
   } catch {
     return false;
   }
+}
+
+/**
+ * Deliver mail without awaiting the SMTP round trip.
+ *
+ * Register, forgot-password and resend-verification all answer one uniform
+ * response whether or not the address holds an account, precisely so the wire
+ * cannot be used to enumerate accounts. Awaiting the send undid that: mail only
+ * goes out for some of those states, and an SMTP round trip dominates the
+ * request, so the uniform body was paired with a distinguishable latency.
+ *
+ * The trade is explicit: the API now reports success before delivery is known.
+ * A failure is logged with its event name, and the caller can request another
+ * mail; holding the response open instead would rebuild the oracle.
+ */
+function sendInBackground(event: string, send: () => Promise<unknown>): void {
+  void Promise.resolve()
+    .then(send)
+    .catch(error => logger.error({ event, error }, 'Failed to send email'));
 }
 
 function pruneLoginAttempts(): void {
@@ -93,7 +113,9 @@ export class AuthService {
         data: { token: hashToken(verifyToken), email, expiresAt },
       });
 
-      await sendVerificationEmail(email, verifyToken);
+      sendInBackground('verification_email_failed', () =>
+        sendVerificationEmail(email, verifyToken)
+      );
       return {
         type: 'verification_sent',
         message: 'Verification email sent. Please check your inbox.',
@@ -120,7 +142,7 @@ export class AuthService {
       data: { token: hashToken(verifyToken), email, expiresAt },
     });
 
-    await sendVerificationEmail(email, verifyToken);
+    sendInBackground('verification_email_failed', () => sendVerificationEmail(email, verifyToken));
     return { type: 'registered' };
   }
 
@@ -242,7 +264,9 @@ export class AuthService {
       data: { token: hashToken(resetToken), email, expiresAt },
     });
 
-    await sendResetPasswordEmail(email, resetToken);
+    sendInBackground('reset_password_email_failed', () =>
+      sendResetPasswordEmail(email, resetToken)
+    );
   }
 
   static async resetPassword(token: string, newPassword: string): Promise<boolean> {
@@ -349,7 +373,7 @@ export class AuthService {
       data: { token: hashToken(verifyToken), email, expiresAt },
     });
 
-    await sendVerificationEmail(email, verifyToken);
+    sendInBackground('verification_email_failed', () => sendVerificationEmail(email, verifyToken));
     return true;
   }
 
