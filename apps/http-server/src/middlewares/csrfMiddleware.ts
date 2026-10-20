@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { type NextFunction, type Request, type Response } from 'express';
+import { timingSafeEqualString } from '@dripl/utils';
 import { sendError } from '../lib/response';
 
 const CSRF_TOKEN_BYTES = 32;
@@ -39,9 +40,7 @@ export function validateCsrfToken(req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  const a = Buffer.from(csrfCookie);
-  const b = Buffer.from(csrfHeader);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+  if (!timingSafeEqualString(csrfCookie, csrfHeader)) {
     sendError(res, 403, 'CSRF_TOKEN_INVALID', 'CSRF token invalid');
     return;
   }

@@ -10,4 +10,5 @@ export {
 } from './auth';
 export type { JwtPayload, StoredTokenVersion } from './auth';
 export { normalizeOrigin, parseAllowedOrigins } from './origin';
+export { timingSafeEqualString } from './compare';
 export { createLogger } from './logger';

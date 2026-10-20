@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { logError } from '@dripl/common';
+import { timingSafeEqualString } from '@dripl/utils';
 import { getGoogleOAuthConfig } from '../google-config';
 
 const configuredHttpServerUrl = process.env.HTTP_SERVER_URL || 'http://localhost:3002';
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`/login?error=google_${error}`, request.url));
   }
 
-  if (!state || !cookieState || state !== cookieState) {
+  if (!state || !cookieState || !timingSafeEqualString(cookieState, state)) {
     return NextResponse.redirect(new URL('/login?error=invalid_state', request.url));
   }
 

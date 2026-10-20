@@ -1,5 +1,4 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { sendError } from '../lib/response';
 import {
@@ -13,6 +12,7 @@ import {
 import { OAuth2Client } from 'google-auth-library';
 import { Redis } from '@upstash/redis';
 import { normalizeOrigin } from '@dripl/utils/origin';
+import { timingSafeEqualString } from '@dripl/utils';
 import { AuthService } from '../services/authService';
 import { getAllowedOrigins } from '../lib/allowedOrigins';
 import { logger } from '../logger';
@@ -642,8 +642,7 @@ export function createInternalRouter(): Router {
     if (
       !expectedSecret ||
       !providedSecret ||
-      expectedSecret.length !== providedSecret.length ||
-      !timingSafeEqual(Buffer.from(providedSecret), Buffer.from(expectedSecret))
+      !timingSafeEqualString(expectedSecret, providedSecret)
     ) {
       res.status(403).json({ error: 'Forbidden' });
       return;
