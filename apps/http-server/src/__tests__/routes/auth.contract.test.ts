@@ -36,6 +36,7 @@ import {
   raw,
 } from '../test-utils/authenticatedRequest';
 import { fakeDb, resetFakeDb } from '../test-utils/fakePrisma';
+import { hashToken } from '../../lib/tokenHash';
 
 /**
  * `auth: false` because that is how `app.ts` mounts it: `/api/auth` gets CSRF but
@@ -136,7 +137,7 @@ describe('POST /api/auth/register', () => {
     seedUser({ emailVerified: false });
     fakeDb().seed('emailVerificationToken', {
       id: 'tok-old',
-      token: 'old',
+      token: hashToken('old'),
       email: 'owner@example.com',
       expiresAt: new Date(Date.now() + 60_000),
     });
@@ -153,14 +154,14 @@ describe('POST /api/auth/register', () => {
     });
     // The live token is left alone, not accumulated.
     expect(fakeDb().rows('emailVerificationToken')).toHaveLength(1);
-    expect(fakeDb().rows('emailVerificationToken')[0]?.token).toBe('old');
+    expect(fakeDb().rows('emailVerificationToken')[0]?.token).toBe(hashToken('old'));
   });
 
   it('rotates an expired verification token', async () => {
     seedUser({ emailVerified: false });
     fakeDb().seed('emailVerificationToken', {
       id: 'tok-stale',
-      token: 'stale',
+      token: hashToken('stale'),
       email: 'owner@example.com',
       expiresAt: new Date(Date.now() - 1_000),
     });
@@ -988,13 +989,13 @@ describe('POST /api/auth/reset-password', () => {
   it('answers 400 INVALID_PAYLOAD for an expired token', async () => {
     fakeDb().seed('passwordResetToken', {
       id: 'reset-1',
-      token: 'expired',
+      token: hashToken('expired'),
       email: 'owner@example.com',
       expiresAt: new Date(Date.now() - 1_000),
     });
 
     const response = await post(app, '/api/auth/reset-password', 'anonymous', {
-      token: 'expired',
+      token: hashToken('expired'),
       password: 'a-new-password',
     });
 
@@ -1005,7 +1006,7 @@ describe('POST /api/auth/reset-password', () => {
   it('sets the new password and consumes the token', async () => {
     fakeDb().seed('passwordResetToken', {
       id: 'reset-1',
-      token: 'live',
+      token: hashToken('live'),
       email: 'owner@example.com',
       expiresAt: new Date(Date.now() + 60_000),
     });
@@ -1029,7 +1030,7 @@ describe('POST /api/auth/reset-password', () => {
     const captured = bearer(OWNER_ID);
     fakeDb().seed('passwordResetToken', {
       id: 'reset-1',
-      token: 'live',
+      token: hashToken('live'),
       email: 'owner@example.com',
       expiresAt: new Date(Date.now() + 60_000),
     });
@@ -1052,13 +1053,13 @@ describe('POST /api/auth/reset-password', () => {
   it('does not consume the token or revoke when no account holds the address', async () => {
     fakeDb().seed('passwordResetToken', {
       id: 'reset-2',
-      token: 'orphan',
+      token: hashToken('orphan'),
       email: 'nobody@example.com',
       expiresAt: new Date(Date.now() + 60_000),
     });
 
     const response = await post(app, '/api/auth/reset-password', 'anonymous', {
-      token: 'orphan',
+      token: hashToken('orphan'),
       password: 'a-new-password',
     });
 
@@ -1116,7 +1117,7 @@ describe('POST /api/auth/verify-email', () => {
   it('marks the account verified and consumes the token', async () => {
     fakeDb().seed('emailVerificationToken', {
       id: 'tok-1',
-      token: 'live',
+      token: hashToken('live'),
       email: 'owner@example.com',
       expiresAt: new Date(Date.now() + 60_000),
     });

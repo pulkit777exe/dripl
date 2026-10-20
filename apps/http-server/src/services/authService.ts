@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import { db, revokeIssuedTokens } from '@dripl/db';
 import { sendResetPasswordEmail, sendVerificationEmail } from '../lib/mailer';
+import { hashToken } from '../lib/tokenHash';
 
 const VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 const RESET_TOKEN_TTL_MS = 1000 * 60 * 60; // 1 hour
@@ -68,7 +69,7 @@ export class AuthService {
       const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
 
       await db.emailVerificationToken.create({
-        data: { token: verifyToken, email, expiresAt },
+        data: { token: hashToken(verifyToken), email, expiresAt },
       });
 
       await sendVerificationEmail(email, verifyToken);
@@ -95,7 +96,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
 
     await db.emailVerificationToken.create({
-      data: { token: verifyToken, email, expiresAt },
+      data: { token: hashToken(verifyToken), email, expiresAt },
     });
 
     await sendVerificationEmail(email, verifyToken);
@@ -211,14 +212,16 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
 
     await db.passwordResetToken.create({
-      data: { token: resetToken, email, expiresAt },
+      data: { token: hashToken(resetToken), email, expiresAt },
     });
 
     await sendResetPasswordEmail(email, resetToken);
   }
 
   static async resetPassword(token: string, newPassword: string): Promise<boolean> {
-    const resetEntry = await db.passwordResetToken.findUnique({ where: { token } });
+    const resetEntry = await db.passwordResetToken.findUnique({
+      where: { token: hashToken(token) },
+    });
 
     if (!resetEntry || resetEntry.expiresAt < new Date()) {
       return false;
@@ -262,7 +265,9 @@ export class AuthService {
   }
 
   static async verifyEmail(token: string): Promise<boolean> {
-    const verification = await db.emailVerificationToken.findUnique({ where: { token } });
+    const verification = await db.emailVerificationToken.findUnique({
+      where: { token: hashToken(token) },
+    });
 
     if (!verification || verification.expiresAt < new Date()) {
       return false;
@@ -292,7 +297,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
 
     await db.emailVerificationToken.create({
-      data: { token: verifyToken, email, expiresAt },
+      data: { token: hashToken(verifyToken), email, expiresAt },
     });
 
     await sendVerificationEmail(email, verifyToken);

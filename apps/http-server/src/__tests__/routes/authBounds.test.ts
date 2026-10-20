@@ -49,6 +49,7 @@ import {
   seedSessionUser,
 } from '../test-utils/authenticatedRequest';
 import { fakeDb, resetFakeDb } from '../test-utils/fakePrisma';
+import { hashToken } from '../../lib/tokenHash';
 
 const authApp = buildApp([{ path: '/api/auth', router: authRouter, auth: false }]);
 const foldersApp = buildApp([{ path: '/api/folders', router: foldersRouter }]);
@@ -73,7 +74,7 @@ describe('credential-route bounds', () => {
   it('refuses a too-short reset password (the floor reset was missing)', async () => {
     fakeDb().seed('passwordResetToken', {
       id: 'reset-1',
-      token: 'live',
+      token: hashToken('live'),
       email: 'owner@example.com',
       expiresAt: new Date(Date.now() + 60_000),
     });
