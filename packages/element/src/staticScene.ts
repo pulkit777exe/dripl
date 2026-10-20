@@ -610,11 +610,11 @@ export const dropCachedBitmapForTest = dropCachedBitmap;
  *      `renderRoughElement` is position-free too — shapes are generated at
  *      (0, 0) from width/height, text draws after its own `translate(x, y)`
  *      which cancels the generator's, and freedraw outlines are built in world
- *      coordinates (`toWorldPoints`) and then removed again by a final
- *      `translate(-x, -y)`. Rotation and opacity are *not* position-free:
- *      rotation is baked by the freedraw branch and opacity is set as
- *      `globalAlpha` for every element, which is why `mutateElement` does not
- *      offer either key here.
+ *      coordinates (`toWorldPoints`) and land in the local frame through the
+ *      generator's `translate(-x, -y)`. Rotation and opacity are compositing,
+ *      applied when the finished bitmap is placed (`drawElement` at blit,
+ *      `renderDraftElement` for a direct draw) — generation bakes neither — so
+ *      `mutateElement` offers both keys here too.
  *
  *   2. **Nothing foreign is embedded.** An owner whose bitmap draws another
  *      element — an arrow's label cutout, a shape's bound text — records those

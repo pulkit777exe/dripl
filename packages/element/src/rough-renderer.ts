@@ -396,8 +396,13 @@ export function renderRoughElement(
 ): void {
   if (element.isDeleted) return;
 
+  // Compositing state is owned by whoever places this draw on a surface, not
+  // by the generator: `drawElement` applies opacity and rotates the finished
+  // bitmap at blit time, and `renderDraftElement` applies both around a direct
+  // draw. Baking either here multiplied them twice on the cached path (alpha²,
+  // angle·2 for freedraw), and left the draft path's own application as the
+  // only correct one.
   ctx.save();
-  ctx.globalAlpha = element.opacity ?? 1;
 
   const { x, y, width, height } = element;
 
@@ -515,19 +520,11 @@ export function renderRoughElement(
     return;
   }
 
-  // Freedraw bypasses Rough.js: filled perfect-freehand outline, in local
-  // coords (the bitmap context is already translated by the caller into the
-  // element's frame; here we are in scene coords, so translate first).
+  // Freedraw bypasses Rough.js: filled perfect-freehand outline, in world
+  // coordinates (the bitmap context is already translated by the caller into
+  // the element's frame). Generated unrotated like every other type — the
+  // rotation of the result belongs to the compositor, not the generator.
   if (element.type === 'freedraw') {
-    ctx.translate(x, y);
-    if (element.angle) {
-      const cx = element.width / 2;
-      const cy = element.height / 2;
-      ctx.translate(cx, cy);
-      ctx.rotate(element.angle);
-      ctx.translate(-cx, -cy);
-    }
-    ctx.translate(-x, -y);
     const outline = getFreedrawOutline(element);
     if (outline.length > 0) {
       ctx.save();
@@ -729,14 +726,13 @@ export function renderDraftElement(
   theme: 'light' | 'dark' = 'dark'
 ): void {
   if (element.isDeleted) return;
-  if (element.type === 'text' || element.type === 'image') {
-    renderRoughElement(rc, ctx, element, undefined, theme, true);
-    return;
-  }
-  if (element.type === 'freedraw') {
-    renderRoughElement(rc, ctx, element, undefined, theme, true);
-    return;
-  }
+
+  // Opacity and rotation are the compositor's job — `renderRoughElement`
+  // bakes neither into its output any more, so a direct draw has to apply
+  // both itself, around the element's centre exactly like `drawElement` does
+  // at blit time. Applying them before the delegation branches also brings
+  // rotated/transparent text, image and freedraw drafts in line with what the
+  // static path paints.
   ctx.save();
   ctx.globalAlpha = element.opacity ?? 1;
   const angle = element.angle ?? 0;
@@ -747,6 +743,13 @@ export function renderDraftElement(
     ctx.rotate(angle);
     ctx.translate(-cx, -cy);
   }
+
+  if (element.type === 'text' || element.type === 'image' || element.type === 'freedraw') {
+    renderRoughElement(rc, ctx, element, undefined, theme, true);
+    ctx.restore();
+    return;
+  }
+
   ctx.translate(element.x, element.y);
   drawArrowLabelCutout(ctx, element, elements);
   const shape = generateShape(element, theme);

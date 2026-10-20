@@ -117,7 +117,7 @@ export function mutateElement<T extends DriplElement>(element: T, updates: Eleme
     if (valuesEqual(currentValue, value, key)) continue;
 
     didChange = true;
-    if (reachesCachedPixels(element, key)) reachesPixels = true;
+    if (reachesCachedPixels(key)) reachesPixels = true;
   }
 
   // No-op guard: return same reference if nothing changed
@@ -138,13 +138,14 @@ export function mutateElement<T extends DriplElement>(element: T, updates: Eleme
     // Both caches hold rendered output keyed on element identity, so they are
     // dropped rather than inherited: the successor object has no entry, and the
     // change is one their content depends on — geometry, or appearance such as
-    // stroke colour and opacity.
+    // stroke colour.
     invalidateElementCache(element.id);
     clearShapeFromCache(element);
   } else {
-    // Position-only. Move both entries to the successor so the next frame hits
-    // instead of rebuilding; `carryForwardElementCache` re-checks the one
-    // condition this function cannot see (whether the bitmap embeds a label).
+    // Position/compositing-only. Move both entries to the successor so the next
+    // frame hits instead of rebuilding; `carryForwardElementCache` re-checks
+    // the one condition this function cannot see (whether the bitmap embeds a
+    // label).
     carryForwardElementCache(element, updated);
     carryForwardShapeCache(element, updated);
   }
@@ -165,22 +166,25 @@ export function mutateElement<T extends DriplElement>(element: T, updates: Eleme
  * `fractionalIndex` is z-order. Each element is rasterized into its own bitmap,
  * so the order other elements are drawn in never reaches these pixels.
  *
- * `angle` is the qualified case. Every type but `freedraw` is rotated when its
- * bitmap is *blitted*, so the stored pixels do not change with it — but
- * `renderRoughElement` rotates freedraw's outline while generating, which puts
- * the angle into the bitmap itself.
+ * `angle` and `opacity` are compositing, applied when the finished bitmap is
+ * placed: `drawElement` rotates around the element's centre and sets
+ * `globalAlpha` at blit time, and `renderDraftElement` does the same for a
+ * direct draw. Generation bakes neither — it used to bake both, which squared
+ * the alpha and doubled the freedraw angle on the cached path.
  *
- * `opacity` is excluded deliberately, though `drawElement` applies it at blit
- * time as well: `renderRoughElement` sets `ctx.globalAlpha` from it during
- * generation, so the value is baked into the pixels too. Dropping the cache for
- * it is correctness, not conservatism.
+ * Everything else — geometry, colours, text, stroke points — reaches the
+ * pixels and drops both caches.
  */
-const CARRIABLE_KEYS: ReadonlySet<string> = new Set(['x', 'y', 'fractionalIndex']);
+const CARRIABLE_KEYS: ReadonlySet<string> = new Set([
+  'x',
+  'y',
+  'fractionalIndex',
+  'angle',
+  'opacity',
+]);
 
-function reachesCachedPixels(element: DriplElement, key: string): boolean {
-  if (CARRIABLE_KEYS.has(key)) return false;
-  if (key === 'angle') return element.type === 'freedraw';
-  return true;
+function reachesCachedPixels(key: string): boolean {
+  return !CARRIABLE_KEYS.has(key);
 }
 
 /**

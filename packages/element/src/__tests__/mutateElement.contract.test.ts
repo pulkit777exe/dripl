@@ -291,12 +291,11 @@ describe('mutateElement cache invalidation', () => {
 
   it('drops both caches for an appearance-only change too', () => {
     // This is the load-bearing claim in the source comment: the bitmap embeds
-    // stroke colour and opacity, so a geometry-only invalidation check would
-    // leave a stale image on screen. `opacity` in particular is not merely
-    // applied at blit time — `renderRoughElement` also sets `globalAlpha` from
-    // it while generating, which is why it is deliberately absent from
-    // `mutateElement`'s carriable keys.
-    for (const appearance of [{ opacity: 0.25 }, { strokeColor: '#ff0000' }, { strokeWidth: 7 }]) {
+    // stroke colour and geometry, so a geometry-only invalidation check would
+    // leave a stale image on screen. `opacity` is absent from this list on
+    // purpose — it is compositing, applied when the bitmap is placed, and
+    // generation bakes nothing; see the carry test below.
+    for (const appearance of [{ strokeColor: '#ff0000' }, { strokeWidth: 7 }]) {
       const element = arrow();
       seedCacheEntryForTest(element);
       setShapeInCache(element, { shape: 'drawable' } as never, 'light');
@@ -307,6 +306,22 @@ describe('mutateElement cache invalidation', () => {
       expect(hasCachedBitmapForTest(restyled)).toBe(false);
       expect(getShapeFromCache(restyled, 'light')).toBeUndefined();
     }
+  });
+
+  it('carries both caches for an opacity change', () => {
+    // Opacity is applied when the finished bitmap is placed (`drawElement` at
+    // blit, `renderDraftElement` for a direct draw); generation no longer
+    // multiplies it into the pixels, so the cached pixels stay valid. It used
+    // to be baked as `globalAlpha` and then applied again at blit — a stored
+    // opacity of 0.5 rendered as 0.25.
+    const element = arrow({ opacity: 1 });
+    seedCacheEntryForTest(element);
+    setShapeInCache(element, { shape: 'drawable' } as never, 'light');
+
+    const faded = mutateElement(element, { opacity: 0.5 });
+
+    expect(hasCachedBitmapForTest(faded)).toBe(true);
+    expect(getShapeFromCache(faded, 'light')).toEqual({ shape: 'drawable' });
   });
 
   it('invalidates the bitmap keyed by id even when the id map holds another object', () => {
@@ -401,19 +416,20 @@ describe('mutateElement cache carry-forward', () => {
     expect(getShapeFromCache(rotated, 'light')).toEqual({ shape: 'drawable' });
   });
 
-  it('drops both caches for a freedraw rotation', () => {
-    // `renderRoughElement` rotates freedraw's outline *while generating*, so
-    // the angle is baked into the bitmap — carrying it would keep turning the
-    // stroke by the old angle forever.
+  it('carries both caches for a freedraw rotation', () => {
+    // Rotation is compositing: `renderRoughElement` generates the outline
+    // unrotated and `drawElement` rotates the bitmap at blit, exactly like
+    // every other type — so a freedraw angle is pixel-invisible to the cache.
+    // It used to be baked while generating, which made a rotated stroke turn
+    // by 2θ on the cached path.
     const element = freedraw();
     seedCacheEntryForTest(element);
     setShapeInCache(element, { shape: 'drawable' } as never, 'light');
 
     const rotated = mutateElement(element, { angle: Math.PI / 4 });
 
-    expect(hasCachedBitmapForTest(element)).toBe(false);
-    expect(hasCachedBitmapForTest(rotated)).toBe(false);
-    expect(getShapeFromCache(rotated, 'light')).toBeUndefined();
+    expect(hasCachedBitmapForTest(rotated)).toBe(true);
+    expect(getShapeFromCache(rotated, 'light')).toEqual({ shape: 'drawable' });
   });
 
   it('drops both caches when a move arrives with a content change', () => {

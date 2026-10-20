@@ -292,6 +292,19 @@ describe('element to Rough.js primitive mapping', () => {
     );
   });
 
+  it('generates the freedraw outline unrotated — rotation is compositing', () => {
+    // `drawElement` rotates the finished bitmap around the element's centre;
+    // baking the angle here as well made a rotated stroke render at 2θ.
+    const points = [
+      { x: 0, y: 0 },
+      { x: 30, y: 40 },
+    ];
+    const trace = render(
+      base({ type: 'freedraw', points, angle: Math.PI / 4 } as Partial<DriplElement>)
+    );
+    expect(trace.ctx.calls.rotate).toEqual([]);
+  });
+
   it('draws the rectangle from the element origin', () => {
     expect(
       movePoints(render(base({ type: 'rectangle', width: 120, height: 80 })).drawn[0])
@@ -858,11 +871,16 @@ describe('text elements', () => {
     expect(trace.ctx.textBaseline).toBe('top');
   });
 
-  it('applies the element opacity to the text', () => {
-    expect(text({ opacity: 0.3 } as Partial<DriplElement>).ctx.calls.globalAlpha).toContain(0.3);
+  it('never touches globalAlpha: compositing belongs to the caller', () => {
+    // The generator used to set `ctx.globalAlpha` from `element.opacity`, and
+    // `drawElement` sets it again when the finished bitmap is blitted — the
+    // two multiplied, so a stored opacity of 0.5 rendered as 0.25. Opacity is
+    // now applied only where a result is placed: `drawElement` at blit,
+    // `renderDraftElement` around a direct draw.
+    expect(text({ opacity: 0.3 } as Partial<DriplElement>).ctx.calls.globalAlpha).toEqual([]);
     expect(
       text({ opacity: undefined } as unknown as Partial<DriplElement>).ctx.calls.globalAlpha
-    ).toContain(1);
+    ).toEqual([]);
   });
 });
 
@@ -1164,6 +1182,29 @@ describe('renderDraftElement', () => {
     } as unknown as DriplElement;
     expect(draft(arrow).ctx.calls.fillRect).toHaveLength(0);
     expect(draft(arrow, [arrow]).drawn).toHaveLength(2);
+  });
+
+  it('applies opacity and rotation itself for the delegated types', () => {
+    // text, image and freedraw drafts are delegated to `renderRoughElement`,
+    // which no longer applies either — if the draft wrapper stops applying
+    // them too, a rotated or faded in-progress stroke renders straight and
+    // opaque while the static path shows it tilted and translucent.
+    const points = [
+      { x: 0, y: 0 },
+      { x: 30, y: 40 },
+    ];
+    const freedraw = base({
+      type: 'freedraw',
+      points,
+      opacity: 0.5,
+      angle: Math.PI / 4,
+    } as Partial<DriplElement>);
+    const stroke = draft(freedraw);
+    expect(stroke.ctx.calls.globalAlpha).toContain(0.5);
+    expect(stroke.ctx.calls.rotate).toContain(Math.PI / 4);
+
+    const text = base({ type: 'text', opacity: 0.4 } as Partial<DriplElement>);
+    expect(draft(text).ctx.calls.globalAlpha).toContain(0.4);
   });
 });
 
