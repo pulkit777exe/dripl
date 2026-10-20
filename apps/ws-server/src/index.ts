@@ -16,28 +16,14 @@ import type { IncomingMessage } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { DriplElement } from '@dripl/common';
 import { MAX_MESSAGE_BYTES } from '@dripl/common';
+import { parseAllowedOrigins } from '@dripl/utils/origin';
 import { initializeDb, db } from '@dripl/db';
-import { messageSchema, validateMessageSize } from './validation';
+import { createMessageHandler } from './dispatch';
 import type { UserConnection } from './types';
 import { resolveTicketFromUrl, validateTicket } from './auth';
 import { createConnectionSession, ACCESS_RECHECK_THROTTLE_MS } from './session';
 export { ACCESS_RECHECK_THROTTLE_MS };
 import { send, broadcast } from './broadcast';
-import { cursorMoveHandler } from './handlers/cursorMove';
-import {
-  elementLockHandler,
-  elementUnlockHandler,
-  elementLockHeartbeatHandler,
-} from './handlers/locks';
-import { viewportUpdateHandler, followUserHandler, unfollowUserHandler } from './handlers/presence';
-import {
-  addElementHandler,
-  updateElementHandler,
-  deleteElementHandler,
-  sceneUpdateHandler,
-  sceneDeltaHandler,
-  elementUpdateHandler,
-} from './handlers/scene';
 import {
   runHeartbeatTick,
   runAuthorizationSweep,
@@ -54,7 +40,7 @@ import {
   awaitSettledPersist,
   type PersistOutcome,
 } from './rooms';
-import { checkRateLimit, setRateLimitIdentity, removeRateLimitIdentity } from './rateLimiter';
+import { setRateLimitIdentity, removeRateLimitIdentity } from './rateLimiter';
 import { isRedisAvailable, unsubscribeFromRoom } from './redis';
 import { onRoomOwnershipLost, releaseAllRooms } from './roomOwnership';
 import { applyRemoteSceneMessage } from './sceneMutation';
@@ -72,17 +58,6 @@ export async function start() {
   }
 }
 
-const ROOM_MUTATION_TYPES = new Set([
-  'add_element',
-  'update_element',
-  'delete_element',
-  'element-update',
-  'scene-update',
-  'scene-delta',
-  'element-lock',
-  'element-unlock',
-  'element-lock-heartbeat',
-]);
 // JSON scene snapshots/deltas are the wire protocol. A previous revision kept
 // a dormant Yjs adapter behind YJS_WIRE_ENABLED=false; it gated only reads
 // while the write path duplicated every element into a Y.Doc, so it was
@@ -255,21 +230,11 @@ server.on('error', err => {
   process.exit(1);
 });
 
-function normalizeOrigin(value: string | undefined): string | null {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-    return url.origin;
-  } catch {
-    return null;
-  }
-}
-
-const ALLOWED_ORIGINS = [env.FRONTEND_URL, env.NEXT_PUBLIC_APP_URL, process.env.NEXT_PUBLIC_APP_URL]
-  .flatMap(value => value?.split(',') ?? [])
-  .map(normalizeOrigin)
-  .filter((value): value is string => value !== null);
+const ALLOWED_ORIGINS = parseAllowedOrigins([
+  env.FRONTEND_URL,
+  env.NEXT_PUBLIC_APP_URL,
+  process.env.NEXT_PUBLIC_APP_URL,
+]);
 
 if (process.env.NODE_ENV !== 'production' && !ALLOWED_ORIGINS.includes('http://localhost:3000')) {
   ALLOWED_ORIGINS.push('http://localhost:3000');
@@ -410,183 +375,11 @@ async function onConnection(ws: WebSocket, req: IncomingMessage): Promise<void> 
     if (user) user.isAlive = true;
   });
 
-  async function handleMessage(raw: Buffer, isBinary = false): Promise<void> {
-    if (shuttingDown) return;
-    try {
-      // Rate limit all messages including binary
-      if (!(await checkRateLimit(ws))) {
-        logger.warn({ event: 'rate_limit_exceeded' });
-        ws.close(4000, 'Rate limit exceeded');
-        return;
-      }
-
-      // Binary collaboration updates were only ever the disabled Yjs wire
-      // protocol. Reject binary frames outright rather than sniffing a
-      // discriminator for a protocol that no longer exists. NOTE: `ws`
-      // delivers text frames as Buffer too, so the frame opcode (`isBinary`)
-      // — not `instanceof Buffer` — is the discriminator. Checking
-      // `instanceof` here would reject every message on the socket.
-      if (isBinary) {
-        send(ws, { type: 'error', message: 'Binary collaboration updates are not enabled' });
-        return;
-      }
-
-      const messageStr = raw.toString();
-
-      const sizeCheck = validateMessageSize(messageStr);
-      if (!sizeCheck.valid) {
-        send(ws, { type: 'error', message: sizeCheck.error! });
-        return;
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(messageStr);
-      } catch (err) {
-        logger.debug({
-          event: 'invalid_ws_message',
-          reason: 'json_parse_error',
-          error: String(err),
-        });
-        return;
-      }
-
-      const validation = messageSchema.safeParse(parsed);
-      if (!validation.success) {
-        return;
-      }
-
-      const message = validation.data;
-      if (ROOM_MUTATION_TYPES.has(message.type) && !(await session.refresh())) {
-        return;
-      }
-
-      switch (message.type) {
-        case 'join_room':
-        case 'join': {
-          await session.join(message);
-          break;
-        }
-
-        case 'leave_room':
-        case 'leave': {
-          await session.leave();
-          break;
-        }
-
-        case 'add_element': {
-          const joined = session.joined();
-          if (!joined) break;
-          await addElementHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
-          break;
-        }
-
-        case 'update_element': {
-          const joined = session.joined();
-          if (!joined) break;
-          await updateElementHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
-          break;
-        }
-
-        case 'delete_element': {
-          const joined = session.joined();
-          if (!joined) break;
-          await deleteElementHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
-          break;
-        }
-
-        case 'scene-update': {
-          const joined = session.joined();
-          if (!joined) break;
-          await sceneUpdateHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
-          break;
-        }
-
-        case 'scene-delta': {
-          const joined = session.joined();
-          if (!joined) break;
-          await sceneDeltaHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
-          break;
-        }
-
-        case 'element-update': {
-          const joined = session.joined();
-          if (!joined) break;
-          await elementUpdateHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
-          break;
-        }
-
-        case 'cursor_move':
-        case 'cursor-move': {
-          const joined = session.joined();
-          if (!joined) break;
-
-          // Already validated against these same schemas by the dispatch
-          // prologue's messageSchema pass; parsing again would double the
-          // cost of the highest-frequency message on the socket.
-          await cursorMoveHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
-          break;
-        }
-
-        case 'element-lock': {
-          const joined = session.joined();
-          if (!joined) break;
-          if (session.rejectReadOnlyMutation()) break;
-          await elementLockHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
-          break;
-        }
-
-        case 'element-unlock': {
-          const joined = session.joined();
-          if (!joined) break;
-          await elementUnlockHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
-          break;
-        }
-
-        case 'element-lock-heartbeat': {
-          const joined = session.joined();
-          if (!joined) break;
-          await elementLockHeartbeatHandler.apply(
-            message,
-            session.handlerCtx(joined.room, joined.userId)
-          );
-          break;
-        }
-
-        case 'ping': {
-          send(ws, { type: 'pong', timestamp: Date.now() });
-          break;
-        }
-
-        case 'viewport-update': {
-          const joined = session.joined();
-          if (!joined) break;
-          await viewportUpdateHandler.apply(
-            message,
-            session.handlerCtx(joined.room, joined.userId)
-          );
-          break;
-        }
-
-        case 'follow-user': {
-          const joined = session.joined();
-          if (!joined) break;
-          await followUserHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
-          break;
-        }
-
-        case 'unfollow-user': {
-          const joined = session.joined();
-          if (!joined) break;
-          await unfollowUserHandler.apply(message, session.handlerCtx(joined.room, joined.userId));
-          break;
-        }
-      }
-    } catch (err) {
-      logger.error({ event: 'ws_message_handler_error', err });
-      Sentry.captureException(err);
-    }
-  }
+  const handleMessage = createMessageHandler({
+    ws,
+    session,
+    isShuttingDown: () => shuttingDown,
+  });
 
   // The ws EventEmitter does not await async listeners. Serialize messages per
   // connection so a burst cannot reorder a join, delta, and delete while a
@@ -624,41 +417,7 @@ async function onConnection(ws: WebSocket, req: IncomingMessage): Promise<void> 
 
   ws.on('close', () => {
     removeRateLimitIdentity(ws);
-    const joined = session.joined();
-    if (!joined) return;
-    const { room, userId } = joined;
-
-    const registeredConnection = room.users.get(userId);
-    const ownsRegistration = registeredConnection?.ws === ws;
-    if (ownsRegistration) {
-      room.users.delete(userId);
-      room.cursors.delete(userId);
-      room.following.delete(userId);
-      room.viewports.delete(userId);
-      // Remove this user as a leader from anyone following them
-      for (const [followerId, leaderId] of room.following) {
-        if (leaderId === userId) {
-          room.following.delete(followerId);
-        }
-      }
-    }
-    wsToRoomMap.delete(ws);
-    if (ownsRegistration && userToRoomMap.get(userId) === room.roomId) {
-      userToRoomMap.delete(userId);
-    }
-
-    if (ownsRegistration) {
-      broadcast(room, {
-        type: 'user-leave',
-        roomId: room.roomId,
-        userId,
-        timestamp: Date.now(),
-      });
-
-      if (room.users.size === 0) {
-        roomLastEmptyAt.set(room.roomId, Date.now());
-      }
-    }
+    session.dispose();
   });
 }
 

@@ -60,6 +60,13 @@ export interface ConnectionSession {
   join(message: JoinMessage): Promise<void>;
   /** Leave the current room, persisting once when the room empties. */
   leave(): Promise<void>;
+  /**
+   * Socket-close cleanup: remove this connection's presence (and anyone
+   * following it), drop the room/user maps, broadcast the departure, and mark
+   * the room empty so the GC can reclaim it. Idempotent; safe after `leave()`
+   * (which nulls the membership, making this a no-op).
+   */
+  dispose(): void;
 }
 
 /**
@@ -330,6 +337,44 @@ export function createConnectionSession(opts: {
     roomAccess = DENIED;
   }
 
+  function dispose(): void {
+    if (!roomId || !userId) return;
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    const registeredConnection = room.users.get(userId);
+    const ownsRegistration = registeredConnection?.ws === ws;
+    if (ownsRegistration) {
+      room.users.delete(userId);
+      room.cursors.delete(userId);
+      room.following.delete(userId);
+      room.viewports.delete(userId);
+      // Remove this user as a leader from anyone following them
+      for (const [followerId, leaderId] of room.following) {
+        if (leaderId === userId) {
+          room.following.delete(followerId);
+        }
+      }
+    }
+    wsToRoomMap.delete(ws);
+    if (ownsRegistration && userToRoomMap.get(userId) === room.roomId) {
+      userToRoomMap.delete(userId);
+    }
+
+    if (ownsRegistration) {
+      broadcast(room, {
+        type: 'user-leave',
+        roomId: room.roomId,
+        userId,
+        timestamp: Date.now(),
+      });
+
+      if (room.users.size === 0) {
+        roomLastEmptyAt.set(room.roomId, Date.now());
+      }
+    }
+  }
+
   return {
     get roomId() {
       return roomId;
@@ -344,5 +389,6 @@ export function createConnectionSession(opts: {
     refresh,
     join,
     leave,
+    dispose,
   };
 }
