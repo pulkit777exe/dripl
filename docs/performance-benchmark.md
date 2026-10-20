@@ -588,11 +588,19 @@ The 10-dragged rows moved identically (10 → 0). Deferred stayed 0 throughout.
 element's own frame — `generateElementCanvas` translates by `-x, -y` and
 `drawElement` blits at `x − PADDING`, so position cancels exactly, and every
 generation branch is position-free inside that frame (shapes generate at
-(0,0), freedraw outlines are world coordinates removed again by a final
-translate, text cancels its own translate). Two keys are _not_ position-free
-and are therefore not carried: `opacity`, set as `ctx.globalAlpha` while
-generating, and `angle` for freedraw, whose outline is rotated during
-generation (every other type rotates at blit time, so it carries). An owner
+(0,0), freedraw outlines are world coordinates, text cancels its own
+translate). Two keys were _not_ position-free when this section was written —
+`opacity`, set as `ctx.globalAlpha` while generating, and `angle` for freedraw,
+whose outline was rotated during generation (every other type rotates at blit
+time, so it carries). **(2026-10-20, `bb6a352`:** both exclusions are gone,
+and so is the bug behind them. Generation baked opacity into the pixels _and_
+`drawElement` applied it at blit — a stored 0.5 rendered as 0.25 — and
+freedraw's baked angle multiplied with the blit rotation — a stroke at θ
+rendered at 2θ. Compositing now belongs solely to whoever places the result
+(`drawElement` at blit, `renderDraftElement` around a direct draw), generation
+bakes nothing, and `mutateElement` carries `x`, `y`, `fractionalIndex`, `angle`
+and `opacity`; only content keys drop the caches, so an opacity or rotation
+gesture reuses bitmaps like a drag does.** ) An owner
 whose bitmap embeds another element — an arrow's label cutout, a shape's bound
 text — is refused rather than assumed, and `dependencyVersions` re-checks on
 every later hit. What must not be relaxed is `elementIdMap`: invalidation
