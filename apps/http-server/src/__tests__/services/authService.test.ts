@@ -97,6 +97,21 @@ describe('AuthService', () => {
       const result = await AuthService.login('test@example.com', 'password');
       expect(result.type).toBe('needs_verification');
     });
+
+    it('performs the bcrypt comparison even when no account exists', async () => {
+      // not_found and invalid_password share one 401; skipping bcrypt for an
+      // unknown address would make response time distinguish them.
+      const { db } = await import('@dripl/db');
+      const bcrypt = (await import('bcryptjs')).default;
+      vi.mocked(db.user.findUnique).mockResolvedValue(null);
+      const compare = vi.spyOn(bcrypt, 'compare');
+
+      const result = await AuthService.login('nonexistent@example.com', 'password');
+
+      expect(result.type).toBe('not_found');
+      expect(compare).toHaveBeenCalledTimes(1);
+      compare.mockRestore();
+    });
   });
 
   describe('verifyEmail', () => {
@@ -117,6 +132,20 @@ describe('AuthService', () => {
       } as never);
 
       const result = await AuthService.verifyEmail('expired-token');
+      expect(result).toBe(false);
+    });
+
+    it('treats a lost single-use race as an invalid token, not a 500', async () => {
+      const { db } = await import('@dripl/db');
+      vi.mocked(db.emailVerificationToken.findUnique).mockResolvedValue({
+        id: 'token-1',
+        email: 'test@example.com',
+        expiresAt: new Date(Date.now() + 60_000),
+      } as never);
+      vi.mocked(db.$transaction).mockRejectedValue({ code: 'P2025' });
+
+      const result = await AuthService.verifyEmail('live-token');
+
       expect(result).toBe(false);
     });
   });
@@ -159,6 +188,23 @@ describe('AuthService', () => {
       const createOrder =
         vi.mocked(db.passwordResetToken.create).mock.invocationCallOrder[0] ?? -Infinity;
       expect(deleteOrder).toBeLessThan(createOrder);
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('treats a lost single-use race as an invalid token, not a 500', async () => {
+      const { db } = await import('@dripl/db');
+      vi.mocked(db.passwordResetToken.findUnique).mockResolvedValue({
+        id: 'reset-1',
+        email: 'owner@example.com',
+        expiresAt: new Date(Date.now() + 60_000),
+      } as never);
+      vi.mocked(db.user.findUnique).mockResolvedValue({ id: 'user-1' } as never);
+      vi.mocked(db.$transaction).mockRejectedValue({ code: 'P2025' });
+
+      const result = await AuthService.resetPassword('live-token', 'a-new-password');
+
+      expect(result).toBe(false);
     });
   });
 });

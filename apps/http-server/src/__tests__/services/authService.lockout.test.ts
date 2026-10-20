@@ -292,10 +292,12 @@ describe('an address that cannot log in is never counted as an attempt', () => {
   /**
    * An unknown address is not counted.
    *
-   * `login` returns `not_found` before it touches `bcrypt` and before it records
-   * anything. That matters for the map: if unknown addresses were counted, an attacker
-   * could reach the 10,000-entry prune threshold — and the eviction path with it —
-   * without knowing a single valid password, purely by varying the address.
+   * `login` returns `not_found` without recording an attempt. It still performs the
+   * bcrypt comparison (against a dummy hash), because skipping it would make response
+   * time distinguish an unknown address from a wrong password; that work is
+   * deliberately uncounted. If unknown addresses were counted, an attacker could
+   * reach the 10,000-entry prune threshold — and the eviction path with it — without
+   * knowing a single valid password, purely by varying the address.
    *
    * Then the control: a real account is still fully lockable afterwards, which a
    * shared counter would have broken.
@@ -307,8 +309,8 @@ describe('an address that cannot log in is never counted as an attempt', () => {
     for (let attempt = 0; attempt < 8; attempt += 1) {
       expect(await AuthService.login(unknown, WRONG)).toEqual({ type: 'not_found' });
     }
-    // No comparison happened at all, so nothing could have been recorded.
-    expect(compare).not.toHaveBeenCalled();
+    // One dummy comparison per attempt, and nothing recorded from any of them.
+    expect(compare).toHaveBeenCalledTimes(8);
 
     // And the counter is untouched: a real account still takes a full five.
     everyAddressIsAnAccount();
@@ -324,11 +326,12 @@ describe('an address that cannot log in is never counted as an attempt', () => {
   /**
    * An unverified account is also not counted.
    *
-   * `needs_verification` returns before `bcrypt.compare`, for the same reason: a
+   * `needs_verification` returns without recording a failure, for the same reason: a
    * fresh account that has not clicked its email yet should not be one typo away from
-   * a 15-minute lockout on its very first login attempt. (Service-level type; the
-   * route answers the same 401 INVALID_CREDENTIALS as every other refusal, so the
-   * wire reveals nothing about verification state.)
+   * a 15-minute lockout on its very first login attempt. It still performs the bcrypt
+   * comparison against the stored hash so timing does not reveal verification state.
+   * (Service-level type; the route answers the same 401 INVALID_CREDENTIALS as every
+   * other refusal, so the wire reveals nothing about verification state.)
    */
   it('does not count an unverified account', async () => {
     const address = freshAddress();
@@ -340,7 +343,8 @@ describe('an address that cannot log in is never counted as an attempt', () => {
       expect(await AuthService.login(address, PASSWORD)).toEqual({ type: 'needs_verification' });
     }
 
-    expect(compare).not.toHaveBeenCalled();
+    // Compared every time, counted never.
+    expect(compare).toHaveBeenCalledTimes(8);
   });
 });
 

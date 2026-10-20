@@ -12,6 +12,27 @@ const LOCKOUT_DURATION_MS = 1000 * 60 * 15; // 15 minutes
 const loginAttempts = new Map<string, { attempts: number; lockedUntil: number }>();
 const MAX_LOGIN_ATTEMPT_ENTRIES = 10_000;
 
+/**
+ * A bcrypt hash of a value nobody uses as a password. Unknown addresses and
+ * accounts without a stored password compare against it so that the bcrypt
+ * work (tens of milliseconds, the dominant cost of a login) happens on every
+ * path. The three outcomes already share one 401 on the wire; without this,
+ * response time still told an attacker which one it was.
+ */
+const DUMMY_PASSWORD_HASH = '$2b$10$J69JbDJc6HQimyCZbbS9i.sExCpD9xN1X/lRLcPyjl1q0CY9UKD3y';
+
+/**
+ * Always performs the comparison, even when there is no hash to compare
+ * against. A malformed stored hash is a failed comparison, not a 500.
+ */
+async function comparePassword(password: string, hash: string | null): Promise<boolean> {
+  try {
+    return await bcrypt.compare(password, hash ?? DUMMY_PASSWORD_HASH);
+  } catch {
+    return false;
+  }
+}
+
 function pruneLoginAttempts(): void {
   const now = Date.now();
   for (const [email, record] of loginAttempts) {
@@ -112,6 +133,13 @@ export class AuthService {
 
     const user = await db.user.findUnique({ where: { email } });
 
+    // Compare before branching. `not_found`, `needs_verification` and a
+    // Google-only account (`!user.password`) all answer the same 401 on the
+    // wire, so the expensive step must not be skippable by guessing which case
+    // an address is in; `comparePassword` substitutes a dummy hash when there
+    // is nothing real to compare against.
+    const isValid = await comparePassword(password, user?.password ?? null);
+
     if (!user) {
       return { type: 'not_found' };
     }
@@ -124,7 +152,6 @@ export class AuthService {
       return { type: 'invalid_password' };
     }
 
-    const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
       const prev = loginAttempts.get(email);
       const attempts = (prev?.attempts ?? 0) + 1;
@@ -253,13 +280,24 @@ export class AuthService {
     // old sessions still authenticate -- which a separate write would leave open,
     // and which a `$transaction` array cannot close either, because
     // `revokeIssuedTokens` is a plain promise rather than a Prisma one.
-    await db.$transaction([
-      db.user.update({
-        where: { id: account.id },
-        data: { password: hashedPassword, tokenVersion: { increment: 1 } },
-      }),
-      db.passwordResetToken.delete({ where: { id: resetEntry.id } }),
-    ]);
+    // The delete inside the transaction is what makes the token single-use:
+    // two requests that both read this row race to delete it, and the loser's
+    // whole transaction rolls back -- including its password write -- rather
+    // than overwriting the winner's new password. A `P2025` is that lost race,
+    // not an internal error, so it takes the same `false` (400) as a token that
+    // was already spent.
+    try {
+      await db.$transaction([
+        db.user.update({
+          where: { id: account.id },
+          data: { password: hashedPassword, tokenVersion: { increment: 1 } },
+        }),
+        db.passwordResetToken.delete({ where: { id: resetEntry.id } }),
+      ]);
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2025') return false;
+      throw error;
+    }
 
     return true;
   }
@@ -273,12 +311,23 @@ export class AuthService {
       return false;
     }
 
-    await db.user.update({
-      where: { email: verification.email },
-      data: { emailVerified: true },
-    });
+    // Same single-use rule as `resetPassword`: the delete inside the
+    // transaction is the claim, so a second request holding the same link gets
+    // `false` (the standard 400) instead of a `P2025` 500, and its verification
+    // write rolls back. The update is idempotent for the winner.
+    try {
+      await db.$transaction([
+        db.user.update({
+          where: { email: verification.email },
+          data: { emailVerified: true },
+        }),
+        db.emailVerificationToken.delete({ where: { id: verification.id } }),
+      ]);
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2025') return false;
+      throw error;
+    }
 
-    await db.emailVerificationToken.delete({ where: { id: verification.id } });
     return true;
   }
 
