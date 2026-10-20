@@ -137,7 +137,8 @@ apps/http-server/            # Express 5 REST API (port 3002)
 apps/ws-server/              # WebSocket collaboration server (port 3001)
   CLAUDE.md                  # App-specific guide
   src/index.ts               # Protocol coordinator/composition root (wiring)
-  src/session.ts             # Per-connection session: join/leave/revalidate
+  src/dispatch.ts            # Per-connection message contract: parse/validate/gate/switch
+  src/session.ts             # Per-connection session: join/leave/revalidate/dispose
   src/validation.ts          # Zod schemas for WS messages
   src/handlers/              # Extracted message handlers
 
