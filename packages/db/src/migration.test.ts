@@ -5,7 +5,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
-import { INITIAL_MIGRATION, classifyLegacyUpgrade, readLegacyUpgradeState } from './legacyUpgrade';
+import {
+  INITIAL_MIGRATION,
+  LEGACY_PASSWORD_MIGRATION,
+  classifyLegacyUpgrade,
+  readLegacyUpgradeState,
+} from './legacyUpgrade';
 
 /**
  * Applies every migration in this package to a brand-new, empty PostgreSQL
@@ -255,65 +260,90 @@ describeMigration('migrations build a fresh database', () => {
   });
 });
 
-const legacyDatabaseName = `dripl_legacy_preflight_test_${randomUUID().replaceAll('-', '')}`;
-let legacyDatabaseUrl = '';
+const preflightDatabaseName = `dripl_legacy_preflight_test_${randomUUID().replaceAll('-', '')}`;
+const repairDatabaseName = `dripl_legacy_repair_test_${randomUUID().replaceAll('-', '')}`;
 
-function legacyUrl(): string {
-  if (legacyDatabaseUrl) return legacyDatabaseUrl;
+function databaseUrlFor(name: string): string {
   const url = new URL(adminUrl as string);
-  url.pathname = `/${legacyDatabaseName}`;
-  legacyDatabaseUrl = url.toString();
-  return legacyDatabaseUrl;
+  url.pathname = `/${name}`;
+  return url.toString();
+}
+
+async function createDatabase(name: string): Promise<void> {
+  await withAdmin(async client => {
+    await client.query(`CREATE DATABASE ${quoteIdentifier(name)}`);
+  });
+}
+
+async function dropDatabase(name: string): Promise<void> {
+  await withAdmin(async client => {
+    await client.query(
+      `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1`,
+      [name]
+    );
+    await client.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(name)}`);
+  });
 }
 
 /**
  * Seeds the exact state the preflight exists to catch: the historical first
- * migration applied, one user row, and the non-null password column not yet
- * added. It then proves both halves — the classifier blocks, and the real
- * `prisma migrate deploy` fails — so the guard is not an untested assertion.
+ * migration applied, a populated `User` table, and the non-null password
+ * column not yet added. A file row per user exercises preservation of related
+ * data, not just the row that caused the migration to fail.
+ */
+async function seedLegacyDatabase(name: string, userCount: number): Promise<void> {
+  const url = databaseUrlFor(name);
+  const client = new pg.Client({ connectionString: url, ssl: false });
+  await client.connect();
+  try {
+    const initialSql = readFileSync(
+      path.join(packageRoot, 'prisma', 'migrations', INITIAL_MIGRATION, 'migration.sql'),
+      'utf8'
+    );
+    await client.query(initialSql);
+    for (let index = 0; index < userCount; index += 1) {
+      const userId = `legacy-user-${index}`;
+      await client.query(`INSERT INTO "User" ("id", "email", "updatedAt") VALUES ($1, $2, NOW())`, [
+        userId,
+        `${userId}@example.test`,
+      ]);
+      await client.query(
+        `INSERT INTO "File" ("id", "name", "content", "userId", "updatedAt")
+         VALUES ($1, $2, '[]', $3, NOW())`,
+        [`legacy-file-${index}`, `Legacy file ${index}`, userId]
+      );
+    }
+  } finally {
+    await client.end();
+  }
+
+  // Record the manually applied migration so the ledger matches the schema.
+  execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'resolve', '--applied', INITIAL_MIGRATION], {
+    cwd: packageRoot,
+    env: { ...process.env, DATABASE_URL: url, NODE_ENV: 'test' },
+    stdio: 'pipe',
+  });
+}
+
+/**
+ * Proves both halves of the guard: the classifier blocks the populated
+ * pre-password state, and the real `prisma migrate deploy` fails on it.
  */
 describeMigration('legacy password-migration preflight', () => {
   beforeAll(async () => {
-    await withAdmin(async client => {
-      await client.query(`CREATE DATABASE ${quoteIdentifier(legacyDatabaseName)}`);
-    });
-
-    const client = new pg.Client({ connectionString: legacyUrl(), ssl: false });
-    await client.connect();
-    try {
-      const initialSql = readFileSync(
-        path.join(packageRoot, 'prisma', 'migrations', INITIAL_MIGRATION, 'migration.sql'),
-        'utf8'
-      );
-      await client.query(initialSql);
-      await client.query(`INSERT INTO "User" ("id", "email", "updatedAt") VALUES ($1, $2, NOW())`, [
-        'legacy-user',
-        'legacy@example.test',
-      ]);
-    } finally {
-      await client.end();
-    }
-
-    // Record the manually applied migration so the ledger matches the schema.
-    execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'resolve', '--applied', INITIAL_MIGRATION], {
-      cwd: packageRoot,
-      env: { ...process.env, DATABASE_URL: legacyUrl(), NODE_ENV: 'test' },
-      stdio: 'pipe',
-    });
+    await createDatabase(preflightDatabaseName);
+    await seedLegacyDatabase(preflightDatabaseName, 1);
   }, 180_000);
 
   afterAll(async () => {
-    await withAdmin(async client => {
-      await client.query(
-        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1`,
-        [legacyDatabaseName]
-      );
-      await client.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(legacyDatabaseName)}`);
-    });
+    await dropDatabase(preflightDatabaseName);
   });
 
   it('classifies the seeded database as a populated pre-password hazard', async () => {
-    const client = new pg.Client({ connectionString: legacyUrl(), ssl: false });
+    const client = new pg.Client({
+      connectionString: databaseUrlFor(preflightDatabaseName),
+      ssl: false,
+    });
     await client.connect();
     try {
       const state = await readLegacyUpgradeState(client);
@@ -338,7 +368,11 @@ describeMigration('legacy password-migration preflight', () => {
   it('confirms the historical password migration fails on that database', () => {
     const result = spawnSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
       cwd: packageRoot,
-      env: { ...process.env, DATABASE_URL: legacyUrl(), NODE_ENV: 'test' },
+      env: {
+        ...process.env,
+        DATABASE_URL: databaseUrlFor(preflightDatabaseName),
+        NODE_ENV: 'test',
+      },
       stdio: 'pipe',
       encoding: 'utf8',
     });
@@ -348,4 +382,108 @@ describeMigration('legacy password-migration preflight', () => {
       /not possible if the table is not empty|password/i
     );
   });
+});
+
+/**
+ * Rehearses the maintenance-window repair documented in
+ * `docs/database-migration-notes.md` on synthetic but multi-row data:
+ *
+ *   1. apply the historical migration's schema changes with the password
+ *      column nullable, which is the shape the next migration produces;
+ *   2. record the historical migration as applied;
+ *   3. let `prisma migrate deploy` finish the chain.
+ *
+ * This is deliberately a test, not a repair command. Production still gets the
+ * backup, review and maintenance window the notes require.
+ */
+describeMigration('legacy password-migration repair rehearsal', () => {
+  const userCount = 25;
+
+  beforeAll(async () => {
+    await createDatabase(repairDatabaseName);
+    await seedLegacyDatabase(repairDatabaseName, userCount);
+  }, 180_000);
+
+  afterAll(async () => {
+    await dropDatabase(repairDatabaseName);
+  });
+
+  it('applies the maintenance-window repair and completes the chain', async () => {
+    const migrationSql = readFileSync(
+      path.join(packageRoot, 'prisma', 'migrations', LEGACY_PASSWORD_MIGRATION, 'migration.sql'),
+      'utf8'
+    );
+    // The exact historical statement is the thing being repaired; guard the
+    // replacement so a future edit to the migration cannot silently turn this
+    // rehearsal into a different procedure.
+    const repairSql = migrationSql.replace(
+      'ALTER TABLE "User" ADD COLUMN     "password" TEXT NOT NULL;',
+      'ALTER TABLE "User" ADD COLUMN     "password" TEXT;'
+    );
+    expect(repairSql).not.toBe(migrationSql);
+
+    const url = databaseUrlFor(repairDatabaseName);
+    const env = { ...process.env, DATABASE_URL: url, NODE_ENV: 'test' };
+
+    // Start from the incident state, not a clean ledger: the historical deploy
+    // has already failed and left the migration recorded as failed. The repair
+    // has to resolve that row, which is the part operators actually face.
+    const failed = spawnSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
+      cwd: packageRoot,
+      env,
+      stdio: 'pipe',
+      encoding: 'utf8',
+    });
+    expect(failed.status).not.toBe(0);
+
+    const client = new pg.Client({ connectionString: url, ssl: false });
+    await client.connect();
+    try {
+      await client.query(repairSql);
+    } finally {
+      await client.end();
+    }
+    execFileSync(
+      'pnpm',
+      ['exec', 'prisma', 'migrate', 'resolve', '--applied', LEGACY_PASSWORD_MIGRATION],
+      { cwd: packageRoot, env, stdio: 'pipe' }
+    );
+    execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
+      cwd: packageRoot,
+      env,
+      stdio: 'pipe',
+    });
+    // Throws on a non-zero exit, which is the assertion: the chain is complete.
+    execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'status'], {
+      cwd: packageRoot,
+      env,
+      stdio: 'pipe',
+    });
+
+    const verify = new pg.Client({ connectionString: url, ssl: false });
+    await verify.connect();
+    try {
+      const state = await readLegacyUpgradeState(verify);
+      expect(state.passwordColumnExists).toBe(true);
+      expect(state.appliedMigrations).toEqual(
+        expect.arrayContaining([INITIAL_MIGRATION, LEGACY_PASSWORD_MIGRATION])
+      );
+      expect(state.userCount).toBe(userCount);
+      expect(classifyLegacyUpgrade(state)).toMatchObject({
+        status: 'safe',
+        reason: 'password-migration-applied',
+      });
+
+      const column = await verify.query(
+        `SELECT is_nullable FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'User' AND column_name = 'password'`
+      );
+      expect(column.rows[0]?.is_nullable).toBe('YES');
+
+      const files = await verify.query(`SELECT count(*)::int AS count FROM "File"`);
+      expect(files.rows[0]?.count).toBe(userCount);
+    } finally {
+      await verify.end();
+    }
+  }, 180_000);
 });
