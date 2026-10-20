@@ -5,6 +5,11 @@
 > **Provenance:** The clean-install results below are recorded from the prior
 > audit run. The documentation-inventory pass did not rerun PostgreSQL,
 > migrations, or service tests; this note is not fresh runtime verification.
+>
+> **2026-10-21:** the legacy preflight and maintenance-window repair were
+> verified locally against disposable PostgreSQL 16 databases, and the repair
+> rehearsal is part of the opt-in CI integration suite. The clean-install
+> figures above remain the 2026-09-25 record.
 
 ## Verified path
 
@@ -60,7 +65,56 @@ row count. It never writes, repairs, or resolves a migration.
 | 2    | The check itself could not run (missing `DATABASE_URL`, connection or query error).                                                                                      |
 
 CI (`RUN_DB_INTEGRATION=true`) seeds a throwaway database with only the initial
-migration and one user, asserts the verdict is `blocked`, and asserts that the
-real `prisma migrate deploy` still fails on it. That exercises the detector, not
-a repair: the two repair routes above remain manual and must still be rehearsed
-on a disposable copy before use.
+migration and a populated `User` table, asserts the verdict is `blocked`, and
+asserts that the real `prisma migrate deploy` still fails on it. A separate
+rehearsal starts from that failed ledger state and proves the maintenance-window
+repair below; the preflight itself remains read-only.
+
+### Maintenance-window repair (rehearsed)
+
+The CI integration suite rehearses option 2 from the incident state: the
+historical deploy has already failed, the failed migration row exists, and 25
+users plus 25 files are present. The procedure exercised is:
+
+1. Take a backup and stop writes to the database.
+2. Confirm the failed attempt left no partial schema. Prisma wraps each
+   migration in a transaction on PostgreSQL, so it should have rolled back, but
+   inspect before proceeding.
+3. Apply the historical migration's schema changes with the password column
+   nullable. Do **not** edit the migration file in this repository; take its SQL
+   and change only the failing statement:
+
+   ```sql
+   -- from
+   ALTER TABLE "User" ADD COLUMN     "password" TEXT NOT NULL;
+   -- to
+   ALTER TABLE "User" ADD COLUMN     "password" TEXT;
+   ```
+
+   The next migration (`20260415133904_added_dburl_indexes`) drops `NOT NULL`
+   anyway, so this produces the schema the chain ends at. Run the file's other
+   statements in the same transaction.
+
+4. Record the historical migration as applied, which also resolves the failed
+   ledger row:
+
+   ```bash
+   pnpm exec prisma migrate resolve --applied 20260118095344_sync_canvas_room_schema
+   ```
+
+5. Finish the chain and verify it is current:
+
+   ```bash
+   pnpm exec prisma migrate deploy
+   pnpm exec prisma migrate status
+   ```
+
+6. Verify `information_schema.columns` reports `password` as nullable and that
+   row counts in the preserved tables match the backup, then resume writes.
+
+The test asserts the final schema, preservation of the seeded rows, a clean
+migration status, and a `safe` preflight verdict. It does not substitute for a
+rehearsal on production-shaped data: the synthetic seed is small, and the real
+backup/restore and write-quiesce procedure still has to be exercised before
+rollout. Do not use this recipe on a database whose ledger does not match the
+state described above; run `db:preflight` first and reconcile any drift.
