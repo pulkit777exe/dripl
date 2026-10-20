@@ -1,10 +1,10 @@
 {
   "name": "dripl-app",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "license": "MIT",
   "scripts": {
-    "dev": "dotenv -e ../../.env -- next dev --turbopack",
+    "dev": "dotenv -e ../../.env.local -e ../../.env -- next dev --turbopack",
     "clean": "rm -rf .next node_modules/.cache",
     "build": "next build",
     "start": "next start",
