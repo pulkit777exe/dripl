@@ -51,4 +51,23 @@ describe('getGoogleOAuthConfig', () => {
     vi.stubEnv('GOOGLE_CLIENT_SECRET', 'x');
     expect(() => getGoogleOAuthConfig()).toThrow(/GOOGLE_CLIENT_ID/);
   });
+
+  it('normalizes NEXT_PUBLIC_APP_URL to an origin before building the redirect URI', () => {
+    vi.stubEnv('GOOGLE_CLIENT_ID', 'test-id');
+    vi.stubEnv('GOOGLE_CLIENT_SECRET', 'GOCSPX-test');
+    // The trailing slash a production value actually carries: without
+    // normalization the redirect URI gains a double slash and Google answers
+    // redirect_uri_mismatch.
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://dripl.example/');
+    expect(getGoogleOAuthConfig().redirectUri).toBe(
+      'https://dripl.example/api/auth/google/callback'
+    );
+  });
+
+  it('falls back to the local origin when NEXT_PUBLIC_APP_URL is unparseable', () => {
+    vi.stubEnv('GOOGLE_CLIENT_ID', 'test-id');
+    vi.stubEnv('GOOGLE_CLIENT_SECRET', 'GOCSPX-test');
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'not a url');
+    expect(getGoogleOAuthConfig().frontendUrl).toBe('http://localhost:3000');
+  });
 });

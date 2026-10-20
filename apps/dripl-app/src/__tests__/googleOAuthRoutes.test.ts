@@ -144,6 +144,26 @@ describe('Google OAuth routes', () => {
     expect(cookieJar.get('oauth_state')).toBe(state);
   });
 
+  it('normalizes the app URL before building the redirect URI', async () => {
+    // Regression: Google matches `redirect_uri` against its registered list
+    // *exactly*. A trailing slash in `NEXT_PUBLIC_APP_URL` (as deployed) used
+    // to interpolate `https://host//api/auth/google/callback`, which Google
+    // refuses with `redirect_uri_mismatch` — the local-login failure this
+    // pins. An unparseable value falls back to the local origin instead of
+    // reaching Google at all.
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://dripl.example/');
+    const slashed = await startRoute.GET(startRequest());
+    expect(new URL(slashed.headers.get('location') ?? '').searchParams.get('redirect_uri')).toBe(
+      'https://dripl.example/api/auth/google/callback'
+    );
+
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'not a url');
+    const garbage = await startRoute.GET(startRequest());
+    expect(new URL(garbage.headers.get('location') ?? '').searchParams.get('redirect_uri')).toBe(
+      'http://localhost:3000/api/auth/google/callback'
+    );
+  });
+
   it('mints a fresh state on every request so a captured one cannot be replayed', async () => {
     await startRoute.GET(startRequest());
     const first = cookieJar.get('oauth_state');

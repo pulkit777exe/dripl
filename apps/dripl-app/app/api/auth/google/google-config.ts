@@ -1,3 +1,5 @@
+import { normalizeOrigin } from '@dripl/utils/origin';
+
 /**
  * Single source for Google OAuth configuration on the Next.js side.
  *
@@ -5,6 +7,13 @@
  * code captured `process.env.GOOGLE_CLIENT_ID!` at import time, so a missing
  * variable became the literal string "undefined" in the Google request and
  * surfaced as a cryptic `invalid_client` instead of a startup error.
+ *
+ * `NEXT_PUBLIC_APP_URL` is normalized through the shared origin parser before
+ * it is interpolated into the redirect URI: Google matches that URI against a
+ * registered list *exactly*, so a trailing slash in the env var used to yield
+ * `https://host//api/auth/google/callback` — a `redirect_uri_mismatch` that
+ * only reproduced with a sloppy production value. An unparseable value now
+ * falls back to the local origin instead of reaching Google at all.
  */
 export interface GoogleOAuthConfig {
   clientId: string;
@@ -16,7 +25,7 @@ export interface GoogleOAuthConfig {
 export function getGoogleOAuthConfig(): GoogleOAuthConfig {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const frontendUrl = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL) ?? 'http://localhost:3000';
 
   const missing = [!clientId && 'GOOGLE_CLIENT_ID', !clientSecret && 'GOOGLE_CLIENT_SECRET'].filter(
     Boolean
