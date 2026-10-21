@@ -154,9 +154,36 @@ describe('image routes — filesystem driver (the default)', () => {
     expect(response.status).toBe(200);
     expect(Buffer.from(response.body)).toEqual(PNG_BYTES);
     expect(response.headers['content-length']).toBe(String(PNG_BYTES.length));
-    expect(response.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect(response.headers['cache-control']).toBe('public, max-age=60, must-revalidate');
+    expect(response.headers.etag).toBe('"abcdef12.png"');
     expect(response.headers['x-content-type-options']).toBe('nosniff');
     expect(response.headers['cross-origin-resource-policy']).toBe('cross-origin');
+  });
+
+  it('answers a matching If-None-Match with 304 and no body', async () => {
+    await writeFile(join(storageDir, 'abcdef12.png'), PNG_BYTES);
+
+    const first = await request(app).get('/api/images/abcdef12.png');
+    const revalidated = await request(app)
+      .get('/api/images/abcdef12.png')
+      .set('If-None-Match', first.headers.etag as string);
+
+    expect(first.status).toBe(200);
+    expect(revalidated.status).toBe(304);
+    expect(revalidated.text).toBe('');
+    expect(revalidated.headers['cache-control']).toBe('public, max-age=60, must-revalidate');
+    expect(revalidated.headers.etag).toBe('"abcdef12.png"');
+  });
+
+  it('serves the body again when the cached validator is stale', async () => {
+    await writeFile(join(storageDir, 'abcdef12.png'), PNG_BYTES);
+
+    const response = await request(app)
+      .get('/api/images/abcdef12.png')
+      .set('If-None-Match', '"some-other-image.png"');
+
+    expect(response.status).toBe(200);
+    expect(Buffer.from(response.body)).toEqual(PNG_BYTES);
   });
 
   it('does not create the storage directory until an image is written', async () => {
@@ -424,10 +451,28 @@ describe('image routes — S3 driver', () => {
     expect(Buffer.from(response.body)).toEqual(PNG_BYTES);
     expect(response.headers['content-type']).toContain('image/png');
     expect(response.headers['content-length']).toBe(String(PNG_BYTES.length));
-    expect(response.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect(response.headers['cache-control']).toBe('public, max-age=60, must-revalidate');
+    expect(response.headers.etag).toBe('"abcdef12.png"');
     expect(response.headers['access-control-allow-origin']).toBe('*');
     expect(response.headers['cross-origin-resource-policy']).toBe('cross-origin');
     expect(requests[0]!.init.method).toBe('GET');
+  });
+
+  it('revalidates a bucket download without re-sending bytes to the client', async () => {
+    responses.push({ status: 200, body: PNG_BYTES }, { status: 200, body: PNG_BYTES });
+
+    const first = await request(app).get('/api/images/abcdef12.png');
+    const revalidated = await request(app)
+      .get('/api/images/abcdef12.png')
+      .set('If-None-Match', first.headers.etag as string);
+
+    expect(revalidated.status).toBe(304);
+    expect(revalidated.text).toBe('');
+    // The origin still reads the object to know it exists; the saving is the
+    // response body, not the storage round trip. A 304 must never be guessed
+    // from the id alone after the owner has revoked the object.
+    expect(requests).toHaveLength(2);
+    expect(requests[1]!.init.method).toBe('GET');
   });
 
   it('maps a bucket 404 to the same 404 body as an empty directory', async () => {

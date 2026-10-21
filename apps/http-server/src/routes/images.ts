@@ -11,6 +11,16 @@ const router: ReturnType<typeof Router> = Router();
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 
 /**
+ * Image bytes are immutable for a given id, but the id is also a revocation
+ * capability. A one-year `immutable` lifetime meant a deleted object could keep
+ * rendering from a browser cache long after the origin stopped serving it.
+ * Sixty seconds bounds that window for caches that honour the header, and
+ * `must-revalidate` stops a stale copy being served after it expires. The ETag
+ * below turns the repeat fetch into a 304 when the object is still present.
+ */
+const IMAGE_CACHE_CONTROL = 'public, max-age=60, must-revalidate';
+
+/**
  * How many leading bytes prove the declared type. 12 is the maximum any
  * supported format needs (WEBP's `RIFF....WEBP`), so every format's verdict
  * is final once 12 bytes are buffered — PNG needs 8, JPEG 3, GIF 6.
@@ -174,15 +184,27 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 
     const contentType = getContentTypeFromId(id);
 
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Length', body.length);
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Cache-Control', IMAGE_CACHE_CONTROL);
+    // The id names write-once bytes: uploads always generate a fresh id and
+    // never overwrite an existing key. That makes the id a stable strong
+    // validator without hashing the body on every request.
+    res.setHeader('ETag', `"${key}"`);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     // The URL itself is the capability. Permit canvas/export consumers to
     // read the raster cross-origin without making the response credentialed.
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
+    // `req.fresh` performs the RFC 9110 weak comparison against If-None-Match,
+    // including `*` and comma-separated lists. Reaching it here means the
+    // object was found, so a match is safe to answer without the body.
+    if (req.fresh) {
+      res.status(304).end();
+      return;
+    }
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', body.length);
     res.send(body);
   } catch (error) {
     if (error instanceof InvalidImageKeyError) {
