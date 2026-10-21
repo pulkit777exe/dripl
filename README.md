@@ -52,7 +52,7 @@ server-to-server and `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL` in the browser
 | ------------------------------------------ | ---------------------------- | -------------------------------------------------------------- |
 | `DATABASE_URL`                             | both servers                 | PostgreSQL connection string                                   |
 | `JWT_SECRET`                               | both servers                 | Minimum 32 characters when `NODE_ENV=production`               |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | `http-server`                | Google OAuth                                                   |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | `dripl-app`, `http-server`   | Google OAuth                                                   |
 | `HTTP_SERVER_URL`                          | `ws-server`                  | Internal http-server URL; never `localhost` inside a container |
 | `INTERNAL_SECRET`                          | both servers, in production  | Minimum 32 characters, and must differ from `JWT_SECRET`       |
 | `FRONTEND_URL` or `NEXT_PUBLIC_APP_URL`    | `http-server`, in production | Origin allowlist for CORS and share links                      |
@@ -64,6 +64,14 @@ absent; `SMTP_USER` and `SMTP_PASS`, both required when mail is sent;
 `GEMINI_API_KEY`; `IMAGE_STORAGE_DIR` (default `./uploads/images`); `SENTRY_DSN`;
 `TRUST_PROXY`; `DEBUG_PRISMA`; `DB_ALLOW_INSECURE_TLS`; `DB_POOL_SIZE`; `LOG_LEVEL`.
 `SMTP_HOST` and `SMTP_PORT`, declared in `render.yaml`, are read by no code.
+
+For local Google sign-in, set `NEXT_PUBLIC_APP_URL=http://localhost:3000` so the
+redirect URI matches the registered local callback, then run
+`pnpm check:google-oauth`. The check validates both the client id/secret pair and
+the exact redirect URI against Google's authorize endpoint. A deployment using a
+different origin needs that origin's `/api/auth/google/callback` registered in
+the Google console; a copied production `.env` will otherwise point local sign-in
+at the production callback.
 
 ### Image storage
 

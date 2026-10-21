@@ -33,6 +33,14 @@ interpolation only) and run against disposable PostgreSQL 16
 both servers fall back to bounded process-local limiters, and the ticket store
 uses memory unless Redis is configured (see `resolveTicketConfig`).
 
+Google OAuth has one more console-side input that is not in `render.yaml`: the
+exact `${NEXT_PUBLIC_APP_URL}/api/auth/google/callback` must be registered for
+the client. A valid id/secret pair is not sufficient — the token endpoint can
+report `invalid_grant` for an unregistered callback. `pnpm check:google-oauth`
+probes the authorize endpoint and fails on `redirect_uri_mismatch`. At audit
+time the localhost callback was registered and
+`https://dripl.vercel.app/api/auth/google/callback` was not.
+
 ## Not established (do not claim)
 
 - Remote/managed PostgreSQL and real Redis: only disposable local containers
