@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-console -- this is a CLI preflight whose printed report is its output */
 /**
  * Preflight check for Google sign-in.
  *
@@ -15,6 +16,15 @@
  *      mismatch only shows up as an opaque failure after consent
  *   3. Google accepts the client id/secret pair, by calling the token endpoint
  *      and reading the error class
+ *   4. Google has the redirect URI registered, by calling the authorize endpoint
+ *      and reading where it redirects
+ *
+ * Check 4 is separate because the token endpoint does NOT validate redirect_uri
+ * against the console's list when the authorization code is already invalid:
+ * it answers `invalid_grant` for both a registered and an unregistered URI.
+ * Treating that as proof of registration is how this script used to print PASS
+ * for a callback Google would reject at sign-in. The authorize endpoint does
+ * validate it, so it is the only reliable no-browser probe.
  *
  * What it cannot check: that a real person consents, or that a session is
  * issued. Those need a browser and a live credential. Check 3 is the boundary -
@@ -66,6 +76,80 @@ const clientSecret = env('GOOGLE_CLIENT_SECRET');
 const appUrl = (env('NEXT_PUBLIC_APP_URL') || 'http://localhost:3000').replace(/\/$/, '');
 const callbackPath = '/api/auth/google/callback';
 const redirectUri = `${appUrl}${callbackPath}`;
+
+/**
+ * Google's error redirect carries a base64-encoded protobuf message in
+ * `authError`. Decoding it lets the check distinguish `redirect_uri_mismatch`
+ * from every other authorize failure without scraping the HTML error page.
+ */
+function decodeAuthError(location) {
+  try {
+    const encoded = new URL(location).searchParams.get('authError');
+    if (!encoded) return null;
+    // `authError` is standard base64 today; accept the URL-safe alphabet too so
+    // a future encoding change does not silently turn a mismatch into UNKNOWN.
+    // URLSearchParams decodes an unescaped `+` as a space, and base64 uses `+`,
+    // so restore that before decoding or a mismatch can turn into UNKNOWN.
+    const normalized = encoded.replaceAll(' ', '+').replaceAll('-', '+').replaceAll('_', '/');
+    return Buffer.from(normalized, 'base64').toString('utf8');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ask Google to authorize with this exact redirect URI, without following the
+ * redirect. A registered URI reaches the sign-in/consent page; an unregistered
+ * one reaches `/signin/oauth/error` with a decodable `redirect_uri_mismatch`.
+ */
+async function probeRedirectRegistration() {
+  const authorize = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  authorize.searchParams.set('client_id', clientId);
+  authorize.searchParams.set('redirect_uri', redirectUri);
+  authorize.searchParams.set('response_type', 'code');
+  authorize.searchParams.set('scope', 'openid email profile');
+  authorize.searchParams.set('state', 'preflight');
+
+  try {
+    const response = await fetch(authorize, { redirect: 'manual' });
+    if (response.status === 200) {
+      return { verdict: 'PASS', detail: 'Google accepted the authorize request for this URI' };
+    }
+
+    const location = response.headers.get('location');
+    if (!location) {
+      return {
+        verdict: 'UNKNOWN',
+        detail: `Google answered ${response.status} without a redirect`,
+      };
+    }
+
+    const target = new URL(location);
+    if (target.pathname.includes('/signin/oauth/error')) {
+      const authError = decodeAuthError(location);
+      if (authError?.includes('redirect_uri_mismatch')) {
+        return {
+          verdict: 'FAIL',
+          detail:
+            `Google has no ${redirectUri} registered for this client ` +
+            '("redirect_uri_mismatch"). The id/secret pair can still be valid, ' +
+            'but sign-in will fail until this exact URI is added in the Google console.',
+        };
+      }
+      return {
+        verdict: 'UNKNOWN',
+        detail: 'Google rejected the authorize request for a reason this check does not classify',
+      };
+    }
+
+    return { verdict: 'PASS', detail: 'Google accepted the authorize request for this URI' };
+  } catch (error) {
+    return {
+      verdict: 'UNKNOWN',
+      detail: `could not reach the Google authorize endpoint: ${error.message}`,
+    };
+  }
+}
 
 // 1. Presence and shape.
 if (!clientId) problems.push('GOOGLE_CLIENT_ID is not set');
@@ -119,7 +203,7 @@ notes.push(`redirect URI in use: ${redirectUri}`);
 notes.push(`register exactly that string in the Google console's Authorized redirect URIs`);
 
 // 3. Does Google accept the credential pair?
-let verdict = 'SKIPPED';
+let credentialVerdict = 'SKIPPED';
 if (clientId && clientSecret) {
   try {
     const response = await fetch('https://oauth2.googleapis.com/token', {
@@ -135,34 +219,47 @@ if (clientId && clientSecret) {
     });
     const parsed = JSON.parse(await response.text());
     if (parsed.error === 'invalid_client') {
-      verdict = 'FAIL';
+      credentialVerdict = 'FAIL';
       problems.push(
         'Google rejects the client id/secret pair ("invalid_client"). The secret is ' +
           'rotated, deleted, or belongs to a different OAuth client than the id. ' +
           'Copy the id and secret together from the same console entry.'
       );
     } else if (parsed.error === 'invalid_grant') {
-      verdict = 'PASS';
+      credentialVerdict = 'PASS';
       notes.push('Google accepted the credential pair; only the dummy code was rejected');
     } else if (parsed.error === 'redirect_uri_mismatch') {
-      verdict = 'FAIL';
+      credentialVerdict = 'FAIL';
       problems.push(
         `Google has no ${redirectUri} registered for this client ` +
           '("redirect_uri_mismatch"). The id/secret pair itself is fine.'
       );
     } else {
-      verdict = 'UNKNOWN';
+      credentialVerdict = 'UNKNOWN';
       notes.push(`Google replied "${parsed.error}", which this check does not classify`);
     }
   } catch (error) {
-    verdict = 'UNKNOWN';
+    credentialVerdict = 'UNKNOWN';
     notes.push(`could not reach the Google token endpoint: ${error.message}`);
   }
 }
 
-for (const note of notes) console.log(`  - ${note}`);
+// 4. Is the redirect URI registered? The token endpoint cannot answer this
+// (see the header comment), so ask the authorize endpoint where it sends an
+// unauthenticated request. A registered URI reaches sign-in; an unregistered
+// one reaches Google's error page with a decodable redirect_uri_mismatch.
+let redirectVerdict = 'SKIPPED';
+if (clientId) {
+  const probe = await probeRedirectRegistration();
+  redirectVerdict = probe.verdict;
+  if (probe.verdict === 'FAIL') {
+    problems.push(probe.detail);
+  } else {
+    notes.push(probe.detail);
+  }
+}
 
-// 4. Is the running server using these values? A stale process (edited .env,
+// 5. Is the running server using these values? A stale process (edited .env,
 // forgot restart) is the most common cause of a persistent failure after a
 // correct fix. The status endpoint exposes only a client ID prefix.
 if (clientId && appUrl) {
@@ -191,8 +288,9 @@ if (clientId && appUrl) {
   } catch {
     notes.push('status endpoint not reachable; start the dev server to compare running config');
   }
-  for (const note of notes.slice(-1)) console.log(`  - ${note}`);
 }
+
+for (const note of notes) console.log(`  - ${note}`);
 
 if (problems.length > 0) {
   console.error('\nFAIL');
@@ -200,5 +298,5 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-console.log(`\nPASS (credential pair ${verdict})`);
+console.log(`\nPASS (credential pair ${credentialVerdict}, redirect URI ${redirectVerdict})`);
 console.log('Sign-in still needs a browser to confirm consent and session issuance.');
