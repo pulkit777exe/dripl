@@ -97,7 +97,7 @@ export function createS3ImageStore(options: S3ImageStoreOptions): ImageStore {
 
   const send = async (
     key: string,
-    method: 'GET' | 'PUT',
+    method: 'GET' | 'PUT' | 'DELETE',
     body: Buffer | undefined,
     contentType: string | undefined
   ): Promise<S3FetchResponse> => {
@@ -171,6 +171,19 @@ export function createS3ImageStore(options: S3ImageStoreOptions): ImageStore {
         throw failure(key, 'GET', response.status);
       }
       return Buffer.from(await response.arrayBuffer());
+    },
+
+    async delete(key: string): Promise<void> {
+      assertImageKey(key);
+      const response = await send(key, 'DELETE', undefined, undefined);
+      // 404 is success: the object is already gone, which is the requested
+      // end state. Other failures stay failures so the ownership row is kept
+      // and the owner can retry.
+      if (response.status === 404) return;
+      if (response.status < 200 || response.status >= 300) {
+        throw failure(key, 'DELETE', response.status);
+      }
+      await response.arrayBuffer().catch(() => undefined);
     },
   };
 }

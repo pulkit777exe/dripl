@@ -177,7 +177,7 @@ export function createFirebaseImageStore(options: FirebaseImageStoreOptions): Im
   };
 
   const send = async (
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'DELETE',
     url: string,
     body: Buffer | undefined,
     contentType: string | undefined
@@ -267,6 +267,19 @@ export function createFirebaseImageStore(options: FirebaseImageStoreOptions): Im
         throw await failure('get', key, response, options.serviceAccount);
       }
       return Buffer.from(await response.arrayBuffer());
+    },
+
+    async delete(key: string): Promise<void> {
+      assertImageKey(key);
+      const name = objectName(key);
+      const response = await send('DELETE', downloadUrl(name), undefined, undefined);
+      // Absent is success: revocation is idempotent and a retry after a
+      // partial failure must not turn into an error.
+      if (response.status === 404) return;
+      if (response.status < 200 || response.status >= 300) {
+        throw await failure('delete', key, response, options.serviceAccount);
+      }
+      await response.arrayBuffer().catch(() => undefined);
     },
   };
 }
@@ -383,7 +396,7 @@ async function readErrorBody(response: FirebaseFetchResponse): Promise<string> {
  *    a 403 and are reported as one `forbidden`.
  */
 async function failure(
-  operation: 'put' | 'get',
+  operation: 'put' | 'get' | 'delete',
   key: string,
   response: FirebaseFetchResponse,
   serviceAccount: FirebaseServiceAccount

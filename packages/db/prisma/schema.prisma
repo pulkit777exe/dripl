@@ -33,6 +33,7 @@ model User {
   canvasRooms       CanvasRoom[]
   canvasRoomMembers CanvasRoomMember[]
   shareLinks        ShareLink[]
+  images            Image[]
 }
 
 model Team {
@@ -211,4 +212,18 @@ model EmailVerificationToken {
   createdAt DateTime @default(now())
 
   @@index([email])
+}
+
+/// Ownership record for an uploaded image. The `id` is the storage key
+/// (`<uuid>.<ext>`) and the public download capability; the row exists so the
+/// owner can revoke that capability, not to authorize reads. Images uploaded
+/// before this table existed have no row and therefore cannot be revoked.
+model Image {
+  id        String   @id
+  userId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

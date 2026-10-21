@@ -1,5 +1,6 @@
 import { Router, type Response } from 'express';
 import { randomUUID } from 'node:crypto';
+import { db } from '@dripl/db';
 import { authMiddleware, type AuthRequest } from '../middlewares/authMiddleware';
 import { sendError } from '../lib/response';
 import { logger } from '../logger';
@@ -21,6 +22,12 @@ const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/we
 // POST /api/images — Upload image
 router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
+    const userId = req.userId;
+    if (!userId) {
+      sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
+      return;
+    }
+
     const contentType = req.headers['content-type'];
     const baseType = contentType?.split(';')[0]?.trim();
     if (!baseType || !ALLOWED_TYPES.has(baseType)) {
@@ -101,6 +108,29 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 
         await getImageStore().put(fileId, buffer, baseType);
 
+        // The bytes and the ownership row are two stores, so this is the one
+        // point where a partial success is possible. Record ownership after the
+        // put; if that record fails, remove the object rather than leave an
+        // image that nobody can later revoke. The reverse order would expose a
+        // row pointing at nothing.
+        try {
+          await db.image.create({ data: { id: fileId, userId } });
+        } catch (error) {
+          await getImageStore()
+            .delete(fileId)
+            .catch(cleanupError => {
+              logger.warn(
+                {
+                  event: 'image_ownership_cleanup_failed',
+                  id: fileId,
+                  error: cleanupError,
+                },
+                'Could not remove an image whose ownership record failed'
+              );
+            });
+          throw error;
+        }
+
         const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002/api';
         const apiBase = configuredApiUrl.endsWith('/api')
           ? configuredApiUrl
@@ -174,7 +204,55 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-function reportStorageFailure(operation: 'upload' | 'download', error: unknown): void {
+// DELETE /api/images/:id — Revoke an uploaded image
+router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const userId = req.userId;
+  if (!userId) {
+    sendError(res, 401, 'UNAUTHORIZED', 'Authentication required');
+    return;
+  }
+
+  try {
+    const id = req.params.id as string;
+    const key = assertImageKey(id);
+
+    // A missing row and another user's row intentionally share one 404: the id
+    // is the capability, and a 403 would confirm that a guessed id exists.
+    // Pre-existing images have no row, so they are not revocable by this route
+    // and fall into the same 404 rather than granting deletion to whichever
+    // authenticated caller presents the URL.
+    const owned = await db.image.findFirst({
+      where: { id: key, userId },
+      select: { id: true },
+    });
+    if (!owned) {
+      sendError(res, 404, 'NOT_FOUND', 'Image not found');
+      return;
+    }
+
+    // Storage first. If it fails the row survives, so the owner can retry; if
+    // the row were removed first and storage failed, the capability would be
+    // gone from the database while the bytes stayed readable.
+    await getImageStore().delete(key);
+    await db.image.deleteMany({ where: { id: key, userId } });
+
+    res.status(204).end();
+  } catch (error) {
+    if (error instanceof InvalidImageKeyError) {
+      sendError(res, 400, 'INVALID_IMAGE_ID', 'Invalid image id');
+      return;
+    }
+    if (error instanceof ImageStoreError) {
+      reportStorageFailure('delete', error);
+      sendError(res, 500, 'INTERNAL_ERROR', 'Failed to delete image');
+      return;
+    }
+    logger.error({ event: 'image_delete_error', error }, 'Image delete error');
+    sendError(res, 500, 'INTERNAL_ERROR', 'Failed to delete image');
+  }
+});
+
+function reportStorageFailure(operation: 'upload' | 'download' | 'delete', error: unknown): void {
   if (!(error instanceof ImageStoreError)) return;
   logger.warn(
     {

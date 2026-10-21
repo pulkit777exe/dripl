@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createFilesystemImageStore } from '../../storage/filesystemImageStore';
@@ -33,6 +33,30 @@ describe('filesystem image store', () => {
 
   it('reports absence as null rather than throwing', async () => {
     expect(await createFilesystemImageStore(directory).get('ffffffff.png')).toBeNull();
+  });
+
+  it('deletes an object and treats absence as success', async () => {
+    const store = createFilesystemImageStore(directory);
+    await store.put(KEY, PNG, 'image/png');
+
+    await store.delete(KEY);
+    expect(await store.get(KEY)).toBeNull();
+    // A retry after an interrupted revoke must reach the same end state.
+    await expect(store.delete(KEY)).resolves.toBeUndefined();
+  });
+
+  it('surfaces a delete I/O failure as a typed error', async () => {
+    await mkdir(directory, { recursive: true });
+    // A directory at the object path cannot be unlinked, which is a real store
+    // failure rather than the absent-object case above.
+    await mkdir(join(directory, KEY));
+    const store = createFilesystemImageStore(directory);
+
+    const error = await store.delete(KEY).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ImageStoreError);
+    expect((error as ImageStoreError).code).toBe('local_io');
+    expect((error as ImageStoreError).storeKind).toBe('filesystem');
   });
 
   it('creates its directory on first write and not before', async () => {
@@ -82,6 +106,7 @@ describe('filesystem image store', () => {
     ]) {
       await expect(store.get(key)).rejects.toBeInstanceOf(InvalidImageKeyError);
       await expect(store.put(key, PNG, 'image/png')).rejects.toBeInstanceOf(InvalidImageKeyError);
+      await expect(store.delete(key)).rejects.toBeInstanceOf(InvalidImageKeyError);
     }
 
     // No directory was created, so nothing reached disk at all.

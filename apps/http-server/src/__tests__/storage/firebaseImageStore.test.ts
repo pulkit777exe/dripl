@@ -189,6 +189,36 @@ describe('firebase image store — the request it actually sends', () => {
     expect(Buffer.compare(body as Buffer, PNG)).toBe(0);
   });
 
+  it('deletes the object with a bearer token and no body', async () => {
+    const { fetch, calls } = scriptedFetch([{ status: 204 }]);
+    const { store } = makeStore({ fetch });
+
+    await store.delete(KEY);
+
+    const { url, init } = calls[0]!;
+    expect(init.method).toBe('DELETE');
+    expect(url).toBe(
+      'https://firebasestorage.googleapis.com/v0/b/dripl-images.appspot.com/o/' +
+        `${encodeURIComponent(`images/${KEY}`)}?alt=media`
+    );
+    expect(init.headers.authorization).toBe(`Bearer ${TOKEN}`);
+    expect(Object.keys(init.headers)).toEqual(['authorization']);
+    expect(init.body).toBeUndefined();
+  });
+
+  it('treats an absent object on delete as success', async () => {
+    const { fetch } = scriptedFetch([{ status: 404 }]);
+    await expect(makeStore({ fetch }).store.delete(KEY)).resolves.toBeUndefined();
+  });
+
+  it('surfaces a refused delete instead of reporting success', async () => {
+    const { fetch } = scriptedFetch([{ status: 403 }]);
+    const error = await failure(makeStore({ fetch }).store.delete(KEY));
+
+    expect(error.code).toBe('forbidden');
+    expect(error.retryable).toBe(false);
+  });
+
   it('honours a custom prefix rather than hard-coding the default', async () => {
     const { fetch, calls } = scriptedFetch([{ status: 200 }]);
     const { store } = makeStore({ fetch, prefix: 'tenants/acme/images' });
@@ -620,6 +650,7 @@ describe('firebase image store — key validation and the request budget', () =>
     const { store } = makeStore({ fetch });
 
     await expect(store.get('a/b.png')).rejects.toBeInstanceOf(InvalidImageKeyError);
+    await expect(store.delete('a/b.png')).rejects.toBeInstanceOf(InvalidImageKeyError);
     expect(calls).toHaveLength(0);
   });
 

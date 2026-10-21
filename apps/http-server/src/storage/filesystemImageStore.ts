@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { assertImageKey, ImageStoreError, type ImageStore } from './imageStore';
 
@@ -47,6 +47,22 @@ export function createFilesystemImageStore(directory: string): ImageStore {
           code: 'local_io',
           storeKind: 'filesystem',
           message: `Failed to read image ${key}: ${describe(error)}`,
+        });
+      }
+    },
+
+    async delete(key: string): Promise<void> {
+      const filePath = pathFor(key);
+      try {
+        await unlink(filePath);
+      } catch (error) {
+        // Absent is success: the caller is revoking a capability, and a retry
+        // after an interrupted delete must reach the same end state.
+        if (isErrnoCode(error, 'ENOENT')) return;
+        throw new ImageStoreError({
+          code: 'local_io',
+          storeKind: 'filesystem',
+          message: `Failed to delete image ${key}: ${describe(error)}`,
         });
       }
     },

@@ -238,6 +238,34 @@ describe('s3 image store — failure behaviour', () => {
     await expect(makeStore(fetch).get(KEY)).resolves.toBeNull();
   });
 
+  it('signs a DELETE with the empty-payload hash and no body', async () => {
+    const { fetch, calls } = scriptedFetch([{ status: 204 }]);
+    await makeStore(fetch).delete(KEY);
+
+    const { url, init } = calls[0]!;
+    expect(init.method).toBe('DELETE');
+    expect(url).toBe(`https://s3.eu-west-1.amazonaws.com/dripl-images/${KEY}`);
+    expect(init.body).toBeUndefined();
+    expect(init.headers['x-amz-content-sha256']).toBe(SHA256_OF_EMPTY_PAYLOAD);
+    expect(parseAuthorization(init.headers.authorization!).signedHeaders).toBe(
+      'host;x-amz-content-sha256;x-amz-date'
+    );
+  });
+
+  it('treats an absent object on delete as success', async () => {
+    const { fetch } = scriptedFetch([{ status: 404 }]);
+    await expect(makeStore(fetch).delete(KEY)).resolves.toBeUndefined();
+  });
+
+  it('surfaces a refused delete instead of reporting success', async () => {
+    const { fetch } = scriptedFetch([{ status: 403 }]);
+    const error = await failure(makeStore(fetch).delete(KEY));
+
+    expect(error.code).toBe('forbidden');
+    expect(error.retryable).toBe(false);
+    expect(error.status).toBe(403);
+  });
+
   it('refuses to conflate a permission failure with absence', async () => {
     const { fetch } = scriptedFetch([{ status: 403 }]);
     const error = await failure(makeStore(fetch).get(KEY));
@@ -291,6 +319,7 @@ describe('s3 image store — failure behaviour', () => {
     ]) {
       await expect(store.get(key)).rejects.toBeInstanceOf(InvalidImageKeyError);
       await expect(store.put(key, PNG, 'image/png')).rejects.toBeInstanceOf(InvalidImageKeyError);
+      await expect(store.delete(key)).rejects.toBeInstanceOf(InvalidImageKeyError);
     }
     // Not one request was attempted, so a traversal-shaped id cannot become a
     // URL path segment even before the route's own validation is considered.

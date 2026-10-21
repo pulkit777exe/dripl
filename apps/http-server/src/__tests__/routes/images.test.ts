@@ -1,30 +1,40 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { signToken } from '@dripl/utils/auth';
 import type { StructuredLogger } from '@dripl/utils/logger';
 
-// `authMiddleware` resolves the token's stored generation through `@dripl/db`.
-// The image router never touches the database itself, so this `user` stub is the
-// only query involved -- but answering it is what keeps an upload test from
-// depending on a live PostgreSQL. `fakeRevocation` supplies the production
-// resolution itself, so this suite is not running its own version arithmetic.
-// `vi.hoisted` rather than a plain `vi.fn`, because both `vi.mock` factories and
-// the suite's `beforeEach` (which calls `vi.restoreAllMocks()`) are hoisted above
-// ordinary top-level bindings. The alternative -- re-asserting the resolved value
-// in every `beforeEach` -- is how `clearAllMocks` silently turns a version check
-// into a 401 three assertions later.
-const { userFind } = vi.hoisted(() => ({
+// `authMiddleware` resolves the token's stored generation through `@dripl/db`,
+// and the upload/revocation paths use the image ownership row. Stubbing both
+// keeps the routes from depending on a live PostgreSQL. `fakeRevocation`
+// supplies the production resolution itself, so this suite is not running its
+// own version arithmetic. `vi.hoisted` rather than a plain `vi.fn`, because
+// both `vi.mock` factories and the suite's `beforeEach` (which calls
+// `vi.restoreAllMocks()`) are hoisted above ordinary top-level bindings. The
+// alternative -- re-asserting the resolved value in every `beforeEach` -- is how
+// `clearAllMocks` silently turns a version check into a 401 three assertions
+// later.
+const { userFind, imageCreate, imageFindFirst, imageDeleteMany } = vi.hoisted(() => ({
   userFind: vi.fn(async () => ({ tokenVersion: 0 })),
+  imageCreate: vi.fn(async () => ({})),
+  imageFindFirst: vi.fn(async (): Promise<{ id: string } | null> => null),
+  imageDeleteMany: vi.fn(async () => ({ count: 1 })),
 }));
 
 vi.mock('@dripl/db', async () => {
   const { fakeRevocation } = await import('../test-utils/fakeDbModule');
-  const db = { user: { findUnique: userFind } };
+  const db = {
+    user: { findUnique: userFind },
+    image: {
+      create: imageCreate,
+      findFirst: imageFindFirst,
+      deleteMany: imageDeleteMany,
+    },
+  };
   return { db, ...(await fakeRevocation(db as never)) };
 });
 
@@ -60,10 +70,13 @@ describe('image routes — filesystem driver (the default)', () => {
     await rm(storageDir, { recursive: true, force: true });
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
-    // `restoreAllMocks` also resets the hoisted `userFind` stub above, so the
-    // generation the revocation check reads is re-asserted here. Without it every
-    // authenticated case in this file answers 401.
+    // `restoreAllMocks` also resets the hoisted stubs above, so their defaults
+    // are re-asserted here. Without the user stub every authenticated case in
+    // this file answers 401; without the image stubs the next upload fails.
     userFind.mockResolvedValue({ tokenVersion: 0 });
+    imageCreate.mockReset().mockResolvedValue({});
+    imageFindFirst.mockReset().mockResolvedValue(null);
+    imageDeleteMany.mockReset().mockResolvedValue({ count: 1 });
   });
 
   it('serves capability-style image downloads without requiring a session', async () => {
@@ -189,6 +202,127 @@ describe('image routes — filesystem driver (the default)', () => {
     expect(Object.keys(uploaded.body).sort()).toEqual(['id', 'size', 'url']);
     expect(uploaded.body.url).toMatch(/^http:\/\/localhost:3002\/api\/images\/[a-f0-9-]+\.png$/);
   });
+
+  it('records the uploading user as the owner', async () => {
+    const uploaded = await request(app)
+      .post('/api/images')
+      .set('Authorization', auth())
+      .set('Content-Type', 'image/png')
+      .send(PNG_BYTES);
+
+    expect(uploaded.status).toBe(201);
+    expect(imageCreate).toHaveBeenCalledWith({
+      data: { id: uploaded.body.id, userId: 'user-1' },
+    });
+  });
+
+  it('removes the stored object when the ownership row cannot be written', async () => {
+    imageCreate.mockRejectedValueOnce(new Error('database unavailable'));
+
+    const response = await request(app)
+      .post('/api/images')
+      .set('Authorization', auth())
+      .set('Content-Type', 'image/png')
+      .send(PNG_BYTES);
+
+    expect(response.status).toBe(500);
+    // The put succeeded, so only the compensating delete can explain the empty
+    // directory. Without it the bytes would be public and unrevokable.
+    expect(await readdir(storageDir)).toEqual([]);
+  });
+
+  it('lets the owner revoke an uploaded image', async () => {
+    const uploaded = await request(app)
+      .post('/api/images')
+      .set('Authorization', auth())
+      .set('Content-Type', 'image/png')
+      .send(PNG_BYTES);
+    imageFindFirst.mockResolvedValue({ id: uploaded.body.id });
+
+    const revoked = await request(app)
+      .delete(`/api/images/${uploaded.body.id}`)
+      .set('Authorization', auth());
+
+    expect(revoked.status).toBe(204);
+    expect(revoked.text).toBe('');
+    expect(imageFindFirst).toHaveBeenCalledWith({
+      where: { id: uploaded.body.id, userId: 'user-1' },
+      select: { id: true },
+    });
+    expect(imageDeleteMany).toHaveBeenCalledWith({
+      where: { id: uploaded.body.id, userId: 'user-1' },
+    });
+
+    const downloaded = await request(app).get(`/api/images/${uploaded.body.id}`);
+    expect(downloaded.status).toBe(404);
+  });
+
+  it('requires authentication to revoke and leaves the bytes untouched', async () => {
+    await writeFile(join(storageDir, 'abcdef12.png'), PNG_BYTES);
+
+    const response = await request(app).delete('/api/images/abcdef12.png');
+
+    expect(response.status).toBe(401);
+    expect(existsSync(join(storageDir, 'abcdef12.png'))).toBe(true);
+    expect(imageFindFirst).not.toHaveBeenCalled();
+  });
+
+  it('returns one 404 for another owner and for a legacy image with no row', async () => {
+    await writeFile(join(storageDir, 'abcdef12.png'), PNG_BYTES);
+    imageFindFirst.mockResolvedValue(null);
+
+    const response = await request(app)
+      .delete('/api/images/abcdef12.png')
+      .set('Authorization', auth());
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      error: 'NOT_FOUND',
+      message: 'Image not found',
+      statusCode: 404,
+    });
+    expect(existsSync(join(storageDir, 'abcdef12.png'))).toBe(true);
+    expect(imageDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid id before looking up ownership', async () => {
+    const response = await request(app)
+      .delete('/api/images/not-an-id.txt')
+      .set('Authorization', auth());
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('INVALID_IMAGE_ID');
+    expect(imageFindFirst).not.toHaveBeenCalled();
+  });
+
+  it('treats a concurrent second revoke as success', async () => {
+    await writeFile(join(storageDir, 'abcdef12.png'), PNG_BYTES);
+    imageFindFirst.mockResolvedValue({ id: 'abcdef12.png' });
+    imageDeleteMany.mockResolvedValue({ count: 0 });
+
+    const response = await request(app)
+      .delete('/api/images/abcdef12.png')
+      .set('Authorization', auth());
+
+    expect(response.status).toBe(204);
+    expect(existsSync(join(storageDir, 'abcdef12.png'))).toBe(false);
+  });
+
+  it('keeps the ownership row when storage deletion fails', async () => {
+    // A directory at the object path makes `unlink` fail with EISDIR, which the
+    // filesystem driver reports as an `ImageStoreError`.
+    await mkdir(join(storageDir, 'abcdef12.png'));
+    imageFindFirst.mockResolvedValue({ id: 'abcdef12.png' });
+
+    const response = await request(app)
+      .delete('/api/images/abcdef12.png')
+      .set('Authorization', auth());
+
+    expect(response.status).toBe(500);
+    expect(response.body.message).toBe('Failed to delete image');
+    // The row stays so the owner can retry once the store recovers.
+    expect(imageDeleteMany).not.toHaveBeenCalled();
+  });
 });
 
 /**
@@ -251,8 +385,11 @@ describe('image routes — S3 driver', () => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
     // Same reason as the filesystem suite: `restoreAllMocks` resets the hoisted
-    // stub the revocation check reads through.
+    // stubs the revocation and ownership paths read through.
     userFind.mockResolvedValue({ tokenVersion: 0 });
+    imageCreate.mockReset().mockResolvedValue({});
+    imageFindFirst.mockReset().mockResolvedValue(null);
+    imageDeleteMany.mockReset().mockResolvedValue({ count: 1 });
   });
 
   it('uploads to the bucket and returns the identical response body', async () => {
@@ -304,6 +441,60 @@ describe('image routes — S3 driver', () => {
       message: 'Image not found',
       statusCode: 404,
     });
+  });
+
+  it('revokes an owned image through the bucket', async () => {
+    imageFindFirst.mockResolvedValue({ id: 'abcdef12.png' });
+    responses.push({ status: 204 });
+
+    const response = await request(app)
+      .delete('/api/images/abcdef12.png')
+      .set('Authorization', auth());
+
+    expect(response.status).toBe(204);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]!.init.method).toBe('DELETE');
+    expect(requests[0]!.url).toBe('https://s3.eu-west-1.amazonaws.com/dripl-images/abcdef12.png');
+    expect(imageDeleteMany).toHaveBeenCalledWith({
+      where: { id: 'abcdef12.png', userId: 'user-1' },
+    });
+  });
+
+  it('treats an already-absent bucket object as a successful revoke', async () => {
+    imageFindFirst.mockResolvedValue({ id: 'abcdef12.png' });
+    responses.push({ status: 404 });
+
+    const response = await request(app)
+      .delete('/api/images/abcdef12.png')
+      .set('Authorization', auth());
+
+    expect(response.status).toBe(204);
+    expect(requests[0]!.init.method).toBe('DELETE');
+  });
+
+  it('keeps the row when the bucket refuses the delete', async () => {
+    imageFindFirst.mockResolvedValue({ id: 'abcdef12.png' });
+    responses.push({ status: 500 });
+
+    const response = await request(app)
+      .delete('/api/images/abcdef12.png')
+      .set('Authorization', auth());
+
+    expect(response.status).toBe(500);
+    expect(response.body.message).toBe('Failed to delete image');
+    expect(imageDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it('does not touch the bucket when the caller does not own the id', async () => {
+    imageFindFirst.mockResolvedValue(null);
+
+    const response = await request(app)
+      .delete('/api/images/abcdef12.png')
+      .set('Authorization', auth());
+
+    expect(response.status).toBe(404);
+    expect(requests).toHaveLength(0);
+    expect(imageDeleteMany).not.toHaveBeenCalled();
   });
 
   it('maps an unreachable bucket to 500 and does not fall back to local disk', async () => {

@@ -101,7 +101,8 @@ export type FakeModelName =
   | 'passwordResetToken'
   | 'canvasRoom'
   | 'canvasRoomMember'
-  | 'shareLink';
+  | 'shareLink'
+  | 'image';
 
 export interface FakeDb {
   db: Record<FakeModelName, FakeModel> & {
@@ -621,6 +622,7 @@ function createFakeDb(): FakeDb {
     canvasRoom: buildModel('canvasRoom'),
     canvasRoomMember: buildModel('canvasRoomMember'),
     shareLink: buildModel('shareLink'),
+    image: buildModel('image'),
     $transaction: async (ops: Array<Promise<unknown>>): Promise<unknown[]> => Promise.all(ops),
     $queryRaw: async (): Promise<Array<Record<string, unknown>>> => [{ ok: 1 }],
   };

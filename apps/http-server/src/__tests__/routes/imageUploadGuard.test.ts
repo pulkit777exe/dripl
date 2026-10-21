@@ -34,13 +34,17 @@ import { signToken } from '@dripl/utils/auth';
 
 // `authMiddleware` resolves the token's stored generation through `@dripl/db`; the
 // image router never queries anything else, so this `user` stub is the only query.
-const { userFind } = vi.hoisted(() => ({
+const { userFind, imageCreate } = vi.hoisted(() => ({
   userFind: vi.fn(async () => ({ tokenVersion: 0 })),
+  imageCreate: vi.fn(async () => ({})),
 }));
 
 vi.mock('@dripl/db', async () => {
   const { fakeRevocation } = await import('../test-utils/fakeDbModule');
-  const db = { user: { findUnique: userFind } };
+  const db = {
+    user: { findUnique: userFind },
+    image: { create: imageCreate },
+  };
   return { db, ...(await fakeRevocation(db as never)) };
 });
 
@@ -60,6 +64,7 @@ const SIGNATURES = {
 } as const;
 
 beforeEach(async () => {
+  imageCreate.mockResolvedValue({});
   storageDir = await mkdtemp(join(tmpdir(), 'dripl-img-guard-'));
   vi.stubEnv('IMAGE_STORAGE_DIR', storageDir);
   vi.stubEnv('JWT_SECRET', 'image-guard-secret');

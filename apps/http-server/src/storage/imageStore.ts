@@ -9,13 +9,13 @@
  * and setting both is refused rather than resolved by a precedence rule.
  *
  * WHY THE INTERFACE IS THIS SMALL. It is the intersection of what the route
- * actually calls today (`writeFile` on upload, `existsSync` + `stat` +
- * `readFile` on download) and nothing else. There is no `list`, no `delete`,
- * no `head`, no multipart upload, no signed-URL minting, no ACL or metadata
- * handling, and no stream type: every method takes and returns a `Buffer`
- * because the route already buffers the whole upload body to validate its magic
- * bytes before it does anything else, so a streaming interface would be a
- * second, differently-shaped code path for zero benefit.
+ * actually calls (`put` on upload, `get` on download, `delete` when the owner
+ * revokes an image) and nothing else. There is no `list`, no `head`, no
+ * multipart upload, no signed-URL minting, no ACL or metadata handling, and no
+ * stream type: every method takes and returns a `Buffer` because the route
+ * already buffers the whole upload body to validate its magic bytes before it
+ * does anything else, so a streaming interface would be a second,
+ * differently-shaped code path for zero benefit.
  *
  * `get` returning `null` for "absent" is what removes `exists` and `head` from
  * the interface. The route used `existsSync` to produce a 404 and `stat` only
@@ -23,10 +23,10 @@
  * so folding absence into the return value deletes two round trips and one
  * error path without changing a single response.
  *
- * There is deliberately no `delete`. Per-image revocation is a real desire, but
- * it is not reachable from this route, and an unused method on an interface is
- * a promise nobody is keeping. It belongs with the endpoint that will own the
- * permission model, not with the byte-moving seam.
+ * `delete` exists because the route now owns an ownership record (`Image`) and
+ * exposes an owner-only revocation endpoint. The byte-moving seam still does
+ * not decide who may delete; the route checks the row before calling it. The
+ * method is idempotent on absence so a retry after a partial failure is safe.
  *
  * The codes below are a shared vocabulary rather than each driver's own HTTP
  * taxonomy, and they are only useful if every driver means the same thing by
@@ -136,4 +136,10 @@ export interface ImageStore {
   put(key: string, body: Buffer, contentType: string): Promise<void>;
   /** Read the object, or `null` when the store does not have `key`. */
   get(key: string): Promise<Buffer | null>;
+  /**
+   * Remove the object. Absence is success: a retry after an interrupted
+   * revocation, or a double delete, must not become a 500. A backend that
+   * cannot be reached still raises `ImageStoreError`.
+   */
+  delete(key: string): Promise<void>;
 }
