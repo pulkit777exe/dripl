@@ -8,8 +8,10 @@
 >
 > **2026-10-21:** the legacy preflight and maintenance-window repair were
 > verified locally against disposable PostgreSQL 16 databases, and the repair
-> rehearsal is part of the opt-in CI integration suite. The clean-install
-> figures above remain the 2026-09-25 record.
+> rehearsal is part of the opt-in CI integration suite. The clean-install suite
+> was also re-run against all ten migrations, including
+> `20261021120000_add_image_ownership`, and passed; the "seven migrations"
+> figure below remains the 2026-09-25 record.
 
 ## Verified path
 
