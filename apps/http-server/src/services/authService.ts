@@ -323,6 +323,15 @@ export class AuthService {
       throw error;
     }
 
+    // The owner's recovery path when someone who knows the address has locked
+    // it by failing the password. The password that was being guessed no longer
+    // exists, so the failure counter has nothing left to protect; clearing it
+    // after the transaction lets the owner sign in immediately instead of
+    // waiting out a lock an attacker deliberately armed. It does not make the
+    // lockout uncounterable (an attacker can arm it again), but it removes the
+    // "locked out with no recourse" failure mode.
+    loginAttempts.delete(resetEntry.email);
+
     return true;
   }
 

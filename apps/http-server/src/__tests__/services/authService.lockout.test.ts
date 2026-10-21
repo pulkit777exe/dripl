@@ -16,7 +16,9 @@
  *        password is checked, and is refused for the right password too, so the
  *        response is not a password oracle;
  *      - the counter is **reset on success**, so a user who fumbles their password
- *        twice and then types it correctly is not one typo from a 15-minute lockout.
+ *        twice and then types it correctly is not one typo from a 15-minute lockout;
+ *      - a successful emailed password reset clears it too, so an attacker cannot
+ *        leave the owner locked out after the password has already been changed.
  *
  *   2. **The counter map is process-local and unbounded unless pruned.**
  *      `loginAttempts` is keyed by an email address the caller supplies, so without
@@ -55,6 +57,7 @@ vi.mock('../../lib/mailer', () => ({
 
 import bcrypt from 'bcryptjs';
 import { db } from '@dripl/db';
+import { hashToken } from '../../lib/tokenHash';
 import { AuthService } from '../../services/authService';
 
 /** A real bcrypt hash at cost 4 — low, so the suite stays fast. */
@@ -345,6 +348,48 @@ describe('an address that cannot log in is never counted as an attempt', () => {
 
     // Compared every time, counted never.
     expect(compare).toHaveBeenCalledTimes(8);
+  });
+});
+
+describe('a successful password reset clears the lockout', () => {
+  /**
+   * The lockout is a deliberate trade, but it must not leave the owner with no
+   * way back in after an attacker arms it. A reset is proof of mailbox control
+   * and replaces the password being guessed, so the failed-attempt counter is
+   * no longer protecting anything. Driven without advancing the clock: only the
+   * explicit clear can turn `account_locked` into `success` here.
+   */
+  it('lets the owner sign in immediately after resetting', async () => {
+    const address = freshAddress();
+    const ownerId = `owner-${address}`;
+    const resetId = `reset-${address}`;
+    everyAddressIsAnAccount();
+    compare.mockResolvedValue(false);
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      await AuthService.login(address, WRONG);
+    }
+    expect(await AuthService.login(address, PASSWORD)).toEqual({ type: 'account_locked' });
+
+    const expiresAt = new Date(Date.now() + 60_000);
+    await db.user.create({
+      data: { id: ownerId, email: address, emailVerified: true },
+    });
+    await db.passwordResetToken.create({
+      data: { id: resetId, token: hashToken('reset-token'), email: address, expiresAt },
+    });
+    vi.spyOn(db.passwordResetToken, 'findUnique').mockResolvedValue({
+      id: resetId,
+      email: address,
+      expiresAt,
+    } as never);
+    vi.spyOn(db.user, 'findUnique').mockResolvedValue(accountRow({ id: ownerId, email: address }));
+    vi.spyOn(bcrypt, 'hash').mockResolvedValue('new-hash' as never);
+
+    expect(await AuthService.resetPassword('reset-token', 'new-password')).toBe(true);
+
+    compare.mockResolvedValue(true);
+    expect(await AuthService.login(address, PASSWORD)).toMatchObject({ type: 'success' });
   });
 });
 
