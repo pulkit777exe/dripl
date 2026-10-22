@@ -1184,6 +1184,30 @@ describe('renderDraftElement', () => {
     expect(draft(arrow, [arrow]).drawn).toHaveLength(2);
   });
 
+  it('draws the arrowhead in the same local space as the shaft', () => {
+    // The caller supplies the world transform. The shaft translates by the
+    // element origin; the head must do the same. It previously drew
+    // world-space points after translating by -x,-y, so an arrow starting at
+    // (500, 400) rendered its head near (200, 0) until commit snapped it back.
+    const arrow = {
+      ...base({ type: 'arrow', x: 500, y: 400 }),
+      points: [
+        { x: 0, y: 0 },
+        { x: 200, y: 0 },
+      ],
+    } as unknown as DriplElement;
+    const trace = draft(arrow);
+    expect(trace.ctx.calls.translate).toEqual([
+      { x: 500, y: 400 },
+      { x: 500, y: 400 },
+    ]);
+    expectPath(movePoints(trace.drawn[1]), [
+      [200, 0],
+      [186, 5.6],
+      [186, -5.6],
+    ]);
+  });
+
   it('applies opacity and rotation itself for the delegated types', () => {
     // text, image and freedraw drafts are delegated to `renderRoughElement`,
     // which no longer applies either — if the draft wrapper stops applying

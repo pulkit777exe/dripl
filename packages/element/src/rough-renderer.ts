@@ -770,10 +770,13 @@ export function renderDraftElement(
       ctx.rotate(angle);
       ctx.translate(-cx, -cy);
     }
+    // The caller owns the world transform, so heads use the same element-local
+    // points and origin translation as the shaft above (and as the static
+    // bitmap path). Drawing world points after `translate(-x, -y)` put every
+    // head at its local coordinate, far from the arrow tip.
     const points = (element as LinearElement).points ?? [];
-    const world = points.map(p => ({ x: p.x + element.x, y: p.y + element.y }));
-    ctx.translate(-element.x, -element.y);
-    drawArrowheads(rc, element, world, theme);
+    ctx.translate(element.x, element.y);
+    drawArrowheads(rc, element, points, theme);
     ctx.restore();
   }
 }
