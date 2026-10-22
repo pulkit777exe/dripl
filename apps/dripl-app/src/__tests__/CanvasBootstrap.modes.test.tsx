@@ -395,6 +395,32 @@ describe('CanvasBootstrap file mode', () => {
     expect(document.querySelector('.replace-btn')).toBeNull();
   });
 
+  it('signals the applied file scene after it has actually reached the store', async () => {
+    // The file autosave baseline must be taken here, not at mount: the store is
+    // empty until this load resolves, so an earlier baseline records `[]`.
+    const onSceneLoaded = vi.fn();
+    loadInitialScene.mockResolvedValue({
+      elements: [element('from-file')],
+      appState: { zoom: 2.5, panX: 10, panY: -4 },
+    });
+
+    render(
+      <CanvasBootstrap
+        mode="file"
+        theme="light"
+        initialData={{ elements: [], appState: null }}
+        replaceExisting
+        onSceneLoaded={onSceneLoaded}
+      />
+    );
+    await settle();
+
+    expect(onSceneLoaded).toHaveBeenCalledTimes(1);
+    expect(useCanvasStore.getState().elements.map(e => e.id)).toEqual(['from-file']);
+    expect(useCanvasStore.getState().zoom).toBe(2.5);
+    expect(useCanvasStore.getState().panX).toBe(10);
+  });
+
   it('asks before replacing an existing scene, and replaces on confirm', async () => {
     // Regression: the whole point of the modal. Confirming must apply the file
     // scene; the guard is `initialElements.length > 0 && scene.elements.length > 0
@@ -425,13 +451,19 @@ describe('CanvasBootstrap file mode', () => {
     // Regression: cancelling must be a true no-op on the scene. It is also the
     // only path on which the loaded scene is discarded, so a cancel that still
     // applied it would be silent data loss.
+    const onSceneLoaded = vi.fn();
     act(() => {
       useCanvasStore.getState().setElements([element('mine')], { skipHistory: true });
     });
     loadInitialScene.mockResolvedValue({ elements: [element('theirs')], appState: null });
 
     render(
-      <CanvasBootstrap mode="file" theme="light" initialData={{ elements: [], appState: null }} />
+      <CanvasBootstrap
+        mode="file"
+        theme="light"
+        initialData={{ elements: [], appState: null }}
+        onSceneLoaded={onSceneLoaded}
+      />
     );
     await settle();
 
@@ -442,6 +474,9 @@ describe('CanvasBootstrap file mode', () => {
     await settle();
 
     expect(useCanvasStore.getState().elements.map(e => e.id)).toEqual(['mine']);
+    // No applied scene means no baseline: autosave must not arm for a file the
+    // user declined to load.
+    expect(onSceneLoaded).not.toHaveBeenCalled();
     // And the modal is gone, not left on screen.
     expect(document.querySelector('.replace-btn')).toBeNull();
   });

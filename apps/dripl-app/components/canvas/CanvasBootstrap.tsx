@@ -27,6 +27,14 @@ type FileModeProps = BaseProps & {
   initialData: unknown;
   /** Replace a cached scene without showing the interactive confirmation. */
   replaceExisting?: boolean;
+  /**
+   * Called once the file scene has actually been applied to the store.
+   *
+   * File autosave needs a deterministic "baseline now" signal: the store is
+   * empty until the asynchronous load lands, so baselining at mount records
+   * `[]` and writes the loaded scene back as if it were an edit.
+   */
+  onSceneLoaded?: () => void;
 };
 
 export type CanvasBootstrapProps = LocalModeProps | RoomModeProps | FileModeProps;
@@ -82,6 +90,12 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
   const { theme, readOnly = false } = props;
   const { resolvedTheme } = useTheme();
   const mode = props.mode;
+  // The callback identity is allowed to change without restarting the load;
+  // the bootstrap effect itself must stay keyed on the scene, not on props.
+  const onSceneLoadedRef = useRef<(() => void) | undefined>(
+    props.mode === 'file' ? props.onSceneLoaded : undefined
+  );
+  onSceneLoadedRef.current = props.mode === 'file' ? props.onSceneLoaded : undefined;
 
   useEffect(() => {
     const isDark = resolvedTheme === 'dark';
@@ -261,7 +275,12 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
         // keep stale elements from a previously opened canvas.
         setElements(scene.elements, { skipHistory: true });
         applyAppStateToStore((scene.appState || null) as Partial<LocalCanvasState> | null);
-        if (!cancelled) setIsInitialized(true);
+        if (!cancelled) {
+          // The store now holds exactly what the canvas will show; this is the
+          // only point at which the file autosave may take its baseline.
+          onSceneLoadedRef.current?.();
+          setIsInitialized(true);
+        }
       }
     };
     bootstrap().catch((err: unknown) => {

@@ -16,15 +16,58 @@ import type { DriplElement } from '@dripl/common';
 
 const updateFile = vi.fn();
 const getFile = vi.fn();
+const getCsrfToken = vi.fn();
 const generateThumbnail = vi.fn();
+
+const bootstrap = vi.hoisted(() => ({
+  lastProps: null as Record<string, unknown> | null,
+}));
 
 vi.mock('next/dynamic', () => ({
   default: () => () => null,
 }));
 
-vi.mock('@/components/canvas/CanvasBootstrap', () => ({
-  CanvasBootstrap: () => null,
-}));
+vi.mock('@/components/canvas/CanvasBootstrap', async () => {
+  const React = await import('react');
+  const { useCanvasStore } = await import('@/lib/store');
+  return {
+    CanvasBootstrap: (props: {
+      initialData?: { elements?: DriplElement[]; appState?: Record<string, unknown> | null };
+      onSceneLoaded?: () => void;
+    }) => {
+      bootstrap.lastProps = props as unknown as Record<string, unknown>;
+      const sceneKey = JSON.stringify(props.initialData ?? null);
+
+      // Mimic the real bootstrap's `await loadInitialScene(...)`: the parent's
+      // reset effect must run before the scene is applied, and the scene is
+      // applied before `onSceneLoaded` takes the autosave baseline.
+      React.useEffect(() => {
+        let cancelled = false;
+        void Promise.resolve().then(() => {
+          if (cancelled) return;
+          const initial = props.initialData;
+          if (initial) {
+            const store = useCanvasStore.getState();
+            store.setElements(initial.elements ?? [], { skipHistory: true });
+            const appState = initial.appState ?? {};
+            if (typeof appState.zoom === 'number') store.setZoom(appState.zoom);
+            if (typeof appState.panX === 'number' && typeof appState.panY === 'number') {
+              store.setPan(appState.panX, appState.panY);
+            }
+          }
+          props.onSceneLoaded?.();
+        });
+        return () => {
+          cancelled = true;
+        };
+        // Only a different scene reloads; a parent re-render with the same
+        // contents must not reapply it, exactly like `fileSceneKey`.
+      }, [sceneKey]);
+
+      return null;
+    },
+  };
+});
 vi.mock('@/components/canvas/CanvasToolbar', () => ({ CanvasToolbar: () => null }));
 vi.mock('@/components/canvas/CanvasControls', () => ({ CanvasControls: () => null }));
 vi.mock('@/components/canvas/TopBar', () => ({ TopBar: () => null }));
@@ -42,6 +85,7 @@ vi.mock('@/lib/api', () => ({
   apiClient: {
     updateFile: (...args: unknown[]) => updateFile(...args),
     getFile: (...args: unknown[]) => getFile(...args),
+    getCsrfToken: (...args: unknown[]) => getCsrfToken(...args),
   },
 }));
 
@@ -80,8 +124,8 @@ function element(id: string): DriplElement {
   } as DriplElement;
 }
 
-function renderRoute(props: Partial<React.ComponentProps<typeof FileCanvasRoute>> = {}) {
-  return render(
+async function renderRoute(props: Partial<React.ComponentProps<typeof FileCanvasRoute>> = {}) {
+  const view = render(
     <FileCanvasRoute
       fileId={FILE_ID}
       fileName={FILE_NAME}
@@ -90,6 +134,13 @@ function renderRoute(props: Partial<React.ComponentProps<typeof FileCanvasRoute>
       {...props}
     />
   );
+  // Let the simulated asynchronous bootstrap apply its scene and take the
+  // autosave baseline before a test edits the store. The real canvas is gated
+  // on `isInitialized`, so the user cannot edit before this point either.
+  await act(async () => {
+    await Promise.resolve();
+  });
+  return view;
 }
 
 /**
@@ -126,7 +177,10 @@ beforeEach(() => {
   mockUser = { id: 'user-1' };
   updateFile.mockReset();
   getFile.mockReset();
+  getCsrfToken.mockReset();
+  getCsrfToken.mockResolvedValue('csrf-token');
   generateThumbnail.mockReset();
+  bootstrap.lastProps = null;
   // A thumbnail is best-effort; the default is "none available" so the
   // preview-write path is only exercised where a test asks for it.
   generateThumbnail.mockResolvedValue(null);
@@ -149,7 +203,7 @@ afterEach(() => {
 });
 
 describe('FileCanvasRoute mount', () => {
-  it('clears the previous file state before adopting the new file', () => {
+  it('clears the previous file state before adopting the new file', async () => {
     // Regression: this component is reused across `/file/[id]` navigations, so a
     // client-side move from one file to another keeps the store. Without the
     // reset the new canvas would open showing the old file's elements, selection
@@ -162,7 +216,7 @@ describe('FileCanvasRoute mount', () => {
       } as never);
     });
 
-    renderRoute();
+    await renderRoute();
 
     const store = useCanvasStore.getState();
     expect(store.elements).toEqual([]);
@@ -173,7 +227,7 @@ describe('FileCanvasRoute mount', () => {
     expect(store.userId).toBe('user-1');
   });
 
-  it('does not claim a user id when signed out', () => {
+  it('does not claim a user id when signed out', async () => {
     // Regression: `setUserId(user.id)` is inside an `if (user)`. Guarding it
     // matters because the id is what the socket and lock ownership key on —
     // setting it to `undefined` would make two anonymous sessions collide.
@@ -182,20 +236,20 @@ describe('FileCanvasRoute mount', () => {
       useCanvasStore.setState({ userId: 'someone-else' } as never);
     });
 
-    renderRoute();
+    await renderRoute();
 
     // Whatever it was, it must not have become `undefined` from `null?.id`.
     expect(useCanvasStore.getState().userId).not.toBeUndefined();
   });
 
-  it('keeps the loaded scene when the auth user arrives after mount', () => {
+  it('keeps the loaded scene when the auth user arrives after mount', async () => {
     // `AuthProvider` starts with a null user and fills it in after `/auth/me`
     // resolves. The file reset effect must not run again just because that
     // object identity changed: the bootstrap has already put the server scene
     // into the store, and clearing it here leaves the user with an empty
     // canvas until they reload.
     mockUser = null;
-    const view = renderRoute();
+    const view = await renderRoute();
 
     act(() => {
       useCanvasStore.setState({ elements: [element('loaded')] } as never);
@@ -217,18 +271,50 @@ describe('FileCanvasRoute mount', () => {
 });
 
 describe('FileCanvasRoute autosave', () => {
-  it('does not write the scene back on the first pass', async () => {
-    // Regression: `initialSyncDoneRef` records a baseline and returns. Without
-    // it, every page open would PATCH the file with the bytes it was just served
-    // — a pointless write that also bumps `updatedAt`, which would then collide
-    // with any other tab that had the file open.
-    act(() => {
-      useCanvasStore.setState({ elements: [element('a')] } as never);
+  it('does not write the scene the bootstrap loaded back on the first pass', async () => {
+    // Regression: the baseline used to be taken from the store before the
+    // asynchronous file load landed. On a client-side navigation the store was
+    // empty at that moment, so the loaded scene looked like an edit and was
+    // PATCHed straight back, bumping `updatedAt` against every other tab.
+    await renderRoute({
+      initialData: {
+        elements: [element('loaded')],
+        appState: { zoom: 2, panX: 30, panY: -12 },
+      },
     });
-    renderRoute();
     await flushSave();
 
     expect(updateFile).not.toHaveBeenCalled();
+  });
+
+  it('persists a viewport-only change without re-saving unchanged elements', async () => {
+    // Two independent regressions meet here: the autosave trigger ignored
+    // zoom/pan, and the no-op comparison looked only at elements. The full
+    // scene comparison must see the viewport change while the elements remain
+    // the loaded baseline (that baseline feeds conflict detection).
+    await renderRoute({
+      initialData: {
+        elements: [element('loaded')],
+        appState: { zoom: 2, panX: 30, panY: -12 },
+      },
+    });
+    await flushSave();
+    expect(updateFile).not.toHaveBeenCalled();
+
+    act(() => {
+      useCanvasStore.setState({ zoom: 3 } as never);
+    });
+    await flushSave();
+
+    expect(updateFile).toHaveBeenCalledTimes(1);
+    expect(savedContent().elements.map(e => e.id)).toEqual(['loaded']);
+    expect(savedContent().appState).toEqual({ zoom: 3, panX: 30, panY: -12 });
+  });
+
+  it('marks the saved-file scene as owning the page, so no replacement prompt is possible', async () => {
+    await renderRoute();
+
+    expect(bootstrap.lastProps?.replaceExisting).toBe(true);
   });
 
   it('does not save while signed out', async () => {
@@ -239,7 +325,7 @@ describe('FileCanvasRoute autosave', () => {
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
-    renderRoute();
+    await renderRoute();
 
     act(() => {
       useCanvasStore.setState({ elements: [element('a'), element('b')] } as never);
@@ -254,7 +340,7 @@ describe('FileCanvasRoute autosave', () => {
     // that stops a stale component instance from PATCHing file A with file B's
     // scene during the frame where a navigation has moved the store on but not
     // yet unmounted this route.
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ fileId: 'other-file' } as never);
     });
@@ -271,7 +357,7 @@ describe('FileCanvasRoute autosave', () => {
     // produces dozens of element updates and must not produce dozens of PATCHes.
     // The viewport is part of the payload because a file restores where you left
     // it; dropping `appState` here would silently reset everyone's zoom on open.
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ zoom: 2.5, panX: 30, panY: -12 } as never);
     });
@@ -312,7 +398,7 @@ describe('FileCanvasRoute autosave', () => {
     // Regression: the `currentContent === savedContent` short-circuit. Without it,
     // every unrelated store write that produced a new `elements` array identity
     // would re-save — a save loop that never terminates on its own.
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -333,7 +419,7 @@ describe('FileCanvasRoute autosave', () => {
     // the pre-save one would 409 against the write that just landed, and the file
     // would keep a stale thumbnail forever.
     generateThumbnail.mockResolvedValue('data:image/png;base64,AAA');
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -354,7 +440,7 @@ describe('FileCanvasRoute autosave', () => {
     // would replace a previously good thumbnail with nothing, which is worse
     // than leaving the old one.
     generateThumbnail.mockResolvedValue('');
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -371,7 +457,7 @@ describe('FileCanvasRoute autosave', () => {
     // swallowed so it cannot surface as an autosave error the user must act on,
     // when the content save — the thing that matters — already succeeded.
     generateThumbnail.mockRejectedValue(new Error('canvas is tainted'));
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -402,7 +488,7 @@ describe('FileCanvasRoute conflict handling', () => {
     // exactly this — a 409 whose content is unchanged. Demanding a reload here
     // would make an entirely benign race look like data loss.
     benignConflict();
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -430,7 +516,7 @@ describe('FileCanvasRoute conflict handling', () => {
     });
     updateFile.mockRejectedValue(Object.assign(new Error('conflict'), { status: 409 }));
 
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -457,7 +543,7 @@ describe('FileCanvasRoute conflict handling', () => {
     getFile.mockRejectedValue(new Error('gone'));
     updateFile.mockRejectedValue(Object.assign(new Error('conflict'), { status: 409 }));
 
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -483,7 +569,7 @@ describe('FileCanvasRoute conflict handling', () => {
     });
     const err = Object.assign(new Error('changed while saving'), { status: 409 });
 
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements } as never);
     });
@@ -514,7 +600,7 @@ describe('FileCanvasRoute conflict handling', () => {
     // for a transient network error invites the user to throw away unsaved work
     // in exchange for a page that will probably fail the same way.
     updateFile.mockRejectedValue(new Error('Network unreachable'));
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -529,7 +615,7 @@ describe('FileCanvasRoute conflict handling', () => {
     // failing save from retrying forever. It must also start working again once
     // the error clears — a permanently wedged canvas is the other failure.
     updateFile.mockRejectedValue(new Error('nope'));
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -553,7 +639,7 @@ describe('FileCanvasRoute unmount', () => {
     // Regression: navigating away inside the debounce window would otherwise drop
     // the edit with no warning at all — the single most expensive way this
     // component can lose work. The flush is deliberately not debounced.
-    const { unmount } = renderRoute();
+    const { unmount } = await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -574,7 +660,7 @@ describe('FileCanvasRoute unmount', () => {
   it('does not save on unmount when there is nothing pending', async () => {
     // The control for the flush above. Without `pendingSaveRef`, every unmount —
     // including one with no edits at all — would PATCH the file.
-    const { unmount } = renderRoute();
+    const { unmount } = await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -593,7 +679,7 @@ describe('FileCanvasRoute unmount', () => {
     // Regression: the debounce fired, so `pendingSaveRef` is false again. Flushing
     // here would write the same bytes twice and race the preview write that is
     // still in flight against its own `expectedUpdatedAt`.
-    const { unmount } = renderRoute();
+    const { unmount } = await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -613,7 +699,7 @@ describe('FileCanvasRoute unmount', () => {
     // unhandled and would surface as an unhandled rejection in the console of a
     // page the user has already navigated away from.
     updateFile.mockRejectedValue(new Error('gone'));
-    const { unmount } = renderRoute();
+    const { unmount } = await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -625,6 +711,113 @@ describe('FileCanvasRoute unmount', () => {
 
     // No unhandled rejection escaped; the call was still attempted.
     expect(updateFile).toHaveBeenCalled();
+  });
+
+  it('flushes a pending edit with keepalive when the page is hidden', async () => {
+    // A hard reload/tab close never runs React's cleanup. Without this flush,
+    // anything still inside the 800ms debounce is lost with the document.
+    await renderRoute();
+    act(() => {
+      useCanvasStore.setState({ elements: [element('a')] } as never);
+    });
+
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
+
+    expect(updateFile).toHaveBeenCalledTimes(1);
+    expect(savedContent().elements.map(e => e.id)).toEqual(['a']);
+    expect(updateFile.mock.calls[0]![2]).toEqual({ keepalive: true });
+  });
+
+  it('advances the fence after a hidden flush so the next edit is not a false conflict', async () => {
+    // A keepalive flush succeeds while the page is hidden/restored. Its
+    // response has to advance the same baseline and fence a normal save would
+    // have advanced; otherwise the next edit PATCHes with the pre-flush
+    // `expectedUpdatedAt` and the server's 409 looks like a real conflict.
+    await renderRoute();
+    act(() => {
+      useCanvasStore.setState({ elements: [element('a')] } as never);
+    });
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
+    await act(async () => {
+      for (let turn = 0; turn < 5; turn += 1) await Promise.resolve();
+    });
+
+    act(() => {
+      useCanvasStore.setState({ elements: [element('a'), element('b')] } as never);
+    });
+    await flushSave();
+
+    expect(updateFile).toHaveBeenCalledTimes(2);
+    expect(updateFile.mock.calls[1]![1].expectedUpdatedAt).toBe('2026-01-02T00:00:00.000Z');
+  });
+
+  it('measures keepalive bytes, not UTF-16 code units', async () => {
+    // 20k emoji are 40k JavaScript characters but 80k UTF-8 bytes. The old
+    // `.length` guard would have marked this keepalive and let the browser
+    // reject it at the 64 KiB request limit.
+    await renderRoute();
+    act(() => {
+      useCanvasStore.setState({
+        elements: [{ ...element('a'), text: '😀'.repeat(20_000) }] as never,
+      });
+    });
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
+
+    expect(updateFile).toHaveBeenCalledTimes(1);
+    expect(updateFile.mock.calls[0]![2]).toBeUndefined();
+  });
+
+  it('does not let an older in-flight save clear a newer pending edit', async () => {
+    // Regression: the completing save used to set `pendingSaveRef = false`
+    // unconditionally. If A was in flight when B was typed, A's response
+    // cleared the flag for B, and navigating away inside B's debounce dropped
+    // it entirely. The completion must compare what is on screen with what the
+    // server now has.
+    let resolveFirst!: (value: { file: { updatedAt: string } }) => void;
+    updateFile.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveFirst = resolve;
+        })
+    );
+
+    const { unmount } = await renderRoute();
+    act(() => {
+      useCanvasStore.setState({ elements: [element('a')] } as never);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(DEBOUNCE + 1);
+      await Promise.resolve();
+    });
+    expect(updateFile).toHaveBeenCalledTimes(1);
+
+    // B arrives while A is still in flight.
+    act(() => {
+      useCanvasStore.setState({ elements: [element('a'), element('b')] } as never);
+    });
+
+    await act(async () => {
+      resolveFirst({ file: { updatedAt: '2026-01-03T00:00:00.000Z' } });
+      for (let turn = 0; turn < 5; turn += 1) {
+        await Promise.resolve();
+      }
+    });
+
+    // Navigate before B's debounce fires. The flush must carry B.
+    await act(async () => {
+      unmount();
+      await Promise.resolve();
+    });
+
+    expect(updateFile).toHaveBeenCalledTimes(2);
+    const flushed = updateFile.mock.calls[1]![1].content as { elements: DriplElement[] };
+    expect(flushed.elements.map(e => e.id)).toEqual(['a', 'b']);
   });
 });
 
@@ -641,7 +834,7 @@ describe('FileCanvasRoute reload affordance', () => {
     });
     updateFile.mockRejectedValue(Object.assign(new Error('conflict'), { status: 409 }));
 
-    renderRoute();
+    await renderRoute();
     act(() => {
       useCanvasStore.setState({ elements: [element('a')] } as never);
     });
@@ -665,10 +858,10 @@ describe('FileCanvasRoute reload affordance', () => {
     }
   });
 
-  it('shows no banner before anything has failed', () => {
+  it('shows no banner before anything has failed', async () => {
     // Regression: the banner is conditionally rendered on a `null` initial state.
     // A truthy initial would put an empty red bar across the top of every canvas.
-    renderRoute();
+    await renderRoute();
     expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull();
     expect(document.body.textContent).not.toContain('changed elsewhere');
   });

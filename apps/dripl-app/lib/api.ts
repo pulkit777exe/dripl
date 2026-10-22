@@ -337,11 +337,7 @@ class ApiClient {
     return this.request(`/files${query ? `?${query}` : ''}`);
   }
 
-  async listSharedFiles(params?: {
-    search?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<{
+  async listSharedFiles(params?: { search?: string; page?: number; limit?: number }): Promise<{
     files: SharedFileSummary[];
     total: number;
     page: number;
@@ -399,11 +395,15 @@ class ApiClient {
       content?: unknown;
       preview?: string | null;
       expectedUpdatedAt?: string;
-    }
+    },
+    options?: { keepalive?: boolean }
   ): Promise<{ file: FileSummary }> {
     return this.request(`/files/${fileId}`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
+      // Used by the pagehide/unload flush, where the browser must be allowed to
+      // finish the request after the document is gone.
+      keepalive: options?.keepalive,
     });
   }
 

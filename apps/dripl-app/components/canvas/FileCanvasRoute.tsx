@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { DriplElement } from '@dripl/common';
 import { CanvasBootstrap } from '@/components/canvas/CanvasBootstrap';
@@ -9,7 +9,6 @@ import { CanvasControls } from '@/components/canvas/CanvasControls';
 import { TopBar } from '@/components/canvas/TopBar';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/app/context/AuthContext';
-import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/lib/store';
 import { apiClient } from '@/lib/api';
 import { generateThumbnail } from '@/utils/export';
@@ -26,6 +25,49 @@ export type FileInitialData = {
   elements: DriplElement[];
   appState: Partial<LocalCanvasState> | null;
 };
+
+const AUTOSAVE_DEBOUNCE_MS = 800;
+const CONFLICT_MESSAGE =
+  'This file changed elsewhere. Reload it before saving over the newer version.';
+
+/**
+ * Browsers cap `fetch(..., { keepalive: true })` at 64 KiB. Above that the
+ * request rejects immediately, so a pagehide flush falls back to an ordinary
+ * request rather than pretending the keepalive was sent.
+ */
+const KEEPALIVE_BODY_LIMIT = 60_000;
+
+type Viewport = { zoom: number; panX: number; panY: number };
+
+/**
+ * The full autosave-relevant scene. The no-op comparison uses this so a pan or
+ * zoom is a real change; conflict detection separately compares elements only,
+ * because the viewport is not part of the server's conflict fence.
+ */
+function sceneSnapshot(elements: DriplElement[], viewport: Viewport): string {
+  return JSON.stringify({ elements, appState: viewport });
+}
+
+function isSameViewport(a: Viewport | null, b: Viewport): boolean {
+  return a !== null && a.zoom === b.zoom && a.panX === b.panX && a.panY === b.panY;
+}
+
+/**
+ * Keep the optimistic fence monotonic. A save response can be older than a
+ * fence another response already observed (for example, a keepalive flush that
+ * committed just before an external write). Replacing the newer fence with the
+ * older one would make the next save report a conflict that is already known.
+ * ISO timestamps from the database sort chronologically, but parse them so a
+ * malformed value cannot silently win.
+ */
+function laterUpdatedAt(current: string | null, next: string): string {
+  if (current === null) return next;
+  const currentMs = Date.parse(current);
+  const nextMs = Date.parse(next);
+  return Number.isFinite(currentMs) && Number.isFinite(nextMs) && nextMs < currentMs
+    ? current
+    : next;
+}
 
 /**
  * The interactive half of a saved canvas.
@@ -58,36 +100,78 @@ export function FileCanvasRoute({
   const { user } = useAuth();
   const setUserId = useCanvasStore(state => state.setUserId);
   const setFileMetadata = useCanvasStore(state => state.setFileMetadata);
-  const elements = useCanvasStore(useShallow(state => state.elements));
-  const storeFileId = useCanvasStore(state => state.fileId);
 
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
-  const initialSyncDoneRef = useRef(false);
-  const lastSavedContentRef = useRef<string | null>(null);
+  /*
+   * Scene and save state live in refs, not render state. Elements and the
+   * viewport change on every frame of a drag or pan; selecting them here would
+   * re-render the toolbar, top bar and controls each frame for a decision the
+   * autosave path can make from a store subscription alone. The canvas already
+   * renders from its own subscriptions.
+   */
+  const hydratedRef = useRef(false);
+  const sceneLoadedRef = useRef(false);
+  const fileIdRef = useRef(fileId);
+  fileIdRef.current = fileId;
+  const userRef = useRef(user);
+  userRef.current = user;
+  const saveErrorRef = useRef(saveError);
+  saveErrorRef.current = saveError;
+  const mountedRef = useRef(true);
+
+  const lastSavedElementsRef = useRef<string | null>(null);
+  const lastSavedSnapshotRef = useRef<string | null>(null);
+  const lastThumbnailElementsRef = useRef<string | null>(null);
+  const observedElementsRef = useRef<DriplElement[] | null>(null);
+  const observedViewportRef = useRef<Viewport | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
   const pendingSaveRef = useRef(false);
-  const latestElementsRef = useRef<DriplElement[]>([]);
   const fileUpdatedAtRef = useRef<string | null>(updatedAt);
   const saveConflictRef = useRef(false);
-  // The scene arrived with the HTML, so hydration has nothing to wait for. This
-  // flips on mount and is what the autosave effect gates on, replacing the
-  // old `loading`/`initialData` state pair.
-  const [hydrated, setHydrated] = useState(false);
+  const editGenerationRef = useRef(0);
+  const appliedGenerationRef = useRef(0);
+  // Invalidates responses from a previous load of the same file. The file id
+  // alone is not enough: a reset or a re-applied scene can reuse it while an
+  // older save is still in flight.
+  const saveEpochRef = useRef(0);
+  const inFlightRef = useRef(false);
+  const performSaveRef = useRef<() => void>(() => {});
 
   useEffect(() => {
+    // Clear the gate before touching the store: on a client-side navigation the
+    // previous file's subscription is still installed for the rest of this
+    // effect, and must not read the reset as a user edit.
+    saveEpochRef.current += 1;
+    hydratedRef.current = false;
+    sceneLoadedRef.current = false;
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+
     const store = useCanvasStore.getState();
     store.setElements([], { skipHistory: true });
     store.clearHistory();
     store.clearSelection();
     store.setClipboard([]);
-    initialSyncDoneRef.current = false;
-    lastSavedContentRef.current = null;
+    setFileMetadata(fileId, fileName);
+
+    observedElementsRef.current = null;
+    observedViewportRef.current = null;
+    lastSavedElementsRef.current = null;
+    lastSavedSnapshotRef.current = null;
+    lastThumbnailElementsRef.current = null;
+    pendingSaveRef.current = false;
+    editGenerationRef.current = 0;
+    appliedGenerationRef.current = 0;
+    inFlightRef.current = false;
     fileUpdatedAtRef.current = updatedAt;
     saveConflictRef.current = false;
-    setFileMetadata(fileId, fileName);
-    setHydrated(true);
+    setSaveError(null);
+
+    hydratedRef.current = true;
   }, [fileId, fileName, setFileMetadata, updatedAt]);
 
   // Auth resolves after the server-rendered file has already mounted. Keep the
@@ -97,158 +181,398 @@ export function FileCanvasRoute({
     if (user) setUserId(user.id);
   }, [user, setUserId]);
 
-  useEffect(() => {
-    if (!hydrated || saveError || !user) return;
+  /**
+   * The file scene has been applied to the store.
+   *
+   * This is the only place a save baseline is taken. The store is empty until
+   * `CanvasBootstrap`'s asynchronous load lands; baselining from the store on
+   * the first render records `[]`, then treats the loaded scene as an edit and
+   * writes it straight back (and bumps `updatedAt` against any other tab).
+   */
+  const handleSceneLoaded = useCallback(() => {
+    if (!mountedRef.current || !hydratedRef.current) return;
+    const state = useCanvasStore.getState();
+    if (state.fileId !== fileIdRef.current) return;
 
-    if (storeFileId !== fileId || saveConflictRef.current) return;
-
-    latestElementsRef.current = elements;
-
-    if (!initialSyncDoneRef.current) {
-      initialSyncDoneRef.current = true;
-      lastSavedContentRef.current = JSON.stringify(elements);
-      return;
+    saveEpochRef.current += 1;
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
     }
+    inFlightRef.current = false;
+    const viewport: Viewport = { zoom: state.zoom, panX: state.panX, panY: state.panY };
+    observedElementsRef.current = state.elements;
+    observedViewportRef.current = viewport;
+    lastSavedElementsRef.current = JSON.stringify(state.elements);
+    lastSavedSnapshotRef.current = sceneSnapshot(state.elements, viewport);
+    lastThumbnailElementsRef.current = JSON.stringify(state.elements);
+    editGenerationRef.current = 0;
+    appliedGenerationRef.current = 0;
+    pendingSaveRef.current = false;
+    sceneLoadedRef.current = true;
+  }, []);
 
-    // The comparison against the last saved content runs *inside* the debounce
-    // below rather than here. This effect fires on every store commit — that is
-    // every frame of a drag — and the comparison was a full-scene
-    // JSON.stringify over the whole array, to decide something only the timer
-    // ever acts on: for a 1,000-element scene that is milliseconds of string
-    // building per frame on the same path that just had its per-element
-    // bitmap rebuilds removed. Deferred, the identical comparison runs once
-    // per burst instead of once per frame, with the same two strings and the
-    // same outcome. It also compares at the moment of acting, which the old
-    // placement did not: a change reverted within the window left an armed
-    // timer that then saved bytes equal to what was already stored.
-    //
-    // `pendingSaveRef` is still set eagerly, before any comparison: the
-    // unmount flush reads it, so it may only ever over-report — a redundant
-    // write of identical content — never under-report and drop the tail of an
-    // edit session on navigate-away.
-    pendingSaveRef.current = true;
-
+  const armAutosave = useCallback(() => {
     if (autosaveTimerRef.current !== null) {
       window.clearTimeout(autosaveTimerRef.current);
     }
-
     autosaveTimerRef.current = window.setTimeout(() => {
-      void (async () => {
-        const currentElements = latestElementsRef.current;
+      autosaveTimerRef.current = null;
+      performSaveRef.current();
+    }, AUTOSAVE_DEBOUNCE_MS);
+  }, []);
 
-        const currentContent = JSON.stringify(currentElements);
-        const savedContent = lastSavedContentRef.current;
-        if (savedContent !== null && currentContent === savedContent) {
-          pendingSaveRef.current = false;
-          return;
-        }
+  /**
+   * Save one snapshot of the scene.
+   *
+   * Saves are serialized: a timer that fires while a PATCH is in flight leaves
+   * `pendingSaveRef` set and returns, and the in-flight completion re-arms the
+   * debounce. Two overlapping saves would race the optimistic fence and let an
+   * older response move `updatedAt` backwards.
+   */
+  const performSave = useCallback(() => {
+    if (!hydratedRef.current || !sceneLoadedRef.current || !userRef.current) return;
+    if (saveErrorRef.current || saveConflictRef.current) return;
 
-        const {
-          zoom: currentZoom,
-          panX: currentPanX,
-          panY: currentPanY,
-        } = useCanvasStore.getState();
-        const content = {
-          elements: currentElements,
-          appState: { zoom: currentZoom, panX: currentPanX, panY: currentPanY },
-        };
-        const saveContent = (expectedUpdatedAt?: string) =>
-          apiClient.updateFile(fileId, {
-            content,
-            expectedUpdatedAt,
-          });
+    const saveFileId = fileId;
+    if (fileIdRef.current !== saveFileId) return;
 
-        const applySaved = (updatedAt: string, elementsToThumbnail: DriplElement[]) => {
-          fileUpdatedAtRef.current = updatedAt;
-          // Generate and save thumbnail (non-blocking, best-effort)
-          generateThumbnail(elementsToThumbnail)
-            .then(thumbnail => {
-              if (thumbnail) {
-                apiClient
-                  .updateFile(fileId, {
-                    preview: thumbnail,
-                    expectedUpdatedAt: fileUpdatedAtRef.current ?? undefined,
-                  })
-                  .then(result => {
-                    fileUpdatedAtRef.current = result.file.updatedAt;
-                  })
-                  .catch(() => {});
-              }
+    const state = useCanvasStore.getState();
+    if (state.fileId !== saveFileId) return;
+
+    const elementsToSave = state.elements;
+    const viewport: Viewport = { zoom: state.zoom, panX: state.panX, panY: state.panY };
+    const snapshot = sceneSnapshot(elementsToSave, viewport);
+
+    if (snapshot === lastSavedSnapshotRef.current) {
+      pendingSaveRef.current = false;
+      return;
+    }
+    if (inFlightRef.current) {
+      pendingSaveRef.current = true;
+      return;
+    }
+
+    const generation = editGenerationRef.current;
+    const saveEpoch = saveEpochRef.current;
+    inFlightRef.current = true;
+    let succeeded = false;
+
+    const isCurrentSave = () =>
+      mountedRef.current && fileIdRef.current === saveFileId && saveEpochRef.current === saveEpoch;
+
+    const currentSnapshot = () => {
+      const current = useCanvasStore.getState();
+      if (current.fileId !== saveFileId) return null;
+      return sceneSnapshot(current.elements, {
+        zoom: current.zoom,
+        panX: current.panX,
+        panY: current.panY,
+      });
+    };
+
+    const scheduleThumbnail = (elementsSaved: DriplElement[], savedGeneration: number) => {
+      if (!isCurrentSave() || savedGeneration !== appliedGenerationRef.current) return;
+      const elementsJson = JSON.stringify(elementsSaved);
+      if (elementsJson === lastThumbnailElementsRef.current) return;
+      lastThumbnailElementsRef.current = elementsJson;
+
+      generateThumbnail(elementsSaved)
+        .then(thumbnail => {
+          if (!thumbnail || !isCurrentSave()) return;
+          if (savedGeneration !== appliedGenerationRef.current) return;
+          return apiClient
+            .updateFile(saveFileId, {
+              preview: thumbnail,
+              expectedUpdatedAt: fileUpdatedAtRef.current ?? undefined,
+            })
+            .then(result => {
+              if (!isCurrentSave()) return;
+              if (savedGeneration !== appliedGenerationRef.current) return;
+              fileUpdatedAtRef.current = laterUpdatedAt(
+                fileUpdatedAtRef.current,
+                result.file.updatedAt
+              );
             })
             .catch(() => {});
+        })
+        .catch(() => {});
+    };
 
-          lastSavedContentRef.current = JSON.stringify(elementsToThumbnail);
-          pendingSaveRef.current = false;
-          setSaveError(null);
-        };
+    const applySaved = (
+      nextUpdatedAt: string,
+      elementsSaved: DriplElement[],
+      savedSnapshot: string,
+      savedGeneration: number
+    ) => {
+      if (!isCurrentSave()) return;
+      if (savedGeneration < appliedGenerationRef.current) {
+        // A newer save landed first; replaying this response would move the
+        // fence and the baseline back to older content.
+        const latest = currentSnapshot();
+        pendingSaveRef.current =
+          latest !== null &&
+          lastSavedSnapshotRef.current !== null &&
+          latest !== lastSavedSnapshotRef.current;
+        return;
+      }
 
-        try {
-          const saved = await saveContent(fileUpdatedAtRef.current ?? undefined);
-          applySaved(saved.file.updatedAt, currentElements);
-        } catch (error) {
-          const status =
-            typeof error === 'object' && error !== null
-              ? (error as { status?: unknown }).status
-              : undefined;
-          const message = error instanceof Error ? error.message : 'Failed to save canvas';
-          if (status === 409 || message.toLowerCase().includes('changed while saving')) {
-            try {
-              const latest = await apiClient.getFile(fileId);
-              const latestContent = JSON.stringify(elementsFromFileContent(latest.file.content));
-              fileUpdatedAtRef.current = latest.file.updatedAt;
-              // A retry is safe only when the server's scene still matches the
-              // base we loaded. Otherwise a human must choose/rebase the two
-              // scenes; silently overwriting either side is data loss.
-              if (latestContent === lastSavedContentRef.current) {
-                const retried = await saveContent(latest.file.updatedAt);
-                applySaved(retried.file.updatedAt, currentElements);
+      appliedGenerationRef.current = savedGeneration;
+      fileUpdatedAtRef.current = laterUpdatedAt(fileUpdatedAtRef.current, nextUpdatedAt);
+      lastSavedElementsRef.current = JSON.stringify(elementsSaved);
+      lastSavedSnapshotRef.current = savedSnapshot;
+
+      const latest = currentSnapshot();
+      pendingSaveRef.current = latest !== null && latest !== savedSnapshot;
+      setSaveError(null);
+      scheduleThumbnail(elementsSaved, savedGeneration);
+    };
+
+    const saveContent = (
+      elements: DriplElement[],
+      appState: Viewport,
+      expectedUpdatedAt?: string
+    ) =>
+      apiClient.updateFile(saveFileId, {
+        content: { elements, appState },
+        expectedUpdatedAt,
+      });
+
+    void (async () => {
+      try {
+        const saved = await saveContent(
+          elementsToSave,
+          viewport,
+          fileUpdatedAtRef.current ?? undefined
+        );
+        if (!isCurrentSave()) return;
+        succeeded = true;
+        applySaved(saved.file.updatedAt, elementsToSave, snapshot, generation);
+      } catch (error) {
+        if (!isCurrentSave()) return;
+        const status =
+          typeof error === 'object' && error !== null
+            ? (error as { status?: unknown }).status
+            : undefined;
+        const message = error instanceof Error ? error.message : 'Failed to save canvas';
+        if (status === 409 || message.toLowerCase().includes('changed while saving')) {
+          try {
+            const latest = await apiClient.getFile(saveFileId);
+            if (!isCurrentSave()) return;
+            fileUpdatedAtRef.current = laterUpdatedAt(
+              fileUpdatedAtRef.current,
+              latest.file.updatedAt
+            );
+            const latestContent = JSON.stringify(elementsFromFileContent(latest.file.content));
+            // A retry is safe only when the server's scene still matches the
+            // base we loaded. Otherwise a human must choose/rebase the two
+            // scenes; silently overwriting either side is data loss.
+            if (latestContent === lastSavedElementsRef.current) {
+              // Retry the latest local state, not the snapshot the timer
+              // captured: edits may have arrived while the 409 was being read.
+              const retryState = useCanvasStore.getState();
+              if (retryState.fileId !== saveFileId) return;
+              const retryElements = retryState.elements;
+              const retryViewport: Viewport = {
+                zoom: retryState.zoom,
+                panX: retryState.panX,
+                panY: retryState.panY,
+              };
+              const retrySnapshot = sceneSnapshot(retryElements, retryViewport);
+              if (retrySnapshot === lastSavedSnapshotRef.current) {
+                succeeded = true;
+                pendingSaveRef.current = false;
+                setSaveError(null);
                 return;
               }
-              saveConflictRef.current = true;
-              pendingSaveRef.current = false;
-              setSaveError(
-                'This file changed elsewhere. Reload it before saving over the newer version.'
+              const retryGeneration = editGenerationRef.current;
+              // Use the freshest fence: a keepalive flush may have committed
+              // after the `getFile` above and advanced it. The fetched
+              // `latest.file.updatedAt` would then be a guaranteed 409.
+              const retried = await saveContent(
+                retryElements,
+                retryViewport,
+                fileUpdatedAtRef.current ?? undefined
               );
-            } catch {
-              pendingSaveRef.current = false;
-              setSaveError(
-                'This file changed elsewhere. Reload it before saving over the newer version.'
-              );
+              if (!isCurrentSave()) return;
+              succeeded = true;
+              applySaved(retried.file.updatedAt, retryElements, retrySnapshot, retryGeneration);
+              return;
             }
-            return;
+            saveConflictRef.current = true;
+            pendingSaveRef.current = false;
+            setSaveError(CONFLICT_MESSAGE);
+          } catch {
+            if (!isCurrentSave()) return;
+            saveConflictRef.current = true;
+            pendingSaveRef.current = false;
+            setSaveError(CONFLICT_MESSAGE);
           }
-          setSaveError(message);
+          return;
         }
-      })();
-    }, 800);
-
-    return () => {
-      if (autosaveTimerRef.current !== null) {
-        window.clearTimeout(autosaveTimerRef.current);
+        pendingSaveRef.current = true;
+        setSaveError(message);
+      } finally {
+        if (isCurrentSave()) {
+          inFlightRef.current = false;
+          if (succeeded && pendingSaveRef.current && !saveConflictRef.current) {
+            armAutosave();
+          }
+        }
       }
+    })();
+  }, [armAutosave, fileId]);
+
+  performSaveRef.current = performSave;
+
+  /**
+   * Observe elements and the viewport without re-rendering this route. The
+   * debounce and the full JSON comparison stay out of the subscription: this
+   * runs on every store commit, and stringifying a large scene per frame is
+   * exactly the cost the old deferred comparison existed to avoid.
+   */
+  const noteContentChange = useCallback(
+    (state: ReturnType<typeof useCanvasStore.getState>) => {
+      if (!hydratedRef.current || !sceneLoadedRef.current) return;
+      if (!userRef.current || saveErrorRef.current || saveConflictRef.current) return;
+      if (state.fileId !== fileIdRef.current) return;
+
+      const viewport: Viewport = { zoom: state.zoom, panX: state.panX, panY: state.panY };
+      if (
+        state.elements === observedElementsRef.current &&
+        isSameViewport(observedViewportRef.current, viewport)
+      ) {
+        return;
+      }
+
+      observedElementsRef.current = state.elements;
+      observedViewportRef.current = viewport;
+      editGenerationRef.current += 1;
+      pendingSaveRef.current = true;
+      armAutosave();
+    },
+    [armAutosave]
+  );
+
+  useEffect(() => useCanvasStore.subscribe(noteContentChange), [noteContentChange]);
+
+  // If the user was signed out while the scene loaded, edits made before auth
+  // resolved were ignored above. Retry once the user arrives rather than
+  // waiting for another edit to notice them.
+  useEffect(() => {
+    if (user) noteContentChange(useCanvasStore.getState());
+  }, [user, noteContentChange]);
+
+  const flushPendingSave = useCallback((keepalive: boolean) => {
+    if (!mountedRef.current || !hydratedRef.current || !sceneLoadedRef.current) return;
+    if (!userRef.current || saveConflictRef.current) return;
+
+    const saveFileId = fileIdRef.current;
+    const state = useCanvasStore.getState();
+    if (state.fileId !== saveFileId) return;
+
+    const viewport: Viewport = { zoom: state.zoom, panX: state.panX, panY: state.panY };
+    const snapshot = sceneSnapshot(state.elements, viewport);
+    if (snapshot === lastSavedSnapshotRef.current) {
+      pendingSaveRef.current = false;
+      return;
+    }
+
+    const body = {
+      content: { elements: state.elements, appState: viewport },
+      expectedUpdatedAt: fileUpdatedAtRef.current ?? undefined,
     };
-  }, [elements, fileId, hydrated, saveError, storeFileId, user]);
+    const flushEpoch = saveEpochRef.current;
+    const flushGeneration = editGenerationRef.current;
+    const flushElements = state.elements;
+    const isCurrentFlush = () =>
+      mountedRef.current && fileIdRef.current === saveFileId && saveEpochRef.current === flushEpoch;
+
+    pendingSaveRef.current = true;
+    // `keepalive` caps the whole request at 64 KiB. Measure UTF-8 bytes, not
+    // UTF-16 code units: text full of emoji or CJK characters is up to 4x
+    // larger than `.length` suggests.
+    const serialized = JSON.stringify(body);
+    const useKeepalive =
+      keepalive && new TextEncoder().encode(serialized).length <= KEEPALIVE_BODY_LIMIT;
+    void apiClient
+      .updateFile(saveFileId, body, useKeepalive ? { keepalive: true } : undefined)
+      .then(result => {
+        // A hidden tab that comes back must not treat the next edit as a
+        // conflict: the flush did save, so advance the same baseline and fence
+        // a normal save would have advanced.
+        if (!isCurrentFlush()) return;
+        if (flushGeneration < appliedGenerationRef.current) return;
+        // A 409 handler may have observed a newer fence while this flush was
+        // in flight. Its response describes a state the server has already
+        // left; adopting it would let the next edit overwrite that newer state
+        // without noticing.
+        if (
+          laterUpdatedAt(fileUpdatedAtRef.current, result.file.updatedAt) !== result.file.updatedAt
+        ) {
+          return;
+        }
+        appliedGenerationRef.current = flushGeneration;
+        fileUpdatedAtRef.current = result.file.updatedAt;
+        lastSavedElementsRef.current = JSON.stringify(flushElements);
+        lastSavedSnapshotRef.current = snapshot;
+        const current = useCanvasStore.getState();
+        const latest =
+          current.fileId === saveFileId
+            ? sceneSnapshot(current.elements, {
+                zoom: current.zoom,
+                panX: current.panX,
+                panY: current.panY,
+              })
+            : null;
+        pendingSaveRef.current = latest !== null && latest !== snapshot;
+        // The flush covered everything now on screen, so an earlier conflict
+        // about this fence is resolved. A newer edit still leaves the banner
+        // up: it has not been saved.
+        if (latest === snapshot) {
+          saveConflictRef.current = false;
+          setSaveError(null);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // A hard reload or tab close does not run React's effect cleanup, so the
+  // debounced save would be discarded with the document. `pagehide` and a
+  // hidden document flush with keepalive instead. The CSRF token is warmed on
+  // mount because the request path cannot await a token fetch while the page
+  // is being torn down.
+  useEffect(() => {
+    void apiClient.getCsrfToken().catch(() => {});
+  }, []);
 
   useEffect(() => {
+    const onPageHide = () => flushPendingSave(true);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushPendingSave(true);
+    };
+    window.addEventListener('pagehide', onPageHide);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [flushPendingSave]);
+
+  useEffect(() => {
+    mountedRef.current = true;
     return () => {
       if (autosaveTimerRef.current !== null) {
         window.clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
       }
-      if (pendingSaveRef.current) {
-        const { zoom: z, panX: px, panY: py } = useCanvasStore.getState();
-        apiClient
-          .updateFile(fileId, {
-            content: {
-              elements: latestElementsRef.current,
-              appState: { zoom: z, panX: px, panY: py },
-            },
-            expectedUpdatedAt: fileUpdatedAtRef.current ?? undefined,
-          })
-          .catch(() => {});
-      }
-      initialSyncDoneRef.current = false;
+      // SPA navigation: the document is still alive, so an ordinary request is
+      // enough. The store still holds this file's scene; the next route has not
+      // mounted yet.
+      flushPendingSave(false);
+      mountedRef.current = false;
     };
-  }, [fileId]);
+  }, [flushPendingSave]);
 
   return (
     <div
@@ -273,6 +597,8 @@ export function FileCanvasRoute({
         mode="file"
         initialData={{ elements: initialData.elements, appState: initialData.appState }}
         theme={effectiveTheme}
+        replaceExisting
+        onSceneLoaded={handleSceneLoaded}
       />
       <div className="absolute top-0.5 left-1/2 -translate-x-1/2 z-20">
         <CanvasToolbar />
