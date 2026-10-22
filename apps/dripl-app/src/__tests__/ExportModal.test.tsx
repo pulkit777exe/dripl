@@ -141,6 +141,7 @@ function seedStore(opts: { elements?: DriplElement[]; selected?: string[] } = {}
     elements: opts.elements ?? [element('a'), element('b')],
     selectedIds: new Set(opts.selected ?? []),
     canvasBackground: null,
+    theme: 'light',
   } as never);
 }
 
@@ -659,15 +660,26 @@ describe('ExportModal chrome', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to white when the canvas has no background', async () => {
-    // Regression: `canvasBackground ?? '#ffffff'`. A transparent export over a
-    // dark viewer is fine, but a PNG with no background at all renders black in
-    // some viewers, so the fallback is a real decision.
+  it('uses the light theme-default canvas when no background is stored', async () => {
+    // Regression: `canvasBackground ?? '#ffffff'`. The screen canvas shows the
+    // paper default, not white, so an export that guessed white was a different
+    // image from the one the user designed.
     render(<ExportModal isOpen onClose={vi.fn()} />);
     await clickAndSettle('do-export-png');
 
-    const options = exportCanvas.mock.calls[0]![2] as { background: string };
-    expect(options.background).toBe('#ffffff');
+    const options = exportCanvas.mock.calls[0]![2] as { background: string; theme: string };
+    expect(options.background).toBe('#F0EDE6');
+    expect(options.theme).toBe('light');
+  });
+
+  it('uses the dark theme-default canvas and forwards the dark theme', async () => {
+    useCanvasStore.setState({ theme: 'dark' } as never);
+    render(<ExportModal isOpen onClose={vi.fn()} />);
+    await clickAndSettle('do-export-png');
+
+    const options = exportCanvas.mock.calls[0]![2] as { background: string; theme: string };
+    expect(options.background).toBe('#1C1A17');
+    expect(options.theme).toBe('dark');
   });
 
   it('uses the canvas background when one is set', async () => {
@@ -677,8 +689,19 @@ describe('ExportModal chrome', () => {
     render(<ExportModal isOpen onClose={vi.fn()} />);
     await clickAndSettle('do-export-png');
 
-    const options = exportCanvas.mock.calls[0]![2] as { background: string };
+    const options = exportCanvas.mock.calls[0]![2] as { background: string; theme: string };
     expect(options.background).toBe('#ff00ff');
+    expect(options.theme).toBe('light');
     await waitFor(() => expect(exportCanvas).toHaveBeenCalled());
+  });
+
+  it('filters a stored background in the dark theme, exactly like the canvas', async () => {
+    useCanvasStore.setState({ canvasBackground: '#ffffff', theme: 'dark' } as never);
+    render(<ExportModal isOpen onClose={vi.fn()} />);
+    await clickAndSettle('do-export-png');
+
+    const options = exportCanvas.mock.calls[0]![2] as { background: string; theme: string };
+    expect(options.background).toBe('#121212');
+    expect(options.theme).toBe('dark');
   });
 });

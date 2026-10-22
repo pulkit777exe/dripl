@@ -251,6 +251,8 @@ describe('Panel palette constants', () => {
     expect(new Set(values).size).toBe(8);
     expect(values).toContain('#1e1e1e');
     expect(values).toContain('#ffffff');
+    // The first five are Excalidraw's quick picks, in its order.
+    expect(values.slice(0, 5)).toEqual(['#1e1e1e', '#e03131', '#2f9e44', '#1971c2', '#f08c00']);
     // Every entry carries a human label -- the tooltip the user reads.
     for (const entry of STROKE_COLORS) {
       expect(entry.label.length).toBeGreaterThan(0);
@@ -262,7 +264,7 @@ describe('Panel palette constants', () => {
     expect(new Set(labels).size).toBe(labels.length);
     // The palette is the full named set, so a renamed or dropped colour is caught
     // by name rather than by count alone.
-    expect(labels).toEqual(['Black', 'Red', 'Green', 'Blue', 'Orange', 'Purple', 'Pink', 'White']);
+    expect(labels).toEqual(['Black', 'Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Pink', 'White']);
   });
 
   // Regression: `BACKGROUND_COLORS` leads with `transparent` labelled 'None'.
@@ -285,7 +287,9 @@ describe('Panel palette constants', () => {
       'Light Yellow',
       'Light Purple',
     ]);
-    expect(values.slice(1)).toEqual(['#ffc9c9', '#b2f2bb', '#a5d8ff', '#ffec99', '#e0dcff']);
+    // The first five match Excalidraw's fill quick picks exactly; the sixth is
+    // the first shade of its violet family.
+    expect(values.slice(1)).toEqual(['#ffc9c9', '#b2f2bb', '#a5d8ff', '#ffec99', '#d0bfff']);
   });
 
   // Regression: `ARRANGE_BUTTON_CLASS` is the shared sizing class for the

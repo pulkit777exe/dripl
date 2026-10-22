@@ -192,7 +192,9 @@ describe('renderRectangle', () => {
     );
     const fill = rec.calls('fill')[0]!;
     expect(rects(rec)[0]).toEqual([7, 8, 9, 10]);
-    expect(fill.style.fillStyle).toBe('#ff0000');
+    // The renderer defaults to the dark theme, so the stored red is displayed
+    // through Excalidraw's filter rather than written raw to the context.
+    expect(fill.style.fillStyle).toBe('#ff9090');
   });
 
   it('does not fill a transparent rectangle, but still strokes it', () => {
@@ -757,7 +759,7 @@ describe('renderText', () => {
   });
 
   it('sets the context font, alignment, baseline and a stroke-derived fill colour', () => {
-    renderElement(rec.ctx, text(), ZOOM);
+    renderElement(rec.ctx, text(), ZOOM, 'light');
     const fill = rec.calls('fillText')[0]!;
     expect(fill.style.font).toBe('20px Inter');
     // The default textAlign is the literal string 'left', not the canvas
@@ -768,7 +770,7 @@ describe('renderText', () => {
   });
 
   it('fills text with the stroke colour, because a text element has no separate fill', () => {
-    renderElement(rec.ctx, text({ fillColor: '#00ff00' }), ZOOM);
+    renderElement(rec.ctx, text({ fillColor: '#00ff00' }), ZOOM, 'light');
     expect(rec.calls('fillText')[0]!.style.fillStyle).toBe('#ff00ff');
   });
 
@@ -778,7 +780,7 @@ describe('renderText', () => {
     // light grey on commit.
     const black = text({ strokeColor: '#000000' });
     renderElement(rec.ctx, black, ZOOM);
-    expect(rec.calls('fillText')[0]!.style.fillStyle).toBe('#e9ecef');
+    expect(rec.calls('fillText')[0]!.style.fillStyle).toBe('#ededed');
 
     rec.reset();
     renderElement(rec.ctx, black, ZOOM, 'light');
@@ -993,15 +995,27 @@ describe('renderFrame', () => {
     expect(rec.calls('strokeRect')[1]!.args).toEqual([10, 10, 180, 80]);
   });
 
-  it('defaults the frame stroke to black at 2px', () => {
+  it('renders the default frame stroke as the dark-theme ink at 2px', () => {
     renderElement(
       rec.ctx,
       clean(bareElement('a', { type: 'frame', x: 0, y: 0, width: 10, height: 10 })),
       ZOOM
     );
     const stroke = rec.calls('strokeRect')[0]!;
-    expect(stroke.style.strokeStyle).toBe('#000000');
+    // Stored fallback is theme-neutral black; the default render theme is
+    // dark, so display applies Excalidraw's filter.
+    expect(stroke.style.strokeStyle).toBe('#ededed');
     expect(stroke.style.lineWidth).toBe(2);
+  });
+
+  it('leaves the frame stroke as stored in the light theme', () => {
+    renderElement(
+      rec.ctx,
+      clean(bareElement('a', { type: 'frame', x: 0, y: 0, width: 10, height: 10 })),
+      ZOOM,
+      'light'
+    );
+    expect(rec.calls('strokeRect')[0]!.style.strokeStyle).toBe('#000000');
   });
 
   it('draws the title 10px in from the left and 10px above the top edge', () => {
@@ -1039,19 +1053,28 @@ describe('renderEmbed', () => {
     });
   }
 
-  it('strokes an outer rect and paints the background', () => {
+  it('strokes an outer rect and paints the theme-filtered background', () => {
     renderElement(rec.ctx, clean(embed()), ZOOM);
     expect(rec.calls('strokeRect')[0]!.args).toEqual([0, 0, 200, 100]);
     const fill = rec.calls('fillRect')[0]!;
     expect(fill.args).toEqual([0, 0, 200, 100]);
-    expect(fill.style.fillStyle).toBe('#FAFAF7');
+    // The default theme is dark; the stored placeholder surface is light.
+    expect(fill.style.fillStyle).toBe('#161613');
   });
 
   it('uses its own stroke defaults, which differ from a frame', () => {
     renderElement(rec.ctx, clean(embed()), ZOOM);
     const stroke = rec.calls('strokeRect')[0]!;
-    expect(stroke.style.strokeStyle).toBe('#6B6860');
+    expect(stroke.style.strokeStyle).toBe('#97948d');
     expect(stroke.style.lineWidth).toBe(1);
+  });
+
+  it('leaves embed surface and stroke as stored in the light theme', () => {
+    renderElement(rec.ctx, clean(embed()), ZOOM, 'light');
+    const fill = rec.calls('fillRect')[0]!;
+    const stroke = rec.calls('strokeRect')[0]!;
+    expect(fill.style.fillStyle).toBe('#FAFAF7');
+    expect(stroke.style.strokeStyle).toBe('#6B6860');
   });
 
   it('draws a vector globe glyph above centre and the label below it', () => {

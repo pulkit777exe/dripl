@@ -416,19 +416,18 @@ describe('BFF proxy routes: /api/share and /api/canvas/rooms', () => {
     expect(await response.json()).toEqual({});
   });
 
-  it('builds the upstream URL once per /api segment, from whichever env var is set', async () => {
+  it('uses HTTP_SERVER_URL as the canonical base and accepts the legacy alias', async () => {
     vi.stubEnv('API_SERVER_URL', undefined);
     vi.stubEnv('HTTP_SERVER_URL', 'http://from-http-server.test:3002/');
     await shareRoute.POST(shareRequest({ cookie: 'dripl-session=t' }));
     expect(calledUrls()).toContain('http://from-http-server.test:3002/api/csrf-token');
 
     fetchMock.mockClear();
+    vi.stubEnv('HTTP_SERVER_URL', undefined);
     vi.stubEnv('API_SERVER_URL', 'http://from-api-server.test:3002/api');
     await shareRoute.POST(shareRequest({ cookie: 'dripl-session=t' }));
-    // Regression: the base URL is assembled from a four-way `??` chain plus a
-    // `/api` suffix. A deployment that configures only `NEXT_PUBLIC_API_URL`, or
-    // one whose base already ends in `/api`, must not end up on
-    // `localhost:3002/api/api` — every share silently 404s at the proxy.
+    // Existing deployments may still carry the old name. It remains a fallback,
+    // and a base ending in `/api` must not become `/api/api`.
     expect(calledUrls()).toContain('http://from-api-server.test:3002/api/csrf-token');
     expect(calledUrls().some(url => url.includes('/api/api'))).toBe(false);
   });

@@ -44,13 +44,18 @@ describe('snapshotStyleFromElement', () => {
     expect(snap.fontFamily).toBeUndefined();
   });
 
-  it('prefers fillColor over backgroundColor and captures text fonts', () => {
+  it('prefers backgroundColor over the legacy fillColor and captures text fonts', () => {
     const text = {
-      ...rect('t', { fillColor: '#00ff00', fontFamily: 'Virgil', fontSize: 28 }),
+      ...rect('t', {
+        backgroundColor: '#ff0000',
+        fillColor: '#00ff00',
+        fontFamily: 'Virgil',
+        fontSize: 28,
+      }),
       type: 'text',
     } as DriplElement;
     const snap = snapshotStyleFromElement(text, fallback);
-    expect(snap.backgroundColor).toBe('#00ff00');
+    expect(snap.backgroundColor).toBe('#ff0000');
     expect(snap.fontFamily).toBe('Virgil');
     expect(snap.fontSize).toBe(28);
   });

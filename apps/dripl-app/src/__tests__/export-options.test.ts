@@ -52,7 +52,11 @@ describe('resolveExportScope', () => {
 
 describe('buildRasterExportOptions', () => {
   it('uses a fixed scale with optional custom size', () => {
-    expect(buildRasterExportOptions({})).toMatchObject({ scale: 2, background: '#ffffff' });
+    expect(buildRasterExportOptions({})).toMatchObject({
+      scale: 2,
+      background: '#ffffff',
+      theme: 'light',
+    });
     expect(buildRasterExportOptions({ width: 800, height: 600 })).toMatchObject({
       scale: 2,
       customWidth: 800,
@@ -60,8 +64,11 @@ describe('buildRasterExportOptions', () => {
     });
   });
 
-  it('honors a background override', () => {
-    expect(buildRasterExportOptions({}, '#000000').background).toBe('#000000');
+  it('honors a background override and theme', () => {
+    expect(buildRasterExportOptions({}, '#000000', 'dark')).toMatchObject({
+      background: '#000000',
+      theme: 'dark',
+    });
   });
 });
 
@@ -76,6 +83,11 @@ describe('buildDocumentExportOptions', () => {
     const out = buildDocumentExportOptions(2, { width: 960, height: 540 }, undefined);
     expect(out.scale).toBe(0.5);
     expect(out.customWidth).toBe(960);
+  });
+
+  it('forwards the resolved background and theme to document writers', () => {
+    const out = buildDocumentExportOptions(2, {}, { zoom: 1 }, '#1c1a17', 'dark');
+    expect(out).toMatchObject({ background: '#1c1a17', theme: 'dark' });
   });
 
   it('honors a background override', () => {

@@ -321,15 +321,20 @@ describe('quick png export', () => {
     const [format, elements, options] = io.exportCanvas.mock.calls[0]!;
     expect(format).toBe('png');
     expect((elements as DriplElement[]).map(el => el.id)).toEqual(['a']);
-    // Quick export reuses the modal's raster options, so the background here
-    // matches the background the modal would produce.
-    expect(options).toEqual({ scale: 2, background: '#202024', padding: 16 });
+    // Quick export reuses the modal's raster options, so the background and
+    // theme here match what the modal would produce.
+    expect(options).toEqual({
+      scale: 2,
+      background: '#202024',
+      padding: 16,
+      theme: 'light',
+    });
     const filename = (io.downloadBlob.mock.calls[0] as unknown as [Blob, string])[1];
     expect(filename).toMatch(/^canvas-\d+\.png$/);
     expect(onActionDone).toHaveBeenCalledTimes(1);
   });
 
-  it('exports on white when the canvas has no background override', async () => {
+  it('exports on the light theme default when the canvas has no background override', async () => {
     seed([element('a')], { canvasBackground: null });
     io.exportCanvas.mockReturnValue(new Blob(['png'], { type: 'image/png' }));
     const { result } = setup();
@@ -338,8 +343,27 @@ describe('quick png export', () => {
       await result.current.handleExportImage();
     });
 
-    // A transparent PNG pasted into a document renders as nothing at all.
-    expect(io.exportCanvas.mock.calls[0]![2]).toMatchObject({ background: '#ffffff' });
+    // A transparent PNG pasted into a document renders as nothing at all, and
+    // white would not match the paper canvas the user was looking at.
+    expect(io.exportCanvas.mock.calls[0]![2]).toMatchObject({
+      background: '#F0EDE6',
+      theme: 'light',
+    });
+  });
+
+  it('exports on the dark theme default and filters a stored background', async () => {
+    seed([element('a')], { canvasBackground: '#ffffff', theme: 'dark' });
+    io.exportCanvas.mockReturnValue(new Blob(['png'], { type: 'image/png' }));
+    const { result } = setup();
+
+    await act(async () => {
+      await result.current.handleExportImage();
+    });
+
+    expect(io.exportCanvas.mock.calls[0]![2]).toMatchObject({
+      background: '#121212',
+      theme: 'dark',
+    });
   });
 
   it('reports a failed export and still closes the menu', async () => {

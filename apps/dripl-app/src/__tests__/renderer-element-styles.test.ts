@@ -331,6 +331,20 @@ describe('applyStrokeAndFill', () => {
     expect(rec.style().fillStyle).toBe(getFillColor(element));
     expect(rec.style().strokeStyle).toBe(getStrokeColor(element));
   });
+
+  it('filters stored colors for display in the dark theme', () => {
+    const rec = createRecordingContext();
+    const element = bareElement('a', {
+      strokeColor: '#000000',
+      fillColor: '#ff0000',
+    });
+    applyStrokeAndFill(rec.ctx, element, 'dark');
+    expect(rec.style().strokeStyle).toBe('#ededed');
+    expect(rec.style().fillStyle).toBe('#ff9090');
+    // The stored values never change; the next light render writes them raw.
+    expect(getStrokeColor(element)).toBe('#000000');
+    expect(getFillColor(element)).toBe('#ff0000');
+  });
 });
 
 describe('strokeCurrentPath', () => {

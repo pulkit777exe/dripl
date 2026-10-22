@@ -650,7 +650,7 @@ describe('exportToSvg: style and annotation fidelity', () => {
     expect(texts.map(t => t.textContent)).toEqual(['Flow']);
   });
 
-  it('remaps the achromatic extremes for dark slides', async () => {
+  it('filters stored colors for dark slides', async () => {
     const scene = [
       rectangle('dark', { ...STYLE, x: 0, y: 0, width: 10, height: 10, strokeColor: '#1e1e1e' }),
       rectangle('light', { ...STYLE, x: 20, y: 0, width: 10, height: 10, strokeColor: '#ffffff' }),
@@ -661,9 +661,30 @@ describe('exportToSvg: style and annotation fidelity', () => {
 
     const dark = await parseSvg(scene, { theme: 'dark' });
     const rects = Array.from(dark.querySelectorAll('svg > rect'));
-    expect(rects[0]!.getAttribute('stroke')).toBe('#e9ecef');
+    expect(rects[0]!.getAttribute('stroke')).toBe('#d3d3d3');
+    expect(rects[1]!.getAttribute('stroke')).toBe('#121212');
+    expect(rects[2]!.getAttribute('stroke')).toBe('#ff7961');
+  });
+
+  it('emits a resolved background rect behind the scene', async () => {
+    const doc = await parseSvg([rectangle('a', { ...STYLE, x: 0, y: 0, width: 10, height: 10 })], {
+      background: '#f0ede6',
+    });
+
+    const rects = Array.from(doc.querySelectorAll('svg > rect'));
+    expect(rects).toHaveLength(2);
+    // The background covers the viewBox, which includes the 16px padding.
+    expect(rects[0]!.getAttribute('fill')).toBe('#f0ede6');
+    expect(rects[0]!.getAttribute('x')).toBe('-16');
+    expect(rects[0]!.getAttribute('y')).toBe('-16');
+    expect(rects[0]!.getAttribute('width')).toBe('42');
+    expect(rects[0]!.getAttribute('height')).toBe('42');
     expect(rects[1]!.getAttribute('stroke')).toBe('#1e1e1e');
-    expect(rects[2]!.getAttribute('stroke')).toBe('#e8462a');
+  });
+
+  it('stays transparent when no background is supplied', async () => {
+    const doc = await parseSvg([rectangle('a', { ...STYLE, x: 0, y: 0, width: 10, height: 10 })]);
+    expect(doc.querySelectorAll('svg > rect')).toHaveLength(1);
   });
 
   it('clips frame members to the frame and leaves outsiders alone', async () => {

@@ -305,6 +305,13 @@ describe('exportToPng', () => {
     expect(options.config.zoom).toBe(2);
   });
 
+  it('renders with the requested dark theme and the caller-resolved background', async () => {
+    await exportToPng(SCENE, { theme: 'dark', background: '#1c1a17' });
+
+    expect(rendered().config.theme).toBe('dark');
+    expect(rec.calls('fillRect')[0]!.style.fillStyle).toBe('#1c1a17');
+  });
+
   it('actually draws the scene, so a wrong viewport cannot pass unnoticed', async () => {
     // The counterpart to the captured-options tests: with the real renderer, a
     // viewport origin error culls every element and the export is an empty

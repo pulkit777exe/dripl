@@ -627,11 +627,11 @@ describe('CanvasBootstrap cross-cutting', () => {
     expect(useCanvasStore.getState().readOnly).toBe(false);
   });
 
-  it('adapts the default stroke colour to the theme, but only when it is still a default', async () => {
-    // Regression: the effect rewrites the stroke colour when it is one of the
-    // three defaults, so a theme switch makes the drawing visible on a dark
-    // canvas. It must not touch a colour the user chose — overwriting that would
-    // silently discard a deliberate pick on every theme change.
+  it('keeps the default stroke theme-neutral, but never overwrites a user colour', async () => {
+    // Regression: the effect used to write `#ffffff` in dark mode. The
+    // renderer then ran Excalidraw's dark-mode filter on it, turning the
+    // stroke near-black on a near-black canvas. Storage must stay at the
+    // theme-neutral ink value; display transforms it to light.
     useCanvasStore.setState({ currentStrokeColor: '#1e1e1e' } as never);
     const { unmount } = render(<CanvasBootstrap mode="local" theme="light" />);
     await settle();
@@ -640,11 +640,19 @@ describe('CanvasBootstrap cross-cutting', () => {
     unmount();
     useCanvasStore.setState({ currentStrokeColor: '#ff00ff' } as never);
     mockResolvedTheme = 'dark';
-    render(<CanvasBootstrap mode="local" theme="dark" />);
+    const dark = render(<CanvasBootstrap mode="local" theme="dark" />);
     await settle();
 
     // A user colour survives.
     expect(useCanvasStore.getState().currentStrokeColor).toBe('#ff00ff');
+
+    dark.unmount();
+    useCanvasStore.setState({ currentStrokeColor: '#ffffff' } as never);
+    render(<CanvasBootstrap mode="local" theme="dark" />);
+    await settle();
+
+    // A legacy/default white stroke is normalized back to the neutral ink.
+    expect(useCanvasStore.getState().currentStrokeColor).toBe('#1e1e1e');
   });
 
   it('starts the performance observers exactly once', async () => {
