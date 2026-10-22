@@ -593,4 +593,13 @@ describe('normalizeElement — determinism', () => {
       spy.mockRestore();
     }
   });
+
+  it('preserves an explicit zero nonce, which is a real value in the LWW fence', () => {
+    // Regression: `versionNonce || random` replaced a valid zero with a random
+    // nonce, so an element restored from storage no longer matched the version
+    // pair its peers had seen and could win or lose a merge for no reason.
+    const out = normalizeElement(bare({ versionNonce: 0 }));
+
+    expect(out.versionNonce).toBe(0);
+  });
 });

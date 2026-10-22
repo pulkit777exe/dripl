@@ -30,7 +30,12 @@ export function normalizeElement(element: DriplElement): DriplElement {
     // a pointer coordinate has gone non-finite mid-gesture.
     angle: Number.isFinite(element.angle) ? element.angle : 0,
     version: element.version || 1,
-    versionNonce: element.versionNonce || Math.floor(Math.random() * 2_147_483_647),
+    // Zero is a real nonce: `mutateElement` documents it and the LWW fence
+    // compares `(version, versionNonce)`. `||` treated it as "missing" and
+    // re-randomised the pair on restore.
+    versionNonce: Number.isFinite(element.versionNonce)
+      ? element.versionNonce
+      : Math.floor(Math.random() * 2_147_483_647),
     opacity: typeof element.opacity === 'number' ? element.opacity : 1,
     strokeColor: element.strokeColor || '#000000',
     strokeWidth: element.strokeWidth ?? 2,
