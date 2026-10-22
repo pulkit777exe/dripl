@@ -2,6 +2,7 @@ import type { ArrowheadType, DriplElement, LinearElement, Point } from '@dripl/c
 import { imageCache } from '@dripl/element/image-cache';
 import { canvasFont, canvasFontFamily } from '@dripl/element/text';
 import { drawGlobeGlyph } from '@dripl/element/embed';
+import { applyDarkModeFilter } from '@dripl/element/theme';
 import {
   createRoughCanvas,
   renderDraftElement,
@@ -373,7 +374,11 @@ function renderPathLike(ctx: CanvasRenderingContext2D, element: DriplElement, zo
   }
 }
 
-function renderText(ctx: CanvasRenderingContext2D, element: DriplElement) {
+function renderText(
+  ctx: CanvasRenderingContext2D,
+  element: DriplElement,
+  theme: 'light' | 'dark' = 'dark'
+) {
   const text = 'text' in element && typeof element.text === 'string' ? element.text : '';
   if (!text) return;
   const fontSize =
@@ -397,7 +402,8 @@ function renderText(ctx: CanvasRenderingContext2D, element: DriplElement) {
   ctx.font = `${fontSize}px ${fontFamily}`;
   ctx.textAlign = textAlign;
   ctx.textBaseline = 'top';
-  ctx.fillStyle = getStrokeColor(element);
+  const strokeColor = getStrokeColor(element);
+  ctx.fillStyle = applyDarkModeFilter(strokeColor, theme) ?? strokeColor;
 
   if (!metrics) {
     const lineWidths = lines.map(line => ctx.measureText(line).width);
@@ -593,7 +599,7 @@ function renderLegacyShape(
   } else if (type === 'ellipse') {
     renderEllipse(ctx, element, zoom);
   } else if (type === 'text') {
-    renderText(ctx, element);
+    renderText(ctx, element, theme);
   } else if (type === 'image') {
     renderImage(ctx, element, theme);
   } else if (type === 'frame') {

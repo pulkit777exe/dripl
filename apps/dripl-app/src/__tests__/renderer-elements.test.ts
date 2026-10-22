@@ -772,6 +772,19 @@ describe('renderText', () => {
     expect(rec.calls('fillText')[0]!.style.fillStyle).toBe('#ff00ff');
   });
 
+  it('applies the same dark-mode ink remap as the committed bitmap', () => {
+    // Draft text used the raw stroke colour while the static path ran it
+    // through `applyDarkModeFilter`, so black text previewed black and turned
+    // light grey on commit.
+    const black = text({ strokeColor: '#000000' });
+    renderElement(rec.ctx, black, ZOOM);
+    expect(rec.calls('fillText')[0]!.style.fillStyle).toBe('#e9ecef');
+
+    rec.reset();
+    renderElement(rec.ctx, black, ZOOM, 'light');
+    expect(rec.calls('fillText')[0]!.style.fillStyle).toBe('#000000');
+  });
+
   it('draws each line of a multi-line string at a lineHeight of 1.25x the font size', () => {
     renderElement(rec.ctx, text({ text: 'line one\nline two' }), ZOOM);
     expect(fillTexts(rec)).toEqual([

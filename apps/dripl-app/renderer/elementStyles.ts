@@ -14,10 +14,18 @@ export function getStrokeColor(element: DriplElement): string {
 }
 
 export function getFillColor(element: DriplElement): string {
+  // `backgroundColor` is the committed field the Rough/static renderers read.
+  // The legacy `fillColor` is only a fallback: the editor stores lavender in
+  // `backgroundColor` while a schema-parsed element still carries the default
+  // `fillColor: 'transparent'`, so preferring `fillColor` made fallback drafts
+  // unfilled while the committed shape was filled.
+  if (typeof element.backgroundColor === 'string') {
+    return element.backgroundColor;
+  }
   if ('fillColor' in element && typeof element.fillColor === 'string') {
     return element.fillColor;
   }
-  return element.backgroundColor ?? 'transparent';
+  return 'transparent';
 }
 
 export function getStrokeWidth(element: DriplElement): number {

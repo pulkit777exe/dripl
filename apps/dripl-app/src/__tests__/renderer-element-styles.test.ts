@@ -45,21 +45,21 @@ describe('getStrokeColor', () => {
 });
 
 describe('getFillColor', () => {
-  it('prefers fillColor when it is a string', () => {
+  it('prefers backgroundColor, matching the committed Rough/static renderers', () => {
     expect(
       getFillColor(bareElement('a', { fillColor: '#00ff00', backgroundColor: '#0000ff' }))
-    ).toBe('#00ff00');
+    ).toBe('#0000ff');
   });
 
-  it('falls back to backgroundColor when fillColor is absent', () => {
-    expect(getFillColor(bareElement('a', { backgroundColor: '#0000ff' }))).toBe('#0000ff');
+  it('falls back to the legacy fillColor when backgroundColor is absent', () => {
+    expect(getFillColor(bareElement('a', { fillColor: '#00ff00' }))).toBe('#00ff00');
   });
 
-  it('falls back to backgroundColor when fillColor is present but not a string', () => {
+  it('falls back to fillColor when backgroundColor is present but not a string', () => {
     // The schema types these as strings, but a scene from an older client can
     // carry anything; a number must not be handed to ctx.fillStyle.
     expect(
-      getFillColor(bareElement('a', { fillColor: 7, backgroundColor: '#0000ff' } as never))
+      getFillColor(bareElement('a', { backgroundColor: 7, fillColor: '#0000ff' } as never))
     ).toBe('#0000ff');
   });
 
