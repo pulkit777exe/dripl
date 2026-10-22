@@ -27,9 +27,14 @@ deltas rather than a CRDT.
 pnpm install
 cp .env.example .env   # then set the required values below
 pnpm db:generate       # pnpm dev does this too
+pnpm --filter @dripl/db exec prisma migrate deploy
 pnpm dev
 ```
 
+`prisma migrate deploy` applies the checked-in migrations to the database named by
+`DATABASE_URL`; check that target before running it. A populated historical
+database may need the read-only preflight in
+[`docs/database-migration-notes.md`](./docs/database-migration-notes.md) first.
 `pnpm dev` runs `db:generate`, clears `apps/dripl-app/.next`, then starts all three
 services.
 
