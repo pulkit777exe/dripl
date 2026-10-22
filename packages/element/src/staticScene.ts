@@ -603,10 +603,12 @@ export const dropCachedBitmapForTest = dropCachedBitmap;
  * Two conditions make carrying safe, and both are checked rather than assumed:
  *
  *   1. **The element's own position cancels out of the bitmap.**
- *      `generateElementCanvas` applies `translate(PADDING, PADDING)` then
+ *      `generateElementCanvas` applies `translate(padding, padding)` then
  *      `translate(-element.x, -element.y)`, and `drawElement` blits at
- *      `element.x - PADDING`, so `x`/`y` cancel exactly: the stored pixels are
- *      the element in its own local frame. Within that frame every branch of
+ *      `element.x - padding`, so `x`/`y` cancel exactly: the stored pixels are
+ *      the element in its own local frame. The padding is per element because a
+ *      titled frame needs headroom for its title; it is still the same value on
+ *      both sides of the pair. Within that frame every branch of
  *      `renderRoughElement` is position-free too — shapes are generated at
  *      (0, 0) from width/height, text draws after its own `translate(x, y)`
  *      which cancels the generator's, and freedraw outlines are built in world
@@ -911,7 +913,7 @@ function drawElement(
     ctx.translate(-cx, -cy);
   }
 
-  const PADDING = 10; // must match generateElementCanvas
+  const padding = elementBitmapPadding(element);
 
   // Excalidraw parity: blit cached bitmaps without smoothing so sketch strokes
   // and text stay crisp. Smoothing stays on while pinch-zooming (blurry beats
@@ -928,8 +930,8 @@ function drawElement(
   // be stretched back over the element's full logical size.
   ctx.drawImage(
     offscreen,
-    element.x - PADDING,
-    element.y - PADDING,
+    element.x - padding,
+    element.y - padding,
     offscreen.width / entry.pixelsPerUnit,
     offscreen.height / entry.pixelsPerUnit
   );
@@ -1001,6 +1003,21 @@ function drawElementPlaceholder(
 // ─── Offscreen element canvas (with cache) ────────────────────────────────────
 
 const PADDING = 10;
+
+/**
+ * Frame titles are drawn above the frame's top edge at a baseline of
+ * `y = -10` with a 14px font (`renderRoughElement`). The default 10px bitmap
+ * padding puts that baseline on the bitmap's first row, so the glyphs are
+ * clipped out of the static layer. Titled frames get enough headroom for the
+ * ascender plus a little slack; untitled frames keep the smaller bitmap.
+ */
+const FRAME_TITLE_PADDING = 30;
+
+function elementBitmapPadding(element: DriplElement): number {
+  return element.type === 'frame' && (element as { title?: unknown }).title
+    ? FRAME_TITLE_PADDING
+    : PADDING;
+}
 
 function getOrCreateElementCanvas(
   element: DriplElement,
@@ -1082,6 +1099,7 @@ function generateElementCanvas(
   config: StaticSceneConfig
 ): { canvas: CanvasLike; scale: number } | null {
   const dpr = config.dpr ?? (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
+  const padding = elementBitmapPadding(element);
 
   // Guard against zero-size elements (e.g. a line being drawn), and cap the
   // backing store so a pathologically large element cannot request a surface
@@ -1090,7 +1108,7 @@ function generateElementCanvas(
     width: w,
     height: h,
     scale,
-  } = computeElementCanvasSize(element.width, element.height, dpr, PADDING);
+  } = computeElementCanvasSize(element.width, element.height, dpr, padding);
 
   // Prefer OffscreenCanvas when available (no DOM dependency, transferable to Workers).
   const canvas: CanvasLike =
@@ -1107,11 +1125,11 @@ function generateElementCanvas(
   if (!ctx) return null;
 
   // Scale for hi-DPI, then translate so (0,0) in drawing coords == top-left
-  // of the element's bounding box (offset by PADDING). When the backing store
-  // was downscaled to fit a browser limit, `scale` carries that factor so the
-  // content still covers the element's full logical size.
+  // of the element's bounding box (offset by the per-element padding). When
+  // the backing store was downscaled to fit a browser limit, `scale` carries
+  // that factor so the content still covers the element's full logical size.
   ctx.scale(dpr * scale, dpr * scale);
-  ctx.translate(PADDING, PADDING);
+  ctx.translate(padding, padding);
 
   const rc = createRoughCanvas(canvas as HTMLCanvasElement);
   if (rc) {

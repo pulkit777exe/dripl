@@ -153,6 +153,7 @@ function installCountingHost(width = 800, height = 600, initialAlpha = 1): Count
 }
 
 let restoreOffscreen: (() => void) | null = null;
+let lastOffscreenSize: { width: number; height: number } | null = null;
 
 /**
  * `generateElementCanvas` branches on `typeof OffscreenCanvas !== 'undefined'`,
@@ -168,6 +169,7 @@ function installOffscreenCanvas(): void {
     constructor(offscreenWidth: number, offscreenHeight: number) {
       this.width = offscreenWidth;
       this.height = offscreenHeight;
+      lastOffscreenSize = { width: offscreenWidth, height: offscreenHeight };
       this.context = instrumentedContext();
     }
     getContext(): CanvasRenderingContext2D {
@@ -198,6 +200,18 @@ function rect(overrides: Partial<DriplElement> = {}): DriplElement {
     versionNonce: 1,
     ...overrides,
   } as DriplElement;
+}
+
+function frame(overrides: Partial<DriplElement> & { title?: string } = {}): DriplElement {
+  return {
+    ...rect(),
+    id: 'f',
+    type: 'frame',
+    width: 200,
+    height: 120,
+    title: 'Plan',
+    ...overrides,
+  } as unknown as DriplElement;
 }
 
 interface FrameOptions {
@@ -241,11 +255,13 @@ function renderFrame(
 beforeEach(() => {
   resetElementBitmapCacheForTest();
   installOffscreenCanvas();
+  lastOffscreenSize = null;
 });
 
 afterEach(() => {
   restoreOffscreen?.();
   restoreOffscreen = null;
+  lastOffscreenSize = null;
   resetElementBitmapCacheForTest();
 });
 
@@ -321,6 +337,24 @@ describe('cached-bitmap blit state', () => {
 
     expect(host.canvas.getContext('2d')?.globalAlpha).toBe(0.3);
     expect(host.alphas).toEqual([]);
+  });
+});
+
+describe('titled-frame bitmap padding', () => {
+  it('reserves headroom above a titled frame for its title', () => {
+    const host = installCountingHost();
+    renderFrame(host, [frame()]);
+
+    // The title baseline is at y = -10 with a 14px font, so the old 10px
+    // padding clipped the glyphs at the bitmap's top edge.
+    expect(lastOffscreenSize).toEqual({ width: 260, height: 180 });
+  });
+
+  it('keeps the smaller bitmap for an untitled frame', () => {
+    const host = installCountingHost();
+    renderFrame(host, [frame({ title: '' })]);
+
+    expect(lastOffscreenSize).toEqual({ width: 220, height: 140 });
   });
 });
 
