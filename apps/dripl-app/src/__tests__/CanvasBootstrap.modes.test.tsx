@@ -39,7 +39,11 @@ vi.mock('next-themes', () => ({
   useTheme: () => ({ resolvedTheme: mockResolvedTheme }),
 }));
 
-vi.mock('@/components/canvas/RoughCanvas', () => ({ default: () => <div data-testid="canvas" /> }));
+vi.mock('@/components/canvas/RoughCanvas', () => ({
+  default: ({ isLocalCanvas }: { isLocalCanvas?: boolean }) => (
+    <div data-testid="canvas" data-local-canvas={String(isLocalCanvas === true)} />
+  ),
+}));
 vi.mock('@/components/canvas/CanvasErrorBoundary', () => ({
   CanvasErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -285,6 +289,27 @@ describe('CanvasBootstrap local mode', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('marks only the scratch canvas as local for persistence and onboarding', async () => {
+    const { rerender } = render(<CanvasBootstrap mode="local" theme="light" />);
+    await settle();
+    expect(screen.getByTestId('canvas')).toHaveAttribute('data-local-canvas', 'true');
+
+    rerender(
+      <CanvasBootstrap
+        mode="file"
+        theme="light"
+        initialData={{ elements: [], appState: null }}
+        replaceExisting
+      />
+    );
+    await settle();
+    expect(screen.getByTestId('canvas')).toHaveAttribute('data-local-canvas', 'false');
+
+    rerender(<CanvasBootstrap mode="room" roomSlug="r" theme="light" />);
+    await settle();
+    expect(screen.getByTestId('canvas')).toHaveAttribute('data-local-canvas', 'false');
   });
 });
 

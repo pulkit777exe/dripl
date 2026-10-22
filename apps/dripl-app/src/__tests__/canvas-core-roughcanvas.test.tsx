@@ -212,8 +212,14 @@ function seed(elements: DriplElement[] = [], extra: Record<string, unknown> = {}
   useCanvasStore.getState().setElements(elements, { skipHistory: true });
 }
 
-function renderCanvas(props: { roomSlug?: string | null } = {}) {
-  return render(<RoughCanvas roomSlug={props.roomSlug ?? null} theme="light" />);
+function renderCanvas(props: { roomSlug?: string | null; isLocalCanvas?: boolean } = {}) {
+  return render(
+    <RoughCanvas
+      roomSlug={props.roomSlug ?? null}
+      isLocalCanvas={props.isLocalCanvas ?? props.roomSlug == null}
+      theme="light"
+    />
+  );
 }
 
 beforeEach(() => {
@@ -379,7 +385,7 @@ describe('canvas composition', () => {
     expect(screen.queryByTestId('welcome-screen')).not.toBeInTheDocument();
   });
 
-  it('does not offer the welcome screen once the canvas has content, or in a room', async () => {
+  it('does not offer the welcome screen once the canvas has content, or in a room, or in a saved file', async () => {
     seed([element('a')]);
     const local = renderCanvas({ roomSlug: null });
     await screen.findByTestId('dual-canvas');
@@ -390,6 +396,14 @@ describe('canvas composition', () => {
     // would flash the onboarding over a scene that is still arriving.
     seed([]);
     renderCanvas({ roomSlug: 'room-1' });
+    await screen.findByTestId('dual-canvas');
+    expect(screen.queryByTestId('welcome-screen')).not.toBeInTheDocument();
+    cleanup();
+
+    // A saved file also has `roomSlug === null`, but it is its own document,
+    // not the scratch canvas. Opening an empty one must stay empty.
+    seed([]);
+    renderCanvas({ roomSlug: null, isLocalCanvas: false });
     await screen.findByTestId('dual-canvas');
     expect(screen.queryByTestId('welcome-screen')).not.toBeInTheDocument();
     local.unmount();

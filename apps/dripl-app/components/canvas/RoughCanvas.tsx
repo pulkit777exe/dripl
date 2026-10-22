@@ -48,9 +48,22 @@ interface CanvasProps {
   roomSlug: string | null;
   theme: 'light' | 'dark';
   shareToken?: string | null;
+  /**
+   * True only for the unscoped scratch canvas at `/canvas`.
+   *
+   * Rooms and saved files must not inherit local-canvas behaviour: a file page
+   * has `roomSlug === null`, so using that as the local-mode signal made it
+   * overwrite the scratch canvas and show local onboarding over saved files.
+   */
+  isLocalCanvas?: boolean;
 }
 
-export default function RoughCanvas({ roomSlug, theme, shareToken = null }: CanvasProps) {
+export default function RoughCanvas({
+  roomSlug,
+  theme,
+  shareToken = null,
+  isLocalCanvas = false,
+}: CanvasProps) {
   perfMark('RoughCanvas:render:start');
   const { containerRef, containerReady, containerSize, setContainerRef } = useContainerSize();
 
@@ -120,7 +133,7 @@ export default function RoughCanvas({ roomSlug, theme, shareToken = null }: Canv
   } = useCanvasSync({ roomSlug, shareToken, displayName: userName, elements });
 
   // ── Persist local canvas ─────────────────────────────────────────────────
-  useCanvasPersistence({ roomSlug, theme, isDrawingRef, readOnly });
+  useCanvasPersistence({ isLocalCanvas, theme, isDrawingRef, readOnly });
 
   useEffect(() => {
     const stored = getOrCreateCollaboratorName();
@@ -376,7 +389,7 @@ export default function RoughCanvas({ roomSlug, theme, shareToken = null }: Canv
 
       <MemoizedRemoteCursors />
 
-      {roomSlug === null && elements.length === 0 && !welcomeScreenDismissed && (
+      {isLocalCanvas && elements.length === 0 && !welcomeScreenDismissed && (
         <Suspense fallback={null}>
           <WelcomeScreen onClose={() => setWelcomeScreenDismissed(true)} />
         </Suspense>

@@ -52,7 +52,7 @@ function readSaved() {
 }
 
 interface Options {
-  roomSlug?: string | null;
+  isLocalCanvas?: boolean;
   readOnly?: boolean;
   theme?: 'light' | 'dark';
   isDrawingRef?: React.RefObject<boolean>;
@@ -64,7 +64,7 @@ function setup(options: Options = {}) {
     isDrawingRef,
     ...renderHook(() =>
       useCanvasPersistence({
-        roomSlug: options.roomSlug ?? null,
+        isLocalCanvas: options.isLocalCanvas ?? true,
         theme: options.theme ?? 'dark',
         isDrawingRef,
         readOnly: options.readOnly ?? false,
@@ -204,15 +204,29 @@ describe('useCanvasPersistence idle autosave', () => {
 });
 
 describe('useCanvasPersistence gating', () => {
-  it('does not autosave inside a collaborative room', () => {
+  it('does not autosave when another mode owns persistence (room or saved file)', () => {
     seed([rect('a')]);
-    setup({ roomSlug: 'my-room' });
+    setup({ isLocalCanvas: false });
 
     act(() => {
       vi.advanceTimersByTime(IDLE_DELAY * 4);
     });
     act(() => {
       useCanvasStore.getState().updateElementTransient('a', { x: 5 });
+      vi.advanceTimersByTime(IDLE_DELAY * 2);
+    });
+
+    expect(readSaved()).toBeNull();
+  });
+
+  it('does not write a saved file over the local scratch canvas on navigate-away', () => {
+    // Regression: file pages have no room slug, so `roomSlug === null` used to
+    // classify them as local and this flush replaced the scratch canvas.
+    seed([rect('file-scene')]);
+    setup({ isLocalCanvas: false });
+
+    act(() => {
+      window.dispatchEvent(new Event('beforeunload'));
       vi.advanceTimersByTime(IDLE_DELAY * 2);
     });
 
@@ -229,18 +243,18 @@ describe('useCanvasPersistence gating', () => {
     expect(readSaved()).toBeNull();
   });
 
-  it('starts saving as soon as the room is left', () => {
+  it('starts saving as soon as the canvas becomes local', () => {
     seed([rect('a')]);
     const isDrawingRef = { current: false } as React.RefObject<boolean>;
     const { rerender } = renderHook(
-      (props: { roomSlug: string | null }) =>
+      (props: { isLocalCanvas: boolean }) =>
         useCanvasPersistence({
-          roomSlug: props.roomSlug,
+          isLocalCanvas: props.isLocalCanvas,
           theme: 'dark',
           isDrawingRef,
           readOnly: false,
         }),
-      { initialProps: { roomSlug: 'my-room' as string | null } }
+      { initialProps: { isLocalCanvas: false } }
     );
 
     act(() => {
@@ -249,7 +263,7 @@ describe('useCanvasPersistence gating', () => {
     expect(readSaved()).toBeNull();
 
     act(() => {
-      rerender({ roomSlug: null });
+      rerender({ isLocalCanvas: true });
     });
     act(() => {
       vi.advanceTimersByTime(IDLE_DELAY);
@@ -271,9 +285,9 @@ describe('useCanvasPersistence flush and cleanup', () => {
     expect(saved.elementStates.elements[0]!.x).toBe(42);
   });
 
-  it('does not flush on beforeunload inside a room or while read-only', () => {
+  it('does not flush on beforeunload when another mode owns persistence or while read-only', () => {
     seed([rect('a')]);
-    setup({ roomSlug: 'my-room' });
+    setup({ isLocalCanvas: false });
     act(() => {
       window.dispatchEvent(new Event('beforeunload'));
     });
@@ -328,10 +342,10 @@ describe('useCanvasPersistence flush and cleanup', () => {
   });
 
   it('flushes the current state even when the pending timer was never armed', () => {
-    // roomSlug non-null arms no timer at all; the beforeunload handler must
+    // isLocalCanvas false arms no timer at all; the beforeunload handler must
     // still be absent rather than writing a half-state.
     seed([rect('a')]);
-    const { unmount } = setup({ roomSlug: 'room' });
+    const { unmount } = setup({ isLocalCanvas: false });
 
     act(() => {
       useCanvasStore.getState().setElements([rect('a', 500)], { skipHistory: true });

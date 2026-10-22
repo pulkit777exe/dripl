@@ -5,14 +5,22 @@ import { useCanvasStore } from '@/lib/store';
 import { saveLocalCanvasToStorage, type LocalCanvasState } from '@/utils/localCanvasStorage';
 
 interface UseCanvasPersistenceProps {
-  roomSlug: string | null;
+  /**
+   * True only for the unscoped scratch canvas at `/canvas`.
+   *
+   * `roomSlug === null` used to stand in for "local", but saved file pages also
+   * have no room slug. They own their persistence through `FileCanvasRoute`,
+   * so treating them as local overwrote the scratch canvas with whatever file
+   * the user happened to open.
+   */
+  isLocalCanvas: boolean;
   theme: 'light' | 'dark';
   isDrawingRef: React.RefObject<boolean>;
   readOnly?: boolean;
 }
 
 export function useCanvasPersistence({
-  roomSlug,
+  isLocalCanvas,
   theme,
   isDrawingRef,
   readOnly = false,
@@ -20,7 +28,7 @@ export function useCanvasPersistence({
   const flushToStorageRef = useRef<(() => void) | null>(null);
 
   flushToStorageRef.current = () => {
-    if (roomSlug !== null || readOnly) return;
+    if (!isLocalCanvas || readOnly) return;
     const state = useCanvasStore.getState();
     const appState: LocalCanvasState = {
       theme,
@@ -41,7 +49,7 @@ export function useCanvasPersistence({
 
   // Activity-gated debounce: only serialize when the user is idle.
   useEffect(() => {
-    if (roomSlug !== null || readOnly) return;
+    if (!isLocalCanvas || readOnly) return;
     const IDLE_DELAY = 2500;
     const RETRY_DELAY = 2000;
     let timeoutId: ReturnType<typeof setTimeout>;
@@ -73,15 +81,15 @@ export function useCanvasPersistence({
       clearTimeout(timeoutId);
       unsubscribe();
     };
-  }, [roomSlug, theme, isDrawingRef, readOnly]);
+  }, [isLocalCanvas, theme, isDrawingRef, readOnly]);
 
   // Flush immediately on tab close / navigation.
   useEffect(() => {
-    if (roomSlug !== null || readOnly) return;
+    if (!isLocalCanvas || readOnly) return;
     const handleBeforeUnload = () => flushToStorageRef.current?.();
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [roomSlug, readOnly]);
+  }, [isLocalCanvas, readOnly]);
 }

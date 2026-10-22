@@ -333,6 +333,7 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
         roomSlug={mode === 'room' ? roomSlug : null}
         theme={theme}
         shareToken={shareToken}
+        isLocalCanvas={mode === 'local'}
       />
     </CanvasErrorBoundary>
   );
