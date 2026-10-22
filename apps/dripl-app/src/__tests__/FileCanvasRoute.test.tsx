@@ -187,6 +187,33 @@ describe('FileCanvasRoute mount', () => {
     // Whatever it was, it must not have become `undefined` from `null?.id`.
     expect(useCanvasStore.getState().userId).not.toBeUndefined();
   });
+
+  it('keeps the loaded scene when the auth user arrives after mount', () => {
+    // `AuthProvider` starts with a null user and fills it in after `/auth/me`
+    // resolves. The file reset effect must not run again just because that
+    // object identity changed: the bootstrap has already put the server scene
+    // into the store, and clearing it here leaves the user with an empty
+    // canvas until they reload.
+    mockUser = null;
+    const view = renderRoute();
+
+    act(() => {
+      useCanvasStore.setState({ elements: [element('loaded')] } as never);
+    });
+
+    mockUser = { id: 'user-1' };
+    view.rerender(
+      <FileCanvasRoute
+        fileId={FILE_ID}
+        fileName={FILE_NAME}
+        updatedAt={UPDATED_AT}
+        initialData={{ elements: [], appState: null }}
+      />
+    );
+
+    expect(useCanvasStore.getState().elements).toEqual([element('loaded')]);
+    expect(useCanvasStore.getState().userId).toBe('user-1');
+  });
 });
 
 describe('FileCanvasRoute autosave', () => {

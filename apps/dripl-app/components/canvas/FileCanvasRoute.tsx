@@ -86,10 +86,16 @@ export function FileCanvasRoute({
     lastSavedContentRef.current = null;
     fileUpdatedAtRef.current = updatedAt;
     saveConflictRef.current = false;
-    if (user) setUserId(user.id);
     setFileMetadata(fileId, fileName);
     setHydrated(true);
-  }, [fileId, fileName, setFileMetadata, setUserId, updatedAt, user]);
+  }, [fileId, fileName, setFileMetadata, updatedAt]);
+
+  // Auth resolves after the server-rendered file has already mounted. Keep the
+  // user stamp in its own effect so that a null -> user transition cannot run
+  // the reset above and wipe the scene the bootstrap just loaded.
+  useEffect(() => {
+    if (user) setUserId(user.id);
+  }, [user, setUserId]);
 
   useEffect(() => {
     if (!hydrated || saveError || !user) return;
