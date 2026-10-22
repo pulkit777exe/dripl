@@ -6,6 +6,7 @@ import { logError } from '@dripl/common';
 import { downloadBlob, exportCanvas, exportToDripl, parseDriplDocument } from '@/utils/export';
 import { applyRestoredAppState, restoreAppState } from '@/lib/scene';
 import { buildRasterExportOptions, exportFileName } from '@/lib/export-options';
+import { resolveCanvasBackground, resolveDisplayTheme } from '@/lib/canvas/background';
 
 /**
  * TopBar file operations — extracted from `TopBar`.
@@ -118,8 +119,10 @@ export function useTopBarFileOps({ onActionDone }: { onActionDone: () => void })
   const handleExportImage = useCallback(async () => {
     try {
       const elements = useCanvasStore.getState().elements;
+      const displayTheme = resolveDisplayTheme(theme);
+      const exportBackground = resolveCanvasBackground(canvasBackground, displayTheme);
       const blob = await Promise.resolve(
-        exportCanvas('png', elements, buildRasterExportOptions({}, canvasBackground ?? '#ffffff'))
+        exportCanvas('png', elements, buildRasterExportOptions({}, exportBackground, displayTheme))
       );
       downloadBlob(blob, exportFileName('png'));
     } catch (error) {
@@ -128,7 +131,7 @@ export function useTopBarFileOps({ onActionDone }: { onActionDone: () => void })
     } finally {
       onActionDone();
     }
-  }, [canvasBackground, onActionDone]);
+  }, [canvasBackground, theme, onActionDone]);
 
   return { handleResetCanvas, handleSaveToFile, handleOpenFile, handleExportImage };
 }

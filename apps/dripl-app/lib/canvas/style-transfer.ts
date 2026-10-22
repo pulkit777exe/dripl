@@ -41,10 +41,10 @@ export function snapshotStyleFromElement(
     strokeColor:
       typeof element.strokeColor === 'string' ? element.strokeColor : fallback.currentStrokeColor,
     backgroundColor:
-      typeof element.fillColor === 'string'
-        ? element.fillColor
-        : typeof element.backgroundColor === 'string'
-          ? element.backgroundColor
+      typeof element.backgroundColor === 'string'
+        ? element.backgroundColor
+        : typeof element.fillColor === 'string'
+          ? element.fillColor
           : fallback.currentBackgroundColor,
     strokeWidth:
       typeof element.strokeWidth === 'number' ? element.strokeWidth : fallback.currentStrokeWidth,

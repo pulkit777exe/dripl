@@ -100,7 +100,6 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       # Server-side BFF calls use the internal address; browser-facing values
       # remain localhost URLs so they work from the host.
-      API_SERVER_URL: http://http-server:3002
       HTTP_SERVER_URL: http://http-server:3002
       TRUST_PROXY: ${TRUST_PROXY:-false}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3002/api}

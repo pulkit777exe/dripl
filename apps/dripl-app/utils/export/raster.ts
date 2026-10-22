@@ -52,9 +52,11 @@ export async function exportToPng(
     customWidth?: number;
     customHeight?: number;
     appState?: Record<string, unknown>;
+    theme?: 'light' | 'dark';
   } = {}
 ): Promise<Blob> {
   const requestedScale = options.scale ?? 2;
+  const theme = options.theme ?? 'light';
   const background = options.background ?? '#ffffff';
   const padding = options.padding ?? 16;
   const bounds = getSceneBounds(elements);
@@ -101,7 +103,7 @@ export async function exportToPng(
       gridEnabled: false,
       gridSize: 20,
       zoom: scale,
-      theme: 'light',
+      theme,
       dpr: 1,
       elements,
     }

@@ -1,17 +1,8 @@
 import { NextResponse } from 'next/server';
+import { apiBaseUrl } from '@/lib/server/api-base-url';
 
 interface RouteContext {
   params: Promise<{ token: string }>;
-}
-
-function apiBaseUrl(): string {
-  const configured =
-    process.env.API_SERVER_URL ??
-    process.env.HTTP_SERVER_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    'http://localhost:3002';
-  const base = configured.replace(/\/$/, '');
-  return base.endsWith('/api') ? base : `${base}/api`;
 }
 
 export async function GET(_request: Request, context: RouteContext) {

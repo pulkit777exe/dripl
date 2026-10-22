@@ -1,5 +1,5 @@
 import type { DriplElement, Point } from '@dripl/common';
-import { getElementBounds } from '@dripl/math/intersection';
+import { elementIntersectsRect, getElementBounds } from '@dripl/math/intersection';
 
 export interface MarqueeRect {
   minX: number;
@@ -29,18 +29,6 @@ export function normalizeMarquee(start: Point, end: Point): MarqueeRect {
   };
 }
 
-function intersects(
-  rect: MarqueeRect,
-  bounds: { x: number; y: number; width: number; height: number }
-): boolean {
-  return (
-    bounds.x < rect.maxX &&
-    bounds.x + bounds.width > rect.minX &&
-    bounds.y < rect.maxY &&
-    bounds.y + bounds.height > rect.minY
-  );
-}
-
 function contains(
   rect: MarqueeRect,
   bounds: { x: number; y: number; width: number; height: number }
@@ -57,6 +45,11 @@ function contains(
  * Collect ids of `elements` matching `rect` under `mode`. When
  * `candidateIds` is provided (spatial-index narrowing), only those ids are
  * tested; otherwise every element is tested. Deleted elements never match.
+ *
+ * `contained` is still a pure bounds test: the element has to fit inside the
+ * marquee. `intersecting` uses the outline-aware math helper so a marquee
+ * drawn inside an unfilled shape's hollow does not select it, while crossing
+ * the outline still does.
  */
 export function matchMarqueeElements(
   elements: Iterable<DriplElement>,
@@ -65,11 +58,20 @@ export function matchMarqueeElements(
   candidateIds?: ReadonlySet<string> | null
 ): Set<string> {
   const hitIds = new Set<string>();
-  const test = mode === 'contained' ? contains : intersects;
+  const rectBounds = {
+    x: rect.minX,
+    y: rect.minY,
+    width: rect.maxX - rect.minX,
+    height: rect.maxY - rect.minY,
+  };
   for (const element of elements) {
     if (element.isDeleted) continue;
     if (candidateIds && !candidateIds.has(element.id)) continue;
-    if (test(rect, getElementBounds(element))) hitIds.add(element.id);
+    const hit =
+      mode === 'contained'
+        ? contains(rect, getElementBounds(element))
+        : elementIntersectsRect(element, rectBounds);
+    if (hit) hitIds.add(element.id);
   }
   return hitIds;
 }

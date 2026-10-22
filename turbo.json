@@ -44,7 +44,6 @@
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
       "outputLogs": "new-only",
       "passThroughEnv": [
-        "API_SERVER_URL",
         "DATABASE_URL",
         "DATABASE_URL_POOLED",
         "DB_ALLOW_INSECURE_TLS",

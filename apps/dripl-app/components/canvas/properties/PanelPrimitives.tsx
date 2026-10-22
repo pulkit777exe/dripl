@@ -16,25 +16,9 @@ export interface PanelSectionProps {
   updateProp: (property: string, value: unknown) => void;
 }
 
-export const STROKE_COLORS = [
-  { value: '#1e1e1e', label: 'Black' },
-  { value: '#e03131', label: 'Red' },
-  { value: '#2f9e44', label: 'Green' },
-  { value: '#1971c2', label: 'Blue' },
-  { value: '#f08c00', label: 'Orange' },
-  { value: '#6965db', label: 'Purple' },
-  { value: '#c2255c', label: 'Pink' },
-  { value: '#ffffff', label: 'White' },
-];
-
-export const BACKGROUND_COLORS = [
-  { value: 'transparent', label: 'None' },
-  { value: '#ffc9c9', label: 'Light Red' },
-  { value: '#b2f2bb', label: 'Light Green' },
-  { value: '#a5d8ff', label: 'Light Blue' },
-  { value: '#ffec99', label: 'Light Yellow' },
-  { value: '#e0dcff', label: 'Light Purple' },
-];
+// Re-exported from the palette module so existing panel imports stay stable;
+// the values themselves are Excalidraw's theme-neutral quick picks.
+export { BACKGROUND_COLORS, STROKE_COLORS } from '@/lib/canvas/colors';
 
 export const ARRANGE_BUTTON_CLASS = 'h-7 rounded text-[11px] transition-colors hover:opacity-80';
 

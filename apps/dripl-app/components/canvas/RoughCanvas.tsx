@@ -1,20 +1,11 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/shallow';
 import { selectEraserCursorPosition, useCanvasStore } from '@/lib/store';
 import { getOrCreateCollaboratorName } from '@/utils/username';
 import { useAuth } from '@/app/context/AuthContext';
-import { MemoizedSelectionOverlay } from './SelectionOverlay';
-import { MemoizedRemoteCursors } from './RemoteCursors';
-import { LaserCanvas } from './LaserCanvas';
-import DualCanvas from './DualCanvas';
-import {
-  CanvasContextMenuHost,
-  ConnectionStatusBanner,
-  EraserCursorRing,
-  TextInputOverlay,
-} from './CanvasOverlays';
+import { CanvasLayerUI } from './CanvasLayerUI';
 import { Viewport } from '@/utils/canvas-coordinates';
 import { useDrawingTools } from '@/hooks/useDrawingTools';
 import { useCanvasPersistence } from '@/hooks/canvas/useCanvasPersistence';
@@ -33,16 +24,7 @@ import { useCanvasActions } from '@/hooks/canvas/useCanvasActions';
 import { useTransformStart } from '@/hooks/canvas/useTransformStart';
 import { useContextMenu } from '@/hooks/canvas/useContextMenu';
 import { useStyleTransfer } from '@/hooks/canvas/useStyleTransfer';
-
-const PropertiesPanel = lazy(() =>
-  import('./PropertiesPanel').then(m => ({ default: m.PropertiesPanel }))
-);
-const NameInputModal = lazy(() =>
-  import('./NameInputModal').then(m => ({ default: m.NameInputModal }))
-);
-const WelcomeScreen = lazy(() =>
-  import('./WelcomeScreen').then(m => ({ default: m.WelcomeScreen }))
-);
+import { resolveCanvasBackground } from '@/lib/canvas/background';
 
 interface CanvasProps {
   roomSlug: string | null;
@@ -82,7 +64,6 @@ export default function RoughCanvas({
   // `selectEraserCursorPosition` for why that is a performance property and not a
   // convenience, and for why it is a named export rather than a ternary inlined here.
   const cursorPosition = useCanvasStore(selectEraserCursorPosition);
-  const [welcomeScreenDismissed, setWelcomeScreenDismissed] = useState(false);
   const marqueeSelection = useCanvasStore(state => state.marqueeSelection);
 
   const setDrawingState = useCallback((next: boolean) => {
@@ -285,7 +266,6 @@ export default function RoughCanvas({
   useCanvasWheel({ containerRef, containerReady });
 
   const collaboratorCursors = collaborators;
-  const shouldShowPropertiesPanel = activeTool === 'select' && selectedIds.size > 0; // RULE: Sidebar Visibility
   const isPanning = useCanvasStore(state => state.isPanning);
   // Per-tool surface cursor (Excalidraw parity): crosshair for creation
   // tools, text for text, grab for hand, none where a custom ring/trail
@@ -316,163 +296,74 @@ export default function RoughCanvas({
   perfMark('RoughCanvas:render:end');
   perfMeasure('RoughCanvas:render', 'RoughCanvas:render:start', 'RoughCanvas:render:end');
 
+  const deleteSelection = () => {
+    const ids = collectCascadeDeleteIdsCallback(Array.from(useCanvasStore.getState().selectedIds));
+    deleteElements(ids);
+    clearSelection();
+  };
+
   return (
-    <div
-      ref={setContainerRef}
-      className="canvas-surface relative w-full h-full"
-      role="application"
-      aria-label="Dripl drawing canvas"
-      aria-describedby="dripl-canvas-instructions"
-      tabIndex={0}
+    <CanvasLayerUI
+      containerRef={containerRef as React.RefObject<HTMLDivElement>}
+      containerReady={containerReady}
+      setContainerRef={setContainerRef}
+      backgroundColor={
+        canvasBackground
+          ? resolveCanvasBackground(canvasBackground, theme)
+          : 'var(--color-canvas-bg)'
+      }
+      roomSlug={roomSlug}
+      theme={theme}
+      isLocalCanvas={isLocalCanvas}
+      elements={elements}
+      visibleElements={visibleElements}
+      selectedIds={selectedIds}
+      draftElement={draftElement}
+      eraserPath={eraserPath}
+      viewport={viewport}
+      activeTool={activeTool}
+      readOnly={readOnly}
+      gridEnabled={gridEnabled}
+      gridSize={gridSize}
+      shouldCacheIgnoreZoom={shouldCacheIgnoreZoom}
+      cursorPosition={cursorPosition}
+      isDrawing={isDrawing}
+      isDragging={isDragging}
+      isResizing={isResizing}
+      marqueeSelection={marqueeSelection}
+      collaborators={collaboratorCursors}
+      elementLocks={elementLocks}
+      userId={userId}
+      userName={userName}
+      isConnected={isConnected}
+      connectionMessage={connectionMessage}
+      textInput={textInput}
+      canvasCursor={canvasCursor}
+      hoveredBindingId={hoveredBindingId}
+      startPointBindingId={startPointBindingId}
+      contextMenuState={contextMenuState}
+      primarySelectedElement={primarySelectedElement}
       onDragOver={handleDragOver}
       onDrop={hookHandleDrop}
       onContextMenu={openContextMenu}
-      style={{ backgroundColor: canvasBackground ?? 'var(--color-canvas-bg)' }}
-    >
-      <p id="dripl-canvas-instructions" className="sr-only">
-        Drawing canvas. Choose a tool from the toolbar. Press V for selection, R for a rectangle, or
-        H for the hand tool. Hold Space to pan temporarily and press Escape to cancel the current
-        gesture.
-      </p>
-      <ConnectionStatusBanner
-        roomSlug={roomSlug}
-        isConnected={isConnected}
-        connectionMessage={connectionMessage}
-        readOnly={readOnly}
-      />
-      {containerReady && (
-        <DualCanvas
-          containerRef={containerRef as React.RefObject<HTMLDivElement>}
-          elements={elements}
-          visibleElements={visibleElements}
-          selectedIds={selectedIds}
-          draftElement={draftElement}
-          eraserPath={eraserPath}
-          viewport={viewport}
-          theme={theme}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={cancelActiveGesture}
-          cursorPosition={cursorPosition}
-          isDragging={isDragging}
-          isResizing={isResizing}
-          isDrawing={isDrawing}
-          marqueeSelection={marqueeSelection}
-          gridEnabled={gridEnabled}
-          gridSize={gridSize}
-          collaborators={collaboratorCursors}
-          lockOwners={elementLocks}
-          localUserId={userId}
-          hoveredBindingId={hoveredBindingId}
-          startPointBindingId={startPointBindingId}
-          shouldCacheIgnoreZoom={shouldCacheIgnoreZoom}
-          preservePointerSamples={activeTool === 'freedraw' || activeTool === 'eraser'}
-          cursor={canvasCursor}
-        />
-      )}
-
-      <LaserCanvas />
-
-      {!readOnly && (
-        <MemoizedSelectionOverlay
-          zoom={zoom}
-          panX={panX}
-          panY={panY}
-          elements={elements}
-          selectedIds={selectedIds}
-          onResizeStart={handleResizeStart}
-          onRotateStart={handleRotateStart}
-          marqueeSelection={marqueeSelection}
-        />
-      )}
-
-      <MemoizedRemoteCursors />
-
-      {isLocalCanvas && elements.length === 0 && !welcomeScreenDismissed && (
-        <Suspense fallback={null}>
-          <WelcomeScreen onClose={() => setWelcomeScreenDismissed(true)} />
-        </Suspense>
-      )}
-
-      {!userName && roomSlug !== null && (
-        <Suspense fallback={null}>
-          <NameInputModal onSubmit={handleNameSubmit} />
-        </Suspense>
-      )}
-
-      {shouldShowPropertiesPanel && !readOnly && (
-        <div className="absolute top-20 left-4 z-20">
-          <Suspense fallback={null}>
-            <PropertiesPanel
-              selectedElement={primarySelectedElement}
-              onUpdateElement={updatedElement => {
-                if (updatedElement.id) {
-                  updateElement(updatedElement.id, updatedElement);
-                }
-              }}
-              onDuplicateElement={duplicateSelection}
-              onDeleteElement={() => {
-                const ids = collectCascadeDeleteIdsCallback(
-                  Array.from(useCanvasStore.getState().selectedIds)
-                );
-                deleteElements(ids);
-                clearSelection();
-              }}
-            />
-          </Suspense>
-        </div>
-      )}
-
-      <TextInputOverlay
-        textInput={textInput}
-        readOnly={readOnly}
-        zoom={zoom}
-        panX={panX}
-        panY={panY}
-        onSubmit={handleTextSubmit}
-      />
-
-      <EraserCursorRing
-        activeTool={activeTool}
-        cursorPosition={cursorPosition}
-        zoom={zoom}
-        panX={panX}
-        panY={panY}
-      />
-
-      <CanvasContextMenuHost
-        contextMenuState={contextMenuState}
-        readOnly={readOnly}
-        elements={elements}
-        onClose={() => setContextMenuState(null)}
-        onDuplicate={duplicateSelection}
-        onDelete={() => {
-          const ids = Array.from(useCanvasStore.getState().selectedIds);
-          deleteElements(collectCascadeDeleteIdsCallback(ids));
-          clearSelection();
-        }}
-        onBringToFront={() => {
-          const ids = Array.from(useCanvasStore.getState().selectedIds);
-          bringToFront(ids);
-        }}
-        onSendToBack={() => {
-          const ids = Array.from(useCanvasStore.getState().selectedIds);
-          sendToBack(ids);
-        }}
-        onCopy={() => {
-          void copySelectedToClipboard();
-        }}
-        onPaste={() => {
-          void pasteFromClipboard();
-        }}
-        onCopyStyle={() => {
-          copyElementStyle();
-        }}
-        onPasteStyle={() => {
-          pasteElementStyle();
-        }}
-      />
-    </div>
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={cancelActiveGesture}
+      onResizeStart={handleResizeStart}
+      onRotateStart={handleRotateStart}
+      onTextSubmit={handleTextSubmit}
+      onNameSubmit={handleNameSubmit}
+      onUpdateElement={element => updateElement(element.id, element)}
+      onDuplicate={duplicateSelection}
+      onDelete={deleteSelection}
+      onBringToFront={() => bringToFront(Array.from(useCanvasStore.getState().selectedIds))}
+      onSendToBack={() => sendToBack(Array.from(useCanvasStore.getState().selectedIds))}
+      onCopy={() => void copySelectedToClipboard()}
+      onPaste={() => void pasteFromClipboard()}
+      onCopyStyle={copyElementStyle}
+      onPasteStyle={pasteElementStyle}
+      onCloseContextMenu={() => setContextMenuState(null)}
+    />
   );
 }

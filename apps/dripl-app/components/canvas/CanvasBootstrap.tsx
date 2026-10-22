@@ -98,11 +98,22 @@ export function CanvasBootstrap(props: CanvasBootstrapProps) {
   onSceneLoadedRef.current = props.mode === 'file' ? props.onSceneLoaded : undefined;
 
   useEffect(() => {
-    const isDark = resolvedTheme === 'dark';
     const store = useCanvasStore.getState();
-    const current = store.currentStrokeColor;
-    if (current === '#000000' || current === '#1e1e1e' || current === '#ffffff') {
-      store.setCurrentStrokeColor(isDark ? '#ffffff' : '#1e1e1e');
+    const current = store.currentStrokeColor.toLowerCase();
+    // Storage is theme-neutral: Excalidraw's dark-mode filter turns the
+    // near-black default into a light stroke at render time. Writing white
+    // here would be transformed back to near-black and disappear on the dark
+    // canvas, which is exactly the regression this guard prevents.
+    if (
+      current === '#000' ||
+      current === '#000000' ||
+      current === '#1e1e1e' ||
+      current === '#fff' ||
+      current === '#ffffff' ||
+      current === 'black' ||
+      current === 'white'
+    ) {
+      store.setCurrentStrokeColor('#1e1e1e');
     }
   }, [resolvedTheme]);
 

@@ -462,9 +462,10 @@ export function renderRoughElement(
   if (element.type === 'frame') {
     const frameEl = element as FrameElement;
     ctx.translate(x, y);
+    const strokeColor = applyDarkModeFilter(element.strokeColor || '#000000', theme) ?? '#000000';
 
     // Draw outer rectangle
-    ctx.strokeStyle = element.strokeColor || '#000000';
+    ctx.strokeStyle = strokeColor;
     ctx.lineWidth = element.strokeWidth || 2;
     ctx.strokeRect(0, 0, width, height);
 
@@ -476,7 +477,7 @@ export function renderRoughElement(
 
     // Draw title above frame (same font as the interactive layer).
     if (frameEl.title) {
-      ctx.fillStyle = element.strokeColor || '#000000';
+      ctx.fillStyle = strokeColor;
       ctx.font = canvasFont(14, undefined);
       ctx.fillText(frameEl.title, 10, -10);
     }
@@ -489,25 +490,29 @@ export function renderRoughElement(
   if (element.type === 'embed') {
     const embedEl = element as EmbedElement;
     ctx.translate(x, y);
+    const strokeColor = applyDarkModeFilter(element.strokeColor || '#6B6860', theme) ?? '#6B6860';
+    const backgroundColor =
+      applyDarkModeFilter(element.backgroundColor || '#FAFAF7', theme) ?? '#FAFAF7';
+    const mutedColor = applyDarkModeFilter('#6B6860', theme) ?? '#6B6860';
 
     // Draw outer rectangle
-    ctx.strokeStyle = element.strokeColor || '#6B6860';
+    ctx.strokeStyle = strokeColor;
     ctx.lineWidth = element.strokeWidth || 1;
     ctx.strokeRect(0, 0, width, height);
 
     // Fill background
-    ctx.fillStyle = element.backgroundColor || '#FAFAF7';
+    ctx.fillStyle = backgroundColor;
     ctx.fillRect(0, 0, width, height);
 
     // Draw the vector globe glyph (identical in both layers; never an emoji,
     // which varies by platform and is absent headless).
-    drawGlobeGlyph(ctx, width / 2, height / 2 - 15, 12, '#6B6860');
+    drawGlobeGlyph(ctx, width / 2, height / 2 - 15, 12, mutedColor);
 
     // Draw URL or title
     ctx.font = '12px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#6B6860';
+    ctx.fillStyle = mutedColor;
     const displayText = embedEl.title || embedEl.url || 'Web Embed';
     const maxWidth = width - 20;
     const textWidth = ctx.measureText(displayText).width;

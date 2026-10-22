@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readRequestBody, RequestBodyTooLargeError } from '@/lib/server/requestBody';
 import { hasAllowedOrigin } from '@/lib/server/origin';
+import { apiBaseUrl } from '@/lib/server/api-base-url';
 
 const MAX_CONTENT_BYTES = 2 * 1024 * 1024;
-
-function apiBaseUrl(): string {
-  const configured =
-    process.env.API_SERVER_URL ??
-    process.env.HTTP_SERVER_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    'http://localhost:3002';
-  const base = configured.replace(/\/$/, '');
-  return base.endsWith('/api') ? base : `${base}/api`;
-}
 
 function forwardedCookie(request: NextRequest, csrfToken?: string): string {
   const existing = request.headers.get('cookie') ?? '';

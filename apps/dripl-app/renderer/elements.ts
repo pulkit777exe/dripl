@@ -484,12 +484,17 @@ function renderImage(
   ctx.fillRect(element.x, element.y, element.width, element.height);
 }
 
-function renderFrame(ctx: CanvasRenderingContext2D, element: DriplElement) {
+function renderFrame(
+  ctx: CanvasRenderingContext2D,
+  element: DriplElement,
+  theme: 'light' | 'dark' = 'light'
+) {
   const frameEl = element as DriplElement & { padding?: number; title?: string };
   const padding = frameEl.padding || 20;
+  const strokeColor = applyDarkModeFilter(element.strokeColor || '#000000', theme) ?? '#000000';
 
   // Draw outer rectangle
-  ctx.strokeStyle = element.strokeColor || '#000000';
+  ctx.strokeStyle = strokeColor;
   ctx.lineWidth = element.strokeWidth || 2;
   ctx.strokeRect(element.x, element.y, element.width, element.height);
 
@@ -505,26 +510,34 @@ function renderFrame(ctx: CanvasRenderingContext2D, element: DriplElement) {
 
   // Draw title above frame
   if (frameEl.title) {
-    ctx.fillStyle = element.strokeColor || '#000000';
+    ctx.fillStyle = strokeColor;
     ctx.font = canvasFont(14, undefined);
     ctx.fillText(frameEl.title, element.x + 10, element.y - 10);
   }
 }
 
-function renderEmbed(ctx: CanvasRenderingContext2D, element: DriplElement) {
+function renderEmbed(
+  ctx: CanvasRenderingContext2D,
+  element: DriplElement,
+  theme: 'light' | 'dark' = 'light'
+) {
   const embedEl = element as DriplElement & {
     url?: string;
     title?: string;
     cachedPreview?: string;
   };
+  const strokeColor = applyDarkModeFilter(element.strokeColor || '#6B6860', theme) ?? '#6B6860';
+  const backgroundColor =
+    applyDarkModeFilter(element.backgroundColor || '#FAFAF7', theme) ?? '#FAFAF7';
+  const mutedColor = applyDarkModeFilter('#6B6860', theme) ?? '#6B6860';
 
   // Draw outer rectangle
-  ctx.strokeStyle = element.strokeColor || '#6B6860';
+  ctx.strokeStyle = strokeColor;
   ctx.lineWidth = element.strokeWidth || 1;
   ctx.strokeRect(element.x, element.y, element.width, element.height);
 
   // Fill background
-  ctx.fillStyle = element.backgroundColor || '#FAFAF7';
+  ctx.fillStyle = backgroundColor;
   ctx.fillRect(element.x, element.y, element.width, element.height);
 
   // Draw the vector globe glyph (identical in both layers; never an emoji,
@@ -534,14 +547,14 @@ function renderEmbed(ctx: CanvasRenderingContext2D, element: DriplElement) {
     element.x + element.width / 2,
     element.y + element.height / 2 - 15,
     12,
-    '#6B6860'
+    mutedColor
   );
 
   // Draw URL or title
   ctx.font = '12px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#6B6860';
+  ctx.fillStyle = mutedColor;
   const displayText = embedEl.title || embedEl.url || 'Web Embed';
   const maxWidth = element.width - 20;
   const textWidth = ctx.measureText(displayText).width;
@@ -587,7 +600,7 @@ function renderLegacyShape(
   const type = element.type as string;
   ctx.save();
   ctx.globalAlpha = getOpacity(element);
-  applyStrokeAndFill(ctx, element);
+  applyStrokeAndFill(ctx, element, theme);
   rotateAroundElementCenter(ctx, element);
 
   if (type === 'line' || type === 'arrow' || type === 'freedraw' || type === 'path') {
@@ -603,9 +616,9 @@ function renderLegacyShape(
   } else if (type === 'image') {
     renderImage(ctx, element, theme);
   } else if (type === 'frame') {
-    renderFrame(ctx, element);
+    renderFrame(ctx, element, theme);
   } else if (type === 'embed') {
-    renderEmbed(ctx, element);
+    renderEmbed(ctx, element, theme);
   } else {
     renderRectangle(ctx, element, zoom);
   }

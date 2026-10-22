@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useShallow } from 'zustand/shallow';
 import { logError } from '@dripl/common';
 import { useCanvasStore } from '@/lib/store';
+import { resolveCanvasBackground, resolveDisplayTheme } from '@/lib/canvas/background';
 import { exportCanvas, downloadBlob, importFromJson } from '@/utils/export';
 import { useModalAnimation } from '@/hooks/useModalAnimation';
 import {
@@ -21,6 +21,7 @@ import { ExportFormatPicker } from './export/ExportFormatPicker';
 import { ExportScaleOptions } from './export/ExportScaleOptions';
 import { ExportStatus } from './export/ExportStatus';
 import type { ExportFormat, ExportScale } from './export/exportTypes';
+import { CanvasModal } from './CanvasModal';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -46,7 +47,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const setElements = useCanvasStore(state => state.setElements);
   const selectedIds = useCanvasStore(state => state.selectedIds);
   const canvasBackground = useCanvasStore(state => state.canvasBackground);
-  const exportBackground = canvasBackground ?? '#ffffff';
+  const theme = useCanvasStore(state => state.theme);
+  const displayTheme = resolveDisplayTheme(theme);
+  const exportBackground = resolveCanvasBackground(canvasBackground, displayTheme);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState<string | null>(null);
@@ -95,7 +98,11 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       // loudly instead of being serialised as JSON and downloaded as `*.pdf`.
       if (format === 'pdf') {
         const pngBlob = await Promise.resolve(
-          exportCanvas('png', exportElements, buildRasterExportOptions(dims, exportBackground))
+          exportCanvas(
+            'png',
+            exportElements,
+            buildRasterExportOptions(dims, exportBackground, displayTheme)
+          )
         );
         const url = URL.createObjectURL(pngBlob);
         const img = new window.Image();
@@ -123,7 +130,13 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         return;
       }
 
-      const options = buildDocumentExportOptions(scale, dims, editorState, exportBackground);
+      const options = buildDocumentExportOptions(
+        scale,
+        dims,
+        editorState,
+        exportBackground,
+        displayTheme
+      );
       const blob = await Promise.resolve(exportCanvas(format, exportElements, options));
       downloadBlob(blob, exportFileName(format));
       setExportSuccess(`${format.toUpperCase()} exported successfully`);
@@ -147,7 +160,11 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     setExportError(null);
     try {
       const blob = await Promise.resolve(
-        exportCanvas('png', exportElements, buildRasterExportOptions(dims, exportBackground))
+        exportCanvas(
+          'png',
+          exportElements,
+          buildRasterExportOptions(dims, exportBackground, displayTheme)
+        )
       );
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       setExportSuccess('Copied to clipboard');
@@ -190,80 +207,82 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     input.click();
   };
 
-  const modal = (
-    <div
-      className={`fixed inset-0 z-400 flex items-center justify-center p-4 box-content backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
-      onClick={onClose}
+  return (
+    <CanvasModal
+      className={modalState}
+      onClose={onClose}
+      labelledBy="export-canvas-title"
+      overlayStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+      contentClassName="rounded-xl shadow-lg w-[440px] max-h-[85vh] overflow-y-auto"
+      contentStyle={{
+        backgroundColor: 'var(--color-panel-bg)',
+        border: '1px solid var(--color-panel-border)',
+      }}
     >
       <div
-        className="rounded-xl shadow-lg w-[440px] max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}
-        onClick={e => e.stopPropagation()}
+        className="flex items-center justify-between px-5 py-3.5"
+        style={{ borderBottom: '1px solid #E4E0D9' }}
       >
-        <div
-          className="flex items-center justify-between px-5 py-3.5"
-          style={{ borderBottom: '1px solid #E4E0D9' }}
+        <h2
+          id="export-canvas-title"
+          className="text-[15px] font-semibold"
+          style={{ color: 'var(--color-panel-text)' }}
         >
-          <h2 className="text-[15px] font-semibold" style={{ color: '#1A1917' }}>
-            Export Canvas
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-md transition-colors"
-            style={{ color: '#6B6860' }}
-            onMouseEnter={e => {
-              e.currentTarget.style.color = '#1A1917';
-              e.currentTarget.style.backgroundColor = '#E8E5DE';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.color = '#6B6860';
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-          >
-            <X size={18} />
-          </button>
-        </div>
+          Export Canvas
+        </h2>
+        <button
+          onClick={onClose}
+          className="p-1 rounded-md transition-colors"
+          style={{ color: '#6B6860' }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = '#1A1917';
+            e.currentTarget.style.backgroundColor = '#E8E5DE';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = '#6B6860';
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+        >
+          <X size={18} />
+        </button>
+      </div>
 
-        <div className="p-5 space-y-4">
-          <ExportFormatPicker selectedFormat={selectedFormat} onSelect={setSelectedFormat} />
+      <div className="p-5 space-y-4">
+        <ExportFormatPicker selectedFormat={selectedFormat} onSelect={setSelectedFormat} />
 
-          <ExportScaleOptions
-            selectedFormat={selectedFormat}
-            scale={scale}
-            useCustomSize={useCustomSize}
-            customWidth={customWidth}
-            customHeight={customHeight}
-            selectedCount={selectedIds.size}
-            exportSelectionOnly={exportSelectionOnly}
-            onScale={setScale}
-            onCustomSize={setUseCustomSize}
-            onCustomWidth={setCustomWidth}
-            onCustomHeight={setCustomHeight}
-            onSelectionOnly={setExportSelectionOnly}
-          />
+        <ExportScaleOptions
+          selectedFormat={selectedFormat}
+          scale={scale}
+          useCustomSize={useCustomSize}
+          customWidth={customWidth}
+          customHeight={customHeight}
+          selectedCount={selectedIds.size}
+          exportSelectionOnly={exportSelectionOnly}
+          onScale={setScale}
+          onCustomSize={setUseCustomSize}
+          onCustomWidth={setCustomWidth}
+          onCustomHeight={setCustomHeight}
+          onSelectionOnly={setExportSelectionOnly}
+        />
 
-          <ExportActionList
-            exporting={exporting}
-            useCustomSize={useCustomSize}
-            customWidth={customWidth}
-            customHeight={customHeight}
-            scale={scale}
-            onExport={handleExport}
-            onCopy={handleCopyToClipboard}
-            onImport={handleImport}
-          />
-        </div>
-
-        <ExportStatus
-          exportError={exportError}
-          exportSuccess={exportSuccess}
-          successRef={successRef}
-          onDismissError={() => setExportError(null)}
+        <ExportActionList
+          exporting={exporting}
+          useCustomSize={useCustomSize}
+          customWidth={customWidth}
+          customHeight={customHeight}
+          scale={scale}
+          onExport={handleExport}
+          onCopy={handleCopyToClipboard}
+          onImport={handleImport}
         />
       </div>
-    </div>
-  );
 
-  return createPortal(modal, document.body);
+      <ExportStatus
+        exportError={exportError}
+        exportSuccess={exportSuccess}
+        successRef={successRef}
+        onDismissError={() => setExportError(null)}
+      />
+    </CanvasModal>
+  );
 }

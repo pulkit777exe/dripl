@@ -50,7 +50,7 @@ services.
 
 Copy `.env.example` to `.env`. Each server validates its environment with Zod at
 boot (`apps/http-server/src/env.ts`, `apps/ws-server/src/env.ts`) and exits on
-failure. `dripl-app` has no env schema: its handlers use `API_SERVER_URL`
+failure. `dripl-app` has no env schema: its handlers use `HTTP_SERVER_URL`
 server-to-server and `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL` in the browser.
 
 | Variable                                   | Required by                  | Notes                                                          |
@@ -62,8 +62,8 @@ server-to-server and `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL` in the browser
 | `INTERNAL_SECRET`                          | both servers, in production  | Minimum 32 characters, and must differ from `JWT_SECRET`       |
 | `FRONTEND_URL` or `NEXT_PUBLIC_APP_URL`    | `http-server`, in production | Origin allowlist for CORS and share links                      |
 
-Optional: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_APP_URL`,
-`API_SERVER_URL`; `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` for
+Optional: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_APP_URL`;
+`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` for
 distributed rate limiting and fan-out, with bounded process-local limiters when
 absent; `SMTP_USER` and `SMTP_PASS`, both required when mail is sent;
 `GEMINI_API_KEY`; `IMAGE_STORAGE_DIR` (default `./uploads/images`); `SENTRY_DSN`;

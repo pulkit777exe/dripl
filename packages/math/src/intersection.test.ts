@@ -13,6 +13,7 @@ import {
   getDistanceToBounds,
   isPointNearElement,
   isPointOnElementOutline,
+  elementIntersectsRect,
 } from './intersection';
 import { rotatePoint, rotateBounds } from './geometry';
 
@@ -139,13 +140,28 @@ describe('math/intersection', () => {
     });
 
     it('a transparent background does not count as a fill', () => {
-      for (const bg of ['', 'transparent', 'rgba(0,0,0,0)', 'rgba(0, 0, 0, 0.0)']) {
+      // Matches Excalidraw's `isTransparent`: alpha zero in any CSS spelling,
+      // not a list of known transparent strings. Imported scenes can carry
+      // four/eight-digit hex and modern space/slash alpha syntax.
+      for (const bg of [
+        '',
+        'transparent',
+        'rgba(0,0,0,0)',
+        'rgba(0, 0, 0, 0.0)',
+        '#ff00',
+        '#fff00000',
+        '#00000000',
+        'rgba(0 0 0 / 0)',
+        'rgba(0 0 0 / 0%)',
+        'hsla(0 0% 0% / 0)',
+      ]) {
         expect(shouldTestInside(el({ type: 'rectangle', backgroundColor: bg }))).toBe(false);
       }
       expect(shouldTestInside(el({ type: 'rectangle', backgroundColor: 'rgba(0,0,0,0.5)' }))).toBe(
         true
       );
       expect(shouldTestInside(el({ type: 'rectangle', backgroundColor: '#fff' }))).toBe(true);
+      expect(shouldTestInside(el({ type: 'rectangle', backgroundColor: '#ffffff01' }))).toBe(true);
     });
 
     it('a line or freedraw needs a closed loop as well as a fill', () => {
@@ -904,6 +920,96 @@ describe('math/intersection', () => {
           end: pt(90, 50),
         })
       ).toBe(false);
+    });
+  });
+
+  describe('elementIntersectsRect', () => {
+    const rect = (x: number, y: number, width: number, height: number) => ({
+      x,
+      y,
+      width,
+      height,
+    });
+
+    it('does not select a hollow rectangle from a marquee inside its interior', () => {
+      const hollow = el({ type: 'rectangle', x: 0, y: 0, width: 100, height: 60 });
+      expect(elementIntersectsRect(hollow, rect(20, 20, 20, 20))).toBe(false);
+    });
+
+    it('selects a hollow rectangle when the marquee crosses its outline', () => {
+      const hollow = el({ type: 'rectangle', x: 0, y: 0, width: 100, height: 60 });
+      expect(elementIntersectsRect(hollow, rect(-10, 30, 30, 10))).toBe(true);
+      expect(elementIntersectsRect(hollow, rect(50, -10, 10, 30))).toBe(true);
+    });
+
+    it('selects a hollow rectangle when the marquee contains the whole outline', () => {
+      const hollow = el({ type: 'rectangle', x: 0, y: 0, width: 100, height: 60 });
+      expect(elementIntersectsRect(hollow, rect(-10, -10, 120, 80))).toBe(true);
+    });
+
+    it('selects a filled rectangle from a marquee inside its interior', () => {
+      const filled = el({
+        type: 'rectangle',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 60,
+        backgroundColor: '#ffffff',
+      });
+      expect(elementIntersectsRect(filled, rect(20, 20, 20, 20))).toBe(true);
+    });
+
+    it('applies the same fill semantics to diamonds and ellipses', () => {
+      for (const type of ['diamond', 'ellipse'] as const) {
+        const hollow = el({ type, x: 0, y: 0, width: 100, height: 60 });
+        const filled = el({ type, x: 0, y: 0, width: 100, height: 60, backgroundColor: '#ffffff' });
+        const interior = rect(45, 25, 10, 10);
+        expect(elementIntersectsRect(hollow, interior)).toBe(false);
+        expect(elementIntersectsRect(filled, interior)).toBe(true);
+      }
+    });
+
+    it('does not select an arrow from a marquee in its bounding box but off the path', () => {
+      const arrow = path('arrow', [pt(0, 0), pt(100, 100)], {
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+      });
+      expect(elementIntersectsRect(arrow, rect(0, 80, 20, 20))).toBe(false);
+    });
+
+    it('selects a path when the marquee crosses a segment', () => {
+      const arrow = path('arrow', [pt(0, 0), pt(100, 100)], {
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+      });
+      expect(elementIntersectsRect(arrow, rect(40, 40, 20, 20))).toBe(true);
+    });
+
+    it('handles rotated shape outlines', () => {
+      for (const type of ['rectangle', 'diamond', 'ellipse'] as const) {
+        const hollow = el({
+          type,
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 60,
+          angle: Math.PI / 4,
+        });
+        const filled = { ...hollow, backgroundColor: '#ffffff' } as DriplElement;
+        const interior = rect(45, 25, 10, 10);
+        expect(elementIntersectsRect(hollow, interior)).toBe(false);
+        expect(elementIntersectsRect(filled, interior)).toBe(true);
+      }
+    });
+
+    it('treats a marquee touching only the bounding box edge as a miss', () => {
+      const hollow = el({ type: 'rectangle', x: 0, y: 0, width: 100, height: 60, strokeWidth: 0 });
+      expect(elementIntersectsRect(hollow, rect(100, 0, 20, 60))).toBe(false);
+      expect(elementIntersectsRect(hollow, rect(-20, 0, 20, 60))).toBe(false);
     });
   });
 

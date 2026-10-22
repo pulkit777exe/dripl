@@ -1,8 +1,5 @@
 import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
 import { requiredEnv } from '@dripl/utils';
-
-dotenv.config();
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 

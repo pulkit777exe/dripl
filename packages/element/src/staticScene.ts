@@ -2,6 +2,7 @@ import type { DriplElement } from '@dripl/common';
 import { createRoughCanvas, renderRoughElement } from './rough-renderer';
 import { imageCache } from './image-cache';
 import { getElementBounds } from '@dripl/math/intersection';
+import { applyDarkModeFilter } from './theme';
 
 export interface StaticSceneViewport {
   x: number;
@@ -991,10 +992,15 @@ function drawElementPlaceholder(
   }
 
   if (elementFill(element) && elementFill(element) !== 'transparent') {
-    ctx.fillStyle = elementFill(element) as string;
+    const fill = elementFill(element)!;
+    ctx.fillStyle = applyDarkModeFilter(fill, config.theme) ?? fill;
     ctx.fillRect(element.x, element.y, width, height);
   }
-  ctx.strokeStyle = element.strokeColor || (config.theme === 'dark' ? '#ffffff' : '#1e1e1e');
+  const stroke =
+    applyDarkModeFilter(element.strokeColor || '#1e1e1e', config.theme) ??
+    element.strokeColor ??
+    '#1e1e1e';
+  ctx.strokeStyle = stroke;
   ctx.lineWidth = element.strokeWidth || 1;
   ctx.strokeRect(element.x, element.y, width, height);
   if (rotated) ctx.restore();

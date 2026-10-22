@@ -39,6 +39,8 @@ export function exportToSvg(
     padding?: number;
     customWidth?: number;
     customHeight?: number;
+    /** Final display background; omitted keeps the SVG transparent. */
+    background?: string;
     theme?: 'light' | 'dark';
   } = {}
 ): Blob {
@@ -359,8 +361,17 @@ export function exportToSvg(
   const viewHeight = bounds.height + padding * 2;
   const allDefs = [...clipDefs, ...defs];
   const defsBlock = allDefs.length > 0 ? `<defs>${allDefs.join('')}</defs>` : '';
+  // The background rect comes after defs and before the scene, so it cannot
+  // cover any element. It is emitted only when the caller resolved one; an SVG
+  // without the option stays transparent, which is what clipboard/slides want.
+  const background = options.background;
+  const backgroundBlock = background
+    ? `<rect x="${originX}" y="${originY}" width="${viewWidth}" height="${viewHeight}" fill="${escapeXml(
+        safeSvgPaint(background, '#ffffff')
+      )}" />`
+    : '';
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="${originX} ${originY} ${viewWidth} ${viewHeight}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid meet">${defsBlock}${body}</svg>`;
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="${originX} ${originY} ${viewWidth} ${viewHeight}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid meet">${defsBlock}${backgroundBlock}${body}</svg>`;
 
   return new Blob([svg], { type: 'image/svg+xml' });
 }

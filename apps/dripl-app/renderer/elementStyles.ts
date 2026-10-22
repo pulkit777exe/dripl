@@ -1,4 +1,5 @@
 import type { DriplElement, Point } from '@dripl/common';
+import { applyDarkModeFilter } from '@dripl/element/theme';
 
 /**
  * Element style primitives — extracted verbatim from `interactiveScene.ts`.
@@ -63,9 +64,15 @@ export function getPathPoints(element: DriplElement): Point[] {
     }));
 }
 
-export function applyStrokeAndFill(ctx: CanvasRenderingContext2D, element: DriplElement) {
-  ctx.strokeStyle = getStrokeColor(element);
-  ctx.fillStyle = getFillColor(element);
+export function applyStrokeAndFill(
+  ctx: CanvasRenderingContext2D,
+  element: DriplElement,
+  theme: 'light' | 'dark' = 'light'
+) {
+  const stroke = getStrokeColor(element);
+  const fill = getFillColor(element);
+  ctx.strokeStyle = applyDarkModeFilter(stroke, theme) ?? stroke;
+  ctx.fillStyle = applyDarkModeFilter(fill, theme) ?? fill;
   ctx.lineWidth = getStrokeWidth(element);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';

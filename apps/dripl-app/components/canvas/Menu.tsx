@@ -20,9 +20,13 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { useCanvasStore } from '@/lib/store';
+import {
+  resolveCanvasBackground,
+  resolveDisplayTheme,
+  THEME_DEFAULT_BACKGROUNDS,
+} from '@/lib/canvas/background';
 
 const BACKGROUND_PRESETS = ['#FFFFFF', '#F0EDE6', '#1C1A17'];
-const THEME_DEFAULT_BACKGROUNDS = { dark: '#1C1A17', light: '#F0EDE6' } as const;
 
 interface MenuProps {
   isOpen: boolean;
@@ -70,13 +74,13 @@ export function Menu({
   activeLanguage = 'en',
   onLanguageChange,
 }: MenuProps) {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
   const mounted = useIsMounted();
   const canvasBackground = useCanvasStore(s => s.canvasBackground);
   const setCanvasBackground = useCanvasStore(s => s.setCanvasBackground);
-  const themeDefaultBackground =
-    theme === 'dark' ? THEME_DEFAULT_BACKGROUNDS.dark : THEME_DEFAULT_BACKGROUNDS.light;
+  const displayTheme = resolveDisplayTheme(resolvedTheme ?? theme);
+  const themeDefaultBackground = THEME_DEFAULT_BACKGROUNDS[displayTheme];
   const [closing, setClosing] = useState(false);
   const prevOpen = useRef(isOpen);
 
@@ -321,7 +325,7 @@ export function Menu({
                   onClick={() => setCanvasBackground(preset)}
                   className="w-6 h-6 rounded-full border t-theme duration-150"
                   style={{
-                    backgroundColor: preset,
+                    backgroundColor: resolveCanvasBackground(preset, displayTheme),
                     borderColor: 'var(--color-panel-border)',
                     outline: isSelected ? '2px solid var(--color-primary)' : 'none',
                     outlineOffset: 1,

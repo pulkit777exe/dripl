@@ -44,6 +44,7 @@ export interface RasterExportOptions {
   scale: number;
   background: string;
   padding: number;
+  theme: 'light' | 'dark';
   customWidth?: number;
   customHeight?: number;
 }
@@ -55,12 +56,14 @@ export interface DocumentExportOptions extends RasterExportOptions {
 /** Fixed-scale raster options for the PDF and copy-to-clipboard paths. */
 export function buildRasterExportOptions(
   dims: ExportDimensions,
-  background = '#ffffff'
+  background = '#ffffff',
+  theme: 'light' | 'dark' = 'light'
 ): RasterExportOptions {
   return {
     scale: 2,
     background,
     padding: 16,
+    theme,
     ...(dims.width && dims.height ? { customWidth: dims.width, customHeight: dims.height } : {}),
   };
 }
@@ -73,12 +76,14 @@ export function buildDocumentExportOptions(
   scale: number,
   dims: ExportDimensions,
   appState?: Record<string, unknown>,
-  background = '#ffffff'
+  background = '#ffffff',
+  theme: 'light' | 'dark' = 'light'
 ): DocumentExportOptions {
   return {
     scale: dims.width ? dims.width / 1920 : scale,
     background,
     padding: 16,
+    theme,
     ...(dims.width && dims.height ? { customWidth: dims.width, customHeight: dims.height } : {}),
     appState,
   };

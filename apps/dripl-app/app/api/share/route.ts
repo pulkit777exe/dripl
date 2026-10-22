@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizeOrigin } from '@dripl/utils/origin';
 import { readRequestBody, RequestBodyTooLargeError } from '@/lib/server/requestBody';
+import { apiBaseUrl } from '@/lib/server/api-base-url';
 import { z } from 'zod';
 
 const CreateShareSchema = z.object({
@@ -13,16 +14,6 @@ const CreateShareSchema = z.object({
     .max(24 * 365)
     .optional(),
 });
-
-function apiBaseUrl(): string {
-  const configured =
-    process.env.API_SERVER_URL ??
-    process.env.HTTP_SERVER_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    'http://localhost:3002';
-  const base = configured.replace(/\/$/, '');
-  return base.endsWith('/api') ? base : `${base}/api`;
-}
 
 function forwardedCookie(request: NextRequest, csrfToken?: string): string {
   const existing = request.headers.get('cookie') ?? '';

@@ -58,17 +58,36 @@ export function pathHitTolerance(element: DriplElement, extra: number): number {
 }
 
 /**
- * Checks if a background color is considered transparent (i.e., not a visible fill).
- * Empty string, 'transparent', 'rgba(0,0,0,0)', etc. are all transparent.
+ * Checks if a background color is considered transparent (i.e., not a visible
+ * fill). Matches Excalidraw's `isTransparent`, which parses alpha rather than
+ * comparing against a list of spellings: `#ff00`, `#fff00000`,
+ * `rgba(0 0 0 / 0)`, `hsla(0 0% 0% / 0)` and `transparent` all mean no fill.
+ * Missing/empty colors are transparent because they predate the field.
  */
 function isTransparent(color?: string): boolean {
   if (!color) return true;
-  if (color === 'transparent') return true;
-  if (color.startsWith('rgba(')) {
-    const match = color.match(/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/);
-    if (match && parseFloat(match[1]!) === 0) return true;
+  const normalized = color.trim().toLowerCase();
+  if (!normalized || normalized === 'transparent') return true;
+
+  if (/^#(?:[0-9a-f]{4}|[0-9a-f]{8})$/i.test(normalized)) {
+    const hex = normalized.slice(1);
+    const alpha = hex.length === 4 ? hex[3]! : hex.slice(6);
+    return /^0+$/.test(alpha);
   }
-  return false;
+
+  const functional = normalized.match(/^(?:rgba?|hsla?)\((.*)\)$/);
+  if (!functional) return false;
+  const body = functional[1]!;
+  const slash = body.split('/');
+  let alpha: string | undefined = slash[1]?.trim();
+  if (alpha === undefined) {
+    const commaParts = body.split(',');
+    if (commaParts.length === 4) alpha = commaParts[3]?.trim();
+  }
+  if (alpha === undefined) return false;
+
+  const parsed = Number.parseFloat(alpha.replace('%', ''));
+  return Number.isFinite(parsed) && parsed === 0;
 }
 
 /**
@@ -444,6 +463,186 @@ export const elementIntersectsSegment = (
 
   return false;
 };
+
+/**
+ * The polygon a rectangle-like, diamond, or ellipse element draws. Unlike
+ * `segmentIntersectsPolygon`, callers of the outline-only helper below do not
+ * want a segment that merely sits inside the polygon to count: for an unfilled
+ * shape the interior is not a hit target.
+ */
+function elementOutlinePolygon(element: DriplElement): Point[] | null {
+  if (
+    element.type === 'rectangle' ||
+    element.type === 'text' ||
+    element.type === 'image' ||
+    element.type === 'frame' ||
+    element.type === 'embed'
+  ) {
+    const corners: Point[] = [
+      { x: element.x, y: element.y },
+      { x: element.x + element.width, y: element.y },
+      { x: element.x + element.width, y: element.y + element.height },
+      { x: element.x, y: element.y + element.height },
+    ];
+    const angle = (element.angle || 0) as number;
+    const cx = element.x + element.width / 2;
+    const cy = element.y + element.height / 2;
+    return angle ? corners.map(c => rotatePoint(c, cx, cy, angle)) : corners;
+  }
+
+  if (element.type === 'diamond') {
+    const vertices: Point[] = [
+      { x: element.x + element.width / 2, y: element.y },
+      { x: element.x + element.width, y: element.y + element.height / 2 },
+      { x: element.x + element.width / 2, y: element.y + element.height },
+      { x: element.x, y: element.y + element.height / 2 },
+    ];
+    const angle = (element.angle || 0) as number;
+    const cx = element.x + element.width / 2;
+    const cy = element.y + element.height / 2;
+    return angle ? vertices.map(v => rotatePoint(v, cx, cy, angle)) : vertices;
+  }
+
+  if (element.type === 'ellipse') {
+    const cx = element.x + element.width / 2;
+    const cy = element.y + element.height / 2;
+    const rx = element.width / 2;
+    const ry = element.height / 2;
+    const segments = 32;
+    const pts: Point[] = [];
+    for (let i = 0; i < segments; i++) {
+      const a = (i / segments) * Math.PI * 2;
+      pts.push({ x: cx + Math.cos(a) * rx, y: cy + Math.sin(a) * ry });
+    }
+    const angle = (element.angle || 0) as number;
+    return angle ? pts.map(p => rotatePoint(p, cx, cy, angle)) : pts;
+  }
+
+  return null;
+}
+
+function segmentCrossesPolygonOutline(segment: LineSegment, polygon: Point[]): boolean {
+  for (let i = 0; i < polygon.length; i++) {
+    const next = polygon[(i + 1) % polygon.length]!;
+    if (segmentsIntersect(segment, { start: polygon[i]!, end: next })) return true;
+  }
+  return false;
+}
+
+/** Whether a segment touches the drawn outline of an element, ignoring fill. */
+function outlineIntersectsSegment(element: DriplElement, segment: LineSegment): boolean {
+  const polygon = elementOutlinePolygon(element);
+  if (polygon) return segmentCrossesPolygonOutline(segment, polygon);
+
+  if (element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line') {
+    const pts = (element as FreeDrawElement | LinearElement).points || [];
+    const worldPts = pts.map(p => elementLocalPointToWorld(element, p));
+    const tolerance = pathHitTolerance(element, 0);
+
+    for (let i = 0; i < worldPts.length - 1; i++) {
+      const pathSeg: LineSegment = { start: worldPts[i]!, end: worldPts[i + 1]! };
+      if (segmentsIntersect(segment, pathSeg)) return true;
+      if (distanceToSegment(segment.start, pathSeg) <= tolerance) return true;
+      if (distanceToSegment(segment.end, pathSeg) <= tolerance) return true;
+      if (distanceToSegment(pathSeg.start, segment) <= tolerance) return true;
+      if (distanceToSegment(pathSeg.end, segment) <= tolerance) return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Marquee hit test with Excalidraw's fill semantics.
+ *
+ * Bounds intersection alone is not enough: a marquee drawn entirely inside an
+ * unfilled rectangle sits in the rectangle's bounding box but touches no ink.
+ * The outline is the hit target for those elements, while filled shapes,
+ * text, images, frames and embeds are selectable through their interior. A
+ * marquee that contains the whole element is always a hit, because it encloses
+ * the outline even when the interior is hollow.
+ */
+export function elementIntersectsRect(element: DriplElement, rect: Bounds): boolean {
+  const bounds = getElementBounds(element);
+  const rectMaxX = rect.x + rect.width;
+  const rectMaxY = rect.y + rect.height;
+
+  if (
+    bounds.x >= rectMaxX ||
+    bounds.x + bounds.width <= rect.x ||
+    bounds.y >= rectMaxY ||
+    bounds.y + bounds.height <= rect.y
+  ) {
+    return false;
+  }
+
+  if (
+    bounds.x >= rect.x &&
+    bounds.y >= rect.y &&
+    bounds.x + bounds.width <= rectMaxX &&
+    bounds.y + bounds.height <= rectMaxY
+  ) {
+    return true;
+  }
+
+  const corners: Point[] = [
+    { x: rect.x, y: rect.y },
+    { x: rectMaxX, y: rect.y },
+    { x: rectMaxX, y: rectMaxY },
+    { x: rect.x, y: rectMaxY },
+  ];
+
+  if (shouldTestInside(element)) {
+    if (element.type === 'frame' || element.type === 'embed') {
+      if (
+        corners.some(
+          point =>
+            point.x >= bounds.x &&
+            point.x <= bounds.x + bounds.width &&
+            point.y >= bounds.y &&
+            point.y <= bounds.y + bounds.height
+        )
+      ) {
+        return true;
+      }
+    } else if (corners.some(point => isPointInElement(point, element))) {
+      return true;
+    } else if ((element.type === 'line' || element.type === 'freedraw') && isPathALoop(element)) {
+      const worldPts = ((element as FreeDrawElement | LinearElement).points || []).map(p =>
+        elementLocalPointToWorld(element, p)
+      );
+      if (corners.some(point => pointInPolygon(point, worldPts))) return true;
+    }
+  }
+
+  const edges: LineSegment[] = [
+    { start: corners[0]!, end: corners[1]! },
+    { start: corners[1]!, end: corners[2]! },
+    { start: corners[2]!, end: corners[3]! },
+    { start: corners[3]!, end: corners[0]! },
+  ];
+  for (const edge of edges) {
+    if (outlineIntersectsSegment(element, edge)) return true;
+  }
+
+  // A path segment can lie wholly inside the marquee without crossing an
+  // edge; a vertex inside is then the only evidence of the hit.
+  if (element.type === 'freedraw' || element.type === 'arrow' || element.type === 'line') {
+    const worldPts = ((element as FreeDrawElement | LinearElement).points || []).map(p =>
+      elementLocalPointToWorld(element, p)
+    );
+    if (
+      worldPts.some(
+        point =>
+          point.x >= rect.x && point.x <= rectMaxX && point.y >= rect.y && point.y <= rectMaxY
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 export const getFreedrawOutline = (element: FreeDrawElement): Point[] => {
   const points = element.points || [];

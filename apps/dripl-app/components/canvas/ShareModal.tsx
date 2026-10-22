@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { X, Link2, Users, Check, Copy } from 'lucide-react';
 import { useShareLink, type SharePermission } from '@/hooks/useShareLink';
 import { useModalAnimation } from '@/hooks/useModalAnimation';
+import { CanvasModal } from './CanvasModal';
 import { SharePermissionToggle } from './SharePermissionToggle';
 
 interface Collaborator {
@@ -72,234 +72,229 @@ export function ShareModal({
 
   if (!isVisible) return null;
 
-  const modal = (
-    <div
-      className={`fixed inset-0 z-400 flex items-center justify-center p-4 box-content backdrop-blur-sm pointer-events-auto t-modal ${modalState}`}
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="share-modal-title"
+  return (
+    <CanvasModal
+      className={modalState}
+      onClose={onClose}
+      labelledBy="share-modal-title"
+      overlayStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+      contentClassName="rounded-xl shadow-lg w-[440px] max-h-[85vh] overflow-y-auto"
+      contentStyle={{
+        backgroundColor: 'var(--color-panel-bg)',
+        border: '1px solid var(--color-panel-border)',
+      }}
     >
       <div
-        className="rounded-xl shadow-lg w-[440px] max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: '#FAFAF7', border: '1px solid #E4E0D9' }}
-        onClick={e => e.stopPropagation()}
+        className="flex items-center justify-between px-5 py-3.5"
+        style={{ borderBottom: '1px solid #E4E0D9' }}
       >
-        <div
-          className="flex items-center justify-between px-5 py-3.5"
-          style={{ borderBottom: '1px solid #E4E0D9' }}
+        <h2
+          id="share-modal-title"
+          className="text-[15px] font-semibold"
+          style={{ color: '#1A1917' }}
         >
-          <h2
-            id="share-modal-title"
-            className="text-[15px] font-semibold"
-            style={{ color: '#1A1917' }}
-          >
-            Share
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-md transition-colors"
-            style={{ color: '#6B6860' }}
-            aria-label="Close share dialog"
-            onMouseEnter={e => {
-              e.currentTarget.style.color = '#1A1917';
-              e.currentTarget.style.backgroundColor = '#E8E5DE';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.color = '#6B6860';
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-          >
-            <X size={18} />
-          </button>
-        </div>
+          Share
+        </h2>
+        <button
+          onClick={onClose}
+          className="p-1 rounded-md transition-colors"
+          style={{ color: '#6B6860' }}
+          aria-label="Close share dialog"
+          onMouseEnter={e => {
+            e.currentTarget.style.color = '#1A1917';
+            e.currentTarget.style.backgroundColor = '#E8E5DE';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = '#6B6860';
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+        >
+          <X size={18} />
+        </button>
+      </div>
 
-        <div className="p-5 space-y-4">
-          <p className="text-[13px]" style={{ color: '#6B6860' }}>
-            {isCollaborating
-              ? 'Share the link below or invite others to collaborate.'
-              : 'Choose who can open this link.'}
-          </p>
+      <div className="p-5 space-y-4">
+        <p className="text-[13px]" style={{ color: '#6B6860' }}>
+          {isCollaborating
+            ? 'Share the link below or invite others to collaborate.'
+            : 'Choose who can open this link.'}
+        </p>
 
-          {!isCollaborating && (
-            <SharePermissionToggle value={permission} onChange={setPermission} disabled={isBusy} />
-          )}
+        {!isCollaborating && (
+          <SharePermissionToggle value={permission} onChange={setPermission} disabled={isBusy} />
+        )}
 
-          {share.url && (
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium" style={{ color: '#6B6860' }}>
-                {permission === 'edit' ? 'Editable link' : 'View-only link'}
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  readOnly
-                  value={share.url}
-                  aria-label="Shareable link"
-                  className="flex-1 px-3 py-2 rounded-md text-[12px] bg-transparent outline-none truncate"
-                  style={{ border: '1px solid #D4D0C9', color: '#1A1917' }}
-                  onClick={e => (e.target as HTMLInputElement).select()}
-                />
-                <button
-                  onClick={handleCopyLink}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-md text-[12px] font-medium transition-colors shrink-0"
-                  style={{
-                    backgroundColor: share.copied ? '#FAE8E5' : '#E8462A',
-                    color: share.copied ? '#E8462A' : '#ffffff',
-                    border: share.copied ? '1px solid #E8462A' : 'none',
-                  }}
-                  aria-label="Copy share link to clipboard"
-                >
-                  {share.copied ? <Check size={12} /> : <Copy size={12} />}
-                  {share.copied ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-              {share.expiresAt && (
-                <p className="text-[11px]" style={{ color: '#6B6860' }}>
-                  This link expires on {new Date(share.expiresAt).toLocaleString()}.
-                </p>
-              )}
+        {share.url && (
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium" style={{ color: '#6B6860' }}>
+              {permission === 'edit' ? 'Editable link' : 'View-only link'}
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={share.url}
+                aria-label="Shareable link"
+                className="flex-1 px-3 py-2 rounded-md text-[12px] bg-transparent outline-none truncate"
+                style={{ border: '1px solid #D4D0C9', color: '#1A1917' }}
+                onClick={e => (e.target as HTMLInputElement).select()}
+              />
+              <button
+                onClick={handleCopyLink}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-md text-[12px] font-medium transition-colors shrink-0"
+                style={{
+                  backgroundColor: share.copied ? '#FAE8E5' : '#E8462A',
+                  color: share.copied ? '#E8462A' : '#ffffff',
+                  border: share.copied ? '1px solid #E8462A' : 'none',
+                }}
+                aria-label="Copy share link to clipboard"
+              >
+                {share.copied ? <Check size={12} /> : <Copy size={12} />}
+                {share.copied ? 'Copied' : 'Copy'}
+              </button>
             </div>
-          )}
+            {share.expiresAt && (
+              <p className="text-[11px]" style={{ color: '#6B6860' }}>
+                This link expires on {new Date(share.expiresAt).toLocaleString()}.
+              </p>
+            )}
+          </div>
+        )}
 
-          {isCollaborating ? (
+        {isCollaborating ? (
+          <button
+            onClick={() => {
+              onStopCollaboration?.();
+              onClose();
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-md transition-colors"
+            style={{ backgroundColor: '#C0392B', color: '#ffffff' }}
+          >
+            <Users size={16} />
+            Stop Collaboration
+          </button>
+        ) : (
+          <div className="flex gap-2">
             <button
-              onClick={() => {
-                onStopCollaboration?.();
-                onClose();
+              onClick={handleShare}
+              disabled={isBusy}
+              className="flex-1 flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
+              style={{ backgroundColor: '#E8462A', color: '#ffffff' }}
+            >
+              {isBusy ? <Check size={16} className="animate-pulse" /> : <Link2 size={16} />}
+              {shareButtonLabel}
+            </button>
+            <button
+              onClick={handleCollaborate}
+              disabled={isBusy}
+              className="flex-1 flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
+              style={{
+                border: '1px solid #D4D0C9',
+                backgroundColor: '#FAFAF7',
+                color: '#1A1917',
               }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-md transition-colors"
-              style={{ backgroundColor: '#C0392B', color: '#ffffff' }}
             >
               <Users size={16} />
-              Stop Collaboration
+              Collaborate
             </button>
-          ) : (
-            <div className="flex gap-2">
-              <button
-                onClick={handleShare}
-                disabled={isBusy}
-                className="flex-1 flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
-                style={{ backgroundColor: '#E8462A', color: '#ffffff' }}
-              >
-                {isBusy ? <Check size={16} className="animate-pulse" /> : <Link2 size={16} />}
-                {shareButtonLabel}
-              </button>
-              <button
-                onClick={handleCollaborate}
-                disabled={isBusy}
-                className="flex-1 flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
-                style={{
-                  border: '1px solid #D4D0C9',
-                  backgroundColor: '#FAFAF7',
-                  color: '#1A1917',
-                }}
-              >
-                <Users size={16} />
-                Collaborate
-              </button>
-            </div>
-          )}
+          </div>
+        )}
 
-          {isCollaborating && collaborators.length > 0 && (
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium" style={{ color: '#6B6860' }}>
-                {collaborators.length === 1
-                  ? '1 collaborator'
-                  : `${collaborators.length} collaborators`}
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {collaborators.map(collab => (
-                  <div
-                    key={collab.userId}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium"
-                    style={{
-                      backgroundColor: `${collab.color}18`,
-                      border: `1px solid ${collab.color}40`,
-                      color: collab.color,
-                    }}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: collab.color }}
-                    />
-                    {collab.userName}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isCollaborating && collabUrl && (
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium" style={{ color: '#6B6860' }}>
-                Collaboration link
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  readOnly
-                  value={collabUrl}
-                  aria-label="Collaboration link"
-                  className="flex-1 px-3 py-2 rounded-md text-[12px] bg-transparent outline-none truncate"
-                  style={{ border: '1px solid #D4D0C9', color: '#1A1917' }}
-                />
-              </div>
-            </div>
-          )}
-
-          <button
-            onClick={onClose}
-            disabled={isBusy}
-            className="w-full py-2 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
-            style={{ border: '1px solid #D4D0C9', backgroundColor: '#FAFAF7', color: '#6B6860' }}
-          >
-            {isCollaborating ? 'Close' : 'Cancel'}
-          </button>
-        </div>
-
-        {feedbackMessage && (
-          <div className="px-5 pb-5">
-            <div
-              className="flex items-center gap-2 px-3 py-2 rounded-md"
-              style={{ backgroundColor: '#FAE8E5', border: '1px solid #E8462A' }}
-            >
-              <Check size={14} style={{ color: '#E8462A' }} />
-              <span className="text-[12px] font-medium" style={{ color: '#E8462A' }}>
-                {feedbackMessage}
-              </span>
+        {isCollaborating && collaborators.length > 0 && (
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium" style={{ color: '#6B6860' }}>
+              {collaborators.length === 1
+                ? '1 collaborator'
+                : `${collaborators.length} collaborators`}
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {collaborators.map(collab => (
+                <div
+                  key={collab.userId}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium"
+                  style={{
+                    backgroundColor: `${collab.color}18`,
+                    border: `1px solid ${collab.color}40`,
+                    color: collab.color,
+                  }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: collab.color }}
+                  />
+                  {collab.userName}
+                </div>
+              ))}
             </div>
           </div>
         )}
-        {errorMessage && (
-          <div className="px-5 pb-5">
-            <div
-              className="flex items-center gap-2 px-3 py-2 rounded-md"
-              style={{ backgroundColor: '#FAE8E5', border: '1px solid #E8462A' }}
-            >
-              <X size={14} style={{ color: '#E8462A' }} />
-              <span className="text-[12px] font-medium" style={{ color: '#E8462A' }}>
-                {errorMessage}
-              </span>
+
+        {isCollaborating && collabUrl && (
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium" style={{ color: '#6B6860' }}>
+              Collaboration link
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={collabUrl}
+                aria-label="Collaboration link"
+                className="flex-1 px-3 py-2 rounded-md text-[12px] bg-transparent outline-none truncate"
+                style={{ border: '1px solid #D4D0C9', color: '#1A1917' }}
+              />
             </div>
           </div>
         )}
-        {share.error && !errorMessage && (
-          <div className="px-5 pb-5">
-            <div
-              className="flex items-center gap-2 px-3 py-2 rounded-md"
-              style={{ backgroundColor: '#FAE8E5', border: '1px solid #E8462A' }}
-              role="alert"
-            >
-              <X size={14} style={{ color: '#E8462A' }} />
-              <span className="text-[12px] font-medium" style={{ color: '#E8462A' }}>
-                {share.error}
-              </span>
-            </div>
-          </div>
-        )}
+
+        <button
+          onClick={onClose}
+          disabled={isBusy}
+          className="w-full py-2 text-[13px] font-medium rounded-md transition-colors disabled:opacity-50"
+          style={{ border: '1px solid #D4D0C9', backgroundColor: '#FAFAF7', color: '#6B6860' }}
+        >
+          {isCollaborating ? 'Close' : 'Cancel'}
+        </button>
       </div>
-    </div>
-  );
 
-  return createPortal(modal, document.body);
+      {feedbackMessage && (
+        <div className="px-5 pb-5">
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-md"
+            style={{ backgroundColor: '#FAE8E5', border: '1px solid #E8462A' }}
+          >
+            <Check size={14} style={{ color: '#E8462A' }} />
+            <span className="text-[12px] font-medium" style={{ color: '#E8462A' }}>
+              {feedbackMessage}
+            </span>
+          </div>
+        </div>
+      )}
+      {errorMessage && (
+        <div className="px-5 pb-5">
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-md"
+            style={{ backgroundColor: '#FAE8E5', border: '1px solid #E8462A' }}
+          >
+            <X size={14} style={{ color: '#E8462A' }} />
+            <span className="text-[12px] font-medium" style={{ color: '#E8462A' }}>
+              {errorMessage}
+            </span>
+          </div>
+        </div>
+      )}
+      {share.error && !errorMessage && (
+        <div className="px-5 pb-5">
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-md"
+            style={{ backgroundColor: '#FAE8E5', border: '1px solid #E8462A' }}
+            role="alert"
+          >
+            <X size={14} style={{ color: '#E8462A' }} />
+            <span className="text-[12px] font-medium" style={{ color: '#E8462A' }}>
+              {share.error}
+            </span>
+          </div>
+        </div>
+      )}
+    </CanvasModal>
+  );
 }
