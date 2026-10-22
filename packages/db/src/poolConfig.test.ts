@@ -58,14 +58,37 @@ describe('buildPoolConfig: DATABASE_URL', () => {
   });
 
   /**
-   * Regression guard for a real downgrade that was fixed once already:
-   * reconstructing the connection from host/user/password alone drops query
-   * parameters, and managed PostgreSQL URLs carry `sslmode` in exactly that
-   * place. The full string must therefore survive into the pool config.
+   * Regression guard for two separate hazards:
+   *
+   * 1. Reconstructing the connection from host/user/password alone drops query
+   *    parameters, and managed PostgreSQL URLs carry `sslmode` there.
+   * 2. `pg-connection-string` v2 treats `prefer`, `require` and `verify-ca` as
+   *    aliases for `verify-full`, but warns that v3 will adopt the weaker
+   *    libpq semantics. Leaving `require` in place would silently stop
+   *    verifying certificates on that upgrade.
    */
-  it('preserves the full connection string including sslmode', () => {
-    expect(buildPoolConfig(env()).connectionString).toBe(REMOTE);
-    expect(buildPoolConfig(env()).connectionString).toContain('sslmode=require');
+  it.each(['prefer', 'require', 'verify-ca'])(
+    'rewrites legacy sslmode=%s to explicit verify-full',
+    mode => {
+      const config = buildPoolConfig(
+        env({ DATABASE_URL: `postgresql://user:pw@db.example.com:5432/mydb?sslmode=${mode}` })
+      );
+      expect(config.connectionString).toBe(
+        'postgresql://user:pw@db.example.com:5432/mydb?sslmode=verify-full'
+      );
+    }
+  );
+
+  it('leaves an explicit verify-full, disable and no-verify mode alone', () => {
+    for (const mode of ['verify-full', 'disable', 'no-verify']) {
+      const url = `postgresql://user:pw@db.example.com:5432/mydb?sslmode=${mode}`;
+      expect(buildPoolConfig(env({ DATABASE_URL: url })).connectionString).toBe(url);
+    }
+  });
+
+  it('honours an explicit uselibpqcompat opt-in to the weaker semantics', () => {
+    const url = `${REMOTE}&uselibpqcompat=true`;
+    expect(buildPoolConfig(env({ DATABASE_URL: url })).connectionString).toBe(url);
   });
 });
 

@@ -35,6 +35,31 @@ export interface PoolConfig {
   max: number;
 }
 
+const LEGACY_SSL_MODES = new Set(['prefer', 'require', 'verify-ca']);
+
+/**
+ * Make the TLS mode explicit before `pg` parses the URL.
+ *
+ * `pg-connection-string` v2 currently treats `prefer`, `require` and
+ * `verify-ca` as aliases for `verify-full`, but warns that v3 will adopt the
+ * weaker libpq semantics. Rewriting the legacy modes to `verify-full` keeps
+ * today's certificate and hostname verification across that upgrade instead of
+ * silently turning `sslmode=require` into an unverified TLS connection.
+ *
+ * `uselibpqcompat=true` is the documented opt-in to the weaker semantics; a
+ * caller who chose it keeps the original string.
+ */
+function normalizeLegacySslMode(dbUrl: string): string {
+  const url = new URL(dbUrl);
+  if (url.searchParams.get('uselibpqcompat') === 'true') return dbUrl;
+
+  const mode = url.searchParams.get('sslmode')?.toLowerCase();
+  if (!mode || !LEGACY_SSL_MODES.has(mode)) return dbUrl;
+
+  url.searchParams.set('sslmode', 'verify-full');
+  return url.toString();
+}
+
 /**
  * Derive the pool configuration from the environment. Pure: no I/O, no globals.
  *
@@ -57,11 +82,13 @@ export function buildPoolConfig(env: DbEnvironment): PoolConfig {
   const allowInsecureRemoteTls =
     env.NODE_ENV !== 'production' && env.DB_ALLOW_INSECURE_TLS === 'true';
 
-  const url = new URL(dbUrl);
+  const normalizedDbUrl = normalizeLegacySslMode(dbUrl);
+  const url = new URL(normalizedDbUrl);
   return {
     // Preserve query parameters such as sslmode from managed PostgreSQL URLs;
-    // reconstructing only host/user/password silently downgraded TLS.
-    connectionString: dbUrl,
+    // reconstructing only host/user/password silently downgraded TLS. Legacy
+    // modes are rewritten to the explicit mode `pg` already applies.
+    connectionString: normalizedDbUrl,
     host: url.hostname,
     port: parseInt(url.port) || 5432,
     user: url.username,
