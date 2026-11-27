@@ -30,7 +30,7 @@ import { matchMarqueeElements, normalizeMarquee } from '@/lib/canvas/marquee';
 import { dropImageFiles } from '@/lib/canvas/image-drop';
 import { pinchDistance, pinchMidpoint, pinchZoomTransform } from '@/lib/canvas/pinch';
 import {
-  findBindableElementAtPoint,
+  detectArrowDrawingBindingHover,
   resolveEndpointDragBinding,
 } from '@/lib/canvas/arrow-binding-coordinator';
 
@@ -1150,56 +1150,13 @@ export class CanvasInteractionControllerImpl implements CanvasInteractionControl
 
       // Detect nearby shapes for binding visual feedback during arrow drawing
       if (currentTool === 'arrow') {
-        const allElements = this.deps.store.getSnapshot().elements as DriplElement[];
-        const draftEl = this.deps.store.getSnapshot().draftElement;
-
-        if (
-          draftEl &&
-          'points' in draftEl &&
-          Array.isArray(draftEl.points) &&
-          draftEl.points.length >= 2
-        ) {
-          // Get the current endpoint position (last point)
-          const points = draftEl.points as Array<{ x: number; y: number }>;
-          const endPoint = points[points.length - 1];
-          const startPoint = points[0];
-
-          if (endPoint) {
-            const globalEndPoint = { x: draftEl.x + endPoint.x, y: draftEl.y + endPoint.y };
-            const nearbyShape = findBindableElementAtPoint(
-              globalEndPoint,
-              allElements,
-              draftEl.id,
-              20
-            );
-
-            if (nearbyShape) {
-              this.updateHoveredBindingId(nearbyShape.id);
-            } else {
-              this.updateHoveredBindingId(null);
-            }
-          }
-
-          // Also detect binding at start point
-          if (startPoint) {
-            const globalStartPoint = { x: draftEl.x + startPoint.x, y: draftEl.y + startPoint.y };
-            const nearbyStartShape = findBindableElementAtPoint(
-              globalStartPoint,
-              allElements,
-              draftEl.id,
-              20
-            );
-
-            if (nearbyStartShape) {
-              this.updateStartPointBindingId(nearbyStartShape.id);
-            } else {
-              this.updateStartPointBindingId(null);
-            }
-          }
-        } else {
-          this.updateHoveredBindingId(null);
-          this.updateStartPointBindingId(null);
-        }
+        const snapshot = this.deps.store.getSnapshot();
+        const { hoveredBindingId, startPointBindingId } = detectArrowDrawingBindingHover(
+          snapshot.draftElement as DriplElement | null | undefined,
+          snapshot.elements as DriplElement[]
+        );
+        this.updateHoveredBindingId(hoveredBindingId);
+        this.updateStartPointBindingId(startPointBindingId);
       }
 
       return;

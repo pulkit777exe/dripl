@@ -59,6 +59,60 @@ export function commitDrawnArrowBindings(
 }
 
 // ---------------------------------------------------------------------------
+// Drawing feedback
+// ---------------------------------------------------------------------------
+
+export interface ArrowDrawingBindingHover {
+  hoveredBindingId: string | null;
+  startPointBindingId: string | null;
+}
+
+/**
+ * Detect nearby bindable shapes for arrow drawing hover feedback.
+ * Returns binding ids for end and start points of the draft arrow/line.
+ */
+export function detectArrowDrawingBindingHover(
+  draftElement: DriplElement | null | undefined,
+  elements: DriplElement[],
+  threshold: number = 20
+): ArrowDrawingBindingHover {
+  if (
+    !draftElement ||
+    !('points' in draftElement) ||
+    !Array.isArray(draftElement.points) ||
+    draftElement.points.length < 2
+  ) {
+    return { hoveredBindingId: null, startPointBindingId: null };
+  }
+
+  const points = draftElement.points as Array<{ x: number; y: number }>;
+  const endPoint = points[points.length - 1];
+  const startPoint = points[0];
+
+  let hoveredBindingId: string | null = null;
+  let startPointBindingId: string | null = null;
+
+  if (endPoint) {
+    const globalEndPoint = { x: draftElement.x + endPoint.x, y: draftElement.y + endPoint.y };
+    const nearbyShape = findBindableElementAtPoint(globalEndPoint, elements, draftElement.id, threshold);
+    hoveredBindingId = nearbyShape?.id ?? null;
+  }
+
+  if (startPoint) {
+    const globalStartPoint = { x: draftElement.x + startPoint.x, y: draftElement.y + startPoint.y };
+    const nearbyStartShape = findBindableElementAtPoint(
+      globalStartPoint,
+      elements,
+      draftElement.id,
+      threshold
+    );
+    startPointBindingId = nearbyStartShape?.id ?? null;
+  }
+
+  return { hoveredBindingId, startPointBindingId };
+}
+
+// ---------------------------------------------------------------------------
 // Gesture follow-ups
 // ---------------------------------------------------------------------------
 
