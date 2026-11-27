@@ -190,6 +190,7 @@ export default function RoughCanvas({
     handlePointerMove,
     handlePointerUp,
     cancelActiveGesture,
+    controller: interactionController,
   } = useCanvasPointerEvents({
     readOnly,
     containerRef,
@@ -229,6 +230,7 @@ export default function RoughCanvas({
     lockElementsForGesture,
     unlockGestureElements,
     setEditingElementId,
+    controller: interactionController,
   });
 
   // ── Context menu ───────────────────────────────────────────────────────────
@@ -260,6 +262,7 @@ export default function RoughCanvas({
     fitAllToScreen,
     copyElementStyle,
     pasteElementStyle,
+    controller: interactionController,
   });
 
   // ── Mouse wheel zoom & momentum ───────────────────────────────────────

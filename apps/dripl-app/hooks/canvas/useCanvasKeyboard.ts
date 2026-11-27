@@ -35,6 +35,8 @@ interface UseCanvasKeyboardOptions {
   fitAllToScreen: () => void;
   copyElementStyle: () => boolean;
   pasteElementStyle: () => boolean;
+  /** PR2: controller owns space-pressed state; optional for compat. */
+  controller?: { setSpacePressed: (pressed: boolean) => void } | null;
 }
 
 export function useCanvasKeyboard({
@@ -54,6 +56,7 @@ export function useCanvasKeyboard({
   fitAllToScreen,
   copyElementStyle,
   pasteElementStyle,
+  controller,
 }: UseCanvasKeyboardOptions) {
   const store = useCanvasStore(
     useShallow(state => ({
@@ -102,7 +105,8 @@ export function useCanvasKeyboard({
         // Temporary pan rides on the flag alone — the pointer path pans while
         // it is held without touching `activeTool`, so the toolbar never
         // flickers and no restore is owed on release.
-        interactionRef.current.isSpacePressed = true;
+        if (controller) controller.setSpacePressed(true);
+        else interactionRef.current.isSpacePressed = true;
         e.preventDefault();
       }
 
@@ -235,7 +239,8 @@ export function useCanvasKeyboard({
         // The tool never changed on the way down, so release only clears the
         // flag. The legacy tool-restore below stays as a backstop for a pan
         // armed before this change took effect.
-        interactionRef.current.isSpacePressed = false;
+        if (controller) controller.setSpacePressed(false);
+        else interactionRef.current.isSpacePressed = false;
         if (
           activeTool === 'hand' &&
           lastToolBeforeSpaceRef.current &&
@@ -270,5 +275,6 @@ export function useCanvasKeyboard({
     duplicateSelection,
     findOnCanvas,
     fitAllToScreen,
+    controller,
   ]);
 }

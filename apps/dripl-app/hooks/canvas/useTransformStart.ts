@@ -8,6 +8,11 @@ import type { ResizeHandle } from '@/components/canvas/SelectionOverlay';
 import type { InteractionState } from './useCanvasPointerEvents';
 import type { CanvasPoint } from './useCanvasCoordinates';
 
+interface TransformControllerLike {
+  beginResize: (handle: ResizeHandle, e: React.PointerEvent) => void;
+  beginRotate: (e: React.PointerEvent) => void;
+}
+
 interface UseTransformStartOptions {
   interactionRef: RefObject<InteractionState>;
   containerRef: RefObject<HTMLDivElement | null>;
@@ -16,6 +21,8 @@ interface UseTransformStartOptions {
   lockElementsForGesture: (ids: Iterable<string>) => void;
   unlockGestureElements: () => void;
   setEditingElementId: (id: string | null) => void;
+  /** When provided, delegates to the controller (PR2 deep module). */
+  controller?: TransformControllerLike | null;
 }
 
 /**
@@ -25,6 +32,8 @@ interface UseTransformStartOptions {
  * guard, frozen-clone baseline, interaction-ref arming, editing lock, and
  * pointer capture. The unmount effect releases gesture locks so a remote
  * element never stays locked by a dead component.
+ *
+ * When a controller is provided, delegates to controller.beginResize/beginRotate.
  */
 export function useTransformStart({
   interactionRef,
@@ -34,9 +43,14 @@ export function useTransformStart({
   lockElementsForGesture,
   unlockGestureElements,
   setEditingElementId,
+  controller,
 }: UseTransformStartOptions) {
   const handleResizeStart = useCallback(
     (handle: ResizeHandle, e: React.PointerEvent) => {
+      if (controller) {
+        controller.beginResize(handle, e);
+        return;
+      }
       e.stopPropagation();
       if (readOnly) return;
       const state = useCanvasStore.getState();
@@ -109,6 +123,7 @@ export function useTransformStart({
     },
     [
       containerRef,
+      controller,
       getCanvasCoordinates,
       interactionRef,
       lockElementsForGesture,
@@ -119,6 +134,10 @@ export function useTransformStart({
 
   const handleRotateStart = useCallback(
     (e: React.PointerEvent) => {
+      if (controller) {
+        controller.beginRotate(e);
+        return;
+      }
       e.stopPropagation();
       if (readOnly) return;
       const state = useCanvasStore.getState();
@@ -182,7 +201,7 @@ export function useTransformStart({
       ) as HTMLCanvasElement | null;
       if (canvas) canvas.setPointerCapture(e.pointerId);
     },
-    [containerRef, interactionRef, lockElementsForGesture, readOnly, setEditingElementId]
+    [containerRef, controller, getCanvasCoordinates, interactionRef, lockElementsForGesture, readOnly, setEditingElementId]
   );
 
   useEffect(() => {
