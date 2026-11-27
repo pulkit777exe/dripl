@@ -4,6 +4,7 @@ import type { Handler } from './types';
 import { broadcast, send } from '../broadcast';
 import { markRoomDirty, scheduleSave, MAX_ELEMENTS_PER_SCENE } from '../rooms';
 import { publishToRoom } from '../redis';
+import { commitLocalSceneCommand } from '../sceneCommit';
 import {
   acceptMovedElements,
   acceptSingleValidated,
@@ -34,33 +35,17 @@ export const addElementHandler: Handler<typeof addElementSchema, AddElement> = {
   schema: addElementSchema,
   apply(msg, ctx) {
     if (ctx.rejectReadOnlyMutation()) return;
-    const room = ctx.room;
-    // msg.element already passed messageSchema (this same schema) in the
-    // dispatch prologue, so re-parsing would only burn CPU on the hot path.
-    // The cast bridges the pre-existing DriplElementSchema-output vs
-    // DriplElement drift — the same cast toDriplElement performed — and
-    // unvalidated input (Redis fan-out) never reaches this handler.
-    // Admission order (capacity → tombstone → freshness) lives in the
-    // funnel; this handler only maps the outcome to wire effects.
-    const element = msg.element as DriplElement;
-    const admitted = acceptSingleValidated(room, element);
-    if (admitted === 'capacity') {
-      send(ctx.ws, { type: 'error', message: sceneCapacityMessage() });
-      return;
-    }
-    if (admitted === 'rejected') return;
-    // Uniform relay: every scene mutation fans out as scene-delta, so
-    // receivers implement one merge path. An add is delta-added — exactly
-    // what the client's add_element branch did with the verbatim relay.
-    const delta = { type: 'scene-delta', added: [element] } as const;
-    broadcast(room, delta, ctx.userId ?? undefined);
-    markRoomDirty(ctx.roomId);
-    scheduleSave(ctx.roomId);
-    // Deliberately not awaited: local peers already have the delta, and the
-    // dispatcher awaits this handler, so awaiting would serialise the room's
-    // whole message budget behind one Redis REST round-trip per mutation.
-    // `publishToRoom` cannot reject — it logs and resolves.
-    void publishToRoom(ctx.roomId, delta);
+    commitLocalSceneCommand(
+      ctx.room,
+      { type: 'add_element', element: msg.element as DriplElement },
+      {
+        kind: 'local',
+        roomId: ctx.roomId,
+        userId: ctx.userId,
+        ws: ctx.ws,
+        rejectReadOnlyMutation: ctx.rejectReadOnlyMutation,
+      }
+    );
   },
 };
 
@@ -69,21 +54,17 @@ export const updateElementHandler: Handler<typeof updateElementSchema, UpdateEle
   schema: updateElementSchema,
   apply(msg, ctx) {
     if (ctx.rejectReadOnlyMutation()) return;
-    const room = ctx.room;
-    const element = msg.element as DriplElement;
-    const admitted = acceptSingleValidated(room, element);
-    if (admitted === 'capacity') {
-      send(ctx.ws, { type: 'error', message: sceneCapacityMessage() });
-      return;
-    }
-    if (admitted === 'rejected') return;
-    // Uniform relay (see addElementHandler): an update is delta-updated.
-    const delta = { type: 'scene-delta', updated: [element] } as const;
-    broadcast(room, delta, ctx.userId ?? undefined);
-    markRoomDirty(ctx.roomId);
-    scheduleSave(ctx.roomId);
-    // Fire-and-forget cross-instance fan-out; see addElementHandler.
-    void publishToRoom(ctx.roomId, delta);
+    commitLocalSceneCommand(
+      ctx.room,
+      { type: 'update_element', element: msg.element as DriplElement },
+      {
+        kind: 'local',
+        roomId: ctx.roomId,
+        userId: ctx.userId,
+        ws: ctx.ws,
+        rejectReadOnlyMutation: ctx.rejectReadOnlyMutation,
+      }
+    );
   },
 };
 
@@ -92,18 +73,17 @@ export const deleteElementHandler: Handler<typeof deleteElementSchema, DeleteEle
   schema: deleteElementSchema,
   apply(msg, ctx) {
     if (ctx.rejectReadOnlyMutation()) return;
-    const room = ctx.room;
-    // Versioned delete: concurrent stale edits lose to the tombstone instead
-    // of resurrecting the element on this and every other replica.
-    const deleted = deleteWithTombstone(room, msg.elementId);
-    if (!deleted) return;
-    // Uniform relay: a delete is delta-deleted.
-    const delta = { type: 'scene-delta', deleted: [msg.elementId] } as const;
-    broadcast(room, delta, ctx.userId ?? undefined);
-    markRoomDirty(ctx.roomId);
-    scheduleSave(ctx.roomId);
-    // Fire-and-forget cross-instance fan-out; see addElementHandler.
-    void publishToRoom(ctx.roomId, delta);
+    commitLocalSceneCommand(
+      ctx.room,
+      { type: 'delete_element', elementId: msg.elementId },
+      {
+        kind: 'local',
+        roomId: ctx.roomId,
+        userId: ctx.userId,
+        ws: ctx.ws,
+        rejectReadOnlyMutation: ctx.rejectReadOnlyMutation,
+      }
+    );
   },
 };
 
