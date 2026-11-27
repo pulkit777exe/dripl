@@ -31,10 +31,8 @@ import { dropImageFiles } from '@/lib/canvas/image-drop';
 import { pinchDistance, pinchMidpoint, pinchZoomTransform } from '@/lib/canvas/pinch';
 import {
   findBindableElementAtPoint,
-  bindArrowToElement,
-  unbindArrowFromElement,
+  resolveEndpointDragBinding,
 } from '@/lib/canvas/arrow-binding-coordinator';
-import { calculateArrowBinding } from '@/utils/arrow-routing';
 
 /**
  * Screen-space press-then-move threshold before a press becomes a drag or a
@@ -920,111 +918,22 @@ export class CanvasInteractionControllerImpl implements CanvasInteractionControl
         const target = dragged.movedPoint;
         let updatedElement: DriplElement = dragged.element;
 
-        // Dynamic binding detection for arrow endpoints
-        const allElements = this.deps.store.getSnapshot().elements as DriplElement[];
-        const arrowEl = updatedElement as LinearElement;
         const startOrEnd =
           handle === 'arrow-start' ? 'start' : handle === 'arrow-end' ? 'end' : null;
 
-        /**
-         * Apply the shape-side half of a bind or unbind.
-         *
-         * `bindArrowToElement` / `unbindArrowFromElement` return a whole element list
-         * because they update two rows: the arrow, and the target's `boundElements`
-         * reverse index. Taking only the arrow out of that list — which is what this
-         * handler used to do — silently dropped the target's half, and since
-         * `buildBoundArrowsByShape` is what `updateBoundArrows` reads when a *shape*
-         * later moves, an arrow bound by dragging an endpoint never followed the shape.
-         * Only `finishDrawing` -> `bindCommittedArrow` populated it, so only a *drawn*
-         * arrow behaved.
-         *
-         * Applied transiently, like the arrow itself: this is pointer-move feedback, not
-         * a commit.
-         */
-        const applyShapeSideBindingUpdates = (
-          before: readonly DriplElement[],
-          after: readonly DriplElement[],
-          excludeId: string
-        ): void => {
-          const previous = new Map(before.map(e => [e.id, e]));
-          const updates = new Map<string, Partial<DriplElement>>();
-          for (const element of after) {
-            if (element.id === excludeId) continue;
-            if (previous.get(element.id) === element) continue;
-            updates.set(element.id, element);
-          }
-          if (updates.size > 0) this.deps.updateElementsTransient(updates);
-        };
-
         if (startOrEnd) {
-          // Geometry comes from `arrowEl`, which derives from the gesture-start
-          // snapshot on purpose, so repeated moves cannot accumulate drift. A
-          // *binding*, though, is state this very gesture mutates — and the
-          // snapshot never learns about one written on the previous move.
-          //
-          // Reading `currentBinding` from the snapshot therefore made it
-          // permanently the pre-gesture value: after one move bound the endpoint
-          // to a shape, the next move still saw no binding, so the unbind branch
-          // below could never fire and dragging away left the arrow stuck to the
-          // shape until the pointer was released. Composing the dragged geometry
-          // with the live binding state fixes that without giving up the
-          // snapshot the geometry depends on.
-          const liveArrow = allElements.find(e => e.id === el.id) as LinearElement | undefined;
-          const arrowWithLiveBinding = {
-            ...arrowEl,
-            startBinding: liveArrow?.startBinding ?? arrowEl.startBinding,
-            endBinding: liveArrow?.endBinding ?? arrowEl.endBinding,
-          } as LinearElement;
-          const currentBinding =
-            startOrEnd === 'start'
-              ? arrowWithLiveBinding.startBinding
-              : arrowWithLiveBinding.endBinding;
-          const nearbyShape = findBindableElementAtPoint(target, allElements, el.id, 20);
-
-          if (nearbyShape) {
-            // Bind to the nearby shape
-            this.updateHoveredBindingId(nearbyShape.id);
-            if (!currentBinding || currentBinding.elementId !== nearbyShape.id) {
-              // Unbind from current target if different
-              let newElements = currentBinding
-                ? unbindArrowFromElement(arrowWithLiveBinding, startOrEnd, allElements)
-                : allElements;
-              // Bind to new target
-              const binding = calculateArrowBinding(target, nearbyShape);
-              if (binding) {
-                newElements = bindArrowToElement(
-                  arrowWithLiveBinding,
-                  nearbyShape.id,
-                  startOrEnd,
-                  { x: binding.focus, y: 0.5 },
-                  'orbit',
-                  newElements
-                );
-                // Update the arrow in the store, and the target's reverse
-                // index with it -- see applyShapeSideBindingUpdates.
-                const boundArrow = newElements.find(e => e.id === el.id) as LinearElement;
-                if (boundArrow) {
-                  updatedElement = boundArrow;
-                  applyShapeSideBindingUpdates(allElements, newElements, el.id);
-                }
-              }
-            }
-          } else {
-            // No nearby shape - unbind if currently bound
-            this.updateHoveredBindingId(null);
-            if (currentBinding) {
-              const newElements = unbindArrowFromElement(
-                arrowWithLiveBinding,
-                startOrEnd,
-                allElements
-              );
-              applyShapeSideBindingUpdates(allElements, newElements, el.id);
-              const unboundArrow = newElements.find(e => e.id === el.id) as LinearElement;
-              if (unboundArrow) {
-                updatedElement = unboundArrow;
-              }
-            }
+          const allElements = this.deps.store.getSnapshot().elements as DriplElement[];
+          const bindingResult = resolveEndpointDragBinding({
+            arrow: dragged.element as LinearElement,
+            startOrEnd,
+            target,
+            elements: allElements,
+          });
+          this.updateHoveredBindingId(bindingResult.hoveredBindingId);
+          if (bindingResult.shapeSideUpdates.size > 0) {
+            this.deps.updateElementsTransient(bindingResult.shapeSideUpdates);
           }
+          updatedElement = bindingResult.updatedArrow;
         }
 
         if (el.id) this.deps.updateElementTransient(el.id, updatedElement);

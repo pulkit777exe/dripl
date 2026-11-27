@@ -1,4 +1,4 @@
-import type { DriplElement, LinearElement } from '@dripl/common';
+import type { DriplElement, LinearElement, Point } from '@dripl/common';
 import { repairBindings as repairBindingsCommon } from '@dripl/common/arrow-binding';
 import {
   bindArrowToElement,
@@ -6,6 +6,7 @@ import {
   unbindAffectedByDeletion,
   unbindArrowFromElement,
 } from '@/utils/arrow-binding';
+import { calculateArrowBinding } from '@/utils/arrow-routing';
 import {
   buildBoundArrowsByShape,
   resolveGestureUpdates,
@@ -98,6 +99,116 @@ export function syncBoundLabelsAfterMove(
   updates: Map<string, Partial<DriplElement>>
 ): void {
   updateBoundLabels(movedElementIds, elementsById, updates);
+}
+
+// ---------------------------------------------------------------------------
+// Endpoint drag binding
+// ---------------------------------------------------------------------------
+
+export interface EndpointDragBindingResult {
+  /** Arrow element to apply as the transient update (may be unchanged). */
+  updatedArrow: LinearElement;
+  /** Shape-side reverse-index updates to apply transiently. */
+  shapeSideUpdates: Map<string, Partial<DriplElement>>;
+  /** Shape id to highlight as hovered binding target, or null. */
+  hoveredBindingId: string | null;
+}
+
+function collectShapeSideBindingUpdates(
+  before: readonly DriplElement[],
+  after: readonly DriplElement[],
+  excludeId: string
+): Map<string, Partial<DriplElement>> {
+  const previous = new Map(before.map((e) => [e.id, e]));
+  const updates = new Map<string, Partial<DriplElement>>();
+  for (const element of after) {
+    if (element.id === excludeId) continue;
+    if (previous.get(element.id) === element) continue;
+    updates.set(element.id, element);
+  }
+  return updates;
+}
+
+/**
+ * Resolve endpoint-drag binding for an arrow/line handle move.
+ *
+ * Encapsulates: live-binding composition (snapshot geometry + live binding
+ * state), nearby bindable shape detection, bind/unbind decisions, and shape-side
+ * reverse index diff computation. Returns structured effects; callers own store
+ * updates and hovered-binding view state.
+ */
+export function resolveEndpointDragBinding(params: {
+  arrow: LinearElement;
+  startOrEnd: 'start' | 'end';
+  target: Point;
+  elements: DriplElement[];
+  threshold?: number;
+}): EndpointDragBindingResult {
+  const { arrow, startOrEnd, target, elements, threshold = 20 } = params;
+
+  const liveArrow = elements.find((e) => e.id === arrow.id) as LinearElement | undefined;
+  const arrowWithLiveBinding = {
+    ...arrow,
+    startBinding: liveArrow?.startBinding ?? arrow.startBinding,
+    endBinding: liveArrow?.endBinding ?? arrow.endBinding,
+  } as LinearElement;
+  const currentBinding =
+    startOrEnd === 'start'
+      ? arrowWithLiveBinding.startBinding
+      : arrowWithLiveBinding.endBinding;
+  const nearbyShape = findBindableElementAtPoint(target, elements, arrow.id, threshold);
+
+  if (nearbyShape) {
+    if (!currentBinding || currentBinding.elementId !== nearbyShape.id) {
+      let newElements = currentBinding
+        ? unbindArrowFromElement(arrowWithLiveBinding, startOrEnd, elements)
+        : elements;
+      const binding = calculateArrowBinding(target, nearbyShape);
+      if (binding) {
+        newElements = bindArrowToElement(
+          arrowWithLiveBinding,
+          nearbyShape.id,
+          startOrEnd,
+          { x: binding.focus, y: 0.5 },
+          'orbit',
+          newElements
+        );
+        const boundArrow = newElements.find((e) => e.id === arrow.id) as LinearElement | undefined;
+        if (boundArrow) {
+          return {
+            updatedArrow: boundArrow,
+            shapeSideUpdates: collectShapeSideBindingUpdates(elements, newElements, arrow.id),
+            hoveredBindingId: nearbyShape.id,
+          };
+        }
+      }
+    }
+    return {
+      updatedArrow: arrow,
+      shapeSideUpdates: new Map(),
+      hoveredBindingId: nearbyShape.id,
+    };
+  }
+
+  if (currentBinding) {
+    const newElements = unbindArrowFromElement(
+      arrowWithLiveBinding,
+      startOrEnd,
+      elements
+    );
+    const unboundArrow = newElements.find((e) => e.id === arrow.id) as LinearElement | undefined;
+    return {
+      updatedArrow: unboundArrow ?? arrow,
+      shapeSideUpdates: collectShapeSideBindingUpdates(elements, newElements, arrow.id),
+      hoveredBindingId: null,
+    };
+  }
+
+  return {
+    updatedArrow: arrow,
+    shapeSideUpdates: new Map(),
+    hoveredBindingId: null,
+  };
 }
 
 // ---------------------------------------------------------------------------
