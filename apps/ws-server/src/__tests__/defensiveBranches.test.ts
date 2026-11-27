@@ -25,7 +25,8 @@ import {
   saveTimeouts,
   scheduleSave,
 } from '../rooms';
-import { applyRemoteSceneMessage, wouldExceedSceneCapacity } from '../sceneMutation';
+import { applyRemoteSceneMessage } from '../sceneCommit';
+import { wouldExceedSceneCapacity } from '../sceneMutation';
 import type { RoomState } from '../types';
 
 const rect = (id: string, version = 1) =>
@@ -85,7 +86,9 @@ describe('capacity accounting ignores entries that are not elements', () => {
     const room = getOrCreateRoom('cap-repeat');
     const batch = Array.from({ length: 50 }, () => rect('same-id'));
     expect(wouldExceedSceneCapacity(room, batch)).toBe(false);
-    expect(applyRemoteSceneMessage(room, { type: 'scene-delta', added: batch })).toBe(true);
+    expect(applyRemoteSceneMessage(room, { type: 'scene-delta', added: batch }).changed).toBe(
+      true
+    );
     expect(room.elements.size).toBe(1);
   });
 });
@@ -105,9 +108,9 @@ describe('remote add path', () => {
     // relayed, so two instances' clients would diverge while their owners stayed
     // consistent with each other.
     const room = getOrCreateRoom('remote-add-ok') as RoomState;
-    expect(applyRemoteSceneMessage(room, { type: 'add_element', element: rect('from-peer') })).toBe(
-      true
-    );
+    expect(
+      applyRemoteSceneMessage(room, { type: 'add_element', element: rect('from-peer') }).changed
+    ).toBe(true);
     expect(room.elements.has('from-peer')).toBe(true);
     expect(room.dirty).toBe(true);
     expect(room.mutationVersion).toBe(1);
@@ -117,9 +120,9 @@ describe('remote add path', () => {
   it('applies a peer update the same way', () => {
     const room = getOrCreateRoom('remote-update-ok') as RoomState;
     room.elements.set('a', rect('a', 1));
-    expect(applyRemoteSceneMessage(room, { type: 'update_element', element: rect('a', 2) })).toBe(
-      true
-    );
+    expect(
+      applyRemoteSceneMessage(room, { type: 'update_element', element: rect('a', 2) }).changed
+    ).toBe(true);
     expect(room.elements.get('a')?.version).toBe(2);
     expect(room.dirty).toBe(true);
   });
@@ -143,7 +146,9 @@ describe('remote add path', () => {
       following: new Map(),
       viewports: new Map(),
     } as unknown as RoomState;
-    expect(applyRemoteSceneMessage(room, { type: 'add_element', element: rect('a') })).toBe(true);
+    expect(
+      applyRemoteSceneMessage(room, { type: 'add_element', element: rect('a') }).changed
+    ).toBe(true);
     expect(room.tombstones).toBeInstanceOf(Map);
   });
 });

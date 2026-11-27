@@ -20,7 +20,7 @@ const dbMock = vi.hoisted(() => ({
 vi.mock('@dripl/db', () => ({ db: dbMock }));
 
 import { getOrCreateRoom, loadRoomElements, parseStoredElements, rooms } from '../rooms';
-import { applyRemoteSceneMessage } from '../sceneMutation';
+import { applyRemoteSceneMessage } from '../sceneCommit';
 import type { DriplElement } from '@dripl/common';
 
 describe('stored element normalization', () => {
@@ -110,7 +110,9 @@ describe('remote delete arm', () => {
       versionNonce: 4,
     } as unknown as DriplElement);
 
-    expect(applyRemoteSceneMessage(room, { type: 'delete_element', elementId: 'x' })).toBe(true);
+    expect(
+      applyRemoteSceneMessage(room, { type: 'delete_element', elementId: 'x' }).changed
+    ).toBe(true);
     expect(room.elements.has('x')).toBe(false);
     expect(room.tombstones.get('x')?.version).toBe(5);
     expect(room.dirty).toBe(true);

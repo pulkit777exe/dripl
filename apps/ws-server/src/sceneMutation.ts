@@ -4,16 +4,16 @@ import {
   type DriplElement,
   type MovedElement,
 } from '@dripl/common';
-import { MAX_ELEMENTS_PER_SCENE, markRoomDirty, scheduleSave } from './rooms';
+import { MAX_ELEMENTS_PER_SCENE } from './rooms';
 import { shouldAcceptElement } from '@dripl/common/reconciliation';
 import type { RoomState } from './types';
-import { isSupersededByTombstone, deleteWithTombstone } from './tombstones';
+import { isSupersededByTombstone } from './tombstones';
 
 /**
  * Single home for the scene-mutation primitives. Previously `toDriplElement`,
  * `acceptElement`, and `wouldExceedSceneCapacity` lived in `index.ts` while
  * eight near-identical parse→fence→store loops were spread across the dispatch
- * switch and `applyRemoteSceneMessage`, and two verbatim `clientMsgId` dedup
+ * switch and the remote fan-in path, and two verbatim `clientMsgId` dedup
  * rings were hand-copied into `scene-update` and `scene-delta`.
  *
  * The shared helpers below are behavior-preserving by construction:
@@ -179,71 +179,4 @@ export function noteClientMsgId(room: RoomState, clientMsgId: string | undefined
   return false;
 }
 
-export function applyRemoteSceneMessage(room: RoomState, msg: Record<string, unknown>): boolean {
-  let changed = false;
-  const acceptAllRemote = (values: unknown): DriplElement[] => {
-    const accepted: DriplElement[] = [];
-    acceptAllParsed(room, values, accepted);
-    if (accepted.length > 0) changed = true;
-    return accepted;
-  };
 
-  switch (msg.type) {
-    case 'add_element':
-    case 'update_element':
-      if (
-        msg.element &&
-        !wouldExceedSceneCapacity(room, [msg.element]) &&
-        acceptElement(room, msg.element)
-      ) {
-        changed = true;
-      }
-      break;
-    case 'delete_element':
-      if (typeof msg.elementId === 'string' && deleteWithTombstone(room, msg.elementId)) {
-        changed = true;
-      }
-      break;
-    case 'element-update': {
-      if (Array.isArray(msg.elements)) acceptAllRemote(msg.elements);
-      else if (
-        msg.element &&
-        !wouldExceedSceneCapacity(room, [msg.element]) &&
-        acceptElement(room, msg.element)
-      ) {
-        changed = true;
-      }
-      break;
-    }
-    case 'scene-update':
-      acceptAllRemote(msg.elements);
-      break;
-    case 'scene-delta': {
-      const prospectiveElements = [
-        ...(Array.isArray(msg.added) ? msg.added : []),
-        ...(Array.isArray(msg.updated) ? msg.updated : []),
-      ];
-      if (wouldExceedSceneCapacity(room, prospectiveElements)) return false;
-      acceptAllRemote(msg.added);
-      acceptAllRemote(msg.updated);
-      if (Array.isArray(msg.deleted)) {
-        for (const id of msg.deleted) {
-          if (typeof id === 'string' && deleteWithTombstone(room, id)) changed = true;
-        }
-      }
-      // Move-only entries merge against the room copy; they add no new ids
-      // so the capacity pre-check does not apply to them.
-      if (acceptMovedElements(room, (msg as { moved?: unknown }).moved).length > 0) {
-        changed = true;
-      }
-      break;
-    }
-    default:
-      return false;
-  }
-
-  if (!changed) return false;
-  markRoomDirty(room.roomId);
-  scheduleSave(room.roomId);
-  return true;
-}
