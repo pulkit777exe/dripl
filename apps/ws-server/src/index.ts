@@ -43,7 +43,7 @@ import {
 import { setRateLimitIdentity, removeRateLimitIdentity } from './rateLimiter';
 import { isRedisAvailable, unsubscribeFromRoom } from './redis';
 import { onRoomOwnershipLost, releaseAllRooms } from './roomOwnership';
-import { applyRemoteSceneMessage } from './sceneMutation';
+import { applyRemoteSceneMessage } from './sceneCommit';
 
 const MAX_EARLY_BUFFER_BYTES = 1_000_000;
 const MAX_SERIALIZED_QUEUE_BYTES = 2_000_000;
@@ -94,9 +94,10 @@ function handleRedisMessage(roomId: string, payload: unknown): void {
     case 'scene-delta': {
       // Apply the remote mutation to this process's room before forwarding it.
       // Broadcasting without applying leaves replicas with stale state and can
-      // make the next join/save resurrect an older scene.
-      const changed = applyRemoteSceneMessage(room, msg as unknown as Record<string, unknown>);
-      if (changed) broadcast(room, msg, undefined);
+      // make the next join/save resurrect an older scene. Fan-out carries the
+      // filtered accepted delta, not the original payload.
+      const result = applyRemoteSceneMessage(room, msg as unknown as Record<string, unknown>);
+      if (result.changed && result.delta) broadcast(room, result.delta, undefined);
       break;
     }
     case 'cursor_move':

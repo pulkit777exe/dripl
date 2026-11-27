@@ -9,9 +9,9 @@
  * Two properties matter beyond "it stores elements":
  *
  *   1. It applies before it forwards. `index.ts` only broadcasts a remote
- *      mutation if this returns true, because a replica that forwards without
+ *      mutation if this returns changed, because a replica that forwards without
  *      applying keeps a stale authoritative scene and resurrects the older copy
- *      on the next join or save.
+ *      on the next join or save. Fan-out carries the filtered accepted delta.
  *   2. Capacity is decided *before* any element is stored, so an over-capacity
  *      remote batch is dropped whole rather than partially applied. A partial
  *      apply is not a recoverable state: the room is now over its cap and no
@@ -28,7 +28,7 @@ vi.mock('@dripl/db', () => ({ db: dbMock }));
 
 import { MAX_SCENE_ELEMENTS } from '@dripl/common';
 import { getOrCreateRoom, rooms, saveTimeouts } from '../rooms';
-import { applyRemoteSceneMessage } from '../sceneMutation';
+import { applyRemoteSceneMessage } from '../sceneCommit';
 import { deleteWithTombstone } from '../tombstones';
 import type { DriplElement } from '@dripl/common';
 import type { RoomState } from '../types';
@@ -67,9 +67,9 @@ describe('applyRemoteSceneMessage', () => {
     // future protocol message) must not mark the room dirty. Marking it dirty
     // would schedule a fenced Postgres write for a change that never happened.
     const room = getOrCreateRoom('remote-unknown');
-    expect(applyRemoteSceneMessage(room, { type: 'user-join', roomId: 'remote-unknown' })).toBe(
-      false
-    );
+    expect(applyRemoteSceneMessage(room, { type: 'user-join', roomId: 'remote-unknown' })).toEqual({
+      changed: false,
+    });
     expect(room.dirty).toBe(false);
     expect(room.mutationVersion).toBe(0);
     expect(saveTimeouts.has('remote-unknown')).toBe(false);
@@ -80,16 +80,16 @@ describe('applyRemoteSceneMessage', () => {
     // can publish here. An unparseable element must be discarded, not stored
     // into the authoritative copy and then persisted.
     const room = getOrCreateRoom('remote-bad');
-    expect(applyRemoteSceneMessage(room, { type: 'add_element', element: { nope: true } })).toBe(
-      false
-    );
+    expect(applyRemoteSceneMessage(room, { type: 'add_element', element: { nope: true } })).toEqual({
+      changed: false,
+    });
     expect(room.elements.size).toBe(0);
     expect(room.dirty).toBe(false);
   });
 
   it('rejects a remote add with no element at all', () => {
     const room = getOrCreateRoom('remote-empty');
-    expect(applyRemoteSceneMessage(room, { type: 'add_element' })).toBe(false);
+    expect(applyRemoteSceneMessage(room, { type: 'add_element' })).toEqual({ changed: false });
     expect(room.dirty).toBe(false);
   });
 
@@ -104,7 +104,7 @@ describe('applyRemoteSceneMessage', () => {
     }
     expect(
       applyRemoteSceneMessage(room, { type: 'add_element', element: el('one-too-many') })
-    ).toBe(false);
+    ).toEqual({ changed: false });
     expect(room.elements.has('one-too-many')).toBe(false);
     expect(room.dirty).toBe(false);
   });
@@ -114,9 +114,9 @@ describe('applyRemoteSceneMessage', () => {
     // tombstone may be written for an absent element, or the id is suppressed
     // from legitimate re-adds for 24h for no reason.
     const room = getOrCreateRoom('remote-del-missing');
-    expect(applyRemoteSceneMessage(room, { type: 'delete_element', elementId: 'ghost' })).toBe(
-      false
-    );
+    expect(applyRemoteSceneMessage(room, { type: 'delete_element', elementId: 'ghost' })).toEqual({
+      changed: false,
+    });
     expect(room.tombstones.has('ghost')).toBe(false);
     expect(room.dirty).toBe(false);
   });
@@ -124,7 +124,9 @@ describe('applyRemoteSceneMessage', () => {
   it('ignores a delete whose elementId is not a string', () => {
     const room = getOrCreateRoom('remote-del-junk');
     room.elements.set('x', el('x') as unknown as DriplElement);
-    expect(applyRemoteSceneMessage(room, { type: 'delete_element', elementId: 42 })).toBe(false);
+    expect(applyRemoteSceneMessage(room, { type: 'delete_element', elementId: 42 })).toEqual({
+      changed: false,
+    });
     expect(room.elements.has('x')).toBe(true);
   });
 
@@ -134,7 +136,8 @@ describe('applyRemoteSceneMessage', () => {
       type: 'element-update',
       elements: [el('a'), el('b')],
     });
-    expect(applied).toBe(true);
+    expect(applied.changed).toBe(true);
+    expect(applied.delta).toEqual({ type: 'scene-delta', updated: [el('a'), el('b')] });
     expect(ids(room)).toEqual(['a', 'b']);
     expect(room.dirty).toBe(true);
     expect(room.mutationVersion).toBe(1);
@@ -143,9 +146,9 @@ describe('applyRemoteSceneMessage', () => {
 
   it('falls back to the singleton form of element-update', () => {
     const room = getOrCreateRoom('remote-batch-single');
-    expect(applyRemoteSceneMessage(room, { type: 'element-update', element: el('solo') })).toBe(
-      true
-    );
+    const result = applyRemoteSceneMessage(room, { type: 'element-update', element: el('solo') });
+    expect(result.changed).toBe(true);
+    expect(result.delta).toEqual({ type: 'scene-delta', updated: [el('solo')] });
     expect(ids(room)).toEqual(['solo']);
   });
 
@@ -155,9 +158,9 @@ describe('applyRemoteSceneMessage', () => {
     // survive. Treating it as a replacement would erase the room.
     const room = getOrCreateRoom('remote-scene-update');
     room.elements.set('existing', el('existing', 5) as unknown as DriplElement);
-    expect(applyRemoteSceneMessage(room, { type: 'scene-update', elements: [el('fresh')] })).toBe(
-      true
-    );
+    const result = applyRemoteSceneMessage(room, { type: 'scene-update', elements: [el('fresh')] });
+    expect(result.changed).toBe(true);
+    expect(result.delta).toEqual({ type: 'scene-delta', added: [el('fresh')] });
     expect(ids(room)).toEqual(['existing', 'fresh']);
   });
 
@@ -173,7 +176,7 @@ describe('applyRemoteSceneMessage', () => {
         added: [el('a', 2)],
         updated: [el('a', 1)],
       })
-    ).toBe(false);
+    ).toEqual({ changed: false });
     expect(room.elements.get('a')?.version).toBe(7);
     expect(room.dirty).toBe(false);
   });
@@ -185,7 +188,9 @@ describe('applyRemoteSceneMessage', () => {
     const room = getOrCreateRoom('remote-tomb');
     room.elements.set('x', el('x', 2) as unknown as DriplElement);
     deleteWithTombstone(room, 'x');
-    expect(applyRemoteSceneMessage(room, { type: 'add_element', element: el('x', 2) })).toBe(false);
+    expect(applyRemoteSceneMessage(room, { type: 'add_element', element: el('x', 2) })).toEqual({
+      changed: false,
+    });
     expect(room.elements.has('x')).toBe(false);
     expect(room.dirty).toBe(false);
   });
@@ -204,7 +209,7 @@ describe('applyRemoteSceneMessage', () => {
         added: [el('brand-new')],
         deleted: ['full-0'],
       })
-    ).toBe(false);
+    ).toEqual({ changed: false });
     expect(room.elements.has('brand-new')).toBe(false);
     expect(room.elements.has('full-0')).toBe(true);
     expect(room.dirty).toBe(false);
@@ -223,7 +228,7 @@ describe('applyRemoteSceneMessage', () => {
         added: [el('n1')],
         updated: [el('n2')],
       })
-    ).toBe(false);
+    ).toEqual({ changed: false });
     expect(room.dirty).toBe(false);
   });
 
@@ -232,7 +237,9 @@ describe('applyRemoteSceneMessage', () => {
     // loses instead of resurrecting the element.
     const room = getOrCreateRoom('remote-delta-del');
     room.elements.set('x', el('x', 3) as unknown as DriplElement);
-    expect(applyRemoteSceneMessage(room, { type: 'scene-delta', deleted: ['x'] })).toBe(true);
+    const result = applyRemoteSceneMessage(room, { type: 'scene-delta', deleted: ['x'] });
+    expect(result.changed).toBe(true);
+    expect(result.delta).toEqual({ type: 'scene-delta', deleted: ['x'] });
     expect(room.elements.has('x')).toBe(false);
     expect(room.tombstones.get('x')?.version).toBe(4);
     expect(room.dirty).toBe(true);
@@ -240,9 +247,9 @@ describe('applyRemoteSceneMessage', () => {
 
   it('ignores a remote delta that names nothing to change', () => {
     const room = getOrCreateRoom('remote-delta-empty');
-    expect(applyRemoteSceneMessage(room, { type: 'scene-delta', deleted: ['never-existed'] })).toBe(
-      false
-    );
+    expect(
+      applyRemoteSceneMessage(room, { type: 'scene-delta', deleted: ['never-existed'] })
+    ).toEqual({ changed: false });
     expect(room.tombstones.size).toBe(0);
     expect(room.dirty).toBe(false);
   });
@@ -253,7 +260,9 @@ describe('applyRemoteSceneMessage', () => {
     // handler — an exception here runs from Upstash's dispatch, not from a
     // try/catch this server controls.
     const room = getOrCreateRoom('remote-junk-fields');
-    expect(applyRemoteSceneMessage(room, { type: 'scene-update', elements: 'nope' })).toBe(false);
+    expect(applyRemoteSceneMessage(room, { type: 'scene-update', elements: 'nope' })).toEqual({
+      changed: false,
+    });
     expect(
       applyRemoteSceneMessage(room, {
         type: 'scene-delta',
@@ -261,7 +270,7 @@ describe('applyRemoteSceneMessage', () => {
         updated: { nope: true },
         deleted: [null, 7, {}],
       })
-    ).toBe(false);
+    ).toEqual({ changed: false });
     expect(room.dirty).toBe(false);
   });
 });
