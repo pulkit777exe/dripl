@@ -107,7 +107,7 @@ export interface MemoryTicketStoreOptions {
   /**
    * Backing entries. Defaults to a fresh private `Map`. Inject a module-level
    * map only to preserve object identity for legacy shims that already hand
-   * that map out (see `routes/auth.ts`'s `wsTicketStore` compat export).
+   * that map out (see `routes/wsTickets.ts`'s `wsTicketStore` compat export).
    */
   entries?: Map<string, TicketEntry>;
 }

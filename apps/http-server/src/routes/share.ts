@@ -1,7 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { db } from '@dripl/db';
-import { issueTicket, type WsTicketPrincipal } from './auth';
+import { issueTicket, type WsTicketPrincipal } from './wsTickets';
 import { ShareService, type SharePermission } from '../services/shareService';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { defineRoute } from '../lib/route';

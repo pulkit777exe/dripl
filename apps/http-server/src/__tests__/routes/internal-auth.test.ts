@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createInternalRouter } from '../../routes/auth';
+import { createInternalRouter } from '../../routes/wsTickets';
 
 function internalApp() {
   const app = express();

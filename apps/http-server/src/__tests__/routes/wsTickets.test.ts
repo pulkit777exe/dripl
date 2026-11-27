@@ -41,7 +41,12 @@ vi.mock('@dripl/db', async () => {
   return fakeDbModule();
 });
 
-import { createInternalRouter, issueWsTicket, wsTicketStore, authRouter } from '../../routes/auth';
+import {
+  createInternalRouter,
+  issueWsTicket,
+  wsTicketStore,
+  wsTicketRouter,
+} from '../../routes/wsTickets';
 import { signToken } from '@dripl/utils/auth';
 import {
   buildApp,
@@ -55,7 +60,7 @@ import { fakeDb, resetFakeDb } from '../test-utils/fakePrisma';
 const INTERNAL_SECRET = 'the-internal-secret';
 
 /** `app.ts` mounts `/api/auth` with CSRF but no blanket auth guard. */
-const app = buildApp([{ path: '/api/auth', router: authRouter, auth: false }]);
+const app = buildApp([{ path: '/api/auth', router: wsTicketRouter, auth: false }]);
 
 function internalApp(): express.Express {
   const instance = express();
@@ -316,7 +321,7 @@ describe('the ticket store is bounded', () => {
     vi.useFakeTimers();
     try {
       vi.resetModules();
-      const fresh = await import('../../routes/auth');
+      const fresh = await import('../../routes/wsTickets');
 
       fresh.wsTicketStore.set('stale-ticket', {
         principal: { kind: 'user', userId: OWNER_ID },

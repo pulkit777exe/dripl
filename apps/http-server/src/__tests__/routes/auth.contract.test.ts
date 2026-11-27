@@ -23,7 +23,8 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { signToken } from '@dripl/utils/auth';
 import { db } from '@dripl/db';
-import { authRouter, wsTicketStore } from '../../routes/auth';
+import { authRouter } from '../../routes/auth';
+import { wsTicketStore, wsTicketRouter } from '../../routes/wsTickets';
 import {
   bearer,
   buildApp,
@@ -47,7 +48,10 @@ import { hashToken } from '../../lib/tokenHash';
  * every case here would have been answering 401 from the fixture's own guard
  * rather than reaching the route under test.
  */
-const app = buildApp([{ path: '/api/auth', router: authRouter, auth: false }]);
+const app = buildApp([
+  { path: '/api/auth', router: authRouter, auth: false },
+  { path: '/api/auth', router: wsTicketRouter, auth: false },
+]);
 const unguardedApp = buildApp([{ path: '/api/auth', router: authRouter }], {
   csrf: false,
   auth: false,

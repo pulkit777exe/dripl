@@ -10,7 +10,8 @@ import { getAllowedOrigins } from './lib/allowedOrigins';
 import { sendError } from './lib/response';
 import { logger } from './logger';
 import { createRateLimiter } from './lib/rateLimiter';
-import { authRouter, createInternalRouter } from './routes/auth';
+import { authRouter } from './routes/auth';
+import { createInternalRouter, wsTicketRouter } from './routes/wsTickets';
 import { filesRouter } from './routes/files';
 import { foldersRouter } from './routes/folders';
 import { shareRouter } from './routes/share';
@@ -232,6 +233,7 @@ export function createApp(): Application {
     app.use(path, authRateLimitMiddleware);
   }
   app.use('/api/auth', authRouter);
+  app.use('/api/auth', wsTicketRouter);
   app.use('/api/share', validateCsrfToken, shareRouter);
   app.use('/api/files', validateCsrfToken, authMiddleware, filesRouter);
   app.use('/api/folders', validateCsrfToken, authMiddleware, foldersRouter);

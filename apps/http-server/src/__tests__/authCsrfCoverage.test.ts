@@ -59,6 +59,7 @@ vi.mock('../lib/mailer', () => ({
 
 import { createApp } from '../app';
 import { authRouter } from '../routes/auth';
+import { wsTicketRouter } from '../routes/wsTickets';
 import { CSRF_TOKEN } from './test-utils/authenticatedRequest';
 
 const app = createApp();
@@ -318,25 +319,28 @@ describe('the other routers are guarded at the mount, not by a list', () => {
 const KNOWN_UNGUARDED = ['/api/auth/google'] as const;
 
 describe('the enumeration above accounts for every state-changing route', () => {
-  it('matches the router’s own route table exactly', () => {
+  it('matches the routers’ own route tables exactly', () => {
     const onRouter: string[] = [];
 
-    // Walk the router's stack rather than re-reading its source, so this check cannot
-    // drift from the code it is describing.
-    for (const layer of authRouter.stack) {
-      const route = layer.route;
-      if (!route) continue;
-      const methods = (route as unknown as { methods?: Record<string, boolean> }).methods ?? {};
-      for (const method of Object.keys(methods)) {
-        if (method === 'get' || method === 'head' || method === 'options') continue;
-        // `route.path` is relative to the router's own mount and already carries a
-        // leading slash: `post` + `/login` is `/api/auth/login`.
-        onRouter.push(`/api/auth${route.path}`);
+    // Walk the routers' stacks rather than re-reading their source, so this check
+    // cannot drift from the code it is describing. ws-ticket lives on wsTicketRouter
+    // after the ticket-seam extraction; both routers are mounted under /api/auth.
+    for (const router of [authRouter, wsTicketRouter]) {
+      for (const layer of router.stack) {
+        const route = layer.route;
+        if (!route) continue;
+        const methods = (route as unknown as { methods?: Record<string, boolean> }).methods ?? {};
+        for (const method of Object.keys(methods)) {
+          if (method === 'get' || method === 'head' || method === 'options') continue;
+          // `route.path` is relative to the router's own mount and already carries a
+          // leading slash: `post` + `/login` is `/api/auth/login`.
+          onRouter.push(`/api/auth${route.path}`);
+        }
       }
     }
 
     // Deduped: `STATE_CHANGING` already enumerates every state-changing route the
-    // router exposes, including the unguarded one — which is why the loop above
+    // routers expose, including the unguarded one — which is why the loop above
     // skips `/google` rather than omitting it. Unioning `KNOWN_UNGUARDED` in as
     // well counted that path twice and made this check report a phantom
     // duplicate route.
