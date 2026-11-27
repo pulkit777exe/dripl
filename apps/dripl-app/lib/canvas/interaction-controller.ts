@@ -1729,6 +1729,10 @@ export class CanvasInteractionControllerImpl implements CanvasInteractionControl
     this.eraserFlushId = null;
     this.eraserPending = [];
     this.deps.store.setEraserPath([]);
+    // Release any gesture-held collaboration locks so a remote element never
+    // stays locked by a dead controller (same invariant as useTransformStart's
+    // unmount cleanup and the gesture finalize/cancel paths).
+    this.deps.collab.unlockGestureElements();
     this.viewListeners.clear();
   }
 }

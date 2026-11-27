@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCanvasStore } from '@/lib/store';
 import { useTransformStart } from '@/hooks/canvas/useTransformStart';
+import { CanvasInteractionControllerImpl } from '@/lib/canvas/interaction-controller';
 import type { InteractionState } from '@/hooks/canvas/useCanvasPointerEvents';
 import type { ResizeHandle } from '@/components/canvas/SelectionOverlay';
 import type { DriplElement } from '@dripl/common';
@@ -45,6 +46,9 @@ function seed(elements: DriplElement[], selectedIds: string[]) {
  * The hook captures the pointer on the interactive canvas selected by its
  * `data-layer` role, so the harness needs a real container with two labelled
  * canvases: the static one must be skipped.
+ *
+ * PR3: the hook is a thin wrapper; tests exercise the public contract through
+ * a real controller instance wired with minimal deps.
  */
 function setup(options: { readOnly?: boolean; captured?: number[] } = {}) {
   const container = document.createElement('div');
@@ -60,62 +64,130 @@ function setup(options: { readOnly?: boolean; captured?: number[] } = {}) {
   container.appendChild(overlay);
   container.appendChild(interactive);
 
-  const interactionRef = { current: freshInteraction() } as { current: InteractionState };
   const lockElementsForGesture = vi.fn();
   const unlockGestureElements = vi.fn();
-  const setEditingElementId = vi.fn();
+  const setEditingElementId = vi.fn((id: string | null) => {
+    useCanvasStore.getState().setEditingElementId(id);
+  });
+
+  const controller = new CanvasInteractionControllerImpl({
+    readOnly: options.readOnly ?? false,
+    containerRef: { current: container } as React.RefObject<HTMLDivElement>,
+    getCanvasCoordinates: (e: { clientX: number; clientY: number }) => ({ x: e.clientX, y: e.clientY }),
+    snapPointToGrid: (p: { x: number; y: number }) => p,
+    store: {
+      getSnapshot: () => {
+        const s = useCanvasStore.getState();
+        return {
+          elements: s.elements,
+          elementsById: s.elementsById,
+          selectedIds: s.selectedIds,
+          activeTool: s.activeTool,
+          isDrawing: s.isDrawing,
+          zoom: s.zoom,
+          panX: s.panX,
+          panY: s.panY,
+          marqueeSelection: s.marqueeSelection,
+          marqueeSelectionMode: s.marqueeSelectionMode,
+          elementLocks: s.elementLocks,
+          userId: s.userId,
+          gridEnabled: s.gridEnabled,
+          gridSize: s.gridSize,
+          isEditingElementId: s.isEditingElementId,
+          draftElement: s.draftElement,
+          currentStrokeColor: s.currentStrokeColor,
+          currentBackgroundColor: s.currentBackgroundColor,
+          currentStrokeWidth: s.currentStrokeWidth,
+          currentRoughness: s.currentRoughness,
+          currentStrokeStyle: s.currentStrokeStyle,
+          currentFillStyle: s.currentFillStyle,
+          currentArrowStyle: s.currentArrowStyle,
+        };
+      },
+      setSelectedIds: (ids: Set<string>) => useCanvasStore.getState().setSelectedIds(ids),
+      clearSelection: () => useCanvasStore.getState().clearSelection(),
+      setIsDragging: (v: boolean) => useCanvasStore.getState().setIsDragging(v),
+      setIsPanning: (v: boolean) => useCanvasStore.getState().setIsPanning(v),
+      setIsResizing: (v: boolean) => useCanvasStore.getState().setIsResizing(v),
+      setIsRotating: (v: boolean) => useCanvasStore.getState().setIsRotating(v),
+      setIsDrawing: (v: boolean) => useCanvasStore.getState().setIsDrawing(v),
+      setTextInput: (v: unknown) => useCanvasStore.getState().setTextInput(v as never),
+      setCursorPosition: (v: unknown) => useCanvasStore.getState().setCursorPosition(v as never),
+      setMarqueeSelection: (v: unknown) => useCanvasStore.getState().setMarqueeSelection(v as never),
+      setEraserPath: (v: unknown) => useCanvasStore.getState().setEraserPath(v as never),
+      setPan: (x: number, y: number) => useCanvasStore.getState().setPan(x, y),
+      setViewport: (z: number, x: number, y: number) => useCanvasStore.getState().setViewport(z, x, y),
+      setActiveTool: (t: unknown) => useCanvasStore.getState().setActiveTool(t as never),
+      setEditingElementId,
+      expandSelectionWithGroups: (ids: Set<string>, els: readonly DriplElement[]) =>
+        useCanvasStore.getState().expandSelectionWithGroups(ids, els as DriplElement[]),
+      getSelectionBounds: (ids: ReadonlySet<string>, els: readonly DriplElement[]) =>
+        useCanvasStore.getState().getSelectionBounds(ids as Set<string>, els as DriplElement[]),
+      collectCascadeDeleteIds: (ids: Iterable<string>) =>
+        useCanvasStore.getState().collectCascadeDeleteIds(ids),
+      deleteElements: (ids: string[], opts?: { skipHistory?: boolean }) =>
+        useCanvasStore.getState().deleteElements(ids, opts),
+      pushHistory: () => useCanvasStore.getState().pushHistory(),
+      clearPendingEmbed: () => useCanvasStore.getState().clearPendingEmbed(),
+    },
+    drawing: {
+      startDrawing: vi.fn(),
+      updateDrawing: vi.fn(),
+      finishDrawing: vi.fn(() => null),
+      cancelDrawing: vi.fn(),
+    },
+    collab: {
+      broadcastCursor: vi.fn(),
+      lockElementsForGesture,
+      unlockElement: vi.fn(),
+      unlockGestureElements,
+    },
+    assets: {
+      uploadImage: vi.fn(async () => ''),
+      loadImageDims: vi.fn(async () => ({ displayWidth: 0, displayHeight: 0 })),
+      makeId: vi.fn(() => 'id'),
+    },
+    env: {
+      now: () => Date.now(),
+      requestFrame: (cb: FrameRequestCallback) => requestAnimationFrame(cb),
+      cancelFrame: (id: number) => cancelAnimationFrame(id),
+      hasAnimationFrame: () => typeof requestAnimationFrame !== 'undefined',
+      dispatchEvent: vi.fn(),
+    },
+    hitTest: {
+      getElementAtPosition: vi.fn(() => null),
+      getElementsAtPosition: vi.fn(() => []),
+      spatialIndex: { tree: { search: () => [] }, byId: new Map() },
+    },
+    addElement: vi.fn(),
+    updateElementTransient: vi.fn(),
+    updateElementsTransient: vi.fn(),
+    updateElement: vi.fn(),
+    maybeRevertToSelectTool: vi.fn(),
+    applyFrameGrouping: vi.fn(),
+  } as unknown as ConstructorParameters<typeof CanvasInteractionControllerImpl>[0]);
 
   const hook = renderHook(() =>
     useTransformStart({
-      interactionRef,
+      interactionRef: controller.interactionRef as React.RefObject<InteractionState>,
       containerRef: { current: container } as React.RefObject<HTMLDivElement>,
       readOnly: options.readOnly ?? false,
       getCanvasCoordinates: e => ({ x: e.clientX, y: e.clientY }),
       lockElementsForGesture,
       unlockGestureElements,
       setEditingElementId,
+      controller,
     })
   );
 
   return {
     ...hook,
-    interactionRef,
+    interactionRef: controller.interactionRef,
     captured,
     lockElementsForGesture,
     unlockGestureElements,
     setEditingElementId,
-  };
-}
-
-function freshInteraction(): InteractionState {
-  return {
-    panning: false,
-    panStartClient: null,
-    isSpacePressed: false,
-    dragStartCanvasPos: null,
-    dragInitialElements: null,
-    dragging: false,
-    historyPushed: false,
-    resizing: false,
-    resizeHandle: null,
-    resizeStartCanvasPos: null,
-    resizeInitialEl: null,
-    resizeInitialEls: null,
-    resizeGroupFrame: null,
-    rotating: false,
-    rotateInitialEl: null,
-    rotateInitialEls: null,
-    rotateCenter: null,
-    rotateStartAngle: 0,
-    pendingDrag: null,
-    pendingMarqueeStart: null,
-    touchPointers: new Map(),
-    pinchStartDistance: 0,
-    pinchStartMid: null,
-    pinchStartZoom: 1,
-    pinchStartPan: { x: 0, y: 0 },
-    boundArrowsByShape: new Map(),
-    bindingIndexReady: false,
+    controller,
   };
 }
 

@@ -21,7 +21,6 @@ import { useCanvasSync } from '@/hooks/canvas/useCanvasSync';
 import { useContainerSize } from '@/hooks/canvas/useContainerSize';
 import { useCanvasCoordinates } from '@/hooks/canvas/useCanvasCoordinates';
 import { useCanvasActions } from '@/hooks/canvas/useCanvasActions';
-import { useTransformStart } from '@/hooks/canvas/useTransformStart';
 import { useContextMenu } from '@/hooks/canvas/useContextMenu';
 import { useStyleTransfer } from '@/hooks/canvas/useStyleTransfer';
 import { resolveCanvasBackground } from '@/lib/canvas/background';
@@ -221,17 +220,9 @@ export default function RoughCanvas({
   // Legacy createElement is removed — all element creation goes through
   // useDrawingTools (startDrawing → updateDrawing → finishDrawing → commitDraft).
 
-  // ── Resize / rotate gesture entry ──────────────────────────────────────────
-  const { handleResizeStart, handleRotateStart } = useTransformStart({
-    interactionRef,
-    containerRef,
-    readOnly,
-    getCanvasCoordinates,
-    lockElementsForGesture,
-    unlockGestureElements,
-    setEditingElementId,
-    controller: interactionController,
-  });
+  // Resize/rotate gesture entry is owned by the interaction controller (PR3).
+  const handleResizeStart = interactionController.beginResize;
+  const handleRotateStart = interactionController.beginRotate;
 
   // ── Context menu ───────────────────────────────────────────────────────────
   const { contextMenuState, setContextMenuState, openContextMenu } = useContextMenu({

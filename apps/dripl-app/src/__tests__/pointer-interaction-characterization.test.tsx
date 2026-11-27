@@ -694,6 +694,7 @@ describe('begin resize/rotate parity via useTransformStart + useCanvasPointerEve
         lockElementsForGesture,
         unlockGestureElements,
         setEditingElementId: useCanvasStore.getState().setEditingElementId,
+        controller: pointer.result.current.controller,
       })
     );
 
