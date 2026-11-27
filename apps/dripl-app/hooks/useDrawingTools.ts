@@ -14,9 +14,7 @@ import { createFrameElement } from '@/utils/tools/frame';
 import { createEmbedElement } from '@/utils/tools/webEmbed';
 import {
   advanceToolState,
-  bindCommittedArrow,
   createToolState,
-  detectArrowBindings,
   isTinyPreview,
   smoothFinishedStroke,
   type ActiveToolState,
@@ -24,6 +22,10 @@ import {
   type ToolTypeName,
   type ToolUpdateOptions,
 } from '@/lib/draw/tool-state';
+import {
+  commitDrawnArrowBindings,
+  detectBindingsForDrawnArrow,
+} from '@/lib/canvas/arrow-binding-coordinator';
 
 /** Tool names accepted by startDrawing; pointer events imports this type. */
 export type ToolType = ToolTypeName;
@@ -243,7 +245,7 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     }
 
     // Detect bindings for arrows
-    const detected = detectArrowBindings(
+    const detected = detectBindingsForDrawnArrow(
       preview,
       useCanvasStore.getState().elements,
       bindModeRef.current
@@ -257,7 +259,9 @@ export function useDrawingTools(): UseDrawingToolsReturn {
     // Update the target shapes' boundElements (reverse index) so arrows follow shapes when dragged
     if (committed && (startMatch || endMatch)) {
       const state = useCanvasStore.getState();
-      state.setElements(bindCommittedArrow(committed, startMatch, endMatch, state.elements));
+      state.setElements(
+        commitDrawnArrowBindings(committed, startMatch, endMatch, state.elements)
+      );
     }
 
     return committed;

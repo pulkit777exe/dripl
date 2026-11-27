@@ -5,13 +5,13 @@ import { generateKeyBetween } from 'fractional-indexing';
 import { invalidateElementCache } from '@dripl/element/staticScene';
 import { sortElementsByZIndex } from '@/utils/zIndexUtils';
 import { mutateElement } from '@dripl/element/mutateElement';
-import { unbindAffectedByDeletion, unbindArrowFromElement } from '@/utils/arrow-binding';
 import { updateArrowLabelPosition } from '@/utils/textBindingUtils';
 import {
-  buildBoundArrowsByShape,
-  updateBoundArrows,
-  updateBoundLabels,
-} from '@/lib/canvas/binding-sync';
+  buildBoundArrowIndex,
+  syncBoundArrowsAfterMove,
+  syncBoundLabelsAfterMove,
+  unbindBindingsForDeletion,
+} from '@/lib/canvas/arrow-binding-coordinator';
 import { projectStyleForElement } from '@/lib/canvas/style-transfer';
 import type { CanvasStoreState, CanvasSlice } from './types';
 import {
@@ -287,20 +287,8 @@ export const createElementActions: StateCreator<
       if (ids.length === 0) return state;
       const idSet = new Set(ids);
 
-      // Step 1: Unbind arrows that were bound to deleted shapes (arrows survive)
-      let nextElements = unbindAffectedByDeletion([...idSet], state.elements);
-
-      // Step 2: If deleting an arrow/line, remove it from any shape's boundElements
-      for (const id of idSet) {
-        const el = state.elementsById.get(id);
-        if (el && (el.type === 'arrow' || el.type === 'line')) {
-          nextElements = unbindArrowFromElement(el as LinearElement, 'start', nextElements);
-          const updated = nextElements.find(e => e.id === id) as LinearElement | undefined;
-          if (updated) {
-            nextElements = unbindArrowFromElement(updated, 'end', nextElements);
-          }
-        }
-      }
+      // Detach bindings for deleted shapes/arrows before removing elements.
+      let nextElements = unbindBindingsForDeletion(idSet, state.elements, state.elementsById);
 
       // Step 3: Filter out the deleted elements themselves
       const finalElements = nextElements.filter(el => !idSet.has(el.id));
@@ -368,8 +356,13 @@ export const createElementActions: StateCreator<
       // same history entry.
       const nextMap = buildElementsById(nextElements);
       const boundUpdates = new Map<string, Partial<DriplElement>>();
-      updateBoundArrows(movedIds, nextMap, buildBoundArrowsByShape(nextElements), boundUpdates);
-      updateBoundLabels(movedIds, nextMap, boundUpdates);
+      syncBoundArrowsAfterMove(
+        movedIds,
+        nextMap,
+        buildBoundArrowIndex(nextElements),
+        boundUpdates
+      );
+      syncBoundLabelsAfterMove(movedIds, nextMap, boundUpdates);
       boundUpdates.forEach((partial, id) => {
         const prev = nextMap.get(id);
         if (!prev) return;

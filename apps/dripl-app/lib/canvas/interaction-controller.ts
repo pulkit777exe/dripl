@@ -6,7 +6,7 @@ import type { ActiveTool } from '@/lib/store';
 import type { ToolType } from '@/hooks/useDrawingTools';
 import type { ToolStartOptions, ToolUpdateOptions } from '@/lib/draw/tool-state';
 import type { ResizeHandle } from '@/components/canvas/SelectionOverlay';
-import { buildBoundArrowsByShape, resolveGestureUpdates } from '@/lib/canvas/binding-sync';
+import { buildBoundArrowsByShape, resolveGestureUpdates } from '@/lib/canvas/arrow-binding-coordinator';
 import {
   groupResizeMapping,
   groupRotateMapping,
@@ -33,7 +33,7 @@ import {
   findBindableElementAtPoint,
   bindArrowToElement,
   unbindArrowFromElement,
-} from '@/utils/arrow-binding';
+} from '@/lib/canvas/arrow-binding-coordinator';
 import { calculateArrowBinding } from '@/utils/arrow-routing';
 
 /**
