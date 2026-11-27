@@ -169,10 +169,12 @@ describe('RoughCanvas -> CanvasLayerUI wiring contract', () => {
     await screen.findByTestId('canvas-layer-ui');
 
     expect(stubs.layerProps).toMatchObject({
-      roomSlug: 'room-7',
-      theme: 'dark',
-      isLocalCanvas: false,
-      readOnly: false,
+      collaboration: {
+        roomSlug: 'room-7',
+        isLocalCanvas: false,
+        readOnly: false,
+      },
+      view: { theme: 'dark' },
     });
   });
 
@@ -184,7 +186,11 @@ describe('RoughCanvas -> CanvasLayerUI wiring contract', () => {
       useCanvasStore.setState({ zoom: 2, panX: 40, panY: -15 });
     });
 
-    expect(stubs.layerProps!.viewport).toMatchObject({ zoom: 2, x: 40, y: -15 });
+    expect((stubs.layerProps!.view as Record<string, unknown>).viewport).toMatchObject({
+      zoom: 2,
+      x: 40,
+      y: -15,
+    });
   });
 
   it('passes scene state slices and selection', async () => {
@@ -193,23 +199,27 @@ describe('RoughCanvas -> CanvasLayerUI wiring contract', () => {
     renderCanvas({ roomSlug: 'r' });
     await screen.findByTestId('canvas-layer-ui');
 
-    expect(stubs.layerProps!.elements).toEqual([a]);
-    expect(stubs.layerProps!.selectedIds).toEqual(new Set(['a']));
-    expect(stubs.layerProps!.gridEnabled).toBe(true);
-    expect(stubs.layerProps!.gridSize).toBe(16);
+    expect(stubs.layerProps).toMatchObject({
+      scene: { elements: [a], selectedIds: new Set(['a']) },
+      view: { gridEnabled: true, gridSize: 16 },
+    });
   });
 
   it('computes backgroundColor from canvasBackground or theme variable', async () => {
     renderCanvas({ roomSlug: 'r', theme: 'light' });
     await screen.findByTestId('canvas-layer-ui');
-    expect(stubs.layerProps!.backgroundColor).toBe('var(--color-canvas-bg)');
+    expect((stubs.layerProps!.view as Record<string, unknown>).backgroundColor).toBe(
+      'var(--color-canvas-bg)'
+    );
 
     act(() => {
       useCanvasStore.setState({ canvasBackground: '#123456' });
     });
     // resolveCanvasBackground is called; for a hex override it returns the resolved color.
     // Pin the contract: a non-null canvasBackground does not fall back to theme var.
-    expect(stubs.layerProps!.backgroundColor).not.toBe('var(--color-canvas-bg)');
+    expect((stubs.layerProps!.view as Record<string, unknown>).backgroundColor).not.toBe(
+      'var(--color-canvas-bg)'
+    );
   });
 
   it('maps activeTool to canvasCursor per tool', async () => {
@@ -230,14 +240,14 @@ describe('RoughCanvas -> CanvasLayerUI wiring contract', () => {
       act(() => {
         useCanvasStore.setState({ activeTool: tool, isPanning: false });
       });
-      expect(stubs.layerProps!.canvasCursor).toBe(cursor);
+      expect((stubs.layerProps!.view as Record<string, unknown>).canvasCursor).toBe(cursor);
     }
 
     // Panning overrides tool cursor.
     act(() => {
       useCanvasStore.setState({ activeTool: 'rectangle', isPanning: true });
     });
-    expect(stubs.layerProps!.canvasCursor).toBe('grabbing');
+    expect((stubs.layerProps!.view as Record<string, unknown>).canvasCursor).toBe('grabbing');
   });
 
   it('passes collaboration/sync state', async () => {
@@ -247,9 +257,13 @@ describe('RoughCanvas -> CanvasLayerUI wiring contract', () => {
     renderCanvas({ roomSlug: 'r' });
     await screen.findByTestId('canvas-layer-ui');
 
-    expect(stubs.layerProps!.collaborators).toEqual([{ id: 'u2', x: 1, y: 2 }]);
-    expect(stubs.layerProps!.isConnected).toBe(false);
-    expect(stubs.layerProps!.connectionMessage).toBe('Reconnecting');
+    expect(stubs.layerProps).toMatchObject({
+      collaboration: {
+        collaborators: [{ id: 'u2', x: 1, y: 2 }],
+        isConnected: false,
+        connectionMessage: 'Reconnecting',
+      },
+    });
   });
 
   it('passes primarySelectedElement as first matching selected element or null', async () => {
@@ -258,12 +272,14 @@ describe('RoughCanvas -> CanvasLayerUI wiring contract', () => {
     seed([a, b], { selectedIds: new Set(['b']) });
     renderCanvas({ roomSlug: 'r' });
     await screen.findByTestId('canvas-layer-ui');
-    expect((stubs.layerProps!.primarySelectedElement as DriplElement).id).toBe('b');
+    expect(
+      ((stubs.layerProps!.ui as Record<string, unknown>).primarySelectedElement as DriplElement).id
+    ).toBe('b');
 
     act(() => {
       useCanvasStore.setState({ selectedIds: new Set<string>() });
     });
-    expect(stubs.layerProps!.primarySelectedElement).toBeNull();
+    expect((stubs.layerProps!.ui as Record<string, unknown>).primarySelectedElement).toBeNull();
   });
 
   it('wires onUpdateElement to store.updateElement by id', async () => {
@@ -271,8 +287,9 @@ describe('RoughCanvas -> CanvasLayerUI wiring contract', () => {
     renderCanvas({ roomSlug: 'r' });
     await screen.findByTestId('canvas-layer-ui');
 
+    const handlers = stubs.layerProps!.handlers as Record<string, unknown>;
     act(() => {
-      (stubs.layerProps!.onUpdateElement as (el: DriplElement) => void)(
+      (handlers.onUpdateElement as (el: DriplElement) => void)(
         { id: 'a', x: 999, type: 'rectangle' } as DriplElement
       );
     });
@@ -284,8 +301,9 @@ describe('RoughCanvas -> CanvasLayerUI wiring contract', () => {
     renderCanvas({ roomSlug: 'r' });
     await screen.findByTestId('canvas-layer-ui');
 
+    const handlers = stubs.layerProps!.handlers as Record<string, unknown>;
     act(() => {
-      (stubs.layerProps!.onDelete as () => void)();
+      (handlers.onDelete as () => void)();
     });
     expect(Array.from(useCanvasStore.getState().elementsById.keys())).toEqual(['b']);
     expect(useCanvasStore.getState().selectedIds.size).toBe(0);
@@ -296,13 +314,14 @@ describe('RoughCanvas -> CanvasLayerUI wiring contract', () => {
     renderCanvas({ roomSlug: 'r' });
     await screen.findByTestId('canvas-layer-ui');
 
+    const handlers = stubs.layerProps!.handlers as Record<string, unknown>;
     act(() => {
-      (stubs.layerProps!.onBringToFront as () => void)();
+      (handlers.onBringToFront as () => void)();
     });
     expect(useCanvasStore.getState().elements.map(e => e.id)).toEqual(['b', 'c', 'a']);
 
     act(() => {
-      (stubs.layerProps!.onSendToBack as () => void)();
+      (handlers.onSendToBack as () => void)();
     });
     expect(useCanvasStore.getState().elements.map(e => e.id)).toEqual(['a', 'b', 'c']);
   });
@@ -311,14 +330,15 @@ describe('RoughCanvas -> CanvasLayerUI wiring contract', () => {
     renderCanvas({ roomSlug: 'r' });
     await screen.findByTestId('canvas-layer-ui');
 
+    const handlers = stubs.layerProps!.handlers as Record<string, unknown>;
     act(() => {
-      (stubs.layerProps!.onDuplicate as () => void)();
-      (stubs.layerProps!.onCopyStyle as () => void)();
-      (stubs.layerProps!.onPasteStyle as () => void)();
+      (handlers.onDuplicate as () => void)();
+      (handlers.onCopyStyle as () => void)();
+      (handlers.onPasteStyle as () => void)();
     });
     await act(async () => {
-      (stubs.layerProps!.onCopy as () => void)();
-      (stubs.layerProps!.onPaste as () => void)();
+      (handlers.onCopy as () => void)();
+      (handlers.onPaste as () => void)();
     });
 
     expect(stubs.duplicateSelection).toHaveBeenCalledTimes(1);
@@ -332,22 +352,24 @@ describe('RoughCanvas -> CanvasLayerUI wiring contract', () => {
     renderCanvas({ roomSlug: 'r' });
     await screen.findByTestId('canvas-layer-ui');
 
+    const handlers = stubs.layerProps!.handlers as Record<string, unknown>;
     act(() => {
-      (stubs.layerProps!.onNameSubmit as (name: string) => void)('Ada L');
+      (handlers.onNameSubmit as (name: string) => void)('Ada L');
     });
     expect(localStorage.getItem('dripl_username')).toBe('Ada L');
-    expect(stubs.layerProps!.userName).toBe('Ada L');
+    expect((stubs.layerProps!.collaboration as Record<string, unknown>).userName).toBe('Ada L');
   });
 
   it('wires onCloseContextMenu to clear context menu state', async () => {
     renderCanvas({ roomSlug: 'r' });
     await screen.findByTestId('canvas-layer-ui');
     // contextMenuState starts null
-    expect(stubs.layerProps!.contextMenuState).toBeNull();
+    expect((stubs.layerProps!.ui as Record<string, unknown>).contextMenuState).toBeNull();
+    const handlers = stubs.layerProps!.handlers as Record<string, unknown>;
     act(() => {
-      (stubs.layerProps!.onCloseContextMenu as () => void)();
+      (handlers.onCloseContextMenu as () => void)();
     });
-    expect(stubs.layerProps!.contextMenuState).toBeNull();
+    expect((stubs.layerProps!.ui as Record<string, unknown>).contextMenuState).toBeNull();
   });
 });
 
@@ -369,23 +391,30 @@ describe('RoughCanvas -> CanvasLayerUI interaction/flag wiring', () => {
     await screen.findByTestId('canvas-layer-ui');
 
     expect(stubs.layerProps).toMatchObject({
-      isDrawing: true,
-      isDragging: true,
-      isResizing: true,
-      textInput: { id: 't1', x: 1, y: 2, value: 'hi' },
-      cursorPosition: { x: 5, y: 6 },
-      eraserPath: [{ x: 1, y: 1 }],
-      marqueeSelection: { start: { x: 0, y: 0 }, end: { x: 10, y: 10 }, active: true },
-      userId: 'me',
-      shouldCacheIgnoreZoom: true,
+      interaction: {
+        isDrawing: true,
+        isDragging: true,
+        isResizing: true,
+        textInput: { id: 't1', x: 1, y: 2, value: 'hi' },
+        cursorPosition: { x: 5, y: 6 },
+        marqueeSelection: { start: { x: 0, y: 0 }, end: { x: 10, y: 10 }, active: true },
+      },
+      scene: { eraserPath: [{ x: 1, y: 1 }] },
+      collaboration: { userId: 'me' },
+      view: { shouldCacheIgnoreZoom: true },
     });
-    expect((stubs.layerProps!.elementLocks as Map<string, string>).get('e1')).toBe('u2');
+    expect(
+      ((stubs.layerProps!.collaboration as Record<string, unknown>).elementLocks as Map<string, string>).get(
+        'e1'
+      )
+    ).toBe('u2');
   });
 
   it('passes handler functions for pointer, drag/drop, context menu, resize/rotate, text submit', async () => {
     renderCanvas({ roomSlug: 'r' });
     await screen.findByTestId('canvas-layer-ui');
 
+    const handlers = stubs.layerProps!.handlers as Record<string, unknown>;
     for (const key of [
       'onDragOver',
       'onDrop',
@@ -409,7 +438,7 @@ describe('RoughCanvas -> CanvasLayerUI interaction/flag wiring', () => {
       'onPasteStyle',
       'onCloseContextMenu',
     ]) {
-      expect(typeof stubs.layerProps![key]).toBe('function');
+      expect(typeof handlers[key]).toBe('function');
     }
   });
 
@@ -417,7 +446,7 @@ describe('RoughCanvas -> CanvasLayerUI interaction/flag wiring', () => {
     seed([], { readOnly: true });
     renderCanvas({ roomSlug: 'r' });
     await screen.findByTestId('canvas-layer-ui');
-    expect(stubs.layerProps!.readOnly).toBe(true);
-    expect(typeof stubs.layerProps!.containerReady).toBe('boolean');
+    expect((stubs.layerProps!.collaboration as Record<string, unknown>).readOnly).toBe(true);
+    expect(typeof (stubs.layerProps!.ui as Record<string, unknown>).containerReady).toBe('boolean');
   });
 });

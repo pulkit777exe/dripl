@@ -28,48 +28,57 @@ const WelcomeScreen = lazy(() =>
   import('./WelcomeScreen').then(m => ({ default: m.WelcomeScreen }))
 );
 
-/**
- * The editor's UI layer. This is deliberately presentation-only: it owns
- * transient UI visibility, while `RoughCanvas` owns scene, interaction and
- * collaboration wiring. Keeping this boundary mirrors Excalidraw's LayerUI
- * and prevents canvas mechanics from leaking into modal/overlay markup.
- */
-export interface CanvasLayerUIProps {
-  containerRef: React.RefObject<HTMLDivElement>;
-  containerReady: boolean;
-  setContainerRef: (element: HTMLDivElement | null) => void;
-  backgroundColor: string;
-  roomSlug: string | null;
-  theme: 'light' | 'dark';
-  isLocalCanvas: boolean;
+export interface CanvasLayerUIScene {
   elements: DriplElement[];
   visibleElements: readonly DriplElement[];
   selectedIds: Set<string>;
   draftElement: DriplElement | null;
   eraserPath: Point[];
+}
+
+export interface CanvasLayerUIView {
   viewport: { x: number; y: number; width: number; height: number; zoom: number };
-  activeTool: ActiveTool;
-  readOnly: boolean;
+  theme: 'light' | 'dark';
+  backgroundColor: string;
   gridEnabled: boolean;
   gridSize: number;
   shouldCacheIgnoreZoom: boolean;
-  cursorPosition: Point | null;
+  canvasCursor: string;
+  activeTool: ActiveTool;
+}
+
+export interface CanvasLayerUIInteraction {
   isDrawing: boolean;
   isDragging: boolean;
   isResizing: boolean;
   marqueeSelection: { start: Point; end: Point; active: boolean } | null;
+  cursorPosition: Point | null;
+  hoveredBindingId: string | null;
+  startPointBindingId: string | null;
+  textInput: CanvasTextInput | null;
+}
+
+export interface CanvasLayerUICollaboration {
+  roomSlug: string | null;
+  isLocalCanvas: boolean;
   collaborators: CollaboratorCursor[];
   elementLocks: ReadonlyMap<string, string>;
   userId: string | null;
   userName: string | null;
   isConnected: boolean;
   connectionMessage: string;
-  textInput: CanvasTextInput | null;
-  canvasCursor: string;
-  hoveredBindingId: string | null;
-  startPointBindingId: string | null;
+  readOnly: boolean;
+}
+
+export interface CanvasLayerUIChrome {
+  containerRef: React.RefObject<HTMLDivElement>;
+  containerReady: boolean;
   contextMenuState: ContextMenuState | null;
   primarySelectedElement: DriplElement | null;
+}
+
+export interface CanvasLayerUIHandlers {
+  setContainerRef: (element: HTMLDivElement | null) => void;
   onDragOver: React.DragEventHandler<HTMLDivElement>;
   onDrop: React.DragEventHandler<HTMLDivElement>;
   onContextMenu: React.MouseEventHandler<HTMLDivElement>;
@@ -93,64 +102,86 @@ export interface CanvasLayerUIProps {
   onCloseContextMenu: () => void;
 }
 
+/**
+ * The editor's UI layer. This is deliberately presentation-only: it owns
+ * transient UI visibility, while `RoughCanvas` owns scene, interaction and
+ * collaboration wiring. Keeping this boundary mirrors Excalidraw's LayerUI
+ * and prevents canvas mechanics from leaking into modal/overlay markup.
+ */
+export interface CanvasLayerUIProps {
+  scene: CanvasLayerUIScene;
+  view: CanvasLayerUIView;
+  interaction: CanvasLayerUIInteraction;
+  collaboration: CanvasLayerUICollaboration;
+  ui: CanvasLayerUIChrome;
+  handlers: CanvasLayerUIHandlers;
+}
+
 export function CanvasLayerUI({
-  containerRef,
-  containerReady,
-  setContainerRef,
-  backgroundColor,
-  roomSlug,
-  theme,
-  isLocalCanvas,
-  elements,
-  visibleElements,
-  selectedIds,
-  draftElement,
-  eraserPath,
-  viewport,
-  activeTool,
-  readOnly,
-  gridEnabled,
-  gridSize,
-  shouldCacheIgnoreZoom,
-  cursorPosition,
-  isDrawing,
-  isDragging,
-  isResizing,
-  marqueeSelection,
-  collaborators,
-  elementLocks,
-  userId,
-  userName,
-  isConnected,
-  connectionMessage,
-  textInput,
-  canvasCursor,
-  hoveredBindingId,
-  startPointBindingId,
-  contextMenuState,
-  primarySelectedElement,
-  onDragOver,
-  onDrop,
-  onContextMenu,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
-  onPointerCancel,
-  onResizeStart,
-  onRotateStart,
-  onTextSubmit,
-  onNameSubmit,
-  onUpdateElement,
-  onDuplicate,
-  onDelete,
-  onBringToFront,
-  onSendToBack,
-  onCopy,
-  onPaste,
-  onCopyStyle,
-  onPasteStyle,
-  onCloseContextMenu,
+  scene,
+  view,
+  interaction,
+  collaboration,
+  ui,
+  handlers,
 }: CanvasLayerUIProps) {
+  const { elements, visibleElements, selectedIds, draftElement, eraserPath } = scene;
+  const {
+    viewport,
+    theme,
+    backgroundColor,
+    gridEnabled,
+    gridSize,
+    shouldCacheIgnoreZoom,
+    canvasCursor,
+    activeTool,
+  } = view;
+  const {
+    isDrawing,
+    isDragging,
+    isResizing,
+    marqueeSelection,
+    cursorPosition,
+    hoveredBindingId,
+    startPointBindingId,
+    textInput,
+  } = interaction;
+  const {
+    roomSlug,
+    isLocalCanvas,
+    collaborators,
+    elementLocks,
+    userId,
+    userName,
+    isConnected,
+    connectionMessage,
+    readOnly,
+  } = collaboration;
+  const { containerRef, containerReady, contextMenuState, primarySelectedElement } = ui;
+  const {
+    setContainerRef,
+    onDragOver,
+    onDrop,
+    onContextMenu,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onPointerCancel,
+    onResizeStart,
+    onRotateStart,
+    onTextSubmit,
+    onNameSubmit,
+    onUpdateElement,
+    onDuplicate,
+    onDelete,
+    onBringToFront,
+    onSendToBack,
+    onCopy,
+    onPaste,
+    onCopyStyle,
+    onPasteStyle,
+    onCloseContextMenu,
+  } = handlers;
   const [welcomeScreenDismissed, setWelcomeScreenDismissed] = useState(false);
 
   return (

@@ -298,66 +298,70 @@ export default function RoughCanvas({
 
   return (
     <CanvasLayerUI
-      containerRef={containerRef as React.RefObject<HTMLDivElement>}
-      containerReady={containerReady}
-      setContainerRef={setContainerRef}
-      backgroundColor={
-        canvasBackground
+      scene={{ elements, visibleElements, selectedIds, draftElement, eraserPath }}
+      view={{
+        viewport,
+        theme,
+        backgroundColor: canvasBackground
           ? resolveCanvasBackground(canvasBackground, theme)
-          : 'var(--color-canvas-bg)'
-      }
-      roomSlug={roomSlug}
-      theme={theme}
-      isLocalCanvas={isLocalCanvas}
-      elements={elements}
-      visibleElements={visibleElements}
-      selectedIds={selectedIds}
-      draftElement={draftElement}
-      eraserPath={eraserPath}
-      viewport={viewport}
-      activeTool={activeTool}
-      readOnly={readOnly}
-      gridEnabled={gridEnabled}
-      gridSize={gridSize}
-      shouldCacheIgnoreZoom={shouldCacheIgnoreZoom}
-      cursorPosition={cursorPosition}
-      isDrawing={isDrawing}
-      isDragging={isDragging}
-      isResizing={isResizing}
-      marqueeSelection={marqueeSelection}
-      collaborators={collaboratorCursors}
-      elementLocks={elementLocks}
-      userId={userId}
-      userName={userName}
-      isConnected={isConnected}
-      connectionMessage={connectionMessage}
-      textInput={textInput}
-      canvasCursor={canvasCursor}
-      hoveredBindingId={hoveredBindingId}
-      startPointBindingId={startPointBindingId}
-      contextMenuState={contextMenuState}
-      primarySelectedElement={primarySelectedElement}
-      onDragOver={handleDragOver}
-      onDrop={hookHandleDrop}
-      onContextMenu={openContextMenu}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={cancelActiveGesture}
-      onResizeStart={handleResizeStart}
-      onRotateStart={handleRotateStart}
-      onTextSubmit={handleTextSubmit}
-      onNameSubmit={handleNameSubmit}
-      onUpdateElement={element => updateElement(element.id, element)}
-      onDuplicate={duplicateSelection}
-      onDelete={deleteSelection}
-      onBringToFront={() => bringToFront(Array.from(useCanvasStore.getState().selectedIds))}
-      onSendToBack={() => sendToBack(Array.from(useCanvasStore.getState().selectedIds))}
-      onCopy={() => void copySelectedToClipboard()}
-      onPaste={() => void pasteFromClipboard()}
-      onCopyStyle={copyElementStyle}
-      onPasteStyle={pasteElementStyle}
-      onCloseContextMenu={() => setContextMenuState(null)}
+          : 'var(--color-canvas-bg)',
+        gridEnabled,
+        gridSize,
+        shouldCacheIgnoreZoom,
+        canvasCursor,
+        activeTool,
+      }}
+      interaction={{
+        isDrawing,
+        isDragging,
+        isResizing,
+        marqueeSelection,
+        cursorPosition,
+        hoveredBindingId,
+        startPointBindingId,
+        textInput,
+      }}
+      collaboration={{
+        roomSlug,
+        isLocalCanvas,
+        collaborators: collaboratorCursors,
+        elementLocks,
+        userId,
+        userName,
+        isConnected,
+        connectionMessage,
+        readOnly,
+      }}
+      ui={{
+        containerRef: containerRef as React.RefObject<HTMLDivElement>,
+        containerReady,
+        contextMenuState,
+        primarySelectedElement,
+      }}
+      handlers={{
+        setContainerRef,
+        onDragOver: handleDragOver,
+        onDrop: hookHandleDrop,
+        onContextMenu: openContextMenu,
+        onPointerDown: handlePointerDown,
+        onPointerMove: handlePointerMove,
+        onPointerUp: handlePointerUp,
+        onPointerCancel: cancelActiveGesture,
+        onResizeStart: handleResizeStart,
+        onRotateStart: handleRotateStart,
+        onTextSubmit: handleTextSubmit,
+        onNameSubmit: handleNameSubmit,
+        onUpdateElement: element => updateElement(element.id, element),
+        onDuplicate: duplicateSelection,
+        onDelete: deleteSelection,
+        onBringToFront: () => bringToFront(Array.from(useCanvasStore.getState().selectedIds)),
+        onSendToBack: () => sendToBack(Array.from(useCanvasStore.getState().selectedIds)),
+        onCopy: () => void copySelectedToClipboard(),
+        onPaste: () => void pasteFromClipboard(),
+        onCopyStyle: copyElementStyle,
+        onPasteStyle: pasteElementStyle,
+        onCloseContextMenu: () => setContextMenuState(null),
+      }}
     />
   );
 }

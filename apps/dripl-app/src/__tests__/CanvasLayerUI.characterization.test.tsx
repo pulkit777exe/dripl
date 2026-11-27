@@ -1,7 +1,15 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DriplElement } from '@dripl/common';
-import type { CanvasLayerUIProps } from '@/components/canvas/CanvasLayerUI';
+import type {
+  CanvasLayerUIChrome,
+  CanvasLayerUICollaboration,
+  CanvasLayerUIHandlers,
+  CanvasLayerUIInteraction,
+  CanvasLayerUIProps,
+  CanvasLayerUIScene,
+  CanvasLayerUIView,
+} from '@/components/canvas/CanvasLayerUI';
 
 /**
  * Characterization seam: CanvasLayerUI presentation/visibility contract.
@@ -99,66 +107,92 @@ function element(id: string, extra: Record<string, unknown> = {}): DriplElement 
   } as unknown as DriplElement;
 }
 
-function makeProps(overrides: Partial<CanvasLayerUIProps> = {}): CanvasLayerUIProps {
+type CanvasLayerUIOverrides = {
+  scene?: Partial<CanvasLayerUIScene>;
+  view?: Partial<CanvasLayerUIView>;
+  interaction?: Partial<CanvasLayerUIInteraction>;
+  collaboration?: Partial<CanvasLayerUICollaboration>;
+  ui?: Partial<CanvasLayerUIChrome>;
+  handlers?: Partial<CanvasLayerUIHandlers>;
+};
+
+function makeProps(overrides: CanvasLayerUIOverrides = {}): CanvasLayerUIProps {
   const container = document.createElement('div');
   return {
-    containerRef: { current: container } as React.RefObject<HTMLDivElement>,
-    containerReady: true,
-    setContainerRef: vi.fn(),
-    backgroundColor: 'var(--color-canvas-bg)',
-    roomSlug: null,
-    theme: 'light',
-    isLocalCanvas: true,
-    elements: [],
-    visibleElements: [],
-    selectedIds: new Set<string>(),
-    draftElement: null,
-    eraserPath: [],
-    viewport: { x: 0, y: 0, width: 800, height: 600, zoom: 1 },
-    activeTool: 'select',
-    readOnly: false,
-    gridEnabled: false,
-    gridSize: 20,
-    shouldCacheIgnoreZoom: false,
-    cursorPosition: null,
-    isDrawing: false,
-    isDragging: false,
-    isResizing: false,
-    marqueeSelection: null,
-    collaborators: [],
-    elementLocks: new Map(),
-    userId: 'me',
-    userName: 'Ada',
-    isConnected: true,
-    connectionMessage: 'Connected',
-    textInput: null,
-    canvasCursor: 'default',
-    hoveredBindingId: null,
-    startPointBindingId: null,
-    contextMenuState: null,
-    primarySelectedElement: null,
-    onDragOver: vi.fn(),
-    onDrop: vi.fn(),
-    onContextMenu: vi.fn(),
-    onPointerDown: vi.fn(),
-    onPointerMove: vi.fn(),
-    onPointerUp: vi.fn(),
-    onPointerCancel: vi.fn(),
-    onResizeStart: vi.fn(),
-    onRotateStart: vi.fn(),
-    onTextSubmit: vi.fn(),
-    onNameSubmit: vi.fn(),
-    onUpdateElement: vi.fn(),
-    onDuplicate: vi.fn(),
-    onDelete: vi.fn(),
-    onBringToFront: vi.fn(),
-    onSendToBack: vi.fn(),
-    onCopy: vi.fn(),
-    onPaste: vi.fn(),
-    onCopyStyle: vi.fn(),
-    onPasteStyle: vi.fn(),
-    onCloseContextMenu: vi.fn(),
-    ...overrides,
+    scene: {
+      elements: [],
+      visibleElements: [],
+      selectedIds: new Set<string>(),
+      draftElement: null,
+      eraserPath: [],
+      ...overrides.scene,
+    },
+    view: {
+      viewport: { x: 0, y: 0, width: 800, height: 600, zoom: 1 },
+      theme: 'light',
+      backgroundColor: 'var(--color-canvas-bg)',
+      gridEnabled: false,
+      gridSize: 20,
+      shouldCacheIgnoreZoom: false,
+      canvasCursor: 'default',
+      activeTool: 'select',
+      ...overrides.view,
+    },
+    interaction: {
+      isDrawing: false,
+      isDragging: false,
+      isResizing: false,
+      marqueeSelection: null,
+      cursorPosition: null,
+      hoveredBindingId: null,
+      startPointBindingId: null,
+      textInput: null,
+      ...overrides.interaction,
+    },
+    collaboration: {
+      roomSlug: null,
+      isLocalCanvas: true,
+      collaborators: [],
+      elementLocks: new Map(),
+      userId: 'me',
+      userName: 'Ada',
+      isConnected: true,
+      connectionMessage: 'Connected',
+      readOnly: false,
+      ...overrides.collaboration,
+    },
+    ui: {
+      containerRef: { current: container } as React.RefObject<HTMLDivElement>,
+      containerReady: true,
+      contextMenuState: null,
+      primarySelectedElement: null,
+      ...overrides.ui,
+    },
+    handlers: {
+      setContainerRef: vi.fn(),
+      onDragOver: vi.fn(),
+      onDrop: vi.fn(),
+      onContextMenu: vi.fn(),
+      onPointerDown: vi.fn(),
+      onPointerMove: vi.fn(),
+      onPointerUp: vi.fn(),
+      onPointerCancel: vi.fn(),
+      onResizeStart: vi.fn(),
+      onRotateStart: vi.fn(),
+      onTextSubmit: vi.fn(),
+      onNameSubmit: vi.fn(),
+      onUpdateElement: vi.fn(),
+      onDuplicate: vi.fn(),
+      onDelete: vi.fn(),
+      onBringToFront: vi.fn(),
+      onSendToBack: vi.fn(),
+      onCopy: vi.fn(),
+      onPaste: vi.fn(),
+      onCopyStyle: vi.fn(),
+      onPasteStyle: vi.fn(),
+      onCloseContextMenu: vi.fn(),
+      ...overrides.handlers,
+    },
   };
 }
 
@@ -181,24 +215,31 @@ afterEach(() => {
 
 describe('CanvasLayerUI visibility contract', () => {
   it('renders DualCanvas only when containerReady', () => {
-    const { rerender } = render(<CanvasLayerUI {...makeProps({ containerReady: false })} />);
+    const { rerender } = render(<CanvasLayerUI {...makeProps({ ui: { containerReady: false } })} />);
     expect(screen.queryByTestId('dual-canvas')).not.toBeInTheDocument();
 
-    rerender(<CanvasLayerUI {...makeProps({ containerReady: true })} />);
+    rerender(<CanvasLayerUI {...makeProps({ ui: { containerReady: true } })} />);
     expect(screen.getByTestId('dual-canvas')).toBeInTheDocument();
   });
 
   it('renders SelectionOverlay only when not readOnly', () => {
-    render(<CanvasLayerUI {...makeProps({ readOnly: false })} />);
+    render(<CanvasLayerUI {...makeProps({ collaboration: { readOnly: false } })} />);
     expect(screen.getByTestId('selection-overlay')).toBeInTheDocument();
     cleanup();
 
-    render(<CanvasLayerUI {...makeProps({ readOnly: true })} />);
+    render(<CanvasLayerUI {...makeProps({ collaboration: { readOnly: true } })} />);
     expect(screen.queryByTestId('selection-overlay')).not.toBeInTheDocument();
   });
 
   it('shows WelcomeScreen on empty local canvas and hides after dismiss', async () => {
-    render(<CanvasLayerUI {...makeProps({ isLocalCanvas: true, elements: [], roomSlug: null })} />);
+    render(
+      <CanvasLayerUI
+        {...makeProps({
+          collaboration: { isLocalCanvas: true, roomSlug: null },
+          scene: { elements: [] },
+        })}
+      />
+    );
     expect(await screen.findByTestId('welcome-screen')).toBeInTheDocument();
 
     act(() => {
@@ -209,28 +250,40 @@ describe('CanvasLayerUI visibility contract', () => {
 
   it('does not show WelcomeScreen when not local, or has elements, or dismissed state irrelevant', async () => {
     const { rerender } = render(
-      <CanvasLayerUI {...makeProps({ isLocalCanvas: false, elements: [], roomSlug: null })} />
+      <CanvasLayerUI
+        {...makeProps({
+          collaboration: { isLocalCanvas: false, roomSlug: null },
+          scene: { elements: [] },
+        })}
+      />
     );
     await act(async () => {});
     expect(screen.queryByTestId('welcome-screen')).not.toBeInTheDocument();
 
-    rerender(<CanvasLayerUI {...makeProps({ isLocalCanvas: true, elements: [element('a')] })} />);
+    rerender(
+      <CanvasLayerUI
+        {...makeProps({
+          collaboration: { isLocalCanvas: true },
+          scene: { elements: [element('a')] },
+        })}
+      />
+    );
     await act(async () => {});
     expect(screen.queryByTestId('welcome-screen')).not.toBeInTheDocument();
   });
 
   it('shows NameInputModal when roomSlug is set and userName is null', async () => {
-    render(<CanvasLayerUI {...makeProps({ roomSlug: 'room-1', userName: null })} />);
+    render(<CanvasLayerUI {...makeProps({ collaboration: { roomSlug: 'room-1', userName: null } })} />);
     expect(await screen.findByTestId('name-input-modal')).toBeInTheDocument();
   });
 
   it('does not show NameInputModal for local canvas or when userName exists', async () => {
-    render(<CanvasLayerUI {...makeProps({ roomSlug: null, userName: null })} />);
+    render(<CanvasLayerUI {...makeProps({ collaboration: { roomSlug: null, userName: null } })} />);
     await act(async () => {});
     expect(screen.queryByTestId('name-input-modal')).not.toBeInTheDocument();
     cleanup();
 
-    render(<CanvasLayerUI {...makeProps({ roomSlug: 'room-1', userName: 'Ada' })} />);
+    render(<CanvasLayerUI {...makeProps({ collaboration: { roomSlug: 'room-1', userName: 'Ada' } })} />);
     await act(async () => {});
     expect(screen.queryByTestId('name-input-modal')).not.toBeInTheDocument();
   });
@@ -240,10 +293,10 @@ describe('CanvasLayerUI visibility contract', () => {
     render(
       <CanvasLayerUI
         {...makeProps({
-          activeTool: 'select',
-          selectedIds: new Set(['a']),
-          readOnly: false,
-          primarySelectedElement: selected,
+          view: { activeTool: 'select' },
+          scene: { selectedIds: new Set(['a']) },
+          collaboration: { readOnly: false },
+          ui: { primarySelectedElement: selected },
         })}
       />
     );
@@ -251,21 +304,25 @@ describe('CanvasLayerUI visibility contract', () => {
   });
 
   it('hides PropertiesPanel when tool is not select, or no selection, or readOnly', async () => {
-    const base = {
-      selectedIds: new Set(['a']),
-      primarySelectedElement: element('a'),
-      readOnly: false,
-      activeTool: 'select' as const,
-    };
-    const { rerender } = render(<CanvasLayerUI {...makeProps({ ...base, activeTool: 'rectangle' })} />);
+    const base = makeProps({
+      view: { activeTool: 'select' },
+      scene: { selectedIds: new Set(['a']) },
+      ui: { primarySelectedElement: element('a') },
+      collaboration: { readOnly: false },
+    });
+    const { rerender } = render(
+      <CanvasLayerUI {...{ ...base, view: { ...base.view, activeTool: 'rectangle' } }} />
+    );
     await act(async () => {});
     expect(screen.queryByTestId('properties-panel')).not.toBeInTheDocument();
 
-    rerender(<CanvasLayerUI {...makeProps({ ...base, selectedIds: new Set() })} />);
+    rerender(<CanvasLayerUI {...{ ...base, scene: { ...base.scene, selectedIds: new Set() } }} />);
     await act(async () => {});
     expect(screen.queryByTestId('properties-panel')).not.toBeInTheDocument();
 
-    rerender(<CanvasLayerUI {...makeProps({ ...base, readOnly: true })} />);
+    rerender(
+      <CanvasLayerUI {...{ ...base, collaboration: { ...base.collaboration, readOnly: true } }} />
+    );
     await act(async () => {});
     expect(screen.queryByTestId('properties-panel')).not.toBeInTheDocument();
   });
@@ -285,14 +342,14 @@ describe('CanvasLayerUI prop forwarding', () => {
     render(
       <CanvasLayerUI
         {...makeProps({
-          elements: els,
-          visibleElements: els,
-          selectedIds: new Set(['a']),
-          activeTool: 'freedraw',
-          viewport: { x: 1, y: 2, width: 300, height: 200, zoom: 1.5 },
-          gridEnabled: true,
-          gridSize: 10,
-          canvasCursor: 'crosshair',
+          scene: { elements: els, visibleElements: els, selectedIds: new Set(['a']) },
+          view: {
+            activeTool: 'freedraw',
+            viewport: { x: 1, y: 2, width: 300, height: 200, zoom: 1.5 },
+            gridEnabled: true,
+            gridSize: 10,
+            canvasCursor: 'crosshair',
+          },
         })}
       />
     );
@@ -309,11 +366,11 @@ describe('CanvasLayerUI prop forwarding', () => {
     });
 
     cleanup();
-    render(<CanvasLayerUI {...makeProps({ activeTool: 'select' })} />);
+    render(<CanvasLayerUI {...makeProps({ view: { activeTool: 'select' } })} />);
     expect(stubs.dualProps!.preservePointerSamples).toBe(false);
 
     cleanup();
-    render(<CanvasLayerUI {...makeProps({ activeTool: 'eraser' })} />);
+    render(<CanvasLayerUI {...makeProps({ view: { activeTool: 'eraser' } })} />);
     expect(stubs.dualProps!.preservePointerSamples).toBe(true);
   });
 
@@ -327,12 +384,14 @@ describe('CanvasLayerUI prop forwarding', () => {
     render(
       <CanvasLayerUI
         {...makeProps({
-          onPointerDown,
-          onPointerMove,
-          onPointerUp,
-          onPointerCancel,
-          onResizeStart,
-          onRotateStart,
+          handlers: {
+            onPointerDown,
+            onPointerMove,
+            onPointerUp,
+            onPointerCancel,
+            onResizeStart,
+            onRotateStart,
+          },
         })}
       />
     );
@@ -352,15 +411,18 @@ describe('CanvasLayerUI prop forwarding', () => {
     render(
       <CanvasLayerUI
         {...makeProps({
-          roomSlug: 'room-1',
-          isConnected: false,
-          connectionMessage: 'Reconnecting',
-          readOnly: false,
-          textInput,
-          cursorPosition,
-          contextMenuState,
-          activeTool: 'eraser',
-          viewport: { x: 3, y: 4, width: 800, height: 600, zoom: 2 },
+          collaboration: {
+            roomSlug: 'room-1',
+            isConnected: false,
+            connectionMessage: 'Reconnecting',
+            readOnly: false,
+          },
+          interaction: { textInput, cursorPosition },
+          ui: { contextMenuState },
+          view: {
+            activeTool: 'eraser',
+            viewport: { x: 3, y: 4, width: 800, height: 600, zoom: 2 },
+          },
         })}
       />
     );
@@ -397,7 +459,10 @@ describe('CanvasLayerUI prop forwarding', () => {
     const onCloseContextMenu = vi.fn();
     render(
       <CanvasLayerUI
-        {...makeProps({ onDuplicate, onDelete, onCloseContextMenu, contextMenuState: { x: 0, y: 0, elementId: 'a' } })}
+        {...makeProps({
+          handlers: { onDuplicate, onDelete, onCloseContextMenu },
+          ui: { contextMenuState: { x: 0, y: 0, elementId: 'a' } },
+        })}
       />
     );
 
