@@ -343,7 +343,7 @@ describe('resize gesture', () => {
     seed([]);
   });
 
-  /** Arms a resize the way SelectionOverlay + useTransformStart do. */
+  /** Arms a resize the way SelectionOverlay + the interaction controller do. */
   function armResize(
     result: { current: ReturnType<typeof useCanvasPointerEvents> },
     handle: string

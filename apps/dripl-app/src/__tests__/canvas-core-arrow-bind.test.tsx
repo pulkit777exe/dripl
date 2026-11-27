@@ -168,8 +168,8 @@ function setup(elements: DriplElement[]) {
 }
 
 /**
- * Arm an endpoint/point drag the way `SelectionOverlay` + `useTransformStart`
- * do, with the handle name the overlay uses for that control.
+ * Arm an endpoint/point drag the way `SelectionOverlay` + the interaction
+ * controller do, with the handle name the overlay uses for that control.
  */
 function armHandle(result: { current: ReturnType<typeof useCanvasPointerEvents> }, handle: string) {
   act(() => {

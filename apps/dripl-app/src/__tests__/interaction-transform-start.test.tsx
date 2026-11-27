@@ -1,9 +1,7 @@
-import { act, renderHook } from '@testing-library/react';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCanvasStore } from '@/lib/store';
-import { useTransformStart } from '@/hooks/canvas/useTransformStart';
 import { CanvasInteractionControllerImpl } from '@/lib/canvas/interaction-controller';
-import type { InteractionState } from '@/hooks/canvas/useCanvasPointerEvents';
 import type { ResizeHandle } from '@/components/canvas/SelectionOverlay';
 import type { DriplElement } from '@dripl/common';
 
@@ -43,12 +41,11 @@ function seed(elements: DriplElement[], selectedIds: string[]) {
 }
 
 /**
- * The hook captures the pointer on the interactive canvas selected by its
- * `data-layer` role, so the harness needs a real container with two labelled
- * canvases: the static one must be skipped.
- *
- * PR3: the hook is a thin wrapper; tests exercise the public contract through
- * a real controller instance wired with minimal deps.
+ * Exercises the controller's public beginResize/beginRotate contract directly
+ * (PR4: the former useTransformStart wrapper was removed). The controller
+ * captures the pointer on the interactive canvas selected by its `data-layer`
+ * role, so the harness needs a real container with two labelled canvases: the
+ * static one must be skipped.
  */
 function setup(options: { readOnly?: boolean; captured?: number[] } = {}) {
   const container = document.createElement('div');
@@ -167,21 +164,16 @@ function setup(options: { readOnly?: boolean; captured?: number[] } = {}) {
     applyFrameGrouping: vi.fn(),
   } as unknown as ConstructorParameters<typeof CanvasInteractionControllerImpl>[0]);
 
-  const hook = renderHook(() =>
-    useTransformStart({
-      interactionRef: controller.interactionRef as React.RefObject<InteractionState>,
-      containerRef: { current: container } as React.RefObject<HTMLDivElement>,
-      readOnly: options.readOnly ?? false,
-      getCanvasCoordinates: e => ({ x: e.clientX, y: e.clientY }),
-      lockElementsForGesture,
-      unlockGestureElements,
-      setEditingElementId,
-      controller,
-    })
-  );
+  const result = {
+    current: {
+      handleResizeStart: (handle: ResizeHandle, e: React.PointerEvent) =>
+        controller.beginResize(handle, e),
+      handleRotateStart: (e: React.PointerEvent) => controller.beginRotate(e),
+    },
+  };
 
   return {
-    ...hook,
+    result,
     interactionRef: controller.interactionRef,
     captured,
     lockElementsForGesture,
@@ -201,7 +193,7 @@ function pointerEvent(pointerId = 7, clientX = 10, clientY = 20) {
   } as unknown as React.PointerEvent;
 }
 
-describe('useTransformStart.handleResizeStart', () => {
+describe('CanvasInteractionController.beginResize', () => {
   beforeEach(() => {
     seed([], []);
   });
@@ -388,7 +380,7 @@ describe('useTransformStart.handleResizeStart', () => {
   });
 });
 
-describe('useTransformStart.handleRotateStart', () => {
+describe('CanvasInteractionController.beginRotate', () => {
   beforeEach(() => {
     seed([], []);
   });
@@ -460,21 +452,23 @@ describe('useTransformStart.handleRotateStart', () => {
   });
 });
 
-describe('useTransformStart cleanup', () => {
+describe('CanvasInteractionController.dispose', () => {
   beforeEach(() => {
     seed([], []);
   });
 
-  it('releases gesture locks on unmount so a remote element is not locked forever', () => {
+  it('releases gesture locks on dispose so a remote element is not locked forever', () => {
     seed([rect('a')], ['a']);
-    const { result, unmount, unlockGestureElements, interactionRef } = setup();
+    const { result, controller, unlockGestureElements, interactionRef } = setup();
 
     act(() => {
       result.current.handleResizeStart('se', pointerEvent());
     });
     expect(interactionRef.current.resizing).toBe(true);
 
-    unmount();
+    act(() => {
+      controller.dispose();
+    });
     expect(unlockGestureElements).toHaveBeenCalledTimes(1);
   });
 });

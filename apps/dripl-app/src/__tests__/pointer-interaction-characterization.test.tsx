@@ -8,8 +8,6 @@ import {
   clickDragThresholdWorld,
   useCanvasPointerEvents,
 } from '@/hooks/canvas/useCanvasPointerEvents';
-import { useTransformStart } from '@/hooks/canvas/useTransformStart';
-import type { InteractionState } from '@/hooks/canvas/useCanvasPointerEvents';
 import type { DriplElement, LinearElement } from '@dripl/common';
 
 /**
@@ -634,7 +632,7 @@ describe('binding hover state (characterization)', () => {
   });
 });
 
-describe('begin resize/rotate parity via useTransformStart + useCanvasPointerEvents (characterization)', () => {
+describe('begin resize/rotate parity via controller + useCanvasPointerEvents (characterization)', () => {
   beforeEach(() => seed([]));
 
   function setupContract(elements: DriplElement[], selectedIds: string[]) {
@@ -648,7 +646,6 @@ describe('begin resize/rotate parity via useTransformStart + useCanvasPointerEve
     container.appendChild(staticCanvas);
     container.appendChild(interactiveCanvas);
 
-    const interactionRef = { current: null as unknown as InteractionState };
     const lockElementsForGesture = vi.fn<(ids: Iterable<string>) => void>();
     const unlockElement = vi.fn<(id: string) => void>();
     const unlockGestureElements = vi.fn<() => void>();
@@ -682,25 +679,8 @@ describe('begin resize/rotate parity via useTransformStart + useCanvasPointerEve
       });
     });
 
-    // Share the same interaction ref instance that pointer hook owns.
-    interactionRef.current = pointer.result.current.interactionRef.current;
-
-    const transform = renderHook(() =>
-      useTransformStart({
-        interactionRef: pointer.result.current.interactionRef as React.RefObject<InteractionState>,
-        containerRef: { current: container } as React.RefObject<HTMLDivElement>,
-        readOnly: false,
-        getCanvasCoordinates: (e: { clientX: number; clientY: number }) => ({ x: e.clientX, y: e.clientY }),
-        lockElementsForGesture,
-        unlockGestureElements,
-        setEditingElementId: useCanvasStore.getState().setEditingElementId,
-        controller: pointer.result.current.controller,
-      })
-    );
-
     return {
       pointer,
-      transform,
       interactiveCanvas,
       lockElementsForGesture,
       unlockElement,
@@ -710,11 +690,11 @@ describe('begin resize/rotate parity via useTransformStart + useCanvasPointerEve
 
   it('resize start arms interaction state that pointer move/up consume with same lock lifecycle', () => {
     const elements = [rect('a', 100, 100)];
-    const { pointer, transform, interactiveCanvas, lockElementsForGesture, unlockElement, unlockGestureElements } =
+    const { pointer, interactiveCanvas, lockElementsForGesture, unlockElement, unlockGestureElements } =
       setupContract(elements, ['a']);
 
     act(() => {
-      transform.result.current.handleResizeStart(
+      pointer.result.current.controller.beginResize(
         'se',
         {
           pointerId: 7,
@@ -750,11 +730,11 @@ describe('begin resize/rotate parity via useTransformStart + useCanvasPointerEve
 
   it('rotate start arms interaction state that pointer move/up consume with same lock lifecycle', () => {
     const elements = [rect('a', 100, 100)];
-    const { pointer, transform, interactiveCanvas, lockElementsForGesture, unlockElement, unlockGestureElements } =
+    const { pointer, interactiveCanvas, lockElementsForGesture, unlockElement, unlockGestureElements } =
       setupContract(elements, ['a']);
 
     act(() => {
-      transform.result.current.handleRotateStart(
+      pointer.result.current.controller.beginRotate(
         {
           pointerId: 9,
           clientX: 150,
